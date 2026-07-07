@@ -276,7 +276,8 @@ export async function submitAssessment(payload: { assessmentReference: string; t
         continue;
       }
 
-      if (!Number.isInteger(answer.responseValue) || answer.responseValue < 0 || answer.responseValue > 5) {
+      const responseValue = answer.responseValue;
+      if (responseValue === null || !Number.isInteger(responseValue) || responseValue < 0 || responseValue > 5) {
         errors.push(`${question.questionCode} requires a scored response from 0 to 5.`);
       }
     }
