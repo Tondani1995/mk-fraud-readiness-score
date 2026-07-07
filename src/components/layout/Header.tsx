@@ -1,6 +1,17 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export function Header() {
+  const [embedded, setEmbedded] = useState(false);
+
+  useEffect(() => {
+    setEmbedded(new URLSearchParams(window.location.search).get('embed') === '1');
+  }, []);
+
+  if (embedded) return null;
+
   return (
     <header className="border-b border-mk-line bg-mk-paper">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
@@ -13,7 +24,7 @@ export function Header() {
           <a href="https://www.mkfraud.co.za/industries" className="transition hover:text-mk-ink">Industries</a>
           <a href="https://www.mkfraud.co.za/about" className="transition hover:text-mk-ink">About</a>
           <a href="https://www.mkfraud.co.za/insights" className="transition hover:text-mk-ink">Insights</a>
-          <a href="https://www.mkfraud.co.za/contact" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Book a Call</a>
+          <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Start Score</a>
         </nav>
       </div>
     </header>
