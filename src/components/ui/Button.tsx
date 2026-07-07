@@ -9,9 +9,9 @@ type ButtonProps = ComponentPropsWithoutRef<'button'> & {
 
 export function Button({ className, variant = 'primary', asChild, children, ...props }: ButtonProps) {
   const classes = cn(
-    'inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-mk-brass focus:ring-offset-2',
-    variant === 'primary' && 'bg-mk-brass text-mk-ink hover:bg-mk-brassDark hover:text-mk-cream',
-    variant === 'secondary' && 'border border-mk-line bg-mk-paper text-mk-ink hover:border-mk-brass',
+    'inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition duration-200 focus:outline-none focus:ring-2 focus:ring-mk-brass focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+    variant === 'primary' && 'bg-mk-ink text-mk-cream shadow-soft hover:bg-mk-slate',
+    variant === 'secondary' && 'border border-mk-line bg-mk-paper text-mk-ink hover:border-mk-brass hover:bg-white',
     variant === 'ghost' && 'text-mk-muted hover:bg-mk-paper hover:text-mk-ink',
     className
   );
