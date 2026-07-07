@@ -3,6 +3,7 @@ import './globals.css';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { siteConfig } from '@/lib/config/site';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: siteConfig.name,
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Header />
         <main>{children}</main>
         <Footer />
+        <Analytics />
       </body>
     </html>
   );
