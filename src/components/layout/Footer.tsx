@@ -1,4 +1,16 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 export function Footer() {
+  const [embedded, setEmbedded] = useState(false);
+
+  useEffect(() => {
+    setEmbedded(new URLSearchParams(window.location.search).get('embed') === '1');
+  }, []);
+
+  if (embedded) return null;
+
   return (
     <footer className="border-t border-mk-line bg-mk-charcoal text-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 text-sm md:grid-cols-[1.2fr_0.8fr_0.8fr] md:px-8">
@@ -11,9 +23,9 @@ export function Footer() {
         <div>
           <p className="font-semibold text-white">Services</p>
           <div className="mt-3 space-y-2 text-white/70">
+            <p>Fraud Readiness Score</p>
             <p>Fraud Health Checks</p>
             <p>Threat Intelligence</p>
-            <p>Awareness and Resilience</p>
           </div>
         </div>
         <div>
@@ -21,7 +33,7 @@ export function Footer() {
           <div className="mt-3 space-y-2 text-white/70">
             <p>hello@mkfraud.co.za</p>
             <p>South Africa</p>
-            <a href="https://www.mkfraud.co.za/contact" className="inline-block text-white hover:text-mk-line">Book a Call</a>
+            <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="inline-block text-white hover:text-mk-line">Start Score</a>
           </div>
         </div>
       </div>
