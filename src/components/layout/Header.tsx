@@ -24,7 +24,7 @@ export function Header() {
           <a href="https://www.mkfraud.co.za/industries" className="transition hover:text-mk-ink">Industries</a>
           <a href="https://www.mkfraud.co.za/about" className="transition hover:text-mk-ink">About</a>
           <a href="https://www.mkfraud.co.za/insights" className="transition hover:text-mk-ink">Insights</a>
-          <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Start Score</a>
+          <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Readiness Assessment</a>
         </nav>
       </div>
     </header>
