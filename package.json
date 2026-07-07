@@ -1,36 +1,36 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "0.1.0",
+  "version": "0.6.2-consolidated-phase0-6-v1.3",
   "private": true,
+  "description": "Consolidated Phase 0-6 package for MK Fraud Readiness Score V1, merging corrected Phase 0-4 pack with Phase 5 v1.1 assessment engine and Phase 6 v1.1 deterministic scoring engine.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "phase3:smoke": "node scripts/phase3-smoke.mjs",
-    "phase4:smoke": "node scripts/phase4-smoke.mjs",
-    "phase5:smoke": "node scripts/phase5-smoke.mjs",
-    "phase6:smoke": "node scripts/phase6-smoke.mjs"
+    "phase3:smoke": "node scripts/phase3-smoke-check.mjs",
+    "phase4:smoke": "node scripts/phase4-smoke-check.mjs",
+    "phase5:smoke": "node scripts/phase5-smoke-check.mjs",
+    "phase6:test-scenarios": "node scripts/phase6-scenario-tests.mjs",
+    "phase6:smoke": "node scripts/phase6-smoke-check.mjs",
+    "phase6:test-engine": "node scripts/phase6-engine-direct-tests.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.6.1",
-    "@supabase/supabase-js": "^2.48.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.468.0",
-    "next": "15.1.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tailwind-merge": "^2.6.0"
+    "@supabase/supabase-js": "^2.45.4",
+    "next": "^14.2.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5",
-    "@types/react": "^19.0.4",
-    "@types/react-dom": "^19.0.2",
-    "eslint": "^9.17.0",
-    "eslint-config-next": "15.1.4",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "@types/node": "^20.16.5",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.13",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2"
   }
 }
