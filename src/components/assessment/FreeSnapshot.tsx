@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +19,8 @@ function formatScore(score: number) {
 }
 
 export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnapshot; snapshotUrl?: string | null }) {
+  const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [message, setMessage] = useState('');
   const weakestDomains = [...snapshot.domains]
     .filter((domain) => domain.rawScore !== null)
     .sort((a, b) => Number(a.rawScore ?? 0) - Number(b.rawScore ?? 0))
@@ -25,6 +30,24 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
     .filter((domain) => domain.rawScore !== null)
     .sort((a, b) => Number(b.rawScore ?? 0) - Number(a.rawScore ?? 0))
     .slice(0, 3);
+
+  async function requestDetailedReport() {
+    setRequestState('sending');
+    setMessage('');
+    const response = await fetch(`/api/assessments/${snapshot.assessmentReference}/report-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'free_snapshot' })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.ok) {
+      setRequestState('error');
+      setMessage(body.errors?.[0] ?? 'The detailed report request could not be submitted. Please contact MK Fraud Insights.');
+      return;
+    }
+    setRequestState('sent');
+    setMessage('Thank you. MK Fraud Insights will email the detailed report process and banking details to you.');
+  }
 
   return (
     <div className="space-y-6">
@@ -65,8 +88,27 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
               This is a directional readiness view based on the self-assessment responses. It separates fraud readiness from inherent exposure and highlights where deeper MK review should focus first.
             </p>
             <p className="mt-2">
-              The full report should only be released after MK has reviewed the profile, payment status and any context needed to avoid generic recommendations.
+              The full report is a paid option and should only be released after MK has reviewed the profile and confirmed the report process.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-mk-charcoal/15 bg-mk-cream/60 p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold text-mk-ink">Need the detailed report?</p>
+                <p className="mt-1 text-sm leading-6 text-mk-muted">
+                  Request the paid MK report for a deeper breakdown of the score, control gaps and recommended next steps.
+                </p>
+              </div>
+              <Button type="button" onClick={() => void requestDetailedReport()} disabled={requestState === 'sending' || requestState === 'sent'}>
+                {requestState === 'sending' ? 'Submitting request…' : requestState === 'sent' ? 'Request received' : 'Request detailed report'}
+              </Button>
+            </div>
+            {message ? (
+              <div className={`mt-4 rounded-xl border p-4 text-sm ${requestState === 'error' ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border-mk-success/30 bg-mk-success/10 text-mk-ink'}`}>
+                {message}
+              </div>
+            ) : null}
           </div>
 
           {snapshotUrl ? (
