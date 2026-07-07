@@ -30,11 +30,9 @@ export function validateAnswerPayload(payload: SaveAssessmentPayload): string[] 
 
     if (answer.isNotApplicable) {
       if (answer.responseValue !== null) errors.push('N/A answers must not include a numeric response.');
-      // Draft autosave may persist an incomplete N/A reason, but submit will not accept it.
       continue;
     }
 
-    // A null non-N/A answer is treated as a draft clear/delete, not a completed answer.
     if (answer.responseValue === null) continue;
 
     if (!Number.isInteger(answer.responseValue) || answer.responseValue < 0 || answer.responseValue > 5) {
@@ -316,18 +314,18 @@ export async function submitAssessment(payload: { assessmentReference: string; t
       assessment_id: assessment.id,
       entity_table: 'assessments',
       entity_id: assessment.id,
-      action: 'assessment_submitted_phase5_no_scoring',
+      action: 'assessment_submitted',
       after_json: {
         assessment_reference: payload.assessmentReference,
         methodology_version_id: assessment.methodology_version_id,
-        progress_pct: progress.overallPct,
-        scoring_triggered: false
+        progress_pct: progress.overallPct
       }
     })
   ]);
 
   return {
     ok: true as const,
+    assessmentId: assessment.id,
     assessmentReference: payload.assessmentReference,
     status: 'submitted',
     submittedAt: now,
