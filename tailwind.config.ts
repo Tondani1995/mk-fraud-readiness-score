@@ -10,21 +10,21 @@ const config: Config = {
     extend: {
       colors: {
         mk: {
-          ink: '#01123A',
-          charcoal: '#01123A',
-          slate: '#47515A',
-          brass: '#47515A',
-          brassDark: '#01123A',
-          cream: '#F6F7F9',
+          ink: '#001030',
+          charcoal: '#001030',
+          slate: '#405050',
+          brass: '#1d3658',
+          brassDark: '#1d3658',
+          cream: '#F8FAFC',
           paper: '#FFFFFF',
-          line: '#D8DEE6',
-          muted: '#47515A',
+          line: '#E2E8F0',
+          muted: '#475569',
           danger: '#9B2C2C',
           success: '#2F6B4F'
         }
       },
       boxShadow: {
-        soft: '0 18px 45px rgba(1, 18, 58, 0.10)'
+        soft: '0 18px 45px rgba(0, 16, 48, 0.10)'
       },
       borderRadius: {
         xl2: '1.25rem'
