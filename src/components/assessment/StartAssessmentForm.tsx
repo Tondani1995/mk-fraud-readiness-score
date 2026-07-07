@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/Button';
 const employeeBands = ['', '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'];
 const revenueBands = ['', '<R10m', 'R10m-R50m', 'R50m-R250m', 'R250m-R1bn', 'R1bn+'];
 
+function keepEmbedded(url: string) {
+  if (typeof window === 'undefined') return url;
+  const embedded = new URLSearchParams(window.location.search).get('embed') === '1';
+  if (!embedded) return url;
+  const nextUrl = new URL(url);
+  nextUrl.searchParams.set('embed', '1');
+  return nextUrl.toString();
+}
+
 export function StartAssessmentForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -54,7 +63,7 @@ export function StartAssessmentForm() {
       return;
     }
 
-    setResult(body.data);
+    setResult({ ...body.data, resumeUrl: keepEmbedded(body.data.resumeUrl) });
   }
 
   if (result) {
@@ -64,14 +73,14 @@ export function StartAssessmentForm() {
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Assessment created</p>
           <h2 className="mt-2 text-2xl font-semibold text-mk-ink">{result.assessmentReference}</h2>
           <p className="mt-3 text-sm leading-6 text-mk-muted">
-            Your organisation profile, respondent record, assessment reference and secure resume token have been created. Email dispatch is not active yet, so the secure resume link is shown here for local testing.
+            Your organisation profile and assessment reference have been created. Open the assessment link below to continue.
           </p>
         </div>
         <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm break-all text-mk-muted">
           {result.resumeUrl}
         </div>
-        <p className="text-xs text-mk-muted">Token expires: {new Date(result.resumeTokenExpiresAt).toLocaleString('en-ZA')} · Intended recipient: {result.respondentEmail}</p>
-        <Button asChild><Link href={result.resumeUrl}>Open draft assessment</Link></Button>
+        <p className="text-xs text-mk-muted">Link expires: {new Date(result.resumeTokenExpiresAt).toLocaleString('en-ZA')} · Intended recipient: {result.respondentEmail}</p>
+        <Button asChild><Link href={result.resumeUrl}>Open assessment</Link></Button>
       </div>
     );
   }
