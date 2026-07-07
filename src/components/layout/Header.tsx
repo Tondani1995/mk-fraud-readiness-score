@@ -1,24 +1,23 @@
 import Link from 'next/link';
-import { siteConfig } from '@/lib/config/site';
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-mk-line/80 bg-mk-paper/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
-        <Link href="/" className="group flex items-center gap-3" aria-label="MK Fraud Readiness Score home">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-mk-line bg-mk-ink text-xs font-semibold tracking-[0.18em] text-mk-cream shadow-soft">
-            MK
-          </span>
-          <span className="flex flex-col leading-tight">
-            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-mk-brassDark">MK Fraud Insights</span>
-            <span className="text-sm font-semibold text-mk-ink md:text-base">{siteConfig.productName}</span>
+    <header className="border-b border-mk-line bg-mk-paper">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-8">
+        <Link href="/start" className="flex items-center gap-4" aria-label="MK Fraud Insights">
+          <span className="text-3xl font-black uppercase tracking-[-0.12em] text-mk-charcoal md:text-4xl">MK</span>
+          <span className="flex flex-col leading-none">
+            <span className="text-xl font-black uppercase tracking-[-0.04em] text-mk-charcoal md:text-2xl">Fraud</span>
+            <span className="text-lg font-semibold uppercase tracking-[-0.03em] text-mk-slate md:text-xl">Insights</span>
           </span>
         </Link>
-        <nav className="hidden items-center gap-7 text-sm text-mk-muted md:flex">
+        <nav className="hidden items-center gap-7 text-sm font-medium text-mk-muted md:flex">
+          <a href="https://www.mkfraud.co.za/" className="transition hover:text-mk-ink">Home</a>
           <a href="https://www.mkfraud.co.za/services" className="transition hover:text-mk-ink">Services</a>
+          <a href="https://www.mkfraud.co.za/industries" className="transition hover:text-mk-ink">Industries</a>
+          <a href="https://www.mkfraud.co.za/about" className="transition hover:text-mk-ink">About</a>
           <a href="https://www.mkfraud.co.za/insights" className="transition hover:text-mk-ink">Insights</a>
-          <Link href="/start" className="transition hover:text-mk-ink">Start assessment</Link>
-          <Link href="/admin" className="rounded-full border border-mk-line bg-mk-paper px-4 py-2 text-mk-ink transition hover:border-mk-brass">Admin</Link>
+          <a href="https://www.mkfraud.co.za/contact" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Book a Call</a>
         </nav>
       </div>
     </header>
