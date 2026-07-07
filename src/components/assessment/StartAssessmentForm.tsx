@@ -10,9 +10,8 @@ const revenueBands = ['', '<R10m', 'R10m-R50m', 'R50m-R250m', 'R250m-R1bn', 'R1b
 function keepEmbedded(url: string) {
   if (typeof window === 'undefined') return url;
   const embedded = new URLSearchParams(window.location.search).get('embed') === '1';
-  if (!embedded) return url;
-  const nextUrl = new URL(url);
-  nextUrl.searchParams.set('embed', '1');
+  const nextUrl = new URL(url, window.location.origin);
+  if (embedded) nextUrl.searchParams.set('embed', '1');
   return nextUrl.toString();
 }
 
@@ -59,7 +58,7 @@ export function StartAssessmentForm() {
     setIsSubmitting(false);
 
     if (!response.ok || !body.ok) {
-      setErrors(body.errors ?? ['Assessment could not be started.']);
+      setErrors(body.errors ?? ['We could not start the assessment. Please check the details and try again.']);
       return;
     }
 
@@ -70,17 +69,17 @@ export function StartAssessmentForm() {
     return (
       <div className="space-y-5 rounded-2xl border border-mk-line bg-mk-paper p-6">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Assessment created</p>
-          <h2 className="mt-2 text-2xl font-semibold text-mk-ink">{result.assessmentReference}</h2>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Assessment ready</p>
+          <h2 className="mt-2 text-2xl font-semibold text-mk-ink">Reference {result.assessmentReference}</h2>
           <p className="mt-3 text-sm leading-6 text-mk-muted">
-            Your organisation profile and assessment reference have been created. Open the assessment link below to continue.
+            We have saved the organisation details. Continue to the questions to assess the organisation&apos;s fraud readiness and generate the free snapshot.
           </p>
         </div>
-        <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm break-all text-mk-muted">
-          {result.resumeUrl}
+        <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm text-mk-muted">
+          Keep this reference for follow-up: <span className="font-semibold text-mk-ink">{result.assessmentReference}</span>
         </div>
-        <p className="text-xs text-mk-muted">Link expires: {new Date(result.resumeTokenExpiresAt).toLocaleString('en-ZA')} · Intended recipient: {result.respondentEmail}</p>
-        <Button asChild><Link href={result.resumeUrl}>Open assessment</Link></Button>
+        <p className="text-xs text-mk-muted">Secure continuation link expires: {new Date(result.resumeTokenExpiresAt).toLocaleString('en-ZA')} · Intended recipient: {result.respondentEmail}</p>
+        <Button asChild><Link href={result.resumeUrl}>Continue to the questions</Link></Button>
       </div>
     );
   }
@@ -116,7 +115,7 @@ export function StartAssessmentForm() {
         <span>I consent to MK using anonymised and aggregated assessment data for future research and benchmarking once sufficient data exists.</span>
       </label>
 
-      <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Creating assessment…' : 'Create assessment reference'}</Button>
+      <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Starting assessment…' : 'Start the assessment'}</Button>
     </form>
   );
 }
