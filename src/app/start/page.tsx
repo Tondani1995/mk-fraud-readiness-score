@@ -5,28 +5,30 @@ import { SectionShell } from '@/components/ui/SectionShell';
 
 export default function StartAssessmentPage() {
   return (
-    <SectionShell className="py-12">
+    <SectionShell className="py-12 md:py-16">
       <PageHeader
-        eyebrow="Accountless respondent flow"
-        title="Start assessment"
-        description="Enter respondent and organisation details. The system will create a secure assessment reference and resume link without asking the respondent to create a password."
+        eyebrow="Fraud Readiness Score"
+        title="Start your organisation’s readiness assessment"
+        description="Enter the respondent and organisation details once. We will create a secure assessment reference and resume link without asking the respondent to create an account."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Phase 4 control boundary</CardTitle>
+      <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
+        <Card className="bg-mk-ink text-mk-cream">
+          <CardHeader className="border-mk-cream/10">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-mk-brass">What happens next</p>
+            <CardTitle className="mt-2 text-mk-cream">A clean assessment flow, without client accounts.</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm leading-6 text-mk-muted">
-            <p>Respondents do not create accounts in V1.</p>
-            <p>Only the organisation profile and assessment reference are created here.</p>
-            <p>The full questionnaire is built in Phase 5. Scoring, snapshot, paid reports and PDFs remain blocked until later phases.</p>
+          <CardContent className="space-y-4 text-sm leading-6 text-mk-line/80">
+            <p>The respondent receives an assessment reference and secure resume link for completion.</p>
+            <p>The questionnaire captures fraud readiness, exposure and selected control indicators across the approved MK methodology.</p>
+            <p>Results remain controlled by MK. The free snapshot is intentionally limited; deeper reporting is released only through MK review.</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Respondent and organisation details</CardTitle>
+            <p className="mt-2 text-sm leading-6 text-mk-muted">Use a work email and the organisation’s registered or trading name. Required fields are marked automatically by the form.</p>
           </CardHeader>
           <CardContent>
             <StartAssessmentForm />
