@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from 'react';
 
+function isEmbeddedExperience() {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('embed') === '1' || window.self !== window.top;
+}
+
 export function Footer() {
   const [embedded, setEmbedded] = useState(false);
 
   useEffect(() => {
-    setEmbedded(new URLSearchParams(window.location.search).get('embed') === '1');
+    setEmbedded(isEmbeddedExperience());
   }, []);
 
   if (embedded) return null;
@@ -33,7 +38,7 @@ export function Footer() {
           <div className="mt-3 space-y-2 text-white/70">
             <p>hello@mkfraud.co.za</p>
             <p>South Africa</p>
-            <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="inline-block text-white hover:text-mk-line">Start Score</a>
+            <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="inline-block text-white hover:text-mk-line">Assess Your Organisation</a>
           </div>
         </div>
       </div>
