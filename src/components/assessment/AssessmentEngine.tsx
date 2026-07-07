@@ -4,11 +4,12 @@ import { useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
 import { evaluateNAEligibility, type ExposureSelectionMap } from '@/lib/respondent/na-rules';
+import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type {
   AssessmentProgress,
   ExposureFactor,
-  ExposureFactorOption,
   MethodologyDomain,
   ResponseScaleOption,
   SavedAssessmentAnswer,
@@ -93,6 +94,7 @@ export function AssessmentEngine({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [messages, setMessages] = useState<string[]>([]);
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const [snapshot, setSnapshot] = useState<FreeSnapshot | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeDomain = domains.find((domain) => domain.domainCode === activeStep);
@@ -225,18 +227,21 @@ export function AssessmentEngine({
     }
 
     setProgress(body.progress);
+    setSnapshot(body.snapshot ?? null);
     setSubmitState('submitted');
     setSaveState('saved');
   }
 
   if (submitState === 'submitted') {
-    return (
+    return snapshot ? (
+      <FreeSnapshotCard snapshot={snapshot} />
+    ) : (
       <Card>
         <CardHeader>
           <CardTitle>Assessment submitted</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-6 text-mk-muted">
-          <p>The assessment has been locked for scoring in the next phase. Phase 5 deliberately does not calculate scores or generate the Free Snapshot.</p>
+          <p>Your assessment has been received and locked. MK will review the submission before any full report is released.</p>
           <p className="font-semibold text-mk-ink">Reference: {assessmentReference}</p>
         </CardContent>
       </Card>
@@ -257,7 +262,7 @@ export function AssessmentEngine({
                 <span className="text-mk-muted">{progress.answeredQuestions}/{progress.totalQuestions} questions</span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-mk-line">
-                <div className="h-full rounded-full bg-mk-brass" style={{ width: `${progress.overallPct}%` }} />
+                <div className="h-full rounded-full bg-mk-charcoal" style={{ width: `${progress.overallPct}%` }} />
               </div>
               <p className="mt-2 text-xs text-mk-muted">{progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure factors captured</p>
             </div>
@@ -268,7 +273,7 @@ export function AssessmentEngine({
                   key={step.key}
                   type="button"
                   onClick={() => setActiveStep(step.key)}
-                  className={`rounded-xl border px-3 py-3 text-left text-sm transition ${activeStep === step.key ? 'border-mk-brass bg-mk-cream text-mk-ink' : 'border-mk-line bg-mk-paper text-mk-muted hover:border-mk-brass'}`}
+                  className={`rounded-xl border px-3 py-3 text-left text-sm transition ${activeStep === step.key ? 'border-mk-charcoal bg-mk-cream text-mk-ink' : 'border-mk-line bg-mk-paper text-mk-muted hover:border-mk-charcoal'}`}
                 >
                   <span className="block font-semibold">{step.label}</span>
                   <span className="mt-1 block text-xs">{step.pct}% complete</span>
@@ -293,7 +298,7 @@ export function AssessmentEngine({
                 <CardTitle>{organisationName}</CardTitle>
                 <p className="mt-1 text-sm text-mk-muted">Respondent: {respondentName}</p>
               </div>
-              <Badge>No scoring in Phase 5</Badge>
+              <Badge>Self-assessment</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -304,11 +309,7 @@ export function AssessmentEngine({
             ) : null}
 
             {activeStep === 'exposure' ? (
-              <ExposureStep
-                exposureFactors={exposureFactors}
-                exposureAnswers={exposureAnswers}
-                onChange={setExposureResponse}
-              />
+              <ExposureStep exposureFactors={exposureFactors} exposureAnswers={exposureAnswers} onChange={setExposureResponse} />
             ) : activeDomain ? (
               <DomainStep
                 domain={activeDomain}
@@ -322,7 +323,7 @@ export function AssessmentEngine({
             ) : null}
 
             <div className="flex flex-col gap-3 border-t border-mk-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-mk-muted">Draft answers are autosaved against the assessment reference and resume token. Submitted assessments lock the token.</p>
+              <p className="text-xs text-mk-muted">Draft answers are autosaved against the assessment reference and secure resume token. Submitting locks the assessment and generates the free readiness snapshot.</p>
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={saveState === 'saving'}>
                   {saveState === 'saving' ? 'Saving…' : 'Save now'}
@@ -344,7 +345,7 @@ function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposure
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold text-mk-ink">Exposure profile</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures inherent fraud opportunity. It is stored for Phase 6 exposure scoring but does not create a readiness score in Phase 5.</p>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures inherent fraud opportunity so readiness is interpreted against the organisation’s actual operating exposure.</p>
       </div>
       <div className="grid gap-4">
         {exposureFactors.map((factor) => (
@@ -353,7 +354,7 @@ function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposure
             <select
               value={exposureAnswers[factor.id]?.selectedValue ?? ''}
               onChange={(event) => onChange(factor, event.target.value)}
-              className="mt-3 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-brass"
+              className="mt-3 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-charcoal"
             >
               <option value="">Select exposure level</option>
               {factor.options.map((option) => (
@@ -388,7 +389,7 @@ function DomainStep({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-mk-ink">{domain.domainCode} · {domain.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0–5 capability scale. N/A is only available where Phase 1 allowed it.</p>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0–5 capability scale. N/A is only available where the organisation profile makes it genuinely inapplicable.</p>
       </div>
 
       {domain.questions.map((question) => {
@@ -412,7 +413,7 @@ function DomainStep({
 
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {responseScale.map((option) => (
-                <label key={option.responseValue} className={`rounded-xl border p-3 text-sm ${answer.responseValue === option.responseValue && !answer.isNotApplicable ? 'border-mk-brass bg-mk-cream' : 'border-mk-line bg-mk-cream/20'}`}>
+                <label key={option.responseValue} className={`rounded-xl border p-3 text-sm ${answer.responseValue === option.responseValue && !answer.isNotApplicable ? 'border-mk-charcoal bg-mk-cream' : 'border-mk-line bg-mk-cream/20'}`}>
                   <input
                     type="radio"
                     name={question.id}
@@ -447,7 +448,7 @@ function DomainStep({
                     value={answer.nAReason}
                     onChange={(event) => onSetNAReason(question.id, event.target.value)}
                     placeholder="Explain why this question is genuinely not applicable to the organisation. Minimum 5 characters required before submission."
-                    className="mt-3 min-h-24 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-brass"
+                    className="mt-3 min-h-24 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-charcoal"
                   />
                 ) : null}
               </div>
