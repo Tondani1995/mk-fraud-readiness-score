@@ -3,11 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+function isEmbeddedExperience() {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('embed') === '1' || window.self !== window.top;
+}
+
 export function Header() {
   const [embedded, setEmbedded] = useState(false);
 
   useEffect(() => {
-    setEmbedded(new URLSearchParams(window.location.search).get('embed') === '1');
+    setEmbedded(isEmbeddedExperience());
   }, []);
 
   if (embedded) return null;
@@ -24,7 +29,7 @@ export function Header() {
           <a href="https://www.mkfraud.co.za/industries" className="transition hover:text-mk-ink">Industries</a>
           <a href="https://www.mkfraud.co.za/about" className="transition hover:text-mk-ink">About</a>
           <a href="https://www.mkfraud.co.za/insights" className="transition hover:text-mk-ink">Insights</a>
-          <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Readiness Assessment</a>
+          <a href="https://www.mkfraud.co.za/fraud-readiness-score" className="rounded-full bg-mk-charcoal px-4 py-2 text-white transition hover:bg-mk-slate">Assess Your Organisation</a>
         </nav>
       </div>
     </header>
