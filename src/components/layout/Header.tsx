@@ -3,13 +3,9 @@ import Link from 'next/link';
 export function Header() {
   return (
     <header className="border-b border-mk-line bg-mk-paper">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-8">
-        <Link href="/start" className="flex items-center gap-4" aria-label="MK Fraud Insights">
-          <span className="text-3xl font-black uppercase tracking-[-0.12em] text-mk-charcoal md:text-4xl">MK</span>
-          <span className="flex flex-col leading-none">
-            <span className="text-xl font-black uppercase tracking-[-0.04em] text-mk-charcoal md:text-2xl">Fraud</span>
-            <span className="text-lg font-semibold uppercase tracking-[-0.03em] text-mk-slate md:text-xl">Insights</span>
-          </span>
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+        <Link href="/start" aria-label="MK Fraud Insights" className="flex items-center">
+          <img src="https://mkfraud.co.za/logo.png" alt="MK Fraud Insights" className="h-12 w-auto md:h-14" />
         </Link>
         <nav className="hidden items-center gap-7 text-sm font-medium text-mk-muted md:flex">
           <a href="https://www.mkfraud.co.za/" className="transition hover:text-mk-ink">Home</a>
