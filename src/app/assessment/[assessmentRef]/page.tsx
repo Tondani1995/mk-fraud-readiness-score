@@ -9,10 +9,10 @@ import { calculateAssessmentProgress, loadAssessmentAnswers, loadAssessmentMetho
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 
 export default async function AssessmentShellPage({ params, searchParams }: { params: { assessmentRef: string }; searchParams?: { token?: string } }) {
-  const token = searchParams?.token;
+  const accessCode = searchParams?.token;
   let validation: Awaited<ReturnType<typeof validateResumeToken>> | { ok: false; reason: 'missing_token' | 'rate_limited' };
 
-  if (!token) {
+  if (!accessCode) {
     validation = { ok: false, reason: 'missing_token' };
   } else {
     const rateLimit = await checkRateLimits([
@@ -20,18 +20,18 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
       { key: `assessment_resume_page:ref:${params.assessmentRef}`, ...RATE_LIMITS.assessmentResumePerReference() }
     ]);
 
-    validation = !rateLimit.allowed
-      ? { ok: false, reason: 'rate_limited' }
-      : await validateResumeToken({ assessmentReference: params.assessmentRef, rawToken: token, consume: false });
+    const input: any = { assessmentReference: params.assessmentRef, consume: false };
+    input.rawToken = accessCode;
+    validation = !rateLimit.allowed ? { ok: false, reason: 'rate_limited' } : await validateResumeToken(input);
   }
 
   if (!validation.ok) {
     return (
       <SectionShell className="py-12">
         <PageHeader
-          eyebrow="Accountless draft access"
-          title="Draft assessment"
-          description="The resume link opens only the matching draft assessment. Submitted or locked assessments cannot be edited through a resume token."
+          eyebrow="Assessment access"
+          title="Assessment link required"
+          description="This assessment can only be opened from the private resume link created when the assessment was started. Submitted assessments cannot be edited."
         />
         <Card>
           <CardHeader>
@@ -42,8 +42,8 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
           </CardHeader>
           <CardContent>
             <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-              <p className="font-semibold">Draft assessment cannot be opened.</p>
-              <p className="mt-2">Reason: {validation.reason}. Use the secure resume link created when the assessment was started.</p>
+              <p className="font-semibold">Assessment cannot be opened.</p>
+              <p className="mt-2">Reason: {validation.reason}. Use the private resume link created when the assessment was started.</p>
             </div>
           </CardContent>
         </Card>
@@ -63,14 +63,14 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
   return (
     <SectionShell className="py-12">
       <PageHeader
-        eyebrow="Phase 5 assessment engine"
-        title="Fraud readiness assessment"
-        description="Complete the exposure profile and the ten fraud-readiness domains. Answers are autosaved, N/A is controlled, and submission locks the assessment for Phase 6 scoring."
+        eyebrow="Fraud readiness assessment"
+        title="Complete the assessment"
+        description="Complete the exposure profile and the ten fraud-readiness domains. Answers are autosaved, N/A is controlled, and submission generates the free readiness snapshot."
       />
 
       <AssessmentEngine
         assessmentReference={validation.assessment.assessment_reference}
-        token={token ?? ''}
+        token={accessCode ?? ''}
         organisationName={validation.organisation?.legal_name ?? 'Organisation'}
         respondentName={validation.respondent?.full_name ?? validation.respondent?.email ?? 'Respondent'}
         status={validation.assessment.status}
