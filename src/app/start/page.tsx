@@ -6,7 +6,7 @@ import { SectionShell } from '@/components/ui/SectionShell';
 export default function StartAssessmentPage() {
   return (
     <SectionShell className="py-12 md:py-16">
-      <div className="mb-10 rounded-[2rem] bg-mk-charcoal px-6 py-10 text-white md:px-10 md:py-14">
+      <div className="mb-10 rounded-[2rem] border border-mk-line bg-mk-paper px-6 py-10 md:px-10 md:py-14">
         <PageHeader
           eyebrow="Fraud Strategy • Threat Intelligence • Awareness"
           title="Fraud Readiness Score"
