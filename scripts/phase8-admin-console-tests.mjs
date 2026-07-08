@@ -57,18 +57,26 @@ assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePat
 assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
 assertIncludes('src/app/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'label: domain.name', 'Public domain navigation should show domain names without internal domain codes');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', '{factor.name}', 'Public exposure profile should show exposure names without internal exposure codes');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', '{domain.name}', 'Public domain heading should show the domain name only');
-assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{factor.factorCode} · {factor.name}', 'Public exposure profile must not show EXP codes');
-assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{domain.domainCode} · {domain.name}', 'Public domain heading must not show D-codes');
-assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{question.questionCode}', 'Public question cards must not show question codes');
+assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');
+assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicExposureFactors(methodology)', 'Assessment page must pass a customer-safe exposure view model');
+assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicSavedAnswers(saved)', 'Assessment page must strip saved question codes before client props');
+assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicSavedExposureAnswers(saved)', 'Assessment page must strip saved exposure codes before client props');
+assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicAssessmentProgress(progress)', 'Assessment page must strip domain progress codes before client props');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicDomain', 'Assessment engine must use a public domain type');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicExposureFactor', 'Assessment engine must use a public exposure type');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'publicLabel(', 'Assessment engine must strip any upstream code prefixes from display labels');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'factorCode', 'Public assessment engine must not receive exposure factor codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'domainCode', 'Public assessment engine must not receive domain codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'questionCode', 'Public assessment engine must not receive question codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'EXP-01', 'Public assessment engine must not carry raw exposure codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'EXP-03', 'Public assessment engine must not carry raw exposure codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'D1-Q01', 'Public assessment engine must not carry raw question codes');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'N/A rule:', 'Public N/A guidance must not expose rule labels');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '<Badge>Hard gate</Badge>', 'Public question cards must not expose hard-gate labels');
 assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', '{domain.domainCode} · {domain.domainName}', 'Public snapshot must not show domain codes');
 assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'hard-gate', 'Public snapshot must not expose hard-gate language');
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'Complete EXP-', 'Respondent-facing applicability reason must not expose EXP labels');
-assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode} does not allow', 'Respondent-facing applicability reason must not expose question codes');
+assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode', 'Respondent-facing applicability logic must not depend on question codes');
 
 assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
 assertIncludes('src/app/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
@@ -114,4 +122,4 @@ const changedSources = requiredAdminRoutes.concat([
 assert(!/PayFast|card payment integration|respondent dashboard|client portal|AI-generated live/i.test(changedSources), 'Phase 8 admin code should not introduce parked V1 features.');
 assert(!/generatePdf|generatePDF|createReport\(|payment_proofs\.insert|orders\.update/i.test(changedSources), 'Phase 8 must not generate reports or verify payment.');
 
-console.log('Phase 0-8 closeout tests passed. Admin routes, respondent base-path routing, customer-safe public copy, assessment trace, score trace, config review, audit visibility, MK polish and no-go boundaries are covered.');
+console.log('Phase 0-8 closeout tests passed. Admin routes, respondent base-path routing, customer-safe public copy, code-free assessment props, assessment trace, score trace, config review, audit visibility, MK polish and no-go boundaries are covered.');
