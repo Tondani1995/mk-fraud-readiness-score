@@ -23,10 +23,12 @@ Phase 7 hardens and proves the free snapshot result gate after assessment submis
 - Phase 7 fixtures added: weak, moderate and strong-with-critical-gap.
 - Phase 7 tests added for fixture reconciliation, repeated calculation determinism, persisted score-to-snapshot mapping, N/A score exclusion, token route wiring, stale submit safety, `/score` snapshot URL generation and snapshot content boundary.
 - `ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES` documented in `.env.example`; it controls private free-snapshot token maximum use count and the server fallback is 100 when unset.
+- GitHub Actions workflow `.github/workflows/phase7-verification.yml` added as the evidence path for required npm checks on PRs and pushes.
 
 ## Files Changed
 
 - `.env.example`
+- `.github/workflows/phase7-verification.yml`
 - `package.json`
 - `src/app/api/assessments/[assessmentRef]/submit/route.ts`
 - `src/app/snapshot/[assessmentRef]/page.tsx`
@@ -57,10 +59,26 @@ No new migration was required. Phase 7 uses existing schema objects:
 | `command -v gh` | No output; GitHub CLI is not installed. |
 | `env | rg 'GITHUB|GH_'` | Only `GH_PAGER=cat`; no GitHub token available. |
 | `git config --global --get credential.helper` | No output; no credential helper configured. |
-| `npm install` | Not run because an authenticated local checkout could not be created. |
-| `npm run phase7:test-snapshot` | Not run because an authenticated local checkout could not be created. |
-| `npm run typecheck` | Not run because an authenticated local checkout could not be created. |
-| `npm run build` | Not run because an authenticated local checkout could not be created. |
+| `npm install` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs this automatically, or `npm ci` if `package-lock.json` exists. |
+| `npm run phase7:test-snapshot` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically. |
+| `npm run typecheck` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically. |
+| `npm run build` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically with safe CI dummy env values. |
+
+## GitHub Actions Evidence Path
+
+Workflow: `.github/workflows/phase7-verification.yml`
+
+The workflow triggers on `pull_request` and `push`, uses Node 20, installs dependencies with `npm ci` when `package-lock.json` exists and `npm install` otherwise, then runs:
+
+```bash
+npm run phase7:test-snapshot
+npm run typecheck
+npm run build
+```
+
+The workflow does not require Supabase secrets, does not run browser UAT and does not introduce Phase 8, Phase 9 or Phase 10 scope. It uses safe dummy CI environment values only where the Next.js build needs environment variables to initialize.
+
+PR #3 must remain draft until this workflow passes.
 
 ## Acceptance Evidence
 
@@ -84,11 +102,11 @@ No new migration was required. Phase 7 uses existing schema objects:
 
 ## Supabase And Browser UAT
 
-Not run in this environment.
+Not run in this environment and not added to the Phase 7 verification workflow.
 
 Reason: this environment could not create an authenticated local checkout of the private repository, and no configured Supabase dev project credentials were available. No claim is made that browser/Supabase UAT has passed.
 
-Required UAT once a configured checkout is available:
+Required UAT once a configured checkout and Supabase dev project are available:
 
 - Start assessment at `/score/start`.
 - Complete all exposure factors and all domain questions.
@@ -100,7 +118,7 @@ Required UAT once a configured checkout is available:
 
 ## Remaining Risks
 
-- `npm install`, `npm run phase7:test-snapshot`, `npm run typecheck` and `npm run build` still need to pass in an authenticated local checkout before the gate can be upgraded to Pass.
+- GitHub Actions must pass `phase7:test-snapshot`, `typecheck` and `build` before the gate can be upgraded to Pass.
 - Supabase/browser UAT still needs to run in a configured dev project.
 - The detailed report request endpoint remains a basic pre-Phase-9 request endpoint and is not the EFT/order workflow.
 - Snapshot route uses existing resume rate-limit buckets because no dedicated snapshot bucket exists yet.
