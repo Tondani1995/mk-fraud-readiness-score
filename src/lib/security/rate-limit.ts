@@ -46,10 +46,24 @@ export async function checkRateLimits(checks: RateLimitCheck[]): Promise<RateLim
 }
 
 type HeadersLike = { get(name: string): string | null };
+type RequestLike = { headers: HeadersLike };
 
-export function getClientIpHashKey(headersSource: Request | HeadersLike, prefix: string): string {
-  const headers = 'headers' in headersSource ? headersSource.headers : headersSource;
-  const forwardedFor = headers.get('x-forwarded-for');
+function hasHeaderGet(value: unknown): value is HeadersLike {
+  return Boolean(value && typeof (value as HeadersLike).get === 'function');
+}
+
+function resolveHeadersSource(headersSource: Request | HeadersLike | RequestLike): HeadersLike | null {
+  if (hasHeaderGet(headersSource)) return headersSource;
+
+  const maybeRequest = headersSource as Partial<RequestLike>;
+  if (hasHeaderGet(maybeRequest.headers)) return maybeRequest.headers;
+
+  return null;
+}
+
+export function getClientIpHashKey(headersSource: Request | HeadersLike | RequestLike, prefix: string): string {
+  const headers = resolveHeadersSource(headersSource);
+  const forwardedFor = headers?.get('x-forwarded-for');
   const ip = forwardedFor?.split(',')[0]?.trim() || 'unknown';
   return `${prefix}:ip:${ip}`;
 }
