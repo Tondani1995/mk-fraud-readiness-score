@@ -4,7 +4,7 @@ Date: 2026-07-08
 Repository: `Tondani1995/mk-fraud-readiness-score`  
 Branch: `v1/phase-7-free-snapshot`  
 PR: `#3`  
-Phase result: Conditional Pass.
+Phase result: Code-level Pass; Supabase/browser UAT still outstanding.
 
 ## Scope
 
@@ -53,16 +53,16 @@ No new migration was required. Phase 7 uses existing schema objects:
 
 ## Command Evidence
 
-| Command | Result |
+| Command / Check | Result |
 |---|---|
-| `git clone --branch v1/phase-7-free-snapshot https://github.com/Tondani1995/mk-fraud-readiness-score.git work/mk-fraud-readiness-score-pr3` | Failed: `fatal: could not read Username for 'https://github.com': Device not configured`. The repo is private and this environment has no local GitHub credential helper. |
-| `command -v gh` | No output; GitHub CLI is not installed. |
-| `env | rg 'GITHUB|GH_'` | Only `GH_PAGER=cat`; no GitHub token available. |
-| `git config --global --get credential.helper` | No output; no credential helper configured. |
-| `npm install` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs this automatically, or `npm ci` if `package-lock.json` exists. |
-| `npm run phase7:test-snapshot` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically. |
-| `npm run typecheck` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically. |
-| `npm run build` | Not run locally because an authenticated local checkout could not be created. GitHub Actions now runs it automatically with safe CI dummy env values. |
+| GitHub Actions run `28941653668` | Completed successfully. |
+| Job `Phase 7 snapshot checks` | Passed. |
+| Checkout | Passed. |
+| Dependency install | Passed. |
+| `npm run phase7:test-snapshot` | Passed. |
+| TypeScript check, `npm run typecheck` | Passed. |
+| Application build, `npm run build` | Passed. |
+| Local `git clone --branch v1/phase-7-free-snapshot https://github.com/Tondani1995/mk-fraud-readiness-score.git work/mk-fraud-readiness-score-pr3` | Failed in the Codex environment: `fatal: could not read Username for 'https://github.com': Device not configured`. GitHub Actions is now the authoritative code-level evidence path. |
 
 ## GitHub Actions Evidence Path
 
@@ -78,7 +78,7 @@ npm run build
 
 The workflow does not require Supabase secrets, does not run browser UAT and does not introduce Phase 8, Phase 9 or Phase 10 scope. It uses safe dummy CI environment values only where the Next.js build needs environment variables to initialize.
 
-PR #3 must remain draft until this workflow passes.
+Run `28941653668` completed successfully and the job `Phase 7 snapshot checks` passed checkout, dependency install, Phase 7 snapshot tests, TypeScript check and application build.
 
 ## Acceptance Evidence
 
@@ -102,9 +102,9 @@ PR #3 must remain draft until this workflow passes.
 
 ## Supabase And Browser UAT
 
-Not run in this environment and not added to the Phase 7 verification workflow.
+Not yet run and not added to the Phase 7 verification workflow.
 
-Reason: this environment could not create an authenticated local checkout of the private repository, and no configured Supabase dev project credentials were available. No claim is made that browser/Supabase UAT has passed.
+No claim is made that browser/Supabase UAT has passed. The current result is a code-level pass only.
 
 Required UAT once a configured checkout and Supabase dev project are available:
 
@@ -118,7 +118,6 @@ Required UAT once a configured checkout and Supabase dev project are available:
 
 ## Remaining Risks
 
-- GitHub Actions must pass `phase7:test-snapshot`, `typecheck` and `build` before the gate can be upgraded to Pass.
 - Supabase/browser UAT still needs to run in a configured dev project.
 - The detailed report request endpoint remains a basic pre-Phase-9 request endpoint and is not the EFT/order workflow.
 - Snapshot route uses existing resume rate-limit buckets because no dedicated snapshot bucket exists yet.
