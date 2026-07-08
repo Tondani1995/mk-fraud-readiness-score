@@ -17,7 +17,8 @@
     "phase6:test-engine": "node scripts/phase6-engine-direct-tests.mjs",
     "phase7:test-snapshot": "node scripts/phase7-free-snapshot-tests.mjs",
     "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs",
-    "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs"
+    "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs",
+    "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
