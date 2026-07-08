@@ -95,7 +95,7 @@ export async function startAccountlessAssessment(input: StartAssessmentInput, ap
     if (tokenError) throw tokenError;
     created.tokenId = tokenRow.id;
 
-    const resumeUrl = new URL(`/assessment/${assessment.assessment_reference}`, appBaseUrl);
+    const resumeUrl = new URL(`/score/assessment/${assessment.assessment_reference}`, appBaseUrl);
     resumeUrl.searchParams.set('token', token.rawToken);
 
     await Promise.all([
