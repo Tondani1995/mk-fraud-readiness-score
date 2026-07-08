@@ -42,6 +42,12 @@ assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
 
+assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/answers`)', 'Assessment autosave posts through score base path');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/submit`)', 'Assessment submit posts through score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
+assertIncludes('src/app/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
+
 assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
 assertIncludes('src/app/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
 assertIncludes('src/app/admin/page.tsx', 'Detailed report interest', 'Admin dashboard uses client-facing product terms');
@@ -73,6 +79,9 @@ assertIncludes('src/app/admin/audit-log/page.tsx', 'append-only', 'Audit log is 
 const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
   'src/components/admin/AdminLoginForm.tsx',
+  'src/components/assessment/StartAssessmentForm.tsx',
+  'src/components/assessment/AssessmentEngine.tsx',
+  'src/components/assessment/FreeSnapshot.tsx',
   'src/lib/admin/assessment-review.ts',
   'src/lib/admin/dashboard.ts'
 ]).map(read).join('\n');
@@ -80,4 +89,4 @@ const changedSources = requiredAdminRoutes.concat([
 assert(!/PayFast|card payment integration|respondent dashboard|client portal|AI-generated live/i.test(changedSources), 'Phase 8 admin code should not introduce parked V1 features.');
 assert(!/generatePdf|generatePDF|createReport\(|payment_proofs\.insert|orders\.update/i.test(changedSources), 'Phase 8 must not generate reports or verify payment.');
 
-console.log('Phase 8 admin console tests passed. Required admin routes, assessment trace, score trace, config review, audit visibility, base-path login/logout routing, MK polish and no-go boundaries are covered.');
+console.log('Phase 0-8 closeout tests passed. Admin routes, respondent base-path routing, assessment trace, score trace, config review, audit visibility, MK polish and no-go boundaries are covered.');

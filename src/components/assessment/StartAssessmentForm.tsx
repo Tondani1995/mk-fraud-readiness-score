@@ -4,8 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
+const SCORE_BASE_PATH = '/score';
 const employeeBands = ['', '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'];
 const revenueBands = ['', '<R10m', 'R10m-R50m', 'R50m-R250m', 'R250m-R1bn', 'R1bn+'];
+
+function scorePath(path: string) {
+  return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 function keepEmbedded(url: string) {
   if (typeof window === 'undefined') return url;
@@ -48,7 +53,7 @@ export function StartAssessmentForm() {
       consentResearch: formData.get('consentResearch') === 'on'
     };
 
-    const response = await fetch('/api/assessments/start', {
+    const response = await fetch(scorePath('/api/assessments/start'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

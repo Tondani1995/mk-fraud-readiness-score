@@ -36,7 +36,7 @@ export default async function AdminAssessmentsPage({ searchParams }: { searchPar
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form className="flex flex-wrap items-center gap-3" action="/admin/assessments">
+            <form className="flex flex-wrap items-center gap-3" action="/score/admin/assessments">
               <label className="text-sm font-semibold text-mk-ink" htmlFor="status">Status</label>
               <select id="status" name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-mk-paper px-3 py-2 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}

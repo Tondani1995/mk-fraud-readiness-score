@@ -16,6 +16,8 @@ import type {
   SavedExposureAnswer
 } from '@/lib/types/domain';
 
+const SCORE_BASE_PATH = '/score';
+
 type DraftAnswer = {
   questionId: string;
   responseValue: number | null;
@@ -46,6 +48,10 @@ type AssessmentEngineProps = {
 
 type StepKey = 'exposure' | string;
 type SubmitState = 'idle' | 'saving' | 'submitting' | 'submitted';
+
+function scorePath(path: string) {
+  return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 function buildAnswerMap(savedAnswers: SavedAssessmentAnswer[]): Record<string, DraftAnswer> {
   return Object.fromEntries(
@@ -136,7 +142,7 @@ export function AssessmentEngine({
     setSaveState('saving');
     setMessages([]);
 
-    const response = await fetch(`/api/assessments/${assessmentReference}/answers`, {
+    const response = await fetch(scorePath(`/api/assessments/${assessmentReference}/answers`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -233,7 +239,7 @@ export function AssessmentEngine({
 
     setSubmitState('submitting');
     setMessages([]);
-    const response = await fetch(`/api/assessments/${assessmentReference}/submit`, {
+    const response = await fetch(scorePath(`/api/assessments/${assessmentReference}/submit`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, embed: embeddedMode() ? '1' : undefined })
