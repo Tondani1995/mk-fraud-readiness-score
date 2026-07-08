@@ -7,6 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 
+const SCORE_BASE_PATH = '/score';
+
+function scorePath(path: string) {
+  return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 function scoreLabel(score: number) {
   if (score < 40) return 'High attention required';
   if (score < 60) return 'Developing control environment';
@@ -34,7 +40,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
   async function requestDetailedReport() {
     setRequestState('sending');
     setMessage('');
-    const response = await fetch(`/api/assessments/${snapshot.assessmentReference}/report-request`, {
+    const response = await fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source: 'free_snapshot' })
