@@ -71,25 +71,25 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-5">
             <Metric label="Readiness score" value={`${formatScore(snapshot.overallScore)}/100`} supporting={scoreLabel(snapshot.overallScore)} />
-            <Metric label="Maturity" value={snapshot.finalMaturity} supporting={`Calculated: ${snapshot.calculatedMaturity}`} />
+            <Metric label="Readiness level" value={snapshot.finalMaturity} supporting="Based on current answers" />
             <Metric label="Exposure score" value={`${formatScore(snapshot.exposureScore)}/100`} supporting={snapshot.exposureBand} />
-            <Metric label="Critical gaps" value={String(snapshot.criticalGapCount)} supporting={`${snapshot.majorGapCount} hard-gate gaps`} />
-            <Metric label="Coverage" value={`${formatScore(snapshot.coveragePct)}%`} supporting={`${formatScore(snapshot.nARatePct)}% N/A rate`} />
+            <Metric label="Priority gaps" value={String(snapshot.criticalGapCount)} supporting={`${snapshot.majorGapCount} serious control gaps`} />
+            <Metric label="Coverage" value={`${formatScore(snapshot.coveragePct)}%`} supporting={`${formatScore(snapshot.nARatePct)}% marked not applicable`} />
           </div>
 
           {snapshot.criticalGapCount > 0 || snapshot.majorGapCount > 0 ? (
             <div className="rounded-2xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-              <p className="font-semibold">Critical-gap alert</p>
+              <p className="font-semibold">Priority-gap alert</p>
               <p className="mt-1">
-                The persisted score trace found {snapshot.criticalGapCount} critical-control gap{snapshot.criticalGapCount === 1 ? '' : 's'} and {snapshot.majorGapCount} hard-gate gap{snapshot.majorGapCount === 1 ? '' : 's'}. These counts come from hard-gate and critical-control scoring rules.
+                The assessment found {snapshot.criticalGapCount} priority control gap{snapshot.criticalGapCount === 1 ? '' : 's'} and {snapshot.majorGapCount} serious gap{snapshot.majorGapCount === 1 ? '' : 's'} that materially affect the organisation&apos;s readiness posture.
               </p>
             </div>
           ) : null}
 
           {snapshot.capApplied ? (
             <div className="rounded-2xl border border-mk-line bg-mk-cream p-4 text-sm leading-6 text-mk-muted">
-              <p className="font-semibold text-mk-ink">Maturity cap applied</p>
-              <p className="mt-1">{snapshot.capReason ?? 'The final maturity level was capped because one or more critical control rules were triggered.'}</p>
+              <p className="font-semibold text-mk-ink">Readiness level adjusted</p>
+              <p className="mt-1">{snapshot.capReason ?? 'The final readiness level was adjusted because one or more priority controls need attention.'}</p>
             </div>
           ) : null}
 
@@ -97,7 +97,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
             <div className="rounded-2xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
               <p className="font-semibold text-mk-ink">Coverage and applicability</p>
               <p className="mt-1">
-                Coverage is {formatScore(snapshot.coveragePct)}%. N/A responses are excluded from both numerator and denominator in the persisted score trace and appear here as a {formatScore(snapshot.nARatePct)}% N/A rate.
+                Coverage is {formatScore(snapshot.coveragePct)}%. Questions marked Not Applicable are excluded from the readiness score and appear here as a {formatScore(snapshot.nARatePct)}% applicability exclusion rate.
               </p>
             </div>
           ) : null}
@@ -141,7 +141,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
 
           {snapshotUrl ? (
             <div className="flex flex-col gap-3 border-t border-mk-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs leading-5 text-mk-muted">Save this private link if you need to reopen the free snapshot later. Refreshing it reloads the persisted score run without unlocking the assessment.</p>
+              <p className="text-xs leading-5 text-mk-muted">Save this private link if you need to reopen the free snapshot later. Refreshing it reloads the submitted result without unlocking the assessment.</p>
               <Button asChild variant="secondary"><Link href={snapshotUrl}>Open snapshot link</Link></Button>
             </div>
           ) : null}
@@ -169,14 +169,14 @@ function DomainList({ title, domains, empty }: { title: string; domains: FreeSna
         {domains.length ? domains.map((domain) => (
           <div key={domain.domainId}>
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-mk-ink">{domain.domainCode} · {domain.domainName}</span>
+              <span className="font-medium text-mk-ink">{domain.domainName}</span>
               <span className="text-mk-muted">{domain.rawScore === null ? 'N/A' : `${formatScore(domain.rawScore)}/100`}</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-mk-line">
               <div className="h-full rounded-full bg-mk-charcoal" style={{ width: `${Math.max(0, Math.min(100, domain.rawScore ?? 0))}%` }} />
             </div>
             <p className="mt-1 text-xs text-mk-muted">
-              Coverage {formatScore(domain.coveragePct)}% · {domain.criticalGapCount} critical gap{domain.criticalGapCount === 1 ? '' : 's'}
+              Coverage {formatScore(domain.coveragePct)}% · {domain.criticalGapCount} priority gap{domain.criticalGapCount === 1 ? '' : 's'}
             </p>
           </div>
         )) : <p className="text-sm text-mk-muted">{empty}</p>}
