@@ -53,6 +53,13 @@ function scorePath(path: string) {
   return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function saveStatusLabel(saveState: 'idle' | 'saving' | 'saved' | 'error') {
+  if (saveState === 'saving') return 'Saving draft';
+  if (saveState === 'saved') return 'Draft saved';
+  if (saveState === 'error') return 'Draft save issue';
+  return 'Not saved yet';
+}
+
 function buildAnswerMap(savedAnswers: SavedAssessmentAnswer[]): Record<string, DraftAnswer> {
   return Object.fromEntries(
     savedAnswers.map((answer) => [
@@ -123,7 +130,7 @@ export function AssessmentEngine({
     { key: 'exposure', label: 'Exposure profile', pct: exposureProgressPct(exposureFactors, exposureAnswers) },
     ...domains.map((domain) => {
       const domainProgress = progress.domainProgress.find((item) => item.domainCode === domain.domainCode);
-      return { key: domain.domainCode, label: `${domain.domainCode} · ${domain.name}`, pct: domainProgress?.pct ?? 0 };
+      return { key: domain.domainCode, label: domain.name, pct: domainProgress?.pct ?? 0 };
     })
   ], [domains, exposureAnswers, exposureFactors, progress.domainProgress]);
 
@@ -293,7 +300,7 @@ export function AssessmentEngine({
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-mk-line">
                 <div className="h-full rounded-full bg-mk-charcoal" style={{ width: `${progress.overallPct}%` }} />
               </div>
-              <p className="mt-2 text-xs text-mk-muted">{progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure factors captured</p>
+              <p className="mt-2 text-xs text-mk-muted">{progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure areas captured</p>
             </div>
 
             <div className="grid gap-2">
@@ -311,9 +318,8 @@ export function AssessmentEngine({
             </div>
 
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
-              <p><strong className="text-mk-ink">Save status:</strong> {saveState}</p>
-              <p><strong className="text-mk-ink">Assessment:</strong> {assessmentReference}</p>
-              <p><strong className="text-mk-ink">Status:</strong> {status}</p>
+              <p><strong className="text-mk-ink">Draft status:</strong> {saveStatusLabel(saveState)}</p>
+              <p><strong className="text-mk-ink">Reference:</strong> {assessmentReference}</p>
             </div>
           </CardContent>
         </Card>
@@ -352,7 +358,7 @@ export function AssessmentEngine({
             ) : null}
 
             <div className="flex flex-col gap-3 border-t border-mk-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-mk-muted">Draft answers are autosaved against the assessment reference and secure resume token. Submitting locks the assessment and generates the free readiness snapshot.</p>
+              <p className="text-xs text-mk-muted">Your answers are saved securely as you move through the assessment. Submitting locks the assessment and generates the free readiness snapshot.</p>
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={saveState === 'saving' || isLocked}>
                   {saveState === 'saving' ? 'Saving…' : 'Save now'}
@@ -374,12 +380,12 @@ function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposure
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold text-mk-ink">Exposure profile</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures inherent fraud opportunity so readiness is interpreted against the organisation’s actual operating exposure.</p>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures where fraud opportunity may exist so readiness can be interpreted against the organisation’s real operating environment.</p>
       </div>
       <div className="grid gap-4">
         {exposureFactors.map((factor) => (
           <label key={factor.id} className="rounded-xl border border-mk-line bg-mk-cream/30 p-4">
-            <span className="block text-sm font-semibold text-mk-ink">{factor.factorCode} · {factor.name}</span>
+            <span className="block text-sm font-semibold text-mk-ink">{factor.name}</span>
             <select
               value={exposureAnswers[factor.id]?.selectedValue ?? ''}
               onChange={(event) => onChange(factor, event.target.value)}
@@ -417,8 +423,8 @@ function DomainStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-mk-ink">{domain.domainCode} · {domain.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0-5 capability scale. N/A is only available where the organisation profile makes it genuinely inapplicable.</p>
+        <h2 className="text-xl font-semibold text-mk-ink">{domain.name}</h2>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">Select the option that best reflects current practice. Use Not Applicable only where the area genuinely does not apply to the organisation.</p>
       </div>
 
       {domain.questions.map((question) => {
@@ -428,16 +434,9 @@ function DomainStep({
 
         return (
           <div key={question.id} className="rounded-2xl border border-mk-line bg-mk-paper p-5">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">{question.questionCode}</p>
-                <h3 className="mt-2 text-base font-semibold leading-7 text-mk-ink">{question.prompt}</h3>
-                {question.helpText ? <p className="mt-2 text-sm leading-6 text-mk-muted">{question.helpText}</p> : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {question.isCritical ? <Badge>Critical</Badge> : null}
-                {question.isHardGate ? <Badge>Hard gate</Badge> : null}
-              </div>
+            <div>
+              <h3 className="text-base font-semibold leading-7 text-mk-ink">{question.prompt}</h3>
+              {question.helpText ? <p className="mt-2 text-sm leading-6 text-mk-muted">{question.helpText}</p> : null}
             </div>
 
             <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -467,16 +466,15 @@ function DomainStep({
                     onChange={(event) => onSetNA(question.id, event.target.checked)}
                   />
                   <span>
-                    Mark as Not Applicable. This is profile-controlled and requires a reason before submission.
-                    {question.isHardGate ? ' Hard-gate N/A is only available where the exposure profile makes the control genuinely inapplicable.' : ''}
+                    Mark as Not Applicable only where this area genuinely does not apply to your organisation. A short reason is required before submission.
                   </span>
                 </label>
-                <p className="mt-2 text-xs leading-5 text-mk-muted">N/A rule: {nAEligibility.reason}</p>
+                <p className="mt-2 text-xs leading-5 text-mk-muted">Applicability note: {nAEligibility.reason}</p>
                 {answer.isNotApplicable ? (
                   <textarea
                     value={answer.nAReason}
                     onChange={(event) => onSetNAReason(question.id, event.target.value)}
-                    placeholder="Explain why this question is genuinely not applicable to the organisation. Minimum 5 characters required before submission."
+                    placeholder="Briefly explain why this question is not applicable to the organisation."
                     className="mt-3 min-h-24 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-charcoal"
                   />
                 ) : null}
