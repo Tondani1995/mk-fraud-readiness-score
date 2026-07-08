@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 
 const SCORE_BASE_PATH = '/score';
+const MANUAL_EFT_CONFIRMATION = 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.';
 
 type OrderConfirmation = {
   orderReference: string;
@@ -202,7 +203,7 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
         <p className="rounded-lg bg-mk-cream p-4 text-sm leading-6 text-mk-muted">{eft.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'}</p>
       )}
       <p className="text-sm leading-6 text-mk-muted">{eft.paymentReferenceInstruction ?? 'Please use your order reference as the payment reference.'}</p>
-      <p className="text-sm leading-6 text-mk-muted">{eft.customerInstruction ?? order.manualConfirmationNote}</p>
+      <p className="text-sm leading-6 text-mk-muted">{eft.customerInstruction ?? order.manualConfirmationNote ?? MANUAL_EFT_CONFIRMATION}</p>
       {eft.contactEmail ? <p className="text-xs text-mk-muted">Questions: {eft.contactEmail}</p> : null}
     </div>
   );
