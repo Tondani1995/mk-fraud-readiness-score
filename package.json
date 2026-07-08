@@ -1,8 +1,8 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "0.6.2-consolidated-phase0-6-v1.3",
+  "version": "0.7.0-phase7-free-snapshot",
   "private": true,
-  "description": "Consolidated Phase 0-6 package for MK Fraud Readiness Score V1, merging corrected Phase 0-4 pack with Phase 5 v1.1 assessment engine and Phase 6 v1.1 deterministic scoring engine.",
+  "description": "Phase 7 Free Snapshot package for MK Fraud Readiness Score V1, hardening durable token-scoped snapshot access, persisted score reconciliation and stale-submit safety.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +14,9 @@
     "phase5:smoke": "node scripts/phase5-smoke-check.mjs",
     "phase6:test-scenarios": "node scripts/phase6-scenario-tests.mjs",
     "phase6:smoke": "node scripts/phase6-smoke-check.mjs",
-    "phase6:test-engine": "node scripts/phase6-engine-direct-tests.mjs"
+    "phase6:test-engine": "node scripts/phase6-engine-direct-tests.mjs",
+    "phase7:test-snapshot": "node scripts/phase7-free-snapshot-tests.mjs",
+    "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
