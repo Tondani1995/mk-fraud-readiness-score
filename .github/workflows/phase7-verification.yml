@@ -1,12 +1,12 @@
-name: Phase 7 Verification
+name: V1 Verification
 
 on:
   pull_request:
   push:
 
 jobs:
-  phase7-verification:
-    name: Phase 7 snapshot checks
+  v1-verification:
+    name: Phase 7 and 8 checks
     runs-on: ubuntu-latest
 
     env:
@@ -21,7 +21,7 @@ jobs:
       ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
       ASSESSMENT_TOKEN_MAX_USES: '25'
       ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
-      MK_BUILD_PHASE: phase-7-free-snapshot
+      MK_BUILD_PHASE: phase-8-admin-console
       MK_RELEASE_CHANNEL: ci
 
     steps:
@@ -43,6 +43,9 @@ jobs:
 
       - name: Run Phase 7 snapshot tests
         run: npm run phase7:test-snapshot
+
+      - name: Run Phase 8 admin console tests
+        run: npm run phase8:test-admin
 
       - name: Run TypeScript check
         run: npm run typecheck

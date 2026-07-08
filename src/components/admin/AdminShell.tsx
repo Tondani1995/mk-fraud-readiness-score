@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/Button';
 const adminLinks = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/assessments', label: 'Assessments' },
-  { href: '/admin/methodology', label: 'Methodology' },
+  { href: '/admin/config/questions', label: 'Questions' },
+  { href: '/admin/config/products', label: 'Products & EFT' },
+  { href: '/admin/config/content', label: 'Content blocks' },
+  { href: '/admin/audit-log', label: 'Audit log' },
   { href: '/admin/orders', label: 'Orders' },
-  { href: '/admin/reports', label: 'Reports' },
-  { href: '/admin/settings', label: 'Settings' }
+  { href: '/admin/reports', label: 'Reports' }
 ];
 
 export function AdminShell({ admin, children }: { admin: AdminSession; children: ReactNode }) {
