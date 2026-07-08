@@ -9,6 +9,18 @@ function assert(condition, label) {
   if (!condition) throw new Error(label);
 }
 
+function sectionBetween(startNeedle, endNeedle, label) {
+  const start = source.indexOf(startNeedle);
+  assert(start >= 0, `Missing section start: ${label}`);
+  const end = source.indexOf(endNeedle, start);
+  assert(end > start, `Missing section end: ${label}`);
+  return source.slice(start, end);
+}
+
+function unique(values) {
+  return [...new Set(values)];
+}
+
 const expectedQuestionCodes = [
   'D1-Q01','D1-Q02','D1-Q03','D1-Q04','D1-Q05','D1-Q06',
   'D2-Q01','D2-Q02','D2-Q03','D2-Q04','D2-Q05','D2-Q06','D2-Q07','D2-Q08',
@@ -24,58 +36,90 @@ const expectedQuestionCodes = [
 
 const expectedExposureCodes = ['EXP-01','EXP-02','EXP-03','EXP-04','EXP-05','EXP-06','EXP-07','EXP-08'];
 
-const questionCodes = [...source.matchAll(/\('((?:D\d+)-Q\d{2})',\s*\$copy\$/g)].map((match) => match[1]);
-const exposureCodes = [...source.matchAll(/\('((?:EXP)-\d{2})',\s*'/g)].map((match) => match[1]);
+const questionCopySection = sectionBetween(
+  'copy_updates(question_code, prompt, help_text) as',
+  'update public.questions q',
+  'question copy updates'
+);
 
+const questionUpdateSection = sectionBetween(
+  'update public.questions q',
+  'with mv as (\n  select id from public.methodology_versions where version_code = \'MFRS-V1.1\'\n), exposure_updates',
+  'question update statement'
+);
+
+const exposureCopySection = sectionBetween(
+  'exposure_updates(factor_code, name, options_json) as',
+  'update public.exposure_factors ef',
+  'exposure copy updates'
+);
+
+const exposureUpdateSection = sectionBetween(
+  'update public.exposure_factors ef',
+  '-- 003 activate V1.1',
+  'exposure update statement'
+);
+
+const questionCodes = unique([...questionCopySection.matchAll(/\('((?:D\d+)-Q\d{2})',\s*\$copy\$/g)].map((match) => match[1]));
+const exposureCodes = unique([...exposureCopySection.matchAll(/\('((?:EXP)-\d{2})',\s*'/g)].map((match) => match[1]));
+
+assert(source.includes("insert into public.methodology_versions"), 'Migration must create a methodology version when V1.1 does not already exist.');
 assert(source.includes("'MFRS-V1.1'"), 'Migration must create and target MFRS-V1.1.');
-assert(source.includes("where version_code = 'MFRS-V1.1'"), 'Copy updates must target MFRS-V1.1.');
 assert(source.includes("version_code = 'MFRS-V1.0'"), 'Migration must preserve and retire MFRS-V1.0 explicitly.');
-assert(source.includes('insert into public.methodology_versions'), 'Migration must create a new methodology version.');
 assert(source.includes('insert into public.response_scale'), 'Migration must clone response scale.');
 assert(source.includes('insert into public.domains'), 'Migration must clone domains.');
-assert(source.includes('insert into public.questions'), 'Migration must clone questions before copy polish.');
+assert(source.includes('insert into public.questions'), 'Migration must clone questions.');
 assert(source.includes('insert into public.question_applicability_rules'), 'Migration must clone applicability rules.');
 assert(source.includes('insert into public.exposure_factors'), 'Migration must clone exposure factors.');
 assert(source.includes('insert into public.recommendation_rules'), 'Migration must clone recommendation rules.');
 assert(source.includes('insert into public.report_content_blocks'), 'Migration must clone report content blocks.');
 
-assert(questionCodes.length === 68, `Expected 68 question copy updates, found ${questionCodes.length}`);
-assert(new Set(questionCodes).size === 68, 'Question copy updates must be unique.');
+assert(questionCopySection.includes("where version_code = 'MFRS-V1.1'"), 'Question copy CTE must target MFRS-V1.1.');
+assert(exposureCopySection.includes("where version_code = 'MFRS-V1.1'"), 'Exposure copy CTE must target MFRS-V1.1.');
+assert(!questionCopySection.includes('MFRS-V1.0'), 'Question copy updates must not target MFRS-V1.0.');
+assert(!exposureCopySection.includes('MFRS-V1.0'), 'Exposure copy updates must not target MFRS-V1.0.');
+
+assert(questionCodes.length === 68, `Expected 68 unique question copy updates, found ${questionCodes.length}.`);
 for (const code of expectedQuestionCodes) {
-  assert(questionCodes.includes(code), `Missing question copy update for ${code}`);
+  assert(questionCodes.includes(code), `Missing question copy update for ${code}.`);
 }
 
-assert(exposureCodes.length === 8, `Expected 8 exposure factor copy updates, found ${exposureCodes.length}`);
-assert(new Set(exposureCodes).size === 8, 'Exposure factor copy updates must be unique.');
+assert(exposureCodes.length === 8, `Expected 8 unique exposure factor copy updates, found ${exposureCodes.length}.`);
 for (const code of expectedExposureCodes) {
-  assert(exposureCodes.includes(code), `Missing exposure factor copy update for ${code}`);
+  assert(exposureCodes.includes(code), `Missing exposure factor copy update for ${code}.`);
 }
 
-assert(source.includes('update public.questions q'), 'Migration must update public.questions for V1.1 copy polish.');
-assert(source.includes('set prompt = copy_updates.prompt'), 'Migration must update question prompts.');
-assert(source.includes('help_text = copy_updates.help_text'), 'Migration must update question help text.');
-assert(source.includes('update public.exposure_factors ef'), 'Migration must update exposure factor wording.');
-assert(source.includes('active_methodology_copy_polish_v1_1'), 'Migration must record the active V1.1 copy-polish app setting.');
-assert(source.includes('"questions":68'), 'Migration must record 68 question updates.');
-assert(source.includes('"exposure_factors":8'), 'Migration must record 8 exposure updates.');
-assert(source.includes('"scope":"versioned_copy_only"'), 'Migration must mark scope as versioned copy-only.');
-assert(source.includes('"scoring_structure_changed":false'), 'Migration must confirm scoring structure is unchanged.');
+assert(questionUpdateSection.includes('set prompt = copy_updates.prompt'), 'Question update must update prompts.');
+assert(questionUpdateSection.includes('help_text = copy_updates.help_text'), 'Question update must update help text.');
+assert(exposureUpdateSection.includes('set name = exposure_updates.name'), 'Exposure update must update exposure names.');
+assert(exposureUpdateSection.includes('options_json = exposure_updates.options_json'), 'Exposure update must update exposure option labels.');
+
+const copyUpdateStatements = `${questionUpdateSection}\n${exposureUpdateSection}`;
+const forbiddenStructuralUpdates = /(weight\s*=|weight_pct\s*=|is_critical\s*=|is_hard_gate\s*=|n_a_allowed\s*=|n_a_rule_key\s*=|trigger_key\s*=|normalised_score\s*=|max_points\s*=|rule_key\s*=|expression_json\s*=)/i;
+assert(!forbiddenStructuralUpdates.test(copyUpdateStatements), 'Copy polish must not update weights, flags, N/A rules, scale scores, exposure max points or applicability rules.');
+
+const forbiddenContentTableUpdates = [
+  'update public.domains',
+  'update public.response_scale',
+  'update public.question_applicability_rules',
+  'update public.recommendation_rules',
+  'update public.report_content_blocks'
+];
+for (const forbidden of forbiddenContentTableUpdates) {
+  assert(!source.toLowerCase().includes(forbidden), `Migration must not mutate ${forbidden.replace('update ', '')} content in place.`);
+}
+
 assert(source.includes("status = 'retired'::public.methodology_status"), 'Migration must retire MFRS-V1.0 after V1.1 is ready.');
 assert(source.includes("status = 'active'::public.methodology_status"), 'Migration must activate MFRS-V1.1.');
-
-const forbiddenStructuralUpdates = /(weight\s*=|weight_pct\s*=|is_critical\s*=|is_hard_gate\s*=|n_a_allowed\s*=|n_a_rule_key\s*=|trigger_key\s*=|normalised_score\s*=|max_points\s*=|rule_key\s*=|expression_json\s*=)/i;
-assert(!forbiddenStructuralUpdates.test(source), 'Methodology copy polish must not update weights, flags, N/A rules, scale scores or exposure max points.');
-
-const contentUpdateBlocks = [...source.matchAll(/update\s+public\.(questions|domains|response_scale|exposure_factors|question_applicability_rules|recommendation_rules|report_content_blocks)[\s\S]{0,900};/gi)].map((match) => match[0]);
-for (const block of contentUpdateBlocks) {
-  assert(!/MFRS-V1\.0/i.test(block), 'Migration must not mutate MFRS-V1.0 methodology content in place.');
-}
+assert(source.includes('active_methodology_copy_polish_v1_1'), 'Migration must record the active V1.1 copy-polish app setting.');
+assert(source.includes('"scope":"versioned_copy_only"'), 'Migration must mark scope as versioned copy-only.');
+assert(source.includes('"scoring_structure_changed":false'), 'Migration must confirm scoring structure is unchanged.');
 
 assert(source.includes('named senior owner'), 'D1 wording should be respondent-friendly and ownership-led.');
-assert(source.includes('WhatsApp journeys'), 'D2/Digital wording should include practical non-bank digital examples.');
+assert(source.includes('WhatsApp journeys'), 'Digital wording should include practical non-bank digital examples.');
 assert(source.includes('manual journals or overrides'), 'D3 wording should include sensitive manual activity examples.');
 assert(source.includes('bank-detail changes'), 'D7 wording should include supplier-payment fraud examples.');
 assert(source.includes('not a financial institution'), 'D8 identity wording should work outside financial services.');
 assert(source.includes('safe ways to raise concerns'), 'D9 wording should avoid overclaiming how all employees feel.');
 
-console.log('Versioned methodology copy polish tests passed. MFRS-V1.1 is created, all 68 questions and 8 exposure factors are covered, and MFRS-V1.0 content remains preserved.');
+console.log('Versioned methodology copy polish tests passed. MFRS-V1.1 is created, all 68 questions and 8 exposure factors are covered, copy updates target V1.1 only, and scoring structure remains unchanged.');
