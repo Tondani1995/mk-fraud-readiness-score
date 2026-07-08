@@ -30,6 +30,9 @@ for (const route of requiredAdminRoutes) {
   assert(fs.existsSync(path.join(root, route)), `Missing Phase 8 admin route: ${route}`);
 }
 
+assertIncludes('src/components/admin/AdminShell.tsx', 'MK Fraud Insights', 'Admin shell carries MK Fraud branding');
+assertIncludes('src/components/admin/AdminShell.tsx', 'Readiness Control Room', 'Admin shell uses branded control-room language');
+assertIncludes('src/components/admin/AdminShell.tsx', "action={scorePath('/api/admin/logout')}", 'Admin logout posts through score base path');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/assessments', 'Admin shell links to assessment list');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/questions', 'Admin shell links to question config');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/products', 'Admin shell links to product config');
@@ -39,9 +42,14 @@ assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
 
+assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
+assertIncludes('src/app/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
+assertIncludes('src/app/admin/page.tsx', 'Detailed report interest', 'Admin dashboard uses client-facing product terms');
+
 assertIncludes('src/app/admin/assessments/page.tsx', "requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin'])", 'Assessment list is admin guarded');
 assertIncludes('src/app/admin/assessments/page.tsx', 'getAdminAssessmentList', 'Assessment list uses server-side data access');
 assertIncludes('src/app/admin/assessments/page.tsx', 'statusOptions', 'Assessment list supports status filtering');
+assertIncludes('src/app/admin/assessments/page.tsx', 'Client readiness queue', 'Assessment queue uses polished MK review copy');
 
 assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'getAdminAssessmentDetail', 'Assessment detail loads admin detail model');
 assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'Answer trace', 'Assessment detail shows answer trace');
@@ -72,4 +80,4 @@ const changedSources = requiredAdminRoutes.concat([
 assert(!/PayFast|card payment integration|respondent dashboard|client portal|AI-generated live/i.test(changedSources), 'Phase 8 admin code should not introduce parked V1 features.');
 assert(!/generatePdf|generatePDF|createReport\(|payment_proofs\.insert|orders\.update/i.test(changedSources), 'Phase 8 must not generate reports or verify payment.');
 
-console.log('Phase 8 admin console tests passed. Required admin routes, assessment trace, score trace, config review, audit visibility, base-path login routing and no-go boundaries are covered.');
+console.log('Phase 8 admin console tests passed. Required admin routes, assessment trace, score trace, config review, audit visibility, base-path login/logout routing, MK polish and no-go boundaries are covered.');
