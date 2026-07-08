@@ -288,7 +288,7 @@ export async function submitAssessment(payload: { assessmentReference: string; t
   if (errors.length) return { ok: false as const, status: 400, errors: [...new Set(errors)], progress };
 
   const now = new Date().toISOString();
-  const { error } = await service
+  const { data: lockedAssessment, error } = await service
     .from('assessments')
     .update({
       status: 'submitted',
@@ -298,9 +298,14 @@ export async function submitAssessment(payload: { assessmentReference: string; t
     .eq('id', assessment.id)
     .eq('status', 'draft')
     .is('locked_at', null)
-    .is('submitted_at', null);
+    .is('submitted_at', null)
+    .select('id')
+    .maybeSingle();
 
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
+  if (!lockedAssessment) {
+    return { ok: false as const, status: 409, errors: ['assessment_already_submitted_or_locked'], progress };
+  }
 
   await Promise.all([
     service
