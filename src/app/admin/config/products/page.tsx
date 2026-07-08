@@ -17,9 +17,9 @@ export default async function AdminProductConfigPage() {
     <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Phase 8 configuration foundation"
+          eyebrow="Commercial configuration"
           title="Products, pricing and EFT inputs"
-          description="Review V1 package/pricing and payment-copy inputs before Phase 9 adds the controlled EFT order and verification workflow."
+          description="Review V1 package, pricing and payment-copy inputs before MK enables the controlled order and verification workflow."
         />
 
         <Card>
@@ -54,14 +54,14 @@ export default async function AdminProductConfigPage() {
                 <p className="font-semibold text-mk-ink">{setting.setting_key}</p>
                 <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-mk-paper p-3 text-xs text-mk-muted">{JSON.stringify(setting.setting_json, null, 2)}</pre>
               </div>
-            )) : <p className="text-sm leading-6 text-mk-muted">No EFT-specific app settings are visible yet. Phase 9 should add or seed the controlled EFT instructions used in paid report orders.</p>}
+            )) : <p className="text-sm leading-6 text-mk-muted">No EFT-specific app settings are visible yet. MK must add the controlled EFT instructions before paid report orders are accepted.</p>}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Phase boundary</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Release boundary</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-sm leading-6 text-mk-muted">This screen is a Phase 8 control surface only. It does not verify payments, unlock reports, upload proof of payment or generate PDFs. Those actions remain blocked for Phase 9 and Phase 10.</p>
+            <p className="text-sm leading-6 text-mk-muted">This screen is a configuration review surface only. It does not verify payments, unlock reports, upload proof of payment or generate PDFs. Those actions remain blocked until the controlled commercial and report-release workflows are approved.</p>
           </CardContent>
         </Card>
       </div>
