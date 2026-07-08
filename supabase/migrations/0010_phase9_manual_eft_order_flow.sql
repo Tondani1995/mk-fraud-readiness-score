@@ -9,6 +9,7 @@ begin;
 do $$
 begin
   alter type public.order_status add value if not exists 'draft';
+  alter type public.order_status add value if not exists 'awaiting_payment';
   alter type public.order_status add value if not exists 'payment_received';
   alter type public.order_status add value if not exists 'cancelled';
   alter type public.order_status add value if not exists 'expired';
