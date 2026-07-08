@@ -67,7 +67,7 @@ assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'N/A rule:',
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '<Badge>Hard gate</Badge>', 'Public question cards must not expose hard-gate labels');
 assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', '{domain.domainCode} · {domain.domainName}', 'Public snapshot must not show domain codes');
 assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'hard-gate', 'Public snapshot must not expose hard-gate language');
-assertNotIncludes('src/lib/respondent/na-rules.ts', 'EXP-02', 'Respondent-facing applicability reason must not expose EXP labels');
+assertNotIncludes('src/lib/respondent/na-rules.ts', 'Complete EXP-', 'Respondent-facing applicability reason must not expose EXP labels');
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode} does not allow', 'Respondent-facing applicability reason must not expose question codes');
 
 assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
