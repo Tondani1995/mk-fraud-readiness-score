@@ -45,6 +45,7 @@ type AssessmentEngineProps = {
 };
 
 type StepKey = 'exposure' | string;
+type SubmitState = 'idle' | 'saving' | 'submitting' | 'submitted';
 
 function buildAnswerMap(savedAnswers: SavedAssessmentAnswer[]): Record<string, DraftAnswer> {
   return Object.fromEntries(
@@ -74,6 +75,11 @@ function buildExposureMap(savedExposureAnswers: SavedExposureAnswer[]): Record<s
   );
 }
 
+function embeddedMode() {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('embed') === '1';
+}
+
 export function AssessmentEngine({
   assessmentReference,
   token,
@@ -93,11 +99,13 @@ export function AssessmentEngine({
   const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [messages, setMessages] = useState<string[]>([]);
-  const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [snapshot, setSnapshot] = useState<FreeSnapshot | null>(null);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeDomain = domains.find((domain) => domain.domainCode === activeStep);
+  const isLocked = submitState !== 'idle';
   const exposureSelectionMap = useMemo<ExposureSelectionMap>(() => {
     const factorCodeById = new Map(exposureFactors.map((factor) => [factor.id, factor.factorCode]));
     return Object.fromEntries(
@@ -114,6 +122,7 @@ export function AssessmentEngine({
   ], [domains, exposureAnswers, exposureFactors, progress.domainProgress]);
 
   function scheduleAutosave(nextAnswers = answers, nextExposureAnswers = exposureAnswers) {
+    if (isLocked) return;
     setSaveState('saving');
     setMessages([]);
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
@@ -122,7 +131,8 @@ export function AssessmentEngine({
     }, 650);
   }
 
-  async function saveDraft(nextAnswers = answers, nextExposureAnswers = exposureAnswers) {
+  async function saveDraft(nextAnswers = answers, nextExposureAnswers = exposureAnswers): Promise<boolean> {
+    if (submitState === 'submitted') return false;
     setSaveState('saving');
     setMessages([]);
 
@@ -141,14 +151,16 @@ export function AssessmentEngine({
     if (!response.ok || !body.ok) {
       setSaveState('error');
       setMessages(body.errors ?? ['Draft could not be saved.']);
-      return;
+      return false;
     }
 
     setProgress(body.progress);
     setSaveState('saved');
+    return true;
   }
 
   function setQuestionResponse(questionId: string, responseValue: number) {
+    if (isLocked) return;
     const next = {
       ...answers,
       [questionId]: {
@@ -163,6 +175,7 @@ export function AssessmentEngine({
   }
 
   function setQuestionNA(questionId: string, checked: boolean) {
+    if (isLocked) return;
     const next = {
       ...answers,
       [questionId]: {
@@ -177,6 +190,7 @@ export function AssessmentEngine({
   }
 
   function setQuestionNAReason(questionId: string, reason: string) {
+    if (isLocked) return;
     const next = {
       ...answers,
       [questionId]: {
@@ -191,6 +205,7 @@ export function AssessmentEngine({
   }
 
   function setExposureResponse(factor: ExposureFactor, selectedValue: string) {
+    if (isLocked) return;
     const option = factor.options.find((item) => item.value === selectedValue);
     const next = {
       ...exposureAnswers,
@@ -206,15 +221,22 @@ export function AssessmentEngine({
   }
 
   async function submit() {
+    if (submitState !== 'idle') return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    await saveDraft(answers, exposureAnswers);
+
+    setSubmitState('saving');
+    const saved = await saveDraft(answers, exposureAnswers);
+    if (!saved) {
+      setSubmitState('idle');
+      return;
+    }
 
     setSubmitState('submitting');
     setMessages([]);
     const response = await fetch(`/api/assessments/${assessmentReference}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token, embed: embeddedMode() ? '1' : undefined })
     });
 
     const body = await response.json().catch(() => ({}));
@@ -228,13 +250,14 @@ export function AssessmentEngine({
 
     setProgress(body.progress);
     setSnapshot(body.snapshot ?? null);
+    setSnapshotUrl(body.snapshotUrl ?? null);
     setSubmitState('submitted');
     setSaveState('saved');
   }
 
   if (submitState === 'submitted') {
     return snapshot ? (
-      <FreeSnapshotCard snapshot={snapshot} />
+      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={snapshotUrl} />
     ) : (
       <Card>
         <CardHeader>
@@ -325,11 +348,11 @@ export function AssessmentEngine({
             <div className="flex flex-col gap-3 border-t border-mk-line pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-mk-muted">Draft answers are autosaved against the assessment reference and secure resume token. Submitting locks the assessment and generates the free readiness snapshot.</p>
               <div className="flex gap-3">
-                <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={saveState === 'saving'}>
+                <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={saveState === 'saving' || isLocked}>
                   {saveState === 'saving' ? 'Saving…' : 'Save now'}
                 </Button>
-                <Button type="button" onClick={() => void submit()} disabled={submitState === 'submitting'}>
-                  {submitState === 'submitting' ? 'Submitting…' : 'Submit assessment'}
+                <Button type="button" onClick={() => void submit()} disabled={submitState !== 'idle'}>
+                  {submitState === 'saving' ? 'Saving…' : submitState === 'submitting' ? 'Submitting…' : 'Submit assessment'}
                 </Button>
               </div>
             </div>
@@ -389,7 +412,7 @@ function DomainStep({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-mk-ink">{domain.domainCode} · {domain.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0–5 capability scale. N/A is only available where the organisation profile makes it genuinely inapplicable.</p>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0-5 capability scale. N/A is only available where the organisation profile makes it genuinely inapplicable.</p>
       </div>
 
       {domain.questions.map((question) => {
