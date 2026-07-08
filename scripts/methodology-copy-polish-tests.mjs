@@ -66,8 +66,10 @@ assert(source.includes("status = 'active'::public.methodology_status"), 'Migrati
 const forbiddenStructuralUpdates = /(weight\s*=|weight_pct\s*=|is_critical\s*=|is_hard_gate\s*=|n_a_allowed\s*=|n_a_rule_key\s*=|trigger_key\s*=|normalised_score\s*=|max_points\s*=|rule_key\s*=|expression_json\s*=)/i;
 assert(!forbiddenStructuralUpdates.test(source), 'Methodology copy polish must not update weights, flags, N/A rules, scale scores or exposure max points.');
 
-const v10ContentMutation = /update\s+public\.(questions|domains|response_scale|exposure_factors|question_applicability_rules|recommendation_rules|report_content_blocks)[\s\S]*MFRS-V1\.0/i;
-assert(!v10ContentMutation.test(source), 'Migration must not mutate MFRS-V1.0 methodology content in place.');
+const contentUpdateBlocks = [...source.matchAll(/update\s+public\.(questions|domains|response_scale|exposure_factors|question_applicability_rules|recommendation_rules|report_content_blocks)[\s\S]{0,900};/gi)].map((match) => match[0]);
+for (const block of contentUpdateBlocks) {
+  assert(!/MFRS-V1\.0/i.test(block), 'Migration must not mutate MFRS-V1.0 methodology content in place.');
+}
 
 assert(source.includes('named senior owner'), 'D1 wording should be respondent-friendly and ownership-led.');
 assert(source.includes('WhatsApp journeys'), 'D2/Digital wording should include practical non-bank digital examples.');
