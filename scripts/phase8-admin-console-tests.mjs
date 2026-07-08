@@ -16,6 +16,11 @@ function assertIncludes(file, needle, label) {
   assert(source.includes(needle), `${label}: expected ${file} to include ${needle}`);
 }
 
+function assertNotIncludes(file, needle, label) {
+  const source = read(file);
+  assert(!source.includes(needle), `${label}: expected ${file} not to include ${needle}`);
+}
+
 const requiredAdminRoutes = [
   'src/app/admin/page.tsx',
   'src/app/admin/assessments/page.tsx',
@@ -37,6 +42,10 @@ assertIncludes('src/components/admin/AdminShell.tsx', '/admin/assessments', 'Adm
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/questions', 'Admin shell links to question config');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/products', 'Admin shell links to product config');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/audit-log', 'Admin shell links to audit log');
+assertIncludes('src/components/admin/AdminShell.tsx', 'Order controls', 'Admin shell uses customer-safe order label');
+assertIncludes('src/components/admin/AdminShell.tsx', 'Report controls', 'Admin shell uses customer-safe report label');
+assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Admin navigation must not expose phase labels');
+assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Admin navigation must not expose phase labels');
 
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH = '/score'", 'Admin login form knows score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
@@ -47,6 +56,19 @@ assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePat
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/submit`)', 'Assessment submit posts through score base path');
 assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
 assertIncludes('src/app/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
+
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'label: domain.name', 'Public domain navigation should show domain names without internal domain codes');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', '{factor.name}', 'Public exposure profile should show exposure names without internal exposure codes');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', '{domain.name}', 'Public domain heading should show the domain name only');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{factor.factorCode} · {factor.name}', 'Public exposure profile must not show EXP codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{domain.domainCode} · {domain.name}', 'Public domain heading must not show D-codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '{question.questionCode}', 'Public question cards must not show question codes');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'N/A rule:', 'Public N/A guidance must not expose rule labels');
+assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', '<Badge>Hard gate</Badge>', 'Public question cards must not expose hard-gate labels');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', '{domain.domainCode} · {domain.domainName}', 'Public snapshot must not show domain codes');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'hard-gate', 'Public snapshot must not expose hard-gate language');
+assertNotIncludes('src/lib/respondent/na-rules.ts', 'EXP-02', 'Respondent-facing applicability reason must not expose EXP labels');
+assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode} does not allow', 'Respondent-facing applicability reason must not expose question codes');
 
 assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
 assertIncludes('src/app/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
@@ -72,9 +94,12 @@ assertIncludes('src/lib/admin/assessment-review.ts', 'audit_logs', 'Admin audit 
 
 assertIncludes('src/app/admin/config/questions/page.tsx', 'criticalCount', 'Question config shows critical controls');
 assertIncludes('src/app/admin/config/questions/page.tsx', 'hardGateCount', 'Question config shows hard gates');
-assertIncludes('src/app/admin/config/products/page.tsx', 'Phase 9', 'Product config parks Phase 9 actions');
+assertIncludes('src/app/admin/config/products/page.tsx', 'Release boundary', 'Product config uses release-boundary language');
 assertIncludes('src/app/admin/config/content/page.tsx', 'does not generate reports', 'Content config blocks report generation');
 assertIncludes('src/app/admin/audit-log/page.tsx', 'append-only', 'Audit log is documented as append-only');
+assertNotIncludes('src/app/admin/config/products/page.tsx', 'Phase 9', 'Product config must not expose phase labels');
+assertNotIncludes('src/app/admin/orders/page.tsx', 'Phase', 'Order controls page must not expose phase labels');
+assertNotIncludes('src/app/admin/reports/page.tsx', 'Phase', 'Report controls page must not expose phase labels');
 
 const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
@@ -89,4 +114,4 @@ const changedSources = requiredAdminRoutes.concat([
 assert(!/PayFast|card payment integration|respondent dashboard|client portal|AI-generated live/i.test(changedSources), 'Phase 8 admin code should not introduce parked V1 features.');
 assert(!/generatePdf|generatePDF|createReport\(|payment_proofs\.insert|orders\.update/i.test(changedSources), 'Phase 8 must not generate reports or verify payment.');
 
-console.log('Phase 0-8 closeout tests passed. Admin routes, respondent base-path routing, assessment trace, score trace, config review, audit visibility, MK polish and no-go boundaries are covered.');
+console.log('Phase 0-8 closeout tests passed. Admin routes, respondent base-path routing, customer-safe public copy, assessment trace, score trace, config review, audit visibility, MK polish and no-go boundaries are covered.');
