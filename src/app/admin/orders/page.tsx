@@ -6,8 +6,8 @@ export default function AdminOrdersPage() {
   return (
     <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
       <div className="space-y-6">
-        <PageHeader eyebrow="Protected admin route" title="EFT and order verification" description="Order verification is intentionally reserved for Phase 9. This route is protected now so the later commercial flow has a secure home." />
-        <Card><CardHeader><CardTitle>Phase 9 placeholder</CardTitle></CardHeader><CardContent><p className="text-sm leading-6 text-mk-muted">No paid-report order actions are active in Phase 4.</p></CardContent></Card>
+        <PageHeader eyebrow="Protected admin route" title="EFT and order verification" description="Order verification is not active yet. This protected route is reserved for MK's controlled commercial workflow once approved." />
+        <Card><CardHeader><CardTitle>Order controls not active</CardTitle></CardHeader><CardContent><p className="text-sm leading-6 text-mk-muted">No paid-report order actions are currently available. Payment verification must remain blocked until the controlled commercial workflow is approved.</p></CardContent></Card>
       </div>
     </ProtectedAdminPage>
   );

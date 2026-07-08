@@ -8,6 +8,58 @@ import { validateResumeToken } from '@/lib/respondent/tokens';
 import { calculateAssessmentProgress, loadAssessmentAnswers, loadAssessmentMethodology } from '@/lib/respondent/assessment-methodology';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 
+function publicAssessmentProgress(progress: ReturnType<typeof calculateAssessmentProgress>) {
+  return {
+    totalQuestions: progress.totalQuestions,
+    answeredQuestions: progress.answeredQuestions,
+    totalExposureFactors: progress.totalExposureFactors,
+    answeredExposureFactors: progress.answeredExposureFactors,
+    overallPct: progress.overallPct
+  };
+}
+
+function publicDomains(methodology: Awaited<ReturnType<typeof loadAssessmentMethodology>>) {
+  return methodology.domains.map((domain) => ({
+    id: domain.id,
+    name: domain.name,
+    questions: domain.questions.map((question) => ({
+      id: question.id,
+      prompt: question.prompt,
+      helpText: question.helpText,
+      nAAllowed: question.nAAllowed,
+      nARuleKey: question.nARuleKey,
+      isHardGate: question.isHardGate
+    }))
+  }));
+}
+
+function publicExposureFactors(methodology: Awaited<ReturnType<typeof loadAssessmentMethodology>>) {
+  return methodology.exposureFactors.map((factor) => ({
+    id: factor.id,
+    name: factor.name,
+    options: factor.options,
+    sortOrder: factor.sortOrder
+  }));
+}
+
+function publicSavedAnswers(saved: Awaited<ReturnType<typeof loadAssessmentAnswers>>) {
+  return saved.answers.map((answer) => ({
+    questionId: answer.questionId,
+    responseValue: answer.responseValue,
+    isNotApplicable: answer.isNotApplicable,
+    nAReason: answer.nAReason
+  }));
+}
+
+function publicSavedExposureAnswers(saved: Awaited<ReturnType<typeof loadAssessmentAnswers>>) {
+  return saved.exposureAnswers.map((answer) => ({
+    exposureFactorId: answer.exposureFactorId,
+    selectedValue: answer.selectedValue,
+    selectedLabel: answer.selectedLabel,
+    pointsAwarded: answer.pointsAwarded
+  }));
+}
+
 export default async function AssessmentShellPage({ params, searchParams }: { params: { assessmentRef: string }; searchParams?: { token?: string } }) {
   const accessCode = searchParams?.token;
   let validation: Awaited<ReturnType<typeof validateResumeToken>> | { ok: false; reason: 'missing_token' | 'rate_limited' };
@@ -75,12 +127,12 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
         organisationName={validation.organisation?.legal_name ?? 'Organisation'}
         respondentName={validation.respondent?.full_name ?? validation.respondent?.email ?? 'Respondent'}
         status={validation.assessment.status}
-        domains={methodology.domains}
+        domains={publicDomains(methodology)}
         responseScale={methodology.responseScale}
-        exposureFactors={methodology.exposureFactors}
-        savedAnswers={saved.answers}
-        savedExposureAnswers={saved.exposureAnswers}
-        initialProgress={progress}
+        exposureFactors={publicExposureFactors(methodology)}
+        savedAnswers={publicSavedAnswers(saved)}
+        savedExposureAnswers={publicSavedExposureAnswers(saved)}
+        initialProgress={publicAssessmentProgress(progress)}
       />
     </SectionShell>
   );

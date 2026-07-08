@@ -11,8 +11,8 @@ const adminLinks = [
   { href: '/admin/config/products', label: 'Commercial setup' },
   { href: '/admin/config/content', label: 'Report content library' },
   { href: '/admin/audit-log', label: 'Audit trail' },
-  { href: '/admin/orders', label: 'Orders - Phase 9' },
-  { href: '/admin/reports', label: 'Reports - Phase 10' }
+  { href: '/admin/orders', label: 'Order controls' },
+  { href: '/admin/reports', label: 'Report controls' }
 ];
 
 function scorePath(path: string) {

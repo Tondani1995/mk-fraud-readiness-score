@@ -7,16 +7,51 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
 import { evaluateNAEligibility, type ExposureSelectionMap } from '@/lib/respondent/na-rules';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
-import type {
-  AssessmentProgress,
-  ExposureFactor,
-  MethodologyDomain,
-  ResponseScaleOption,
-  SavedAssessmentAnswer,
-  SavedExposureAnswer
-} from '@/lib/types/domain';
 
 const SCORE_BASE_PATH = '/score';
+
+type PublicQuestion = {
+  id: string;
+  prompt: string;
+  helpText: string | null;
+  nAAllowed: boolean;
+  nARuleKey: string | null;
+  isHardGate: boolean;
+};
+
+type PublicDomain = {
+  id: string;
+  name: string;
+  questions: PublicQuestion[];
+};
+
+type PublicResponseScaleOption = {
+  responseValue: number;
+  label: string;
+  operationalMeaning: string | null;
+  normalisedScore: number;
+};
+
+type PublicExposureOption = {
+  value: string;
+  label: string;
+  points: number;
+};
+
+type PublicExposureFactor = {
+  id: string;
+  name: string;
+  options: PublicExposureOption[];
+  sortOrder: number;
+};
+
+type PublicAssessmentProgress = {
+  totalQuestions: number;
+  answeredQuestions: number;
+  totalExposureFactors: number;
+  answeredExposureFactors: number;
+  overallPct: number;
+};
 
 type DraftAnswer = {
   questionId: string;
@@ -32,18 +67,32 @@ type DraftExposureAnswer = {
   pointsAwarded: number;
 };
 
+type SavedPublicAnswer = {
+  questionId: string;
+  responseValue: number | null;
+  isNotApplicable: boolean;
+  nAReason: string | null;
+};
+
+type SavedPublicExposureAnswer = {
+  exposureFactorId: string;
+  selectedValue: string | null;
+  selectedLabel: string | null;
+  pointsAwarded: number;
+};
+
 type AssessmentEngineProps = {
   assessmentReference: string;
   token: string;
   organisationName: string;
   respondentName: string;
   status: string;
-  domains: MethodologyDomain[];
-  responseScale: ResponseScaleOption[];
-  exposureFactors: ExposureFactor[];
-  savedAnswers: SavedAssessmentAnswer[];
-  savedExposureAnswers: SavedExposureAnswer[];
-  initialProgress: AssessmentProgress;
+  domains: PublicDomain[];
+  responseScale: PublicResponseScaleOption[];
+  exposureFactors: PublicExposureFactor[];
+  savedAnswers: SavedPublicAnswer[];
+  savedExposureAnswers: SavedPublicExposureAnswer[];
+  initialProgress: PublicAssessmentProgress;
 };
 
 type StepKey = 'exposure' | string;
@@ -53,7 +102,34 @@ function scorePath(path: string) {
   return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-function buildAnswerMap(savedAnswers: SavedAssessmentAnswer[]): Record<string, DraftAnswer> {
+function saveStatusLabel(saveState: 'idle' | 'saving' | 'saved' | 'error') {
+  if (saveState === 'saving') return 'Saving draft';
+  if (saveState === 'saved') return 'Draft saved';
+  if (saveState === 'error') return 'Draft save issue';
+  return 'Not saved yet';
+}
+
+function publicLabel(value: string): string {
+  return value
+    .replace(/^\s*(?:EXP-\d{1,2}|D\d{1,2}(?:-Q\d{1,2})?)\s*(?:[·:—-]\s*)?/i, '')
+    .trim();
+}
+
+function ruleKeyForExposure(factor: PublicExposureFactor): string | null {
+  if (factor.sortOrder === 1) return 'highRiskProcessExposure';
+  if (factor.sortOrder === 2) return 'thirdPartyExposure';
+  if (factor.sortOrder === 3) return 'digitalChannelExposure';
+  if (factor.sortOrder === 4) return 'identityDataExposure';
+  return null;
+}
+
+function isAnswered(answer: DraftAnswer | undefined): boolean {
+  if (!answer) return false;
+  if (answer.isNotApplicable) return answer.nAReason.trim().length >= 5;
+  return typeof answer.responseValue === 'number';
+}
+
+function buildAnswerMap(savedAnswers: SavedPublicAnswer[]): Record<string, DraftAnswer> {
   return Object.fromEntries(
     savedAnswers.map((answer) => [
       answer.questionId,
@@ -67,7 +143,7 @@ function buildAnswerMap(savedAnswers: SavedAssessmentAnswer[]): Record<string, D
   );
 }
 
-function buildExposureMap(savedExposureAnswers: SavedExposureAnswer[]): Record<string, DraftExposureAnswer> {
+function buildExposureMap(savedExposureAnswers: SavedPublicExposureAnswer[]): Record<string, DraftExposureAnswer> {
   return Object.fromEntries(
     savedExposureAnswers.map((answer) => [
       answer.exposureFactorId,
@@ -102,7 +178,7 @@ export function AssessmentEngine({
   const [activeStep, setActiveStep] = useState<StepKey>('exposure');
   const [answers, setAnswers] = useState<Record<string, DraftAnswer>>(() => buildAnswerMap(savedAnswers));
   const [exposureAnswers, setExposureAnswers] = useState<Record<string, DraftExposureAnswer>>(() => buildExposureMap(savedExposureAnswers));
-  const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
+  const [progress, setProgress] = useState<PublicAssessmentProgress>(initialProgress);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [messages, setMessages] = useState<string[]>([]);
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
@@ -110,25 +186,41 @@ export function AssessmentEngine({
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeDomain = domains.find((domain) => domain.domainCode === activeStep);
+  const activeDomain = domains.find((domain) => domain.id === activeStep);
   const isLocked = submitState !== 'idle';
   const exposureSelectionMap = useMemo<ExposureSelectionMap>(() => {
-    const factorCodeById = new Map(exposureFactors.map((factor) => [factor.id, factor.factorCode]));
-    return Object.fromEntries(
-      Object.values(exposureAnswers).map((answer) => [factorCodeById.get(answer.exposureFactorId) ?? answer.exposureFactorId, answer.selectedValue])
-    );
+    const entries = exposureFactors.flatMap((factor) => {
+      const ruleKey = ruleKeyForExposure(factor);
+      if (!ruleKey) return [];
+      return [[ruleKey, exposureAnswers[factor.id]?.selectedValue]] as Array<[string, string | null | undefined]>;
+    });
+    return Object.fromEntries(entries);
   }, [exposureAnswers, exposureFactors]);
 
   const steps = useMemo<Array<{ key: StepKey; label: string; pct: number }>>(() => [
     { key: 'exposure', label: 'Exposure profile', pct: exposureProgressPct(exposureFactors, exposureAnswers) },
-    ...domains.map((domain) => {
-      const domainProgress = progress.domainProgress.find((item) => item.domainCode === domain.domainCode);
-      return { key: domain.domainCode, label: `${domain.domainCode} · ${domain.name}`, pct: domainProgress?.pct ?? 0 };
-    })
-  ], [domains, exposureAnswers, exposureFactors, progress.domainProgress]);
+    ...domains.map((domain) => ({ key: domain.id, label: publicLabel(domain.name), pct: domainProgressPct(domain, answers) }))
+  ], [answers, domains, exposureAnswers, exposureFactors]);
+
+  function nextProgress(nextAnswers = answers, nextExposureAnswers = exposureAnswers): PublicAssessmentProgress {
+    const totalQuestions = domains.reduce((sum, domain) => sum + domain.questions.length, 0);
+    const answeredQuestions = domains.reduce((sum, domain) => sum + domain.questions.filter((question) => isAnswered(nextAnswers[question.id])).length, 0);
+    const totalExposureFactors = exposureFactors.length;
+    const answeredExposureFactors = exposureFactors.filter((factor) => Boolean(nextExposureAnswers[factor.id]?.selectedValue)).length;
+    const totalItems = totalQuestions + totalExposureFactors;
+    const answeredItems = answeredQuestions + answeredExposureFactors;
+    return {
+      totalQuestions,
+      answeredQuestions,
+      totalExposureFactors,
+      answeredExposureFactors,
+      overallPct: totalItems > 0 ? Math.round((answeredItems / totalItems) * 100) : 0
+    };
+  }
 
   function scheduleAutosave(nextAnswers = answers, nextExposureAnswers = exposureAnswers) {
     if (isLocked) return;
+    setProgress(nextProgress(nextAnswers, nextExposureAnswers));
     setSaveState('saving');
     setMessages([]);
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
@@ -160,7 +252,7 @@ export function AssessmentEngine({
       return false;
     }
 
-    setProgress(body.progress);
+    setProgress(nextProgress(nextAnswers, nextExposureAnswers));
     setSaveState('saved');
     return true;
   }
@@ -210,7 +302,7 @@ export function AssessmentEngine({
     scheduleAutosave(next, exposureAnswers);
   }
 
-  function setExposureResponse(factor: ExposureFactor, selectedValue: string) {
+  function setExposureResponse(factor: PublicExposureFactor, selectedValue: string) {
     if (isLocked) return;
     const option = factor.options.find((item) => item.value === selectedValue);
     const next = {
@@ -250,11 +342,11 @@ export function AssessmentEngine({
     if (!response.ok || !body.ok) {
       setSubmitState('idle');
       setMessages(body.errors ?? ['Assessment could not be submitted.']);
-      if (body.progress) setProgress(body.progress);
+      setProgress(nextProgress());
       return;
     }
 
-    setProgress(body.progress);
+    setProgress(nextProgress());
     setSnapshot(body.snapshot ?? null);
     setSnapshotUrl(body.snapshotUrl ?? null);
     setSubmitState('submitted');
@@ -293,7 +385,7 @@ export function AssessmentEngine({
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-mk-line">
                 <div className="h-full rounded-full bg-mk-charcoal" style={{ width: `${progress.overallPct}%` }} />
               </div>
-              <p className="mt-2 text-xs text-mk-muted">{progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure factors captured</p>
+              <p className="mt-2 text-xs text-mk-muted">{progress.answeredExposureFactors}/{progress.totalExposureFactors} exposure areas captured</p>
             </div>
 
             <div className="grid gap-2">
@@ -311,9 +403,8 @@ export function AssessmentEngine({
             </div>
 
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
-              <p><strong className="text-mk-ink">Save status:</strong> {saveState}</p>
-              <p><strong className="text-mk-ink">Assessment:</strong> {assessmentReference}</p>
-              <p><strong className="text-mk-ink">Status:</strong> {status}</p>
+              <p><strong className="text-mk-ink">Draft status:</strong> {saveStatusLabel(saveState)}</p>
+              <p><strong className="text-mk-ink">Reference:</strong> {assessmentReference}</p>
             </div>
           </CardContent>
         </Card>
@@ -324,7 +415,7 @@ export function AssessmentEngine({
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <CardTitle>{organisationName}</CardTitle>
+                <CardTitle>{publicLabel(organisationName)}</CardTitle>
                 <p className="mt-1 text-sm text-mk-muted">Respondent: {respondentName}</p>
               </div>
               <Badge>Self-assessment</Badge>
@@ -352,7 +443,7 @@ export function AssessmentEngine({
             ) : null}
 
             <div className="flex flex-col gap-3 border-t border-mk-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-mk-muted">Draft answers are autosaved against the assessment reference and secure resume token. Submitting locks the assessment and generates the free readiness snapshot.</p>
+              <p className="text-xs text-mk-muted">Your answers are saved securely as you move through the assessment. Submitting locks the assessment and generates the free readiness snapshot.</p>
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={saveState === 'saving' || isLocked}>
                   {saveState === 'saving' ? 'Saving…' : 'Save now'}
@@ -369,17 +460,17 @@ export function AssessmentEngine({
   );
 }
 
-function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposureFactors: ExposureFactor[]; exposureAnswers: Record<string, DraftExposureAnswer>; onChange: (factor: ExposureFactor, selectedValue: string) => void }) {
+function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposureFactors: PublicExposureFactor[]; exposureAnswers: Record<string, DraftExposureAnswer>; onChange: (factor: PublicExposureFactor, selectedValue: string) => void }) {
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold text-mk-ink">Exposure profile</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures inherent fraud opportunity so readiness is interpreted against the organisation’s actual operating exposure.</p>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">This captures where fraud opportunity may exist so readiness can be interpreted against the organisation’s real operating environment.</p>
       </div>
       <div className="grid gap-4">
         {exposureFactors.map((factor) => (
           <label key={factor.id} className="rounded-xl border border-mk-line bg-mk-cream/30 p-4">
-            <span className="block text-sm font-semibold text-mk-ink">{factor.factorCode} · {factor.name}</span>
+            <span className="block text-sm font-semibold text-mk-ink">{publicLabel(factor.name)}</span>
             <select
               value={exposureAnswers[factor.id]?.selectedValue ?? ''}
               onChange={(event) => onChange(factor, event.target.value)}
@@ -387,7 +478,7 @@ function ExposureStep({ exposureFactors, exposureAnswers, onChange }: { exposure
             >
               <option value="">Select exposure level</option>
               {factor.options.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <option key={option.value} value={option.value}>{publicLabel(option.label)}</option>
               ))}
             </select>
           </label>
@@ -406,8 +497,8 @@ function DomainStep({
   onSetNAReason,
   exposureSelectionMap
 }: {
-  domain: MethodologyDomain;
-  responseScale: ResponseScaleOption[];
+  domain: PublicDomain;
+  responseScale: PublicResponseScaleOption[];
   answers: Record<string, DraftAnswer>;
   onSetResponse: (questionId: string, responseValue: number) => void;
   onSetNA: (questionId: string, checked: boolean) => void;
@@ -417,8 +508,8 @@ function DomainStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-mk-ink">{domain.domainCode} · {domain.name}</h2>
-        <p className="mt-2 text-sm leading-6 text-mk-muted">Answer each item using the approved 0-5 capability scale. N/A is only available where the organisation profile makes it genuinely inapplicable.</p>
+        <h2 className="text-xl font-semibold text-mk-ink">{publicLabel(domain.name)}</h2>
+        <p className="mt-2 text-sm leading-6 text-mk-muted">Select the option that best reflects current practice. Use Not Applicable only where the area genuinely does not apply to the organisation.</p>
       </div>
 
       {domain.questions.map((question) => {
@@ -428,16 +519,9 @@ function DomainStep({
 
         return (
           <div key={question.id} className="rounded-2xl border border-mk-line bg-mk-paper p-5">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">{question.questionCode}</p>
-                <h3 className="mt-2 text-base font-semibold leading-7 text-mk-ink">{question.prompt}</h3>
-                {question.helpText ? <p className="mt-2 text-sm leading-6 text-mk-muted">{question.helpText}</p> : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {question.isCritical ? <Badge>Critical</Badge> : null}
-                {question.isHardGate ? <Badge>Hard gate</Badge> : null}
-              </div>
+            <div>
+              <h3 className="text-base font-semibold leading-7 text-mk-ink">{publicLabel(question.prompt)}</h3>
+              {question.helpText ? <p className="mt-2 text-sm leading-6 text-mk-muted">{publicLabel(question.helpText)}</p> : null}
             </div>
 
             <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -450,8 +534,8 @@ function DomainStep({
                     checked={answer.responseValue === option.responseValue && !answer.isNotApplicable}
                     onChange={() => onSetResponse(question.id, option.responseValue)}
                   />
-                  <span className="font-semibold text-mk-ink">{option.responseValue} · {option.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-mk-muted">{option.operationalMeaning}</span>
+                  <span className="font-semibold text-mk-ink">{option.responseValue} · {publicLabel(option.label)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-mk-muted">{option.operationalMeaning ? publicLabel(option.operationalMeaning) : ''}</span>
                 </label>
               ))}
             </div>
@@ -467,16 +551,15 @@ function DomainStep({
                     onChange={(event) => onSetNA(question.id, event.target.checked)}
                   />
                   <span>
-                    Mark as Not Applicable. This is profile-controlled and requires a reason before submission.
-                    {question.isHardGate ? ' Hard-gate N/A is only available where the exposure profile makes the control genuinely inapplicable.' : ''}
+                    Mark as Not Applicable only where this area genuinely does not apply to your organisation. A short reason is required before submission.
                   </span>
                 </label>
-                <p className="mt-2 text-xs leading-5 text-mk-muted">N/A rule: {nAEligibility.reason}</p>
+                <p className="mt-2 text-xs leading-5 text-mk-muted">Applicability note: {nAEligibility.reason}</p>
                 {answer.isNotApplicable ? (
                   <textarea
                     value={answer.nAReason}
                     onChange={(event) => onSetNAReason(question.id, event.target.value)}
-                    placeholder="Explain why this question is genuinely not applicable to the organisation. Minimum 5 characters required before submission."
+                    placeholder="Briefly explain why this question is not applicable to the organisation."
                     className="mt-3 min-h-24 w-full rounded-xl border border-mk-line bg-mk-paper px-4 py-3 text-sm text-mk-ink outline-none focus:border-mk-charcoal"
                   />
                 ) : null}
@@ -489,8 +572,14 @@ function DomainStep({
   );
 }
 
-function exposureProgressPct(exposureFactors: ExposureFactor[], exposureAnswers: Record<string, DraftExposureAnswer>) {
+function exposureProgressPct(exposureFactors: PublicExposureFactor[], exposureAnswers: Record<string, DraftExposureAnswer>) {
   if (!exposureFactors.length) return 0;
   const answered = exposureFactors.filter((factor) => Boolean(exposureAnswers[factor.id]?.selectedValue)).length;
   return Math.round((answered / exposureFactors.length) * 100);
+}
+
+function domainProgressPct(domain: PublicDomain, answers: Record<string, DraftAnswer>) {
+  if (!domain.questions.length) return 0;
+  const answered = domain.questions.filter((question) => isAnswered(answers[question.id])).length;
+  return Math.round((answered / domain.questions.length) * 100);
 }
