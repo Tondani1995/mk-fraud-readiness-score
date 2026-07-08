@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
+const SCORE_BASE_PATH = '/score';
+
+function scorePath(path: string) {
+  return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export function AdminLoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +20,7 @@ export function AdminLoginForm() {
     setError(null);
     setIsSubmitting(true);
 
-    const response = await fetch('/api/admin/login', {
+    const response = await fetch(scorePath('/api/admin/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -28,7 +34,7 @@ export function AdminLoginForm() {
       return;
     }
 
-    window.location.href = '/admin';
+    window.location.href = scorePath('/admin');
   }
 
   return (
