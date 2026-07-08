@@ -47,6 +47,9 @@ jobs:
       - name: Run Phase 8 admin console tests
         run: npm run phase8:test-admin
 
+      - name: Run methodology copy polish tests
+        run: npm run methodology:copy-test
+
       - name: Run TypeScript check
         run: npm run typecheck
 
