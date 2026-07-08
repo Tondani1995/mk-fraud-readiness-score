@@ -1,0 +1,63 @@
+[
+  {
+    "id": "weak",
+    "label": "Weak readiness",
+    "defaultResponse": 1,
+    "overrides": {},
+    "exposureScore": 100,
+    "expected": {
+      "overallScore": 20,
+      "calculatedMaturity": "Reactive",
+      "finalMaturity": "Reactive",
+      "exposureBand": "Severe",
+      "criticalGapCount": 19,
+      "majorGapCount": 17
+    }
+  },
+  {
+    "id": "moderate",
+    "label": "Moderate readiness",
+    "defaultResponse": 3,
+    "overrides": {},
+    "exposureScore": 75,
+    "expected": {
+      "overallScore": 60,
+      "calculatedMaturity": "Structured",
+      "finalMaturity": "Structured",
+      "exposureBand": "High",
+      "criticalGapCount": 0,
+      "majorGapCount": 0
+    }
+  },
+  {
+    "id": "strong-with-critical-gap",
+    "label": "Strong readiness with critical gap",
+    "defaultResponse": 4,
+    "overrides": {
+      "D1-Q01": 5,
+      "D1-Q02": 5,
+      "D1-Q03": 5,
+      "D1-Q04": 5,
+      "D2-Q01": 5,
+      "D2-Q02": 5,
+      "D3-Q02": 5,
+      "D4-Q02": 5,
+      "D4-Q06": 5,
+      "D5-Q01": 1,
+      "D5-Q05": 2
+    },
+    "exposureScore": 75,
+    "expected": {
+      "overallScore": 82,
+      "calculatedMaturity": "Strategic",
+      "finalMaturity": "Developing",
+      "exposureBand": "High",
+      "criticalGapCount": 2,
+      "majorGapCount": 1,
+      "capRules": [
+        "any_hard_gate_critical_control_lte_1",
+        "any_hard_gate_critical_control_eq_2"
+      ]
+    }
+  }
+]
