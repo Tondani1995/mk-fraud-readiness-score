@@ -15,11 +15,13 @@ export type CustomerOrderConfirmation = {
   eftInstructions: {
     active: boolean;
     bankName?: string;
-    accountName?: string;
+    accountHolder?: string;
     accountNumber?: string;
     branchCode?: string;
-    accountType?: string;
-    instructions?: string;
+    accountType?: string | null;
+    currency?: string;
+    paymentReferenceInstruction?: string;
+    customerInstruction?: string;
     contactEmail?: string;
     message?: string;
   };
@@ -53,6 +55,28 @@ function makeOrderReference() {
 
 export async function getActiveEftInstructions() {
   const db = service();
+  const { data: activeSetting } = await db
+    .from('eft_settings')
+    .select('bank_name,account_holder,account_number,branch_code,account_type,currency,payment_reference_instruction,customer_instruction,contact_email,is_active,updated_at')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (activeSetting) {
+    return {
+      active: true,
+      bankName: activeSetting.bank_name,
+      accountHolder: activeSetting.account_holder,
+      accountNumber: activeSetting.account_number,
+      branchCode: activeSetting.branch_code,
+      accountType: activeSetting.account_type,
+      currency: activeSetting.currency,
+      paymentReferenceInstruction: activeSetting.payment_reference_instruction,
+      customerInstruction: activeSetting.customer_instruction,
+      contactEmail: activeSetting.contact_email,
+      message: activeSetting.customer_instruction
+    };
+  }
+
   const { data } = await db
     .from('app_settings')
     .select('value_json')
@@ -63,11 +87,13 @@ export async function getActiveEftInstructions() {
   return {
     active: value.active === true,
     bankName: value.bank_name ?? value.bankName,
-    accountName: value.account_name ?? value.accountName,
+    accountHolder: value.account_holder ?? value.accountHolder,
     accountNumber: value.account_number ?? value.accountNumber,
     branchCode: value.branch_code ?? value.branchCode,
-    accountType: value.account_type ?? value.accountType,
-    instructions: value.instructions,
+    accountType: value.account_type ?? value.accountType ?? null,
+    currency: value.currency ?? 'ZAR',
+    paymentReferenceInstruction: value.payment_reference_instruction ?? value.paymentReferenceInstruction ?? 'Use your order reference as the payment reference.',
+    customerInstruction: value.customer_instruction ?? value.customerInstruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.',
     contactEmail: value.contact_email ?? value.contactEmail ?? 'hello@mkfraud.co.za',
     message: value.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'
   };
@@ -109,11 +135,13 @@ function toCustomerOrder(order: any): CustomerOrderConfirmation {
     eftInstructions: {
       active: snapshot.active === true,
       bankName: snapshot.bankName ?? snapshot.bank_name,
-      accountName: snapshot.accountName ?? snapshot.account_name,
+      accountHolder: snapshot.accountHolder ?? snapshot.account_holder,
       accountNumber: snapshot.accountNumber ?? snapshot.account_number,
       branchCode: snapshot.branchCode ?? snapshot.branch_code,
-      accountType: snapshot.accountType ?? snapshot.account_type,
-      instructions: snapshot.instructions,
+      accountType: snapshot.accountType ?? snapshot.account_type ?? null,
+      currency: snapshot.currency ?? 'ZAR',
+      paymentReferenceInstruction: snapshot.paymentReferenceInstruction ?? snapshot.payment_reference_instruction ?? 'Use your order reference as the payment reference.',
+      customerInstruction: snapshot.customerInstruction ?? snapshot.customer_instruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.',
       contactEmail: snapshot.contactEmail ?? snapshot.contact_email ?? 'hello@mkfraud.co.za',
       message: snapshot.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'
     }
