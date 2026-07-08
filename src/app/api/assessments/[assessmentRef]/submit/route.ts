@@ -9,18 +9,18 @@ import { getOptionalServerEnv } from '@/lib/env/server';
 function publicScoreBaseUrlFor(request: Request) {
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-  if (forwardedHost && forwardedHost.includes('mkfraud.co.za')) {
-    return `${forwardedProto}://${forwardedHost}/score`;
-  }
+  const requestOrigin = new URL(request.url).origin;
+  const defaultScoreBase = forwardedHost && forwardedHost.includes('mkfraud.co.za')
+    ? `${forwardedProto}://${forwardedHost}/score`
+    : `${requestOrigin}/score`;
 
-  const url = new URL(request.url);
-  const fallback = `${url.origin}/score`;
-  const configured = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', fallback);
-  return configured.endsWith('/score') ? configured : `${configured.replace(/\/$/, '')}/score`;
+  const configured = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', defaultScoreBase).replace(/\/$/, '');
+  return configured.endsWith('/score') ? configured : `${configured}/score`;
 }
 
 function buildSnapshotUrl(request: Request, assessmentReference: string, rawToken: string, embed?: string) {
-  const snapshotUrl = new URL(`/snapshot/${encodeURIComponent(assessmentReference)}`, publicScoreBaseUrlFor(request));
+  const scoreBase = publicScoreBaseUrlFor(request).replace(/\/$/, '');
+  const snapshotUrl = new URL(`${scoreBase}/snapshot/${encodeURIComponent(assessmentReference)}`);
   snapshotUrl.searchParams.set('token', rawToken);
   if (embed === '1') snapshotUrl.searchParams.set('embed', '1');
   return snapshotUrl.toString();
@@ -53,10 +53,11 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the free snapshot could not be loaded from the persisted score run.'], assessmentReference: submitted.assessmentReference, scoreRunId: scored.scoreRunId, progress: submitted.progress }, { status: 500 });
   }
 
+  const requestHeaders = await headers();
   const snapshotToken = await createSnapshotTokenForAssessment({
     assessmentId: submitted.assessmentId,
     assessmentReference: submitted.assessmentReference,
-    ipAddress: headers().get('x-forwarded-for')
+    ipAddress: requestHeaders.get('x-forwarded-for')
   });
   const snapshotUrl = buildSnapshotUrl(request, submitted.assessmentReference, snapshotToken.rawToken, body?.embed);
 

@@ -45,7 +45,7 @@ export default async function SnapshotShellPage({ params, searchParams }: Snapsh
 
   if (!token) return <AccessError assessmentRef={params.assessmentRef} reason="missing_token" />;
 
-  const requestHeaders = headers();
+  const requestHeaders = await headers();
   const rateLimit = await checkRateLimits([
     { key: getClientIpHashKey(requestHeaders, 'snapshot_page'), ...RATE_LIMITS.assessmentResumePerIp() },
     { key: `snapshot_page:ref:${params.assessmentRef}`, ...RATE_LIMITS.assessmentResumePerReference() }
