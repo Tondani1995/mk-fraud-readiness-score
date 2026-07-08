@@ -17,23 +17,33 @@ end $$;
 
 create table if not exists public.eft_settings (
   id uuid primary key default gen_random_uuid(),
-  bank_name text not null,
-  account_holder text not null,
-  account_number text not null,
-  branch_code text not null,
+  bank_name text,
+  account_holder text,
+  account_number text,
+  branch_code text,
   account_type text,
-  currency text not null default 'ZAR',
-  payment_reference_instruction text not null,
-  customer_instruction text not null,
-  contact_email public.citext not null,
+  currency text default 'ZAR',
+  payment_reference_instruction text,
+  customer_instruction text,
+  contact_email public.citext,
   is_active boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists eft_settings_one_active_idx
-  on public.eft_settings(is_active)
-  where is_active;
+alter table public.eft_settings
+  add column if not exists bank_name text,
+  add column if not exists account_holder text,
+  add column if not exists account_number text,
+  add column if not exists branch_code text,
+  add column if not exists account_type text,
+  add column if not exists currency text default 'ZAR',
+  add column if not exists payment_reference_instruction text,
+  add column if not exists customer_instruction text,
+  add column if not exists contact_email public.citext,
+  add column if not exists is_active boolean not null default false,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 alter table public.eft_settings enable row level security;
 
