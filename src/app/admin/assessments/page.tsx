@@ -1,43 +1,89 @@
+import Link from 'next/link';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { getAdminAssessmentList } from '@/lib/admin/assessment-review';
 import { requireAdmin } from '@/lib/auth/admin-route';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
-export default async function AdminAssessmentsPage() {
+const statusOptions = ['all', 'draft', 'submitted', 'scored', 'snapshot_available', 'report_requested', 'under_review', 'closed', 'voided'];
+
+function formatDate(value?: string | null) {
+  return value ? new Date(value).toLocaleString('en-ZA') : '—';
+}
+
+export default async function AdminAssessmentsPage({ searchParams }: { searchParams?: { status?: string; page?: string } }) {
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
-  const service = createSupabaseServiceClient();
-  const { data: assessments } = await service
-    .from('assessments')
-    .select('assessment_reference,status,started_at,organisations(legal_name),respondents(full_name,email)')
-    .order('created_at', { ascending: false })
-    .limit(10);
+  const status = statusOptions.includes(searchParams?.status ?? '') ? searchParams?.status : 'all';
+  const page = Number(searchParams?.page ?? '1');
+  const { assessments, count, pageSize, scoreRunsById } = await getAdminAssessmentList({ status, page });
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
   return (
     <AdminShell admin={admin}>
       <div className="space-y-6">
-        <PageHeader eyebrow="Admin authenticated" title="Assessment review" description="Phase 4 shows assessment ownership records only. Answer review begins after Phase 5." />
+        <PageHeader
+          eyebrow="Phase 8 admin console"
+          title="Assessment review"
+          description="Review submitted and in-progress assessments, inspect score status, and open the answer and score trace for MK-controlled report preparation."
+        />
+
         <Card>
-          <CardHeader><CardTitle>Latest assessment references</CardTitle></CardHeader>
-          <CardContent>
-            {assessments?.length ? (
+          <CardHeader>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <CardTitle>Assessment queue</CardTitle>
+              <Badge>{count} records</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="flex flex-wrap items-center gap-3" action="/admin/assessments">
+              <label className="text-sm font-semibold text-mk-ink" htmlFor="status">Status</label>
+              <select id="status" name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-mk-paper px-3 py-2 text-sm text-mk-ink">
+                {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+              <button className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
+            </form>
+
+            {assessments.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="text-xs uppercase tracking-[0.18em] text-mk-muted"><tr><th className="py-2">Reference</th><th>Status</th><th>Organisation</th><th>Respondent</th><th>Started</th></tr></thead>
+                  <thead className="text-xs uppercase tracking-[0.18em] text-mk-muted">
+                    <tr>
+                      <th className="py-2">Reference</th>
+                      <th>Status</th>
+                      <th>Organisation</th>
+                      <th>Respondent</th>
+                      <th>Score</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
                   <tbody className="divide-y divide-mk-line">
-                    {assessments.map((assessment: any) => (
-                      <tr key={assessment.assessment_reference}>
-                        <td className="py-3 font-semibold text-mk-ink">{assessment.assessment_reference}</td>
-                        <td className="py-3 text-mk-muted">{assessment.status}</td>
-                        <td className="py-3 text-mk-muted">{assessment.organisations?.legal_name ?? '—'}</td>
-                        <td className="py-3 text-mk-muted">{assessment.respondents?.full_name ?? assessment.respondents?.email ?? '—'}</td>
-                        <td className="py-3 text-mk-muted">{assessment.started_at ? new Date(assessment.started_at).toLocaleString('en-ZA') : '—'}</td>
-                      </tr>
-                    ))}
+                    {assessments.map((assessment: any) => {
+                      const scoreRun = assessment.current_score_run_id ? scoreRunsById.get(assessment.current_score_run_id) : null;
+                      return (
+                        <tr key={assessment.assessment_reference}>
+                          <td className="py-3 font-semibold text-mk-ink">
+                            <Link className="underline decoration-mk-brass/50 underline-offset-4 hover:text-mk-brassDark" href={`/admin/assessments/${assessment.assessment_reference}`}>
+                              {assessment.assessment_reference}
+                            </Link>
+                          </td>
+                          <td className="py-3 text-mk-muted">{assessment.status}</td>
+                          <td className="py-3 text-mk-muted">{assessment.organisations?.legal_name ?? '—'}</td>
+                          <td className="py-3 text-mk-muted">{assessment.respondents?.full_name ?? assessment.respondents?.email ?? '—'}</td>
+                          <td className="py-3 text-mk-muted">{scoreRun ? `${Number(scoreRun.overall_score).toFixed(0)} · ${scoreRun.final_maturity}` : 'Not scored'}</td>
+                          <td className="py-3 text-mk-muted">{formatDate(assessment.submitted_at)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-            ) : <p className="text-sm leading-6 text-mk-muted">No assessments have been started yet.</p>}
+            ) : <p className="text-sm leading-6 text-mk-muted">No assessments match this filter.</p>}
+
+            <div className="flex items-center justify-between border-t border-mk-line pt-4 text-sm text-mk-muted">
+              <span>Page {Number.isFinite(page) ? page : 1} of {totalPages}</span>
+              <span>Server-side filtered and limited to {pageSize} records per page.</span>
+            </div>
           </CardContent>
         </Card>
       </div>
