@@ -11,27 +11,29 @@ export default async function AdminHomePage() {
 
   return (
     <AdminShell admin={admin}>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <PageHeader
-          eyebrow="Phase 8 admin console"
-          title="MK control centre"
-          description="Inspect assessments, score traces, V1 configuration and audit events. EFT verification and PDF generation remain blocked until their own phases."
+          eyebrow="MK Fraud Readiness Score"
+          title="Internal review control room"
+          description="A private MK Fraud workspace for reviewing submitted assessments, checking score evidence, monitoring report interest and preserving the audit trail."
         />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {[
-            ['Assessments', counts.assessmentCount, 'Draft, submitted and scored assessment records.', '/admin/assessments'],
-            ['Report requests', counts.reportRequestCount, 'Detailed report requests received from free snapshots.', '/admin/assessments?status=report_requested'],
-            ['Products', counts.productCount, 'Package/pricing configuration foundation.', '/admin/config/products'],
-            ['Audit events', counts.auditEventCount, 'Recent sensitive platform and assessment events.', '/admin/audit-log']
-          ].map(([title, value, text, href]) => (
-            <Card key={title as string}>
+            ['Assessment reviews', counts.assessmentCount, 'Client readiness assessments available for MK review and scoring evidence checks.', '/admin/assessments', 'Review assessments'],
+            ['Detailed report interest', counts.reportRequestCount, 'Respondents who requested a detailed report after viewing their free readiness snapshot.', '/admin/assessments?status=report_requested', 'View requests'],
+            ['Commercial products', counts.productCount, 'Configured MK Fraud Readiness packages and pricing foundations for the V1 product.', '/admin/config/products', 'View setup'],
+            ['Audit trail', counts.auditEventCount, 'Sensitive respondent, scoring and admin events recorded for governance traceability.', '/admin/audit-log', 'Open audit trail']
+          ].map(([title, value, text, href, cta]) => (
+            <Card key={title as string} className="bg-white/95 shadow-[0_18px_55px_rgba(0,16,48,0.08)]">
               <CardHeader>
                 <CardTitle>{title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold text-mk-ink">{value}</p>
-                <p className="mt-2 text-sm leading-6 text-mk-muted">{text}</p>
-                <Link href={href as string} className="mt-4 inline-flex text-sm font-semibold text-mk-brassDark underline decoration-mk-brass/50 underline-offset-4">Open</Link>
+                <p className="text-4xl font-semibold tracking-tight text-mk-ink">{value}</p>
+                <p className="mt-3 min-h-24 text-sm leading-6 text-mk-muted">{text}</p>
+                <Link href={href as string} className="mt-5 inline-flex rounded-full border border-mk-line bg-mk-cream px-4 py-2 text-sm font-semibold text-mk-ink transition hover:border-mk-brass hover:bg-white">
+                  {cta}
+                </Link>
               </CardContent>
             </Card>
           ))}
