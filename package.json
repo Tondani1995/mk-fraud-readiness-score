@@ -1,8 +1,8 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "0.7.0-phase7-free-snapshot",
+  "version": "0.8.0-phase8-admin-console",
   "private": true,
-  "description": "Phase 7 Free Snapshot package for MK Fraud Readiness Score V1, hardening durable token-scoped snapshot access, persisted score reconciliation and stale-submit safety.",
+  "description": "Phase 8 Admin Console package for MK Fraud Readiness Score V1, adding controlled MK assessment review, score trace inspection, configuration review and audit visibility.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,7 +16,8 @@
     "phase6:smoke": "node scripts/phase6-smoke-check.mjs",
     "phase6:test-engine": "node scripts/phase6-engine-direct-tests.mjs",
     "phase7:test-snapshot": "node scripts/phase7-free-snapshot-tests.mjs",
-    "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs"
+    "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs",
+    "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
