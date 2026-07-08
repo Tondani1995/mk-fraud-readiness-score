@@ -35,6 +35,10 @@ assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/questions',
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/config/products', 'Admin shell links to product config');
 assertIncludes('src/components/admin/AdminShell.tsx', '/admin/audit-log', 'Admin shell links to audit log');
 
+assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH = '/score'", 'Admin login form knows score base path');
+assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
+assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
+
 assertIncludes('src/app/admin/assessments/page.tsx', "requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin'])", 'Assessment list is admin guarded');
 assertIncludes('src/app/admin/assessments/page.tsx', 'getAdminAssessmentList', 'Assessment list uses server-side data access');
 assertIncludes('src/app/admin/assessments/page.tsx', 'statusOptions', 'Assessment list supports status filtering');
@@ -60,6 +64,7 @@ assertIncludes('src/app/admin/audit-log/page.tsx', 'append-only', 'Audit log is 
 
 const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
+  'src/components/admin/AdminLoginForm.tsx',
   'src/lib/admin/assessment-review.ts',
   'src/lib/admin/dashboard.ts'
 ]).map(read).join('\n');
@@ -67,4 +72,4 @@ const changedSources = requiredAdminRoutes.concat([
 assert(!/PayFast|card payment integration|respondent dashboard|client portal|AI-generated live/i.test(changedSources), 'Phase 8 admin code should not introduce parked V1 features.');
 assert(!/generatePdf|generatePDF|createReport\(|payment_proofs\.insert|orders\.update/i.test(changedSources), 'Phase 8 must not generate reports or verify payment.');
 
-console.log('Phase 8 admin console tests passed. Required admin routes, assessment trace, score trace, config review, audit visibility and no-go boundaries are covered.');
+console.log('Phase 8 admin console tests passed. Required admin routes, assessment trace, score trace, config review, audit visibility, base-path login routing and no-go boundaries are covered.');
