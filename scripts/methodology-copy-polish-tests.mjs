@@ -36,6 +36,12 @@ const expectedQuestionCodes = [
 
 const expectedExposureCodes = ['EXP-01','EXP-02','EXP-03','EXP-04','EXP-05','EXP-06','EXP-07','EXP-08'];
 
+const questionCteSection = sectionBetween(
+  '-- 002 apply copy polish to V1.1 only.',
+  'update public.questions q',
+  'question V1.1 CTE and copy updates'
+);
+
 const questionCopySection = sectionBetween(
   'copy_updates(question_code, prompt, help_text) as',
   'update public.questions q',
@@ -46,6 +52,12 @@ const questionUpdateSection = sectionBetween(
   'update public.questions q',
   'with mv as (\n  select id from public.methodology_versions where version_code = \'MFRS-V1.1\'\n), exposure_updates',
   'question update statement'
+);
+
+const exposureCteSection = sectionBetween(
+  'with mv as (\n  select id from public.methodology_versions where version_code = \'MFRS-V1.1\'\n), exposure_updates',
+  'update public.exposure_factors ef',
+  'exposure V1.1 CTE and copy updates'
 );
 
 const exposureCopySection = sectionBetween(
@@ -74,10 +86,10 @@ assert(source.includes('insert into public.exposure_factors'), 'Migration must c
 assert(source.includes('insert into public.recommendation_rules'), 'Migration must clone recommendation rules.');
 assert(source.includes('insert into public.report_content_blocks'), 'Migration must clone report content blocks.');
 
-assert(questionCopySection.includes("where version_code = 'MFRS-V1.1'"), 'Question copy CTE must target MFRS-V1.1.');
-assert(exposureCopySection.includes("where version_code = 'MFRS-V1.1'"), 'Exposure copy CTE must target MFRS-V1.1.');
-assert(!questionCopySection.includes('MFRS-V1.0'), 'Question copy updates must not target MFRS-V1.0.');
-assert(!exposureCopySection.includes('MFRS-V1.0'), 'Exposure copy updates must not target MFRS-V1.0.');
+assert(questionCteSection.includes("where version_code = 'MFRS-V1.1'"), 'Question copy CTE must target MFRS-V1.1.');
+assert(exposureCteSection.includes("where version_code = 'MFRS-V1.1'"), 'Exposure copy CTE must target MFRS-V1.1.');
+assert(!questionCteSection.includes("where version_code = 'MFRS-V1.0'"), 'Question copy updates must not target MFRS-V1.0.');
+assert(!exposureCteSection.includes("where version_code = 'MFRS-V1.0'"), 'Exposure copy updates must not target MFRS-V1.0.');
 
 assert(questionCodes.length === 68, `Expected 68 unique question copy updates, found ${questionCodes.length}.`);
 for (const code of expectedQuestionCodes) {
