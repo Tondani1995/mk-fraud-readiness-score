@@ -15,6 +15,88 @@ exception
   when duplicate_object then null;
 end $$;
 
+create table if not exists public.eft_settings (
+  id uuid primary key default gen_random_uuid(),
+  bank_name text not null,
+  account_holder text not null,
+  account_number text not null,
+  branch_code text not null,
+  account_type text,
+  currency text not null default 'ZAR',
+  payment_reference_instruction text not null,
+  customer_instruction text not null,
+  contact_email public.citext not null,
+  is_active boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists eft_settings_one_active_idx
+  on public.eft_settings(is_active)
+  where is_active;
+
+alter table public.eft_settings enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'eft_settings' and policyname = 'eft_settings_admin_select'
+  ) then
+    create policy eft_settings_admin_select on public.eft_settings
+      for select using (public.current_admin_role() in ('platform_admin', 'finance_admin', 'read_only_admin'));
+  end if;
+
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'eft_settings' and policyname = 'eft_settings_platform_finance_manage'
+  ) then
+    create policy eft_settings_platform_finance_manage on public.eft_settings
+      for all using (public.current_admin_role() in ('platform_admin', 'finance_admin'))
+      with check (public.current_admin_role() in ('platform_admin', 'finance_admin'));
+  end if;
+end $$;
+
+-- If a complete active EFT profile already exists, preserve it. Otherwise activate the
+-- verified MK manual EFT profile for new order snapshots.
+do $$
+begin
+  if not exists (
+    select 1
+    from public.eft_settings
+    where is_active
+      and nullif(bank_name, '') is not null
+      and nullif(account_holder, '') is not null
+      and nullif(account_number, '') is not null
+      and nullif(branch_code, '') is not null
+      and currency = 'ZAR'
+  ) then
+    update public.eft_settings set is_active = false, updated_at = now() where is_active;
+
+    insert into public.eft_settings (
+      bank_name,
+      account_holder,
+      account_number,
+      branch_code,
+      account_type,
+      currency,
+      payment_reference_instruction,
+      customer_instruction,
+      contact_email,
+      is_active
+    ) values (
+      'FNB',
+      'MK Fraud Insights',
+      '63106109332',
+      '250655',
+      null,
+      'ZAR',
+      'Use your order reference as the payment reference.',
+      'MK Fraud Insights confirms EFT payments manually before any detailed report is released.',
+      'hello@mkfraud.co.za',
+      true
+    );
+  end if;
+end $$;
+
 alter table public.orders
   add column if not exists report_request_id uuid references public.data_requests(id) on delete set null,
   add column if not exists product_name text,
@@ -95,19 +177,11 @@ begin
   end if;
 end $$;
 
--- Keep EFT settings inactive unless MK has explicitly configured real banking details.
 insert into public.app_settings (setting_key, value_json)
 values (
   'phase9_manual_eft_order_flow',
   '{"status":"active","scope":"manual_eft_orders_only","payment_gateway":false,"proof_upload":false,"pdf_generation":false,"report_unlock":false}'::jsonb
 )
 on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
-
-insert into public.app_settings (setting_key, value_json)
-values (
-  'eft_instructions',
-  '{"active":false,"message":"MK Fraud Insights will send EFT instructions directly after reviewing the report request."}'::jsonb
-)
-on conflict (setting_key) do nothing;
 
 commit;
