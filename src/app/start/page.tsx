@@ -30,7 +30,7 @@ export default function StartAssessmentPage({ searchParams }: { searchParams?: {
         <PageHeader
           eyebrow="Fraud Strategy • Threat Intelligence • Readiness Score"
           title="Assess your organisation's fraud readiness"
-          description="A structured self-assessment for organisations that need clearer visibility of fraud exposure, control gaps and priority actions."
+          description="A structured self-assessment for organisations that need clearer visibility of fraud exposure, control maturity and the areas that deserve deeper MK review."
         />
       </div>
 
@@ -38,7 +38,7 @@ export default function StartAssessmentPage({ searchParams }: { searchParams?: {
         <Card className="bg-mk-charcoal text-white">
           <CardHeader className="border-white/10">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">Assessment journey</p>
-            <CardTitle className="mt-2 text-white">Start with the self health check.</CardTitle>
+            <CardTitle className="mt-2 text-white">Start with the fraud readiness health check.</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-6 text-white/80">
             <p>Capture the respondent and organisation details once.</p>
