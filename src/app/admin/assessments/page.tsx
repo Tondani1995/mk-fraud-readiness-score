@@ -23,12 +23,12 @@ export default async function AdminAssessmentsPage({ searchParams }: { searchPar
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Phase 8 admin console"
-          title="Assessment review"
-          description="Review submitted and in-progress assessments, inspect score status, and open the answer and score trace for MK-controlled report preparation."
+          eyebrow="Assessment review"
+          title="Client readiness queue"
+          description="Review assessment submissions, confirm the scoring evidence and open the full response trace before MK prepares any detailed client-facing report."
         />
 
-        <Card>
+        <Card className="bg-white/95 shadow-[0_18px_55px_rgba(0,16,48,0.08)]">
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <CardTitle>Assessment queue</CardTitle>
@@ -41,7 +41,7 @@ export default async function AdminAssessmentsPage({ searchParams }: { searchPar
               <select id="status" name="status" defaultValue={status} className="rounded-xl border border-mk-line bg-mk-paper px-3 py-2 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
-              <button className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
+              <button className="rounded-xl bg-mk-ink px-4 py-2 text-sm font-semibold text-white" type="submit">Filter queue</button>
             </form>
 
             {assessments.length ? (
@@ -53,7 +53,7 @@ export default async function AdminAssessmentsPage({ searchParams }: { searchPar
                       <th>Status</th>
                       <th>Organisation</th>
                       <th>Respondent</th>
-                      <th>Score</th>
+                      <th>Readiness score</th>
                       <th>Submitted</th>
                     </tr>
                   </thead>
@@ -82,7 +82,7 @@ export default async function AdminAssessmentsPage({ searchParams }: { searchPar
 
             <div className="flex items-center justify-between border-t border-mk-line pt-4 text-sm text-mk-muted">
               <span>Page {Number.isFinite(page) ? page : 1} of {totalPages}</span>
-              <span>Server-side filtered and limited to {pageSize} records per page.</span>
+              <span>Showing up to {pageSize} records per page.</span>
             </div>
           </CardContent>
         </Card>
