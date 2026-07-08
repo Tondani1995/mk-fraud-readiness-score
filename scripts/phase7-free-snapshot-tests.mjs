@@ -273,7 +273,7 @@ assert(engine.includes('snapshotUrl'), 'Client must surface durable snapshot URL
 
 const snapshotComponent = read('src/components/assessment/FreeSnapshot.tsx');
 assert(snapshotComponent.includes('Coverage and applicability'), 'Snapshot must display coverage and applicability effects.');
-assert(snapshotComponent.includes('Critical-gap alert'), 'Snapshot must display critical-gap alerts.');
+assert(snapshotComponent.includes('Priority-gap alert'), 'Snapshot must display priority-gap alerts using customer-facing language.');
 assert(!/AI-generated|30\/60\/90|peer benchmark/i.test(snapshotComponent), 'Free snapshot must not expose AI, 30/60/90 or benchmark content.');
 
 console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, token route, stale submit safety and snapshot content boundary are covered.');
