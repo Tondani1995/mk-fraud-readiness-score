@@ -252,10 +252,19 @@ const submitRoute = read('src/app/api/assessments/[assessmentRef]/submit/route.t
 assert(submitRoute.includes('createSnapshotTokenForAssessment'), 'Submit route must create snapshot token.');
 assert(submitRoute.includes('snapshotUrl'), 'Submit route must return snapshot URL.');
 assert(submitRoute.includes('loadFreeSnapshotByReference'), 'Submit response must load persisted snapshot.');
+assert(submitRoute.includes('/score'), 'Submit route must generate public snapshot links under the /score base path.');
+assert(submitRoute.includes('publicScoreBaseUrlFor'), 'Submit route must use a public score base URL helper.');
 
 const assessmentSave = read('src/lib/respondent/assessment-save.ts');
 assert(assessmentSave.includes(".select('id')"), 'Submit lock update must prove a row was locked.');
 assert(assessmentSave.includes('assessment_already_submitted_or_locked'), 'Repeated submit must return a stale-state conflict.');
+
+const tokens = read('src/lib/respondent/tokens.ts');
+assert(tokens.includes("getNumberEnv('ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES', 100)"), 'Snapshot token max-use fallback must be 100.');
+
+const envExample = read('.env.example');
+assert(envExample.includes('ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES=100'), 'Snapshot token max-use env var must be documented.');
+assert(envExample.includes('fallback is 100'), 'Snapshot token max-use fallback must be documented.');
 
 const engine = read('src/components/assessment/AssessmentEngine.tsx');
 assert(engine.includes('const saved = await saveDraft'), 'Client submit must stop if final save fails.');
@@ -267,4 +276,4 @@ assert(snapshotComponent.includes('Coverage and applicability'), 'Snapshot must 
 assert(snapshotComponent.includes('Critical-gap alert'), 'Snapshot must display critical-gap alerts.');
 assert(!/AI-generated|30\/60\/90|peer benchmark/i.test(snapshotComponent), 'Free snapshot must not expose AI, 30/60/90 or benchmark content.');
 
-console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, token route, stale submit safety and snapshot content boundary are covered.');
+console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, token route, stale submit safety and snapshot content boundary are covered.');
