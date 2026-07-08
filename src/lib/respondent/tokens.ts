@@ -10,6 +10,7 @@ export type AssessmentTokenRecord = {
 };
 
 export type ResumeTokenRecord = AssessmentTokenRecord;
+export type SnapshotTokenRecord = AssessmentTokenRecord;
 
 function createAssessmentTokenPayload(ttlEnvName: string, fallbackHours: number, now = new Date()): AssessmentTokenRecord {
   const ttlHours = getNumberEnv(ttlEnvName, fallbackHours);
@@ -23,8 +24,57 @@ export function createResumeTokenPayload(now = new Date()): ResumeTokenRecord {
   return createAssessmentTokenPayload('ASSESSMENT_RESUME_TOKEN_TTL_HOURS', 168, now);
 }
 
-export function createSnapshotTokenPayload(now = new Date()): AssessmentTokenRecord {
+export function createSnapshotTokenPayload(now = new Date()): SnapshotTokenRecord {
   return createAssessmentTokenPayload('ASSESSMENT_SNAPSHOT_TOKEN_TTL_HOURS', 168, now);
+}
+
+export async function createSnapshotTokenForAssessment(input: {
+  assessmentId: string;
+  assessmentReference: string;
+  revokeExisting?: boolean;
+  ipAddress?: string | null;
+}) {
+  const service = createSupabaseServiceClient();
+  const token = createSnapshotTokenPayload();
+  const now = new Date().toISOString();
+
+  if (input.revokeExisting !== false) {
+    const { error: revokeError } = await service
+      .from('assessment_tokens')
+      .update({ revoked_at: now })
+      .eq('assessment_id', input.assessmentId)
+      .eq('token_type', 'snapshot')
+      .is('revoked_at', null);
+
+    if (revokeError) throw revokeError;
+  }
+
+  const { error: insertError } = await service.from('assessment_tokens').insert({
+    assessment_id: input.assessmentId,
+    token_hash: token.tokenHash,
+    token_type: 'snapshot',
+    expires_at: token.expiresAt,
+    max_uses: getNumberEnv('ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES', 100),
+    use_count: 0,
+    last_used_ip_hash: hashIpAddress(input.ipAddress)
+  });
+
+  if (insertError) throw insertError;
+
+  await service.from('audit_logs').insert({
+    actor_type: 'system',
+    assessment_id: input.assessmentId,
+    entity_table: 'assessment_tokens',
+    entity_id: input.assessmentId,
+    action: 'snapshot_token_created',
+    after_json: {
+      assessment_reference: input.assessmentReference,
+      expires_at: token.expiresAt,
+      prior_snapshot_tokens_revoked: input.revokeExisting !== false
+    }
+  });
+
+  return token;
 }
 
 export async function validateResumeToken(input: {
