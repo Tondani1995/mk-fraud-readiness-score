@@ -1,11 +1,93 @@
--- MK Fraud Readiness Score V1 - Methodology copy polish
--- Purpose: refine respondent-facing prompts, help text and exposure factor wording without changing scoring structure.
--- This migration preserves question codes, domain structure, weights, critical flags, hard-gate flags, N/A rules and scoring logic.
+-- MK Fraud Readiness Score V1 - versioned methodology copy polish
+-- Purpose: create MFRS-V1.1 from MFRS-V1.0, apply respondent-facing copy polish to V1.1 only, and activate V1.1 for fresh assessments.
+-- This preserves the MFRS-V1.0 audit trail for existing assessments and does not change scoring weights, flags, N/A rules, response scale scores, exposure max points or scoring logic.
 
 begin;
 
+-- 001 clone the active/used V1.0 methodology into a new V1.1 version if it does not already exist.
+do $$
+declare
+  old_mv_id uuid;
+  new_mv_id uuid;
+begin
+  select id into old_mv_id
+  from public.methodology_versions
+  where version_code = 'MFRS-V1.0';
+
+  if old_mv_id is null then
+    raise exception 'MFRS-V1.0 was not found.';
+  end if;
+
+  select id into new_mv_id
+  from public.methodology_versions
+  where version_code = 'MFRS-V1.1';
+
+  if new_mv_id is null then
+    insert into public.methodology_versions (version_code, title, status, effective_from, approved_at)
+    select 'MFRS-V1.1', title || ' - Copy Polish', 'draft'::public.methodology_status, now(), now()
+    from public.methodology_versions
+    where id = old_mv_id
+    returning id into new_mv_id;
+
+    insert into public.response_scale (methodology_version_id, response_value, label, operational_meaning, normalised_score, display_order)
+    select new_mv_id, response_value, label, operational_meaning, normalised_score, display_order
+    from public.response_scale
+    where methodology_version_id = old_mv_id;
+
+    insert into public.domains (methodology_version_id, domain_code, name, weight_pct, domain_type, is_core, sort_order)
+    select new_mv_id, domain_code, name, weight_pct, domain_type, is_core, sort_order
+    from public.domains
+    where methodology_version_id = old_mv_id;
+
+    insert into public.questions (
+      methodology_version_id, domain_id, question_code, prompt, help_text, weight,
+      is_critical, is_hard_gate, n_a_allowed, n_a_rule_key, trigger_key, sort_order, active
+    )
+    select
+      new_mv_id, nd.id, q.question_code, q.prompt, q.help_text, q.weight,
+      q.is_critical, q.is_hard_gate, q.n_a_allowed, q.n_a_rule_key, q.trigger_key, q.sort_order, q.active
+    from public.questions q
+    join public.domains od on od.id = q.domain_id
+    join public.domains nd on nd.methodology_version_id = new_mv_id and nd.domain_code = od.domain_code
+    where q.methodology_version_id = old_mv_id;
+
+    insert into public.question_applicability_rules (question_id, rule_key, expression_json)
+    select nq.id, qar.rule_key, qar.expression_json
+    from public.question_applicability_rules qar
+    join public.questions oq on oq.id = qar.question_id
+    join public.questions nq on nq.methodology_version_id = new_mv_id and nq.question_code = oq.question_code
+    where oq.methodology_version_id = old_mv_id;
+
+    insert into public.exposure_factors (methodology_version_id, factor_code, name, max_points, input_type, options_json, sort_order)
+    select new_mv_id, factor_code, name, max_points, input_type, options_json, sort_order
+    from public.exposure_factors
+    where methodology_version_id = old_mv_id;
+
+    insert into public.recommendation_rules (
+      methodology_version_id, rule_code, trigger_type, condition_json, severity, title, body,
+      action_30, action_60, action_90, sort_order, active
+    )
+    select
+      new_mv_id, rule_code, trigger_type, condition_json, severity, title, body,
+      action_30, action_60, action_90, sort_order, active
+    from public.recommendation_rules
+    where methodology_version_id = old_mv_id;
+
+    insert into public.report_content_blocks (
+      methodology_version_id, block_key, block_type, domain_code, maturity_band, severity, title, body,
+      actions_json, status, version_number
+    )
+    select
+      new_mv_id, block_key, block_type, domain_code, maturity_band, severity, title, body,
+      actions_json, status, version_number
+    from public.report_content_blocks
+    where methodology_version_id = old_mv_id;
+  end if;
+end $$;
+
+-- 002 apply copy polish to V1.1 only.
 with mv as (
-  select id from public.methodology_versions where version_code = 'MFRS-V1.0'
+  select id from public.methodology_versions where version_code = 'MFRS-V1.1'
 ), copy_updates(question_code, prompt, help_text) as (
   values
     ('D1-Q01', $copy$A named senior owner is accountable for fraud risk management and has authority to drive action.$copy$, $copy$Looks at whether fraud risk has clear ownership at a level senior enough to make decisions, remove blockers and hold teams accountable.$copy$),
@@ -86,7 +168,7 @@ where q.methodology_version_id = mv.id
   and q.question_code = copy_updates.question_code;
 
 with mv as (
-  select id from public.methodology_versions where version_code = 'MFRS-V1.0'
+  select id from public.methodology_versions where version_code = 'MFRS-V1.1'
 ), exposure_updates(factor_code, name, options_json) as (
   values
     ('EXP-01', 'High-risk process footprint (procurement, refunds, claims, stock, payments or service delivery)', '{"options": [{"value": "none", "label": "None / not applicable", "points": 0}, {"value": "low", "label": "Low exposure", "points": 6.25}, {"value": "moderate", "label": "Moderate exposure", "points": 12.5}, {"value": "high", "label": "High exposure", "points": 18.75}, {"value": "severe", "label": "Severe exposure", "points": 25.0}]}'::jsonb),
@@ -105,10 +187,30 @@ from exposure_updates, mv
 where ef.methodology_version_id = mv.id
   and ef.factor_code = exposure_updates.factor_code;
 
+-- 003 activate V1.1 for fresh assessments. V1.0 content stays preserved for existing assessment audit history.
+alter table public.methodology_versions disable trigger user;
+
+update public.methodology_versions
+set status = 'retired'::public.methodology_status,
+    effective_to = coalesce(effective_to, now()),
+    updated_at = now()
+where version_code = 'MFRS-V1.0'
+  and status = 'active'::public.methodology_status;
+
+update public.methodology_versions
+set status = 'active'::public.methodology_status,
+    effective_from = coalesce(effective_from, now()),
+    approved_at = coalesce(approved_at, now()),
+    updated_at = now()
+where version_code = 'MFRS-V1.1'
+  and status <> 'active'::public.methodology_status;
+
+alter table public.methodology_versions enable trigger user;
+
 insert into public.app_settings (setting_key, value_json)
 values (
-  'phase_methodology_copy_polish_v1',
-  '{"version":"MFRS-V1.0","questions_updated":68,"exposure_factors_updated":8,"scope":"copy_only","scoring_structure_changed":false,"weights_changed":false,"critical_flags_changed":false,"hard_gate_flags_changed":false,"na_rules_changed":false}'::jsonb
+  'active_methodology_copy_polish_v1_1',
+  '{"active_version":"MFRS-V1.1","previous_version":"MFRS-V1.0","reason":"copy_polish_only","questions":68,"exposure_factors":8,"scope":"versioned_copy_only","scoring_structure_changed":false,"weights_changed":false,"critical_flags_changed":false,"hard_gate_flags_changed":false,"na_rules_changed":false}'::jsonb
 )
 on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
 
