@@ -15,8 +15,9 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
   if (!accessCode) {
     validation = { ok: false, reason: 'missing_token' };
   } else {
+    const requestHeaders = await headers();
     const rateLimit = await checkRateLimits([
-      { key: getClientIpHashKey(headers(), 'assessment_resume_page'), ...RATE_LIMITS.assessmentResumePerIp() },
+      { key: getClientIpHashKey(requestHeaders, 'assessment_resume_page'), ...RATE_LIMITS.assessmentResumePerIp() },
       { key: `assessment_resume_page:ref:${params.assessmentRef}`, ...RATE_LIMITS.assessmentResumePerReference() }
     ]);
 
