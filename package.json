@@ -3,6 +3,9 @@
   "version": "1.0.0-phase10-premium-report-engine",
   "private": true,
   "description": "Phase 10 premium PDF report engine for MK Fraud Readiness Score V1, adding controlled admin-only report generation after manual EFT confirmation.",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
