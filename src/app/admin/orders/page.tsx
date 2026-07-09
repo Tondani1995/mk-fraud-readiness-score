@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { requireAdmin } from '@/lib/auth/admin-route';
 import { formatOrderAmount, getAdminOrderList } from '@/lib/orders/manual-eft-orders';
 
 export const dynamic = 'force-dynamic';
@@ -16,12 +17,13 @@ function cleanStatus(status: string) {
 }
 
 export default async function AdminOrdersPage({ searchParams }: { searchParams?: { status?: string; search?: string } }) {
+  const admin = await requireAdmin(['platform_admin', 'finance_admin', 'read_only_admin']);
   const status = searchParams?.status ?? 'all';
   const search = searchParams?.search ?? '';
   const orders = await getAdminOrderList({ status, search });
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Commercial workflow"
@@ -66,6 +68,6 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams?:
           </CardContent>
         </Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
