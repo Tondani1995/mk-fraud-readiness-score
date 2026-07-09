@@ -46,6 +46,15 @@ function formatScore(score: number) {
   return Math.round(score).toString();
 }
 
+function snapshotTokenFromUrl(snapshotUrl?: string | null) {
+  try {
+    if (snapshotUrl) return new URL(snapshotUrl, window.location.origin).searchParams.get('token');
+    return new URL(window.location.href).searchParams.get('token');
+  } catch {
+    return null;
+  }
+}
+
 export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnapshot; snapshotUrl?: string | null }) {
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -67,7 +76,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
     const response = await fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'free_snapshot' })
+      body: JSON.stringify({ source: 'free_snapshot', snapshotToken: snapshotTokenFromUrl(snapshotUrl) })
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) {
