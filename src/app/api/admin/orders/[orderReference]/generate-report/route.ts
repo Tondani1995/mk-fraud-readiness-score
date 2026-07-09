@@ -30,6 +30,19 @@ function jsonOrRedirect(request: Request, orderReference: string, payload: Recor
   return NextResponse.json(payload, { status });
 }
 
+function errorMessage(err: unknown) {
+  if (err instanceof Error) return err.message;
+  return String(err ?? 'Unknown error');
+}
+
+async function safeLogReportAttempt(supabase: any, reportId: string | null, eventType: string, actorUserId: string, note: string) {
+  try {
+    await logReportAttempt(supabase, reportId, eventType, actorUserId, note);
+  } catch (err) {
+    console.error('Failed to write report audit event:', err);
+  }
+}
+
 export async function POST(request: Request, context: HandlerContext) {
   const admin = await getAdminSession();
   const { orderReference } = context.params;
@@ -45,16 +58,18 @@ export async function POST(request: Request, context: HandlerContext) {
     assembled = await assembleReportData(orderReference);
   } catch (err) {
     if (err instanceof ReportAssemblyError) {
-      await logReportAttempt(supabase, null, 'generation_rejected', admin.id, `${err.reason}: ${err.message}`);
+      await safeLogReportAttempt(supabase, null, 'generation_rejected', admin.id, `${err.reason}: ${err.message}`);
       return jsonOrRedirect(request, orderReference, { ok: false, reason: err.reason, message: err.message }, err.reason === 'order_not_found' ? 404 : 409);
     }
+    const message = errorMessage(err);
     console.error('Unexpected error assembling report data:', err);
-    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'internal_error' }, 500);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `Unexpected assembly error: ${message}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'assembly_failed', message }, 500);
   }
 
   const reportType = assembled.productCode ? REPORT_TYPE_BY_PRODUCT_CODE[assembled.productCode] : null;
   if (!reportType) {
-    await logReportAttempt(supabase, null, 'generation_rejected', admin.id, `Unrecognised or missing product code: ${assembled.productCode ?? 'not captured'}`);
+    await safeLogReportAttempt(supabase, null, 'generation_rejected', admin.id, `Unrecognised or missing product code: ${assembled.productCode ?? 'not captured'}`);
     return jsonOrRedirect(request, orderReference, { ok: false, reason: 'unrecognised_product' }, 409);
   }
 
@@ -68,7 +83,7 @@ export async function POST(request: Request, context: HandlerContext) {
     .maybeSingle();
 
   if (templateError || !template) {
-    await logReportAttempt(supabase, null, 'generation_failed', admin.id, `No active report template is configured for ${reportType}.`);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `No active report template is configured for ${reportType}.`);
     return jsonOrRedirect(request, orderReference, { ok: false, reason: 'template_missing' }, 409);
   }
 
@@ -88,11 +103,20 @@ export async function POST(request: Request, context: HandlerContext) {
     status: block.status
   }));
 
-  const content = selectContent(assembled, contentBlocks);
-  const roadmap = selectRoadmap(assembled);
-  const html = renderReportHtml(assembled, content, roadmap);
-  const pdfBuffer = await renderHtmlToPdfBuffer(html);
-  const checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+  let pdfBuffer: Buffer;
+  let checksum: string;
+  try {
+    const content = selectContent(assembled, contentBlocks);
+    const roadmap = selectRoadmap(assembled);
+    const html = renderReportHtml(assembled, content, roadmap);
+    pdfBuffer = await renderHtmlToPdfBuffer(html);
+    checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+  } catch (err) {
+    const message = errorMessage(err);
+    console.error('Report rendering failed:', err);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `PDF render failed: ${message}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'pdf_render_failed', message }, 500);
+  }
 
   const { data: existingReport } = await supabase
     .from('reports')
@@ -110,13 +134,20 @@ export async function POST(request: Request, context: HandlerContext) {
   const storageBucket = process.env.SUPABASE_BUCKET_REPORTS ?? 'generated-reports';
   const storagePath = `${assembled.assessmentReference}/${reportReference}.pdf`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(storageBucket)
-    .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false });
+  try {
+    const { error: uploadError } = await supabase.storage
+      .from(storageBucket)
+      .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false });
 
-  if (uploadError) {
-    await logReportAttempt(supabase, null, 'generation_failed', admin.id, `Storage upload failed: ${uploadError.message}`);
-    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'storage_upload_failed', message: uploadError.message }, 500);
+    if (uploadError) {
+      await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `Storage upload failed: ${uploadError.message}`);
+      return jsonOrRedirect(request, orderReference, { ok: false, reason: 'storage_upload_failed', message: uploadError.message }, 500);
+    }
+  } catch (err) {
+    const message = errorMessage(err);
+    console.error('Storage upload threw:', err);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `Storage upload threw: ${message}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'storage_upload_failed', message }, 500);
   }
 
   const { data: newReport, error: insertError } = await supabase
@@ -142,12 +173,12 @@ export async function POST(request: Request, context: HandlerContext) {
 
   if (insertError || !newReport) {
     await supabase.storage.from(storageBucket).remove([storagePath]);
-    await logReportAttempt(supabase, null, 'generation_failed', admin.id, `reports insert failed: ${insertError?.message}`);
-    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'reports_insert_failed' }, 500);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `reports insert failed: ${insertError?.message}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'reports_insert_failed', message: insertError?.message }, 500);
   }
 
   if (existingReport) await supabase.from('reports').update({ status: 'superseded' }).eq('id', existingReport.id);
-  await logReportAttempt(supabase, newReport.id, existingReport ? 'regenerated' : 'generated', admin.id, `Version ${nextVersion} created.`);
+  await safeLogReportAttempt(supabase, newReport.id, existingReport ? 'regenerated' : 'generated', admin.id, `Version ${nextVersion} created.`);
 
   return jsonOrRedirect(request, orderReference, {
     ok: true,

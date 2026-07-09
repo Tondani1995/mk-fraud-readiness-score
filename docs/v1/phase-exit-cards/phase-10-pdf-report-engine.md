@@ -52,6 +52,12 @@ The GitHub branch now includes fixes for those issues:
 - Migration seeds active template rows for both supported report types.
 - Regression tests cover the route and migration expectations.
 
+## Runtime UAT issue observed on preview
+
+Manual browser UAT against the exact-head Vercel preview for `4bd2b19383cda71104321b46dc267cb21519079e` reached the order detail page and showed the controlled report-generation panel for order `MKORD-2026-KDV20GFY`.
+
+Clicking **Generate report version** returned a browser-level HTTP 500 before any `reports` row or `audit_logs` report entry was created. A follow-up patch now wraps PDF rendering, storage upload and report insertion with controlled error handling so the next preview can return an auditable failure reason instead of a raw 500.
+
 ## Local ZIP test results reported by Codex
 
 The following passed from the uploaded PR #13 ZIP after the first patch:
