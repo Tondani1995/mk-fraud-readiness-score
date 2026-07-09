@@ -7,6 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const statusOptions = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
 function cleanStatus(status: string | null | undefined) {

@@ -55,6 +55,8 @@ assertIncludes(orderLib, "from('audit_logs')", 'Order service writes audit logs'
 assertIncludes(orderLib, 'payment_gateway: false', 'Order service explicitly blocks payment gateway');
 assertIncludes(orderLib, 'pdf_generation: false', 'Order service explicitly blocks PDF generation');
 assertIncludes(orderLib, 'report_unlock: false', 'Order service explicitly blocks report unlock');
+assertIncludes(orderLib, 'unstable_noStore', 'Order admin reads opt out of cached server rendering');
+assertIncludes(orderLib, 'noStore();', 'Order admin list/detail reads are no-store');
 
 const reportRoute = 'src/app/api/assessments/[assessmentRef]/report-request/route.ts';
 assertIncludes(reportRoute, 'createOrGetOrderForReportRequest', 'Report request route creates or returns manual EFT order');
@@ -75,9 +77,13 @@ assert(exists('src/app/admin/orders/page.tsx'), 'Admin order list route must exi
 assert(exists('src/app/admin/orders/[orderReference]/page.tsx'), 'Admin order detail route must exist.');
 assert(exists('src/app/admin/orders/[orderReference]/status/route.ts'), 'Admin order status route must exist.');
 assertIncludes('src/app/admin/orders/page.tsx', 'Order queue', 'Admin order list shows queue');
+assertIncludes('src/app/admin/orders/page.tsx', "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
+assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
 assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', 'Payment received does not generate or release the detailed report in V1', 'Admin detail preserves Phase 10 boundary');
 assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'canManageFinance', 'Status update is finance/admin guarded');
 assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'updateAdminOrderStatus', 'Status route uses order service');
+assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'revalidatePath', 'Status update revalidates admin order pages');
+assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'Date.now()', 'Successful status redirect has a unique refresh marker');
 
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Normal admin navigation must not expose Phase 9 label');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Normal admin navigation must not expose Phase 10 label');

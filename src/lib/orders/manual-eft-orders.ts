@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminSession } from '@/lib/auth/admin-route';
 
@@ -236,6 +237,7 @@ export async function createOrGetOrderForReportRequest(input: {
 }
 
 export async function getAdminOrderList(filters: { status?: string; search?: string } = {}) {
+  noStore();
   const db = service();
   let query: any = db
     .from('orders')
@@ -258,6 +260,7 @@ export async function getAdminOrderList(filters: { status?: string; search?: str
 }
 
 export async function getAdminOrderDetail(orderReference: string) {
+  noStore();
   const db = service();
   const { data: order, error } = await db
     .from('orders')
