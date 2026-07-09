@@ -9,6 +9,7 @@ function assertIncludes(file, needle, label) { assert(read(file).includes(needle
 function assertNotIncludes(file, needle, label) { assert(!read(file).includes(needle), `${label}: expected ${file} not to include ${needle}`); }
 
 const required = [
+  'package.json',
   'src/lib/reports/types.ts',
   'src/lib/reports/assemble-report-data.ts',
   'src/lib/reports/select-content-blocks.ts',
@@ -25,6 +26,10 @@ const required = [
   'next.config.mjs'
 ];
 for (const file of required) assert(exists(file), `${file} must exist`);
+
+const packageJson = 'package.json';
+assertIncludes(packageJson, '"engines"', 'Package pins Node runtime for Vercel Chromium compatibility');
+assertIncludes(packageJson, '"node": "20.x"', 'Package pins Vercel runtime to Node 20 for Chromium shared libraries');
 
 const nextConfig = 'next.config.mjs';
 assertIncludes(nextConfig, 'outputFileTracingIncludes', 'Next config includes packaged Chromium assets in the serverless trace');
