@@ -141,7 +141,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
               The full report is a paid option and should only be released after MK has reviewed the profile and confirmed the report process.
             </p>
             <p className="mt-2">
-              This free snapshot does not include benchmarks, full report narrative, remediation plans or generated advisory content.
+              This free snapshot does not include the full report narrative, remediation plans or generated advisory content.
             </p>
           </div>
 

@@ -58,6 +58,12 @@ assertIncludes(orderLib, 'report_unlock: false', 'Order service explicitly block
 assertIncludes(orderLib, 'unstable_noStore', 'Order admin reads opt out of cached server rendering');
 assertIncludes(orderLib, 'noStore();', 'Order admin list/detail reads are no-store');
 
+const startRoute = 'src/app/api/assessments/start/route.ts';
+assertIncludes(startRoute, 'x-forwarded-host', 'Start route uses forwarded request host for preview-safe links');
+assertIncludes(startRoute, "request.headers.get('host')", 'Start route falls back to request host');
+assertNotIncludes(startRoute, 'NEXT_PUBLIC_APP_URL', 'Start route must not let canonical production env override preview links');
+assertNotIncludes(startRoute, 'getOptionalServerEnv', 'Start route no longer uses canonical app URL override for respondent links');
+
 const reportRoute = 'src/app/api/assessments/[assessmentRef]/report-request/route.ts';
 assertIncludes(reportRoute, 'createOrGetOrderForReportRequest', 'Report request route creates or returns manual EFT order');
 assertIncludes(reportRoute, 'detailed_report_request_reconfirmed', 'Report request route handles repeated clicks safely');
@@ -72,6 +78,8 @@ assertIncludes(snapshot, 'MK Fraud Insights confirms EFT payments manually', 'Sn
 assertNotIncludes(snapshot, 'PayFast', 'Snapshot must not mention PayFast');
 assertNotIncludes(snapshot, 'Upload proof', 'Snapshot must not expose proof upload');
 assertNotIncludes(snapshot, 'Download report', 'Snapshot must not expose report download');
+assertNotIncludes(snapshot, 'benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
+assertNotIncludes(snapshot, 'Benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 
 assert(exists('src/app/admin/orders/page.tsx'), 'Admin order list route must exist.');
 assert(exists('src/app/admin/orders/[orderReference]/page.tsx'), 'Admin order detail route must exist.');
@@ -92,6 +100,7 @@ assertNotIncludes('src/app/admin/orders/page.tsx', 'Phase', 'Order list should n
 const changedSources = [
   migration,
   orderLib,
+  startRoute,
   reportRoute,
   snapshot,
   'src/app/admin/orders/page.tsx',
