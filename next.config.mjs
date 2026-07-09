@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   basePath: '/score',
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   experimental: {
     typedRoutes: false,
     outputFileTracingIncludes: {
@@ -10,6 +11,16 @@ const nextConfig = {
         './node_modules/@sparticuz/chromium/bin/**/*'
       ]
     }
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals ?? [];
+      config.externals.push({
+        '@sparticuz/chromium': 'commonjs @sparticuz/chromium',
+        'puppeteer-core': 'commonjs puppeteer-core'
+      });
+    }
+    return config;
   }
 };
 
