@@ -1,4 +1,13 @@
-import type { AssembledReportData, ContentBlock, SelectedContent } from './types';
+import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
+import {
+  FALLBACK_CAPPED_DIAGNOSIS,
+  FALLBACK_EXECUTIVE_DIAGNOSIS,
+  FALLBACK_FALSE_COMFORT_CAPPED,
+  FALLBACK_FALSE_COMFORT_CLEAN,
+  FALLBACK_FALSE_COMFORT_GENERAL,
+  FALLBACK_LEADERSHIP_ATTENTION,
+  getDomainFallback
+} from './fallback-content';
 
 function applyTokens(text: string, data: AssembledReportData) {
   return text
@@ -19,10 +28,11 @@ function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => 
 
 export function selectContent(data: AssembledReportData, blocks: ContentBlock[]): SelectedContent {
   const capped = data.scoreRun.capApplied;
+  const hasPriorityGaps = data.criticalMajorGaps.length > 0;
+
   const executive = firstBlock(blocks, (block) =>
     block.blockType === 'executive_summary' && (capped ? block.severity === 'capped' : block.maturityBand === data.scoreRun.finalMaturity)
   );
-  const falseComfort = firstBlock(blocks, (block) => block.blockType === 'false_comfort' && (capped ? block.severity === 'capped' : block.severity !== 'capped'));
   const leadership = firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
@@ -31,37 +41,31 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
     );
+    const fallback = getDomainFallback(domain.domainName, band);
     domainNarratives[domain.domainName] = {
-      title: block?.title ?? domainTitle(domain.domainName, domain.rawScore),
-      body: applyTokens(block?.body ?? fallbackDomainNarrative(domain.domainName, domain.rawScore), data),
+      title: applyTokens(block?.title ?? fallback.headline, data),
+      body: applyTokens(block?.body ?? fallback.body, data),
       usedFallback: !block
     };
   }
 
   const gapCommentary: SelectedContent['gapCommentary'] = {};
-  data.criticalMajorGaps.forEach((gap, index) => {
+  data.criticalMajorGaps.forEach((gap) => {
+    const severity = gap.isCriticalGap ? 'critical' : 'major';
     const block = firstBlock(blocks, (item) =>
-      item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && (gap.isCriticalGap ? item.severity === 'critical' : item.severity === 'major')
+      item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && item.severity === severity
     );
-    gapCommentary[`gap-${index}`] = {
-      body: applyTokens(block?.body ?? `${gap.prompt} is a priority control gap because it weakens the organisation's ability to prevent, detect or respond to fraud in ${gap.domainName}.`, data),
+    gapCommentary[gapKey(gap.domainCode, gap.questionCode)] = {
+      body: applyTokens(block?.body ?? fallbackGapCommentary(gap.domainName, severity, gap.isHardGate), data),
       usedFallback: !block
     };
   });
 
   return {
-    executiveSummary: {
-      title: executive?.title ?? (capped ? 'A specific control gap is holding back the overall readiness story' : `The organisation is currently assessed as ${data.scoreRun.finalMaturity}`),
-      body: applyTokens(executive?.body ?? fallbackExecutive(data), data),
-      usedFallback: !executive
-    },
-    falseComfort: {
-      title: falseComfort?.title ?? (capped ? 'Where this organisation may look stronger than it really is' : 'Where a strong average can still hide a real gap'),
-      body: applyTokens(falseComfort?.body ?? fallbackFalseComfort(data), data),
-      usedFallback: !falseComfort
-    },
+    executiveSummary: selectExecutiveSummary(data, executive),
+    falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps),
     leadershipAttention: {
-      body: applyTokens(leadership?.body ?? fallbackLeadership(data), data),
+      body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity], data),
       usedFallback: !leadership
     },
     domainNarratives,
@@ -69,7 +73,7 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   };
 }
 
-export function bandForScore(score: number | null) {
+export function bandForScore(score: number | null): MaturityBand {
   if (score === null) return 'Reactive';
   if (score < 40) return 'Reactive';
   if (score < 65) return 'Developing';
@@ -77,30 +81,55 @@ export function bandForScore(score: number | null) {
   return 'Strategic';
 }
 
-function fallbackExecutive(data: AssembledReportData) {
-  if (data.scoreRun.capApplied) {
-    return `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore)} out of 100, which would ordinarily place the organisation in the ${data.scoreRun.calculatedMaturity} readiness band. A non-negotiable control gap caps the final reading to ${data.scoreRun.finalMaturity}, because some weaknesses change what the rest of the score is allowed to mean.`;
+export function gapKey(domainCode: string, questionCode: string) {
+  return `${domainCode}::${questionCode}`;
+}
+
+function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined): SelectedContent['executiveSummary'] {
+  if (block) {
+    return {
+      title: applyTokens(block.title ?? '', data),
+      body: applyTokens(block.body ?? '', data),
+      usedFallback: false
+    };
   }
-  return `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore)} out of 100 and is assessed as ${data.scoreRun.finalMaturity}. The score should be read together with the exposure profile, domain heatmap and priority gaps, not as a standalone rating.`;
+
+  const fallback = data.scoreRun.capApplied ? FALLBACK_CAPPED_DIAGNOSIS : FALLBACK_EXECUTIVE_DIAGNOSIS[data.scoreRun.finalMaturity];
+  const body = data.scoreRun.capApplied
+    ? fallback.body
+    : `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore)} out of 100. ${fallback.body}`;
+
+  return {
+    title: applyTokens(fallback.headline, data),
+    body: applyTokens(body, data),
+    usedFallback: true
+  };
 }
 
-function fallbackFalseComfort(data: AssembledReportData) {
-  if (data.scoreRun.capApplied) return 'The main false-comfort risk is that a strong-looking average may hide one control that matters enough to change the whole readiness conclusion.';
-  return 'The main false-comfort risk is assuming that an overall score means every underlying control is equally mature. The domain view below is designed to surface the unevenness that averages can hide.';
+function selectFalseComfort(
+  data: AssembledReportData,
+  blocks: ContentBlock[],
+  capped: boolean,
+  hasPriorityGaps: boolean
+): SelectedContent['falseComfort'] {
+  const severity = capped ? 'capped' : hasPriorityGaps ? 'not_capped' : 'clean';
+  const block = firstBlock(blocks, (item) => item.blockType === 'false_comfort' && item.severity === severity);
+  const fallback = capped
+    ? FALLBACK_FALSE_COMFORT_CAPPED
+    : hasPriorityGaps
+      ? FALLBACK_FALSE_COMFORT_GENERAL
+      : FALLBACK_FALSE_COMFORT_CLEAN;
+
+  return {
+    title: applyTokens(block?.title ?? fallback.headline, data),
+    body: applyTokens(block?.body ?? fallback.body, data),
+    usedFallback: !block
+  };
 }
 
-function fallbackLeadership(data: AssembledReportData) {
-  return `Leadership should focus on the few controls that most affect fraud resilience at the current ${data.scoreRun.finalMaturity} stage, rather than treating every gap as equally urgent.`;
-}
-
-function fallbackDomainNarrative(domainName: string, score: number | null) {
-  const scoreText = score === null ? 'not scored' : `${Math.round(score)} out of 100`;
-  return `${domainName} scored ${scoreText}. The practical question is whether this area is supported by repeatable controls that will still work when the organisation is busy, under pressure or facing a new fraud method.`;
-}
-
-function domainTitle(domainName: string, score: number | null) {
-  if (score === null || score < 40) return `${domainName} needs foundational attention`;
-  if (score < 65) return `${domainName} exists in parts, but not yet as a system`;
-  if (score < 80) return `${domainName} is credible, but consistency is the next test`;
-  return `${domainName} is mature, but should still be stress-tested`;
+function fallbackGapCommentary(domainName: string, severity: string, isHardGate: boolean) {
+  const impact = isHardGate
+    ? 'This is one of the controls that can limit the overall maturity interpretation because strength elsewhere cannot fully compensate for it.'
+    : 'This is a specific, addressable control weakness rather than a general judgement on the whole domain.';
+  return `A control in ${domainName} scored low enough to be flagged as a ${severity} gap. ${impact}`;
 }
