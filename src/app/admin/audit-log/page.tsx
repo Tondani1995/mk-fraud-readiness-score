@@ -17,7 +17,7 @@ export default async function AdminAuditLogPage() {
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Phase 8 audit controls"
+          eyebrow="Audit and governance"
           title="Audit log"
           description="Review recent admin, respondent-token and system events. This is a visibility surface; audit records remain append-only."
         />
