@@ -1,28 +1,33 @@
-import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
-import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 
-export default async function ResultPage({ params }: { params: { assessmentRef: string } }) {
-  const snapshot = await loadFreeSnapshotByReference(params.assessmentRef);
+type ResultPageProps = {
+  params: { assessmentRef: string };
+  searchParams?: { token?: string; embed?: string };
+};
 
-  if (!snapshot) {
-    return (
-      <SectionShell className="py-12">
-        <PageHeader eyebrow="Free readiness snapshot" title="Snapshot not available yet" description="The free snapshot becomes available once the assessment has been submitted and scored." />
-        <Card>
-          <CardHeader><CardTitle>Assessment reference</CardTitle></CardHeader>
-          <CardContent className="text-sm leading-6 text-mk-muted"><p>{params.assessmentRef}</p></CardContent>
-        </Card>
-      </SectionShell>
-    );
+export default async function ResultPage({ params, searchParams }: ResultPageProps) {
+  if (searchParams?.token) {
+    const snapshotPath = `/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(searchParams.token)}${searchParams.embed === '1' ? '&embed=1' : ''}`;
+    redirect(snapshotPath);
   }
 
   return (
     <SectionShell className="py-12">
-      <PageHeader eyebrow="Free readiness snapshot" title="Fraud readiness snapshot" description="A directional view of readiness, exposure and priority attention areas based on the submitted self-assessment." />
-      <FreeSnapshotCard snapshot={snapshot} />
+      <PageHeader
+        eyebrow="Free readiness snapshot"
+        title="Private snapshot link required"
+        description="The free snapshot can only be opened from the private snapshot link issued after assessment submission."
+      />
+      <Card>
+        <CardHeader><CardTitle>Assessment reference</CardTitle></CardHeader>
+        <CardContent className="text-sm leading-6 text-mk-muted">
+          <p>{params.assessmentRef}</p>
+          <p className="mt-3">Use the private snapshot link created after the assessment was submitted.</p>
+        </CardContent>
+      </Card>
     </SectionShell>
   );
 }

@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { requireAdmin } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -28,9 +29,10 @@ async function getRecentReports() {
 }
 
 export default async function AdminReportsPage() {
+  const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const reports = await getRecentReports();
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'reviewer', 'approver', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader eyebrow="Report control" title="Generated report versions" description="Review generated report versions and access controlled admin downloads. Report creation happens from eligible paid orders only." />
         <Card><CardHeader><CardTitle>Recent reports</CardTitle></CardHeader><CardContent className="space-y-3">
@@ -38,6 +40,6 @@ export default async function AdminReportsPage() {
           {!reports.length ? <p className="text-sm leading-6 text-mk-muted">No generated reports yet. Reports are generated from an eligible order after manual payment confirmation.</p> : null}
         </CardContent></Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }

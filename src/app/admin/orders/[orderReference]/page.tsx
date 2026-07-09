@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { requireAdmin } from '@/lib/auth/admin-route';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
@@ -41,6 +42,7 @@ async function getReportVersions(orderId: string) {
 }
 
 export default async function AdminOrderDetailPage({ params }: { params: { orderReference: string } }) {
+  const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']);
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
 
@@ -52,7 +54,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
   const reportGenerationEligible = order.status === 'payment_received';
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Manual EFT order"
@@ -169,6 +171,6 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
 
         <Button asChild variant="secondary"><Link href="/admin/orders">Back to order queue</Link></Button>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
