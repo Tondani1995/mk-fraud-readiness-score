@@ -15,7 +15,7 @@ export default async function AdminQuestionConfigPage() {
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Phase 8 configuration review"
+          eyebrow="Methodology configuration"
           title="Question and scoring configuration"
           description="Review the active V1 question bank, domain weights, critical-control flags and exposure inputs without changing the scoring methodology casually."
         />
