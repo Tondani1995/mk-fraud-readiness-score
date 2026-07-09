@@ -70,6 +70,10 @@ assertIncludes(reportRequestPage, 'before any detailed report is generated or re
 const renderPdf = 'src/lib/reports/render-pdf.ts';
 assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
 assertIncludes(renderPdf, "import('@sparticuz/chromium')", 'PDF renderer uses packaged Chromium for Vercel');
+assertIncludes(renderPdf, 'bootstrapChromiumRuntimeEnvironment', 'PDF renderer bootstraps Lambda-style runtime env before Chromium import');
+assertIncludes(renderPdf, 'AWS_LAMBDA_JS_RUNTIME', 'PDF renderer sets Lambda runtime env before Chromium import');
+assertIncludes(renderPdf, 'AWS_EXECUTION_ENV', 'PDF renderer sets execution env before Chromium import');
+assertIncludes(renderPdf, 'ldLibraryPathSet', 'PDF renderer logs whether Chromium library path was set');
 assertIncludes(renderPdf, 'normalizeChromiumModule', 'PDF renderer handles bundled and external Chromium module shapes');
 assertIncludes(renderPdf, 'resolveChromiumExecutablePath', 'PDF renderer resolves Chromium executable path through a runtime helper');
 assertIncludes(renderPdf, 'node_modules', 'PDF renderer checks node_modules for packaged Chromium assets');
