@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { createOrGetOrderForReportRequest } from '@/lib/orders/manual-eft-orders';
+import { validateSnapshotToken } from '@/lib/respondent/tokens';
 
 export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
   const service = createSupabaseServiceClient() as any;
@@ -11,17 +12,22 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     body = {};
   }
 
-  const { data: assessment, error: assessmentError } = await service
-    .from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
-    .eq('assessment_reference', params.assessmentRef)
-    .maybeSingle();
-
-  if (assessmentError) return NextResponse.json({ ok: false, errors: [assessmentError.message] }, { status: 500 });
-  if (!assessment) return NextResponse.json({ ok: false, errors: ['Assessment not found.'] }, { status: 404 });
-  if (!assessment.current_score_run_id || !['scored', 'snapshot_available', 'report_requested'].includes(assessment.status)) {
-    return NextResponse.json({ ok: false, errors: ['A detailed report can only be requested after the free snapshot is available.'] }, { status: 400 });
+  if (!body?.snapshotToken) {
+    return NextResponse.json({ ok: false, errors: ['Private snapshot link required to request a detailed report.'] }, { status: 403 });
   }
+
+  const snapshotValidation = await validateSnapshotToken({
+    assessmentReference: params.assessmentRef,
+    rawToken: body.snapshotToken,
+    ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+    consume: false
+  });
+
+  if (!snapshotValidation.ok) {
+    return NextResponse.json({ ok: false, errors: ['Private snapshot link required to request a detailed report.'] }, { status: 403 });
+  }
+
+  const assessment = snapshotValidation.assessment;
 
   const [{ data: organisation }, { data: respondent }] = await Promise.all([
     service.from('organisations').select('legal_name,trading_name').eq('id', assessment.organisation_id).maybeSingle(),
