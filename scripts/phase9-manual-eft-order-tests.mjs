@@ -66,11 +66,15 @@ assertNotIncludes(startRoute, 'getOptionalServerEnv', 'Start route no longer use
 
 const reportRoute = 'src/app/api/assessments/[assessmentRef]/report-request/route.ts';
 assertIncludes(reportRoute, 'createOrGetOrderForReportRequest', 'Report request route creates or returns manual EFT order');
+assertIncludes(reportRoute, 'validateSnapshotToken', 'Report request route validates the private snapshot token before creating an order');
+assertIncludes(reportRoute, 'snapshotToken', 'Report request route requires a snapshot token in the request body');
+assertIncludes(reportRoute, 'Private snapshot link required to request a detailed report.', 'Report request route rejects tokenless requests with customer-safe copy');
 assertIncludes(reportRoute, 'detailed_report_request_reconfirmed', 'Report request route handles repeated clicks safely');
 assertIncludes(reportRoute, 'Your detailed report request has been received', 'Report request response is customer safe');
 assertIncludes(reportRoute, 'Please use your order reference as the payment reference', 'Report request returns EFT next-step language');
 
 const snapshot = 'src/components/assessment/FreeSnapshot.tsx';
+assertIncludes(snapshot, 'snapshotTokenFromUrl', 'Snapshot extracts the private token for report request calls');
 assertIncludes(snapshot, 'OrderConfirmationPanel', 'Snapshot shows order confirmation panel');
 assertIncludes(snapshot, 'Manual EFT details', 'Snapshot can show configured EFT details');
 assertIncludes(snapshot, 'Payment reference', 'Snapshot shows payment reference');
