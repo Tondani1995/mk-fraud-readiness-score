@@ -13,9 +13,9 @@ export default async function AdminContentConfigPage() {
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Phase 8 content foundation"
+          eyebrow="Report content library"
           title="Report content blocks"
-          description="Review controlled narrative blocks that may later feed the Phase 10 PDF report engine. This page does not generate reports."
+          description="Review the controlled narrative blocks used to build the detailed PDF report. This page does not generate reports."
         />
 
         <Card>
@@ -45,14 +45,14 @@ export default async function AdminContentConfigPage() {
                   </tbody>
                 </table>
               </div>
-            ) : <p className="text-sm leading-6 text-mk-muted">No report content blocks exist yet. Phase 10 should add approved, versioned PDF content blocks before report generation is enabled.</p>}
+            ) : <p className="text-sm leading-6 text-mk-muted">No report content blocks exist yet. Approved, versioned content blocks must be added before report generation is enabled.</p>}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Phase boundary</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Scope</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-sm leading-6 text-mk-muted">This is a review foundation only. It does not expose AI-generated content, publish client-facing benchmarks or create a PDF report.</p>
+            <p className="text-sm leading-6 text-mk-muted">This page is read-only. It does not expose AI-generated content, publish client-facing benchmarks or generate a PDF report.</p>
           </CardContent>
         </Card>
       </div>
