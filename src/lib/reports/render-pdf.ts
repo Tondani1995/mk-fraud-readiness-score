@@ -12,6 +12,11 @@ type BinDirectoryCheck = {
   exists: boolean;
 };
 
+function bootstrapChromiumRuntimeEnvironment() {
+  process.env.AWS_LAMBDA_JS_RUNTIME ??= `nodejs${process.versions.node.split('.')[0]}.x`;
+  process.env.AWS_EXECUTION_ENV ??= `AWS_Lambda_nodejs${process.versions.node.split('.')[0]}.x`;
+}
+
 function normalizeChromiumModule(chromiumModule: unknown): ChromiumRuntime {
   const candidate = (chromiumModule as { default?: ChromiumRuntime }).default ?? chromiumModule;
   return candidate as ChromiumRuntime;
@@ -55,7 +60,9 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
       cwd,
       chromiumBinDirectories,
       executablePath: null,
-      executableExists: false
+      executableExists: false,
+      lambdaRuntime: process.env.AWS_LAMBDA_JS_RUNTIME ?? null,
+      ldLibraryPathSet: Boolean(process.env.LD_LIBRARY_PATH)
     });
     throw new Error('Packaged Chromium bin directory was not found in the Vercel function trace.');
   }
@@ -66,7 +73,9 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
     cwd,
     chromiumBinDirectories,
     executablePath,
-    executableExists
+    executableExists,
+    lambdaRuntime: process.env.AWS_LAMBDA_JS_RUNTIME ?? null,
+    ldLibraryPathSet: Boolean(process.env.LD_LIBRARY_PATH)
   });
 
   if (!executableExists) {
@@ -77,6 +86,7 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
 }
 
 async function launchBrowser() {
+  bootstrapChromiumRuntimeEnvironment();
   const [{ default: puppeteer }, chromiumModule] = await Promise.all([
     import('puppeteer-core'),
     import('@sparticuz/chromium')
