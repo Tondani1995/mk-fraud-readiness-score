@@ -1,16 +1,18 @@
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getAdminMethodologyConfig } from '@/lib/admin/assessment-review';
+import { requireAdmin } from '@/lib/auth/admin-route';
 
 export default async function AdminQuestionConfigPage() {
+  const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const config = await getAdminMethodologyConfig();
   const criticalCount = config.questions.filter((question: any) => question.is_critical).length;
   const hardGateCount = config.questions.filter((question: any) => question.is_hard_gate).length;
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'reviewer', 'approver', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Phase 8 configuration review"
@@ -80,6 +82,6 @@ export default async function AdminQuestionConfigPage() {
           </CardContent>
         </Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
