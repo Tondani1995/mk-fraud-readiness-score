@@ -57,6 +57,12 @@ assertNotIncludes(reportRequestPage, 'proof upload', 'Public report request page
 assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page should not read like a scaffold placeholder');
 assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
 
+const renderPdf = 'src/lib/reports/render-pdf.ts';
+assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
+assertIncludes(renderPdf, "import('@sparticuz/chromium')", 'PDF renderer uses packaged Chromium for Vercel');
+assertIncludes(renderPdf, 'executablePath: await chromium.default.executablePath()', 'PDF renderer resolves Chromium executable path explicitly');
+assertNotIncludes(renderPdf, "import('puppeteer')", 'PDF renderer must not rely on missing bundled Puppeteer Chrome');
+
 const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
 assertIncludes(generate, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Generate route maps product code to report type');
 assertIncludes(generate, 'mk_validated_assessment', 'Generate route supports MK validated product code');

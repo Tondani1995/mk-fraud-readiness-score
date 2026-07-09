@@ -56,7 +56,9 @@ The GitHub branch now includes fixes for those issues:
 
 Manual browser UAT against the exact-head Vercel preview for `4bd2b19383cda71104321b46dc267cb21519079e` reached the order detail page and showed the controlled report-generation panel for order `MKORD-2026-KDV20GFY`.
 
-Clicking **Generate report version** returned a browser-level HTTP 500 before any `reports` row or `audit_logs` report entry was created. A follow-up patch now wraps PDF rendering, storage upload and report insertion with controlled error handling so the next preview can return an auditable failure reason instead of a raw 500.
+Clicking **Generate report version** returned a browser-level HTTP 500 before any `reports` row or `audit_logs` report entry was created. Runtime logs showed the cause: Puppeteer could not find Chrome in the Vercel serverless runtime.
+
+A follow-up patch replaced the runtime dependency on bundled `puppeteer` Chrome with `puppeteer-core` plus packaged `@sparticuz/chromium`, and preserved controlled error handling around rendering, storage upload and report insertion.
 
 ## Local ZIP test results reported by Codex
 
