@@ -3,7 +3,6 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   basePath: '/score',
-  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   experimental: {
     typedRoutes: false,
     outputFileTracingIncludes: {
