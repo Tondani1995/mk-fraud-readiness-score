@@ -102,8 +102,12 @@ export function renderReportHtml(
 
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
-  const plotX = 8 + (exposurePct / 100) * 84;
-  const plotY = 8 + (1 - readinessPct / 100) * 84;
+  const exposurePlotSizeMm = 72;
+  const exposurePlotInsetMm = 6;
+  const exposurePointSizeMm = 5;
+  const exposurePlotUsableMm = exposurePlotSizeMm - exposurePlotInsetMm * 2;
+  const plotX = exposurePlotInsetMm + (exposurePct / 100) * exposurePlotUsableMm;
+  const plotY = exposurePlotInsetMm + (1 - readinessPct / 100) * exposurePlotUsableMm;
   const quadrantLabel = exposurePct >= 50 && readinessPct < 50
     ? 'High exposure, limited readiness: the highest-priority combination'
     : exposurePct >= 50 && readinessPct >= 50
@@ -117,8 +121,10 @@ export function renderReportHtml(
     const barColor = level > 0.66 ? '#b91c1c' : level > 0.33 ? '#b45309' : '#15803d';
     return `<div class="exposure-row">
       <div class="exposure-row-label">${esc(answer.name)}</div>
-      <div class="exposure-row-track"><div class="exposure-row-fill" style="width:${Math.round(level * 100)}%; background:${barColor};"></div></div>
-      <div class="exposure-row-level">${esc(answer.selectedLabel)}</div>
+      <div class="exposure-row-bottom">
+        <div class="exposure-row-track"><div class="exposure-row-fill" style="width:${Math.round(level * 100)}%; background:${barColor};"></div></div>
+        <div class="exposure-row-level">${esc(answer.selectedLabel)}</div>
+      </div>
     </div>`;
   }).join('');
 
@@ -245,17 +251,24 @@ export function renderReportHtml(
   .heatmap-cell { flex: 1 1 18mm; min-width: 18mm; text-align: center; color: white; padding: 4mm 2mm; font-family: Arial, sans-serif; border-radius: 1.5mm; break-inside: avoid; }
   .heatmap-name { display: block; font-size: 6.5pt; line-height: 1.2; margin-bottom: 2mm; min-height: 8mm; }
   .heatmap-score { display: block; font-size: 12pt; font-weight: bold; }
-  .matrix-wrap { display: flex; gap: 8mm; align-items: flex-start; }
-  .matrix-plot-cell { flex: 0 0 95mm; }
+  .exposure-page { padding: 14mm 15mm 13mm 15mm; }
+  .exposure-page .section-divider { margin-bottom: 4mm; padding: 1.9mm 5mm; font-size: 7.5pt; }
+  .exposure-page h2 { font-size: 14.5pt; line-height: 1.18; margin-bottom: 3mm; }
+  .exposure-page h3 { font-size: 9.5pt; margin: 4mm 0 2.5mm 0 !important; }
+  .matrix-wrap { display: flex; gap: 6mm; align-items: flex-start; margin-bottom: 3mm; }
+  .matrix-plot-cell { flex: 0 0 73mm; }
   .matrix-legend-cell { flex: 1; }
-  .matrix-plot { position: relative; width: 95mm; height: 95mm; border: 1px solid #E6D8BF; background: linear-gradient(to right, rgba(29,54,88,0.04) 50%, transparent 50%), linear-gradient(to bottom, transparent 50%, rgba(29,54,88,0.04) 50%); }
-  .matrix-axis-label { font-family: Arial, sans-serif; font-size: 7pt; color: #746B5C; margin-top: 2mm; }
-  .matrix-point { position: absolute; width: 6mm; height: 6mm; border-radius: 50%; background: #001030; border: 2px solid white; box-shadow: 0 0 0 1px #001030; }
-  .exposure-row { display: flex; align-items: center; gap: 3mm; margin-bottom: 3mm; break-inside: avoid; }
-  .exposure-row-label { flex: 0 0 62mm; font-size: 8.5pt; font-family: Arial, sans-serif; }
-  .exposure-row-track { flex: 1; height: 3.5mm; border-radius: 2mm; background: #E6D8BF; overflow: hidden; }
+  .matrix-legend-cell p { font-size: 8.8pt; line-height: 1.35; margin-bottom: 0; }
+  .matrix-plot { position: relative; width: 72mm; height: 72mm; border: 1px solid #E6D8BF; background: linear-gradient(to right, rgba(29,54,88,0.04) 50%, transparent 50%), linear-gradient(to bottom, transparent 50%, rgba(29,54,88,0.04) 50%); }
+  .matrix-axis-label { font-family: Arial, sans-serif; font-size: 6.5pt; color: #746B5C; margin-top: 1.2mm; line-height: 1.25; }
+  .matrix-point { position: absolute; width: 5mm; height: 5mm; border-radius: 50%; background: #001030; border: 1.5px solid white; box-shadow: 0 0 0 1px #001030; }
+  .exposure-driver-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 4mm; row-gap: 2mm; margin-top: 2mm; }
+  .exposure-row { display: block; border: 1px solid #E6D8BF; border-radius: 1mm; padding: 2mm 2.5mm; margin-bottom: 0; break-inside: avoid; page-break-inside: avoid; }
+  .exposure-row-label { font-size: 7.5pt; line-height: 1.22; font-family: Arial, sans-serif; margin-bottom: 1.5mm; min-height: 7mm; }
+  .exposure-row-bottom { display: flex; align-items: center; gap: 2mm; }
+  .exposure-row-track { flex: 1; height: 2.4mm; border-radius: 2mm; background: #E6D8BF; overflow: hidden; }
   .exposure-row-fill { height: 100%; }
-  .exposure-row-level { flex: 0 0 24mm; text-align: right; font-size: 8pt; font-family: Arial, sans-serif; color: #746B5C; }
+  .exposure-row-level { flex: 0 0 22mm; text-align: right; font-size: 7pt; line-height: 1.15; font-family: Arial, sans-serif; color: #746B5C; }
   .risk-card { border: 1px solid #E6D8BF; border-left: 3px solid #b91c1c; border-radius: 1mm; padding: 4mm 5mm; margin-bottom: 4mm; break-inside: avoid; }
   .risk-rank { font-family: Arial, sans-serif; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1px; color: #b91c1c; font-weight: 700; }
   .risk-domain { font-family: Arial, sans-serif; font-size: 12pt; font-weight: 700; color: #001030; margin: 1mm 0 2mm 0; }
@@ -361,15 +374,15 @@ export function renderReportHtml(
   <h2>Where leadership attention matters most right now</h2>
   ${topRisksHtml}
 </section>
-<section class="page">
+<section class="page exposure-page">
   <div class="section-divider">Exposure Profile</div>
   <h2>${esc(quadrantLabel)}</h2>
   <div class="matrix-wrap">
-    <div class="matrix-plot-cell"><div class="matrix-plot"><div class="matrix-point" style="left:${plotX - 3}mm; top:${plotY - 3}mm;"></div></div><div class="matrix-axis-label">Horizontal: inherent exposure low to high. Vertical: readiness low to high.</div></div>
+    <div class="matrix-plot-cell"><div class="matrix-plot"><div class="matrix-point" style="left:${plotX - exposurePointSizeMm / 2}mm; top:${plotY - exposurePointSizeMm / 2}mm;"></div></div><div class="matrix-axis-label">Horizontal: inherent exposure low to high. Vertical: readiness low to high.</div></div>
     <div class="matrix-legend-cell"><p>Exposure describes how much inherent fraud risk the operating model carries, independent of how good controls are. Readiness describes how well those controls defend against it. The same readiness score means something different for a low-exposure organisation than a high-exposure one.</p></div>
   </div>
-  <h3 style="margin-top:6mm;">What is driving this organisation's exposure</h3>
-  ${exposureFactorRows}
+  <h3>What is driving this organisation's exposure</h3>
+  <div class="exposure-driver-list">${exposureFactorRows}</div>
 </section>
 <section class="page">
   <div class="section-divider">Domain Heatmap</div>
