@@ -1,0 +1,171 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = process.cwd();
+function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
+function exists(rel) { return fs.existsSync(path.join(root, rel)); }
+function assert(condition, label) { if (!condition) throw new Error(label); }
+function assertIncludes(file, needle, label) { assert(read(file).includes(needle), `${label}: expected ${file} to include ${needle}`); }
+function assertNotIncludes(file, needle, label) { assert(!read(file).includes(needle), `${label}: expected ${file} not to include ${needle}`); }
+
+const required = [
+  'package.json',
+  'src/lib/reports/types.ts',
+  'src/lib/reports/assemble-report-data.ts',
+  'src/lib/reports/fallback-content.ts',
+  'src/lib/reports/select-content-blocks.ts',
+  'src/lib/reports/roadmap.ts',
+  'src/lib/reports/render-pdf.ts',
+  'src/lib/reports/templates/report-template.ts',
+  'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
+  'src/app/api/admin/reports/[reportId]/download/route.ts',
+  'src/app/admin/orders/[orderReference]/page.tsx',
+  'src/app/admin/reports/page.tsx',
+  'src/app/report/request/[assessmentRef]/page.tsx',
+  'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql',
+  'docs/v1/phase-exit-cards/phase-10-pdf-report-engine.md',
+  'next.config.mjs'
+];
+for (const file of required) assert(exists(file), `${file} must exist`);
+
+const packageJson = 'package.json';
+assertIncludes(packageJson, '"engines"', 'Package pins Node runtime for Vercel Chromium compatibility');
+assertIncludes(packageJson, '"node": "20.x"', 'Package pins Vercel runtime to Node 20 for Chromium shared libraries');
+
+const nextConfig = 'next.config.mjs';
+assertIncludes(nextConfig, 'outputFileTracingIncludes', 'Next config includes packaged Chromium assets in the serverless trace');
+assertIncludes(nextConfig, '@sparticuz/chromium/bin', 'Next config traces @sparticuz Chromium binary assets');
+assertIncludes(nextConfig, '/api/admin/orders/[orderReference]/generate-report', 'Next config scopes Chromium tracing to the generation route');
+assertIncludes(nextConfig, 'config.externals.push', 'Next config keeps Chromium packages external for Vercel runtime resolution');
+assertIncludes(nextConfig, "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'Next config externalizes @sparticuz Chromium from the route bundle');
+assertIncludes(nextConfig, "'puppeteer-core': 'commonjs puppeteer-core'", 'Next config externalizes puppeteer-core from the route bundle');
+assertNotIncludes(nextConfig, 'serverExternalPackages', 'Next 14 build must not use unsupported serverExternalPackages config');
+
+const migration = 'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql';
+assertIncludes(migration, 'report_templates', 'Migration seeds report template');
+assertIncludes(migration, "'essential_self_assessment'", 'Migration seeds essential report template');
+assertIncludes(migration, "'mk_validated'", 'Migration seeds MK validated report template');
+assertIncludes(migration, 'generated-reports', 'Migration creates/locks private report bucket');
+assertIncludes(migration, 'actions_json', 'Migration respects content block schema');
+assertIncludes(migration, "'draft'", 'Starter content remains draft');
+assertIncludes(migration, 'payment_gateway":false', 'No gateway boundary is recorded');
+assertNotIncludes(migration, "'active', 1),", 'Content blocks are not activated by migration');
+
+const assemble = 'src/lib/reports/assemble-report-data.ts';
+assertIncludes(assemble, 'score_runs', 'Assembly reads persisted score_runs');
+assertIncludes(assemble, 'score_domain_results', 'Assembly reads persisted score_domain_results');
+assertIncludes(assemble, 'score_question_traces', 'Assembly reads persisted score_question_traces');
+assertIncludes(assemble, "new Set(['payment_received'])", 'Report generation is gated only on payment_received');
+assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for Phase 10 generation');
+assertIncludes(assemble, 'product_code', 'Assembly reads product code for report type selection');
+assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation route');
+assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
+
+const fallback = 'src/lib/reports/fallback-content.ts';
+assertIncludes(fallback, 'FALLBACK_DOMAIN_CONTENT', 'Fallback content uses an explicit domain lookup table');
+assertIncludes(fallback, 'Fraud Leadership and Governance', 'Fallback content covers governance domain');
+assertIncludes(fallback, 'Digital and Identity Fraud Risk', 'Fallback content covers digital and identity domain');
+assertIncludes(fallback, 'Continuous Improvement and Fraud Risk Monitoring', 'Fallback content covers continuous improvement domain');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CAPPED', 'Fallback content covers capped false comfort state');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_GENERAL', 'Fallback content covers gap-but-not-capped false comfort state');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CLEAN', 'Fallback content covers genuinely clean false comfort state');
+assert(!/function\s+fallbackDomainNarrative/.test(read(fallback)), 'Fallback domain content must not collapse to a single templated paragraph');
+
+const contentSelection = 'src/lib/reports/select-content-blocks.ts';
+assertIncludes(contentSelection, "from './fallback-content'", 'Content selector uses domain-specific fallback content');
+assertIncludes(contentSelection, 'getDomainFallback(domain.domainName, band)', 'Domain fallback lookup is per domain and maturity band');
+assertIncludes(contentSelection, 'item.domainCode === domain.domainCode', 'Domain narratives match on persisted domain codes');
+assertIncludes(contentSelection, 'item.domainCode === gap.domainCode', 'Gap commentary matches on persisted domain codes');
+assertIncludes(contentSelection, "hasPriorityGaps ? 'not_capped' : 'clean'", 'False comfort logic distinguishes capped, gap and clean states');
+assertNotIncludes(contentSelection, 'item.domainCode === domain.domainName', 'Domain narratives must not match on display names');
+assertNotIncludes(contentSelection, 'item.domainCode === gap.domainName', 'Gap commentary must not match on display names');
+assertNotIncludes(contentSelection, 'fallbackDomainNarrative', 'Selector must not use the old generic fallback paragraph');
+
+const roadmap = 'src/lib/reports/roadmap.ts';
+assertIncludes(roadmap, 'agenda', 'Roadmap returns a single agenda list');
+assertIncludes(roadmap, 'action30', 'Roadmap agenda preserves 30-day actions');
+assertIncludes(roadmap, 'action60', 'Roadmap agenda preserves 60-day actions');
+assertIncludes(roadmap, 'action90', 'Roadmap agenda preserves 90-day actions');
+assertNotIncludes(roadmap, 'thirtyDay', 'Roadmap must not repeat the same domains in a thirtyDay array');
+assertNotIncludes(roadmap, 'sixtyDay', 'Roadmap must not repeat the same domains in a sixtyDay array');
+assertNotIncludes(roadmap, 'ninetyDay', 'Roadmap must not repeat the same domains in a ninetyDay array');
+
+const reportRequestPage = 'src/app/report/request/[assessmentRef]/page.tsx';
+assertNotIncludes(reportRequestPage, 'Phase 9', 'Public report request page must not expose stale phase wording');
+assertNotIncludes(reportRequestPage, 'proof upload', 'Public report request page must not promise proof upload');
+assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page should not read like a scaffold placeholder');
+assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
+
+const renderPdf = 'src/lib/reports/render-pdf.ts';
+assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
+assertIncludes(renderPdf, "import('@sparticuz/chromium')", 'PDF renderer uses packaged Chromium for Vercel');
+assertIncludes(renderPdf, 'bootstrapChromiumRuntimeEnvironment', 'PDF renderer bootstraps Lambda-style runtime env before Chromium import');
+assertIncludes(renderPdf, 'AWS_LAMBDA_JS_RUNTIME', 'PDF renderer sets Lambda runtime env before Chromium import');
+assertIncludes(renderPdf, 'AWS_EXECUTION_ENV', 'PDF renderer sets execution env before Chromium import');
+assertIncludes(renderPdf, 'ldLibraryPathSet', 'PDF renderer logs whether Chromium library path was set');
+assertIncludes(renderPdf, 'normalizeChromiumModule', 'PDF renderer handles bundled and external Chromium module shapes');
+assertIncludes(renderPdf, 'resolveChromiumExecutablePath', 'PDF renderer resolves Chromium executable path through a runtime helper');
+assertIncludes(renderPdf, 'node_modules', 'PDF renderer checks node_modules for packaged Chromium assets');
+assertIncludes(renderPdf, '@sparticuz', 'PDF renderer checks the @sparticuz package directory');
+assertIncludes(renderPdf, 'Chromium runtime diagnostics', 'PDF renderer logs safe runtime diagnostics for Chromium failures');
+assertIncludes(renderPdf, 'chromiumBinDirectories', 'PDF renderer records whether relevant Chromium bin directories exist');
+assertIncludes(renderPdf, 'executableExists', 'PDF renderer verifies the resolved executable exists');
+assertNotIncludes(renderPdf, "executablePath: await chromium.default.executablePath()", 'PDF renderer must not rely on bundled .next/server/bin resolution');
+assertNotIncludes(renderPdf, "import('puppeteer')", 'PDF renderer must not rely on missing bundled Puppeteer Chrome');
+
+const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+assertIncludes(generate, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Generate route maps product code to report type');
+assertIncludes(generate, 'mk_validated_assessment', 'Generate route supports MK validated product code');
+assertIncludes(generate, 'template_id: template.id', 'Generate route stores required template id');
+assertIncludes(generate, ".eq('report_type', reportType)", 'Generate route loads template and versions by actual report type');
+assertIncludes(generate, ".eq('assessment_id', assembled.scoreRun.assessmentId)", 'Generate route versions by assessment/report type constraint');
+assertNotIncludes(generate, ".eq('order_id', assembled.orderId)", 'Generate route must not version by order only');
+assertIncludes(generate, 'renderHtmlToPdfBuffer', 'Generate route renders PDF');
+assertIncludes(generate, "from('reports')", 'Generate route writes report record');
+assertIncludes(generate, 'supersedes_report_id', 'Regeneration supersedes without overwrite');
+assertIncludes(generate, "status: 'generated'", 'Generated report status is explicit');
+assertIncludes(generate, "from('report_events')", 'Report events are recorded');
+assertIncludes(generate, "from('audit_logs')", 'Audit logs are recorded');
+assertNotIncludes(generate, 'PayFast', 'No payment gateway added');
+assertNotIncludes(generate, 'proof upload', 'No proof upload added');
+
+const orderPage = 'src/app/admin/orders/[orderReference]/page.tsx';
+assertIncludes(orderPage, 'Generate report version', 'Order detail exposes controlled generation');
+assertIncludes(orderPage, "order.status === 'payment_received'", 'Order detail gates generation on payment_received');
+assertIncludes(orderPage, 'Payment received does not automatically generate', 'Finance and report generation remain separate');
+
+const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
+assertIncludes(download, 'createSignedUrl', 'Download route uses signed URL');
+assertIncludes(download, '300', 'Signed URL has short TTL');
+assertNotIncludes(download, 'publicUrl', 'Download route does not expose permanent public URL');
+
+const templateFile = 'src/lib/reports/templates/report-template.ts';
+const template = read(templateFile);
+assert(template.includes('False Comfort'), 'Template includes False Comfort section');
+assert(template.includes('30/60/90-Day Roadmap'), 'Template includes 30/60/90 roadmap');
+assert(template.includes('Leadership Agenda'), 'Template includes leadership agenda');
+assert(template.includes('Where MK Fraud Insights Can Help Next'), 'Template includes MK next-engagement page');
+assert(template.includes('Version Record'), 'Template includes methodology/version record');
+assert(template.includes('DOMAIN_GROUPS'), 'Template groups domain advisory pages instead of one thin page per domain');
+assert(template.includes('roadmap: { agenda: RoadmapItem[] }'), 'Template consumes the single agenda roadmap shape');
+assert(!template.includes('roadmap.thirtyDay') && !template.includes('roadmap.sixtyDay') && !template.includes('roadmap.ninetyDay'), 'Template must not render repeated roadmap horizon arrays');
+assert(!template.includes('roadmap-grid'), 'Template must not use the old repeated roadmap grid');
+assert(!template.includes('const domainPages = data.domainResults.map'), 'Template must not render one standalone page per domain');
+assert(!template.includes('min-height: 265mm'), 'Template must not use the old page min-height pattern that caused spacer pages');
+assert(!/display\s*:\s*table/.test(template), 'Template must avoid table-display pagination patterns');
+assert(!/\bD\d{1,2}-Q\d{2}\b|EXP-\d{2}|REC-\d{2}/.test(template), 'Template must not hard-code customer-facing internal codes');
+assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose phase labels');
+assert(!/benchmark|peer average/i.test(template), 'Template must not claim benchmarks or peer averages');
+assert(!/AI-generated|artificial intelligence/i.test(template), 'Template must not claim live AI recommendations');
+
+const optionalRenderedPdfInfo = path.join(root, 'tmp', 'phase10-rendered-pdfinfo.txt');
+if (fs.existsSync(optionalRenderedPdfInfo)) {
+  const info = fs.readFileSync(optionalRenderedPdfInfo, 'utf8');
+  const pagesMatch = info.match(/^Pages:\s+(\d+)$/m);
+  if (pagesMatch) {
+    const pages = Number(pagesMatch[1]);
+    assert(pages >= 18 && pages <= 24, `Rendered report should stay in the 18-24 page target band when pdfinfo is available; got ${pages}`);
+  }
+}
+
+console.log('Phase 10 premium report tests passed.');

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,22 +26,38 @@ function SnapshotValue({ label, value }: { label: string; value: string | null |
   );
 }
 
+async function getReportVersions(orderId: string) {
+  const db = createSupabaseServiceClient();
+  const { data, error } = await db
+    .from('reports')
+    .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
+    .eq('order_id', orderId)
+    .order('version_number', { ascending: false });
+  if (error) {
+    console.error('report version query failed', error);
+    return [];
+  }
+  return data ?? [];
+}
+
 export default async function AdminOrderDetailPage({ params }: { params: { orderReference: string } }) {
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
 
   const { order, events, auditEvents } = detail;
+  const reportVersions = await getReportVersions(order.id);
   const eft = order.eft_instructions_snapshot ?? {};
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
+  const reportGenerationEligible = order.status === 'payment_received';
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
+    <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Manual EFT order"
           title={order.order_reference}
-          description="Review the linked assessment, request, product, EFT snapshot and manual status timeline."
+          description="Review the linked assessment, request, product, EFT snapshot, manual status timeline and controlled report versions."
         />
 
         <Card>
@@ -70,6 +87,37 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             <div className="md:col-span-3 rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
               <p>{eft.paymentReferenceInstruction ?? eft.payment_reference_instruction ?? 'Use the order reference as the payment reference.'}</p>
               <p className="mt-2">{eft.customerInstruction ?? eft.customer_instruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Report generation control</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
+              Detailed reports are generated only after manual EFT confirmation. Payment received does not automatically generate, release, download or email a report.
+            </div>
+            {reportGenerationEligible ? (
+              <form action={`/score/api/admin/orders/${order.order_reference}/generate-report`} method="post">
+                <Button type="submit">Generate report version</Button>
+              </form>
+            ) : (
+              <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
+                Report generation is blocked until this order is marked as payment received.
+              </div>
+            )}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Report versions</p>
+              {reportVersions.map((report: any) => (
+                <div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mk-line bg-white p-4 text-sm">
+                  <div>
+                    <p className="font-semibold text-mk-ink">{report.report_reference}</p>
+                    <p className="mt-1 text-mk-muted">Version {report.version_number} · {cleanStatus(report.status)} · {report.generated_at ? new Date(report.generated_at).toLocaleString('en-ZA') : 'Not generated'}</p>
+                  </div>
+                  {report.storage_bucket && report.storage_path ? <Button asChild variant="secondary"><a href={`/score/api/admin/reports/${report.id}/download`}>Download</a></Button> : null}
+                </div>
+              ))}
+              {!reportVersions.length ? <p className="text-sm text-mk-muted">No report versions generated yet.</p> : null}
             </div>
           </CardContent>
         </Card>
