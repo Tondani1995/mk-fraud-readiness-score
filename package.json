@@ -1,8 +1,8 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "1.0.0-phase10-premium-report-engine",
+  "version": "1.0.0-phase11-security-qa",
   "private": true,
-  "description": "Phase 10 premium PDF report engine for MK Fraud Readiness Score V1, adding controlled admin-only report generation after manual EFT confirmation.",
+  "description": "Phase 11 security and QA hardening for MK Fraud Readiness Score V1, preserving controlled admin-only report generation after manual EFT confirmation.",
   "engines": {
     "node": "20.x"
   },
@@ -23,6 +23,7 @@
     "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs",
     "phase9:test-orders": "node scripts/phase9-manual-eft-order-tests.mjs",
     "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
+    "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
