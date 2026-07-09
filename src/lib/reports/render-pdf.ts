@@ -1,11 +1,21 @@
 let browserPromise: Promise<any> | null = null;
 
-type ChromiumModule = typeof import('@sparticuz/chromium');
+type ChromiumRuntime = {
+  args: string[];
+  defaultViewport: { width: number; height: number } | null;
+  executablePath: (input?: string) => Promise<string>;
+  headless: boolean | 'shell';
+};
 
 type BinDirectoryCheck = {
   path: string;
   exists: boolean;
 };
+
+function normalizeChromiumModule(chromiumModule: unknown): ChromiumRuntime {
+  const candidate = (chromiumModule as { default?: ChromiumRuntime }).default ?? chromiumModule;
+  return candidate as ChromiumRuntime;
+}
 
 async function directoryExists(pathname: string): Promise<boolean> {
   const fs = await import('node:fs/promises');
@@ -25,7 +35,7 @@ async function fileExists(pathname: string): Promise<boolean> {
   }
 }
 
-async function resolveChromiumExecutablePath(chromium: ChromiumModule): Promise<string> {
+async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise<string> {
   const path = await import('node:path');
   const cwd = process.cwd();
   const candidateBinDirectories = [
@@ -50,7 +60,7 @@ async function resolveChromiumExecutablePath(chromium: ChromiumModule): Promise<
     throw new Error('Packaged Chromium bin directory was not found in the Vercel function trace.');
   }
 
-  const executablePath = await chromium.default.executablePath(packagedBinDirectory);
+  const executablePath = await chromium.executablePath(packagedBinDirectory);
   const executableExists = await fileExists(executablePath);
   console.info('Chromium runtime diagnostics', {
     cwd,
@@ -67,16 +77,17 @@ async function resolveChromiumExecutablePath(chromium: ChromiumModule): Promise<
 }
 
 async function launchBrowser() {
-  const [{ default: puppeteer }, chromium] = await Promise.all([
+  const [{ default: puppeteer }, chromiumModule] = await Promise.all([
     import('puppeteer-core'),
     import('@sparticuz/chromium')
   ]);
+  const chromium = normalizeChromiumModule(chromiumModule);
 
   return puppeteer.launch({
-    args: chromium.default.args,
-    defaultViewport: chromium.default.defaultViewport,
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
     executablePath: await resolveChromiumExecutablePath(chromium),
-    headless: chromium.default.headless
+    headless: chromium.headless
   });
 }
 
