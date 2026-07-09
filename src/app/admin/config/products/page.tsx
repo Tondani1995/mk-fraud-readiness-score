@@ -1,8 +1,9 @@
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getAdminProductConfig } from '@/lib/admin/assessment-review';
+import { requireAdmin } from '@/lib/auth/admin-route';
 
 function formatMoney(cents: number | null | undefined, currency: string | null | undefined) {
   const amount = Number(cents ?? 0) / 100;
@@ -10,11 +11,12 @@ function formatMoney(cents: number | null | undefined, currency: string | null |
 }
 
 export default async function AdminProductConfigPage() {
+  const admin = await requireAdmin(['platform_admin', 'finance_admin', 'read_only_admin']);
   const { products, appSettings, eftSettings } = await getAdminProductConfig();
   const paymentSettings = appSettings.filter((setting: any) => /eft|bank|payment|order/i.test(setting.setting_key));
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Commercial configuration"
@@ -86,6 +88,6 @@ export default async function AdminProductConfigPage() {
           </CardContent>
         </Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
