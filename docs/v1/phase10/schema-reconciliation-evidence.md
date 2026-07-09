@@ -2,29 +2,41 @@
 
 ## Status
 
-`BLOCKED BY SUPABASE CONNECTOR LIMIT`
+`BLOCKED BY RUNTIME / ADMIN UAT`
 
-This file records the schema-reconciliation status after Codex ZIP-based testing. The code patch was tested locally from the uploaded PR #13 source ZIP, but live Supabase read-only reconciliation could not be completed because the Supabase connector returned a usage-limit error before execution.
+Claude completed live read-only Supabase schema reconciliation and then identified route/migration fixes required before current-head runtime report generation can be trusted.
 
-## What was confirmed locally
+## Live Supabase findings reported by Claude
 
-- Phase 10 report generation is now gated only on `payment_received`.
-- The legacy `verified` order status is not treated as eligible for Phase 10 report generation.
-- Content block matching uses persisted domain codes rather than display names.
-- The public report request page no longer exposes stale phase wording or proof-upload wording.
-- Regression coverage was added to `scripts/phase10-premium-report-tests.mjs` for those defects.
+- All 13 required public tables were present.
+- `report_templates` was empty.
+- `reports.template_id` is `NOT NULL`, so the previous generate route would have failed without an active template row.
+- `report_content_blocks` had 36 rows: 36 draft, 0 active.
+- Both `payment-proofs` and `generated-reports` buckets were present and private.
+- `reports` has a uniqueness constraint scoped by `(assessment_id, report_type, version_number)`, not by `order_id`.
+- A real `payment_received` order was available for pipeline testing: `MKORD-2026-KDV20GFY`.
+- Claude could render a real PDF from live data locally, but could not perform a legitimate Supabase Storage upload because its environment had SQL/migration access but no Storage API access.
 
-## What still requires live verification
+## Fixes applied after reconciliation
 
-Before PR #13 can pass, the following must be verified against the live Supabase project:
+- Report assembly now returns the linked product code.
+- The admin generate route maps product codes to the correct report type:
+  - `essential_self_assessment` -> `essential_self_assessment`
+  - `mk_validated_assessment` -> `mk_validated`
+- The admin generate route now loads an active template for the actual report type.
+- Report version lookup now follows the real uniqueness scope: `(assessment_id, report_type)`.
+- Report inserts now store the actual report type instead of hardcoding `essential_self_assessment`.
+- The Phase 10 migration now seeds active template rows for both supported report types.
+- Regression checks were added for product-code mapping, template selection and versioning scope.
 
-- `reports.template_id` requirements match the generate route.
-- `report_templates` has a usable active Phase 10 template row.
-- `report_content_blocks.actions_json` requirements are satisfied by any seeded content blocks.
-- `generated-reports` exists and is private.
-- Existing Phase 10-ish migrations/content drift is understood before applying any new migration.
-- Report generation can insert `reports`, write `report_events`, write `audit_logs`, and upload a private storage object.
+## What remains unverified
+
+- The patched GitHub head still needs CI confirmation after these fixes.
+- The patched migration has not been applied by ChatGPT.
+- A current-head Vercel/runtime route call has not generated a real report row and storage object.
+- Download/security UAT is still outstanding.
+- The generated PDF still needs a final premium-quality review from the actual deployed route.
 
 ## Recommendation
 
-Keep PR #13 draft. Do not apply a production migration and do not mark Phase 10 ready until live Supabase reconciliation, current-head runtime PDF generation, download/security UAT and PDF quality inspection are complete.
+Keep PR #13 draft. Do not mark ready and do not merge until CI passes on the patched GitHub head, live runtime report generation writes a real private storage object and report row, download/security UAT passes, and the generated PDF passes the MK premium-quality review.

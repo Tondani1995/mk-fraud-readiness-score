@@ -30,7 +30,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_reference, status, product_id, assessment_id, organisation_name, customer_name, products:product_id(name)')
+    .select('id, order_reference, status, product_id, assessment_id, organisation_name, customer_name, products:product_id(product_code, name)')
     .eq('order_reference', orderReference)
     .maybeSingle();
 
@@ -153,6 +153,8 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     });
   }
 
+  const product = Array.isArray(order.products) ? order.products[0] : order.products;
+
   return {
     orderId: order.id,
     organisationName: (assessment.organisations as any)?.legal_name ?? (assessment.organisations as any)?.trading_name ?? order.organisation_name ?? 'Organisation',
@@ -160,7 +162,8 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     assessmentReference: assessment.assessment_reference,
     reportReference: `RPT-${assessment.assessment_reference}`,
     generatedAt: new Date().toISOString(),
-    packageName: (order.products as any)?.name ?? 'Detailed Fraud Readiness Report',
+    packageName: (product as any)?.name ?? 'Detailed Fraud Readiness Report',
+    productCode: (product as any)?.product_code ?? null,
     scoreRun: {
       id: scoreRunRow.id,
       assessmentId: assessment.id,

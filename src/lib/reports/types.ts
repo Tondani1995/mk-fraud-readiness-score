@@ -73,6 +73,7 @@ export interface AssembledReportData {
   reportReference: string;
   generatedAt: string;
   packageName: string;
+  productCode: string | null;
   scoreRun: ScoreRunRecord;
   domainResults: DomainResultRecord[];
   exposureAnswers: ExposureAnswerRecord[];

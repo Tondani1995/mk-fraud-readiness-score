@@ -10,6 +10,11 @@ import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 
 const REPORT_GENERATION_ROLES = new Set(['platform_admin', 'reviewer', 'approver']);
 
+const REPORT_TYPE_BY_PRODUCT_CODE: Record<string, string> = {
+  essential_self_assessment: 'essential_self_assessment',
+  mk_validated_assessment: 'mk_validated'
+};
+
 type HandlerContext = { params: { orderReference: string } };
 
 function wantsHtml(request: Request) {
@@ -47,17 +52,23 @@ export async function POST(request: Request, context: HandlerContext) {
     return jsonOrRedirect(request, orderReference, { ok: false, reason: 'internal_error' }, 500);
   }
 
+  const reportType = assembled.productCode ? REPORT_TYPE_BY_PRODUCT_CODE[assembled.productCode] : null;
+  if (!reportType) {
+    await logReportAttempt(supabase, null, 'generation_rejected', admin.id, `Unrecognised or missing product code: ${assembled.productCode ?? 'not captured'}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'unrecognised_product' }, 409);
+  }
+
   const { data: template, error: templateError } = await supabase
     .from('report_templates')
     .select('id, template_code, version_number')
-    .eq('report_type', 'essential_self_assessment')
+    .eq('report_type', reportType)
     .eq('status', 'active')
     .order('version_number', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (templateError || !template) {
-    await logReportAttempt(supabase, null, 'generation_failed', admin.id, 'No active report template is configured.');
+    await logReportAttempt(supabase, null, 'generation_failed', admin.id, `No active report template is configured for ${reportType}.`);
     return jsonOrRedirect(request, orderReference, { ok: false, reason: 'template_missing' }, 409);
   }
 
@@ -86,7 +97,8 @@ export async function POST(request: Request, context: HandlerContext) {
   const { data: existingReport } = await supabase
     .from('reports')
     .select('id, version_number')
-    .eq('order_id', assembled.orderId)
+    .eq('assessment_id', assembled.scoreRun.assessmentId)
+    .eq('report_type', reportType)
     .neq('status', 'superseded')
     .neq('status', 'voided')
     .order('version_number', { ascending: false })
@@ -114,7 +126,7 @@ export async function POST(request: Request, context: HandlerContext) {
       order_id: assembled.orderId,
       score_run_id: assembled.scoreRun.id,
       template_id: template.id,
-      report_type: 'essential_self_assessment',
+      report_type: reportType,
       status: 'generated',
       report_reference: reportReference,
       version_number: nextVersion,

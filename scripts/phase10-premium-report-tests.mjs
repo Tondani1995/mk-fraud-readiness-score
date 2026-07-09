@@ -27,6 +27,8 @@ for (const file of required) assert(exists(file), `${file} must exist`);
 
 const migration = 'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql';
 assertIncludes(migration, 'report_templates', 'Migration seeds report template');
+assertIncludes(migration, "'essential_self_assessment'", 'Migration seeds essential report template');
+assertIncludes(migration, "'mk_validated'", 'Migration seeds MK validated report template');
 assertIncludes(migration, 'generated-reports', 'Migration creates/locks private report bucket');
 assertIncludes(migration, 'actions_json', 'Migration respects content block schema');
 assertIncludes(migration, "'draft'", 'Starter content remains draft');
@@ -39,6 +41,8 @@ assertIncludes(assemble, 'score_domain_results', 'Assembly reads persisted score
 assertIncludes(assemble, 'score_question_traces', 'Assembly reads persisted score_question_traces');
 assertIncludes(assemble, "new Set(['payment_received'])", 'Report generation is gated only on payment_received');
 assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for Phase 10 generation');
+assertIncludes(assemble, 'product_code', 'Assembly reads product code for report type selection');
+assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation route');
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
 
 const contentSelection = 'src/lib/reports/select-content-blocks.ts';
@@ -54,7 +58,12 @@ assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page 
 assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
 
 const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+assertIncludes(generate, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Generate route maps product code to report type');
+assertIncludes(generate, 'mk_validated_assessment', 'Generate route supports MK validated product code');
 assertIncludes(generate, 'template_id: template.id', 'Generate route stores required template id');
+assertIncludes(generate, ".eq('report_type', reportType)", 'Generate route loads template and versions by actual report type');
+assertIncludes(generate, ".eq('assessment_id', assembled.scoreRun.assessmentId)", 'Generate route versions by assessment/report type constraint');
+assertNotIncludes(generate, ".eq('order_id', assembled.orderId)", 'Generate route must not version by order only');
 assertIncludes(generate, 'renderHtmlToPdfBuffer', 'Generate route renders PDF');
 assertIncludes(generate, "from('reports')", 'Generate route writes report record');
 assertIncludes(generate, 'supersedes_report_id', 'Regeneration supersedes without overwrite');

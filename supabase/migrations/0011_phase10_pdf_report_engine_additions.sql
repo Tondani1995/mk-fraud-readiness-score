@@ -21,30 +21,54 @@ insert into public.report_templates (
   status,
   content_schema_json
 )
-values (
-  'mk_fraud_readiness_advisory_v1',
-  1,
-  'essential_self_assessment',
-  'active',
-  jsonb_build_object(
-    'template', 'premium_mk_fraud_readiness_advisory_v1',
-    'client_facing_internal_codes_allowed', false,
-    'sections', jsonb_build_array(
-      'cover',
-      'executive_diagnosis',
-      'score_story',
-      'exposure_readiness_matrix',
-      'domain_heatmap',
-      'priority_gaps',
-      'false_comfort',
-      'domain_analysis',
-      'leadership_roadmap',
-      'methodology_limitations'
+values
+  (
+    'mk_fraud_readiness_advisory_v1',
+    1,
+    'essential_self_assessment',
+    'active',
+    jsonb_build_object(
+      'template', 'premium_mk_fraud_readiness_advisory_v1',
+      'client_facing_internal_codes_allowed', false,
+      'sections', jsonb_build_array(
+        'cover',
+        'executive_diagnosis',
+        'score_story',
+        'exposure_readiness_matrix',
+        'domain_heatmap',
+        'priority_gaps',
+        'false_comfort',
+        'domain_analysis',
+        'leadership_roadmap',
+        'methodology_limitations'
+      )
+    )
+  ),
+  (
+    'mk_fraud_readiness_validated_advisory_v1',
+    1,
+    'mk_validated',
+    'active',
+    jsonb_build_object(
+      'template', 'premium_mk_fraud_readiness_advisory_v1',
+      'client_facing_internal_codes_allowed', false,
+      'sections', jsonb_build_array(
+        'cover',
+        'executive_diagnosis',
+        'score_story',
+        'exposure_readiness_matrix',
+        'domain_heatmap',
+        'priority_gaps',
+        'false_comfort',
+        'domain_analysis',
+        'leadership_roadmap',
+        'methodology_limitations'
+      )
     )
   )
-)
 on conflict (template_code, version_number) do update
 set status = excluded.status,
+    report_type = excluded.report_type,
     content_schema_json = excluded.content_schema_json;
 
 -- The V2 premium content pack reviewed by MK remains draft by design. Real reports
