@@ -1,18 +1,20 @@
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getAdminAuditLog } from '@/lib/admin/assessment-review';
+import { requireAdmin } from '@/lib/auth/admin-route';
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString('en-ZA') : '—';
 }
 
 export default async function AdminAuditLogPage() {
+  const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']);
   const events = await getAdminAuditLog();
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Phase 8 audit controls"
@@ -50,6 +52,6 @@ export default async function AdminAuditLogPage() {
           </CardContent>
         </Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
