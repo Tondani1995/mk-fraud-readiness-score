@@ -19,6 +19,7 @@ const required = [
   'src/app/api/admin/reports/[reportId]/download/route.ts',
   'src/app/admin/orders/[orderReference]/page.tsx',
   'src/app/admin/reports/page.tsx',
+  'src/app/report/request/[assessmentRef]/page.tsx',
   'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql',
   'docs/v1/phase-exit-cards/phase-10-pdf-report-engine.md'
 ];
@@ -36,8 +37,21 @@ const assemble = 'src/lib/reports/assemble-report-data.ts';
 assertIncludes(assemble, 'score_runs', 'Assembly reads persisted score_runs');
 assertIncludes(assemble, 'score_domain_results', 'Assembly reads persisted score_domain_results');
 assertIncludes(assemble, 'score_question_traces', 'Assembly reads persisted score_question_traces');
-assertIncludes(assemble, 'payment_received', 'Report generation is gated on payment_received');
+assertIncludes(assemble, "new Set(['payment_received'])", 'Report generation is gated only on payment_received');
+assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for Phase 10 generation');
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
+
+const contentSelection = 'src/lib/reports/select-content-blocks.ts';
+assertIncludes(contentSelection, 'item.domainCode === domain.domainCode', 'Domain narratives match on persisted domain codes');
+assertIncludes(contentSelection, 'item.domainCode === gap.domainCode', 'Gap commentary matches on persisted domain codes');
+assertNotIncludes(contentSelection, 'item.domainCode === domain.domainName', 'Domain narratives must not match on display names');
+assertNotIncludes(contentSelection, 'item.domainCode === gap.domainName', 'Gap commentary must not match on display names');
+
+const reportRequestPage = 'src/app/report/request/[assessmentRef]/page.tsx';
+assertNotIncludes(reportRequestPage, 'Phase 9', 'Public report request page must not expose stale phase wording');
+assertNotIncludes(reportRequestPage, 'proof upload', 'Public report request page must not promise proof upload');
+assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page should not read like a scaffold placeholder');
+assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
 
 const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
 assertIncludes(generate, 'template_id: template.id', 'Generate route stores required template id');

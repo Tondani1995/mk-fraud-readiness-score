@@ -23,7 +23,7 @@ export class ReportAssemblyError extends Error {
   }
 }
 
-const ELIGIBLE_ORDER_STATUSES = new Set(['payment_received', 'verified']);
+const ELIGIBLE_ORDER_STATUSES = new Set(['payment_received']);
 
 export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
   const supabase = createSupabaseServiceClient();

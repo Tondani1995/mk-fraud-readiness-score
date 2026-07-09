@@ -29,7 +29,7 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   for (const domain of data.domainResults) {
     const band = bandForScore(domain.rawScore);
     const block = firstBlock(blocks, (item) =>
-      item.blockType === 'domain_narrative' && item.domainCode === domain.domainName && item.maturityBand === band
+      item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
     );
     domainNarratives[domain.domainName] = {
       title: block?.title ?? domainTitle(domain.domainName, domain.rawScore),
@@ -41,7 +41,7 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   const gapCommentary: SelectedContent['gapCommentary'] = {};
   data.criticalMajorGaps.forEach((gap, index) => {
     const block = firstBlock(blocks, (item) =>
-      item.blockType === 'gap_commentary' && item.domainCode === gap.domainName && (gap.isCriticalGap ? item.severity === 'critical' : item.severity === 'major')
+      item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && (gap.isCriticalGap ? item.severity === 'critical' : item.severity === 'major')
     );
     gapCommentary[`gap-${index}`] = {
       body: applyTokens(block?.body ?? `${gap.prompt} is a priority control gap because it weakens the organisation's ability to prevent, detect or respond to fraud in ${gap.domainName}.`, data),
