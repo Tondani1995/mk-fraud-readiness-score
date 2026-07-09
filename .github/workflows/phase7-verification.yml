@@ -6,7 +6,7 @@ on:
 
 jobs:
   v1-verification:
-    name: Phase 7 and 8 checks
+    name: V1 verification checks
     runs-on: ubuntu-latest
 
     env:
@@ -21,7 +21,7 @@ jobs:
       ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
       ASSESSMENT_TOKEN_MAX_USES: '25'
       ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
-      MK_BUILD_PHASE: phase-8-admin-console
+      MK_BUILD_PHASE: phase-9-manual-eft-order-flow
       MK_RELEASE_CHANNEL: ci
 
     steps:
@@ -49,6 +49,9 @@ jobs:
 
       - name: Run methodology copy polish tests
         run: npm run methodology:copy-test
+
+      - name: Run Phase 9 manual EFT order tests
+        run: npm run phase9:test-orders
 
       - name: Run TypeScript check
         run: npm run typecheck

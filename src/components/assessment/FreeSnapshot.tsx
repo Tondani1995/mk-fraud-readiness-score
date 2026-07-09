@@ -8,6 +8,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 
 const SCORE_BASE_PATH = '/score';
+const MANUAL_EFT_CONFIRMATION = 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.';
+
+type OrderConfirmation = {
+  orderReference: string;
+  productName: string;
+  amountDisplay: string;
+  paymentReference: string;
+  manualConfirmationNote: string;
+  eftInstructions: {
+    active: boolean;
+    bankName?: string;
+    accountHolder?: string;
+    accountNumber?: string;
+    branchCode?: string;
+    accountType?: string | null;
+    currency?: string;
+    paymentReferenceInstruction?: string;
+    customerInstruction?: string;
+    contactEmail?: string;
+    message?: string;
+  };
+};
 
 function scorePath(path: string) {
   return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
@@ -27,6 +49,7 @@ function formatScore(score: number) {
 export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnapshot; snapshotUrl?: string | null }) {
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [orderConfirmation, setOrderConfirmation] = useState<OrderConfirmation | null>(null);
   const weakestDomains = [...snapshot.domains]
     .filter((domain) => domain.rawScore !== null)
     .sort((a, b) => Number(a.rawScore ?? 0) - Number(b.rawScore ?? 0))
@@ -40,6 +63,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
   async function requestDetailedReport() {
     setRequestState('sending');
     setMessage('');
+    setOrderConfirmation(null);
     const response = await fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,7 +76,8 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
       return;
     }
     setRequestState('sent');
-    setMessage('Thank you. MK Fraud Insights will email the detailed report process and banking details to you.');
+    setMessage(body.message ?? 'Your detailed report request has been received. MK Fraud Insights will confirm the next step before any detailed report is released.');
+    setOrderConfirmation(body.order ?? null);
   }
 
   return (
@@ -116,7 +141,7 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
               The full report is a paid option and should only be released after MK has reviewed the profile and confirmed the report process.
             </p>
             <p className="mt-2">
-              This free snapshot does not include benchmarks, full report narrative, remediation plans or generated advisory content.
+              This free snapshot does not include the full report narrative, remediation plans or generated advisory content.
             </p>
           </div>
 
@@ -129,12 +154,13 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
                 </p>
               </div>
               <Button type="button" onClick={() => void requestDetailedReport()} disabled={requestState === 'sending' || requestState === 'sent'}>
-                {requestState === 'sending' ? 'Submitting request…' : requestState === 'sent' ? 'Request received' : 'Request detailed report'}
+                {requestState === 'sending' ? 'Submitting request...' : requestState === 'sent' ? 'Request received' : 'Request detailed report'}
               </Button>
             </div>
             {message ? (
               <div className={`mt-4 rounded-xl border p-4 text-sm ${requestState === 'error' ? 'border-mk-danger/30 bg-mk-danger/10 text-mk-danger' : 'border-mk-success/30 bg-mk-success/10 text-mk-ink'}`}>
-                {message}
+                <p>{message}</p>
+                {orderConfirmation ? <OrderConfirmationPanel order={orderConfirmation} /> : null}
               </div>
             ) : null}
           </div>
@@ -147,6 +173,47 @@ export function FreeSnapshotCard({ snapshot, snapshotUrl }: { snapshot: FreeSnap
           ) : null}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
+  const eft = order.eftInstructions;
+  return (
+    <div className="mt-4 space-y-3 rounded-xl border border-mk-line bg-white p-4 text-mk-ink">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Detail label="Order reference" value={order.orderReference} />
+        <Detail label="Product" value={order.productName} />
+        <Detail label="Amount" value={order.amountDisplay} />
+        <Detail label="Payment reference" value={order.paymentReference} />
+      </div>
+      {eft.active ? (
+        <div className="rounded-lg bg-mk-cream p-4 text-sm leading-6">
+          <p className="font-semibold">Manual EFT details</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Detail label="Bank" value={eft.bankName ?? 'To be confirmed'} />
+            <Detail label="Account holder" value={eft.accountHolder ?? 'To be confirmed'} />
+            <Detail label="Account number" value={eft.accountNumber ?? 'To be confirmed'} />
+            <Detail label="Branch code" value={eft.branchCode ?? 'To be confirmed'} />
+            <Detail label="Currency" value={eft.currency ?? 'ZAR'} />
+            {eft.accountType ? <Detail label="Account type" value={eft.accountType} /> : null}
+          </div>
+        </div>
+      ) : (
+        <p className="rounded-lg bg-mk-cream p-4 text-sm leading-6 text-mk-muted">{eft.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'}</p>
+      )}
+      <p className="text-sm leading-6 text-mk-muted">{eft.paymentReferenceInstruction ?? 'Please use your order reference as the payment reference.'}</p>
+      <p className="text-sm leading-6 text-mk-muted">{eft.customerInstruction ?? order.manualConfirmationNote ?? MANUAL_EFT_CONFIRMATION}</p>
+      {eft.contactEmail ? <p className="text-xs text-mk-muted">Questions: {eft.contactEmail}</p> : null}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-mk-ink">{value}</p>
     </div>
   );
 }

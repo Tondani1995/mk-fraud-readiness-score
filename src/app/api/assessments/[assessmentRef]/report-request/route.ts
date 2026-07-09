@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { createOrGetOrderForReportRequest } from '@/lib/orders/manual-eft-orders';
 
 export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
-  const service = createSupabaseServiceClient();
+  const service = createSupabaseServiceClient() as any;
   let body: any = {};
   try {
     body = await request.json();
@@ -31,21 +32,48 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   const email = body?.email ?? respondent?.email ?? null;
 
-  await service.from('data_requests').insert({
-    assessment_id: assessment.id,
-    organisation_id: assessment.organisation_id,
-    respondent_id: assessment.primary_respondent_id,
-    request_type: 'detailed_report_request',
-    status: 'received',
-    requested_by_email: email,
-    notes: `Detailed report requested from free snapshot for ${organisation?.legal_name ?? organisation?.trading_name ?? 'organisation'}.`
-  });
+  const { data: existingRequest } = await service
+    .from('data_requests')
+    .select('id,status,requested_by_email,created_at')
+    .eq('assessment_id', assessment.id)
+    .eq('request_type', 'detailed_report_request')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let dataRequest = existingRequest;
+
+  if (!dataRequest) {
+    const { data: insertedRequest, error: requestError } = await service
+      .from('data_requests')
+      .insert({
+        assessment_id: assessment.id,
+        organisation_id: assessment.organisation_id,
+        respondent_id: assessment.primary_respondent_id,
+        request_type: 'detailed_report_request',
+        status: 'received',
+        requested_by_email: email,
+        notes: `Detailed report requested from free snapshot for ${organisation?.legal_name ?? organisation?.trading_name ?? 'organisation'}.`
+      })
+      .select('id,status,requested_by_email,created_at')
+      .single();
+
+    if (requestError) return NextResponse.json({ ok: false, errors: [requestError.message] }, { status: 500 });
+    dataRequest = insertedRequest;
+  }
 
   await service
     .from('assessments')
     .update({ status: 'report_requested' })
     .eq('id', assessment.id)
     .in('status', ['scored', 'snapshot_available', 'report_requested']);
+
+  const order = await createOrGetOrderForReportRequest({
+    assessment,
+    dataRequest,
+    organisation,
+    respondent
+  });
 
   if (email) {
     await service.from('email_events').insert({
@@ -60,14 +88,24 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     actor_type: 'respondent_token',
     assessment_id: assessment.id,
     entity_table: 'data_requests',
-    entity_id: assessment.id,
-    action: 'detailed_report_requested',
+    entity_id: dataRequest?.id ?? assessment.id,
+    action: existingRequest ? 'detailed_report_request_reconfirmed' : 'detailed_report_requested',
     after_json: {
       assessment_reference: assessment.assessment_reference,
       requested_by_email: email,
-      source: 'free_snapshot'
+      source: 'free_snapshot',
+      order_reference: order?.orderReference ?? null,
+      payment_gateway: false,
+      proof_upload: false,
+      pdf_generation: false,
+      report_unlock: false
     }
   });
 
-  return NextResponse.json({ ok: true, message: 'Thank you. MK Fraud Insights will email the detailed report process and payment instructions to you.' });
+  return NextResponse.json({
+    ok: true,
+    message: 'Your detailed report request has been received. MK Fraud Insights will confirm the next step before any detailed report is released.',
+    order,
+    manualConfirmationNote: 'Please use your order reference as the payment reference. MK Fraud Insights confirms EFT payments manually before any detailed report is released.'
+  });
 }

@@ -193,17 +193,20 @@ export async function getAdminMethodologyConfig() {
 
 export async function getAdminProductConfig() {
   const service = createSupabaseServiceClient() as any;
-  const [products, appSettings] = await Promise.all([
+  const [products, appSettings, eftSettings] = await Promise.all([
     service.from('products').select('product_code,name,price_cents,currency,requires_payment_verification,delivery_mode,active,display_order,updated_at').order('display_order'),
-    service.from('app_settings').select('setting_key,setting_json,updated_at').order('setting_key')
+    service.from('app_settings').select('setting_key,value_json,updated_at').order('setting_key'),
+    service.from('eft_settings').select('bank_name,account_holder,branch_code,currency,payment_reference_instruction,customer_instruction,contact_email,is_active,updated_at').order('updated_at', { ascending: false })
   ]);
 
   if (products.error) console.error('admin products query failed', products.error);
   if (appSettings.error) console.error('admin app settings query failed', appSettings.error);
+  if (eftSettings.error) console.error('admin eft settings query failed', eftSettings.error);
 
   return {
     products: products.data ?? [],
-    appSettings: appSettings.data ?? []
+    appSettings: appSettings.data ?? [],
+    eftSettings: eftSettings.data ?? []
   };
 }
 

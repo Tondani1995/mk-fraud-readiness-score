@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
 import { parseStartAssessmentInput } from '@/lib/respondent/validation';
 import { startAccountlessAssessment } from '@/lib/respondent/start-assessment';
-import { getOptionalServerEnv } from '@/lib/env/server';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 
 function publicBaseUrlFor(request: Request) {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-  if (forwardedHost && forwardedHost.includes('mkfraud.co.za')) {
-    return `${forwardedProto}://${forwardedHost}/score`;
-  }
+  const forwardedHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') ?? new URL(request.url).protocol.replace(':', '') ?? 'https';
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}/score`;
 
   const url = new URL(request.url);
-  const fallback = `${url.origin}/score`;
-  return getOptionalServerEnv('NEXT_PUBLIC_APP_URL', fallback);
+  return `${url.origin}/score`;
 }
 
 export async function POST(request: Request) {
