@@ -27,9 +27,13 @@ const required = [
 for (const file of required) assert(exists(file), `${file} must exist`);
 
 const nextConfig = 'next.config.mjs';
+assertIncludes(nextConfig, 'serverExternalPackages', 'Next config externalizes Node-specific PDF runtime packages');
+assertIncludes(nextConfig, "'@sparticuz/chromium'", 'Next config externalizes @sparticuz Chromium from the route bundle');
+assertIncludes(nextConfig, "'puppeteer-core'", 'Next config externalizes puppeteer-core from the route bundle');
 assertIncludes(nextConfig, 'outputFileTracingIncludes', 'Next config includes packaged Chromium assets in the serverless trace');
 assertIncludes(nextConfig, '@sparticuz/chromium/bin', 'Next config traces @sparticuz Chromium binary assets');
 assertIncludes(nextConfig, '/api/admin/orders/[orderReference]/generate-report', 'Next config scopes Chromium tracing to the generation route');
+assertIncludes(nextConfig, 'config.externals.push', 'Next config keeps Chromium packages external for Vercel runtime resolution');
 
 const migration = 'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql';
 assertIncludes(migration, 'report_templates', 'Migration seeds report template');
@@ -66,7 +70,13 @@ assertIncludes(reportRequestPage, 'before any detailed report is generated or re
 const renderPdf = 'src/lib/reports/render-pdf.ts';
 assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
 assertIncludes(renderPdf, "import('@sparticuz/chromium')", 'PDF renderer uses packaged Chromium for Vercel');
-assertIncludes(renderPdf, 'executablePath: await chromium.default.executablePath()', 'PDF renderer resolves Chromium executable path explicitly');
+assertIncludes(renderPdf, 'resolveChromiumExecutablePath', 'PDF renderer resolves Chromium executable path through a runtime helper');
+assertIncludes(renderPdf, 'node_modules', 'PDF renderer checks node_modules for packaged Chromium assets');
+assertIncludes(renderPdf, '@sparticuz', 'PDF renderer checks the @sparticuz package directory');
+assertIncludes(renderPdf, 'Chromium runtime diagnostics', 'PDF renderer logs safe runtime diagnostics for Chromium failures');
+assertIncludes(renderPdf, 'chromiumBinDirectories', 'PDF renderer records whether relevant Chromium bin directories exist');
+assertIncludes(renderPdf, 'executableExists', 'PDF renderer verifies the resolved executable exists');
+assertNotIncludes(renderPdf, "executablePath: await chromium.default.executablePath()", 'PDF renderer must not rely on bundled .next/server/bin resolution');
 assertNotIncludes(renderPdf, "import('puppeteer')", 'PDF renderer must not rely on missing bundled Puppeteer Chrome');
 
 const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
