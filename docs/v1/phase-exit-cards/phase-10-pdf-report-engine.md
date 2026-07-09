@@ -13,7 +13,8 @@ Phase 10 remains draft. Runtime PDF generation was previously proven on Vercel, 
 - Phase 10 branch: `phase10/pdf-report-engine`
 - PR: `#13`
 - Starting head for this quality patch: `75602ece5f9d10a8292dbb4731dc60a053f00ad7`
-- Current patched head after V3 quality integration: `57d73474431eddaddab41067ebfc591f8f23b0f2`
+- V3 report-quality code patch head: `57d73474431eddaddab41067ebfc591f8f23b0f2`
+- This exit card may have documentation-only commits after the code patch head; runtime behavior should be retested against the latest PR head before PASS.
 
 ## What this draft adds
 
@@ -69,11 +70,16 @@ Files changed in this patch:
 - Updated `scripts/phase10-premium-report-tests.mjs` with regression checks for domain-specific fallback content, roadmap repetition, old spacer-page patterns, internal-code hardcoding, phase labels, unsupported benchmark claims and unsupported AI claims.
 - Updated this exit card.
 
-## Local checks for this patch
+## Verification so far for this patch
+
+- Vercel produced a READY deployment for code patch head `57d73474431eddaddab41067ebfc591f8f23b0f2`.
+- Deployment ID: `dpl_7HsbYxHL4R4yVtYzbVYiPFiCvNUm`.
+- Deployment URL: `https://mk-fraud-readiness-score-l7jjp52nq-tondanis-projects.vercel.app`.
+- Exact commit match: yes, for the code patch head.
 
 Current workspace note: usable authenticated current-head checkout is not available. The branch was patched through the GitHub connector against PR #13. Older placeholder checkout folders in the workspace are not valid git repositories, and the previous source ZIP is stale relative to the current PR head.
 
-Local commands from the required suite have therefore not yet been rerun on patched head `57d73474431eddaddab41067ebfc591f8f23b0f2`:
+Local commands from the required suite have therefore not yet been rerun on the patched GitHub head:
 
 - `npm install`: not run on current head.
 - `npm run phase7:test-snapshot`: not run on current head.
@@ -84,7 +90,7 @@ Local commands from the required suite have therefore not yet been rerun on patc
 - `npm run typecheck`: not run on current head.
 - `npm run build`: not run on current head.
 
-CI/Vercel must now run on the patched GitHub head.
+CI and live runtime UAT must still complete on the latest PR head before PASS.
 
 ## Explicitly preserved boundaries
 
@@ -94,8 +100,8 @@ Payment status `payment_received` remains only an eligibility gate for a separat
 
 ## Known gaps before PASS
 
-- CI must pass on patched head `57d73474431eddaddab41067ebfc591f8f23b0f2`.
-- A READY Vercel deployment must exist for exactly that head.
+- CI must pass on the latest PR head.
+- A READY Vercel deployment must exist for the latest PR head.
 - Current-head Vercel/runtime generation must create a new real PDF version, private storage object and `reports` row.
 - Download/security UAT must prove signed admin-only access and private storage after the quality patch.
 - The new generated PDF must be visually reviewed for page count, blank pages, orphan headings, clipping, repeated generic content and roadmap repetition.
@@ -103,4 +109,4 @@ Payment status `payment_received` remains only an eligibility gate for a separat
 
 ## Current recommendation
 
-Keep PR #13 draft. Do not mark ready and do not merge until CI passes on the patched head, live runtime generation succeeds through the deployed route, download/security UAT passes and the generated PDF passes premium-quality review.
+Keep PR #13 draft. Do not mark ready and do not merge until CI passes on the latest PR head, live runtime generation succeeds through the deployed route, download/security UAT passes and the generated PDF passes premium-quality review.
