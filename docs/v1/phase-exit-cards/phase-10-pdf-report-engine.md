@@ -2,9 +2,9 @@
 
 ## Status
 
-`BLOCKED`
+`BLOCKED BY VERIFICATION`
 
-Phase 10 is not ready and PR #13 must remain draft. ZIP-based local testing passed after the first patch, and Claude later completed live schema reconciliation and local live-data PDF rendering, but current-head deployed report generation, real Supabase Storage upload, download/security UAT and final PDF quality sign-off are still outstanding.
+Phase 10 remains draft. Runtime PDF generation was previously proven on Vercel, but the generated report was blocked by quality review because the PDF contained blank/spacer pages and thin generic fallback content. A V3 report-quality patch has now been applied to the PR branch to address that blocker, but CI and current-head runtime UAT must be rerun before this can move out of draft.
 
 ## Branching
 
@@ -12,6 +12,8 @@ Phase 10 is not ready and PR #13 must remain draft. ZIP-based local testing pass
 - Phase 9 merge SHA on `main`: `92cbb6516cc8a777f94ce0adfa7c9e9f9b36462b`
 - Phase 10 branch: `phase10/pdf-report-engine`
 - PR: `#13`
+- Starting head for this quality patch: `75602ece5f9d10a8292dbb4731dc60a053f00ad7`
+- Current patched head after V3 quality integration: `57d73474431eddaddab41067ebfc591f8f23b0f2`
 
 ## What this draft adds
 
@@ -25,81 +27,80 @@ Phase 10 is not ready and PR #13 must remain draft. ZIP-based local testing pass
 - Admin order-detail report-generation and report-version controls.
 - Static Phase 10 verification script.
 
-## Patch applied after Codex ZIP testing
+## Runtime generation evidence already obtained
 
-- Removed legacy `verified` eligibility from report assembly.
-- Fixed content-block selection to match persisted domain codes rather than domain display names.
-- Removed stale public phase/proof-upload wording from the report request page.
-- Added regression coverage for the eligibility gate, content-code matching and public wording boundary.
+A previous exact-head Vercel deployment generated and downloaded a real report successfully:
 
-## Patch applied after Claude schema reconciliation
+- Deployment: `dpl_GfKWhiFimztYLXZpuuoJxUZV4CuZ`
+- Deployment URL: `https://mk-fraud-readiness-score-ciok1olsx-tondanis-projects.vercel.app`
+- Generated report: `RPT-MKFRS-2026-32D6B98B03-V1`
+- Report row id: `eead893f-5070-44bf-bd90-a04dfa6d594d`
+- Storage bucket: `generated-reports`
+- Storage path: `MKFRS-2026-32D6B98B03/RPT-MKFRS-2026-32D6B98B03-V1.pdf`
+- Report events observed: `generated`, `download_requested`
+- Audit logs observed: `report_generated`, `report_download_requested`
+- Storage bucket confirmed private.
+- Logged-out admin download attempt was blocked by Vercel SSO.
 
-Claude identified additional live-schema defects that would have broken real generation:
+## Quality blocker observed
 
-- `report_templates` was empty while `reports.template_id` is `NOT NULL`.
-- The generate route did not select or insert a `template_id` in a schema-safe way for all report types.
-- The generate route hardcoded `essential_self_assessment` instead of deriving the report type from the ordered product.
-- Version lookup was scoped by `order_id` while the live uniqueness constraint is scoped by `(assessment_id, report_type, version_number)`.
-- With 0 active content blocks, the generated report uses fallback content only.
+The downloaded PDF was technically generated, but quality review blocked Phase 10:
 
-The GitHub branch now includes fixes for those issues:
+- PDF page count: 36 pages.
+- Internal-code scan: clean for domain/question/exposure/recommendation codes.
+- Null/undefined/NaN scan: clean.
+- Visual inspection: many blank/spacer pages.
+- Content review: fallback domain content was too generic and repetitive.
+- Roadmap review: the same domains repeated across separate 30/60/90 sections.
 
-- Report assembly returns the linked product code.
-- Product codes map to supported report types.
-- Active report template lookup uses the derived report type.
-- Report version lookup follows `(assessment_id, report_type)`.
-- Report inserts use the derived report type.
-- Migration seeds active template rows for both supported report types.
-- Regression tests cover the route and migration expectations.
+Result at that point: `BLOCKED BY REPORT QUALITY`.
 
-## Runtime UAT issue observed on preview
+## V3 report-quality patch now applied
 
-Manual browser UAT against the exact-head Vercel preview for `4bd2b19383cda71104321b46dc267cb21519079e` reached the order detail page and showed the controlled report-generation panel for order `MKORD-2026-KDV20GFY`.
+The uploaded V3 premium report-quality package was selectively integrated. Runtime plumbing, schema, admin auth, payment gate, storage upload, download route, `render-pdf.ts`, `next.config.mjs` and report-generation route were preserved.
 
-Clicking **Generate report version** returned a browser-level HTTP 500 before any `reports` row or `audit_logs` report entry was created. Runtime logs showed the cause: Puppeteer could not find Chrome in the Vercel serverless runtime.
+Files changed in this patch:
 
-A follow-up patch replaced the runtime dependency on bundled `puppeteer` Chrome with `puppeteer-core` plus packaged `@sparticuz/chromium`, and preserved controlled error handling around rendering, storage upload and report insertion.
+- Added `src/lib/reports/fallback-content.ts` with domain-specific fallback advisory content by domain and maturity band.
+- Updated `src/lib/reports/select-content-blocks.ts` to use the new fallback lookup while still matching active content blocks on persisted domain codes.
+- Updated false-comfort selection to distinguish capped, gap-but-not-capped, and clean states.
+- Updated `src/lib/reports/roadmap.ts` to return one agenda list where each domain appears once with nested 30/60/90 actions.
+- Updated `src/lib/reports/templates/report-template.ts` to use the V3 grouped report architecture: executive diagnosis, exposure profile, heatmap, priority gaps, critical flags, false comfort, grouped domain advisory pages, action register, roadmap, leadership agenda, MK next-engagement page, methodology and version record.
+- Updated `scripts/phase10-premium-report-tests.mjs` with regression checks for domain-specific fallback content, roadmap repetition, old spacer-page patterns, internal-code hardcoding, phase labels, unsupported benchmark claims and unsupported AI claims.
+- Updated this exit card.
 
-A second runtime attempt on the packaged Chromium patch returned without a raw browser 500, but no download/report appeared. Audit logs captured the controlled failure: `PDF render failed: The input directory "/var/task/.next/server/bin" does not exist.` The branch now includes a Next.js output file tracing rule to include `@sparticuz/chromium/bin` in the report-generation serverless bundle.
+## Local checks for this patch
 
-## Local ZIP test results reported by Codex
+Current workspace note: usable authenticated current-head checkout is not available. The branch was patched through the GitHub connector against PR #13. Older placeholder checkout folders in the workspace are not valid git repositories, and the previous source ZIP is stale relative to the current PR head.
 
-The following passed from the uploaded PR #13 ZIP after the first patch:
+Local commands from the required suite have therefore not yet been rerun on patched head `57d73474431eddaddab41067ebfc591f8f23b0f2`:
 
-- `phase7:test-snapshot`
-- `phase8:test-admin`
-- `methodology:copy-test`
-- `phase9:test-orders`
-- `phase10:test-report`
-- `typecheck`
-- `build` with safe dummy build-time environment values
+- `npm install`: not run on current head.
+- `npm run phase7:test-snapshot`: not run on current head.
+- `npm run phase8:test-admin`: not run on current head.
+- `npm run methodology:copy-test`: not run on current head.
+- `npm run phase9:test-orders`: not run on current head.
+- `npm run phase10:test-report`: not run on current head.
+- `npm run typecheck`: not run on current head.
+- `npm run build`: not run on current head.
 
-Note: Codex used bundled `pnpm` because `npm` was unavailable in that workspace.
+CI/Vercel must now run on the patched GitHub head.
 
-## Live schema / local rendering results reported by Claude
+## Explicitly preserved boundaries
 
-- Supabase table reconciliation was completed.
-- Both storage buckets were confirmed private.
-- Real data was used for local report rendering:
-  - Assessment reference: `MKFRS-2026-32D6B98B03`
-  - Order reference: `MKORD-2026-KDV20GFY`
-- Local live-data PDF rendering produced a 21-page fallback-only PDF with no internal-code scan findings, no clipping, and no `null` / `undefined` / `NaN` text.
-- No `reports` row or storage object was written because Claude did not have Supabase Storage API access and correctly refused to fake a report row pointing at a non-existent file.
+No PayFast, card payments, automated payment verification, proof upload, automated email delivery, respondent portal, subscriptions, public benchmarks, peer averages or live AI-generated recommendations are added.
 
-## Explicitly excluded
-
-No PayFast, card payments, automated payment verification, proof upload, automated email delivery, respondent portal, subscriptions, public benchmarks or live AI-generated recommendations are added.
+Payment status `payment_received` remains only an eligibility gate for a separate admin-controlled report generation action. It does not automatically generate, release, email, unlock or download a report.
 
 ## Known gaps before PASS
 
-- CI must pass on the latest patched GitHub head.
-- The Phase 10 migration has not been applied by ChatGPT.
-- Current-head Vercel/runtime generation must create a real PDF, a real private storage object and a real `reports` row.
-- Download/security UAT must prove signed admin-only access and private storage.
-- Unpaid orders must be proven unable to generate a report.
-- Generated PDF must be visually reviewed against the premium MK report standard.
-- Draft content blocks remain unapproved. Until MK approves active content blocks, real reports will use fallback content only.
+- CI must pass on patched head `57d73474431eddaddab41067ebfc591f8f23b0f2`.
+- A READY Vercel deployment must exist for exactly that head.
+- Current-head Vercel/runtime generation must create a new real PDF version, private storage object and `reports` row.
+- Download/security UAT must prove signed admin-only access and private storage after the quality patch.
+- The new generated PDF must be visually reviewed for page count, blank pages, orphan headings, clipping, repeated generic content and roadmap repetition.
+- Draft content blocks remain unapproved. Until MK approves active content blocks, real reports use fallback content.
 
 ## Current recommendation
 
-Keep PR #13 draft. Do not mark ready and do not merge until CI passes on the latest patched head, live Supabase runtime generation succeeds through the deployed route, download/security UAT passes and the generated PDF passes premium-quality review.
+Keep PR #13 draft. Do not mark ready and do not merge until CI passes on the patched head, live runtime generation succeeds through the deployed route, download/security UAT passes and the generated PDF passes premium-quality review.
