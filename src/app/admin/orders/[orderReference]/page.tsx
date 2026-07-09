@@ -18,7 +18,7 @@ function cleanStatus(status: string | null | undefined) {
   return (status ?? 'awaiting_payment').replace(/_/g, ' ');
 }
 
-function SnapshotValue({ label, value }: { label: string | null | undefined; value: string | null | undefined }) {
+function SnapshotValue({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{label}</p>
