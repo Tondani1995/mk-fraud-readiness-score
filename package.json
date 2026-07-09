@@ -1,8 +1,8 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "0.9.0-phase9-manual-eft-orders",
+  "version": "1.0.0-phase10-premium-report-engine",
   "private": true,
-  "description": "Phase 9 Manual EFT Order Flow package for MK Fraud Readiness Score V1, adding controlled manual order management around detailed report requests.",
+  "description": "Phase 10 premium PDF report engine for MK Fraud Readiness Score V1, adding controlled admin-only report generation after manual EFT confirmation.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,11 +19,13 @@
     "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs",
     "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs",
     "phase9:test-orders": "node scripts/phase9-manual-eft-order-tests.mjs",
+    "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "next": "^14.2.13",
+    "puppeteer": "^23.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
