@@ -1,14 +1,16 @@
-import { ProtectedAdminPage } from '@/components/admin/ProtectedAdminPage';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getAdminMethodologyConfig } from '@/lib/admin/assessment-review';
+import { requireAdmin } from '@/lib/auth/admin-route';
 
 export default async function AdminContentConfigPage() {
+  const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const config = await getAdminMethodologyConfig();
 
   return (
-    <ProtectedAdminPage allowedRoles={['platform_admin', 'reviewer', 'approver', 'read_only_admin']}>
+    <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Phase 8 content foundation"
@@ -54,6 +56,6 @@ export default async function AdminContentConfigPage() {
           </CardContent>
         </Card>
       </div>
-    </ProtectedAdminPage>
+    </AdminShell>
   );
 }
