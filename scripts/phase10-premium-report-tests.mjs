@@ -12,6 +12,7 @@ const required = [
   'package.json',
   'src/lib/reports/types.ts',
   'src/lib/reports/assemble-report-data.ts',
+  'src/lib/reports/fallback-content.ts',
   'src/lib/reports/select-content-blocks.ts',
   'src/lib/reports/roadmap.ts',
   'src/lib/reports/render-pdf.ts',
@@ -60,11 +61,34 @@ assertIncludes(assemble, 'product_code', 'Assembly reads product code for report
 assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation route');
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
 
+const fallback = 'src/lib/reports/fallback-content.ts';
+assertIncludes(fallback, 'FALLBACK_DOMAIN_CONTENT', 'Fallback content uses an explicit domain lookup table');
+assertIncludes(fallback, 'Fraud Leadership and Governance', 'Fallback content covers governance domain');
+assertIncludes(fallback, 'Digital and Identity Fraud Risk', 'Fallback content covers digital and identity domain');
+assertIncludes(fallback, 'Continuous Improvement and Fraud Risk Monitoring', 'Fallback content covers continuous improvement domain');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CAPPED', 'Fallback content covers capped false comfort state');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_GENERAL', 'Fallback content covers gap-but-not-capped false comfort state');
+assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CLEAN', 'Fallback content covers genuinely clean false comfort state');
+assert(!/function\s+fallbackDomainNarrative/.test(read(fallback)), 'Fallback domain content must not collapse to a single templated paragraph');
+
 const contentSelection = 'src/lib/reports/select-content-blocks.ts';
+assertIncludes(contentSelection, "from './fallback-content'", 'Content selector uses domain-specific fallback content');
+assertIncludes(contentSelection, 'getDomainFallback(domain.domainName, band)', 'Domain fallback lookup is per domain and maturity band');
 assertIncludes(contentSelection, 'item.domainCode === domain.domainCode', 'Domain narratives match on persisted domain codes');
 assertIncludes(contentSelection, 'item.domainCode === gap.domainCode', 'Gap commentary matches on persisted domain codes');
+assertIncludes(contentSelection, "hasPriorityGaps ? 'not_capped' : 'clean'", 'False comfort logic distinguishes capped, gap and clean states');
 assertNotIncludes(contentSelection, 'item.domainCode === domain.domainName', 'Domain narratives must not match on display names');
 assertNotIncludes(contentSelection, 'item.domainCode === gap.domainName', 'Gap commentary must not match on display names');
+assertNotIncludes(contentSelection, 'fallbackDomainNarrative', 'Selector must not use the old generic fallback paragraph');
+
+const roadmap = 'src/lib/reports/roadmap.ts';
+assertIncludes(roadmap, 'agenda', 'Roadmap returns a single agenda list');
+assertIncludes(roadmap, 'action30', 'Roadmap agenda preserves 30-day actions');
+assertIncludes(roadmap, 'action60', 'Roadmap agenda preserves 60-day actions');
+assertIncludes(roadmap, 'action90', 'Roadmap agenda preserves 90-day actions');
+assertNotIncludes(roadmap, 'thirtyDay', 'Roadmap must not repeat the same domains in a thirtyDay array');
+assertNotIncludes(roadmap, 'sixtyDay', 'Roadmap must not repeat the same domains in a sixtyDay array');
+assertNotIncludes(roadmap, 'ninetyDay', 'Roadmap must not repeat the same domains in a ninetyDay array');
 
 const reportRequestPage = 'src/app/report/request/[assessmentRef]/page.tsx';
 assertNotIncludes(reportRequestPage, 'Phase 9', 'Public report request page must not expose stale phase wording');
@@ -115,10 +139,33 @@ assertIncludes(download, 'createSignedUrl', 'Download route uses signed URL');
 assertIncludes(download, '300', 'Signed URL has short TTL');
 assertNotIncludes(download, 'publicUrl', 'Download route does not expose permanent public URL');
 
-const template = read('src/lib/reports/templates/report-template.ts');
+const templateFile = 'src/lib/reports/templates/report-template.ts';
+const template = read(templateFile);
 assert(template.includes('False Comfort'), 'Template includes False Comfort section');
-assert(template.includes('Leadership roadmap'), 'Template includes leadership roadmap');
-assert(template.includes('Methodology and limitations'), 'Template includes limitations');
+assert(template.includes('30/60/90-Day Roadmap'), 'Template includes 30/60/90 roadmap');
+assert(template.includes('Leadership Agenda'), 'Template includes leadership agenda');
+assert(template.includes('Where MK Fraud Insights Can Help Next'), 'Template includes MK next-engagement page');
+assert(template.includes('Version Record'), 'Template includes methodology/version record');
+assert(template.includes('DOMAIN_GROUPS'), 'Template groups domain advisory pages instead of one thin page per domain');
+assert(template.includes('roadmap: { agenda: RoadmapItem[] }'), 'Template consumes the single agenda roadmap shape');
+assert(!template.includes('roadmap.thirtyDay') && !template.includes('roadmap.sixtyDay') && !template.includes('roadmap.ninetyDay'), 'Template must not render repeated roadmap horizon arrays');
+assert(!template.includes('roadmap-grid'), 'Template must not use the old repeated roadmap grid');
+assert(!template.includes('const domainPages = data.domainResults.map'), 'Template must not render one standalone page per domain');
+assert(!template.includes('min-height: 265mm'), 'Template must not use the old page min-height pattern that caused spacer pages');
+assert(!/display\s*:\s*table/.test(template), 'Template must avoid table-display pagination patterns');
 assert(!/\bD\d{1,2}-Q\d{2}\b|EXP-\d{2}|REC-\d{2}/.test(template), 'Template must not hard-code customer-facing internal codes');
+assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose phase labels');
+assert(!/benchmark|peer average/i.test(template), 'Template must not claim benchmarks or peer averages');
+assert(!/AI-generated|artificial intelligence/i.test(template), 'Template must not claim live AI recommendations');
+
+const optionalRenderedPdfInfo = path.join(root, 'tmp', 'phase10-rendered-pdfinfo.txt');
+if (fs.existsSync(optionalRenderedPdfInfo)) {
+  const info = fs.readFileSync(optionalRenderedPdfInfo, 'utf8');
+  const pagesMatch = info.match(/^Pages:\s+(\d+)$/m);
+  if (pagesMatch) {
+    const pages = Number(pagesMatch[1]);
+    assert(pages >= 18 && pages <= 24, `Rendered report should stay in the 18-24 page target band when pdfinfo is available; got ${pages}`);
+  }
+}
 
 console.log('Phase 10 premium report tests passed.');
