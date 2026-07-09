@@ -21,9 +21,15 @@ const required = [
   'src/app/admin/reports/page.tsx',
   'src/app/report/request/[assessmentRef]/page.tsx',
   'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql',
-  'docs/v1/phase-exit-cards/phase-10-pdf-report-engine.md'
+  'docs/v1/phase-exit-cards/phase-10-pdf-report-engine.md',
+  'next.config.mjs'
 ];
 for (const file of required) assert(exists(file), `${file} must exist`);
+
+const nextConfig = 'next.config.mjs';
+assertIncludes(nextConfig, 'outputFileTracingIncludes', 'Next config includes packaged Chromium assets in the serverless trace');
+assertIncludes(nextConfig, '@sparticuz/chromium/bin', 'Next config traces @sparticuz Chromium binary assets');
+assertIncludes(nextConfig, '/api/admin/orders/[orderReference]/generate-report', 'Next config scopes Chromium tracing to the generation route');
 
 const migration = 'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql';
 assertIncludes(migration, 'report_templates', 'Migration seeds report template');

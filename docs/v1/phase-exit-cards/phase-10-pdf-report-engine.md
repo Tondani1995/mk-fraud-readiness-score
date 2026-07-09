@@ -60,6 +60,8 @@ Clicking **Generate report version** returned a browser-level HTTP 500 before an
 
 A follow-up patch replaced the runtime dependency on bundled `puppeteer` Chrome with `puppeteer-core` plus packaged `@sparticuz/chromium`, and preserved controlled error handling around rendering, storage upload and report insertion.
 
+A second runtime attempt on the packaged Chromium patch returned without a raw browser 500, but no download/report appeared. Audit logs captured the controlled failure: `PDF render failed: The input directory "/var/task/.next/server/bin" does not exist.` The branch now includes a Next.js output file tracing rule to include `@sparticuz/chromium/bin` in the report-generation serverless bundle.
+
 ## Local ZIP test results reported by Codex
 
 The following passed from the uploaded PR #13 ZIP after the first patch:

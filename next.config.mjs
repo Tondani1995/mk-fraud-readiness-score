@@ -4,7 +4,12 @@ const nextConfig = {
   poweredByHeader: false,
   basePath: '/score',
   experimental: {
-    typedRoutes: false
+    typedRoutes: false,
+    outputFileTracingIncludes: {
+      '/api/admin/orders/[orderReference]/generate-report': [
+        './node_modules/@sparticuz/chromium/bin/**/*'
+      ]
+    }
   }
 };
 
