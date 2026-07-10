@@ -33,6 +33,7 @@ function assertSourceOrder(file, firstNeedle, secondNeedle, label) {
 }
 
 const migration = 'supabase/migrations/0012_phase13_commercial_event_foundation.sql';
+const cleanupMigration = 'supabase/migrations/0013_phase13_event_index_cleanup.sql';
 const taxonomy = 'docs/v1/phase13/phase13-commercial-event-taxonomy.md';
 const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
@@ -56,7 +57,7 @@ const requiredEventTypes = [
   'internal_notification_failed'
 ];
 
-for (const file of [migration, taxonomy, eventHelper, notificationHelper]) {
+for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper]) {
   assert(exists(file), `${file} must exist.`);
 }
 
@@ -75,9 +76,13 @@ assertIncludes(migration, 'report_id uuid references public.reports(id)', 'Asses
 assertIncludes(migration, 'dedupe_key text not null', 'Assessment events use required dedupe key on fresh create');
 assertIncludes(migration, 'event_count integer not null default 1', 'Assessment events count repeats');
 assertIncludes(migration, 'assessment_events_dedupe_key_unique unique (dedupe_key)', 'Assessment events enforce dedupe uniqueness');
+assertNotIncludes(migration, 'assessment_events_dedupe_key_uidx on public.assessment_events', 'Base migration must not create a duplicate dedupe index');
+assertIncludes(migration, 'assessment_events_respondent_idx', 'Assessment events index respondent_id');
 assertIncludes(migration, 'assessment_events_created_at_idx', 'Assessment events index created_at');
 assertIncludes(migration, 'assessment_events_last_seen_idx', 'Assessment events index last_seen_at');
 assertIncludes(migration, 'revoke all on table public.assessment_events from anon, authenticated', 'Assessment events are server-side only in the Data API boundary');
+assertIncludes(cleanupMigration, 'assessment_events_respondent_idx', 'Cleanup migration adds missing respondent index to already-applied databases');
+assertIncludes(cleanupMigration, 'drop index if exists public.assessment_events_dedupe_key_uidx', 'Cleanup migration removes duplicate already-applied dedupe index');
 assertIncludes(migration, 'alter table public.email_events', 'Migration extends existing email_events for internal notifications');
 assertIncludes(migration, 'notification_type text', 'Email events can classify internal notifications');
 assertIncludes(migration, 'email_events_dedupe_key_uidx', 'Email events enforce notification dedupe');
