@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
@@ -15,7 +16,7 @@ export async function GET(request: Request, context: HandlerContext) {
 
   const { data: report, error } = await supabase
     .from('reports')
-    .select('id, storage_bucket, storage_path, report_reference, status')
+    .select('id, assessment_id, order_id, storage_bucket, storage_path, report_reference, status')
     .eq('id', reportId)
     .maybeSingle();
 
@@ -42,6 +43,18 @@ export async function GET(request: Request, context: HandlerContext) {
   });
 
   if (signError || !signed) return NextResponse.json({ ok: false, reason: 'signed_url_failed' }, { status: 500 });
+
+  await trackAssessmentEvent({
+    eventType: 'admin_report_downloaded',
+    assessmentId: report.assessment_id,
+    orderId: report.order_id,
+    reportId: report.id,
+    metadata: {
+      report_reference: report.report_reference,
+      signed_url_ttl_seconds: 300
+    }
+  });
+
   if (request.headers.get('accept')?.includes('text/html')) return NextResponse.redirect(signed.signedUrl, { status: 303 });
   return NextResponse.json({ ok: true, url: signed.signedUrl, reportReference: report.report_reference });
 }
