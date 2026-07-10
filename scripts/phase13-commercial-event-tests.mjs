@@ -75,7 +75,9 @@ assertIncludes(migration, 'report_id uuid references public.reports(id)', 'Asses
 assertIncludes(migration, 'dedupe_key text not null', 'Assessment events use required dedupe key on fresh create');
 assertIncludes(migration, 'event_count integer not null default 1', 'Assessment events count repeats');
 assertIncludes(migration, 'assessment_events_dedupe_key_unique unique (dedupe_key)', 'Assessment events enforce dedupe uniqueness');
+assertIncludes(migration, 'assessment_events_created_at_idx', 'Assessment events index created_at');
 assertIncludes(migration, 'assessment_events_last_seen_idx', 'Assessment events index last_seen_at');
+assertIncludes(migration, 'revoke all on table public.assessment_events from anon, authenticated', 'Assessment events are server-side only in the Data API boundary');
 assertIncludes(migration, 'alter table public.email_events', 'Migration extends existing email_events for internal notifications');
 assertIncludes(migration, 'notification_type text', 'Email events can classify internal notifications');
 assertIncludes(migration, 'email_events_dedupe_key_uidx', 'Email events enforce notification dedupe');
