@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { siteConfig } from '@/lib/config/site';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
+import { AppChrome } from '@/components/layout/AppChrome';
 
 export const metadata: Metadata = {
   title: siteConfig.name,
@@ -14,9 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-ZA">
       <body>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );
