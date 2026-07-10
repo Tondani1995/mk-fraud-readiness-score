@@ -1,3 +1,5 @@
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
+import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { validateResumeToken } from '@/lib/respondent/tokens';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { loadAssessmentAnswers, loadAssessmentMethodology, calculateAssessmentProgress } from '@/lib/respondent/assessment-methodology';
@@ -307,6 +309,11 @@ export async function submitAssessment(payload: { assessmentReference: string; t
     return { ok: false as const, status: 409, errors: ['assessment_already_submitted_or_locked'], progress };
   }
 
+  const submittedEventMetadata = {
+    assessment_reference: payload.assessmentReference,
+    progress_pct: progress.overallPct
+  };
+
   await Promise.all([
     service
       .from('assessment_tokens')
@@ -325,6 +332,20 @@ export async function submitAssessment(payload: { assessmentReference: string; t
         methodology_version_id: assessment.methodology_version_id,
         progress_pct: progress.overallPct
       }
+    }),
+    trackAssessmentEvent({
+      eventType: 'assessment_submitted',
+      assessmentId: assessment.id,
+      organisationId: assessment.organisation_id,
+      respondentId: assessment.primary_respondent_id,
+      metadata: submittedEventMetadata
+    }),
+    queueInternalNotification({
+      notificationType: 'assessment_completed',
+      assessmentId: assessment.id,
+      organisationId: assessment.organisation_id,
+      respondentId: assessment.primary_respondent_id,
+      metadata: submittedEventMetadata
     })
   ]);
 

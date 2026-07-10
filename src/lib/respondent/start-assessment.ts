@@ -1,3 +1,4 @@
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createAssessmentReference } from '@/lib/respondent/reference';
 import { createResumeTokenPayload } from '@/lib/respondent/tokens';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -117,6 +118,17 @@ export async function startAccountlessAssessment(input: StartAssessmentInput, ap
         template_key: 'resume_link_phase4_placeholder',
         status: 'queued',
         error_message: 'Phase 4 does not send email yet. Resume link is returned by the start endpoint for local testing.'
+      }),
+      trackAssessmentEvent({
+        eventType: 'assessment_started',
+        assessmentId: assessment.id,
+        organisationId: organisation.id,
+        respondentId: respondent.id,
+        metadata: {
+          assessment_reference: assessment.assessment_reference,
+          source: 'accountless_start',
+          methodology_version: methodology.version_code
+        }
       })
     ]);
 
