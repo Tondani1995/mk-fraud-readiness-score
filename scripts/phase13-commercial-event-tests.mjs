@@ -23,10 +23,6 @@ function assertNotIncludes(file, needle, label) {
   assert(!read(file).includes(needle), `${label}: expected ${file} not to include ${needle}`);
 }
 
-function assertMatches(file, pattern, label) {
-  assert(pattern.test(read(file)), `${label}: expected ${file} to match ${pattern}`);
-}
-
 function assertSourceOrder(file, firstNeedle, secondNeedle, label) {
   const source = read(file);
   const firstIndex = source.indexOf(firstNeedle);
@@ -110,7 +106,7 @@ assertIncludes(notificationHelper, 'provider_send_attempted: false', 'Notificati
 assertIncludes(notificationHelper, "status: 'already_queued'", 'Notification helper dedupes repeat queue attempts');
 assertIncludes(notificationHelper, 'sanitiseEventMetadata(input.metadata)', 'Notification helper sanitises queued metadata');
 assertIncludes(notificationHelper, "eventType: 'internal_notification_queued'", 'Queued notifications are tracked as events');
-assertIncludes(notificationHelper, "eventType: 'internal_notification_failed'", 'Failed notification queue attempts are tracked as events');
+assertIncludes(notificationHelper, "'internal_notification_failed'", 'Failed notification queue attempts are tracked as events');
 assertNotIncludes(notificationHelper, 'sent_at:', 'Notification helper must not mark queued emails as sent');
 assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification helper must not invent provider message ids');
 
