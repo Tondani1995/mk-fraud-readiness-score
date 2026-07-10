@@ -1,4 +1,4 @@
-import { trackAssessmentEvent, type AssessmentEventMetadata } from '@/lib/analytics/assessment-events';
+import { sanitiseEventMetadata, trackAssessmentEvent, type AssessmentEventMetadata } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export type InternalNotificationType =
@@ -78,6 +78,7 @@ export async function queueInternalNotification(input: QueueInternalNotification
 
   const db = createSupabaseServiceClient() as any;
   const dedupeKey = buildInternalNotificationDedupeKey(input);
+  const metadata = sanitiseEventMetadata(input.metadata);
 
   try {
     const { data: existing, error: existingError } = await db
@@ -105,7 +106,7 @@ export async function queueInternalNotification(input: QueueInternalNotification
         dedupe_key: dedupeKey,
         status: 'queued',
         metadata_json: {
-          ...(input.metadata ?? {}),
+          ...metadata,
           option_code: input.optionCode ?? null,
           phase: 'phase13_commercial_event_foundation',
           provider_send_attempted: false
