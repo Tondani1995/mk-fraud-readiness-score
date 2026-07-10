@@ -57,6 +57,9 @@ jobs:
       - name: Run Phase 10 premium report tests
         run: npm run phase10:test-report
 
+      - name: Run Phase 11 security QA tests
+        run: npm run phase11:test-security
+
       - name: Run TypeScript check
         run: npm run typecheck
 
