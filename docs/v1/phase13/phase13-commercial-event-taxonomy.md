@@ -22,7 +22,7 @@ This taxonomy is the foundation only. It does not introduce the customer-facing 
 - Fulfilment expectation: usually within 7 business days after scope and payment confirmation.
 - V1 boundary: not system-generated, no automatic order, no automatic payment obligation and no automated report release.
 
-Do not display `excluding VAT` anywhere in customer-facing Phase 13 copy. Do not hard-code VAT calculations unless a later pricing configuration explicitly supports them.
+Use VAT-inclusive customer-facing pricing language throughout Phase 13. Do not hard-code VAT calculations unless a later pricing configuration explicitly supports them.
 
 ## Lead Stage Interpretation
 
