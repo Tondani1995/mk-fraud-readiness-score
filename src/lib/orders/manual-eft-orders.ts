@@ -1,4 +1,6 @@
 import { unstable_noStore as noStore } from 'next/cache';
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
+import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminSession } from '@/lib/auth/admin-route';
 
@@ -149,6 +151,43 @@ function toCustomerOrder(order: any): CustomerOrderConfirmation {
   };
 }
 
+async function trackEftOrderEvent(input: {
+  assessment: any;
+  dataRequest: any;
+  organisation?: any | null;
+  respondent?: any | null;
+}, order: any, created: boolean) {
+  const metadata = {
+    assessment_reference: input.assessment.assessment_reference,
+    order_reference: order.order_reference,
+    product_name: order.product_name,
+    order_created: created
+  };
+
+  await Promise.all([
+    trackAssessmentEvent({
+      eventType: 'eft_order_created',
+      assessmentId: input.assessment.id,
+      organisationId: input.assessment.organisation_id,
+      respondentId: input.assessment.primary_respondent_id,
+      orderId: order.id,
+      dataRequestId: input.dataRequest?.id ?? null,
+      optionCode: 'full_report_5000',
+      metadata
+    }),
+    queueInternalNotification({
+      notificationType: 'eft_order_created',
+      assessmentId: input.assessment.id,
+      organisationId: input.assessment.organisation_id,
+      respondentId: input.assessment.primary_respondent_id,
+      orderId: order.id,
+      dataRequestId: input.dataRequest?.id ?? null,
+      optionCode: 'full_report_5000',
+      metadata
+    })
+  ]);
+}
+
 export async function createOrGetOrderForReportRequest(input: {
   assessment: any;
   dataRequest: any;
@@ -166,7 +205,10 @@ export async function createOrGetOrderForReportRequest(input: {
       .maybeSingle()
     : { data: null };
 
-  if (existing.data) return toCustomerOrder(existing.data);
+  if (existing.data) {
+    await trackEftOrderEvent(input, existing.data, false);
+    return toCustomerOrder(existing.data);
+  }
 
   const product = await getDefaultDetailedReportProduct(db);
   if (!product) return null;
@@ -232,6 +274,8 @@ export async function createOrGetOrderForReportRequest(input: {
       report_unlock: false
     }
   });
+
+  await trackEftOrderEvent(input, inserted, true);
 
   return toCustomerOrder(inserted);
 }
@@ -349,6 +393,21 @@ export async function updateAdminOrderStatus(input: {
       report_unlock: false
     }
   });
+
+  if (input.nextStatus === 'payment_received') {
+    await trackAssessmentEvent({
+      eventType: 'payment_marked_received',
+      assessmentId: detail.order.assessment_id,
+      orderId: detail.order.id,
+      dataRequestId: detail.order.report_request_id ?? null,
+      optionCode: 'full_report_5000',
+      metadata: {
+        order_reference: detail.order.order_reference,
+        previous_status: currentStatus,
+        next_status: input.nextStatus
+      }
+    });
+  }
 
   return { ok: true, order: updated };
 }
