@@ -103,21 +103,9 @@ export async function POST(request: Request, context: HandlerContext) {
     status: block.status
   }));
 
-  let pdfBuffer: Buffer;
-  let checksum: string;
-  try {
-    const content = selectContent(assembled, contentBlocks);
-    const roadmap = selectRoadmap(assembled);
-    const html = renderReportHtml(assembled, content, roadmap);
-    pdfBuffer = await renderHtmlToPdfBuffer(html);
-    checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
-  } catch (err) {
-    const message = errorMessage(err);
-    console.error('Report rendering failed:', err);
-    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `PDF render failed: ${message}`);
-    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'pdf_render_failed', message }, 500);
-  }
-
+  // Phase 12: resolve the persisted, versioned report reference (e.g. -V1, -V2)
+  // before rendering, so the PDF cover/body matches the reference that is
+  // actually persisted to the reports table and storage path below.
   const { data: existingReport } = await supabase
     .from('reports')
     .select('id, version_number')
@@ -133,6 +121,23 @@ export async function POST(request: Request, context: HandlerContext) {
   const reportReference = `RPT-${assembled.assessmentReference}-V${nextVersion}`;
   const storageBucket = process.env.SUPABASE_BUCKET_REPORTS ?? 'generated-reports';
   const storagePath = `${assembled.assessmentReference}/${reportReference}.pdf`;
+
+  assembled.reportReference = reportReference;
+
+  let pdfBuffer: Buffer;
+  let checksum: string;
+  try {
+    const content = selectContent(assembled, contentBlocks);
+    const roadmap = selectRoadmap(assembled);
+    const html = renderReportHtml(assembled, content, roadmap);
+    pdfBuffer = await renderHtmlToPdfBuffer(html);
+    checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+  } catch (err) {
+    const message = errorMessage(err);
+    console.error('Report rendering failed:', err);
+    await safeLogReportAttempt(supabase, null, 'generation_failed', admin.id, `PDF render failed: ${message}`);
+    return jsonOrRedirect(request, orderReference, { ok: false, reason: 'pdf_render_failed', message }, 500);
+  }
 
   try {
     const { error: uploadError } = await supabase.storage
