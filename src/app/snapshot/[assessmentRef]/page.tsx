@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
@@ -68,6 +69,17 @@ export default async function SnapshotShellPage({ params, searchParams }: Snapsh
   );
 
   if (!snapshot) return <AccessError assessmentRef={params.assessmentRef} reason="snapshot_not_available" />;
+
+  await trackAssessmentEvent({
+    eventType: 'snapshot_viewed',
+    assessmentId: validation.assessment.id,
+    organisationId: validation.assessment.organisation_id,
+    respondentId: validation.assessment.primary_respondent_id,
+    metadata: {
+      assessment_reference: validation.assessment.assessment_reference,
+      embedded
+    }
+  });
 
   return (
     <SectionShell className={embedded ? 'py-0' : 'py-12'}>
