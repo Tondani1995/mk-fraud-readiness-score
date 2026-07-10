@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
+import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from '@/lib/reports/assemble-report-data';
@@ -184,6 +185,19 @@ export async function POST(request: Request, context: HandlerContext) {
 
   if (existingReport) await supabase.from('reports').update({ status: 'superseded' }).eq('id', existingReport.id);
   await safeLogReportAttempt(supabase, newReport.id, existingReport ? 'regenerated' : 'generated', admin.id, `Version ${nextVersion} created.`);
+  await trackAssessmentEvent({
+    eventType: 'report_generated',
+    assessmentId: assembled.scoreRun.assessmentId,
+    orderId: assembled.orderId,
+    reportId: newReport.id,
+    metadata: {
+      assessment_reference: assembled.assessmentReference,
+      order_reference: orderReference,
+      report_reference: reportReference,
+      report_type: reportType,
+      version_number: nextVersion
+    }
+  });
 
   return jsonOrRedirect(request, orderReference, {
     ok: true,
