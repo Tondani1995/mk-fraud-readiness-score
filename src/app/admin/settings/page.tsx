@@ -6,8 +6,8 @@ export default function AdminSettingsPage() {
   return (
     <ProtectedAdminPage allowedRoles={['platform_admin', 'finance_admin', 'read_only_admin']}>
       <div className="space-y-6">
-        <PageHeader eyebrow="Protected admin route" title="Platform settings" description="Settings are protected in Phase 4. Editing EFT details, products and templates remains reserved for later phases." />
-        <Card><CardHeader><CardTitle>Phase 8/9 placeholder</CardTitle></CardHeader><CardContent><p className="text-sm leading-6 text-mk-muted">No platform setting changes are active in Phase 4.</p></CardContent></Card>
+        <PageHeader eyebrow="Platform configuration" title="Platform settings" description="Platform-wide settings are managed from the Products and Configuration pages. This page is reserved for future platform-level controls." />
+        <Card><CardHeader><CardTitle>Reserved for future use</CardTitle></CardHeader><CardContent><p className="text-sm leading-6 text-mk-muted">No platform-level settings are configurable from this page yet. EFT details, products and pricing are managed on the Products page.</p></CardContent></Card>
       </div>
     </ProtectedAdminPage>
   );
