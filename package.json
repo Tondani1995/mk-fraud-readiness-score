@@ -24,6 +24,7 @@
     "phase9:test-orders": "node scripts/phase9-manual-eft-order-tests.mjs",
     "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
     "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
+    "phase13:test-events": "node scripts/phase13-commercial-event-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
