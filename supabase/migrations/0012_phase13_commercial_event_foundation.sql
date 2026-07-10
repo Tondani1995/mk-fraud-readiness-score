@@ -58,9 +58,9 @@ alter table public.assessment_events
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
-create unique index if not exists assessment_events_dedupe_key_uidx on public.assessment_events(dedupe_key);
 create index if not exists assessment_events_assessment_idx on public.assessment_events(assessment_id);
 create index if not exists assessment_events_organisation_idx on public.assessment_events(organisation_id);
+create index if not exists assessment_events_respondent_idx on public.assessment_events(respondent_id);
 create index if not exists assessment_events_event_type_idx on public.assessment_events(event_type);
 create index if not exists assessment_events_option_code_idx on public.assessment_events(option_code);
 create index if not exists assessment_events_order_idx on public.assessment_events(order_id);
