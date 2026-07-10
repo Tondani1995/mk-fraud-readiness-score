@@ -66,9 +66,11 @@ create index if not exists assessment_events_option_code_idx on public.assessmen
 create index if not exists assessment_events_order_idx on public.assessment_events(order_id);
 create index if not exists assessment_events_data_request_idx on public.assessment_events(data_request_id);
 create index if not exists assessment_events_report_idx on public.assessment_events(report_id);
+create index if not exists assessment_events_created_at_idx on public.assessment_events(created_at desc);
 create index if not exists assessment_events_last_seen_idx on public.assessment_events(last_seen_at desc);
 
 alter table public.assessment_events enable row level security;
+revoke all on table public.assessment_events from anon, authenticated;
 
 do $$
 begin
