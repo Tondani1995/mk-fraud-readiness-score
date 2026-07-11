@@ -9,8 +9,7 @@ const ALLOWED_EVENT_TYPES = new Set<AssessmentEventType>([
   'executive_summary_viewed',
   'report_options_opened',
   'report_option_selected',
-  'full_report_5000_selected',
-  'personalised_report_50000_selected'
+  'full_report_5000_selected'
 ]);
 
 function cleanSourceSection(value: unknown) {
@@ -60,9 +59,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   const optionCode = eventType === 'full_report_5000_selected'
     ? COMMERCIAL_OPTION_CODES.fullReport
-    : eventType === 'personalised_report_50000_selected'
-      ? COMMERCIAL_OPTION_CODES.personalisedReport
-      : cleanOptionCode(body?.optionCode);
+    : cleanOptionCode(body?.optionCode);
 
   if (eventType === 'report_option_selected' && !optionCode) {
     return NextResponse.json({ ok: false, errors: ['A supported report option is required.'] }, { status: 400 });
@@ -92,17 +89,6 @@ export async function POST(request: Request, { params }: { params: { assessmentR
       organisationId: assessment.organisation_id,
       respondentId: assessment.primary_respondent_id,
       optionCode: COMMERCIAL_OPTION_CODES.fullReport,
-      metadata
-    });
-  }
-
-  if (eventType === 'personalised_report_50000_selected') {
-    await queueInternalNotification({
-      notificationType: 'personalised_report_50000_selected',
-      assessmentId: assessment.id,
-      organisationId: assessment.organisation_id,
-      respondentId: assessment.primary_respondent_id,
-      optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
       metadata
     });
   }
