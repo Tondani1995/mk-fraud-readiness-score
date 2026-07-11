@@ -261,6 +261,11 @@ export function commercialScoreBand(score: number): CommercialScoreBand {
   return 'Strategic';
 }
 
+function commercialMaturityBand(maturity: string): CommercialScoreBand {
+  if (maturity === 'Reactive' || maturity === 'Developing' || maturity === 'Structured' || maturity === 'Strategic') return maturity;
+  return 'Reactive';
+}
+
 export function readinessLabelForScore(score: number | null) {
   if (score === null) return 'Not scored';
   if (score < 40) return 'Immediate attention';
@@ -356,7 +361,7 @@ function priorityAreas(snapshot: FreeSnapshot) {
 
 function strengths(snapshot: FreeSnapshot) {
   return scoredDomains(snapshot)
-    .filter(({ domain }) => Number(domain.rawScore ?? 0) >= 80 && domain.coveragePct >= 70 && domain.criticalGapCount === 0)
+    .filter(({ domain }) => Number(domain.rawScore ?? 0) >= 70 && domain.coveragePct >= 70 && domain.criticalGapCount === 0)
     .sort((a, b) => {
       const scoreDelta = Number(b.domain.rawScore ?? 0) - Number(a.domain.rawScore ?? 0);
       if (scoreDelta) return scoreDelta;
@@ -376,15 +381,16 @@ export function defaultFocusAreasForInsights(insights: CommercialSnapshotInsight
 }
 
 export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): CommercialSnapshotInsights {
-  const band = commercialScoreBand(snapshot.overallScore);
+  const scoreBand = commercialScoreBand(snapshot.overallScore);
+  const maturityBand = commercialMaturityBand(snapshot.finalMaturity);
   const priority = priorityAreas(snapshot);
   const positive = strengths(snapshot);
 
   return {
-    scoreBand: band,
-    currentPosition: CURRENT_POSITION_BY_BAND[band],
+    scoreBand,
+    currentPosition: CURRENT_POSITION_BY_BAND[maturityBand],
     riskImplication: riskImplication(snapshot),
-    leadershipPriority: leadershipPriority(snapshot, band),
+    leadershipPriority: leadershipPriority(snapshot, maturityBand),
     conciseInterpretation: `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
     criticalGapIndicator: snapshot.criticalGapCount > 0 || snapshot.capApplied,
     coverageMessage: coverageMessage(snapshot),
