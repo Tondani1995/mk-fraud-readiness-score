@@ -81,7 +81,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     respondent
   });
 
-  if (email) {
+  if (email && !existingRequest) {
     await service.from('email_events').insert({
       assessment_id: assessment.id,
       recipient_email: email,
@@ -110,7 +110,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   return NextResponse.json({
     ok: true,
-    message: 'Your detailed report request has been received. MK Fraud Insights will confirm the next step before any detailed report is released.',
+    message: 'Your report order has been recorded.',
     order,
     manualConfirmationNote: 'Please use your order reference as the payment reference. MK Fraud Insights confirms EFT payments manually before any detailed report is released.'
   });

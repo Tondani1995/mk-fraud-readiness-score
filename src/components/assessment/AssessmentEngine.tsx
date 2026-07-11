@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { FreeSnapshotCard } from '@/components/assessment/FreeSnapshot';
 import { evaluateNAEligibility, type ExposureSelectionMap } from '@/lib/respondent/na-rules';
+import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 
 const SCORE_BASE_PATH = '/score';
@@ -188,6 +189,7 @@ export function AssessmentEngine({
 
   const activeDomain = domains.find((domain) => domain.id === activeStep);
   const isLocked = submitState !== 'idle';
+  const commercialInsights = useMemo(() => snapshot ? buildCommercialSnapshotInsights(snapshot) : null, [snapshot]);
   const exposureSelectionMap = useMemo<ExposureSelectionMap>(() => {
     const entries = exposureFactors.flatMap((factor) => {
       const ruleKey = ruleKeyForExposure(factor);
@@ -354,8 +356,8 @@ export function AssessmentEngine({
   }
 
   if (submitState === 'submitted') {
-    return snapshot ? (
-      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={snapshotUrl} />
+    return snapshot && commercialInsights ? (
+      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={snapshotUrl} commercialInsights={commercialInsights} />
     ) : (
       <Card>
         <CardHeader>
