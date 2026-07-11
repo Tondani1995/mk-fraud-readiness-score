@@ -55,7 +55,7 @@ assertIncludes(files.builder, 'buildCommercialSnapshotInsights', 'Deterministic 
 assertIncludes(files.builder, 'commercialScoreBand', 'Builder exposes deterministic score band');
 assertIncludes(files.builder, 'priorityAreas(snapshot)', 'Builder derives priority areas');
 assertIncludes(files.builder, 'strengths(snapshot)', 'Builder derives strengths');
-assertIncludes(files.builder, 'commercialInsights.freeSnapshotValue', 'Snapshot consumes free-vs-paid value lists');
+assertIncludes(files.snapshot, 'commercialInsights.freeSnapshotValue', 'Snapshot consumes free-vs-paid value lists');
 assertNotIncludes(files.builder, 'Math.random', 'Insight builder must not use randomness');
 assertNotIncludes(files.builder, 'Date.now', 'Insight builder must not use current time');
 assertNotIncludes(files.builder, 'openai', 'Insight builder must not call AI providers');
@@ -87,7 +87,8 @@ assertIncludes(files.snapshot, "eventType=\"executive_summary_viewed\"", 'Execut
 assertIncludes(files.snapshot, "eventType=\"report_options_opened\"", 'Report options view event is emitted at section visibility');
 assertIncludes(files.snapshot, "report_option_selected", 'Report option selected event is emitted');
 assertIncludes(files.snapshot, "full_report_5000_selected", 'R5k selected event is emitted');
-assertSourceOrder(files.snapshot, "setSelectedOption(COMMERCIAL_OPTION_CODES.fullReport)", "requestDetailedReport()", 'Selecting the R5k report precedes order creation');
+assertIncludes(files.snapshot, "setSelectedOption(COMMERCIAL_OPTION_CODES.fullReport)", 'R5k selection is a distinct option step');
+assertIncludes(files.snapshot, 'onClick={() => void requestDetailedReport()}', 'R5k EFT continuation calls order creation path only after the option step');
 assertIncludes(files.snapshot, 'Continue to EFT instructions', 'R5k path creates order only at EFT step');
 assertIncludes(files.snapshot, 'consent to MK using my contact details, assessment responses and assessment results', 'Report/advisory consent copy is present');
 assertIncludes(files.snapshot, 'personalised-report-request', 'Snapshot posts advisory enquiry to controlled endpoint');
