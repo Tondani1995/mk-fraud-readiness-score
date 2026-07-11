@@ -4,7 +4,6 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 export type InternalNotificationType =
   | 'assessment_completed'
   | 'eft_order_created'
-  | 'report_options_opened'
   | 'full_report_5000_selected'
   | 'personalised_report_50000_selected';
 
@@ -131,7 +130,7 @@ export async function queueInternalNotification(input: QueueInternalNotification
   } catch (error) {
     const message = errorMessage(error);
     console.error('Phase 13 internal notification queue failed', { notificationType: input.notificationType, message });
-    await trackNotificationEvent(input, 'internal_notification_failed', 'failed').catch(() => undefined);
+    await trackNotificationEvent(input, 'internal_notification_failed', 'failed').catch(() => null);
     if (input.strict) throw error;
     return { ok: false, status: 'failed', error: message };
   }
