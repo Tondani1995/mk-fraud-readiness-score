@@ -94,7 +94,7 @@ export function FreeSnapshotCard({
         optionCode,
         sourceSection
       })
-    }).catch(() => undefined);
+    }).catch(() => null);
   }
 
   async function selectFullReport() {
@@ -354,7 +354,7 @@ function SnapshotEventBeacon({ snapshot, snapshotUrl, eventType, sourceSection }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshotToken, eventType, sourceSection })
-      }).catch(() => undefined);
+      }).catch(() => null);
     }, { threshold: [0.5] });
     observer.observe(node);
     return () => observer.disconnect();
