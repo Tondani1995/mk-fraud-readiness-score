@@ -70,7 +70,7 @@ assertIncludes(reportRoute, 'validateSnapshotToken', 'Report request route valid
 assertIncludes(reportRoute, 'snapshotToken', 'Report request route requires a snapshot token in the request body');
 assertIncludes(reportRoute, 'Private snapshot link required to request a detailed report.', 'Report request route rejects tokenless requests with customer-safe copy');
 assertIncludes(reportRoute, 'detailed_report_request_reconfirmed', 'Report request route handles repeated clicks safely');
-assertIncludes(reportRoute, 'Your detailed report request has been received', 'Report request response is customer safe');
+assertIncludes(reportRoute, 'Your report order has been recorded.', 'Report request response confirms the approved order-recorded state');
 assertIncludes(reportRoute, 'Please use your order reference as the payment reference', 'Report request returns EFT next-step language');
 
 const snapshot = 'src/components/assessment/FreeSnapshot.tsx';
