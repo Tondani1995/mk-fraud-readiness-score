@@ -21,7 +21,7 @@ jobs:
       ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
       ASSESSMENT_TOKEN_MAX_USES: '25'
       ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
-      MK_BUILD_PHASE: phase-13-commercial-event-foundation
+      MK_BUILD_PHASE: phase-13-customer-commercial-conversion
       MK_RELEASE_CHANNEL: ci
       PUPPETEER_SKIP_DOWNLOAD: 'true'
 
@@ -62,6 +62,9 @@ jobs:
 
       - name: Run Phase 13 commercial event tests
         run: npm run phase13:test-events
+
+      - name: Run Phase 13 conversion tests
+        run: npm run phase13:test-conversion
 
       - name: Run TypeScript check
         run: npm run typecheck
