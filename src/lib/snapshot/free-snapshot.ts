@@ -16,6 +16,7 @@ export type FreeSnapshot = {
   assessmentReference: string;
   organisationName: string;
   respondentName: string | null;
+  respondentEmail: string | null;
   scoreRunId: string;
   runNumber: number;
   overallScore: number;
@@ -106,6 +107,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     assessmentReference: assessment.assessment_reference,
     organisationName: organisation?.legal_name ?? organisation?.trading_name ?? 'Organisation',
     respondentName: respondent?.full_name ?? respondent?.email ?? null,
+    respondentEmail: respondent?.email ?? null,
     scoreRunId: scoreRun.id,
     runNumber: Number(scoreRun.run_number ?? 1),
     overallScore: asNumber(scoreRun.overall_score),
