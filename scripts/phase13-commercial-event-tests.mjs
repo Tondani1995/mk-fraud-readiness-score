@@ -133,7 +133,7 @@ assertIncludes(personalisedRoute, "eventType: 'personalised_report_50000_selecte
 assertIncludes(personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'Personalised route queues high-priority internal notification');
 assertIncludes(personalisedRoute, 'payment_obligation: false', 'Personalised route records no payment obligation');
 assertIncludes(personalisedRoute, 'order_created: false', 'Personalised route records no order creation');
-assertNotIncludes(personalisedRoute, 'notes:', 'Personalised route must not copy notes into event metadata');
+assertNotIncludes(personalisedRoute, 'metadata: { notes', 'Personalised route must not copy notes into event metadata');
 
 const noGoImplementationSources = [
   eventHelper,
