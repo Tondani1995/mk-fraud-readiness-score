@@ -28,8 +28,12 @@ This PR adds the customer commercial conversion journey after private free snaps
 - Replaced keyword heuristics with an explicit D1-D10 domain-code map.
 - Changed report-options tracking to observe real sections with `IntersectionObserver` threshold `0.5`.
 - Stopped internal notification queueing for `report_options_opened`.
-- Kept queue-only notifications for `full_report_5000_selected` and `personalised_report_50000_selected`.
-- Replaced static-only Phase 13 conversion checks with executable deterministic insight-builder tests.
+- Kept queue-only notification behavior for `full_report_5000_selected`.
+- Corrected executive current-position selection to use persisted `snapshot.finalMaturity`, while retaining a separate score-derived `scoreBand` for analytics metadata.
+- Restored the approved strength qualification rule: `rawScore >= 70`, `coveragePct >= 70`, and zero critical gaps.
+- Corrected the R50 event journey so card selection emits only generic `report_option_selected` analytics. The specific `personalised_report_50000_selected` event and its internal notification are emitted only after the enquiry is successfully created or updated and linked to `data_request_id`.
+- Removed the pre-enquiry R50-specific event/notification path from the generic commercial-event route.
+- Replaced static-only Phase 13 conversion checks with executable deterministic insight-builder tests, including capped-maturity and 69.99/70 strength boundary cases.
 
 ## Files Inspected Before Changes
 
@@ -63,6 +67,17 @@ This PR adds the customer commercial conversion journey after private free snaps
 - `scripts/phase13-customer-commercial-conversion-tests.mjs`
 - `package.json`
 - `.github/workflows/phase7-verification.yml`
+- PR #18 controller review posted on 2026-07-11.
+
+## Files Changed In Controller Correction Pass
+
+- `src/lib/snapshot/commercial-insights.ts`
+- `src/components/assessment/FreeSnapshot.tsx`
+- `src/app/api/assessments/[assessmentRef]/commercial-event/route.ts`
+- `src/app/api/assessments/[assessmentRef]/personalised-report-request/route.ts`
+- `scripts/phase13-commercial-event-tests.mjs`
+- `scripts/phase13-customer-commercial-conversion-tests.mjs`
+- `docs/v1/phase-exit-cards/phase-13-pr-b-customer-commercial-conversion.md`
 
 ## Database Migration
 
@@ -76,10 +91,11 @@ The migration is additive to `data_requests`, adds controlled personalised-enqui
 
 GitHub Actions is the evidence path because this workspace cannot clone the private repository locally.
 
-V1 Verification run #379 completed successfully on correction-pass implementation head `06a64b2640ecd94f97ef2240abed4b8752f9847d`.
+V1 Verification run #401 completed successfully on controller-corrected implementation head `84fae1724e90f164051f917ae72a04eddf343f13`.
 
 Passed steps:
 
+- checkout
 - dependency install
 - `npm run phase7:test-snapshot`
 - `npm run phase8:test-admin`
@@ -92,17 +108,15 @@ Passed steps:
 - `npm run typecheck`
 - `npm run build`
 
-The evidence-card updates after `06a64b2640ecd94f97ef2240abed4b8752f9847d` are documentation-only and do not change runtime behavior.
-
 ## Current-Head Preview
 
-A Vercel preview is READY for correction-pass implementation head `06a64b2640ecd94f97ef2240abed4b8752f9847d`:
+A Vercel preview is READY for controller-corrected implementation head `84fae1724e90f164051f917ae72a04eddf343f13`:
 
 - Preview: `https://mk-fraud-readiness-score-git-phase13-c-dc49fb-tondanis-projects.vercel.app`
-- Deployment: `dpl_FDJq6bFFFajTbo2PKAbFB2xggjdM`
-- Deployment URL: `https://mk-fraud-readiness-score-4cpa2urbx-tondanis-projects.vercel.app`
+- Deployment: `dpl_Fn1RgaYG5ssQMpN2PjnzkBhLuKYW`
+- Deployment URL: `https://mk-fraud-readiness-score-nhwkbf5v2-tondanis-projects.vercel.app`
 - Deployment state: `READY`
-- Vercel metadata commit: `06a64b2640ecd94f97ef2240abed4b8752f9847d`
+- Vercel metadata commit: `84fae1724e90f164051f917ae72a04eddf343f13`
 
 This confirms a current-head preview exists for the verified implementation head. It does not replace runtime UAT.
 
