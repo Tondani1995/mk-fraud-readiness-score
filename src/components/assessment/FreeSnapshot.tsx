@@ -109,7 +109,6 @@ export function FreeSnapshotCard({
     setEnquiryMessage('');
     setEnquiryConfirmation(null);
     await emitCommercialEvent('report_option_selected', COMMERCIAL_OPTION_CODES.personalisedReport, 'report_options');
-    await emitCommercialEvent('personalised_report_50000_selected', COMMERCIAL_OPTION_CODES.personalisedReport, 'report_options');
   }
 
   async function requestDetailedReport() {
