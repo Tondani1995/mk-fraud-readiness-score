@@ -111,20 +111,16 @@ export function StartAssessmentForm() {
         <Select name="annualRevenueBand" label="Annual revenue band" options={revenueBands} />
       </div>
 
-      <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6 text-mk-muted">
-        This assessment uses predefined options. It does not ask you to upload documents, describe incidents, name employees or suppliers, provide customer information, share account numbers, disclose passwords or enter confidential operational records.
-      </div>
-
       <label className="flex gap-3 rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6 text-mk-muted">
         <input name="consentPrivacy" type="checkbox" className="mt-1" required />
-        <span>I confirm that I have enough knowledge of the organisation to answer meaningfully and consent to MK processing these details for the assessment and relevant follow-up.</span>
+        <span>I confirm that I am authorised to submit this information for the organisation and consent to MK processing it for the assessment and follow-up.</span>
       </label>
       <label className="flex gap-3 rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6 text-mk-muted">
         <input name="consentResearch" type="checkbox" className="mt-1" />
-        <span>I consent to MK using anonymised and aggregated assessment data for future internal research and methodology improvement.</span>
+        <span>I consent to MK using anonymised and aggregated assessment data for future research and benchmarking once sufficient data exists.</span>
       </label>
 
-      <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Starting assessment...' : 'Start the assessment'}</Button>
+      <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Starting assessment…' : 'Start the assessment'}</Button>
     </form>
   );
 }
