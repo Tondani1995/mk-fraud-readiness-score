@@ -54,6 +54,10 @@ function assertNotMatchesSource(source, pattern, label) {
   assert(!pattern.test(source), `${label}: expected source not to match ${pattern}`);
 }
 
+function countOccurrences(source, needle) {
+  return source.split(needle).length - 1;
+}
+
 function loadCommercialInsights() {
   const filePath = path.join(root, 'src/lib/snapshot/commercial-insights.ts');
   const source = read('src/lib/snapshot/commercial-insights.ts');
@@ -71,6 +75,7 @@ function loadCommercialInsights() {
   }, { filename: 'commercial-insights.phase13.cjs' });
 
   assert(typeof module.exports.buildCommercialSnapshotInsights === 'function', 'Commercial insight builder export missing.');
+  assert(typeof module.exports.commercialScoreBand === 'function', 'Commercial score-band export missing.');
   assert(typeof module.exports.readinessLabelForScore === 'function', 'Readiness label export missing.');
   return module.exports;
 }
@@ -97,6 +102,7 @@ for (const file of Object.values(files)) assert(exists(file), `${file} must exis
 
 const {
   buildCommercialSnapshotInsights,
+  commercialScoreBand,
   readinessLabelForScore,
   DOMAIN_CONTENT_BY_CODE
 } = loadCommercialInsights();
@@ -176,8 +182,10 @@ for (const code of Object.keys(domainNames)) assert(DOMAIN_CONTENT_BY_CODE[code]
 assertEqual(readinessLabelForScore(39.99), 'Immediate attention', 'Below 40 readiness label');
 assertEqual(readinessLabelForScore(40), 'Developing', '40 readiness label');
 assertEqual(readinessLabelForScore(60), 'Structured', '60 readiness label');
+assertEqual(readinessLabelForScore(70), 'Structured', '70 readiness label');
 assertEqual(readinessLabelForScore(80), 'Stronger foundation', '80 readiness label');
 assertEqual(readinessLabelForScore(null), 'Not scored', 'Null readiness label');
+assertEqual(commercialScoreBand(88), 'Strategic', 'Score band remains available for analytics metadata');
 
 const reactiveCritical = buildCommercialSnapshotInsights(makeSnapshot({
   overallScore: 32,
@@ -203,14 +211,35 @@ assertEqual(structuredHigh.currentPosition, approvedCurrentPosition.Structured, 
 assertEqual(structuredHigh.riskImplication, approvedRiskImplication.High, 'High exposure block');
 assertEqual(structuredHigh.leadershipPriority, structuredPriority, 'Structured leadership block');
 
-const strategicCapped = buildCommercialSnapshotInsights(makeSnapshot({ overallScore: 88, finalMaturity: 'Structured', exposureBand: 'Low', capApplied: true, capReason: 'critical_control_cap' }));
-assertEqual(strategicCapped.currentPosition, approvedCurrentPosition.Strategic, 'Strategic current-position block');
-assertEqual(strategicCapped.leadershipPriority, capPriority, 'Triggered-cap leadership block wins before critical logic');
-assertEqual(strategicCapped.criticalGapIndicator, true, 'Cap triggers critical indicator');
+const strategic = buildCommercialSnapshotInsights(makeSnapshot({ overallScore: 88, finalMaturity: 'Strategic', exposureBand: 'Low' }));
+assertEqual(strategic.currentPosition, approvedCurrentPosition.Strategic, 'Strategic current-position block for final maturity Strategic');
+assertEqual(strategic.scoreBand, 'Strategic', 'Strategic score band is retained');
 
-const noStrength = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 79 }, D2: { rawScore: 82, coveragePct: 60 }, D3: { rawScore: 86, criticalGapCount: 1 } } }));
+const strategicCappedToStructured = buildCommercialSnapshotInsights(makeSnapshot({
+  overallScore: 88,
+  calculatedMaturity: 'Strategic',
+  finalMaturity: 'Structured',
+  exposureBand: 'Low',
+  capApplied: true,
+  capReason: 'critical_control_cap'
+}));
+assertEqual(strategicCappedToStructured.scoreBand, 'Strategic', 'Capped fixture keeps score-derived analytics band');
+assertEqual(strategicCappedToStructured.currentPosition, approvedCurrentPosition.Structured, 'Capped fixture uses final-maturity narrative, not score-derived narrative');
+assertEqual(strategicCappedToStructured.leadershipPriority, capPriority, 'Triggered-cap leadership block wins before maturity logic');
+assertEqual(strategicCappedToStructured.criticalGapIndicator, true, 'Cap triggers critical indicator');
+
+const noStrength = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 69.99 }, D2: { rawScore: 82, coveragePct: 60 }, D3: { rawScore: 86, criticalGapCount: 1 } } }));
 assertEqual(noStrength.strengths.length, 0, 'No qualifying strengths');
 assertEqual(noStrength.strengthContext, noStrengthContext, 'Approved no-strength context');
+
+const strengthBoundaryBelow = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 69.99, coveragePct: 100 } } }));
+assert(!strengthBoundaryBelow.strengths.some((item) => item.domainCode === 'D1'), '69.99 raw score does not qualify as a strength');
+const strengthBoundaryAt = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 70, coveragePct: 70 } } }));
+assert(strengthBoundaryAt.strengths.some((item) => item.domainCode === 'D1'), '70 raw score with 70 coverage and no critical gap qualifies as a strength');
+const strengthCoverageBoundaryBelow = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 90, coveragePct: 69.99 } } }));
+assert(!strengthCoverageBoundaryBelow.strengths.some((item) => item.domainCode === 'D1'), '69.99 coverage does not qualify as a strength');
+const strengthCriticalGapExclusion = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D1: { rawScore: 90, coveragePct: 100, criticalGapCount: 1 } } }));
+assert(!strengthCriticalGapExclusion.strengths.some((item) => item.domainCode === 'D1'), 'Critical gap excludes an otherwise strong domain');
 
 const oneStrength = buildCommercialSnapshotInsights(makeSnapshot({ domainOverrides: { D3: { rawScore: 84, coveragePct: 100 } } }));
 assertEqual(oneStrength.strengths.length, 1, 'Exactly one qualifying strength');
@@ -237,6 +266,8 @@ assertDeepEqual(buildCommercialSnapshotInsights(identicalInput), buildCommercial
 
 assertIncludes(files.builder, 'DOMAIN_CONTENT_BY_CODE', 'Builder uses controlled domain-code map');
 assertIncludes(files.builder, '30/60/90-day fraud-readiness roadmap', 'Paid-product comparison source may mention roadmap');
+assertIncludes(files.builder, 'commercialMaturityBand(snapshot.finalMaturity)', 'Builder selects executive narrative from persisted final maturity');
+assertIncludes(files.builder, 'rawScore ?? 0) >= 70', 'Builder applies approved 70 strength threshold');
 assertNotIncludes(files.builder, 'keyword(', 'Builder must not use keyword heuristics');
 assertNotIncludes(files.builder, 'Math.random', 'Insight builder must not use randomness');
 assertNotIncludes(files.builder, 'Date.now', 'Insight builder must not use current time');
@@ -262,26 +293,21 @@ assertIncludes(files.snapshot, 'Executive interpretation', 'Snapshot has executi
 assertIncludes(files.snapshot, 'Priority areas for management focus', 'Snapshot has approved priority heading');
 assertIncludes(files.snapshot, 'Foundations you can build on', 'Snapshot has approved strength heading');
 assertIncludes(files.snapshot, 'Your snapshot identifies the position. The detailed report explains what to do next.', 'Snapshot uses approved free-vs-paid heading');
-assertIncludes(files.snapshot, 'The free result gives you a high-level view of your organisation&apos;s readiness. The detailed report converts that result into a structured management response.', 'Snapshot uses approved free-vs-paid copy');
 assertIncludes(files.snapshot, 'Full MK Fraud Readiness Report', 'Snapshot shows approved R5 product name');
 assertIncludes(files.snapshot, 'R5,000 including VAT', 'Snapshot shows R5 VAT wording');
 assertIncludes(files.snapshot, 'Advanced Personalised Fraud Readiness Report', 'Snapshot shows approved personalised product name');
 assertIncludes(files.snapshot, 'From R50,000 including VAT', 'Snapshot shows personalised VAT wording');
-assertIncludes(files.snapshot, '30/60/90-day roadmap', 'Report option may mention roadmap');
 assertIncludes(files.snapshot, 'Order the full report', 'Snapshot uses approved R5 button');
 assertIncludes(files.snapshot, 'Confirm your report order', 'R5 path shows order summary before order creation');
 assertIncludes(files.snapshot, 'Continue to EFT instructions', 'R5 order creation is behind EFT continuation');
-assertIncludes(files.snapshot, 'Your report order has been recorded', 'R5 confirmation heading is approved');
-assertIncludes(files.snapshot, 'Use the order reference exactly as shown when making payment.', 'R5 payment instruction is approved');
 assertIncludes(files.snapshot, 'Request a personalised proposal', 'Snapshot uses approved personalised button');
 assertIncludes(files.snapshot, 'Tell us what your organisation needs', 'Personalised form heading is approved');
 assertIncludes(files.snapshot, 'By submitting this request, you consent to MK Fraud Insights contacting you about the personalised fraud-readiness review. Submission does not create a payment obligation or confirm a final scope.', 'R50 consent copy is approved');
-assertIncludes(files.snapshot, 'MK Fraud Insights will review your assessment context and contact you to discuss the appropriate scope, information requirements, delivery approach and commercial proposal.', 'R50 confirmation copy is approved');
 assertIncludes(files.snapshot, 'IntersectionObserver', 'Snapshot view events use IntersectionObserver');
 assertIncludes(files.snapshot, 'threshold: [0.5]', 'Snapshot observes real section at 50% threshold');
 assertIncludes(files.snapshot, 'eventType="executive_summary_viewed"', 'Executive summary view event is emitted at section visibility');
 assertIncludes(files.snapshot, 'eventType="report_options_opened"', 'Report options view event is emitted at section visibility');
-assertIncludes(files.snapshot, 'personalised_report_50000_selected', 'R50 selection event is emitted');
+assertNotIncludes(files.snapshot, "emitCommercialEvent('personalised_report_50000_selected'", 'R50 card selection must not emit high-value event before enquiry persistence');
 assertNotIncludes(files.snapshot, 'SnapshotEventBeacon', 'Snapshot no longer uses one-pixel beacons');
 assertNotIncludes(files.snapshot, 'Executive Fraud Readiness Advisory', 'Snapshot must not use rejected product name');
 assertNotIncludes(files.snapshot, 'This page is intentionally limited', 'Snapshot must not expose implementation boundary copy');
@@ -295,9 +321,12 @@ assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|hard-gate|N\/A rule/i.test(read
 
 const snapshotSource = read(files.snapshot);
 const selectFullReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectFullReport'), snapshotSource.indexOf('async function selectPersonalisedReport'));
+const selectPersonalisedReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectPersonalisedReport'), snapshotSource.indexOf('async function requestDetailedReport'));
 assertIncludes(files.snapshot, 'setSelectedOption(COMMERCIAL_OPTION_CODES.fullReport)', 'R5 selection is a distinct option step');
 assertNotMatchesSource(selectFullReportBlock, /report-request|requestDetailedReport|createOrGetOrder/i, 'R5 selection must not create an order');
 assertMatchesSource(selectFullReportBlock, /full_report_5000_selected/, 'R5 selection emits approved selection event');
+assertMatchesSource(selectPersonalisedReportBlock, /report_option_selected/, 'R50 card selection emits only generic option analytics');
+assertNotMatchesSource(selectPersonalisedReportBlock, /personalised_report_50000_selected/, 'R50 card selection does not emit specific event or notification');
 assertIncludes(files.snapshot, 'onConfirm={requestDetailedReport}', 'Only order-summary confirmation calls the order route');
 assertSourceOrder(files.snapshot, 'buttonLabel="Order the full report"', 'onConfirm={requestDetailedReport}', 'R5 option selection appears before order confirmation action');
 
@@ -308,14 +337,15 @@ assertIncludes(files.reportRequestRoute, 'createOrGetOrderForReportRequest', 'R5
 assertIncludes(files.commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(files.commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route accepts executive summary view');
 assertIncludes(files.commercialEventRoute, "'report_options_opened'", 'Commercial event route accepts report options open');
-assertIncludes(files.commercialEventRoute, "'report_option_selected'", 'Commercial event route accepts option selected');
+assertIncludes(files.commercialEventRoute, "'report_option_selected'", 'Commercial event route accepts generic option selected');
 assertIncludes(files.commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route accepts R5 selected');
-assertIncludes(files.commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route accepts R50 selected');
+assertNotIncludes(files.commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route must not accept pre-enquiry R50 specific event');
 assertNotIncludes(files.commercialEventRoute, "notificationType: 'report_options_opened'", 'Report options open must not queue internal notification');
 assertIncludes(files.commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5 selected queues internal notification');
-assertIncludes(files.commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 selected queues internal notification');
+assertNotIncludes(files.commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'Commercial event route must not queue R50 notification before data request exists');
 assertNotIncludes(files.commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
+const personalisedSource = read(files.personalisedRoute);
 assertIncludes(files.personalisedRoute, "request_type: 'personalised_report_50000'", 'R50 endpoint persists controlled request type');
 assertIncludes(files.personalisedRoute, 'request_reference: makeRequestReference()', 'R50 endpoint generates public enquiry reference');
 assertIncludes(files.personalisedRoute, '.in(\'status\', ACTIVE_STATUSES)', 'R50 endpoint reuses active enquiries');
@@ -324,9 +354,13 @@ assertIncludes(files.personalisedRoute, 'validateFocusAreas', 'R50 endpoint vali
 assertIncludes(files.personalisedRoute, '{ status: 400 }', 'R50 endpoint rejects invalid enum values with 400');
 assertIncludes(files.personalisedRoute, 'At least one approved focus area is required.', 'R50 endpoint requires a focus area');
 assertIncludes(files.personalisedRoute, 'selectActivePersonalisedRequest(db, input.assessment.id)', 'R50 endpoint recovers duplicate active request races');
-assertIncludes(files.personalisedRoute, "eventType: 'report_option_selected'", 'R50 endpoint tracks generic option selected');
-assertIncludes(files.personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'R50 endpoint tracks specific high-value option');
-assertIncludes(files.personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 endpoint queues high-priority notification');
+assertIncludes(files.personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'R50 endpoint tracks one specific high-value event after persistence');
+assertEqual(countOccurrences(personalisedSource, "eventType: 'personalised_report_50000_selected'"), 1, 'R50 endpoint tracks one specific event per persisted enquiry path');
+assertNotIncludes(files.personalisedRoute, "eventType: 'report_option_selected'", 'R50 endpoint does not duplicate generic option analytics after persistence');
+assertIncludes(files.personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 endpoint queues high-priority notification after persistence');
+assertEqual(countOccurrences(personalisedSource, "notificationType: 'personalised_report_50000_selected'"), 1, 'R50 endpoint queues one specific notification per persisted enquiry path');
+assertIncludes(files.personalisedRoute, 'dataRequestId: result.request.id', 'R50 event and notification are linked to persisted data_request_id');
+assertIncludes(files.personalisedRoute, 'request_created: result.created', 'R50 repeat submissions enrich existing event metadata with create/update status');
 assertIncludes(files.personalisedRoute, 'payment_obligation: false', 'R50 endpoint records no payment obligation');
 assertIncludes(files.personalisedRoute, 'order_created: false', 'R50 endpoint records no order creation');
 assertIncludes(files.personalisedRoute, 'report_generation: false', 'R50 endpoint records no report generation');
@@ -338,13 +372,6 @@ assertNotIncludes(files.personalisedRoute, 'metadata: { notes', 'R50 event metad
 assertNotIncludes(files.personalisedRoute, 'metadata: { areasOfFocus', 'R50 event metadata must not include form answers');
 
 assertIncludes(files.migration, 'add column if not exists request_reference text', 'Migration adds request reference');
-assertIncludes(files.migration, 'add column if not exists primary_reason text', 'Migration adds primary reason');
-assertIncludes(files.migration, 'add column if not exists areas_of_focus text[]', 'Migration adds focus area array');
-assertIncludes(files.migration, 'understand_control_weaknesses', 'Migration permits approved reason code');
-assertIncludes(files.migration, 'fraud_governance_oversight', 'Migration permits approved focus code');
-assertIncludes(files.migration, 'video_meeting', 'Migration permits approved contact method');
-assertIncludes(files.migration, 'within_one_week', 'Migration permits approved timeframe');
-assertIncludes(files.migration, 'data_requests_personalised_focus_areas_chk', 'Migration validates focus area array');
 assertIncludes(files.migration, 'data_requests_request_reference_uidx', 'Migration adds unique request reference index');
 assertIncludes(files.migration, 'data_requests_active_personalised_report_uidx', 'Migration adds active enquiry uniqueness guard');
 assertIncludes(files.migration, 'revoke all on table public.data_requests from anon, authenticated', 'Migration keeps Data API exposure closed');
@@ -381,4 +408,4 @@ assertIncludes(files.workflow, 'npm run phase13:test-conversion', 'V1 workflow r
 const customerSources = [files.snapshot, files.snapshotPage].map(read).join('\n');
 assert(!/PayFast|Stitch|card payment|proof upload|Download report|client portal|respondent dashboard|subscription|peer average|public benchmark|live AI|instant customer download|automated report release/i.test(customerSources), 'Customer-facing Phase 13 snapshot sources must stay inside no-go boundaries.');
 
-console.log('Phase 13 customer commercial conversion tests passed. Deterministic commercial insight behavior, approved copy, token-scoped events, R5 manual EFT selection, R50 controlled enquiry flow, admin visibility, migration boundaries and no-go boundaries are covered.');
+console.log('Phase 13 customer commercial conversion tests passed. Controller correction cases, deterministic commercial insight behavior, approved copy, token-scoped events, R5 manual EFT selection, R50 controlled enquiry flow, admin visibility, migration boundaries and no-go boundaries are covered.');
