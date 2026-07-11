@@ -255,6 +255,8 @@ assert(submitRoute.includes('snapshotUrl'), 'Submit route must return snapshot U
 assert(submitRoute.includes('loadFreeSnapshotByReference'), 'Submit response must load persisted snapshot.');
 assert(submitRoute.includes('/score'), 'Submit route must generate public snapshot links under the /score base path.');
 assert(submitRoute.includes('publicScoreBaseUrlFor'), 'Submit route must use a public score base URL helper.');
+assert(submitRoute.includes("requestHost.endsWith('.vercel.app')"), 'Preview snapshot links must preserve the current Vercel host instead of the configured production host.');
+assert(submitRoute.includes('normaliseScoreBase(requestOrigin)'), 'Preview snapshot links must be derived from the request origin.');
 
 const assessmentSave = read('src/lib/respondent/assessment-save.ts');
 assert(assessmentSave.includes(".select('id')"), 'Submit lock update must prove a row was locked.');
@@ -279,4 +281,4 @@ assert(snapshotComponent.includes('30/60/90-day roadmap'), 'Paid-product compari
 assert(!/AI-generated|peer benchmark/i.test(snapshotComponent), 'Free snapshot must not expose AI or benchmark content.');
 assert(!/Week 1|Week 30|Day 30|Day 60|Day 90|remediation task|action owner/i.test(snapshotComponent), 'Free snapshot must not expose actual roadmap content.');
 
-console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, token route, stale submit safety and snapshot content boundary are covered.');
+console.log('Phase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, preview host preservation, token route, stale submit safety and snapshot content boundary are covered.');
