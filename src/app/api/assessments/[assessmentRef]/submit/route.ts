@@ -6,16 +6,25 @@ import { scoreSubmittedAssessment } from '@/lib/scoring/score-assessment';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { getOptionalServerEnv } from '@/lib/env/server';
 
+function normaliseScoreBase(value: string) {
+  const cleaned = value.replace(/\/$/, '');
+  return cleaned.endsWith('/score') ? cleaned : `${cleaned}/score`;
+}
+
 function publicScoreBaseUrlFor(request: Request) {
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-  const requestOrigin = new URL(request.url).origin;
-  const defaultScoreBase = forwardedHost && forwardedHost.includes('mkfraud.co.za')
-    ? `${forwardedProto}://${forwardedHost}/score`
-    : `${requestOrigin}/score`;
+  const requestUrl = new URL(request.url);
+  const requestHost = forwardedHost ?? requestUrl.host;
+  const requestOrigin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : requestUrl.origin;
+  const requestScoreBase = normaliseScoreBase(requestOrigin);
 
-  const configured = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', defaultScoreBase).replace(/\/$/, '');
-  return configured.endsWith('/score') ? configured : `${configured}/score`;
+  if (requestHost.endsWith('.vercel.app') || requestHost === 'localhost' || requestHost.startsWith('localhost:')) {
+    return requestScoreBase;
+  }
+
+  const configured = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', requestScoreBase);
+  return normaliseScoreBase(configured);
 }
 
 function buildSnapshotUrl(request: Request, assessmentReference: string, rawToken: string, embed?: string) {
