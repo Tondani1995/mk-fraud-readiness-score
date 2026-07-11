@@ -2,7 +2,7 @@
 
 ## Phase Result
 
-Code-level pending. Migration, runtime UAT and visual UAT are outstanding until the draft PR runs through GitHub Actions and a current-head preview is tested.
+Code-level Pass; Supabase migration, runtime UAT and visual UAT are still outstanding. PR #18 must remain draft until the controlled migration process and current-head runtime/visual gates pass.
 
 ## Scope Delivered
 
@@ -46,13 +46,15 @@ Added but not applied:
 
 - `supabase/migrations/0014_phase13_customer_commercial_conversion.sql`
 
-The migration is additive to `data_requests` and does not mutate methodology, scoring, reports, orders or prior assessment outcomes.
+The migration is additive to `data_requests` and does not mutate methodology, scoring, reports, orders or prior assessment outcomes. It must be applied only through the controlled production migration process after approval.
 
 ## Code-Level Checks
 
 GitHub Actions is the evidence path because this workspace cannot clone the private repository locally.
 
-Required PR checks after draft PR creation:
+V1 Verification run #349 completed successfully on PR head `e0e593cfcca14f33a53a18af5ca1300021d54dae`.
+
+Passed steps:
 
 - dependency install
 - `npm run phase7:test-snapshot`
@@ -66,17 +68,36 @@ Required PR checks after draft PR creation:
 - `npm run typecheck`
 - `npm run build`
 
+Fixes made while closing code-level checks:
+
+- Restored the existing Phase 7 `Priority-gap alert` customer-facing marker after expanding the snapshot journey.
+- Removed implementation-only `undefined` literals from the customer snapshot component so Phase 11 leakage checks stay clean.
+- Passed deterministic commercial snapshot insights into the immediate post-submit snapshot render path.
+- Updated Phase 11 static CTA assertion to accept the new consent-gated `Continue to EFT instructions` report continuation.
+
+## Current-Head Preview
+
+A Vercel preview is READY for the current PR head:
+
+- Preview: `https://mk-fraud-readiness-score-git-phase13-c-dc49fb-tondanis-projects.vercel.app`
+- Deployment: `dpl_2RCyKctCBHCKJaRVFVu7vqKbrQKQ`
+- Deployed commit: `e0e593cfcca14f33a53a18af5ca1300021d54dae`
+- Deployment state: `READY`
+
+This confirms a current-head preview exists. It does not replace runtime UAT.
+
 ## Runtime UAT
 
-Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-runtime-uat.md` after a current-head preview and approved migration process are available.
+Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-runtime-uat.md` after the controlled migration process is approved and applied to the target Supabase environment.
 
 ## Visual UAT
 
-Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-visual-acceptance.md` after a current-head preview is available.
+Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-visual-acceptance.md` against the current-head preview.
 
 ## Remaining Risks
 
 - The new migration has not been applied to Supabase.
+- Supabase advisors have not been run after applying the PR B migration.
 - Runtime event dedupe and notification queue behavior for PR B have not yet been proven on a current-head deployment.
 - The R50,000 enquiry flow depends on the new `data_requests` fields being present.
 - Visual/layout review remains outstanding on desktop and mobile.
@@ -84,4 +105,4 @@ Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-visual-acceptan
 
 ## Recommendation
 
-Keep the PR as draft until GitHub Actions passes, the migration is approved/applied through the controlled process, and current-head runtime plus visual UAT pass.
+Keep PR #18 as draft until the migration is approved/applied through the controlled process, Supabase advisors are clean or accepted, and current-head runtime plus visual UAT pass with evidence.
