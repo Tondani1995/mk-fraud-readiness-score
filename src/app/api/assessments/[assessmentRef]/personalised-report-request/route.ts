@@ -223,15 +223,6 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
     await Promise.all([
       trackAssessmentEvent({
-        eventType: 'report_option_selected',
-        assessmentId: assessment.id,
-        organisationId: assessment.organisation_id,
-        respondentId: assessment.primary_respondent_id,
-        dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
-        metadata
-      }),
-      trackAssessmentEvent({
         eventType: 'personalised_report_50000_selected',
         assessmentId: assessment.id,
         organisationId: assessment.organisation_id,
