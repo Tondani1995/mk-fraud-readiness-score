@@ -16,10 +16,6 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     return NextResponse.json({ ok: false, errors: ['Private snapshot link required to request a detailed report.'] }, { status: 403 });
   }
 
-  if (body?.consentContact !== true) {
-    return NextResponse.json({ ok: false, errors: ['Consent is required before MK can deliver the report or follow up on this report request.'] }, { status: 400 });
-  }
-
   const snapshotValidation = await validateSnapshotToken({
     assessmentReference: params.assessmentRef,
     rawToken: body.snapshotToken,
@@ -104,7 +100,6 @@ export async function POST(request: Request, { params }: { params: { assessmentR
       assessment_reference: assessment.assessment_reference,
       requested_by_email: email,
       source: 'free_snapshot',
-      consent_contact: true,
       order_reference: order?.orderReference ?? null,
       payment_gateway: false,
       proof_upload: false,
@@ -115,7 +110,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   return NextResponse.json({
     ok: true,
-    message: 'Your detailed report request has been received. MK Fraud Insights will confirm the next step before any detailed report is released.',
+    message: 'Your report order has been recorded.',
     order,
     manualConfirmationNote: 'Please use your order reference as the payment reference. MK Fraud Insights confirms EFT payments manually before any detailed report is released.'
   });
