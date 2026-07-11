@@ -219,7 +219,7 @@ export function FreeSnapshotCard({
 
           {commercialInsights.criticalGapIndicator ? (
             <div className="rounded-2xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-              <p className="font-semibold">Priority attention signal</p>
+              <p className="font-semibold">Priority-gap alert</p>
               <p className="mt-1">
                 The assessment found {snapshot.criticalGapCount} priority control gap{snapshot.criticalGapCount === 1 ? '' : 's'} and {snapshot.majorGapCount} serious gap{snapshot.majorGapCount === 1 ? '' : 's'} that should be interpreted before relying on the headline score.
               </p>
