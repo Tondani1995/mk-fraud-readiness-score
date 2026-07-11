@@ -236,6 +236,7 @@ const identicalInput = makeSnapshot({ overallScore: 55, exposureBand: 'Moderate'
 assertDeepEqual(buildCommercialSnapshotInsights(identicalInput), buildCommercialSnapshotInsights(identicalInput), 'Identical input produces identical deterministic output');
 
 assertIncludes(files.builder, 'DOMAIN_CONTENT_BY_CODE', 'Builder uses controlled domain-code map');
+assertIncludes(files.builder, '30/60/90-day fraud-readiness roadmap', 'Paid-product comparison source may mention roadmap');
 assertNotIncludes(files.builder, 'keyword(', 'Builder must not use keyword heuristics');
 assertNotIncludes(files.builder, 'Math.random', 'Insight builder must not use randomness');
 assertNotIncludes(files.builder, 'Date.now', 'Insight builder must not use current time');
@@ -267,7 +268,6 @@ assertIncludes(files.snapshot, 'R5,000 including VAT', 'Snapshot shows R5 VAT wo
 assertIncludes(files.snapshot, 'Advanced Personalised Fraud Readiness Report', 'Snapshot shows approved personalised product name');
 assertIncludes(files.snapshot, 'From R50,000 including VAT', 'Snapshot shows personalised VAT wording');
 assertIncludes(files.snapshot, '30/60/90-day roadmap', 'Report option may mention roadmap');
-assertIncludes(files.snapshot, '30/60/90-day fraud-readiness roadmap', 'Paid-product comparison may mention roadmap');
 assertIncludes(files.snapshot, 'Order the full report', 'Snapshot uses approved R5 button');
 assertIncludes(files.snapshot, 'Confirm your report order', 'R5 path shows order summary before order creation');
 assertIncludes(files.snapshot, 'Continue to EFT instructions', 'R5 order creation is behind EFT continuation');
