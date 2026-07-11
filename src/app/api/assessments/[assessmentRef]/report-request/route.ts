@@ -81,7 +81,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     respondent
   });
 
-  if (email) {
+  if (email && !existingRequest) {
     await service.from('email_events').insert({
       assessment_id: assessment.id,
       recipient_email: email,
