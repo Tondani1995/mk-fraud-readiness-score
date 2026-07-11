@@ -32,6 +32,10 @@ function assertSourceOrder(file, firstNeedle, secondNeedle, label) {
   assert(firstIndex < secondIndex, `${label}: expected ${firstNeedle} before ${secondNeedle} in ${file}`);
 }
 
+function countOccurrences(file, needle) {
+  return read(file).split(needle).length - 1;
+}
+
 const migration = 'supabase/migrations/0012_phase13_commercial_event_foundation.sql';
 const cleanupMigration = 'supabase/migrations/0013_phase13_event_index_cleanup.sql';
 const taxonomy = 'docs/v1/phase13/phase13-commercial-event-taxonomy.md';
@@ -59,7 +63,7 @@ const requiredEventTypes = [
   'internal_notification_failed'
 ];
 
-for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper]) {
+for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute]) {
   assert(exists(file), `${file} must exist.`);
 }
 
@@ -119,24 +123,27 @@ assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marke
 assertIncludes('src/app/api/admin/orders/[orderReference]/generate-report/route.ts', "eventType: 'report_generated'", 'Successful report generation is tracked');
 assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "eventType: 'admin_report_downloaded'", 'Successful admin report download is tracked');
 
-assert(exists(commercialEventRoute), 'Phase 13 PR B commercial event route must exist.');
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');
 assertIncludes(commercialEventRoute, "'report_options_opened'", 'Commercial event route permits report options event');
 assertIncludes(commercialEventRoute, "'report_option_selected'", 'Commercial event route permits generic option selected event');
 assertIncludes(commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route permits R5 selected event');
-assertIncludes(commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route permits R50 selected event');
+assertNotIncludes(commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route does not permit R50 specific event before enquiry persistence');
 assertNotIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open must not queue internal notification');
 assertIncludes(commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5 selection queues deduped internal notification');
-assertIncludes(commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 selection queues deduped internal notification');
+assertNotIncludes(commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 selection notification is not queued by generic commercial event route');
 assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial event metadata must not write raw tokens');
 assertNotIncludes(commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
-assert(exists(personalisedRoute), 'Phase 13 PR B personalised enquiry route must exist.');
 assertIncludes(personalisedRoute, 'validateSnapshotToken', 'Personalised route validates snapshot token');
 assertIncludes(personalisedRoute, "request_type: 'personalised_report_50000'", 'Personalised route stores the controlled request type');
 assertIncludes(personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'Personalised route tracks specific R50 selection');
-assertIncludes(personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'Personalised route queues high-priority internal notification');
+assert(countOccurrences(personalisedRoute, "eventType: 'personalised_report_50000_selected'") === 1, 'Personalised route tracks one R50-specific event after persistence');
+assertNotIncludes(personalisedRoute, "eventType: 'report_option_selected'", 'Personalised route does not duplicate generic option analytics after persistence');
+assertIncludes(personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'Personalised route queues high-priority internal notification after persistence');
+assert(countOccurrences(personalisedRoute, "notificationType: 'personalised_report_50000_selected'") === 1, 'Personalised route queues one R50-specific notification after persistence');
+assertIncludes(personalisedRoute, 'dataRequestId: result.request.id', 'Personalised R50 event and notification are linked to data_request_id');
+assertIncludes(personalisedRoute, 'request_created: result.created', 'Personalised repeat submissions enrich deduped event metadata with create/update state');
 assertIncludes(personalisedRoute, 'payment_obligation: false', 'Personalised route records no payment obligation');
 assertIncludes(personalisedRoute, 'order_created: false', 'Personalised route records no order creation');
 assertIncludes(personalisedRoute, 'report_generation: false', 'Personalised route records no report generation');
@@ -172,4 +179,4 @@ assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Phase 1
 assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'Phase 13 must keep eslint-config-next 14.x.');
 assertIncludes('.github/workflows/phase7-verification.yml', 'npm run phase13:test-events', 'V1 verification workflow runs Phase 13 event tests');
 
-console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped PR B customer events, selection notification queueing and no-go boundaries are covered.');
+console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped PR B customer events, R50 post-persistence notification boundary, selection notification queueing and no-go boundaries are covered.');
