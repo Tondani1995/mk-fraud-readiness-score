@@ -2,20 +2,34 @@
 
 ## Phase Result
 
-Code-level Pass; Supabase migration, runtime UAT and visual UAT are still outstanding. PR #18 must remain draft until the controlled migration process and current-head runtime/visual gates pass.
+Code-level Pass; Supabase migration, runtime UAT and visual UAT are still outstanding. PR #18 remains draft and unmerged.
 
 ## Scope Delivered
 
 This PR adds the customer commercial conversion journey after private free snapshot access:
 
 - Deterministic premium executive interpretation from persisted free snapshot inputs.
-- Priority areas and strengths in context.
-- Free-vs-paid value comparison.
-- R5,000 Full MK Fraud Readiness Report selection with manual EFT continuation.
-- From-R50,000 Executive Fraud Readiness Advisory enquiry path.
+- Approved results arrival headed by `Assessment complete` and `Your organisation's fraud readiness position`.
+- Priority areas and strengths in context using controlled D1-D10 domain-code content.
+- Free-vs-paid value comparison, including paid-report roadmap mention without exposing roadmap content.
+- `Full MK Fraud Readiness Report` at `R5,000 including VAT`.
+- `Advanced Personalised Fraud Readiness Report` at `From R50,000 including VAT`.
+- R5 order-summary step before manual EFT order creation.
+- R50 controlled enquiry path that creates/updates `data_requests` only.
 - Token-scoped customer commercial event tracking.
 - Personalised enquiry admin queue and detail view.
-- Assessment-start trust copy changed from formal authority to meaningful knowledge.
+
+## Controller Corrections Completed
+
+- Restored the approved product names and VAT wording.
+- Removed the unapproved R5 `consentContact` gate from the customer flow and report-request API.
+- Restored `StartAssessmentForm.tsx` to the main/current approved authority and research-consent wording.
+- Replaced ad hoc executive text with deterministic maturity, exposure and leadership-priority blocks.
+- Replaced keyword heuristics with an explicit D1-D10 domain-code map.
+- Changed report-options tracking to observe real sections with `IntersectionObserver` threshold `0.5`.
+- Stopped internal notification queueing for `report_options_opened`.
+- Kept queue-only notifications for `full_report_5000_selected` and `personalised_report_50000_selected`.
+- Replaced static-only Phase 13 conversion checks with executable deterministic insight-builder tests.
 
 ## Files Inspected Before Changes
 
@@ -23,20 +37,30 @@ This PR adds the customer commercial conversion journey after private free snaps
 - `src/app/snapshot/[assessmentRef]/page.tsx`
 - `src/components/assessment/FreeSnapshot.tsx`
 - `src/lib/snapshot/free-snapshot.ts`
+- `src/lib/snapshot/commercial-insights.ts`
 - `src/lib/reports/select-content-blocks.ts`
+- `src/lib/reports/fallback-content.ts`
+- `src/lib/reports/types.ts`
 - `src/lib/analytics/assessment-events.ts`
 - `src/lib/notifications/internal-notifications.ts`
 - `src/lib/orders/manual-eft-orders.ts`
+- `src/app/api/assessments/[assessmentRef]/commercial-event/route.ts`
 - `src/app/api/assessments/[assessmentRef]/report-request/route.ts`
+- `src/app/api/assessments/[assessmentRef]/personalised-report-request/route.ts`
 - `src/components/admin/AdminShell.tsx`
-- `src/app/admin/orders/page.tsx`
-- `src/app/admin/orders/[orderReference]/page.tsx`
-- `src/lib/auth/admin-route.ts`
+- `src/app/admin/enquiries/page.tsx`
+- `src/app/admin/enquiries/[requestReference]/page.tsx`
+- `src/lib/admin/personalised-enquiries.ts`
 - `src/components/assessment/StartAssessmentForm.tsx`
 - `supabase/migrations/0001_phase2_v1_1_schema_rls.sql`
+- `supabase/migrations/0003_phase5_methodology_seed.sql`
 - `supabase/migrations/0010_phase9_manual_eft_order_flow.sql`
 - `supabase/migrations/0012_phase13_commercial_event_foundation.sql`
+- `supabase/migrations/0014_phase13_customer_commercial_conversion.sql`
+- `scripts/phase7-free-snapshot-tests.mjs`
+- `scripts/phase9-manual-eft-order-tests.mjs`
 - `scripts/phase13-commercial-event-tests.mjs`
+- `scripts/phase13-customer-commercial-conversion-tests.mjs`
 - `package.json`
 - `.github/workflows/phase7-verification.yml`
 
@@ -46,13 +70,13 @@ Added but not applied:
 
 - `supabase/migrations/0014_phase13_customer_commercial_conversion.sql`
 
-The migration is additive to `data_requests` and does not mutate methodology, scoring, reports, orders or prior assessment outcomes. It must be applied only through the controlled production migration process after approval.
+The migration is additive to `data_requests`, adds controlled personalised-enquiry fields and constraints, keeps Data API exposure closed for `anon` and `authenticated`, and does not mutate methodology, scoring, reports, orders or prior assessment outcomes. It must be applied only through the controlled production migration process after approval.
 
 ## Code-Level Checks
 
 GitHub Actions is the evidence path because this workspace cannot clone the private repository locally.
 
-V1 Verification run #349 completed successfully on PR head `e0e593cfcca14f33a53a18af5ca1300021d54dae`.
+V1 Verification run #379 completed successfully on correction-pass implementation head `06a64b2640ecd94f97ef2240abed4b8752f9847d`.
 
 Passed steps:
 
@@ -68,23 +92,19 @@ Passed steps:
 - `npm run typecheck`
 - `npm run build`
 
-Fixes made while closing code-level checks:
-
-- Restored the existing Phase 7 `Priority-gap alert` customer-facing marker after expanding the snapshot journey.
-- Removed implementation-only `undefined` literals from the customer snapshot component so Phase 11 leakage checks stay clean.
-- Passed deterministic commercial snapshot insights into the immediate post-submit snapshot render path.
-- Updated Phase 11 static CTA assertion to accept the new consent-gated `Continue to EFT instructions` report continuation.
+The evidence-card updates after `06a64b2640ecd94f97ef2240abed4b8752f9847d` are documentation-only and do not change runtime behavior.
 
 ## Current-Head Preview
 
-A Vercel preview is READY for the current PR head:
+A Vercel preview is READY for correction-pass implementation head `06a64b2640ecd94f97ef2240abed4b8752f9847d`:
 
 - Preview: `https://mk-fraud-readiness-score-git-phase13-c-dc49fb-tondanis-projects.vercel.app`
-- Deployment: `dpl_2RCyKctCBHCKJaRVFVu7vqKbrQKQ`
-- Deployed commit: `e0e593cfcca14f33a53a18af5ca1300021d54dae`
+- Deployment: `dpl_FDJq6bFFFajTbo2PKAbFB2xggjdM`
+- Deployment URL: `https://mk-fraud-readiness-score-4cpa2urbx-tondanis-projects.vercel.app`
 - Deployment state: `READY`
+- Vercel metadata commit: `06a64b2640ecd94f97ef2240abed4b8752f9847d`
 
-This confirms a current-head preview exists. It does not replace runtime UAT.
+This confirms a current-head preview exists for the verified implementation head. It does not replace runtime UAT.
 
 ## Runtime UAT
 
@@ -99,7 +119,7 @@ Outstanding. Use `docs/v1/phase13/customer-commercial-conversion-visual-acceptan
 - The new migration has not been applied to Supabase.
 - Supabase advisors have not been run after applying the PR B migration.
 - Runtime event dedupe and notification queue behavior for PR B have not yet been proven on a current-head deployment.
-- The R50,000 enquiry flow depends on the new `data_requests` fields being present.
+- The R50 enquiry flow depends on the new `data_requests` fields being present.
 - Visual/layout review remains outstanding on desktop and mobile.
 - Internal notification delivery remains queue-only; this PR does not add a sender/provider.
 
