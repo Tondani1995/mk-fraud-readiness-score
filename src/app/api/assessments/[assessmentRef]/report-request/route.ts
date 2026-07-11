@@ -16,6 +16,10 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     return NextResponse.json({ ok: false, errors: ['Private snapshot link required to request a detailed report.'] }, { status: 403 });
   }
 
+  if (body?.consentContact !== true) {
+    return NextResponse.json({ ok: false, errors: ['Consent is required before MK can deliver the report or follow up on this report request.'] }, { status: 400 });
+  }
+
   const snapshotValidation = await validateSnapshotToken({
     assessmentReference: params.assessmentRef,
     rawToken: body.snapshotToken,
@@ -100,6 +104,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
       assessment_reference: assessment.assessment_reference,
       requested_by_email: email,
       source: 'free_snapshot',
+      consent_contact: true,
       order_reference: order?.orderReference ?? null,
       payment_gateway: false,
       proof_upload: false,
