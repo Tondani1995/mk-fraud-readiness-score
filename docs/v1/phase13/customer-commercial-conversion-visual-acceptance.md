@@ -1,48 +1,91 @@
 # Phase 13 PR B Visual Acceptance Checklist
 
-Review on desktop and mobile after a current-head preview is ready.
+## Status
 
-Verified implementation preview for code-level handoff:
+Visual and accessibility smoke testing completed on the exact PR #18 patched deployment.
 
-- Head: `06a64b2640ecd94f97ef2240abed4b8752f9847d`
-- Preview: `https://mk-fraud-readiness-score-git-phase13-c-dc49fb-tondanis-projects.vercel.app`
-- Deployment: `dpl_FDJq6bFFFajTbo2PKAbFB2xggjdM`
+- Result: `Runtime and visual UAT Pass`
+- Tested head: `4f5c99429087e0c9a6ddf00ae564723d2053592d`
+- Deployment: `dpl_Ad9ddGtEBznnpta4rGEjMznRygSY`
+- URL: `https://mk-fraud-readiness-score-pbec70el9-tondanis-projects.vercel.app`
+- Screenshot folder: `/Users/tondani/Documents/Codex/2026-07-07/what/tmp/phase13-pr18-uat-da440`
 
-## Snapshot Page
+## Desktop Coverage
 
-- The first screen leads with `Assessment complete` and `Your organisation's fraud readiness position`.
-- Overall score, final maturity, coverage, exposure band and critical-control warning are visible without scrolling past a sales section first.
-- The trust strip shows `68 controlled questions`, `10 fraud-readiness domains`, `Exposure profile included` and `Deterministic scoring`.
-- The executive interpretation feels premium, calm and MK-branded.
-- Priority areas use `Priority areas for management focus`.
-- Strengths use `Foundations you can build on`.
-- Coverage and not-applicable effects are visible where relevant.
-- The page does not contain phase labels, scaffold text, internal codes, rule labels, public benchmark language or AI-generated recommendation language.
+Tested around `1440x900` and `1280x800`.
 
-## Commercial Options
+Passed:
 
-- `Full MK Fraud Readiness Report` and `Advanced Personalised Fraud Readiness Report` are visually distinct and easy to compare.
-- R5 pricing is shown as `R5,000 including VAT`.
-- R50 pricing is shown as `From R50,000 including VAT`.
-- The R5 path shows `Confirm your report order` before any EFT/order confirmation.
-- The R5 path makes clear that payment is by EFT and that delivery is within one business day after payment confirmation.
-- The R50 path makes clear that it is expert-led and does not create an automatic payment obligation.
-- R50 consent copy is visible before the consultation request is submitted.
-- Copy controls for private link, order reference, payment reference and EFT details are visible and do not shift layout.
+- First result viewport leads with `Assessment complete` and `Your organisation's fraud readiness position`.
+- Score, final maturity, coverage, exposure band and critical-control metric are prominent before commercial options.
+- Trust strip shows the four required indicators.
+- Executive interpretation, priority areas, foundations, free-vs-paid comparison and report options are readable and balanced.
+- R5 order summary and EFT confirmation are readable.
+- R50 enquiry form density is acceptable and confirmation state is visible.
+- Admin enquiry list and detail fit the MK admin shell.
+- No clipped content, incoherent overlap or unexpected horizontal overflow observed.
 
-## Mobile
+Desktop screenshot references:
 
-- Metrics wrap without text overlap.
-- Cards do not nest awkwardly or force horizontal scrolling.
-- Buttons remain readable and tappable.
-- The personalised report form is usable on narrow screens.
+- `31-clean-results-first-viewport-1440.png`
+- `33-clean-executive-priority-1440.png`
+- `34-clean-value-comparison-1440.png`
+- `35-clean-report-options-1440.png`
+- `36-clean-r5-order-summary-1440.png`
+- `37-clean-r5-eft-confirmation-1440.png`
+- `38-clean-r50-enquiry-form-1440.png`
+- `39-clean-r50-success-1440.png`
+- `44-desktop-results-1280x800.png`
+- `45-desktop-executive-1280x800.png`
+- `46-desktop-value-1280x800.png`
+- `47-desktop-options-1280x800.png`
+- `50-patched-admin-enquiry-list-1440.png`
+- `51-patched-admin-enquiry-detail-1440.png`
 
-## Admin
+## Mobile Coverage
 
-- The admin navigation includes `Personalised enquiries`.
-- `/score/admin/enquiries` is a practical queue, not a marketing page.
-- The enquiry detail page makes the no-order/no-report/no-payment-obligation boundary obvious.
+Tested at `390x844` and `360x800`.
 
-## Outstanding
+Passed:
 
-This visual checklist has not been executed yet. PR #18 must remain draft until current-head visual UAT is completed and accepted.
+- No horizontal scrolling at either viewport.
+- Metric cards wrapped correctly.
+- Priority and strength cards stacked.
+- R5 option appeared before R50.
+- Prices and CTAs remained visible and readable.
+- Form controls and validation surfaces remained readable.
+- EFT details remained readable.
+- No nested-scroll or iframe clipping issue observed.
+
+Notes:
+
+- The only small target detected in automated measurement was the existing MK shell `Assess Your Organisation` nav text link. Phase 13 buttons and form controls met the visual/touch-target smoke threshold.
+
+Mobile screenshot references:
+
+- `40-mobile-results-390x844.png`
+- `41-mobile-report-options-390x844.png`
+- `42-mobile-r5-summary-390x844.png`
+- `43-mobile-r50-form-390x844.png`
+- `40-mobile-results-360x800.png`
+- `41-mobile-report-options-360x800.png`
+- `42-mobile-r5-summary-360x800.png`
+- `43-mobile-r50-form-360x800.png`
+
+## Accessibility Smoke
+
+Passed:
+
+- Heading hierarchy began with `H1` and moved through `H2/H3` for the major content sections.
+- Buttons used semantic `button` types.
+- Form controls had labels or label wrappers.
+- Keyboard tab order reached nav, report CTAs, copy control and snapshot link.
+- Focus indicators were visible.
+- Status was not conveyed through colour alone.
+- Reduced-motion preference did not break the page.
+- No horizontal overflow at the tested desktop or mobile sizes.
+
+## Remaining Risks
+
+- This was a smoke/visual UAT pass, not a full WCAG audit.
+- PR #18 remains draft and unmerged until controller approval.
