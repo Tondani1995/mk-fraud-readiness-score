@@ -342,7 +342,7 @@ function SnapshotEventBeacon({ snapshot, snapshotUrl, eventType, sourceSection }
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (sent || !ref.current || typeof IntersectionObserver === 'undefined') return;
+    if (sent || !ref.current || !('IntersectionObserver' in window)) return;
     const node = ref.current;
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
