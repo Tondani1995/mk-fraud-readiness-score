@@ -15,6 +15,13 @@ type SnapshotPageProps = {
   searchParams?: { token?: string; embed?: string };
 };
 
+function requestOriginFor(requestHeaders: Pick<Headers, 'get'>) {
+  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
+  if (!host) return null;
+  const proto = requestHeaders.get('x-forwarded-proto') ?? 'https';
+  return `${proto}://${host}`;
+}
+
 function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason: string }) {
   return (
     <SectionShell className="py-12">
@@ -83,6 +90,8 @@ export default async function SnapshotShellPage({ params, searchParams }: Snapsh
   });
 
   const snapshotUrl = `/score/snapshot/${validation.assessment.assessment_reference}?token=${encodeURIComponent(token)}${embedded ? '&embed=1' : ''}`;
+  const requestOrigin = requestOriginFor(requestHeaders);
+  const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
 
   return (
@@ -94,7 +103,7 @@ export default async function SnapshotShellPage({ params, searchParams }: Snapsh
           description="This view is loaded from the persisted score run and can be safely refreshed without recalculating or unlocking the assessment."
         />
       ) : null}
-      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={snapshotUrl} commercialInsights={commercialInsights} />
+      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={publicSnapshotUrl} commercialInsights={commercialInsights} />
     </SectionShell>
   );
 }
