@@ -100,6 +100,9 @@ assertIncludes(notificationHelper, 'provider_send_attempted: false', 'Notificati
 assertIncludes(notificationHelper, "status: 'already_queued'", 'Notification helper dedupes repeat queue attempts');
 assertIncludes(notificationHelper, "eventType: 'internal_notification_queued'", 'Queued notifications are tracked as events');
 assertIncludes(notificationHelper, "'internal_notification_failed'", 'Failed notification queue attempts are tracked as events');
+assertIncludes(notificationHelper, "'full_report_5000_selected'", 'R5 selection notification type is supported');
+assertIncludes(notificationHelper, "'personalised_report_50000_selected'", 'R50 selection notification type is supported');
+assertNotIncludes(notificationHelper, "'report_options_opened'", 'Report options views must not queue internal notifications');
 assertNotIncludes(notificationHelper, 'sent_at:', 'Notification helper must not mark queued emails as sent');
 assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification helper must not invent provider message ids');
 
@@ -121,19 +124,30 @@ assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event 
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');
 assertIncludes(commercialEventRoute, "'report_options_opened'", 'Commercial event route permits report options event');
 assertIncludes(commercialEventRoute, "'report_option_selected'", 'Commercial event route permits generic option selected event');
-assertIncludes(commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route permits R5k selected event');
-assertIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open queues deduped internal notification');
-assertIncludes(commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5k selection queues deduped internal notification');
+assertIncludes(commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route permits R5 selected event');
+assertIncludes(commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route permits R50 selected event');
+assertNotIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open must not queue internal notification');
+assertIncludes(commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5 selection queues deduped internal notification');
+assertIncludes(commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 selection queues deduped internal notification');
 assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial event metadata must not write raw tokens');
+assertNotIncludes(commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 
 assert(exists(personalisedRoute), 'Phase 13 PR B personalised enquiry route must exist.');
 assertIncludes(personalisedRoute, 'validateSnapshotToken', 'Personalised route validates snapshot token');
 assertIncludes(personalisedRoute, "request_type: 'personalised_report_50000'", 'Personalised route stores the controlled request type');
-assertIncludes(personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'Personalised route tracks specific R50k selection');
+assertIncludes(personalisedRoute, "eventType: 'personalised_report_50000_selected'", 'Personalised route tracks specific R50 selection');
 assertIncludes(personalisedRoute, "notificationType: 'personalised_report_50000_selected'", 'Personalised route queues high-priority internal notification');
 assertIncludes(personalisedRoute, 'payment_obligation: false', 'Personalised route records no payment obligation');
 assertIncludes(personalisedRoute, 'order_created: false', 'Personalised route records no order creation');
+assertIncludes(personalisedRoute, 'report_generation: false', 'Personalised route records no report generation');
+assertIncludes(personalisedRoute, 'validateChoice', 'Personalised route validates controlled choice values');
+assertIncludes(personalisedRoute, 'validateFocusAreas', 'Personalised route validates controlled focus areas');
+assertIncludes(personalisedRoute, '{ status: 400 }', 'Personalised route rejects invalid controlled values with 400');
+assertIncludes(personalisedRoute, 'selectActivePersonalisedRequest(db, input.assessment.id)', 'Personalised route reselects active enquiry on insert race');
+assertNotIncludes(personalisedRoute, 'cleanChoice', 'Personalised route must not silently replace invalid values with defaults');
 assertNotIncludes(personalisedRoute, 'metadata: { notes', 'Personalised route must not copy notes into event metadata');
+assertNotIncludes(personalisedRoute, 'metadata: { areasOfFocus', 'Personalised route must not include form answers in event metadata');
+assertNotIncludes(personalisedRoute, 'provider_message_id', 'Personalised route must not pretend notification delivery');
 
 const noGoImplementationSources = [
   eventHelper,
@@ -158,4 +172,4 @@ assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Phase 1
 assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'Phase 13 must keep eslint-config-next 14.x.');
 assertIncludes('.github/workflows/phase7-verification.yml', 'npm run phase13:test-events', 'V1 verification workflow runs Phase 13 event tests');
 
-console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped PR B customer events, notification queueing and no-go boundaries are covered.');
+console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped PR B customer events, selection notification queueing and no-go boundaries are covered.');
