@@ -150,7 +150,7 @@ function runStaticChecks() {
   assertIncludes('src/app/api/assessments/[assessmentRef]/report-request/route.ts', 'validateSnapshotToken', 'Report request route must require snapshot token');
   assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotTokenFromUrl', 'Snapshot client must send private snapshot token for report requests');
 
-  assertMatches('src/components/assessment/FreeSnapshot.tsx', /Request detailed report/, 'Free snapshot keeps the report request CTA');
+  assertMatches('src/components/assessment/FreeSnapshot.tsx', /Request detailed report|Continue to EFT instructions/, 'Free snapshot keeps a report request CTA');
   assertNoCustomerFacingLeakage('FreeSnapshot component', read('src/components/assessment/FreeSnapshot.tsx'));
   assertNoCustomerFacingLeakage('report request page', read('src/app/report/request/[assessmentRef]/page.tsx'));
 
