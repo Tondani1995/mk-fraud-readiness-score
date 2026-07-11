@@ -8,36 +8,57 @@ import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 const ALLOWED_REASONS = new Set([
-  'board_or_executive_readout',
-  'control_improvement_planning',
-  'fraud_risk_review',
-  'pre_audit_or_assurance',
+  'understand_control_weaknesses',
+  'design_strengthen_programme',
+  'respond_incident_audit_control',
+  'prepare_governance_response',
+  'review_policies_controls',
   'other'
 ]);
 
 const ALLOWED_FOCUS_AREAS = new Set([
-  'governance',
-  'people_and_culture',
-  'process_controls',
-  'technology_and_data',
-  'detection_and_monitoring',
-  'response_readiness',
-  'third_party_risk'
+  'fraud_governance_oversight',
+  'fraud_risk_identification_assessment',
+  'operational_fraud_controls',
+  'third_party_supplier_procurement_risk',
+  'digital_identity_channel_fraud',
+  'fraud_monitoring_detection',
+  'incident_response_investigations',
+  'fraud_culture_awareness',
+  'other'
 ]);
 
-const ALLOWED_CONTACT_METHODS = new Set(['email', 'phone', 'video_call']);
-const ALLOWED_TIMEFRAMES = new Set(['this_week', 'two_weeks', 'this_month', 'exploring']);
+const ALLOWED_CONTACT_METHODS = new Set(['email', 'phone', 'video_meeting']);
+const ALLOWED_TIMEFRAMES = new Set(['within_one_week', 'within_two_weeks', 'within_one_month', 'exploring_options']);
 const ACTIVE_STATUSES = ['received', 'open', 'in_review'];
 
-function cleanChoice(value: unknown, allowed: Set<string>, fallback: string) {
-  return typeof value === 'string' && allowed.has(value) ? value : fallback;
+function validateChoice(value: unknown, allowed: Set<string>, label: string, errors: string[]) {
+  if (typeof value === 'string' && allowed.has(value)) return value;
+  errors.push(`${label} must be one of the approved options.`);
+  return null;
 }
 
-function cleanFocusAreas(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is string => typeof item === 'string' && ALLOWED_FOCUS_AREAS.has(item))
-    .slice(0, 5);
+function validateFocusAreas(value: unknown, errors: string[]) {
+  if (!Array.isArray(value)) {
+    errors.push('At least one approved focus area is required.');
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !ALLOWED_FOCUS_AREAS.has(item)) {
+      errors.push('Focus areas must contain only approved options.');
+      return [];
+    }
+    if (!seen.has(item)) {
+      seen.add(item);
+      cleaned.push(item);
+    }
+  }
+
+  if (!cleaned.length) errors.push('At least one approved focus area is required.');
+  return cleaned;
 }
 
 function cleanNote(value: unknown) {
@@ -51,9 +72,34 @@ function makeRequestReference() {
   return `MKENQ-${year}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
+async function selectActivePersonalisedRequest(db: any, assessmentId: string) {
+  const { data, error } = await db
+    .from('data_requests')
+    .select('id,request_reference,status,created_at')
+    .eq('assessment_id', assessmentId)
+    .eq('request_type', 'personalised_report_50000')
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ?? null;
+}
+
+async function updatePersonalisedRequest(db: any, existing: any, payload: Record<string, unknown>) {
+  const { data, error } = await db
+    .from('data_requests')
+    .update({ ...payload, request_reference: existing.request_reference ?? makeRequestReference() })
+    .eq('id', existing.id)
+    .select('id,request_reference,status,created_at')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 async function createOrUpdatePersonalisedRequest(input: {
   assessment: any;
-  organisation: any | null;
   respondent: any | null;
   primaryReason: string;
   areasOfFocus: string[];
@@ -62,18 +108,7 @@ async function createOrUpdatePersonalisedRequest(input: {
   notes: string | null;
 }) {
   const db = createSupabaseServiceClient() as any;
-
-  const { data: existing, error: existingError } = await db
-    .from('data_requests')
-    .select('id,request_reference,status,created_at')
-    .eq('assessment_id', input.assessment.id)
-    .eq('request_type', 'personalised_report_50000')
-    .in('status', ACTIVE_STATUSES)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) throw existingError;
+  const existing = await selectActivePersonalisedRequest(db, input.assessment.id);
 
   const payload = {
     organisation_id: input.assessment.organisation_id,
@@ -89,13 +124,7 @@ async function createOrUpdatePersonalisedRequest(input: {
   };
 
   if (existing) {
-    const { data, error } = await db
-      .from('data_requests')
-      .update({ ...payload, request_reference: existing.request_reference ?? makeRequestReference() })
-      .eq('id', existing.id)
-      .select('id,request_reference,status,created_at')
-      .single();
-    if (error) throw error;
+    const data = await updatePersonalisedRequest(db, existing, payload);
     return { request: data, created: false };
   }
 
@@ -111,8 +140,15 @@ async function createOrUpdatePersonalisedRequest(input: {
     .select('id,request_reference,status,created_at')
     .single();
 
-  if (error) throw error;
-  return { request: data, created: true };
+  if (!error) return { request: data, created: true };
+
+  const racedExisting = await selectActivePersonalisedRequest(db, input.assessment.id);
+  if (racedExisting) {
+    const racedData = await updatePersonalisedRequest(db, racedExisting, payload);
+    return { request: racedData, created: false };
+  }
+
+  throw error;
 }
 
 export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
@@ -129,6 +165,17 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   if (body?.consentContact !== true) {
     return NextResponse.json({ ok: false, errors: ['Consent is required before MK can follow up on a personalised report enquiry.'] }, { status: 400 });
+  }
+
+  const validationErrors: string[] = [];
+  const primaryReason = validateChoice(body?.primaryReason, ALLOWED_REASONS, 'Primary reason', validationErrors);
+  const areasOfFocus = validateFocusAreas(body?.areasOfFocus, validationErrors);
+  const preferredContactMethod = validateChoice(body?.preferredContactMethod, ALLOWED_CONTACT_METHODS, 'Preferred contact method', validationErrors);
+  const preferredConsultationTimeframe = validateChoice(body?.preferredConsultationTimeframe, ALLOWED_TIMEFRAMES, 'Preferred consultation timeframe', validationErrors);
+  const notes = cleanNote(body?.notes);
+
+  if (validationErrors.length || !primaryReason || !preferredContactMethod || !preferredConsultationTimeframe) {
+    return NextResponse.json({ ok: false, errors: validationErrors }, { status: 400 });
   }
 
   const validation = await validateSnapshotToken({
@@ -149,23 +196,13 @@ export async function POST(request: Request, { params }: { params: { assessmentR
   }
 
   const db = createSupabaseServiceClient() as any;
-  const [{ data: organisation }, { data: respondent }] = await Promise.all([
-    db.from('organisations').select('legal_name,trading_name').eq('id', assessment.organisation_id).maybeSingle(),
-    assessment.primary_respondent_id
-      ? db.from('respondents').select('id,email,full_name').eq('id', assessment.primary_respondent_id).maybeSingle()
-      : Promise.resolve({ data: null })
-  ]);
-
-  const primaryReason = cleanChoice(body?.primaryReason, ALLOWED_REASONS, 'fraud_risk_review');
-  const areasOfFocus = cleanFocusAreas(body?.areasOfFocus);
-  const preferredContactMethod = cleanChoice(body?.preferredContactMethod, ALLOWED_CONTACT_METHODS, 'email');
-  const preferredConsultationTimeframe = cleanChoice(body?.preferredConsultationTimeframe, ALLOWED_TIMEFRAMES, 'exploring');
-  const notes = cleanNote(body?.notes);
+  const { data: respondent } = assessment.primary_respondent_id
+    ? await db.from('respondents').select('id,email,full_name').eq('id', assessment.primary_respondent_id).maybeSingle()
+    : { data: null };
 
   try {
     const result = await createOrUpdatePersonalisedRequest({
       assessment,
-      organisation,
       respondent,
       primaryReason,
       areasOfFocus,
@@ -233,7 +270,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
       ok: true,
       requestReference: result.request.request_reference,
       status: result.request.status,
-      message: 'Your personalised report enquiry has been received. MK Fraud Insights will review the assessment output and follow up with you directly.'
+      message: 'MK Fraud Insights will review your assessment context and contact you to discuss the appropriate scope, information requirements, delivery approach and commercial proposal.'
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The personalised report enquiry could not be submitted.';
