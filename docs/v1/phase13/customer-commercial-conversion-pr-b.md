@@ -15,12 +15,12 @@ This PR adds the smallest safe customer-facing commercial journey after assessme
 
 ## Approved Customer Copy Boundary
 
-- The first result section leads with `Assessment complete`, not `Free readiness snapshot`.
+- The first result section leads with `Assessment complete`, not a sales headline.
 - The executive interpretation uses controlled maturity, exposure and leadership-priority blocks.
 - Priority labels are `Immediate attention`, `Developing`, `Structured` and `Stronger foundation`.
-- Domain findings are keyed by D1-D10 domain code, not keyword heuristics.
+- Domain findings are keyed by D1-D10 domain code internally, not keyword heuristics.
 - The free-vs-paid section may mention the paid `30/60/90-day fraud-readiness roadmap`, but does not reveal roadmap content.
-- Customer-facing copy does not use Phase labels, implementation-negation bullets, public benchmarks, AI-generated recommendations or internal question/rule codes.
+- Customer-facing copy does not use phase labels, implementation-negation bullets, public benchmarks, AI-generated recommendations or internal question/rule codes.
 
 ## Deliberate Boundary
 
@@ -47,12 +47,8 @@ The private snapshot page emits token-scoped events through `/score/api/assessme
 - `report_options_opened`
 - `report_option_selected`
 - `full_report_5000_selected`
-- `personalised_report_50000_selected`
 
-The personalised report endpoint also emits:
-
-- `report_option_selected`
-- `personalised_report_50000_selected`
+The personalised report endpoint emits `personalised_report_50000_selected` only after the enquiry is persisted and linked to `data_request_id`. R50 card selection emits only generic `report_option_selected` analytics.
 
 Internal notifications are queued only for selection/high-intent events, not for `report_options_opened`. Missing notification recipients remain a safe skip condition.
 
@@ -63,15 +59,39 @@ New admin pages:
 - `/score/admin/enquiries`
 - `/score/admin/enquiries/[requestReference]`
 
-Both authenticate admins before service-role reads. Opening a detail page writes a `personalised_enquiry_opened` audit log entry.
+Both authenticate admins before service-role reads. The list shows enquiry reference, assessment, organisation, respondent, email, reason, status and updated date. Opening a detail page writes a `personalised_enquiry_opened` audit log entry.
 
-## Evidence
+## Runtime Assurance Evidence
 
-Code-level evidence passed in V1 Verification run #379 on implementation head `06a64b2640ecd94f97ef2240abed4b8752f9847d`. The current evidence-card updates after that head are documentation-only.
+Runtime code head tested:
 
-READY Vercel preview for that implementation head:
+- Head: `4f5c99429087e0c9a6ddf00ae564723d2053592d`
+- Deployment: `dpl_Ad9ddGtEBznnpta4rGEjMznRygSY`
+- URL: `https://mk-fraud-readiness-score-pbec70el9-tondanis-projects.vercel.app`
+- GitHub Actions: V1 Verification run #415 passed.
+- Fresh assessment: `MKFRS-2026-4D59A2EA9E`
+- R5 order: `MKORD-2026-7LT7KO4P`
+- R50 enquiry: `MKENQ-2026-236E17B4`
 
-- `https://mk-fraud-readiness-score-git-phase13-c-dc49fb-tondanis-projects.vercel.app`
-- Deployment `dpl_FDJq6bFFFajTbo2PKAbFB2xggjdM`
+Passed runtime evidence:
 
-Migration, runtime UAT and visual UAT remain outstanding.
+- Start, exposure profile, 68-question completion and submit.
+- Private snapshot token protection and refresh safety.
+- R5 order summary, EFT order creation, EFT snapshot display and duplicate reuse.
+- R50 enquiry creation, confirmation and duplicate reuse.
+- Persisted event/dedupe evidence for executive summary, report options, R5, EFT order and R50 events.
+- No report rows or report events were created by R5/R50 customer paths.
+- Admin enquiry list/detail and logged-out protection.
+
+Evidence docs were updated after runtime UAT. Those updates are documentation-only and do not change runtime behavior.
+
+## Defects Fixed During Assurance
+
+- Preserved preview/deployment host in submit-generated snapshot links.
+- Fixed snapshot-page self-link double `/score/score` prefix.
+- Prevented duplicate customer email queue rows on repeated R5 request.
+- Added email visibility to the admin enquiry list.
+
+## Current Status
+
+`Runtime and visual UAT Pass` for the tested runtime code head. PR #18 remains draft and unmerged until controller approval.
