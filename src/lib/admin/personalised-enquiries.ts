@@ -4,6 +4,30 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 const PERSONALISED_REQUEST_TYPE = 'personalised_report_50000';
 
+const CHOICE_LABELS: Record<string, string> = {
+  understand_control_weaknesses: 'Understand current fraud-control weaknesses',
+  design_strengthen_programme: 'Design or strengthen a fraud-risk programme',
+  respond_incident_audit_control: 'Respond to an incident, audit finding or control concern',
+  prepare_governance_response: 'Prepare a management, board or governance response',
+  review_policies_controls: 'Review policies, procedures or operating controls',
+  fraud_governance_oversight: 'Fraud governance and oversight',
+  fraud_risk_identification_assessment: 'Fraud-risk identification and assessment',
+  operational_fraud_controls: 'Operational fraud controls',
+  third_party_supplier_procurement_risk: 'Third-party, supplier and procurement risk',
+  digital_identity_channel_fraud: 'Digital, identity and channel fraud',
+  fraud_monitoring_detection: 'Fraud monitoring and detection',
+  incident_response_investigations: 'Incident response and investigations',
+  fraud_culture_awareness: 'Fraud culture and awareness',
+  email: 'Email',
+  phone: 'Phone',
+  video_meeting: 'Video meeting',
+  within_one_week: 'Within one week',
+  within_two_weeks: 'Within two weeks',
+  within_one_month: 'Within one month',
+  exploring_options: 'Exploring options',
+  other: 'Other'
+};
+
 function service() {
   return createSupabaseServiceClient() as any;
 }
@@ -14,7 +38,7 @@ export function cleanEnquiryStatus(status: string | null | undefined) {
 
 export function labelForChoice(value: string | null | undefined) {
   if (!value) return 'Not captured';
-  return value.replace(/_/g, ' ');
+  return CHOICE_LABELS[value] ?? value.replace(/_/g, ' ');
 }
 
 export async function getAdminPersonalisedEnquiryList(filters: { status?: string; search?: string } = {}) {
