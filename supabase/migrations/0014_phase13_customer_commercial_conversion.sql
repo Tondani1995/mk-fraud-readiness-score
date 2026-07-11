@@ -36,55 +36,62 @@ create unique index if not exists data_requests_active_personalised_report_uidx
 
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'data_requests_personalised_reason_chk'
-  ) then
-    alter table public.data_requests
-      add constraint data_requests_personalised_reason_chk
-      check (
-        request_type <> 'personalised_report_50000'
-        or primary_reason is null
-        or primary_reason in (
-          'board_or_executive_readout',
-          'control_improvement_planning',
-          'fraud_risk_review',
-          'pre_audit_or_assurance',
+  alter table public.data_requests drop constraint if exists data_requests_personalised_reason_chk;
+  alter table public.data_requests
+    add constraint data_requests_personalised_reason_chk
+    check (
+      request_type <> 'personalised_report_50000'
+      or primary_reason in (
+        'understand_control_weaknesses',
+        'design_strengthen_programme',
+        'respond_incident_audit_control',
+        'prepare_governance_response',
+        'review_policies_controls',
+        'other'
+      )
+    );
+
+  alter table public.data_requests drop constraint if exists data_requests_personalised_focus_areas_chk;
+  alter table public.data_requests
+    add constraint data_requests_personalised_focus_areas_chk
+    check (
+      request_type <> 'personalised_report_50000'
+      or (
+        coalesce(cardinality(areas_of_focus), 0) >= 1
+        and areas_of_focus <@ array[
+          'fraud_governance_oversight',
+          'fraud_risk_identification_assessment',
+          'operational_fraud_controls',
+          'third_party_supplier_procurement_risk',
+          'digital_identity_channel_fraud',
+          'fraud_monitoring_detection',
+          'incident_response_investigations',
+          'fraud_culture_awareness',
           'other'
-        )
-      );
-  end if;
+        ]::text[]
+      )
+    );
 
-  if not exists (
-    select 1 from pg_constraint where conname = 'data_requests_personalised_contact_method_chk'
-  ) then
-    alter table public.data_requests
-      add constraint data_requests_personalised_contact_method_chk
-      check (
-        request_type <> 'personalised_report_50000'
-        or preferred_contact_method is null
-        or preferred_contact_method in ('email', 'phone', 'video_call')
-      );
-  end if;
+  alter table public.data_requests drop constraint if exists data_requests_personalised_contact_method_chk;
+  alter table public.data_requests
+    add constraint data_requests_personalised_contact_method_chk
+    check (
+      request_type <> 'personalised_report_50000'
+      or preferred_contact_method in ('email', 'phone', 'video_meeting')
+    );
 
-  if not exists (
-    select 1 from pg_constraint where conname = 'data_requests_personalised_timeframe_chk'
-  ) then
-    alter table public.data_requests
-      add constraint data_requests_personalised_timeframe_chk
-      check (
-        request_type <> 'personalised_report_50000'
-        or preferred_consultation_timeframe is null
-        or preferred_consultation_timeframe in ('this_week', 'two_weeks', 'this_month', 'exploring')
-      );
-  end if;
+  alter table public.data_requests drop constraint if exists data_requests_personalised_timeframe_chk;
+  alter table public.data_requests
+    add constraint data_requests_personalised_timeframe_chk
+    check (
+      request_type <> 'personalised_report_50000'
+      or preferred_consultation_timeframe in ('within_one_week', 'within_two_weeks', 'within_one_month', 'exploring_options')
+    );
 
-  if not exists (
-    select 1 from pg_constraint where conname = 'data_requests_personalised_reference_format_chk'
-  ) then
-    alter table public.data_requests
-      add constraint data_requests_personalised_reference_format_chk
-      check (request_reference is null or request_reference ~ '^MKENQ-[0-9]{4}-[A-F0-9]{8}$');
-  end if;
+  alter table public.data_requests drop constraint if exists data_requests_personalised_reference_format_chk;
+  alter table public.data_requests
+    add constraint data_requests_personalised_reference_format_chk
+    check (request_reference is null or request_reference ~ '^MKENQ-[0-9]{4}-[A-F0-9]{8}$');
 
   if not exists (
     select 1 from pg_trigger where tgname = 'trg_data_requests_updated_at'
@@ -111,7 +118,7 @@ end $$;
 insert into public.app_settings (setting_key, value_json)
 values (
   'phase13_customer_commercial_conversion',
-  '{"status":"code_ready_pending_migration_uat","manual_eft_only":true,"customer_instant_download":false,"automated_report_release":false,"payment_gateway":false,"proof_upload":false,"public_benchmarks":false,"live_ai_recommendations":false}'::jsonb
+  '{"status":"code_ready_pending_migration_uat","manual_eft_only":true,"full_report_offer":"R5,000 including VAT","personalised_report_offer":"From R50,000 including VAT","customer_instant_download":false,"automated_report_release":false,"payment_gateway":false,"proof_upload":false,"public_benchmarks":false,"live_ai_recommendations":false}'::jsonb
 )
 on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
 
