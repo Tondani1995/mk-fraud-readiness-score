@@ -20,6 +20,10 @@ function respondentName(enquiry: any) {
   return enquiry.respondents?.full_name ?? enquiry.respondents?.email ?? enquiry.requested_by_email ?? 'Respondent';
 }
 
+function respondentEmail(enquiry: any) {
+  return enquiry.respondents?.email ?? enquiry.requested_by_email ?? 'Email not captured';
+}
+
 export default async function AdminPersonalisedEnquiriesPage({ searchParams }: { searchParams?: { status?: string; search?: string } }) {
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']);
   const status = searchParams?.status ?? 'all';
@@ -57,7 +61,12 @@ export default async function AdminPersonalisedEnquiriesPage({ searchParams }: {
                       <td className="py-3 font-semibold text-mk-ink">{enquiry.request_reference ?? 'Pending reference'}</td>
                       <td className="py-3 text-mk-muted">{enquiry.assessments?.assessment_reference ?? 'Unlinked'}</td>
                       <td className="py-3 text-mk-muted">{organisationName(enquiry)}</td>
-                      <td className="py-3 text-mk-muted">{respondentName(enquiry)}</td>
+                      <td className="py-3 text-mk-muted">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-mk-ink">{respondentName(enquiry)}</p>
+                          <p>{respondentEmail(enquiry)}</p>
+                        </div>
+                      </td>
                       <td className="py-3 text-mk-muted">{labelForChoice(enquiry.primary_reason)}</td>
                       <td className="py-3"><Badge>{cleanEnquiryStatus(enquiry.status)}</Badge></td>
                       <td className="py-3 text-mk-muted">{new Date(enquiry.updated_at ?? enquiry.created_at).toLocaleDateString('en-ZA')}</td>
