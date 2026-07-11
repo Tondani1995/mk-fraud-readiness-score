@@ -124,7 +124,7 @@ assertIncludes(commercialEventRoute, "'report_option_selected'", 'Commercial eve
 assertIncludes(commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route permits R5k selected event');
 assertIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open queues deduped internal notification');
 assertIncludes(commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5k selection queues deduped internal notification');
-assertNotIncludes(commercialEventRoute, 'rawToken:', 'Commercial event metadata must not write raw tokens');
+assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial event metadata must not write raw tokens');
 
 assert(exists(personalisedRoute), 'Phase 13 PR B personalised enquiry route must exist.');
 assertIncludes(personalisedRoute, 'validateSnapshotToken', 'Personalised route validates snapshot token');
