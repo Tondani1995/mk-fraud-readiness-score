@@ -43,6 +43,8 @@ const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
 const commercialEventRoute = 'src/app/api/assessments/[assessmentRef]/commercial-event/route.ts';
 const personalisedRoute = 'src/app/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
+const reportService = 'src/lib/reports/premium-report-service.ts';
+const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
 
 const requiredEventTypes = [
   'assessment_started',
@@ -63,7 +65,7 @@ const requiredEventTypes = [
   'internal_notification_failed'
 ];
 
-for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute]) {
+for (const file of [migration, cleanupMigration, taxonomy, eventHelper, notificationHelper, commercialEventRoute, personalisedRoute, reportService, generateRoute]) {
   assert(exists(file), `${file} must exist.`);
 }
 
@@ -113,14 +115,15 @@ assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification help
 assertIncludes('src/lib/respondent/start-assessment.ts', "eventType: 'assessment_started'", 'Assessment start is tracked server-side');
 assertIncludes('src/lib/respondent/assessment-save.ts', "eventType: 'assessment_submitted'", 'Assessment submission is tracked server-side');
 assertIncludes('src/lib/respondent/assessment-save.ts', "notificationType: 'assessment_completed'", 'Assessment completion queues internal lead notification');
-assertSourceOrder('src/lib/respondent/assessment-save.ts', "if (!lockedAssessment)", "eventType: 'assessment_submitted'", 'Submission event must be after stale-submit conflict guard');
+assertSourceOrder('src/lib/respondent/assessment-save.ts', 'if (!lockedAssessment)', "eventType: 'assessment_submitted'", 'Submission event must be after stale-submit conflict guard');
 assertIncludes('src/app/snapshot/[assessmentRef]/page.tsx', "eventType: 'snapshot_viewed'", 'Snapshot view is tracked server-side');
 assertSourceOrder('src/app/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'eft_order_created'", 'EFT order creation/reuse is tracked');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_order_created'", 'EFT order queues internal lead notification');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "optionCode: 'full_report_5000'", 'EFT order event is linked to R5k option code');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marked_received'", 'Payment received admin status is tracked');
-assertIncludes('src/app/api/admin/orders/[orderReference]/generate-report/route.ts', "eventType: 'report_generated'", 'Successful report generation is tracked');
+assertIncludes(generateRoute, 'generatePremiumReport', 'Admin report route delegates to shared generation service');
+assertIncludes(reportService, "eventType: 'report_generated'", 'Successful report generation is tracked by the shared service');
 assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "eventType: 'admin_report_downloaded'", 'Successful admin report download is tracked');
 
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
@@ -166,12 +169,13 @@ const noGoImplementationSources = [
   'src/app/snapshot/[assessmentRef]/page.tsx',
   'src/components/assessment/FreeSnapshot.tsx',
   'src/lib/orders/manual-eft-orders.ts',
-  'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
+  generateRoute,
   'src/app/api/admin/reports/[reportId]/download/route.ts'
 ].map(read).join('\n');
 
-assert(!/PayFast|Stitch|card payment|subscription|respondent account|client portal|peer average|public benchmark|live AI|instant customer download|automated report release/i.test(noGoImplementationSources), 'Phase 13 must not introduce prohibited commercial/payment/report-release features.');
-assert(!/sendEmail|resend\.emails\.send|transport\.sendMail|sgMail\.send/i.test(notificationHelper), 'Internal notification helper must not send emails in PR B.');
+assert(!/PayFast|Stitch|card payment|subscription|respondent account|client portal|peer average|public benchmark|live AI|instant customer download|automated report release/i.test(noGoImplementationSources), 'Phase 13 customer/commercial surfaces must not introduce prohibited gateway, account, benchmark or report-release features.');
+assert(!/sendEmail|resend\.emails\.send|transport\.sendMail|sgMail\.send/i.test(notificationHelper), 'Internal notification helper must not send emails in Phase 13.');
+assertNotIncludes(reportService, 'resend.emails.send', 'Phase 14A report service must not send customer email before Phase 14B.');
 
 const packageJson = JSON.parse(read('package.json'));
 assert(packageJson.scripts?.['phase13:test-events'] === 'node scripts/phase13-commercial-event-tests.mjs', 'package.json must expose phase13:test-events.');
@@ -179,4 +183,4 @@ assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Phase 1
 assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'Phase 13 must keep eslint-config-next 14.x.');
 assertIncludes('.github/workflows/phase7-verification.yml', 'npm run phase13:test-events', 'V1 verification workflow runs Phase 13 event tests');
 
-console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped PR B customer events, R50 post-persistence notification boundary, selection notification queueing and no-go boundaries are covered.');
+console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped customer events, R50 post-persistence boundary, shared report-generated tracking and no-email boundary are covered.');
