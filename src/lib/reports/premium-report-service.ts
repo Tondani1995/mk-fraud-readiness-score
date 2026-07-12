@@ -112,6 +112,7 @@ function generationRunRow(input: {
   attemptNumber: number;
   mode: PremiumReportGenerationMode;
   prepared: PreparedPremiumReportNarrative;
+  promptVersion: string;
   generation?: NarrativeGenerationResult;
   validation: NarrativeValidationResult;
   status: 'rejected' | 'failed' | 'used';
@@ -125,7 +126,7 @@ function generationRunRow(input: {
     generation_mode: input.mode,
     provider: input.generation?.provider ?? null,
     model: input.generation?.model ?? null,
-    prompt_version: input.prepared.evidence.schemaVersion ? input.prepared.evidence.schemaVersion && undefined : undefined,
+    prompt_version: input.promptVersion,
     schema_version: input.prepared.evidence.schemaVersion,
     evidence_checksum: input.prepared.evidenceChecksum,
     evidence_snapshot_json: input.prepared.evidence,
@@ -150,55 +151,60 @@ async function persistGenerationProvenance(input: {
 }) {
   if (!input.fulfilmentId) return null;
   const db = createSupabaseServiceClient() as any;
+
+  const { data: existingRuns, error: existingRunsError } = await db
+    .from('report_generation_runs')
+    .select('id,attempt_number,status')
+    .eq('fulfilment_id', input.fulfilmentId)
+    .order('attempt_number', { ascending: false });
+  if (existingRunsError) throw existingRunsError;
+
+  const existingUsed = (existingRuns ?? []).find((row: any) => row.status === 'used');
+  if (existingUsed) return existingUsed.id;
+
   const rows: Record<string, unknown>[] = [];
-  let attempt = 1;
+  let attempt = Number(existingRuns?.[0]?.attempt_number ?? 0) + 1;
 
   if (input.prepared.generation && input.prepared.initialValidation) {
-    rows.push({
-      ...generationRunRow({
-        fulfilmentId: input.fulfilmentId,
-        attemptNumber: attempt,
-        mode: 'ai',
-        prepared: input.prepared,
-        generation: input.prepared.generation,
-        validation: input.prepared.initialValidation,
-        status: input.prepared.mode === 'ai' ? 'used' : 'rejected'
-      }),
-      prompt_version: input.flags.promptVersion
-    });
+    rows.push(generationRunRow({
+      fulfilmentId: input.fulfilmentId,
+      attemptNumber: attempt,
+      mode: 'ai',
+      prepared: input.prepared,
+      promptVersion: input.flags.promptVersion,
+      generation: input.prepared.generation,
+      validation: input.prepared.initialValidation,
+      status: input.prepared.mode === 'ai' ? 'used' : 'rejected'
+    }));
     attempt += 1;
   }
 
   if (input.prepared.repairGeneration && input.prepared.repairValidation) {
-    rows.push({
-      ...generationRunRow({
-        fulfilmentId: input.fulfilmentId,
-        attemptNumber: attempt,
-        mode: 'ai_repair',
-        prepared: input.prepared,
-        generation: input.prepared.repairGeneration,
-        validation: input.prepared.repairValidation,
-        status: input.prepared.mode === 'ai_repair' ? 'used' : 'rejected'
-      }),
-      prompt_version: input.flags.promptVersion
-    });
+    rows.push(generationRunRow({
+      fulfilmentId: input.fulfilmentId,
+      attemptNumber: attempt,
+      mode: 'ai_repair',
+      prepared: input.prepared,
+      promptVersion: input.flags.promptVersion,
+      generation: input.prepared.repairGeneration,
+      validation: input.prepared.repairValidation,
+      status: input.prepared.mode === 'ai_repair' ? 'used' : 'rejected'
+    }));
     attempt += 1;
   }
 
   if (input.prepared.mode === 'deterministic_fallback') {
-    rows.push({
-      ...generationRunRow({
-        fulfilmentId: input.fulfilmentId,
-        attemptNumber: attempt,
-        mode: 'deterministic_fallback',
-        prepared: input.prepared,
-        validation: input.prepared.validation,
-        status: 'used',
-        errorCode: input.prepared.fallbackReason ?? null,
-        errorMessage: input.prepared.fallbackReason ?? null
-      }),
-      prompt_version: input.flags.promptVersion
-    });
+    rows.push(generationRunRow({
+      fulfilmentId: input.fulfilmentId,
+      attemptNumber: attempt,
+      mode: 'deterministic_fallback',
+      prepared: input.prepared,
+      promptVersion: input.flags.promptVersion,
+      validation: input.prepared.validation,
+      status: 'used',
+      errorCode: input.prepared.fallbackReason ?? null,
+      errorMessage: input.prepared.fallbackReason ?? null
+    }));
   }
 
   if (!rows.length) return null;
@@ -208,6 +214,18 @@ async function persistGenerationProvenance(input: {
     .select('id,attempt_number,status,generation_mode');
   if (error) throw error;
   return (data ?? []).find((row: any) => row.status === 'used')?.id ?? null;
+}
+
+async function removeOrphanedStorageObject(db: any, bucket: string, path: string) {
+  const { data: persistedReport } = await db
+    .from('reports')
+    .select('id')
+    .eq('storage_bucket', bucket)
+    .eq('storage_path', path)
+    .maybeSingle();
+  if (persistedReport) return false;
+  await db.storage.from(bucket).remove([path]);
+  return true;
 }
 
 export async function generatePremiumReport(
@@ -233,12 +251,18 @@ export async function generatePremiumReport(
     if (input.fulfilmentId) {
       const { data: existingForFulfilment, error: fulfilmentReportError } = await db
         .from('reports')
-        .select('id,report_reference,version_number,supersedes_report_id,storage_bucket,storage_path')
+        .select('id,report_reference,version_number,supersedes_report_id,storage_bucket,storage_path,generation_run_id')
         .eq('fulfilment_id', input.fulfilmentId)
         .neq('status', 'voided')
         .maybeSingle();
       if (fulfilmentReportError) throw fulfilmentReportError;
       if (existingForFulfilment?.storage_bucket && existingForFulfilment?.storage_path) {
+        const { data: generationRun } = existingForFulfilment.generation_run_id
+          ? await db.from('report_generation_runs')
+            .select('generation_mode,evidence_checksum')
+            .eq('id', existingForFulfilment.generation_run_id)
+            .maybeSingle()
+          : { data: null };
         await updateFulfilmentSafely(input.fulfilmentId, {
           fulfilmentId: input.fulfilmentId,
           status: 'ready_for_delivery',
@@ -250,8 +274,8 @@ export async function generatePremiumReport(
           reportReference: existingForFulfilment.report_reference,
           versionNumber: Number(existingForFulfilment.version_number),
           supersededReportId: existingForFulfilment.supersedes_report_id ?? null,
-          generationMode: 'deterministic_fallback',
-          evidenceChecksum: 'persisted-on-generation-run',
+          generationMode: generationRun?.generation_mode ?? 'deterministic_fallback',
+          evidenceChecksum: generationRun?.evidence_checksum ?? 'legacy-report-no-generation-run',
           readyForEmailDelivery: true,
           reusedExistingReport: true
         };
@@ -351,9 +375,17 @@ export async function generatePremiumReport(
       generationMode: prepared.mode
     });
 
-    const { error: uploadError } = await db.storage
+    let { error: uploadError } = await db.storage
       .from(storageBucket)
       .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false });
+    if (uploadError && /already exists|duplicate/i.test(uploadError.message)) {
+      const removed = await removeOrphanedStorageObject(db, storageBucket, storagePath);
+      if (removed) {
+        ({ error: uploadError } = await db.storage
+          .from(storageBucket)
+          .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false }));
+      }
+    }
     if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
 
     const reportInsert: Record<string, unknown> = {
@@ -386,8 +418,8 @@ export async function generatePremiumReport(
       throw new Error(`Report persistence failed: ${insertError?.message ?? 'unknown error'}`);
     }
 
-    if (generationRunId) {
-      await db.from('report_generation_runs').update({ report_id: newReport.id }).eq('id', generationRunId);
+    if (input.fulfilmentId) {
+      await db.from('report_generation_runs').update({ report_id: newReport.id }).eq('fulfilment_id', input.fulfilmentId);
     }
     if (existingReport) await db.from('reports').update({ status: 'superseded' }).eq('id', existingReport.id);
 
