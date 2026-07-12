@@ -142,6 +142,8 @@ export interface PreparedPremiumReportNarrative {
   evidence: PremiumReportEvidencePack;
   evidenceChecksum: string;
   validation: NarrativeValidationResult;
+  initialValidation?: NarrativeValidationResult;
+  repairValidation?: NarrativeValidationResult;
   generation?: NarrativeGenerationResult;
   repairGeneration?: NarrativeGenerationResult;
   fallbackReason?: string;
