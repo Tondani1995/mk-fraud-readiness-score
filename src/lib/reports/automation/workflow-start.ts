@@ -1,4 +1,4 @@
-import { start } from 'workflow/api';
+import { start } from '@workflow/core/runtime';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { premiumReportFulfilmentWorkflow } from '@/workflows/premium-report-fulfilment';
 
