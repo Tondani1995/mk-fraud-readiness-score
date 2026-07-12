@@ -1,4 +1,4 @@
-import workflowNext from '@workflow/next';
+import workflowNext from 'workflow/next';
 
 const { withWorkflow } = workflowNext;
 
