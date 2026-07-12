@@ -21,7 +21,7 @@ jobs:
       ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
       ASSESSMENT_TOKEN_MAX_USES: '25'
       ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
-      MK_BUILD_PHASE: phase-13-customer-commercial-conversion
+      MK_BUILD_PHASE: phase-14-autonomous-premium-report-engine
       MK_RELEASE_CHANNEL: ci
       PUPPETEER_SKIP_DOWNLOAD: 'true'
 
@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: |
