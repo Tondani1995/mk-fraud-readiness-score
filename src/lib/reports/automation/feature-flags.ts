@@ -10,7 +10,7 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   aiNarrativeEnabled: false,
   autoEmailEnabled: false,
   testRecipientOverride: null,
-  model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.4',
+  model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.5',
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
   schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION
 });
