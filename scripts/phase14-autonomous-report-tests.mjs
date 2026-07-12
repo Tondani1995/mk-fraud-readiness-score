@@ -20,10 +20,10 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 assert.equal(pkg.engines.node, '24.x');
-assert.equal(pkg.dependencies.workflow, '4.0.1-beta.26');
+assert.equal(pkg.dependencies.workflow, '4.6.0');
 assert.equal(pkg.dependencies.ai, '6.0.83');
 assert.equal(pkg.dependencies.zod, '4.1.8');
-assert.equal(lock.packages['node_modules/workflow']?.version, '4.0.1-beta.26');
+assert.equal(lock.packages['node_modules/workflow']?.version, '4.6.0');
 
 const migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
 for (const pattern of [
@@ -128,4 +128,4 @@ assert(validatePremiumReportNarrative(benchmark, evidence).issues.some((issue) =
 const unsupportedNumber = clone(valid); unsupportedNumber.executiveDiagnosis.body = 'This gives 99 percent fraud prevention certainty.';
 assert(validatePremiumReportNarrative(unsupportedNumber, evidence).issues.some((issue) => issue.code === 'unsupported_numeric_claim'));
 
-console.log('Phase 14 autonomous report, durable workflow, deterministic validation and conditional email tests passed on Node 24.');
+console.log('Phase 14 autonomous report, durable workflow 4.6.0, deterministic validation and conditional email tests passed on Node 24.');
