@@ -2,14 +2,16 @@
 
 ## Phase Result
 
-**Code-level Pass; migration and production assurance outstanding.**
+**Conditional Pass.** Code-level checks pass, migration remains unapplied, and the exact-head Vercel preview is READY, but the Vercel build still reports the missing-SWC lockfile warning.
 
 ## Source
 
 - Repository: `Tondani1995/mk-fraud-readiness-score`
+- PR: `#19`
 - Base branch: `main`
 - Expected/confirmed base SHA: `7ecc0916feb9c8acb08c844a8ca22b1551becdb2`
 - Working branch: `platform/runtime-database-hardening`
+- PR head tested: `1e6e20fe467268e88ccac0597d0be1a86fbc1048`
 - Draft PR title: `Platform runtime and database hardening`
 
 ## Runtime Decision
@@ -81,12 +83,17 @@ Results:
 - all 9 platform-specific `@next/swc-*` optional packages were present;
 - clean `npm ci` completed after removing `node_modules`.
 
-Local full app tests were not possible from a normal checkout because this workspace has no GitHub credentials for `git clone`; full-source verification must be GitHub Actions on the branch/PR head.
+Local full app tests were not possible from a normal checkout because this workspace has no GitHub credentials for `git clone`; full-source verification was provided by GitHub Actions on the PR head.
 
-## Code-Level Checks Required
+## GitHub Actions Evidence
 
-GitHub Actions must pass on the exact PR head:
+V1 Verification run `#458` passed on `1e6e20fe467268e88ccac0597d0be1a86fbc1048`.
 
+Passed steps:
+
+- checkout
+- Node 20 setup
+- dependency install
 - `npm run phase7:test-snapshot`
 - `npm run phase8:test-admin`
 - `npm run methodology:copy-test`
@@ -99,18 +106,29 @@ GitHub Actions must pass on the exact PR head:
 - `npm run typecheck`
 - `npm run build`
 
-## Exact Preview Requirements
+## Exact Preview Evidence
 
-Before merge, verify a READY Vercel preview for the exact PR head:
+Vercel deployment:
 
-- deployment metadata SHA matches PR head;
-- Node 20 is used;
-- Node 20 deprecation warning is documented;
-- missing-SWC warning is absent;
-- `/score/start` returns 200;
-- `/score/api/health` returns 200 and reports `phase-13-customer-commercial-conversion`;
-- `/score/api/system/build-info` returns 200 and reports `releaseChannel: preview`;
-- no fatal/error runtime logs appear.
+- Deployment ID: `dpl_8nqo3N7oVbxymaCNDdLt54urg9Hd`
+- URL: `https://mk-fraud-readiness-score-kkr0ypltr-tondanis-projects.vercel.app`
+- State: `READY`
+- Metadata SHA: `1e6e20fe467268e88ccac0597d0be1a86fbc1048`
+- Exact commit match: yes
+
+Preview build evidence:
+
+- Vercel used Node 20 because of `engines.node = 20.x`.
+- Vercel emitted the expected Node 20 deprecation warning.
+- Next.js remained `14.2.35`.
+- Build completed successfully.
+- `/score/start` returned HTTP 200.
+- Runtime error/fatal log query for the deployment returned no matching logs.
+
+Unresolved preview evidence:
+
+- Vercel still emitted `Found lockfile missing swc dependencies, run next locally to automatically patch`.
+- Protected preview API fetches for `/score/api/health` and `/score/api/system/build-info` returned Vercel SSO redirects through the connector, so their JSON bodies were not directly observed in this run.
 
 ## No-Go Confirmation
 
@@ -134,8 +152,9 @@ PR #19 does not:
 
 ## Remaining Risks
 
-- Vercel Node 20 deprecation warning remains.
+- Vercel missing-SWC warning remains unresolved because `package-lock.json` is not committed to the branch.
+- Vercel Node 20 deprecation warning remains by design for this PR.
 - Migration 0016 is prepared but unapplied.
 - Post-migration advisor results are not available until controlled application.
 - Several Supabase advisor findings remain intentionally parked.
-- Exact-head Vercel preview verification must still be completed after PR creation.
+- Health/build-info JSON needs direct browser or unprotected-preview verification.
