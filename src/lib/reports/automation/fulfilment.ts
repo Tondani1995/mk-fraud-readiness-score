@@ -137,17 +137,16 @@ export async function updatePremiumReportFulfilment(input: {
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     status: input.status,
-    current_step: input.currentStep,
-    generation_mode: input.generationMode ?? null,
-    report_id: input.reportId ?? null,
-    last_error_code: input.errorCode ?? null,
-    last_error_message: input.errorMessage ?? null,
-    started_at: input.status === 'assembling' ? now : undefined,
-    completed_at: input.status === 'completed' ? now : undefined,
-    failed_at: input.status === 'failed' ? now : undefined
+    current_step: input.currentStep
   };
 
-  Object.keys(patch).forEach((key) => patch[key] === undefined && delete patch[key]);
+  if ('generationMode' in input) patch.generation_mode = input.generationMode ?? null;
+  if ('reportId' in input) patch.report_id = input.reportId ?? null;
+  if ('errorCode' in input) patch.last_error_code = input.errorCode ?? null;
+  if ('errorMessage' in input) patch.last_error_message = input.errorMessage ?? null;
+  if (input.status === 'assembling') patch.started_at = now;
+  if (input.status === 'completed') patch.completed_at = now;
+  if (input.status === 'failed') patch.failed_at = now;
 
   if (input.incrementAttempt) {
     const { data: current, error: currentError } = await db
