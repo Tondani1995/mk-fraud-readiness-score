@@ -1,8 +1,8 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "1.0.0-platform-runtime-database-hardening",
+  "version": "1.0.0-phase14-autonomous-report-engine",
   "private": true,
-  "description": "MK Fraud Readiness Score V1 with Phase 14 autonomous premium-report foundations, deterministic scoring authority and controlled Node.js 20 Chromium compatibility.",
+  "description": "MK Fraud Readiness Score V1 with autonomous premium-report fulfilment, deterministic scoring authority and controlled Node.js 20 Chromium compatibility.",
   "engines": {
     "node": "20.x"
   },
@@ -33,12 +33,14 @@
   "dependencies": {
     "@sparticuz/chromium": "^131.0.1",
     "@supabase/supabase-js": "^2.45.4",
+    "@workflow/core": "4.0.1-beta.23",
+    "@workflow/errors": "4.0.1-beta.7",
+    "@workflow/next": "4.0.1-beta.26",
     "ai": "6.0.83",
     "next": "^14.2.13",
     "puppeteer-core": "^23.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "workflow": "4.0.1-beta.26",
     "zod": "4.1.8"
   },
   "devDependencies": {
