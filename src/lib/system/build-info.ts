@@ -7,11 +7,10 @@
 // labels. Never add secrets, keys, connection strings, or environment
 // variable inventories to this module.
 
-export const CURRENT_BUILD_PHASE =
-  process.env.MK_BUILD_PHASE ?? 'phase-13-customer-commercial-conversion';
+export const CURRENT_BUILD_PHASE = 'phase-13-customer-commercial-conversion';
 
 export const CURRENT_RELEASE_CHANNEL =
-  process.env.MK_RELEASE_CHANNEL ??
   process.env.VERCEL_ENV ??
+  process.env.MK_RELEASE_CHANNEL ??
   process.env.NODE_ENV ??
   'local';
