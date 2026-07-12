@@ -12,6 +12,8 @@ create table if not exists public.email_provider_events (
   event_type text not null,
   event_created_at timestamptz,
   received_at timestamptz not null default now(),
+  processed_at timestamptz,
+  processing_error text,
   payload_json jsonb not null default '{}'::jsonb,
   constraint email_provider_events_provider_event_unique unique (provider, provider_event_id)
 );
@@ -20,6 +22,9 @@ create index if not exists email_provider_events_email_event_idx
   on public.email_provider_events(email_event_id, received_at desc);
 create index if not exists email_provider_events_message_idx
   on public.email_provider_events(provider, provider_message_id, received_at desc);
+create index if not exists email_provider_events_unprocessed_idx
+  on public.email_provider_events(received_at)
+  where processed_at is null;
 
 alter table public.email_provider_events enable row level security;
 revoke all on table public.email_provider_events from anon, authenticated;
