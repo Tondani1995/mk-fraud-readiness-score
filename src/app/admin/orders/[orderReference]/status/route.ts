@@ -4,6 +4,7 @@ import { canManageFinance, getAdminSession } from '@/lib/auth/admin-route';
 import { updateAdminOrderStatus, type ManualOrderStatus } from '@/lib/orders/manual-eft-orders';
 import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/feature-flags';
 import { queuePremiumReportFulfilment } from '@/lib/reports/automation/fulfilment';
+import { startPremiumReportWorkflow } from '@/lib/reports/automation/workflow-start';
 
 const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
@@ -41,8 +42,22 @@ export async function POST(request: Request, { params }: { params: { orderRefere
           triggerSource: 'payment_confirmation',
           requestedByAdminUserId: admin.id
         });
+
         if (fulfilment.ok) {
-          detailUrl.searchParams.set('fulfilment', fulfilment.created ? 'queued' : 'already_queued');
+          const workflow = await startPremiumReportWorkflow(fulfilment.fulfilment.id);
+          if (workflow.ok) {
+            detailUrl.searchParams.set(
+              'fulfilment',
+              workflow.started
+                ? 'workflow_started'
+                : fulfilment.created
+                  ? 'queued'
+                  : 'already_queued'
+            );
+            if (workflow.runId) detailUrl.searchParams.set('workflow_run', workflow.runId);
+          } else {
+            detailUrl.searchParams.set('fulfilment_error', 'workflow_start_failed');
+          }
         } else {
           detailUrl.searchParams.set('fulfilment_error', fulfilment.reason);
         }
