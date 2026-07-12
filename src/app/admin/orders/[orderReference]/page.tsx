@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
+import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/feature-flags';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -41,25 +42,43 @@ async function getReportVersions(orderId: string) {
   return data ?? [];
 }
 
+async function getLatestFulfilment(orderId: string) {
+  const db = createSupabaseServiceClient() as any;
+  const { data, error } = await db
+    .from('report_fulfilments')
+    .select('id,status,current_step,generation_mode,attempt_count,last_error_code,last_error_message,report_id,created_at,updated_at')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data ?? null;
+}
+
 export default async function AdminOrderDetailPage({ params }: { params: { orderReference: string } }) {
   const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']);
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
 
   const { order, events, auditEvents } = detail;
-  const reportVersions = await getReportVersions(order.id);
+  const [reportVersions, fulfilment, automationFlags] = await Promise.all([
+    getReportVersions(order.id),
+    getLatestFulfilment(order.id),
+    getPremiumReportAutomationFlags()
+  ]);
   const eft = order.eft_instructions_snapshot ?? {};
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
   const reportGenerationEligible = order.status === 'payment_received';
+  const autoFulfilment = automationFlags.autoFulfilmentEnabled;
 
   return (
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Manual EFT order"
+          eyebrow="Premium report order"
           title={order.order_reference}
-          description="Review the linked assessment, request, product, EFT snapshot, manual status timeline and controlled report versions."
+          description="Review payment, autonomous fulfilment, report versions, exceptions and the complete audit trail."
         />
 
         <Card>
@@ -88,26 +107,40 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
             <SnapshotValue label="Contact" value={eft.contactEmail ?? eft.contact_email} />
             <div className="md:col-span-3 rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
               <p>{eft.paymentReferenceInstruction ?? eft.payment_reference_instruction ?? 'Use the order reference as the payment reference.'}</p>
-              <p className="mt-2">{eft.customerInstruction ?? eft.customer_instruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.'}</p>
+              <p className="mt-2">{eft.customerInstruction ?? eft.customer_instruction ?? 'MK Fraud Insights confirms EFT payments before the detailed report is fulfilled.'}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Report generation control</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Autonomous fulfilment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
-              Detailed reports are generated only after manual EFT confirmation. Payment received does not automatically generate, release, download or email a report.
+              {autoFulfilment
+                ? 'Payment confirmation queues one idempotent report fulfilment. The platform assembles persisted evidence, validates the narrative, renders and stores the PDF. Automatic customer email delivery is enabled separately.'
+                : 'Autonomous fulfilment is safely disabled. Payment confirmation does not yet start report generation, and the manual generation control remains available.'}
             </div>
+            {fulfilment ? (
+              <div className="grid gap-4 rounded-xl border border-mk-line bg-mk-cream/40 p-4 md:grid-cols-3">
+                <SnapshotValue label="Fulfilment status" value={cleanStatus(fulfilment.status)} />
+                <SnapshotValue label="Current step" value={cleanStatus(fulfilment.current_step)} />
+                <SnapshotValue label="Generation mode" value={cleanStatus(fulfilment.generation_mode)} />
+                <SnapshotValue label="Attempts" value={String(fulfilment.attempt_count ?? 0)} />
+                <SnapshotValue label="Last error" value={fulfilment.last_error_code ? `${fulfilment.last_error_code}: ${fulfilment.last_error_message ?? ''}` : 'None'} />
+                <SnapshotValue label="Updated" value={fulfilment.updated_at ? new Date(fulfilment.updated_at).toLocaleString('en-ZA') : null} />
+              </div>
+            ) : <p className="text-sm text-mk-muted">No fulfilment has been created for this order.</p>}
+
             {reportGenerationEligible ? (
               <form action={`/score/api/admin/orders/${order.order_reference}/generate-report`} method="post">
-                <Button type="submit">Generate report version</Button>
+                <Button type="submit">{autoFulfilment ? 'Manual generate / regenerate fallback' : 'Generate report version'}</Button>
               </form>
             ) : (
               <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-                Report generation is blocked until this order is marked as payment received.
+                Report generation remains blocked until this order is marked as payment received.
               </div>
             )}
+
             <div className="space-y-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Report versions</p>
               {reportVersions.map((report: any) => (
@@ -127,8 +160,10 @@ export default async function AdminOrderDetailPage({ params }: { params: { order
         <Card>
           <CardHeader><CardTitle>Status update</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
-              Payment received does not generate or release the detailed report in V1. Report generation remains a separate controlled step.
+            <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
+              {autoFulfilment
+                ? 'Marking an eligible R5,000 order as payment received queues autonomous fulfilment once. Repeated updates reuse the same active fulfilment.'
+                : 'Payment confirmation is recorded, but autonomous fulfilment remains disabled until the Phase 14 migration and UAT gates pass.'}
             </div>
             <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
               <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
