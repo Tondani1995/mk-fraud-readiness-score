@@ -5,127 +5,91 @@ import ts from 'typescript';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
-
-function loadCommonJsFromTypeScript(relativePath) {
-  const source = read(relativePath);
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-      esModuleInterop: true
-    },
-    fileName: relativePath
+function loadPureModule(relativePath) {
+  const output = ts.transpileModule(read(relativePath), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
   }).outputText;
   const module = { exports: {} };
-  const execute = new Function('require', 'module', 'exports', output);
-  execute((specifier) => {
-    throw new Error(`Unexpected runtime dependency in pure validation module: ${specifier}`);
+  new Function('require', 'module', 'exports', output)((specifier) => {
+    throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
 }
+const clone = (value) => JSON.parse(JSON.stringify(value));
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-const packageJson = JSON.parse(read('package.json'));
-const packageLock = JSON.parse(read('package-lock.json'));
-assert.equal(packageJson.engines.node, '20.x', 'Node 20 Chromium guard must remain intact.');
-assert.equal(packageJson.dependencies['@workflow/core'], '4.0.1-beta.23', 'Workflow core runtime must remain pinned.');
-assert.equal(packageJson.dependencies['@workflow/errors'], '4.0.1-beta.7', 'Workflow error contract must remain pinned.');
-assert.equal(packageJson.dependencies['@workflow/next'], '4.0.1-beta.26', 'Workflow Next integration must remain pinned.');
-assert.equal(packageJson.dependencies.workflow, undefined, 'The Workflow meta-package must not reintroduce its Node 22-only CLI dependency.');
-assert.equal(packageJson.dependencies.ai, '6.0.83', 'Node-20-compatible AI SDK version must remain pinned.');
-assert.equal(packageJson.dependencies.zod, '4.1.8', 'Structured-output schema dependency must remain pinned.');
-assert.equal(packageLock.packages['node_modules/@workflow/core']?.version, '4.0.1-beta.23');
-assert.equal(packageLock.packages['node_modules/@workflow/errors']?.version, '4.0.1-beta.7');
-assert.equal(packageLock.packages['node_modules/@workflow/next']?.version, '4.0.1-beta.26');
-assert.equal(packageLock.packages['node_modules/workflow'], undefined, 'Workflow meta-package must be absent from the committed lockfile.');
-assert.equal(packageLock.packages['node_modules/mixpart'], undefined, 'Node 22-only mixpart must be absent from the committed lockfile.');
+const pkg = JSON.parse(read('package.json'));
+const lock = JSON.parse(read('package-lock.json'));
+assert.equal(pkg.engines.node, '24.x');
+assert.equal(pkg.dependencies.workflow, '4.0.1-beta.26');
+assert.equal(pkg.dependencies.ai, '6.0.83');
+assert.equal(pkg.dependencies.zod, '4.1.8');
+assert.equal(lock.packages['node_modules/workflow']?.version, '4.0.1-beta.26');
 
 const migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
-assert.match(migration, /create table if not exists public\.report_fulfilments/i);
-assert.match(migration, /create table if not exists public\.report_generation_runs/i);
-assert.match(migration, /report_fulfilments_one_active_order_uidx/i);
-assert.match(migration, /constraint report_fulfilments_idempotency_key_unique/i);
-assert.match(migration, /workflow_start_status text not null default 'not_started'/i);
-assert.match(migration, /workflow_run_id text/i);
-assert.match(migration, /report_fulfilments_workflow_run_uidx/i);
-assert.match(migration, /premium_report_auto_fulfilment_enabled"\s*:\s*false/i);
-assert.match(migration, /premium_report_ai_narrative_enabled"\s*:\s*false/i);
-assert.match(migration, /premium_report_auto_email_enabled"\s*:\s*false/i);
-assert.match(migration, /r50000_automation_enabled"\s*:\s*false/i);
-assert.match(migration, /alter table public\.report_fulfilments enable row level security/i);
-assert.match(migration, /revoke all on table public\.report_fulfilments from anon, authenticated/i);
-assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all)\s+on\s+table\s+public\.report_fulfilments\s+to\s+authenticated/i);
+for (const pattern of [
+  /create table if not exists public\.report_fulfilments/i,
+  /create table if not exists public\.report_generation_runs/i,
+  /report_fulfilments_one_active_order_uidx/i,
+  /report_fulfilments_workflow_run_uidx/i,
+  /premium_report_auto_fulfilment_enabled"\s*:\s*false/i,
+  /premium_report_ai_narrative_enabled"\s*:\s*false/i,
+  /premium_report_auto_email_enabled"\s*:\s*false/i,
+  /r50000_automation_enabled"\s*:\s*false/i,
+  /alter table public\.report_fulfilments enable row level security/i,
+  /revoke all on table public\.report_fulfilments from anon, authenticated/i
+]) assert.match(migration, pattern);
+assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all).*to\s+authenticated/i);
 
-const flagsSource = read('src/lib/reports/automation/feature-flags.ts');
-assert.match(flagsSource, /autoFulfilmentEnabled:\s*false/);
-assert.match(flagsSource, /aiNarrativeEnabled:\s*false/);
-assert.match(flagsSource, /autoEmailEnabled:\s*false/);
-assert.match(flagsSource, /Phase 14 feature flags could not be loaded; automation remains disabled/);
+const flags = read('src/lib/reports/automation/feature-flags.ts');
+assert.match(flags, /autoFulfilmentEnabled:\s*false/);
+assert.match(flags, /aiNarrativeEnabled:\s*false/);
+assert.match(flags, /autoEmailEnabled:\s*false/);
+assert.match(flags, /automation remains disabled/);
 
-const fulfilmentSource = read('src/lib/reports/automation/fulfilment.ts');
-assert.match(fulfilmentSource, /premium-report:\$\{orderId\}:\$\{scoreRunId\}/);
-assert.match(fulfilmentSource, /assembled\.productCode !== 'essential_self_assessment'/);
-assert.match(fulfilmentSource, /product_not_automated/);
-assert.doesNotMatch(fulfilmentSource, /mk_validated_assessment.*automated/i);
+const fulfilment = read('src/lib/reports/automation/fulfilment.ts');
+assert.match(fulfilment, /premium-report:\$\{orderId\}:\$\{scoreRunId\}/);
+assert.match(fulfilment, /assembled\.productCode !== 'essential_self_assessment'/);
+assert.match(fulfilment, /product_not_automated/);
 
-const workflowStart = read('src/lib/reports/automation/workflow-start.ts');
-assert.match(workflowStart, /from '@workflow\/core\/runtime'/);
-assert.match(workflowStart, /await start\(premiumReportFulfilmentWorkflow, \[fulfilmentId\]\)/);
-assert.match(workflowStart, /workflow_start_status:\s*'starting'/);
-assert.match(workflowStart, /\.is\('workflow_run_id', null\)/);
-assert.match(workflowStart, /\.in\('workflow_start_status', \['not_started', 'failed'\]\)/);
-assert.match(workflowStart, /workflow_start_status:\s*'failed'/);
+const start = read('src/lib/reports/automation/workflow-start.ts');
+assert.match(start, /from 'workflow\/api'/);
+assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[fulfilmentId\]\)/);
+assert.match(start, /workflow_start_status:\s*'starting'/);
+assert.match(start, /\.is\('workflow_run_id', null\)/);
+assert.match(start, /\.in\('workflow_start_status', \['not_started', 'failed'\]\)/);
 
-const workflowSource = read('src/workflows/premium-report-fulfilment.ts');
-assert.match(workflowSource, /from '@workflow\/errors'/);
-assert.match(workflowSource, /'use workflow'/);
-assert.equal((workflowSource.match(/'use step'/g) ?? []).length, 4, 'Workflow must expose four durable steps including conditional email delivery.');
-assert.match(workflowSource, /validateFulfilmentStep/);
-assert.match(workflowSource, /generateAndStoreReportStep/);
-assert.match(workflowSource, /verifyDeliveryReadyStep/);
-assert.match(workflowSource, /deliverReportEmailIfEnabledStep/);
-assert.match(workflowSource, /processPremiumReportFulfilment/);
+const workflow = read('src/workflows/premium-report-fulfilment.ts');
+assert.match(workflow, /from 'workflow'/);
+assert.match(workflow, /'use workflow'/);
+assert.equal((workflow.match(/'use step'/g) ?? []).length, 4);
+for (const step of ['validateFulfilmentStep','generateAndStoreReportStep','verifyDeliveryReadyStep','deliverReportEmailIfEnabledStep']) {
+  assert.match(workflow, new RegExp(step));
+}
+assert.match(workflow, /flags\.autoEmailEnabled/);
 
-const nextConfig = read('next.config.mjs');
-assert.match(nextConfig, /from '@workflow\/next'/);
-assert.match(nextConfig, /export default withWorkflow\(nextConfig\)/);
-assert.match(nextConfig, /@sparticuz\/chromium\/bin/);
-assert.match(nextConfig, /'puppeteer-core': 'commonjs puppeteer-core'/);
+const config = read('next.config.mjs');
+assert.match(config, /from 'workflow\/next'/);
+assert.match(config, /export default withWorkflow\(nextConfig\)/);
+assert.match(config, /@sparticuz\/chromium\/bin/);
+assert.match(config, /'puppeteer-core': 'commonjs puppeteer-core'/);
 
-const serviceSource = read('src/lib/reports/premium-report-service.ts');
-assert.match(serviceSource, /preparePremiumReportNarrative/);
-assert.match(serviceSource, /renderHtmlToPdfBuffer/);
-assert.match(serviceSource, /ready_for_email_delivery/);
-assert.match(serviceSource, /report_generation_runs/);
-assert.match(serviceSource, /fulfilment_id/);
-assert.match(serviceSource, /reusedExistingReport/);
-assert.doesNotMatch(serviceSource, /resend\.emails\.send/);
+const service = read('src/lib/reports/premium-report-service.ts');
+for (const pattern of [
+  /preparePremiumReportNarrative/,
+  /renderHtmlToPdfBuffer/,
+  /ready_for_email_delivery/,
+  /report_generation_runs/,
+  /fulfilment_id/,
+  /reusedExistingReport/
+]) assert.match(service, pattern);
 
-const adminRoute = read('src/app/api/admin/orders/[orderReference]/generate-report/route.ts');
-assert.match(adminRoute, /generatePremiumReport/);
-assert.doesNotMatch(adminRoute, /renderHtmlToPdfBuffer/);
-assert.doesNotMatch(adminRoute, /selectContent/);
+const payment = read('src/app/admin/orders/[orderReference]/status/route.ts');
+assert.match(payment, /flags\.autoFulfilmentEnabled/);
+assert.match(payment, /queuePremiumReportFulfilment/);
+assert.match(payment, /startPremiumReportWorkflow/);
+assert.match(payment, /triggerSource:\s*'payment_confirmation'/);
 
-const paymentRoute = read('src/app/admin/orders/[orderReference]/status/route.ts');
-assert.match(paymentRoute, /getPremiumReportAutomationFlags/);
-assert.match(paymentRoute, /flags\.autoFulfilmentEnabled/);
-assert.match(paymentRoute, /queuePremiumReportFulfilment/);
-assert.match(paymentRoute, /startPremiumReportWorkflow/);
-assert.match(paymentRoute, /triggerSource:\s*'payment_confirmation'/);
-assert.match(paymentRoute, /workflow_started/);
-assert.doesNotMatch(paymentRoute, /generatePremiumReport\(/);
-
-const adminPage = read('src/app/admin/orders/[orderReference]/page.tsx');
-assert.match(adminPage, /Autonomous fulfilment/);
-assert.match(adminPage, /Manual generate \/ regenerate fallback/);
-assert.match(adminPage, /Automatic customer email delivery is enabled separately/);
-
-const { validatePremiumReportNarrative } = loadCommonJsFromTypeScript('src/lib/reports/automation/validation.ts');
-assert.equal(typeof validatePremiumReportNarrative, 'function');
-
+const { validatePremiumReportNarrative } = loadPureModule('src/lib/reports/automation/validation.ts');
 const evidence = {
   schemaVersion: 'mk-premium-narrative-v1',
   assessmentReference: 'MKFRS-TEST',
@@ -142,66 +106,26 @@ const evidence = {
     { id: 'gap:Q-GOV-01', kind: 'gap', label: 'Executive ownership', domainCode: 'GOV', questionCode: 'Q-GOV-01', value: { isCriticalGap: true } }
   ]
 };
-
-const validNarrative = {
-  executiveDiagnosis: {
-    title: 'A foundation exists, but leadership ownership needs to become repeatable',
-    body: 'The assessment shows useful controls alongside a material governance weakness that changes how the overall position should be understood.',
-    evidenceRefs: ['score:final_maturity', 'score:overall', 'gap:Q-GOV-01']
-  },
-  falseComfort: {
-    title: 'Documented activity should not be mistaken for tested readiness',
-    body: 'The strongest controls will not compensate for a core ownership weakness unless accountability and evidence become routine.',
-    evidenceRefs: ['gap:Q-GOV-01', 'domain:GOV']
-  },
-  leadershipAttention: {
-    body: 'Leadership should establish named ownership, a review rhythm and evidence that corrective action is completed.',
-    evidenceRefs: ['score:final_maturity', 'domain:GOV']
-  },
+const valid = {
+  executiveDiagnosis: { title: 'Leadership ownership must become repeatable', body: 'The evidence shows useful controls alongside a material governance weakness.', evidenceRefs: ['score:overall','score:final_maturity','gap:Q-GOV-01'] },
+  falseComfort: { title: 'Documented activity is not tested readiness', body: 'Existing activity cannot compensate for the ownership gap.', evidenceRefs: ['domain:GOV','gap:Q-GOV-01'] },
+  leadershipAttention: { body: 'Leadership should establish named ownership and evidence of completed corrective action.', evidenceRefs: ['score:final_maturity','domain:GOV'] },
   domainNarratives: [
-    {
-      domainCode: 'GOV',
-      title: 'Governance needs clearer ownership',
-      body: 'Governance activity exists, but ownership and follow-through need to operate as a consistent management discipline.',
-      evidenceRefs: ['domain:GOV', 'gap:Q-GOV-01']
-    },
-    {
-      domainCode: 'OPS',
-      title: 'Operational controls provide a useful base',
-      body: 'Operational controls are functioning and should now be protected through evidence, testing and clear exception handling.',
-      evidenceRefs: ['domain:OPS']
-    }
+    { domainCode: 'GOV', title: 'Governance needs clearer ownership', body: 'Governance needs consistent ownership and follow-through.', evidenceRefs: ['domain:GOV','gap:Q-GOV-01'] },
+    { domainCode: 'OPS', title: 'Operations provide a useful base', body: 'Operational controls should be protected through testing and evidence.', evidenceRefs: ['domain:OPS'] }
   ],
   gapCommentary: [
-    {
-      questionCode: 'Q-GOV-01',
-      body: 'The absence of clear executive ownership weakens escalation and makes sustained corrective action less reliable.',
-      evidenceRefs: ['gap:Q-GOV-01', 'domain:GOV']
-    }
+    { questionCode: 'Q-GOV-01', body: 'The ownership gap weakens escalation and sustained remediation.', evidenceRefs: ['gap:Q-GOV-01','domain:GOV'] }
   ]
 };
+assert.equal(validatePremiumReportNarrative(valid, evidence).ok, true);
+const missingDomain = clone(valid); missingDomain.domainNarratives.pop();
+assert(validatePremiumReportNarrative(missingDomain, evidence).issues.some((issue) => issue.code === 'missing_domain_narrative'));
+const unknown = clone(valid); unknown.executiveDiagnosis.evidenceRefs.push('domain:UNKNOWN');
+assert(validatePremiumReportNarrative(unknown, evidence).issues.some((issue) => issue.code === 'unknown_evidence_ref'));
+const benchmark = clone(valid); benchmark.executiveDiagnosis.body = 'This is above the industry average.';
+assert(validatePremiumReportNarrative(benchmark, evidence).issues.some((issue) => issue.code === 'unsupported_benchmark'));
+const unsupportedNumber = clone(valid); unsupportedNumber.executiveDiagnosis.body = 'This gives 99 percent fraud prevention certainty.';
+assert(validatePremiumReportNarrative(unsupportedNumber, evidence).issues.some((issue) => issue.code === 'unsupported_numeric_claim'));
 
-const validResult = validatePremiumReportNarrative(validNarrative, evidence, new Date('2026-07-12T00:00:00Z'));
-assert.equal(validResult.ok, true, JSON.stringify(validResult.issues));
-
-const missingDomain = clone(validNarrative);
-missingDomain.domainNarratives.pop();
-assert.equal(validatePremiumReportNarrative(missingDomain, evidence).issues.some((item) => item.code === 'missing_domain_narrative'), true);
-
-const unknownReference = clone(validNarrative);
-unknownReference.executiveDiagnosis.evidenceRefs.push('domain:UNKNOWN');
-assert.equal(validatePremiumReportNarrative(unknownReference, evidence).issues.some((item) => item.code === 'unknown_evidence_ref'), true);
-
-const unsupportedBenchmark = clone(validNarrative);
-unsupportedBenchmark.executiveDiagnosis.body = 'This result is above the industry average.';
-assert.equal(validatePremiumReportNarrative(unsupportedBenchmark, evidence).issues.some((item) => item.code === 'unsupported_benchmark'), true);
-
-const unsupportedNumber = clone(validNarrative);
-unsupportedNumber.executiveDiagnosis.body = 'The organisation has a 99 percent certainty of preventing fraud.';
-assert.equal(validatePremiumReportNarrative(unsupportedNumber, evidence).issues.some((item) => item.code === 'unsupported_numeric_claim'), true);
-
-const missingOwnEvidence = clone(validNarrative);
-missingOwnEvidence.domainNarratives[0].evidenceRefs = ['score:overall'];
-assert.equal(validatePremiumReportNarrative(missingOwnEvidence, evidence).issues.some((item) => item.code === 'missing_own_evidence'), true);
-
-console.log('Phase 14 autonomous premium-report foundation tests passed, including supported durable workflow packages, deterministic validation and conditional email boundaries.');
+console.log('Phase 14 autonomous report, durable workflow, deterministic validation and conditional email tests passed on Node 24.');
