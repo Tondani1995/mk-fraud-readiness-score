@@ -1,0 +1,51 @@
+name: Phase 14 lockfile regeneration
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/phase14-lockfile-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 0
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Use controlled npm version
+        run: npm install --global npm@10.8.2
+
+      - name: Regenerate lockfile from package manifest
+        run: |
+          rm -rf node_modules
+          npm install --package-lock-only --ignore-scripts
+          node -e "const lock=require('./package-lock.json'); if(lock.lockfileVersion!==3) throw new Error('Expected lockfileVersion 3'); if(!lock.packages['node_modules/ai']) throw new Error('AI SDK missing from lockfile'); if(!lock.packages['node_modules/zod']) throw new Error('Zod missing from lockfile');"
+          npm ci --ignore-scripts
+
+      - name: Commit regenerated lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'Lockfile already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'Regenerate lockfile for Phase 14 AI SDK'
+          git push origin HEAD:phase14/autonomous-premium-report-engine
