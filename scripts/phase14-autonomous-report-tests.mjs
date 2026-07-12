@@ -82,10 +82,11 @@ assert.match(workflowStart, /workflow_start_status:\s*'failed'/);
 const workflowSource = read('src/workflows/premium-report-fulfilment.ts');
 assert.match(workflowSource, /from '@workflow\/errors'/);
 assert.match(workflowSource, /'use workflow'/);
-assert.equal((workflowSource.match(/'use step'/g) ?? []).length, 3, 'Workflow must expose three durable steps.');
+assert.equal((workflowSource.match(/'use step'/g) ?? []).length, 4, 'Workflow must expose four durable steps including conditional email delivery.');
 assert.match(workflowSource, /validateFulfilmentStep/);
 assert.match(workflowSource, /generateAndStoreReportStep/);
 assert.match(workflowSource, /verifyDeliveryReadyStep/);
+assert.match(workflowSource, /deliverReportEmailIfEnabledStep/);
 assert.match(workflowSource, /processPremiumReportFulfilment/);
 
 const nextConfig = read('next.config.mjs');
@@ -203,4 +204,4 @@ const missingOwnEvidence = clone(validNarrative);
 missingOwnEvidence.domainNarratives[0].evidenceRefs = ['score:overall'];
 assert.equal(validatePremiumReportNarrative(missingOwnEvidence, evidence).issues.some((item) => item.code === 'missing_own_evidence'), true);
 
-console.log('Phase 14 autonomous premium-report foundation tests passed, including supported durable workflow packages, deterministic validation and no-email boundaries.');
+console.log('Phase 14 autonomous premium-report foundation tests passed, including supported durable workflow packages, deterministic validation and conditional email boundaries.');
