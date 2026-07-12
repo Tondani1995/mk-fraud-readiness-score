@@ -69,6 +69,9 @@ jobs:
       - name: Run Phase 14 autonomous report engine tests
         run: npm run phase14:test-report-engine
 
+      - name: Run Phase 14 PDF email delivery tests
+        run: npm run phase14:test-email-delivery
+
       - name: Run platform hardening tests
         run: npm run platform:test-hardening
 
