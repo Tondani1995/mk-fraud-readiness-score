@@ -1,9 +1,8 @@
 // Platform Runtime and Database Hardening tests (PR #19).
 //
-// Follows the same static-assertion pattern as the other phaseN test
-// scripts in this repo: read source/config files and assert on their
-// content. No live server or database connection is required, so this
-// runs safely in CI alongside the other phaseN:test-* scripts.
+// Static assertions only: no live server and no database connection. The
+// checks intentionally preserve the Node 20 / Chromium compatibility guard
+// until a separate Node 24 compatibility spike proves live PDF generation.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +15,10 @@ let failures = 0;
 
 function read(relPath) {
   return readFileSync(join(root, relPath), 'utf8');
+}
+
+function exists(relPath) {
+  return existsSync(join(root, relPath));
 }
 
 function assert(condition, message) {
@@ -37,152 +40,94 @@ function assertNotIncludes(relPath, needle, message) {
   assert(!content.includes(needle), message ?? `${relPath} must not include "${needle}"`);
 }
 
-// --- Runtime declaration tests ---
-
 const pkg = JSON.parse(read('package.json'));
 
-assert(pkg.engines?.node === '24.x', 'package.json engines.node must be "24.x"');
-assert(pkg.engines?.node !== '20.x', 'package.json must no longer declare Node 20');
+// Runtime pin and CI boundary.
+assert(pkg.engines?.node === '20.x', 'package.json engines.node must remain "20.x"');
+assert(pkg.engines?.node !== '24.x', 'package.json must not declare Node 24 in PR #19');
+assert(exists('.nvmrc'), '.nvmrc must exist');
+assert(read('.nvmrc').trim() === '20', '.nvmrc must contain "20"');
+assert(!exists('.node-version'), '.node-version must not be added');
+assert(!exists('volta.json'), 'Volta configuration must not be added');
+assertIncludes('.github/workflows/phase7-verification.yml', "node-version: '20'", 'CI workflow must use Node 20');
+assertNotIncludes('.github/workflows/phase7-verification.yml', "node-version: '24'", 'CI workflow must not use Node 24');
+assertIncludes('.github/workflows/phase7-verification.yml', 'npm run platform:test-hardening', 'CI workflow must run platform:test-hardening');
 
-assert(existsSync(join(root, '.nvmrc')), '.nvmrc must exist');
-assert(read('.nvmrc').trim() === '24', '.nvmrc must contain "24"');
+// The Phase 10 report suite owns the Chromium runtime guard.
+assertIncludes('scripts/phase10-premium-report-tests.mjs', '"node": "20.x"', 'Phase 10 suite must continue asserting the Node 20 runtime pin');
+assertIncludes('scripts/phase10-premium-report-tests.mjs', 'Vercel runtime to Node 20 for Chromium shared libraries', 'Phase 10 guard must explain Chromium compatibility');
 
-assertIncludes(
-  '.github/workflows/phase7-verification.yml',
-  "node-version: '24'",
-  'CI workflow must use Node 24'
-);
-assertNotIncludes(
-  '.github/workflows/phase7-verification.yml',
-  "node-version: '20'",
-  'CI workflow must no longer use Node 20'
-);
-assertIncludes(
-  '.github/workflows/phase7-verification.yml',
-  'npm run platform:test-hardening',
-  'CI workflow must run platform:test-hardening'
-);
+// Framework boundary: do not upgrade Next or React here.
+assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next.js must remain on the 14.x line');
+assert(pkg.devDependencies?.['eslint-config-next']?.startsWith('^14.'), 'eslint-config-next must remain on the 14.x line');
+assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain on the 18.x line');
+assert(pkg.dependencies?.['react-dom']?.startsWith('^18.'), 'React DOM must remain on the 18.x line');
+assert(!pkg.dependencies?.next?.startsWith('^15.'), 'Next.js must not be upgraded to 15');
+assert(!pkg.dependencies?.react?.startsWith('^19.'), 'React must not be upgraded to 19');
 
-// --- @types/node: deliberately left at ^20.16.5 in this push ---
-// package-lock.json has NOT been regenerated in this push (see
-// docs/v1/platform-hardening/node-24-migration-note.md for why, and for
-// the real, verified evidence that regenerating it under actual Node
-// 24.18.0/npm 11.16.0 produces a correct, complete lockfile with all 9
-// @next/swc-* platform binaries). Bumping @types/node here without also
-// committing the matching lockfile would make `npm ci` fail in CI against
-// the still-old committed lockfile. Reverting this one field keeps
-// package.json and the existing lockfile mutually consistent so `npm ci`
-// keeps passing, at the cost of leaving @types/node one major behind
-// Node's actual runtime version until the lockfile is regenerated as an
-// immediate follow-up.
+// Shared build-info source tests.
+assertIncludes('src/lib/system/build-info.ts', 'phase-13-customer-commercial-conversion', 'build-info.ts must default CURRENT_BUILD_PHASE correctly');
+assertIncludes('src/lib/system/build-info.ts', 'process.env.VERCEL_ENV', 'release-channel fallback chain must include VERCEL_ENV');
+assertIncludes('src/lib/system/build-info.ts', "'local'", 'release-channel fallback chain must end with local');
+assertIncludes('src/app/api/health/route.ts', "from '@/lib/system/build-info'", 'health route must use the shared build-info source');
+assertIncludes('src/app/api/system/build-info/route.ts', "from '@/lib/system/build-info'", 'build-info route must use the shared build-info source');
+assertNotIncludes('src/app/api/health/route.ts', 'phase-6-consolidated-scoring', 'health route must not hardcode stale phase fallback');
+assertNotIncludes('src/app/api/system/build-info/route.ts', 'phase-6-consolidated-scoring', 'build-info route must not hardcode stale phase fallback');
 
-const typesNode = pkg.devDependencies?.['@types/node'] ?? '';
-assert(typesNode === '^20.16.5', `@types/node must remain ^20.16.5 in this push (see node-24-migration-note.md), got "${typesNode}"`);
-
-// --- Shared build-info source tests ---
-
-assertIncludes(
-  'src/lib/system/build-info.ts',
-  "phase-13-customer-commercial-conversion",
-  'build-info.ts must default CURRENT_BUILD_PHASE to phase-13-customer-commercial-conversion'
-);
-assertIncludes(
-  'src/lib/system/build-info.ts',
-  'process.env.VERCEL_ENV',
-  'build-info.ts release-channel fallback chain must include VERCEL_ENV'
-);
-assertIncludes(
-  'src/lib/system/build-info.ts',
-  "'local'",
-  'build-info.ts release-channel fallback chain must end in a safe local default'
-);
-
-assertIncludes(
-  'src/app/api/health/route.ts',
-  "from '@/lib/system/build-info'",
-  'health route must import the shared build-info source'
-);
-assertNotIncludes(
-  'src/app/api/health/route.ts',
-  'phase-6-consolidated-scoring',
-  'health route must not hardcode the stale phase-6 fallback'
-);
-
-assertIncludes(
-  'src/app/api/system/build-info/route.ts',
-  "from '@/lib/system/build-info'",
-  'build-info route must import the shared build-info source'
-);
-assertNotIncludes(
-  'src/app/api/system/build-info/route.ts',
-  'phase-6-consolidated-scoring',
-  'build-info route must not hardcode the stale phase-6 fallback'
-);
-
-// Neither route file may reference anything resembling a secret/key name.
-for (const routeFile of ['src/app/api/health/route.ts', 'src/app/api/system/build-info/route.ts']) {
-  for (const forbidden of ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET', 'ASSESSMENT_TOKEN_PEPPER', 'process.env.SUPABASE']) {
-    assertNotIncludes(routeFile, forbidden, `${routeFile} must not reference ${forbidden}`);
+for (const routeFile of ['src/app/api/health/route.ts', 'src/app/api/system/build-info/route.ts', 'src/lib/system/build-info.ts']) {
+  for (const forbidden of ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET', 'ASSESSMENT_TOKEN_PEPPER', 'process.env.SUPABASE', 'process.env.DATABASE', 'NEXT_PUBLIC_SUPABASE']) {
+    assertNotIncludes(routeFile, forbidden, `${routeFile} must not expose or enumerate ${forbidden}`);
   }
 }
 
-// --- Framework boundary tests: Next.js/React must NOT have been upgraded ---
-
-assertIncludes('package.json', '"next": "^14.', 'Next.js must remain on the 14.x line');
-assertIncludes('package.json', '"react": "^18.', 'React must remain on the 18.x line');
-assertNotIncludes('package.json', '"next": "^15', 'Next.js must not be upgraded to 15');
-assertNotIncludes('package.json', '"react": "^19', 'React must not be upgraded to 19');
-
-// --- next.config.ts dead-file boundary test ---
-// next.config.ts was confirmed unreferenced by any script, test, or doc,
-// and inert on Next.js 14 (which does not load .ts config files). It has
-// been removed as dead configuration. next.config.mjs remains the sole,
-// authoritative config and must retain the Chromium tracing/webpack
-// externals that report generation depends on.
-
-assert(!existsSync(join(root, 'next.config.ts')), 'next.config.ts must be removed (dead, unreferenced Next 14 config)');
-assertIncludes('next.config.mjs', 'experimental', 'next.config.mjs must keep the experimental config block');
-assertIncludes('next.config.mjs', 'outputFileTracingIncludes', 'next.config.mjs must keep outputFileTracingIncludes for Chromium');
-assertIncludes('next.config.mjs', "'@sparticuz/chromium'", 'next.config.mjs must keep the @sparticuz/chromium webpack external');
-assertIncludes('next.config.mjs', "'puppeteer-core'", 'next.config.mjs must keep the puppeteer-core webpack external');
+// next.config.ts dead-file boundary. next.config.mjs remains authoritative.
+assert(!exists('next.config.ts'), 'next.config.ts must be removed only if dead/unreferenced');
 assertIncludes('next.config.mjs', "basePath: '/score'", 'next.config.mjs must keep the /score basePath');
+assertIncludes('next.config.mjs', 'experimental', 'next.config.mjs must keep the Next 14-compatible experimental block');
+assertIncludes('next.config.mjs', 'outputFileTracingIncludes', 'next.config.mjs must keep outputFileTracingIncludes');
+assertIncludes('next.config.mjs', '@sparticuz/chromium/bin', 'next.config.mjs must trace @sparticuz/chromium/bin assets');
+assertIncludes('next.config.mjs', '/api/admin/orders/[orderReference]/generate-report', 'next.config.mjs must trace the report-generation route');
+assertIncludes('next.config.mjs', "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'next.config.mjs must externalize @sparticuz/chromium');
+assertIncludes('next.config.mjs', "'puppeteer-core': 'commonjs puppeteer-core'", 'next.config.mjs must externalize puppeteer-core');
+assertNotIncludes('next.config.mjs', 'serverExternalPackages', 'Next 14 config must not move to Next 15 conventions');
 
-// --- Migration boundary tests ---
-// 0016 must exist, must not renumber 0014/0015, and must not touch scoring,
-// weighting, maturity bands/caps, or exposure calculation.
-
-assert(existsSync(join(root, 'supabase/migrations/0016_platform_database_hardening.sql')), 'migration 0016 must exist');
-assert(existsSync(join(root, 'supabase/migrations/0014_phase13_customer_commercial_conversion.sql')), '0014 must not have been renumbered');
-assert(existsSync(join(root, 'supabase/migrations/0015_phase13_data_request_policy_cleanup.sql')), '0015 must not have been renumbered');
+// Migration boundary tests.
+assert(exists('supabase/migrations/0016_platform_database_hardening.sql'), 'migration 0016 must exist when safe fixes are included');
+assert(exists('supabase/migrations/0014_phase13_customer_commercial_conversion.sql'), '0014 must not be edited/renumbered');
+assert(exists('supabase/migrations/0015_phase13_data_request_policy_cleanup.sql'), '0015 must not be edited/renumbered');
 
 const migration0016 = read('supabase/migrations/0016_platform_database_hardening.sql');
-for (const forbidden of ['drop table', 'drop column', 'weight_pct =', 'maturity_band', 'exposure_score', 'delete from']) {
-  assert(
-    !migration0016.toLowerCase().includes(forbidden.toLowerCase()),
-    `migration 0016 must not contain "${forbidden}" (scoring/destructive-change boundary)`
-  );
+for (const forbidden of [
+  'drop table',
+  'drop column',
+  'delete from',
+  'truncate',
+  'grant all on',
+  'grant select on all tables',
+  'to anon',
+  'to authenticated',
+  'weight_pct =',
+  'maturity_band',
+  'exposure_score'
+]) {
+  assert(!migration0016.toLowerCase().includes(forbidden.toLowerCase()), `migration 0016 must not contain "${forbidden}"`);
 }
-assertIncludes(
-  'supabase/migrations/0016_platform_database_hardening.sql',
-  'set search_path = public',
-  'migration 0016 must set an explicit search_path on set_updated_at()'
-);
-assertIncludes(
-  'supabase/migrations/0016_platform_database_hardening.sql',
-  '(select auth.uid())',
-  'migration 0016 must wrap auth.uid() in a scalar subquery for admin_profiles_select'
-);
-assertIncludes(
-  'supabase/migrations/0016_platform_database_hardening.sql',
-  'create index if not exists',
-  'migration 0016 indexes must use CREATE INDEX IF NOT EXISTS'
-);
+assertIncludes('supabase/migrations/0016_platform_database_hardening.sql', 'set search_path = public', 'migration 0016 must set explicit search_path on set_updated_at()');
+assertIncludes('supabase/migrations/0016_platform_database_hardening.sql', '(select auth.uid())', 'migration 0016 must wrap auth.uid() for admin_profiles_select');
+assertIncludes('supabase/migrations/0016_platform_database_hardening.sql', 'create index if not exists', 'migration 0016 indexes must be idempotent');
+assertIncludes('supabase/migrations/0016_platform_database_hardening.sql', 'reports_order_id_idx', 'migration 0016 must include the evidenced reports(order_id) index');
+assertIncludes('supabase/migrations/0016_platform_database_hardening.sql', 'assessment_answers_question_id_idx', 'migration 0016 must include the evidenced assessment_answers(question_id) index');
 
-// --- Summary ---
+// Documentation boundary for the deferred Node upgrade.
+assertIncludes('docs/v1/platform-hardening/node24-compatibility-spike.md', 'Node 20', 'Node 24 spike note must explain the current Node 20 pin');
+assertIncludes('docs/v1/platform-hardening/node24-compatibility-spike.md', 'live PDF generation', 'Node 24 spike note must require live PDF evidence');
+assertIncludes('docs/v1/platform-hardening/supabase-advisor-inventory.md', 'assessment_tokens', 'advisor inventory must document assessment_tokens RLS finding');
+assertIncludes('docs/v1/platform-hardening/supabase-advisor-inventory.md', 'rate_limit_hits', 'advisor inventory must document rate_limit_hits RLS finding');
+assertIncludes('docs/v1/platform-hardening/supabase-advisor-inventory.md', 'citext', 'advisor inventory must document citext parking decision');
 
 if (failures > 0) {
   console.error(`\n${failures} platform-hardening check(s) failed.`);
   process.exit(1);
-} else {
-  console.log('\nAll platform-hardening checks passed.');
 }
+
+console.log('\nAll platform-hardening checks passed.');
