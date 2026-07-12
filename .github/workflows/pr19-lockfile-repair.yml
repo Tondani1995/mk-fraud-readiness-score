@@ -1,0 +1,88 @@
+name: PR19 Lockfile Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - platform/runtime-database-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  repair-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: platform/runtime-database-hardening
+          persist-credentials: true
+
+      - name: Use Node 20.20.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.2'
+
+      - name: Use npm 10.8.2
+        run: npm install -g npm@10.8.2
+
+      - name: Confirm tool versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Regenerate package-lock through clean npm install
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Validate regenerated lockfile
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const required = [
+            '@next/swc-darwin-arm64',
+            '@next/swc-darwin-x64',
+            '@next/swc-linux-arm64-gnu',
+            '@next/swc-linux-arm64-musl',
+            '@next/swc-linux-x64-gnu',
+            '@next/swc-linux-x64-musl',
+            '@next/swc-win32-arm64-msvc',
+            '@next/swc-win32-ia32-msvc',
+            '@next/swc-win32-x64-msvc'
+          ];
+          if (lock.lockfileVersion !== 3) {
+            throw new Error(`Expected lockfileVersion 3, got ${lock.lockfileVersion}`);
+          }
+          if (lock.packages[''].name !== pkg.name || lock.packages[''].version !== pkg.version) {
+            throw new Error('Root lockfile metadata does not match package.json');
+          }
+          if (lock.packages[''].engines?.node !== pkg.engines.node) {
+            throw new Error('Root lockfile node engine does not match package.json');
+          }
+          for (const name of required) {
+            if (!lock.packages[`node_modules/${name}`]) {
+              throw new Error(`Missing ${name}`);
+            }
+          }
+          console.log('Regenerated lockfile contains all required Next SWC optional packages.');
+          NODE
+
+      - name: Commit regenerated lockfile locally
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "PR #19: Commit regenerated npm lockfile"
+
+      - name: Verify committed lockfile with clean npm ci
+        run: |
+          rm -rf node_modules
+          npm ci
+
+      - name: Push regenerated lockfile
+        run: git push
