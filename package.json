@@ -1,10 +1,10 @@
 {
   "name": "mk-fraud-readiness-score-v1",
-  "version": "1.0.0-phase11-security-qa",
+  "version": "1.0.0-platform-runtime-hardening",
   "private": true,
-  "description": "Phase 11 security and QA hardening for MK Fraud Readiness Score V1, preserving controlled admin-only report generation after manual EFT confirmation.",
+  "description": "MK Fraud Readiness Score V1, currently on the Phase 13 customer commercial conversion journey, with Node.js 24 runtime and database hardening (PR #19) preserving controlled admin-only report generation after manual EFT confirmation.",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -26,6 +26,7 @@
     "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
     "phase13:test-events": "node scripts/phase13-commercial-event-tests.mjs",
     "phase13:test-conversion": "node scripts/phase13-customer-commercial-conversion-tests.mjs",
+    "platform:test-hardening": "node scripts/platform-hardening-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
@@ -37,7 +38,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/node": "^20.16.5",
+    "@types/node": "^24.13.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
