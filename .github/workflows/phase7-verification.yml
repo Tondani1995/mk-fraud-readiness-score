@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: |
@@ -65,6 +65,9 @@ jobs:
 
       - name: Run Phase 13 conversion tests
         run: npm run phase13:test-conversion
+
+      - name: Run platform hardening tests
+        run: npm run platform:test-hardening
 
       - name: Run TypeScript check
         run: npm run typecheck
