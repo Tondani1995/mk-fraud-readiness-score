@@ -16,12 +16,54 @@ const ACTIVE_STATUSES: PremiumReportFulfilmentStatus[] = [
   'ready_for_delivery'
 ];
 
+const REUSE_READ_DELAYS_MS = [0, 75, 150, 300, 600];
+
 export type QueuePremiumReportFulfilmentResult =
   | { ok: true; created: boolean; fulfilment: any }
   | { ok: false; reason: string; message: string };
 
 export function buildPremiumReportFulfilmentKey(orderId: string, scoreRunId: string) {
   return `premium-report:${orderId}:${scoreRunId}`;
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function findReusableFulfilment(input: {
+  db: any;
+  idempotencyKey: string;
+  orderId: string;
+}) {
+  let lastError: Error | null = null;
+
+  for (const waitMs of REUSE_READ_DELAYS_MS) {
+    if (waitMs > 0) await delay(waitMs);
+
+    const { data: keyed, error: keyedError } = await input.db
+      .from('report_fulfilments')
+      .select('*')
+      .eq('idempotency_key', input.idempotencyKey)
+      .maybeSingle();
+
+    if (keyed) return keyed;
+    if (keyedError) lastError = new Error(keyedError.message);
+
+    const { data: active, error: activeError } = await input.db
+      .from('report_fulfilments')
+      .select('*')
+      .eq('order_id', input.orderId)
+      .in('status', ACTIVE_STATUSES)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (active?.idempotency_key === input.idempotencyKey) return active;
+    if (activeError) lastError = new Error(activeError.message);
+  }
+
+  if (lastError) throw lastError;
+  return null;
 }
 
 export async function queuePremiumReportFulfilment(input: {
@@ -51,16 +93,20 @@ export async function queuePremiumReportFulfilment(input: {
   const db = createSupabaseServiceClient() as any;
   const idempotencyKey = buildPremiumReportFulfilmentKey(assembled.orderId, assembled.scoreRun.id);
 
-  const { data: existing, error: existingError } = await db
-    .from('report_fulfilments')
-    .select('*')
-    .eq('idempotency_key', idempotencyKey)
-    .maybeSingle();
-
-  if (existingError) {
-    return { ok: false, reason: 'fulfilment_store_unavailable', message: existingError.message };
+  try {
+    const existing = await findReusableFulfilment({
+      db,
+      idempotencyKey,
+      orderId: assembled.orderId
+    });
+    if (existing) return { ok: true, created: false, fulfilment: existing };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'fulfilment_store_unavailable',
+      message: error instanceof Error ? error.message : 'Fulfilment lookup failed.'
+    };
   }
-  if (existing) return { ok: true, created: false, fulfilment: existing };
 
   const { data: inserted, error: insertError } = await db
     .from('report_fulfilments')
@@ -78,13 +124,23 @@ export async function queuePremiumReportFulfilment(input: {
     .single();
 
   if (insertError || !inserted) {
-    const { data: racedExisting } = await db
-      .from('report_fulfilments')
-      .select('*')
-      .eq('idempotency_key', idempotencyKey)
-      .maybeSingle();
+    try {
+      const racedExisting = await findReusableFulfilment({
+        db,
+        idempotencyKey,
+        orderId: assembled.orderId
+      });
+      if (racedExisting) {
+        return { ok: true, created: false, fulfilment: racedExisting };
+      }
+    } catch (reuseError) {
+      return {
+        ok: false,
+        reason: 'fulfilment_store_unavailable',
+        message: reuseError instanceof Error ? reuseError.message : 'Fulfilment reuse lookup failed.'
+      };
+    }
 
-    if (racedExisting) return { ok: true, created: false, fulfilment: racedExisting };
     return {
       ok: false,
       reason: 'fulfilment_create_failed',
