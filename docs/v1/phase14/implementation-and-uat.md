@@ -123,6 +123,8 @@ The verification workflow covers:
 - TypeScript;
 - the production application build.
 
+V1 Verification run #671 passed on head `bc7a5c5a8c38755b4a885694a1784a3c1609eeb3`. The real Chromium PDF artifact was downloaded, rendered and visually inspected. It is a valid A4 PDF produced by Chromium/Skia with embedded Open Sans fonts, readable text and no clipping, broken glyphs or rendering artefacts.
+
 ## External enablement requirements
 
 Before customer-wide automation is enabled, the exact supported-Workflow head must complete one Vercel preview UAT proving:
