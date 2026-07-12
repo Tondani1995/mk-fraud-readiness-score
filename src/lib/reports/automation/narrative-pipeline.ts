@@ -67,6 +67,7 @@ export async function preparePremiumReportNarrative(
         evidence,
         evidenceChecksum: checksum,
         validation,
+        initialValidation: validation,
         generation
       };
     }
@@ -86,6 +87,8 @@ export async function preparePremiumReportNarrative(
           evidence,
           evidenceChecksum: checksum,
           validation: repairValidation,
+          initialValidation: validation,
+          repairValidation,
           generation,
           repairGeneration
         };
@@ -93,6 +96,8 @@ export async function preparePremiumReportNarrative(
 
       return {
         ...fallbackResult(input, 'ai_repair_validation_failed'),
+        initialValidation: validation,
+        repairValidation,
         generation,
         repairGeneration
       };
@@ -100,6 +105,7 @@ export async function preparePremiumReportNarrative(
       const reason = repairError instanceof Error ? repairError.message : 'repair_generation_failed';
       return {
         ...fallbackResult(input, `ai_repair_failed:${reason}`),
+        initialValidation: validation,
         generation
       };
     }
