@@ -63,10 +63,10 @@ includes('next.config.mjs', "from 'workflow/next'", 'Workflow Next wrapper must 
 excludes('next.config.mjs', 'serverExternalPackages', 'Next 15-only configuration must remain absent');
 assert(!exists('next.config.ts'), 'dead next.config.ts must remain removed');
 
-includes('src/lib/system/build-info.ts', "export const CURRENT_BUILD_PHASE = 'phase-13-customer-commercial-conversion'", 'build phase must remain code authoritative until Phase 14 merge');
+includes('src/lib/system/build-info.ts', "export const CURRENT_BUILD_PHASE = 'phase-14-autonomous-premium-report-engine'", 'build phase must be Phase 14 and code authoritative');
 excludes('src/lib/system/build-info.ts', 'process.env.MK_BUILD_PHASE', 'stale phase environment must not override code');
 const stale = evaluateBuildInfo({ MK_BUILD_PHASE: 'phase-6-consolidated-scoring' });
-assert(stale?.phase === 'phase-13-customer-commercial-conversion', 'stale phase env must be ignored');
+assert(stale?.phase === 'phase-14-autonomous-premium-report-engine', 'stale phase env must be ignored');
 assert(evaluateBuildInfo({ VERCEL_ENV: 'preview', MK_RELEASE_CHANNEL: 'local' })?.releaseChannel === 'preview', 'Vercel preview must win');
 assert(evaluateBuildInfo({ VERCEL_ENV: 'production', MK_RELEASE_CHANNEL: 'local' })?.releaseChannel === 'production', 'Vercel production must win');
 assert(evaluateBuildInfo({})?.releaseChannel === 'local', 'local fallback must remain safe');
