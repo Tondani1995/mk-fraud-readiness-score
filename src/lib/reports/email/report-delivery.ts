@@ -25,7 +25,20 @@ export type DeliverPremiumReportEmailResult = {
   recipient: string;
   reusedExistingSend: boolean;
   status: string;
+  testDelivery: boolean;
 };
+
+type EmailEventRow = {
+  id: string;
+  status: string;
+  provider_message_id: string | null;
+  recipient_email: string;
+  attempt_number: number;
+};
+
+const ACCEPTED_STATUSES = new Set(['sent', 'delivered', 'delivery_delayed']);
+const IN_PROGRESS_STATUSES = new Set(['queued', 'sending']);
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 function htmlEscape(value: string) {
   return value.replace(/[&<>'"]/g, (character) => ({
@@ -79,6 +92,154 @@ function messageCopy(input: {
   return { subject, text, html };
 }
 
+async function insertAuditOnce(db: any, input: {
+  actor: ReportDeliveryActor;
+  assessmentId: string;
+  emailEventId: string;
+  action: string;
+  afterJson: Record<string, unknown>;
+}) {
+  const { data: existing, error: lookupError } = await db
+    .from('audit_logs')
+    .select('id')
+    .eq('entity_table', 'email_events')
+    .eq('entity_id', input.emailEventId)
+    .eq('action', input.action)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return;
+
+  const { error } = await db.from('audit_logs').insert({
+    actor_type: input.actor.actorType,
+    actor_user_id: input.actor.userId ?? null,
+    assessment_id: input.assessmentId,
+    entity_table: 'email_events',
+    entity_id: input.emailEventId,
+    action: input.action,
+    after_json: input.afterJson
+  });
+  if (error) throw error;
+}
+
+async function insertReportEventOnce(db: any, input: {
+  reportId: string;
+  eventType: string;
+  fromStatus: string;
+  toStatus: string;
+  actorUserId?: string | null;
+  note: string;
+  metadata: Record<string, unknown>;
+  emailEventId: string;
+}) {
+  const { data: existing, error: lookupError } = await db
+    .from('report_events')
+    .select('id')
+    .eq('report_id', input.reportId)
+    .eq('event_type', input.eventType)
+    .contains('metadata_json', { email_event_id: input.emailEventId })
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return;
+
+  const { error } = await db.from('report_events').insert({
+    report_id: input.reportId,
+    event_type: input.eventType,
+    from_status: input.fromStatus,
+    to_status: input.toStatus,
+    actor_user_id: input.actorUserId ?? null,
+    note: input.note,
+    metadata_json: input.metadata
+  });
+  if (error) throw error;
+}
+
+async function finaliseAcceptedDelivery(db: any, input: {
+  report: any;
+  emailEvent: EmailEventRow;
+  providerMessageId: string;
+  provider: string;
+  recipient: string;
+  attemptNumber: number;
+  testDelivery: boolean;
+  actor: ReportDeliveryActor;
+}) {
+  const now = new Date().toISOString();
+  const eventType = input.testDelivery
+    ? 'email_test_sent'
+    : input.actor.action === 'admin_resend' ? 'email_resent' : 'email_sent';
+  const auditAction = input.testDelivery
+    ? 'premium_report_test_email_sent'
+    : input.actor.action === 'admin_resend' ? 'premium_report_email_resent' : 'premium_report_email_sent';
+
+  if (!input.testDelivery) {
+    const { error: reportUpdateError } = await db
+      .from('reports')
+      .update({ status: 'released', released_at: now })
+      .eq('id', input.report.id);
+    if (reportUpdateError) throw reportUpdateError;
+
+    if (input.report.fulfilment_id) {
+      const { error: fulfilmentError } = await db
+        .from('report_fulfilments')
+        .update({
+          status: 'completed',
+          current_step: 'email_sent',
+          completed_at: now,
+          failed_at: null,
+          last_error_code: null,
+          last_error_message: null
+        })
+        .eq('id', input.report.fulfilment_id);
+      if (fulfilmentError) throw fulfilmentError;
+    }
+  }
+
+  const metadata = {
+    email_event_id: input.emailEvent.id,
+    provider_message_id: input.providerMessageId,
+    recipient: input.recipient,
+    attempt_number: input.attemptNumber,
+    test_delivery: input.testDelivery
+  };
+
+  await insertReportEventOnce(db, {
+    reportId: input.report.id,
+    eventType,
+    fromStatus: input.report.status,
+    toStatus: input.testDelivery ? input.report.status : 'released',
+    actorUserId: input.actor.userId,
+    note: input.testDelivery
+      ? `Premium report PDF test delivery accepted by ${input.provider}; customer release was not changed.`
+      : `Premium report PDF accepted by ${input.provider} for customer delivery.`,
+    metadata,
+    emailEventId: input.emailEvent.id
+  });
+
+  await insertAuditOnce(db, {
+    actor: input.actor,
+    assessmentId: input.report.assessment_id,
+    emailEventId: input.emailEvent.id,
+    action: auditAction,
+    afterJson: {
+      report_id: input.report.id,
+      provider_message_id: input.providerMessageId,
+      recipient: input.recipient,
+      attempt_number: input.attemptNumber,
+      test_delivery: input.testDelivery
+    }
+  });
+}
+
+async function getEventByDedupeKey(db: any, dedupeKey: string): Promise<EmailEventRow | null> {
+  const { data, error } = await db
+    .from('email_events')
+    .select('id,status,provider_message_id,recipient_email,attempt_number')
+    .eq('dedupe_key', dedupeKey)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function deliverPremiumReportEmail(
   input: DeliverPremiumReportEmailInput
 ): Promise<DeliverPremiumReportEmailResult> {
@@ -102,90 +263,154 @@ export async function deliverPremiumReportEmail(
   }
 
   const order = Array.isArray(report.orders) ? report.orders[0] : report.orders;
+  const customerRecipient = normaliseEmail(order?.customer_email);
   const recipient = normaliseEmail(
-    input.recipientOverride ?? flags.testRecipientOverride ?? order?.customer_email
+    input.recipientOverride ?? flags.testRecipientOverride ?? customerRecipient
   );
   if (!recipient) throw new Error('No valid premium-report delivery recipient is configured.');
+  const testDelivery = recipient !== customerRecipient;
 
   const baseDedupeKey = `premium-report-delivery:${report.id}:${recipient}`;
   let dedupeKey = baseDedupeKey;
   let attemptNumber = 1;
+  let emailEvent: EmailEventRow | null = null;
 
   if (input.forceResend) {
     const { count, error: countError } = await db
       .from('email_events')
       .select('id', { count: 'exact', head: true })
       .eq('report_id', report.id)
+      .eq('recipient_email', recipient)
       .eq('notification_type', 'premium_report_pdf');
     if (countError) throw countError;
     attemptNumber = Number(count ?? 0) + 1;
     dedupeKey = `${baseDedupeKey}:resend-${attemptNumber}`;
   } else {
-    const { data: existing, error: existingError } = await db
-      .from('email_events')
-      .select('id,status,provider_message_id,recipient_email')
-      .eq('dedupe_key', baseDedupeKey)
-      .maybeSingle();
-    if (existingError) throw existingError;
-    if (existing && ['sending', 'sent', 'delivered'].includes(existing.status)) {
+    const existing = await getEventByDedupeKey(db, baseDedupeKey);
+    if (existing && ACCEPTED_STATUSES.has(existing.status) && existing.provider_message_id) {
+      await finaliseAcceptedDelivery(db, {
+        report,
+        emailEvent: existing,
+        providerMessageId: existing.provider_message_id,
+        provider: 'resend',
+        recipient,
+        attemptNumber: existing.attempt_number,
+        testDelivery,
+        actor: input.actor
+      });
       return {
         emailEventId: existing.id,
-        providerMessageId: existing.provider_message_id ?? null,
-        recipient: existing.recipient_email,
+        providerMessageId: existing.provider_message_id,
+        recipient,
         reusedExistingSend: true,
-        status: existing.status
+        status: existing.status,
+        testDelivery
+      };
+    }
+    if (existing && IN_PROGRESS_STATUSES.has(existing.status)) {
+      throw new Error(`Premium report email delivery is already ${existing.status}.`);
+    }
+    if (existing && existing.status === 'failed' && !existing.provider_message_id) {
+      const nextAttempt = Number(existing.attempt_number ?? 1) + 1;
+      const { data: reclaimed, error: reclaimError } = await db
+        .from('email_events')
+        .update({
+          status: 'queued',
+          attempt_number: nextAttempt,
+          error_message: null,
+          delivery_updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+        .eq('status', 'failed')
+        .is('provider_message_id', null)
+        .eq('attempt_number', existing.attempt_number)
+        .select('id,status,provider_message_id,recipient_email,attempt_number')
+        .maybeSingle();
+      if (reclaimError) throw reclaimError;
+      if (!reclaimed) throw new Error('Premium report email retry was claimed by another worker.');
+      emailEvent = reclaimed;
+      attemptNumber = nextAttempt;
+    } else if (existing) {
+      return {
+        emailEventId: existing.id,
+        providerMessageId: existing.provider_message_id,
+        recipient,
+        reusedExistingSend: true,
+        status: existing.status,
+        testDelivery
       };
     }
   }
 
-  const eventInsert = {
-    assessment_id: report.assessment_id,
-    order_id: report.order_id,
-    report_id: report.id,
-    recipient_email: recipient,
-    template_key: 'premium_report_pdf_v1',
-    status: 'queued',
-    notification_type: 'premium_report_pdf',
-    dedupe_key: dedupeKey,
-    attempt_number: attemptNumber,
-    metadata_json: {
-      actor_type: input.actor.actorType,
-      actor_action: input.actor.action,
-      report_reference: report.report_reference,
-      order_reference: order?.order_reference ?? null,
-      recipient_override_used: recipient !== normaliseEmail(order?.customer_email),
-      attachment_checksum: report.checksum
-    }
+  const eventMetadata = {
+    actor_type: input.actor.actorType,
+    actor_action: input.actor.action,
+    report_reference: report.report_reference,
+    order_reference: order?.order_reference ?? null,
+    recipient_override_used: testDelivery,
+    test_delivery: testDelivery,
+    attachment_checksum: report.checksum
   };
 
-  let { data: emailEvent, error: insertError } = await db
-    .from('email_events')
-    .insert(eventInsert)
-    .select('id,status,provider_message_id,recipient_email')
-    .single();
-
-  if (insertError || !emailEvent) {
-    const { data: raced, error: racedError } = await db
+  if (!emailEvent) {
+    const { data: inserted, error: insertError } = await db
       .from('email_events')
-      .select('id,status,provider_message_id,recipient_email')
-      .eq('dedupe_key', dedupeKey)
+      .insert({
+        assessment_id: report.assessment_id,
+        order_id: report.order_id,
+        report_id: report.id,
+        recipient_email: recipient,
+        template_key: 'premium_report_pdf_v1',
+        status: 'queued',
+        notification_type: 'premium_report_pdf',
+        dedupe_key: dedupeKey,
+        attempt_number: attemptNumber,
+        metadata_json: eventMetadata
+      })
+      .select('id,status,provider_message_id,recipient_email,attempt_number')
       .maybeSingle();
-    if (racedError || !raced) throw insertError ?? racedError ?? new Error('Email event could not be claimed.');
-    if (!input.forceResend) {
-      return {
-        emailEventId: raced.id,
-        providerMessageId: raced.provider_message_id ?? null,
-        recipient: raced.recipient_email,
-        reusedExistingSend: true,
-        status: raced.status
-      };
+
+    if (insertError || !inserted) {
+      const raced = await getEventByDedupeKey(db, dedupeKey);
+      if (!raced) throw insertError ?? new Error('Email event could not be claimed.');
+      if (ACCEPTED_STATUSES.has(raced.status) && raced.provider_message_id) {
+        await finaliseAcceptedDelivery(db, {
+          report,
+          emailEvent: raced,
+          providerMessageId: raced.provider_message_id,
+          provider: 'resend',
+          recipient,
+          attemptNumber: raced.attempt_number,
+          testDelivery,
+          actor: input.actor
+        });
+        return {
+          emailEventId: raced.id,
+          providerMessageId: raced.provider_message_id,
+          recipient,
+          reusedExistingSend: true,
+          status: raced.status,
+          testDelivery
+        };
+      }
+      throw new Error(`Premium report email delivery is already ${raced.status}.`);
     }
-    emailEvent = raced;
+    emailEvent = inserted;
   }
 
-  try {
-    await db.from('email_events').update({ status: 'sending', error_message: null }).eq('id', emailEvent.id);
+  const { data: claimed, error: claimError } = await db
+    .from('email_events')
+    .update({ status: 'sending', error_message: null, delivery_updated_at: new Date().toISOString() })
+    .eq('id', emailEvent.id)
+    .eq('status', 'queued')
+    .select('id,status,provider_message_id,recipient_email,attempt_number')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) throw new Error('Premium report email delivery was claimed by another worker.');
+  emailEvent = claimed;
 
+  let providerMessageId: string | null = null;
+  try {
     const { data: pdf, error: downloadError } = await db.storage
       .from(report.storage_bucket)
       .download(report.storage_path);
@@ -193,6 +418,7 @@ export async function deliverPremiumReportEmail(
 
     const pdfBuffer = Buffer.from(await pdf.arrayBuffer());
     if (!pdfBuffer.length) throw new Error('Report attachment is empty.');
+    if (pdfBuffer.length > MAX_ATTACHMENT_BYTES) throw new Error('Report attachment exceeds the configured email size limit.');
 
     const copy = messageCopy({
       customerName: order?.customer_name ?? null,
@@ -217,81 +443,69 @@ export async function deliverPremiumReportEmail(
         { name: 'report_id', value: report.id.replace(/-/g, '') }
       ]
     });
+    providerMessageId = provider.messageId;
 
     const sentAt = new Date().toISOString();
-    await Promise.all([
-      db.from('email_events').update({
+    const { error: eventUpdateError } = await db
+      .from('email_events')
+      .update({
         status: 'sent',
         provider_message_id: provider.messageId,
         sent_at: sentAt,
         delivery_updated_at: sentAt,
-        metadata_json: {
-          ...eventInsert.metadata_json,
-          provider: provider.provider
-        }
-      }).eq('id', emailEvent.id),
-      db.from('reports').update({ status: 'released', released_at: sentAt }).eq('id', report.id),
-      report.fulfilment_id
-        ? db.from('report_fulfilments').update({
-          status: 'completed',
-          current_step: 'email_sent',
-          completed_at: sentAt,
-          last_error_code: null,
-          last_error_message: null
-        }).eq('id', report.fulfilment_id)
-        : Promise.resolve(),
-      db.from('report_events').insert({
-        report_id: report.id,
-        event_type: input.forceResend ? 'email_resent' : 'email_sent',
-        from_status: report.status,
-        to_status: 'released',
-        actor_user_id: input.actor.userId ?? null,
-        note: `Premium report PDF accepted by ${provider.provider} for delivery.`,
-        metadata_json: {
-          email_event_id: emailEvent.id,
-          provider_message_id: provider.messageId,
-          recipient,
-          attempt_number: attemptNumber
-        }
-      }),
-      db.from('audit_logs').insert({
-        actor_type: input.actor.actorType,
-        actor_user_id: input.actor.userId ?? null,
-        assessment_id: report.assessment_id,
-        entity_table: 'email_events',
-        entity_id: emailEvent.id,
-        action: input.forceResend ? 'premium_report_email_resent' : 'premium_report_email_sent',
-        after_json: {
-          report_id: report.id,
-          provider_message_id: provider.messageId,
-          recipient,
-          attempt_number: attemptNumber
-        }
+        error_message: null,
+        metadata_json: { ...eventMetadata, provider: provider.provider }
       })
-    ]);
+      .eq('id', emailEvent.id);
+    if (eventUpdateError) throw eventUpdateError;
+
+    await finaliseAcceptedDelivery(db, {
+      report,
+      emailEvent: { ...emailEvent, status: 'sent', provider_message_id: provider.messageId },
+      providerMessageId: provider.messageId,
+      provider: provider.provider,
+      recipient,
+      attemptNumber: emailEvent.attempt_number,
+      testDelivery,
+      actor: input.actor
+    });
 
     return {
       emailEventId: emailEvent.id,
       providerMessageId: provider.messageId,
       recipient,
       reusedExistingSend: false,
-      status: 'sent'
+      status: 'sent',
+      testDelivery
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? 'Email delivery failed.');
-    await db.from('email_events').update({
-      status: 'failed',
-      error_message: message,
-      delivery_updated_at: new Date().toISOString()
-    }).eq('id', emailEvent.id);
-    if (report.fulfilment_id) {
-      await db.from('report_fulfilments').update({
+    const now = new Date().toISOString();
+
+    if (providerMessageId) {
+      await db.from('email_events').update({
+        status: 'sent',
+        provider_message_id: providerMessageId,
+        sent_at: now,
+        delivery_updated_at: now,
+        error_message: `Provider accepted the message, but post-send persistence needs reconciliation: ${message}`
+      }).eq('id', emailEvent.id);
+    } else {
+      await db.from('email_events').update({
         status: 'failed',
-        current_step: 'email_failed',
-        last_error_code: 'email_delivery_failed',
-        last_error_message: message,
-        failed_at: new Date().toISOString()
-      }).eq('id', report.fulfilment_id);
+        error_message: message,
+        delivery_updated_at: now
+      }).eq('id', emailEvent.id);
+
+      if (!testDelivery && input.actor.action === 'automatic_email' && report.fulfilment_id) {
+        await db.from('report_fulfilments').update({
+          status: 'failed',
+          current_step: 'email_failed',
+          last_error_code: 'email_delivery_failed',
+          last_error_message: message,
+          failed_at: now
+        }).eq('id', report.fulfilment_id);
+      }
     }
     throw error;
   }
