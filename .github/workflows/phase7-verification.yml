@@ -72,6 +72,16 @@ jobs:
       - name: Run Phase 14 PDF email delivery tests
         run: npm run phase14:test-email-delivery
 
+      - name: Render a real PDF under Node 24 Chromium
+        run: npm run phase14:test-node24-pdf
+
+      - name: Upload Node 24 PDF smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase14-node24-chromium-smoke
+          path: tmp/phase14-node24-chromium-smoke.pdf
+          if-no-files-found: error
+
       - name: Run platform hardening tests
         run: npm run platform:test-hardening
 
