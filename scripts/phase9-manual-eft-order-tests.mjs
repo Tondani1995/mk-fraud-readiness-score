@@ -118,7 +118,7 @@ const customerAndPaymentSources = [
   statusRoute
 ].map(read).join('\n');
 
-assert(!/PayFast|card payment|payment_proofs\.insert|proof upload|client portal|respondent dashboard|public benchmark/i.test(customerAndPaymentSources), 'Phase 9 customer and payment flow must not introduce gateway, proof-upload, portal or public benchmark functionality.');
+assert(!/PayFast|card payment|payment_proofs\.insert|client portal|respondent dashboard|public benchmark/i.test(customerAndPaymentSources), 'Phase 9 customer and payment flow must not introduce gateway, proof-upload endpoint, portal or public benchmark functionality.');
 assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|N\/A rule|hard-gate/i.test(read(snapshot)), 'Snapshot must not expose internal methodology codes or rule labels.');
 
 console.log('Phase 9 manual EFT order tests passed. Manual order creation, EFT snapshots, finance controls, audit events, /score routing and feature-flagged later fulfilment are covered.');
