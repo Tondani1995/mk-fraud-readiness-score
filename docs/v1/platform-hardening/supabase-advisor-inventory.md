@@ -1,28 +1,96 @@
-# Supabase Advisor Inventory — PR #19 Platform Runtime and Database Hardening
+# Supabase Advisor Inventory - PR #19 Platform and Database Hardening
 
-Pulled live from the project's Security and Performance advisors during this PR's audit. Raw findings are grouped by pattern rather than listed individually where the same pattern repeats across many tables/roles.
+Production project inspected: `jvjxlphdyzerrhwcgkup`.
 
-## Security advisor findings
+Advisor data was refreshed during PR #19. The migration prepared in this PR was **not** applied.
 
-| Finding | Affected object(s) | Predates PR #19 | Disposition | Evidence |
-|---|---|---|---|---|
-| RLS enabled, no policy | `assessment_tokens`, `rate_limit_hits` | Yes | **Documented as intentional, not changed.** Both tables have RLS enabled with zero policies. Confirmed `anon` and `authenticated` both have `rolbypassrls = false`, and only `service_role`/`postgres` have `rolbypassrls = true`. Table-level grants are broad (Supabase's schema-level default), but RLS with no policies default-denies every role that isn't `BYPASSRLS`. No `anon`/ordinary `authenticated` application flow can reach these tables regardless of the broad grants. This is the correct, intentional state for token/rate-limit bookkeeping tables. | Direct query: `pg_roles.rolbypassrls` for `anon`/`authenticated`/`service_role`/`postgres` |
-| Function search_path mutable | `set_updated_at()` | Yes | **Fixed in migration 0016.** This is the only application-owned function with no `search_path` set at all — every other trigger/helper (`guard_assessment_answer_write`, `guard_score_run_write`, `prevent_methodology_mutation_after_use`, etc.) already has `search_path=public` explicitly configured. The function body only assigns `NEW.updated_at = now()`; no schema-qualified references exist to requalify, and `now()` always resolves via `pg_catalog`. Pure hardening, no behavioural change. | `pg_get_functiondef()` on all `public`-schema, `postgres`-owned functions |
-| Extension in public schema | `citext` | Yes | **Audited and parked.** Default action per PR #19 scope is audit-and-park; relocating an in-use extension requires a fully understood, separately-approved migration sequence covering every dependent column/cast. Not attempted here. | — |
-| SECURITY DEFINER executable by `authenticated` | `current_admin_role()`, `is_admin_role(admin_role[])` | Yes | **Audited and parked.** Confirmed `anon_can_execute = false`, `authenticated_can_execute = true` for both. Confirmed these two functions back essentially every admin-facing RLS policy in the schema (~25 tables, every `*_admin_select` and `*_platform_admin_manage` policy references one of them). In this application only real Supabase Auth sessions hold the `authenticated` role — respondents are accountless per the V1 product constraints — so `authenticated` callers of these functions are, by construction, admin users. Changing ownership, security mode, or grants without a full caller/route regression pass across every admin page is too risky for this narrow PR. | `has_function_privilege()` per role; `pg_policy` scan for callers |
-| Leaked password protection disabled | Supabase Auth | Yes | **Parked as dashboard configuration.** Not a migration-manageable setting; requires Auth dashboard change and owner approval. Not touched. | — |
-
-## Performance advisor findings
-
-| Finding | Affected object(s) | Predates PR #19 | Disposition | Evidence |
-|---|---|---|---|---|
-| Unindexed foreign keys | ~30 FKs across `assessments`, `reports`, `orders`, `score_runs`, `email_events`, `payment_proofs`, `report_templates`, `audit_logs`, `respondents`, `app_settings`, `methodology_versions`, `maturity_cap_events`, `score_domain_results`, `score_question_traces`, `questions` | Yes | **Indexed only where evidenced (2 of ~30). Rest parked.** All affected tables are currently tiny (15–1,904 live rows per `pg_stat_user_tables`) — there is no live query-plan evidence of a real performance problem yet. Added `reports(order_id)` (confirmed direct `.eq('order_id', …)` filter in the admin report-generation route) and `assessment_answers(question_id)` (confirmed PostgREST embedded-resource join `questions:question_id(…)` in `assemble-report-data.ts`). The remaining ~28 were not individually source-verified with sufficient confidence in this pass — adding indexes on a guess would violate the "don't index to reduce the advisor count" principle. Recommend a dedicated follow-up performance pass once real production query volume exists. | `pg_stat_user_tables`; GitHub code search for `.eq('order_id'` and `questions:question_id` |
-| Unused index | 13 indexes on `assessment_events`, `email_events`, `data_requests`, `respondents`, `orders` | Yes | **Informational only, not touched.** Consistent with the task's own instruction not to reactively drop indexes the advisor flags as unused. | — |
-| Auth RLS initplan (`auth.<function>()` re-evaluated per row) | `admin_profiles_select` policy on `admin_profiles` | Yes | **Fixed in migration 0016.** Wrapped `auth.uid()` in `(select auth.uid())`. `auth.uid()` is STABLE, so this changes only *when* Postgres evaluates it (once per statement via InitPlan, not once per row) — not which rows match. `is_admin_role(...)` in the same policy is untouched; the advisor flag is specific to `auth.<function>()`/`current_setting()`, not this function. | `pg_get_expr()` on the policy's USING clause before/after |
-| Multiple permissive policies | ~15 tables × ~5 roles (`admin_profiles`, `app_settings`, `assessments`, `data_requests`, `domains`, `eft_settings`, `email_templates`, `exposure_factors`, `methodology_versions`, `organisations`, `products`, `question_applicability_rules`, `questions`, `recommendation_rules`, `report_content_blocks`, `report_templates`, `reports`, `respondents`, `response_scale`, `score_runs`) | Yes | **Whole class parked as one documented pattern.** Every instance is the same shape: a broad `*_admin_select` read policy (covers several admin roles: `platform_admin`, `reviewer`, `approver`, `read_only_admin`, sometimes `finance_admin`) plus a `*_platform_admin_manage` policy (`polcmd = '*'`, `platform_admin` only). Because `platform_admin` appears in both policies' role lists and both are permissive, Postgres reports "multiple permissive policies" for `platform_admin` on `SELECT` for every one of these tables. This is a deliberate, understood pattern (broad admin-role read + full-CRUD platform-admin override), confirmed by mapping every `is_admin_role(...)` call site against `pg_policy`. Consolidating any of these without a dedicated regression pass covering every admin route (audit-log, config/content, config/questions, methodology, settings, orders, reports, assessments, and more) is out of scope for this narrow PR. | Full `pg_policy` scan joined against function-caller mapping |
+Supabase changelog review: current 2026 database/API breaking-change entries include Data API exposure defaults and security/dashboard updates. Nothing in that review changed this PR's conservative posture: fix only narrowly proven items, document the rest, and do not add broad public access.
 
 ## Summary
 
-- **Implemented in migration 0016**: `set_updated_at()` search_path, `admin_profiles_select` initplan optimization, 2 evidence-backed FK indexes.
-- **Parked, documented, not implemented**: RLS-no-policy on 2 tables (confirmed intentional), `citext` relocation, `current_admin_role`/`is_admin_role` grant/ownership changes, leaked-password-protection dashboard setting, ~28 additional FK indexes, the entire multiple-permissive-policies class (~75 raw rows / 1 pattern).
-- Migration 0016 has **not** been applied to production. It is prepared and reviewable in this draft PR only.
+Implemented in migration `0016_platform_database_hardening.sql`:
+
+- `public.set_updated_at()` explicit `search_path = public`.
+- `admin_profiles_select` `auth.uid()` wrapped as `(select auth.uid())` for the Supabase auth init-plan finding.
+- Two evidence-backed FK indexes:
+  - `reports_order_id_idx` on `public.reports(order_id)`.
+  - `assessment_answers_question_id_idx` on `public.assessment_answers(question_id)`.
+
+Parked/documented:
+
+- service-role-only RLS tables with no policies;
+- public `citext` relocation;
+- `current_admin_role()` / `is_admin_role(...)` security-definer helper redesign;
+- leaked-password protection dashboard setting;
+- remaining unindexed FK notices;
+- repeated multiple-permissive-policy pattern.
+
+## Security Advisors
+
+| Category | Severity | Affected objects | Current purpose | Predates PR #19 | Actual risk | Action | Test evidence |
+|---|---:|---|---|---|---|---|---|
+| RLS enabled with no policies | INFO | `public.assessment_tokens`, `public.rate_limit_hits` | Server-side token lifecycle and rate-limit bookkeeping | Yes | Ordinary `anon`/`authenticated` roles have broad table privileges from Supabase defaults, but both roles have `rolbypassrls = false`; RLS is enabled and zero policies means ordinary roles default-deny. `service_role`/`postgres` bypass RLS for backend/server administration. | Parked as intentional service-role-only design. Do not add permissive policies merely to silence advisor. | SQL confirmed RLS enabled, zero policies, `anon`/`authenticated` no BYPASSRLS, `service_role`/`postgres` BYPASSRLS. Source search found `assessment_tokens` used by server respondent-token utilities; `rate_limit_hits` appears only in migration/docs. |
+| Function search path mutable | WARN | `public.set_updated_at()` | Generic updated-at trigger helper | Yes | Search-path risk is real but narrow. Function body only assigns `new.updated_at = now()` and returns `new`; no table reads/writes or dynamic SQL. | Fixed in migration 0016 by recreating same signature/body with `set search_path = public`. | Function inventory confirmed previous `proconfig` empty, owner `postgres`, language `plpgsql`, not security-definer. Platform test asserts explicit search path. |
+| Extension in public schema | WARN | `citext` extension | Case-insensitive email/contact columns | Yes | Moving an extension used by live columns can break casts, defaults and migrations if not sequenced carefully. | Parked for separate controlled extension-relocation migration. | SQL found `citext` columns on `admin_profiles.email`, `data_requests.requested_by_email`, `eft_settings.contact_email`, `email_events.recipient_email`, `orders.customer_email`, `respondents.email`. |
+| Signed-in users can execute security-definer functions | WARN | `public.current_admin_role()`, `public.is_admin_role(admin_role[])` | Admin-role RLS helpers | Yes | These helpers are high-impact because they underpin admin-facing policies. `anon` cannot execute; `authenticated` can. In this app, respondents are accountless, while admin UI uses Supabase Auth sessions. | Audited and parked. Do not change security mode, ownership or grants in PR #19 without a dedicated admin-auth regression pass. | SQL confirmed owner `postgres`, `security_definer = true`, `search_path=public`, `anon_execute=false`, `authenticated_execute=true`. Policy scan shows repeated admin-policy dependency. |
+| Leaked password protection disabled | WARN | Supabase Auth setting | Password compromise protection | Yes | Dashboard/auth configuration risk; SQL migration cannot fix it. Enabling can change login/signup outcomes. | Parked as dashboard configuration requiring owner approval, rollout and rollback plan. | Advisor output confirms disabled state. No password settings changed. |
+
+## Performance Advisors
+
+| Category | Severity | Affected objects | Current purpose | Predates PR #19 | Actual risk | Action | Test evidence |
+|---|---:|---|---|---|---|---|---|
+| Unindexed foreign keys | INFO | Repeated across `app_settings`, `assessment_answers`, `assessments`, `audit_logs`, `email_events`, `exposure_answers`, `maturity_cap_events`, `methodology_versions`, `orders`, `payment_proofs`, `questions`, `report_events`, `report_templates`, `reports`, `respondents` and related FK columns | Referential integrity across assessment, scoring, orders, reports, admin and notification tables | Yes | Potential delete/update/join overhead. Live tables remain small, and not every FK has demonstrated query pressure. | Implement only two source-evidenced indexes in migration 0016; park the rest. | Added `reports(order_id)` because admin report-generation logic filters by order. Added `assessment_answers(question_id)` because report assembly embeds `questions:question_id(...)`. Remaining FK notices need a dedicated query-plan pass. |
+| Auth RLS init-plan | WARN | `admin_profiles_select` policy | Lets an admin see own profile or platform admin see all admin profiles | Yes | Per-row `auth.uid()` evaluation is a performance smell; the semantic row boundary is still valid. | Fixed in migration 0016 by changing `id = auth.uid()` to `id = (select auth.uid())`. | SQL showed existing policy. Migration preserves the same comparison and leaves `is_admin_role(...)` unchanged. Platform test asserts the scalar subquery. |
+| Multiple permissive policies | WARN | Repeated on admin-managed tables including `admin_profiles`, `report_templates`, `reports`, `respondents`, `response_scale`, `score_runs` and other admin-facing configuration/result tables | Admin read policies plus platform-admin manage policies | Yes | Performance overhead and policy complexity, not automatically a data leak. Advisor reports the repeated pattern for many roles because permissive select and manage policies overlap. | Audited and parked as a class. Do not consolidate broad RLS without a dedicated route-by-route admin authorization test. | Representative policy scan confirms pattern: `*_admin_select` plus `*_platform_admin_manage` / manage policy. |
+| Unused indexes | INFO | Existing indexes on event, email, data-request, respondent and order tables | Future/admin lookup paths and event queries | Yes | Advisor may report unused before production volume exists. Dropping could remove planned lookup support. | Parked. No index drops in PR #19. | No destructive index changes in migration 0016. |
+
+## Affected Object Appendix
+
+Security objects:
+
+- `public.assessment_tokens`
+- `public.rate_limit_hits`
+- `public.set_updated_at()`
+- `public.current_admin_role()`
+- `public.is_admin_role(admin_role[])`
+- `public` extension `citext`
+- Supabase Auth leaked-password-protection setting
+
+`citext` dependent columns:
+
+- `public.admin_profiles.email`
+- `public.data_requests.requested_by_email`
+- `public.eft_settings.contact_email`
+- `public.email_events.recipient_email`
+- `public.orders.customer_email`
+- `public.respondents.email`
+
+Representative multiple-policy objects inspected:
+
+- `public.admin_profiles`
+- `public.report_templates`
+- `public.reports`
+- `public.respondents`
+- `public.score_runs`
+
+Unindexed-FK advisor object group:
+
+- `public.app_settings`
+- `public.assessment_answers`
+- `public.assessments`
+- `public.audit_logs`
+- `public.email_events`
+- `public.exposure_answers`
+- `public.maturity_cap_events`
+- `public.methodology_versions`
+- `public.orders`
+- `public.payment_proofs`
+- `public.questions`
+- `public.report_events`
+- `public.report_templates`
+- `public.reports`
+- `public.respondents`
+
+## Migration Status
+
+Migration `0016_platform_database_hardening.sql` is prepared in the PR only. It has not been applied to production or any Supabase environment in this pass.
