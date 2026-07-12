@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { generatePremiumReport } from '../premium-report-service';
+import { createAiSdkPremiumReportNarrativeGenerator } from './ai-sdk-generator';
+import { getPremiumReportAutomationFlags } from './feature-flags';
 import type { PremiumReportNarrativeGenerator } from './types';
 
 export async function processPremiumReportFulfilment(input: {
@@ -22,14 +24,19 @@ export async function processPremiumReportFulfilment(input: {
   if (fulfilment.report_id && ['ready_for_delivery', 'completed'].includes(fulfilment.status)) {
     const { data: report, error: reportError } = await db
       .from('reports')
-      .select('id,report_reference,version_number,supersedes_report_id,generation_run_id,report_generation_runs:generation_run_id(generation_mode,evidence_checksum)')
+      .select('id,report_reference,version_number,supersedes_report_id,generation_run_id')
       .eq('id', fulfilment.report_id)
       .maybeSingle();
     if (reportError) throw reportError;
     if (report) {
-      const run = Array.isArray(report.report_generation_runs)
-        ? report.report_generation_runs[0]
-        : report.report_generation_runs;
+      const { data: run, error: runError } = report.generation_run_id
+        ? await db
+          .from('report_generation_runs')
+          .select('generation_mode,evidence_checksum')
+          .eq('id', report.generation_run_id)
+          .maybeSingle()
+        : { data: null, error: null };
+      if (runError) throw runError;
       return {
         reportId: report.id,
         reportReference: report.report_reference,
@@ -45,10 +52,15 @@ export async function processPremiumReportFulfilment(input: {
 
   if (fulfilment.status === 'cancelled') throw new Error(`Fulfilment ${input.fulfilmentId} is cancelled.`);
 
+  const flags = await getPremiumReportAutomationFlags();
+  const generator = input.generator
+    ?? (flags.aiNarrativeEnabled ? createAiSdkPremiumReportNarrativeGenerator(flags.model) : undefined);
+
   return generatePremiumReport({
     orderReference: order.order_reference,
     fulfilmentId: fulfilment.id,
-    generator: input.generator,
+    generator,
+    flags,
     actor: {
       actorType: 'system',
       action: 'automatic_workflow'
