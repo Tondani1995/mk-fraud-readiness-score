@@ -1,6 +1,8 @@
 import { FatalError } from '@workflow/errors';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { processPremiumReportFulfilment } from '@/lib/reports/automation/processor';
+import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/feature-flags';
+import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
 
 export async function premiumReportFulfilmentWorkflow(fulfilmentId: string) {
   'use workflow';
@@ -8,8 +10,9 @@ export async function premiumReportFulfilmentWorkflow(fulfilmentId: string) {
   await validateFulfilmentStep(fulfilmentId);
   const report = await generateAndStoreReportStep(fulfilmentId);
   await verifyDeliveryReadyStep(fulfilmentId, report.reportId);
+  const delivery = await deliverReportEmailIfEnabledStep(report.reportId);
 
-  return report;
+  return { ...report, delivery };
 }
 
 async function validateFulfilmentStep(fulfilmentId: string) {
@@ -73,4 +76,18 @@ async function verifyDeliveryReadyStep(fulfilmentId: string, reportId: string) {
     status: fulfilment.status,
     currentStep: fulfilment.current_step
   };
+}
+
+async function deliverReportEmailIfEnabledStep(reportId: string) {
+  'use step';
+
+  const flags = await getPremiumReportAutomationFlags();
+  if (!flags.autoEmailEnabled) {
+    return { status: 'skipped', reason: 'premium_report_auto_email_disabled' } as const;
+  }
+
+  return deliverPremiumReportEmail({
+    reportId,
+    actor: { actorType: 'system', action: 'automatic_email' }
+  });
 }
