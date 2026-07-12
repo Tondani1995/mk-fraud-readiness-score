@@ -1,4 +1,6 @@
-import { withWorkflow } from 'workflow/next';
+import workflowNext from 'workflow/next';
+
+const { withWorkflow } = workflowNext;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
