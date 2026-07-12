@@ -46,7 +46,9 @@ assert.match(transport, /attachments/);
 assert.match(transport, /contentBase64/);
 assert.match(transport, /RESEND_API_KEY/);
 
-const delivery = read('src/lib/reports/email/report-delivery.ts');
+const deliveryWrapper = read('src/lib/reports/email/report-delivery.ts');
+assert.match(deliveryWrapper, /report-delivery-service/);
+const delivery = read('src/lib/reports/email/report-delivery-service.ts');
 assert.match(delivery, /premium-report-delivery:\$\{report\.id\}:\$\{recipient\}/);
 assert.match(delivery, /flags\.testRecipientOverride/);
 assert.match(delivery, /const testDelivery = recipient !== customerRecipient/);
