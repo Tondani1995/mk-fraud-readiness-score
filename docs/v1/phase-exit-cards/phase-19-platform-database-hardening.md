@@ -2,7 +2,7 @@
 
 ## Phase Result
 
-**Conditional Pass.** Code-level checks pass, migration remains unapplied, and the exact-head Vercel preview is READY, but the Vercel build still reports the missing-SWC lockfile warning.
+**Conditional Pass.** Code-level checks pass, migration remains unapplied, and the Vercel preview for the validated PR head is READY, but the Vercel build still reports the missing-SWC lockfile warning.
 
 ## Source
 
@@ -11,8 +11,10 @@
 - Base branch: `main`
 - Expected/confirmed base SHA: `7ecc0916feb9c8acb08c844a8ca22b1551becdb2`
 - Working branch: `platform/runtime-database-hardening`
-- PR head tested: `1e6e20fe467268e88ccac0597d0be1a86fbc1048`
+- Validated PR head: `2cc4c1bd0cbb5f4d769718064539ca7e4ce09013`
 - Draft PR title: `Platform runtime and database hardening`
+
+This exit-card refresh is documentation-only and does not change runtime code, schema, scoring, methodology, report gates, EFT flow or customer/admin behaviour.
 
 ## Runtime Decision
 
@@ -87,7 +89,7 @@ Local full app tests were not possible from a normal checkout because this works
 
 ## GitHub Actions Evidence
 
-V1 Verification run `#458` passed on `1e6e20fe467268e88ccac0597d0be1a86fbc1048`.
+V1 Verification run `#463` passed on `2cc4c1bd0cbb5f4d769718064539ca7e4ce09013`.
 
 Passed steps:
 
@@ -110,10 +112,10 @@ Passed steps:
 
 Vercel deployment:
 
-- Deployment ID: `dpl_8nqo3N7oVbxymaCNDdLt54urg9Hd`
-- URL: `https://mk-fraud-readiness-score-kkr0ypltr-tondanis-projects.vercel.app`
+- Deployment ID: `dpl_5mt5aewgqQMKAtxGVMnYQXfWAEx1`
+- URL: `https://mk-fraud-readiness-score-9sjgb2oag-tondanis-projects.vercel.app`
 - State: `READY`
-- Metadata SHA: `1e6e20fe467268e88ccac0597d0be1a86fbc1048`
+- Metadata SHA: `2cc4c1bd0cbb5f4d769718064539ca7e4ce09013`
 - Exact commit match: yes
 
 Preview build evidence:
