@@ -17,6 +17,7 @@ const required = [
   'src/lib/reports/roadmap.ts',
   'src/lib/reports/render-pdf.ts',
   'src/lib/reports/templates/report-template.ts',
+  'src/lib/reports/premium-report-service.ts',
   'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/api/admin/reports/[reportId]/download/route.ts',
   'src/app/admin/orders/[orderReference]/page.tsx',
@@ -56,9 +57,9 @@ assertIncludes(assemble, 'score_runs', 'Assembly reads persisted score_runs');
 assertIncludes(assemble, 'score_domain_results', 'Assembly reads persisted score_domain_results');
 assertIncludes(assemble, 'score_question_traces', 'Assembly reads persisted score_question_traces');
 assertIncludes(assemble, "new Set(['payment_received'])", 'Report generation is gated only on payment_received');
-assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for Phase 10 generation');
+assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for report generation');
 assertIncludes(assemble, 'product_code', 'Assembly reads product code for report type selection');
-assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation route');
+assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation service');
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
 
 const fallback = 'src/lib/reports/fallback-content.ts';
@@ -94,7 +95,7 @@ const reportRequestPage = 'src/app/report/request/[assessmentRef]/page.tsx';
 assertNotIncludes(reportRequestPage, 'Phase 9', 'Public report request page must not expose stale phase wording');
 assertNotIncludes(reportRequestPage, 'proof upload', 'Public report request page must not promise proof upload');
 assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page should not read like a scaffold placeholder');
-assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
+assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves payment gate boundary');
 
 const renderPdf = 'src/lib/reports/render-pdf.ts';
 assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
@@ -113,26 +114,31 @@ assertIncludes(renderPdf, 'executableExists', 'PDF renderer verifies the resolve
 assertNotIncludes(renderPdf, "executablePath: await chromium.default.executablePath()", 'PDF renderer must not rely on bundled .next/server/bin resolution');
 assertNotIncludes(renderPdf, "import('puppeteer')", 'PDF renderer must not rely on missing bundled Puppeteer Chrome');
 
-const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
-assertIncludes(generate, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Generate route maps product code to report type');
-assertIncludes(generate, 'mk_validated_assessment', 'Generate route supports MK validated product code');
-assertIncludes(generate, 'template_id: template.id', 'Generate route stores required template id');
-assertIncludes(generate, ".eq('report_type', reportType)", 'Generate route loads template and versions by actual report type');
-assertIncludes(generate, ".eq('assessment_id', assembled.scoreRun.assessmentId)", 'Generate route versions by assessment/report type constraint');
-assertNotIncludes(generate, ".eq('order_id', assembled.orderId)", 'Generate route must not version by order only');
-assertIncludes(generate, 'renderHtmlToPdfBuffer', 'Generate route renders PDF');
-assertIncludes(generate, "from('reports')", 'Generate route writes report record');
-assertIncludes(generate, 'supersedes_report_id', 'Regeneration supersedes without overwrite');
-assertIncludes(generate, "status: 'generated'", 'Generated report status is explicit');
-assertIncludes(generate, "from('report_events')", 'Report events are recorded');
-assertIncludes(generate, "from('audit_logs')", 'Audit logs are recorded');
-assertNotIncludes(generate, 'PayFast', 'No payment gateway added');
-assertNotIncludes(generate, 'proof upload', 'No proof upload added');
+const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+const reportService = 'src/lib/reports/premium-report-service.ts';
+assertIncludes(generateRoute, 'generatePremiumReport', 'Generate route delegates to the shared report service');
+assertIncludes(generateRoute, 'REPORT_GENERATION_ROLES', 'Generate route remains role protected');
+assertNotIncludes(generateRoute, 'renderHtmlToPdfBuffer', 'Generate route no longer duplicates PDF business logic');
+assertIncludes(reportService, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Shared service maps product code to report type');
+assertIncludes(reportService, 'mk_validated_assessment', 'Shared service preserves MK validated product support');
+assertIncludes(reportService, 'template_id: template.id', 'Shared service stores required template id');
+assertIncludes(reportService, ".eq('report_type', reportType)", 'Shared service loads template and versions by actual report type');
+assertIncludes(reportService, ".eq('assessment_id', assembled.scoreRun.assessmentId)", 'Shared service versions by assessment/report type constraint');
+assertNotIncludes(reportService, ".eq('order_id', assembled.orderId)", 'Shared service must not version by order only');
+assertIncludes(reportService, 'renderHtmlToPdfBuffer', 'Shared service renders PDF');
+assertIncludes(reportService, "from('reports')", 'Shared service writes report record');
+assertIncludes(reportService, 'supersedes_report_id', 'Regeneration supersedes without overwrite');
+assertIncludes(reportService, "status: 'generated'", 'Generated report status is explicit');
+assertIncludes(reportService, "from('report_events')", 'Report events are recorded');
+assertIncludes(reportService, "from('audit_logs')", 'Audit logs are recorded');
+assertNotIncludes(generateRoute, 'PayFast', 'No payment gateway added');
+assertNotIncludes(reportService, 'proof upload', 'No proof upload added');
 
 const orderPage = 'src/app/admin/orders/[orderReference]/page.tsx';
-assertIncludes(orderPage, 'Generate report version', 'Order detail exposes controlled generation');
+assertIncludes(orderPage, 'Generate report version', 'Order detail exposes controlled generation while automation is disabled');
 assertIncludes(orderPage, "order.status === 'payment_received'", 'Order detail gates generation on payment_received');
-assertIncludes(orderPage, 'Payment received does not automatically generate', 'Finance and report generation remain separate');
+assertIncludes(orderPage, 'Autonomous fulfilment is safely disabled', 'Automation remains disabled until controlled enablement');
+assertIncludes(orderPage, 'Manual generate / regenerate fallback', 'Manual generation becomes the fallback when automation is enabled');
 
 const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
 assertIncludes(download, 'createSignedUrl', 'Download route uses signed URL');
@@ -156,7 +162,7 @@ assert(!/display\s*:\s*table/.test(template), 'Template must avoid table-display
 assert(!/\bD\d{1,2}-Q\d{2}\b|EXP-\d{2}|REC-\d{2}/.test(template), 'Template must not hard-code customer-facing internal codes');
 assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose phase labels');
 assert(!/benchmark|peer average/i.test(template), 'Template must not claim benchmarks or peer averages');
-assert(!/AI-generated|artificial intelligence/i.test(template), 'Template must not claim live AI recommendations');
+assert(!/AI-generated|artificial intelligence/i.test(template), 'Template must not label report content as live AI recommendations');
 
 const optionalRenderedPdfInfo = path.join(root, 'tmp', 'phase10-rendered-pdfinfo.txt');
 if (fs.existsSync(optionalRenderedPdfInfo)) {
@@ -168,4 +174,4 @@ if (fs.existsSync(optionalRenderedPdfInfo)) {
   }
 }
 
-console.log('Phase 10 premium report tests passed.');
+console.log('Phase 10 premium report tests passed. Shared generation service preserves payment gating, deterministic report assembly, private PDF storage, versioning and Chromium boundaries.');
