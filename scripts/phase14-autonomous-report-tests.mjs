@@ -28,11 +28,22 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const packageJson = JSON.parse(read('package.json'));
+const packageLock = JSON.parse(read('package-lock.json'));
+assert.equal(packageJson.engines.node, '20.x', 'Node 20 Chromium guard must remain intact.');
+assert.equal(packageJson.dependencies.workflow, '4.0.1-beta.26', 'Workflow SDK version must remain explicit and reviewable.');
+assert.equal(packageJson.dependencies.ai, '6.0.83', 'Node-20-compatible AI SDK version must remain pinned.');
+assert.equal(packageJson.dependencies.zod, '4.1.8', 'Structured-output schema dependency must remain pinned.');
+assert.equal(packageLock.packages['node_modules/workflow']?.version, '4.0.1-beta.26', 'Committed lockfile must contain the Workflow SDK.');
+
 const migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
 assert.match(migration, /create table if not exists public\.report_fulfilments/i);
 assert.match(migration, /create table if not exists public\.report_generation_runs/i);
 assert.match(migration, /report_fulfilments_one_active_order_uidx/i);
 assert.match(migration, /constraint report_fulfilments_idempotency_key_unique/i);
+assert.match(migration, /workflow_start_status text not null default 'not_started'/i);
+assert.match(migration, /workflow_run_id text/i);
+assert.match(migration, /report_fulfilments_workflow_run_uidx/i);
 assert.match(migration, /premium_report_auto_fulfilment_enabled"\s*:\s*false/i);
 assert.match(migration, /premium_report_ai_narrative_enabled"\s*:\s*false/i);
 assert.match(migration, /premium_report_auto_email_enabled"\s*:\s*false/i);
@@ -53,6 +64,28 @@ assert.match(fulfilmentSource, /assembled\.productCode !== 'essential_self_asses
 assert.match(fulfilmentSource, /product_not_automated/);
 assert.doesNotMatch(fulfilmentSource, /mk_validated_assessment.*automated/i);
 
+const workflowStart = read('src/lib/reports/automation/workflow-start.ts');
+assert.match(workflowStart, /from 'workflow\/api'/);
+assert.match(workflowStart, /await start\(premiumReportFulfilmentWorkflow, \[fulfilmentId\]\)/);
+assert.match(workflowStart, /workflow_start_status:\s*'starting'/);
+assert.match(workflowStart, /\.is\('workflow_run_id', null\)/);
+assert.match(workflowStart, /\.in\('workflow_start_status', \['not_started', 'failed'\]\)/);
+assert.match(workflowStart, /workflow_start_status:\s*'failed'/);
+
+const workflowSource = read('src/workflows/premium-report-fulfilment.ts');
+assert.match(workflowSource, /'use workflow'/);
+assert.equal((workflowSource.match(/'use step'/g) ?? []).length, 3, 'Workflow must expose three durable steps.');
+assert.match(workflowSource, /validateFulfilmentStep/);
+assert.match(workflowSource, /generateAndStoreReportStep/);
+assert.match(workflowSource, /verifyDeliveryReadyStep/);
+assert.match(workflowSource, /processPremiumReportFulfilment/);
+
+const nextConfig = read('next.config.mjs');
+assert.match(nextConfig, /from 'workflow\/next'/);
+assert.match(nextConfig, /export default withWorkflow\(nextConfig\)/);
+assert.match(nextConfig, /@sparticuz\/chromium\/bin/);
+assert.match(nextConfig, /'puppeteer-core': 'commonjs puppeteer-core'/);
+
 const serviceSource = read('src/lib/reports/premium-report-service.ts');
 assert.match(serviceSource, /preparePremiumReportNarrative/);
 assert.match(serviceSource, /renderHtmlToPdfBuffer/);
@@ -60,6 +93,7 @@ assert.match(serviceSource, /ready_for_email_delivery/);
 assert.match(serviceSource, /report_generation_runs/);
 assert.match(serviceSource, /fulfilment_id/);
 assert.match(serviceSource, /reusedExistingReport/);
+assert.doesNotMatch(serviceSource, /resend\.emails\.send/);
 
 const adminRoute = read('src/app/api/admin/orders/[orderReference]/generate-report/route.ts');
 assert.match(adminRoute, /generatePremiumReport/);
@@ -70,7 +104,10 @@ const paymentRoute = read('src/app/admin/orders/[orderReference]/status/route.ts
 assert.match(paymentRoute, /getPremiumReportAutomationFlags/);
 assert.match(paymentRoute, /flags\.autoFulfilmentEnabled/);
 assert.match(paymentRoute, /queuePremiumReportFulfilment/);
+assert.match(paymentRoute, /startPremiumReportWorkflow/);
 assert.match(paymentRoute, /triggerSource:\s*'payment_confirmation'/);
+assert.match(paymentRoute, /workflow_started/);
+assert.doesNotMatch(paymentRoute, /generatePremiumReport\(/);
 
 const adminPage = read('src/app/admin/orders/[orderReference]/page.tsx');
 assert.match(adminPage, /Autonomous fulfilment/);
@@ -158,4 +195,4 @@ const missingOwnEvidence = clone(validNarrative);
 missingOwnEvidence.domainNarratives[0].evidenceRefs = ['score:overall'];
 assert.equal(validatePremiumReportNarrative(missingOwnEvidence, evidence).issues.some((item) => item.code === 'missing_own_evidence'), true);
 
-console.log('Phase 14 autonomous premium-report foundation tests passed.');
+console.log('Phase 14 autonomous premium-report foundation tests passed, including durable workflow start, deterministic validation and no-email boundaries.');
