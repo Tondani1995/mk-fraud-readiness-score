@@ -1,32 +1,32 @@
 # Platform Runtime and Database Hardening - Runtime Preview Checklist
 
-Runtime preview checked on deployment `dpl_8nqo3N7oVbxymaCNDdLt54urg9Hd` for PR head `1e6e20fe467268e88ccac0597d0be1a86fbc1048`.
+Runtime preview checked on deployment `dpl_5mt5aewgqQMKAtxGVMnYQXfWAEx1` for final PR head `2cc4c1bd0cbb5f4d769718064539ca7e4ce09013`.
 
 ## Runtime
 
-- [x] Vercel preview build for the PR head reached `READY`.
-- [x] Vercel preview metadata SHA matched the PR head exactly.
+- [x] Vercel preview build for the final PR head reached `READY`.
+- [x] Vercel preview metadata SHA matched the final PR head exactly.
 - [x] Build/runtime evidence confirms Node.js 20 is retained.
 - [x] The known Vercel Node 20 deprecation warning is documented, not treated as fixed.
 - [ ] No `Found lockfile missing swc dependencies` warning appears in the build log. The warning still appeared.
 - [x] Build completed without errors.
 
-## Operational endpoints
+## Operational Endpoints
 
-- [x] `GET /score/start` returned HTTP 200.
+- [x] `GET /score/start` returned HTTP 200 on the final-head preview.
 - [ ] `GET /score/api/health` returned HTTP 200. Connector fetches redirected through Vercel SSO on the protected preview, so JSON was not directly observed.
 - [ ] Health response JSON observed as current phase. Not directly observed because of protected-preview SSO redirect.
 - [ ] `GET /score/api/system/build-info` returned HTTP 200. Connector fetches redirected through Vercel SSO on the protected preview, so JSON was not directly observed.
 - [ ] Preview build-info response reports `releaseChannel: "preview"`. Not directly observed because of protected-preview SSO redirect.
 - [ ] Neither endpoint exposes Supabase keys, JWT secrets, token peppers, URLs, token values or environment inventories. Static source tests passed; live JSON was not directly observed.
 
-## Application smoke
+## Application Smoke
 
 - [x] `/score/start` rendered the start page.
 - [x] Runtime error/fatal log query for the deployment returned no matching logs.
 - [ ] Existing customer R5/R50/report-generation gates were not manually retested in this platform-hardening pass.
 
-## Report generation boundary
+## Report Generation Boundary
 
 - [x] Phase 10 premium report test passed in CI under Node 20.
 - [x] `@sparticuz/chromium` static/report tests still passed.
@@ -42,10 +42,10 @@ Runtime preview checked on deployment `dpl_8nqo3N7oVbxymaCNDdLt54urg9Hd` for PR 
 
 ## Sign-off
 
-- [x] GitHub Actions V1 Verification run #458 passed on the exact PR head commit.
+- [x] GitHub Actions V1 Verification run #463 passed on the final PR head commit.
 - [x] PR remains draft.
 - [x] PR has not been merged.
 
 ## Result
 
-Conditional Pass. Code-level checks passed and preview deployed, but the SWC lockfile warning remains and protected-preview API JSON needs direct verification.
+Conditional Pass. Code-level checks passed and the final-head preview deployed, but the SWC lockfile warning remains and protected-preview API JSON needs direct verification.
