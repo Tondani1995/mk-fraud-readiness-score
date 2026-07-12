@@ -41,6 +41,7 @@ A future Node 24 spike must be separate from PR #19 and must prove all of the fo
 - Chromium diagnostics and shared-library resolution are inspected;
 - `@sparticuz/chromium` resolves in the deployed environment;
 - `puppeteer-core` resolves in the deployed environment;
+- live PDF generation is proven through the admin-controlled path;
 - a real premium report is generated through the admin-controlled path;
 - the generated PDF is downloaded and visually checked;
 - report release controls remain manual and admin-controlled;
