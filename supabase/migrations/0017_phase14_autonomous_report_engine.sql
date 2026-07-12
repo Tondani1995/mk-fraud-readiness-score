@@ -144,7 +144,7 @@ values (
     "premium_report_ai_narrative_enabled":false,
     "premium_report_auto_email_enabled":false,
     "premium_report_test_recipient_override":null,
-    "premium_report_ai_model":"openai/gpt-5.4",
+    "premium_report_ai_model":"openai/gpt-5.5",
     "premium_report_prompt_version":"mk-premium-report-v1",
     "premium_report_schema_version":"mk-premium-narrative-v1",
     "routine_human_approval_required":false,
