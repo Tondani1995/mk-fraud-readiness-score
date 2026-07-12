@@ -31,10 +31,17 @@ function clone(value) {
 const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 assert.equal(packageJson.engines.node, '20.x', 'Node 20 Chromium guard must remain intact.');
-assert.equal(packageJson.dependencies.workflow, '4.0.1-beta.26', 'Workflow SDK version must remain explicit and reviewable.');
+assert.equal(packageJson.dependencies['@workflow/core'], '4.0.1-beta.23', 'Workflow core runtime must remain pinned.');
+assert.equal(packageJson.dependencies['@workflow/errors'], '4.0.1-beta.7', 'Workflow error contract must remain pinned.');
+assert.equal(packageJson.dependencies['@workflow/next'], '4.0.1-beta.26', 'Workflow Next integration must remain pinned.');
+assert.equal(packageJson.dependencies.workflow, undefined, 'The Workflow meta-package must not reintroduce its Node 22-only CLI dependency.');
 assert.equal(packageJson.dependencies.ai, '6.0.83', 'Node-20-compatible AI SDK version must remain pinned.');
 assert.equal(packageJson.dependencies.zod, '4.1.8', 'Structured-output schema dependency must remain pinned.');
-assert.equal(packageLock.packages['node_modules/workflow']?.version, '4.0.1-beta.26', 'Committed lockfile must contain the Workflow SDK.');
+assert.equal(packageLock.packages['node_modules/@workflow/core']?.version, '4.0.1-beta.23');
+assert.equal(packageLock.packages['node_modules/@workflow/errors']?.version, '4.0.1-beta.7');
+assert.equal(packageLock.packages['node_modules/@workflow/next']?.version, '4.0.1-beta.26');
+assert.equal(packageLock.packages['node_modules/workflow'], undefined, 'Workflow meta-package must be absent from the committed lockfile.');
+assert.equal(packageLock.packages['node_modules/mixpart'], undefined, 'Node 22-only mixpart must be absent from the committed lockfile.');
 
 const migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
 assert.match(migration, /create table if not exists public\.report_fulfilments/i);
@@ -65,7 +72,7 @@ assert.match(fulfilmentSource, /product_not_automated/);
 assert.doesNotMatch(fulfilmentSource, /mk_validated_assessment.*automated/i);
 
 const workflowStart = read('src/lib/reports/automation/workflow-start.ts');
-assert.match(workflowStart, /from 'workflow\/api'/);
+assert.match(workflowStart, /from '@workflow\/core\/runtime'/);
 assert.match(workflowStart, /await start\(premiumReportFulfilmentWorkflow, \[fulfilmentId\]\)/);
 assert.match(workflowStart, /workflow_start_status:\s*'starting'/);
 assert.match(workflowStart, /\.is\('workflow_run_id', null\)/);
@@ -73,6 +80,7 @@ assert.match(workflowStart, /\.in\('workflow_start_status', \['not_started', 'fa
 assert.match(workflowStart, /workflow_start_status:\s*'failed'/);
 
 const workflowSource = read('src/workflows/premium-report-fulfilment.ts');
+assert.match(workflowSource, /from '@workflow\/errors'/);
 assert.match(workflowSource, /'use workflow'/);
 assert.equal((workflowSource.match(/'use step'/g) ?? []).length, 3, 'Workflow must expose three durable steps.');
 assert.match(workflowSource, /validateFulfilmentStep/);
@@ -81,7 +89,7 @@ assert.match(workflowSource, /verifyDeliveryReadyStep/);
 assert.match(workflowSource, /processPremiumReportFulfilment/);
 
 const nextConfig = read('next.config.mjs');
-assert.match(nextConfig, /from 'workflow\/next'/);
+assert.match(nextConfig, /from '@workflow\/next'/);
 assert.match(nextConfig, /export default withWorkflow\(nextConfig\)/);
 assert.match(nextConfig, /@sparticuz\/chromium\/bin/);
 assert.match(nextConfig, /'puppeteer-core': 'commonjs puppeteer-core'/);
@@ -195,4 +203,4 @@ const missingOwnEvidence = clone(validNarrative);
 missingOwnEvidence.domainNarratives[0].evidenceRefs = ['score:overall'];
 assert.equal(validatePremiumReportNarrative(missingOwnEvidence, evidence).issues.some((item) => item.code === 'missing_own_evidence'), true);
 
-console.log('Phase 14 autonomous premium-report foundation tests passed, including durable workflow start, deterministic validation and no-email boundaries.');
+console.log('Phase 14 autonomous premium-report foundation tests passed, including supported durable workflow packages, deterministic validation and no-email boundaries.');
