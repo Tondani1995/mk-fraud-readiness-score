@@ -1,39 +1,56 @@
-# Platform Runtime and Database Hardening — Runtime UAT Checklist
+# Platform Runtime and Database Hardening - Runtime Preview Checklist
 
 Use this checklist against the exact-head Vercel preview before merge.
 
 ## Runtime
 
-- [ ] Vercel preview build for the PR head reaches `READY`
-- [ ] Vercel build log shows Node.js 24 in use
-- [ ] No Node.js 20 deprecation warning appears in the build log
-- [ ] No "Found lockfile missing swc dependencies" warning appears in the build log
-- [ ] Build completes without errors
+- [ ] Vercel preview build for the PR head reaches `READY`.
+- [ ] Vercel preview metadata SHA matches the PR head exactly.
+- [ ] Build/runtime evidence confirms Node.js 20 is retained.
+- [ ] The known Vercel Node 20 deprecation warning is documented, not treated as fixed.
+- [ ] No `Found lockfile missing swc dependencies` warning appears in the build log.
+- [ ] Build completes without errors.
 
 ## Operational endpoints
 
-- [ ] `GET /score/api/health` returns HTTP 200 with a `phase` value other than `phase-6-consolidated-scoring`
-- [ ] `GET /score/api/system/build-info` returns HTTP 200 with `releaseChannel: "preview"` on the preview deployment
-- [ ] Neither endpoint's response body contains any Supabase key, JWT secret, token pepper, or connection string
+- [ ] `GET /score/start` returns HTTP 200.
+- [ ] `GET /score/api/health` returns HTTP 200.
+- [ ] Health response matches the current phase:
+
+```json
+{
+  "ok": true,
+  "service": "mk-fraud-readiness-score-v1",
+  "phase": "phase-13-customer-commercial-conversion"
+}
+```
+
+- [ ] `GET /score/api/system/build-info` returns HTTP 200.
+- [ ] Preview build-info response reports `releaseChannel: "preview"`.
+- [ ] Neither endpoint exposes Supabase keys, JWT secrets, token peppers, URLs, token values or environment inventories.
 
 ## Application smoke
 
-- [ ] `GET /score/start` returns HTTP 200
-- [ ] No error or fatal-level runtime log entries appear during the smoke pass
-- [ ] Header/footer and first-viewport brand treatment (from the merged Phase 12 polish) still render correctly — confirms this PR did not regress it
+- [ ] Header/footer and first-viewport brand treatment still render.
+- [ ] No error or fatal-level runtime log entries appear during the smoke pass.
+- [ ] Existing customer R5/R50/report-generation gates remain unchanged.
 
-## Report generation (Chromium/Puppeteer)
+## Report generation boundary
 
-- [ ] Phase 10 premium report test passes in CI under Node 24
-- [ ] If feasible, generate one report against the preview/production-equivalent flow and confirm the PDF renders without error
+- [ ] Phase 10 premium report test passes in CI under Node 20.
+- [ ] `@sparticuz/chromium` still resolves.
+- [ ] `puppeteer-core` still resolves.
+- [ ] Chromium launch configuration and output tracing remain unchanged.
+- [ ] Customer flows do not generate reports automatically.
 
-## Database (informational only — migration is NOT applied as part of this checklist)
+## Database
 
-- [ ] Migration 0016 file reviewed for correctness (search_path fix, RLS initplan wrap, 2 indexes)
-- [ ] Confirmed migration 0016 has not been run against any environment as part of this PR
+- [ ] Migration `0016_platform_database_hardening.sql` is reviewed.
+- [ ] Migration 0016 remains unapplied during PR review.
+- [ ] Advisor inventory is current and separates implemented, parked and dashboard-configuration items.
 
 ## Sign-off
 
-- [ ] All GitHub Actions checks green on the exact PR head commit
-- [ ] PR remains in draft state
-- [ ] PR has not been merged
+- [ ] All GitHub Actions checks pass on the exact PR head commit.
+- [ ] PR remains draft.
+- [ ] PR has not been merged.
