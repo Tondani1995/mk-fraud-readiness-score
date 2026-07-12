@@ -27,6 +27,10 @@ create table if not exists public.report_fulfilments (
   current_step text,
   generation_mode text check (generation_mode is null or generation_mode in ('ai', 'ai_repair', 'deterministic_fallback')),
   attempt_count integer not null default 0 check (attempt_count >= 0),
+  workflow_start_status text not null default 'not_started' check (workflow_start_status in ('not_started', 'starting', 'started', 'failed')),
+  workflow_run_id text,
+  workflow_started_at timestamptz,
+  workflow_start_error text,
   last_error_code text,
   last_error_message text,
   requested_by_admin_user_id uuid,
@@ -42,6 +46,11 @@ create table if not exists public.report_fulfilments (
 create unique index if not exists report_fulfilments_one_active_order_uidx
   on public.report_fulfilments(order_id)
   where status in ('queued', 'assembling', 'generating', 'validating', 'rendering', 'storing', 'ready_for_delivery');
+create unique index if not exists report_fulfilments_workflow_run_uidx
+  on public.report_fulfilments(workflow_run_id)
+  where workflow_run_id is not null;
+create index if not exists report_fulfilments_workflow_start_idx
+  on public.report_fulfilments(workflow_start_status, created_at desc);
 create index if not exists report_fulfilments_status_created_idx
   on public.report_fulfilments(status, created_at desc);
 create index if not exists report_fulfilments_assessment_idx
