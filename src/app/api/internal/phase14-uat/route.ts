@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     triggerSource: 'admin_generate'
   });
   if (!firstQueue.ok) {
-    return NextResponse.json({ ok: false, stage: 'first_queue', ...firstQueue }, { status: 409 });
+    return NextResponse.json({ stage: 'first_queue', ...firstQueue }, { status: 409 });
   }
 
   const secondQueue = await queuePremiumReportFulfilment({
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     triggerSource: 'admin_generate'
   });
   if (!secondQueue.ok) {
-    return NextResponse.json({ ok: false, stage: 'second_queue', ...secondQueue }, { status: 409 });
+    return NextResponse.json({ stage: 'second_queue', ...secondQueue }, { status: 409 });
   }
 
   const fulfilmentId = firstQueue.fulfilment.id as string;
