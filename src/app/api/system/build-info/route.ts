@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { CURRENT_BUILD_PHASE, CURRENT_RELEASE_CHANNEL } from '@/lib/system/build-info';
 
 export function GET() {
   return NextResponse.json({
     app: 'MK Fraud Readiness Score V1',
-    phase: process.env.MK_BUILD_PHASE ?? 'phase-6-consolidated-scoring',
-    releaseChannel: process.env.MK_RELEASE_CHANNEL ?? 'local'
+    phase: CURRENT_BUILD_PHASE,
+    releaseChannel: CURRENT_RELEASE_CHANNEL
   });
 }
