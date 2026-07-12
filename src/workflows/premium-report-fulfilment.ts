@@ -1,4 +1,4 @@
-import { FatalError } from 'workflow';
+import { FatalError } from '@workflow/errors';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { processPremiumReportFulfilment } from '@/lib/reports/automation/processor';
 
