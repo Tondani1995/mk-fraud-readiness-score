@@ -36,7 +36,7 @@ Result:
 - All 9 platform-specific `@next/swc-*` optional packages appeared in the generated lockfile.
 - `npm ci` completed successfully from the generated lockfile after deleting `node_modules`.
 
-The repository branch still relies on CI/Vercel to prove the final committed dependency state, because the local environment cannot use authenticated `git clone` and the GitHub connector cannot safely stream a large lockfile from disk without pasting the whole artifact through the model.
+Exact-head Vercel preview still emitted `Found lockfile missing swc dependencies, run next locally to automatically patch` because the generated `package-lock.json` is not committed to this branch. This remains an unresolved condition.
 
 ## Database Hardening Decision
 
@@ -59,3 +59,4 @@ It does not add public grants, does not add permissive policies, does not rewrit
 - No migration application.
 - No customer feature changes.
 - No Phase 14 work.
+- No committed lockfile repair yet.
