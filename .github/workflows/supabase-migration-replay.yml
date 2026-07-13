@@ -50,6 +50,8 @@ jobs:
         run: |
           mkdir -p tmp/migration-replay
           supabase --version | tee tmp/migration-replay/supabase-cli-version.txt
+          supabase start --help | tee tmp/migration-replay/supabase-start-help.txt
+          supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
 
       - name: Verify expected migration files and generate repair artefact
         run: |
@@ -57,7 +59,9 @@ jobs:
             --out tmp/migration-replay/numeric-migration-repair-full-statement-artifact.sql
 
       - name: Start empty local Supabase database
-        run: supabase start
+        run: |
+          timeout 12m supabase start \
+            --exclude studio,imgproxy,edge-runtime,logflare,vector,analytics,realtime
 
       - name: Reset local database and replay all migrations
         run: supabase db reset --local --yes
