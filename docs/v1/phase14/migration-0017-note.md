@@ -1,17 +1,13 @@
-# Migration 0017 — Autonomous Report Engine
+# Phase 14 Migration History Note
 
-Migration `0017_phase14_autonomous_report_engine.sql` is additive and remains unapplied.
+The repository keeps the Phase 14 autonomous-report schema in `supabase/migrations/0017_phase14_autonomous_report_engine.sql` for source review, but production was reconciled through controller-approved split migration records `0017` through `0019`.
 
-It creates private operational state for report fulfilments and generation provenance, links reports to successful runs, and inserts disabled Phase 14 feature flags.
+This documentation change does not change the live schema. It records the current assurance position only:
 
-Before application, controller review must confirm:
+- `0017` through `0019` are treated as the applied Phase 14 schema history in production.
+- The split history covers the private operational tables and columns for report fulfilments, generation provenance, report linkage, workflow state and disabled Phase 14 feature flags.
+- Automation flags remain off by default: auto fulfilment, AI narrative generation, automatic report email delivery and R50,000 automation are disabled.
+- The Phase 14 remediation pass must not apply another database migration unless the controller first approves a reviewed schema diff.
+- Supabase advisor review and isolated preview-branch runtime UAT remain required before any final merge candidate.
 
-- table and index names do not conflict with production objects;
-- authenticated users receive select access only through existing admin-role RLS helpers;
-- service-role application writes remain possible;
-- no respondent or anonymous access is introduced;
-- foreign-key cycles are acceptable for the intended set-null/cascade behaviour;
-- the active-fulfilment uniqueness rule matches retry and regeneration policy;
-- Supabase security and performance advisors are rerun after application.
-
-Applying the migration must not itself enable report automation, AI generation or customer email delivery.
+The Phase 14 migration set must not mutate scoring, methodology, pricing, prior assessments, prior score results or historical order outcomes.
