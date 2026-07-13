@@ -61,7 +61,18 @@ jobs:
 
       - name: Start empty local Supabase database
         run: |
-          timeout 12m supabase db start
+          set +e
+          timeout 12m supabase db start --debug > tmp/migration-replay/supabase-db-start.log 2>&1
+          start_status=$?
+          set -e
+          if [ "$start_status" -ne 0 ]; then
+            echo "supabase db start failed with exit status ${start_status}. Filtered diagnostic lines:"
+            grep -niE 'error|failed|fatal|panic|cannot|syntax|duplicate|does not exist|already exists|SQLSTATE|permission denied' tmp/migration-replay/supabase-db-start.log | tail -n 160 || true
+            echo "Last 160 lines of supabase db start output:"
+            tail -n 160 tmp/migration-replay/supabase-db-start.log || true
+            docker ps -a | tee tmp/migration-replay/docker-ps-after-start.txt || true
+            exit "$start_status"
+          fi
           for attempt in $(seq 1 90); do
             if psql "$LOCAL_DB_URL" --command='select 1;' >/dev/null 2>&1; then
               echo "Local database is ready after ${attempt} attempt(s)." | tee tmp/migration-replay/local-db-ready.txt
