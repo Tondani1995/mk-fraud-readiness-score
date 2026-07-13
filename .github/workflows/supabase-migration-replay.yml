@@ -67,9 +67,7 @@ jobs:
           set -e
           if [ "$start_status" -ne 0 ]; then
             echo "supabase db start failed with exit status ${start_status}. Filtered diagnostic lines:"
-            grep -niE 'error|failed|fatal|panic|cannot|syntax|duplicate|does not exist|already exists|SQLSTATE|permission denied' tmp/migration-replay/supabase-db-start.log | tail -n 160 || true
-            echo "Last 160 lines of supabase db start output:"
-            tail -n 160 tmp/migration-replay/supabase-db-start.log || true
+            awk 'BEGIN{IGNORECASE=1} /error|failed|fatal|panic|cannot|syntax|duplicate|does not exist|already exists|SQLSTATE|permission denied|migration/ {print NR ":" $0}' tmp/migration-replay/supabase-db-start.log | tail -n 80 || true
             docker ps -a | tee tmp/migration-replay/docker-ps-after-start.txt || true
             exit "$start_status"
           fi
