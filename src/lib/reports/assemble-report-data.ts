@@ -23,21 +23,20 @@ export class ReportAssemblyError extends Error {
   }
 }
 
-const ELIGIBLE_ORDER_STATUSES = new Set(['payment_received']);
+function nullableNumber(value: unknown) {
+  return value === null || value === undefined ? null : Number(value);
+}
 
 export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
   const supabase = createSupabaseServiceClient();
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_reference, status, product_id, assessment_id, organisation_name, customer_name, products:product_id(product_code, name)')
+    .select('id, order_reference, status, product_id, assessment_id, amount_cents, currency, organisation_name, customer_name, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
     .eq('order_reference', orderReference)
     .maybeSingle();
 
   if (orderError || !order) throw new ReportAssemblyError('order_not_found', `Order ${orderReference} was not found.`);
-  if (!ELIGIBLE_ORDER_STATUSES.has(order.status)) {
-    throw new ReportAssemblyError('order_not_eligible', `Order ${orderReference} has status "${order.status}" and is not eligible for report generation.`);
-  }
 
   const { data: assessment, error: assessmentError } = await supabase
     .from('assessments')
@@ -164,6 +163,14 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     generatedAt: new Date().toISOString(),
     packageName: (product as any)?.name ?? 'Detailed Fraud Readiness Report',
     productCode: (product as any)?.product_code ?? null,
+    orderStatus: order.status,
+    amountCents: nullableNumber(order.amount_cents),
+    currency: order.currency ?? null,
+    productPriceCents: nullableNumber((product as any)?.price_cents),
+    productCurrency: (product as any)?.currency ?? null,
+    requiresPaymentVerification: (product as any)?.requires_payment_verification ?? null,
+    deliveryMode: (product as any)?.delivery_mode ?? null,
+    productActive: (product as any)?.active ?? null,
     scoreRun: {
       id: scoreRunRow.id,
       assessmentId: assessment.id,
