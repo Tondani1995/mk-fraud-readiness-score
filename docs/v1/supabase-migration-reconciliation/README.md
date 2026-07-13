@@ -1,6 +1,6 @@
 # Supabase migration reconciliation pack
 
-Status: prepared for controller review only.
+Status: numeric migration repair prepared for controller approval only.
 
 This pack documents the migration-chain blocker discovered during Phase 14 PR #21 Supabase branch creation. It does not change application behaviour, schema, production data, feature flags, report generation, email delivery or automation.
 
@@ -8,12 +8,40 @@ This pack documents the migration-chain blocker discovered during Phase 14 PR #2
 
 - PR: #21
 - Branch: `phase14/autonomous-premium-report-engine`
-- Starting head inspected: `b3735f980827c8c1685431e61c9a4cc7bb0f7742`
+- Current reconciliation work starts from head: `3c9826fb00c72491caf9a0f2129d5d05a58360cb`
 - Production Supabase project inspected read-only: `jvjxlphdyzerrhwcgkup`
 - No production migration was applied.
 - No production migration-history record was inserted, deleted or repaired.
 - No Supabase branch or paid project was created in this pass.
 - No Phase 14 automation flag was enabled.
+
+## Controller decision
+
+Retain the existing numeric migration versions:
+
+```text
+0001 0002 0003 0004 0005 0006 0007 0009 0010 ... 0019
+```
+
+Do not introduce a timestamped baseline. Do not squash the migrations at this stage.
+
+The preferred production repair, after controller approval, is:
+
+```bash
+supabase link --project-ref jvjxlphdyzerrhwcgkup
+
+supabase migration repair 0001 0002 0003 0004 0005 0006 0007 0009 \
+  --status applied
+
+supabase migration list
+```
+
+Rollback preparation is:
+
+```bash
+supabase migration repair 0001 0002 0003 0004 0005 0006 0007 0009 \
+  --status reverted
+```
 
 ## Problem confirmed
 
@@ -32,23 +60,39 @@ The controller note stated there was no confirmed `0004`. The current PR branch 
 
 There is still no confirmed `0008` migration in the inspected repository migration chain.
 
-## Recommended posture
+## Clean-replay CI
 
-Do not create another Supabase branch until the controller approves a migration-ledger reconciliation plan.
+The dedicated workflow is:
 
-The smallest safe path is:
+```text
+.github/workflows/supabase-migration-replay.yml
+```
 
-1. Keep repository SQL files unchanged for this pass.
-2. Treat this pack as a controller-review baseline.
-3. Confirm whether production schema is already equivalent to the repository foundation through a schema diff in a disposable environment.
-4. If equivalent, repair migration history metadata using Supabase-supported migration repair semantics rather than direct production DDL.
-5. Recreate the disposable Supabase branch only after the ledger and repository chain agree.
+It pins Supabase CLI `2.81.3`, starts a clean local Supabase database, replays all repository migrations and verifies schema, seed, RLS, grant and storage state.
+
+The workflow generates and uploads the controller-review-only full-statement repair artefact:
+
+```text
+tmp/migration-replay/numeric-migration-repair-full-statement-artifact.sql
+```
+
+The generator is:
+
+```text
+scripts/phase14-generate-numeric-repair-artifact.mjs
+```
+
+The generated SQL contains real parsed statements from `0001`, `0002`, `0003`, `0004`, `0005`, `0006`, `0007` and `0009`. It contains no marker-only statement arrays and is not placed in the automatic migration directory.
 
 ## Supporting artifacts
 
 - `migration-inventory.md` records the inspected migration chain and production-history mapping.
-- `controller-runbook.md` records the proposed controller process and rejected alternatives.
-- `prepared-verification-and-repair.sql` records read-only checks and an emergency SQL template that must not be run without explicit controller approval.
+- `controller-runbook.md` records the approved numeric repair process and rejected alternatives.
+- `prepared-verification-and-repair.sql` records read-only checks, preferred CLI repair, rollback preparation and explicitly removes the marker-only fallback.
+
+## Cleanup status correction
+
+The stranded fulfilment for `MKORD-2026-1NMUW1N9` was already cancelled through a controller-approved cleanup. No workflow, report, generation or email records were created from that stranded fulfilment.
 
 ## Official Supabase references
 
