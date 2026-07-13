@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { ReportAssemblyError } from '@/lib/reports/assemble-report-data';
+import { ReportEntitlementError } from '@/lib/reports/report-entitlement';
 import { generatePremiumReport } from '@/lib/reports/premium-report-service';
 
 const REPORT_GENERATION_ROLES = new Set(['platform_admin', 'reviewer', 'approver']);
@@ -33,7 +34,7 @@ function errorMessage(error: unknown) {
 }
 
 function failure(error: unknown) {
-  if (error instanceof ReportAssemblyError) {
+  if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) {
     return {
       reason: error.reason,
       message: error.message,
