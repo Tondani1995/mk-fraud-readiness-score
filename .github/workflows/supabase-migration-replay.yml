@@ -52,6 +52,7 @@ jobs:
           supabase --version | tee tmp/migration-replay/supabase-cli-version.txt
           supabase start --help | tee tmp/migration-replay/supabase-start-help.txt
           supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
+          supabase db start --help | tee tmp/migration-replay/supabase-db-start-help.txt
 
       - name: Verify expected migration files and generate repair artefact
         run: |
@@ -60,7 +61,7 @@ jobs:
 
       - name: Start empty local Supabase database
         run: |
-          timeout 12m bash -c 'yes | supabase start --ignore-health-check --exclude studio,imgproxy,edge-runtime,logflare,vector,analytics,realtime'
+          timeout 12m supabase db start
           for attempt in $(seq 1 90); do
             if psql "$LOCAL_DB_URL" --command='select 1;' >/dev/null 2>&1; then
               echo "Local database is ready after ${attempt} attempt(s)." | tee tmp/migration-replay/local-db-ready.txt
