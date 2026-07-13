@@ -108,6 +108,13 @@ create trigger trg_maturity_cap_events_identity
 before insert or update on public.maturity_cap_events
 for each row execute function public.guard_score_trace_identity();
 
+insert into public.app_settings (setting_key, value_json)
+values
+  ('phase6_v1_1_atomic_scoring', '{"atomic_rpc":"complete_score_run_atomic","trace_identity_guards":true,"direct_engine_tests":true,"critical_controls":19,"hard_gates":17,"partial_score_runs_prohibited":true}'::jsonb)
+on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
+
+commit;
+
 create or replace function public.complete_score_run_atomic(
   p_assessment_id uuid,
   p_methodology_version_id uuid,
@@ -405,10 +412,3 @@ begin
   return next;
 end;
 $complete_score_run_atomic$;
-
-insert into public.app_settings (setting_key, value_json)
-values
-  ('phase6_v1_1_atomic_scoring', '{"atomic_rpc":"complete_score_run_atomic","trace_identity_guards":true,"direct_engine_tests":true,"critical_controls":19,"hard_gates":17,"partial_score_runs_prohibited":true}'::jsonb)
-on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
-
-commit;
