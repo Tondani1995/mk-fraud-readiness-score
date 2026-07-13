@@ -1,6 +1,6 @@
 # Controller runbook - numeric migration-chain reconciliation
 
-Status: prepared for controller approval only. Do not execute against production without explicit controller approval.
+Status: ready for controller approval only. Do not execute against production without explicit controller approval.
 
 ## Goal
 
@@ -103,6 +103,23 @@ The dedicated workflow is:
 
 It uses Supabase CLI `2.81.3`, starts an empty local Supabase database, runs the repository migration chain, captures the local ledger, verifies schema/seed/RLS/grants/storage state and uploads evidence.
 
+Current successful evidence:
+
+- Workflow: `Supabase Migration Replay`
+- Run ID: `29286268503`
+- Head SHA: `2e96ed7d0ac21fb8d9aef892089829d5b335c9ed`
+- Evidence artifact: `supabase-migration-replay-evidence`
+- Artifact ID: `8293313917`
+- Artifact digest: `sha256:685461e065eabf88397e53a226a60675dd3bfe924bc63932e3321a2858c5da0c`
+
+The assertions prove the local ledger includes:
+
+```text
+0001 0002 0003 0004 0005 0006 0007 0009 0010 0011 0012 0013 0014 0015 0016 0017 0018 0019
+```
+
+The workflow also verifies foundational enum types, expected public tables, expected public functions, active methodology state, product pricing, disabled Phase 14 flags, RLS posture, admin policies, grants and private `generated-reports` storage bucket.
+
 It also generates the controller-review-only full-statement repair artefact at:
 
 ```text
@@ -114,6 +131,10 @@ The artefact is generated from the real migration files by:
 ```text
 scripts/phase14-generate-numeric-repair-artifact.mjs
 ```
+
+## Replay compatibility correction
+
+The clean-replay workflow exposed a Supabase CLI prepared-statement failure in `0007_phase6_v1_1_atomic_scoring.sql`. The migration has been reordered so its settings seed commits before the large `complete_score_run_atomic` function and that function is the final statement in the file. This preserves the final schema/function/settings outcome while allowing clean replay from an empty local Supabase database.
 
 ## Rollback preparation
 
@@ -158,7 +179,7 @@ The previous `phase14-uat` branch failed before public tables were created. Recr
 ## Proposed controller sequence
 
 1. Review the updated reconciliation pack.
-2. Confirm the clean-replay workflow passes on the exact PR head.
+2. Confirm the clean-replay workflow passes on the exact final PR head.
 3. Download and inspect the generated full-statement repair artefact.
 4. Confirm production pre-repair read-only checks.
 5. Approve the preferred Supabase CLI numeric repair.
