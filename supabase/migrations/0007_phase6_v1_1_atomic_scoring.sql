@@ -123,7 +123,7 @@ returns table(score_run_id uuid, run_number int)
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $complete_score_run_atomic$
 declare
   v_assessment record;
   v_score_run_id uuid;
@@ -404,7 +404,7 @@ begin
   run_number := v_run_number;
   return next;
 end;
-$$;
+$complete_score_run_atomic$;
 
 insert into public.app_settings (setting_key, value_json)
 values
