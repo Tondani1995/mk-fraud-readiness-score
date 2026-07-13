@@ -50,8 +50,8 @@ jobs:
         run: |
           mkdir -p tmp/migration-replay
           supabase --version | tee tmp/migration-replay/supabase-cli-version.txt
+          supabase start --help | tee tmp/migration-replay/supabase-start-help.txt
           supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
-          supabase db start --help | tee tmp/migration-replay/supabase-db-start-help.txt
 
       - name: Verify expected migration files and generate repair artefact
         run: |
@@ -59,7 +59,18 @@ jobs:
             --out tmp/migration-replay/numeric-migration-repair-full-statement-artifact.sql
 
       - name: Start empty local Supabase database
-        run: timeout 12m bash -c 'yes | supabase db start'
+        run: |
+          timeout 12m bash -c 'yes | supabase start --ignore-health-check --exclude studio,imgproxy,edge-runtime,logflare,vector,analytics,realtime'
+          for attempt in $(seq 1 90); do
+            if psql "$LOCAL_DB_URL" --command='select 1;' >/dev/null 2>&1; then
+              echo "Local database is ready after ${attempt} attempt(s)." | tee tmp/migration-replay/local-db-ready.txt
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Local database did not become ready in time.' | tee tmp/migration-replay/local-db-ready.txt
+          docker ps -a | tee tmp/migration-replay/docker-ps-after-start.txt
+          exit 1
 
       - name: Reset local database and replay all migrations
         run: supabase db reset --local --yes
