@@ -1,14 +1,14 @@
 # Supabase migration reconciliation pack
 
-Status: numeric migration repair prepared for controller approval only.
+Status: numeric migration repair ready for controller approval.
 
-This pack documents the migration-chain blocker discovered during Phase 14 PR #21 Supabase branch creation. It does not change application behaviour, schema, production data, feature flags, report generation, email delivery or automation.
+This pack documents the migration-chain blocker discovered during Phase 14 PR #21 Supabase branch creation. It does not change application behaviour, production schema, production data, feature flags, report generation, email delivery or automation.
 
 ## Scope lock
 
 - PR: #21
 - Branch: `phase14/autonomous-premium-report-engine`
-- Current reconciliation work starts from head: `3c9826fb00c72491caf9a0f2129d5d05a58360cb`
+- Current reconciliation evidence head: `2e96ed7d0ac21fb8d9aef892089829d5b335c9ed`
 - Production Supabase project inspected read-only: `jvjxlphdyzerrhwcgkup`
 - No production migration was applied.
 - No production migration-history record was inserted, deleted or repaired.
@@ -70,6 +70,31 @@ The dedicated workflow is:
 
 It pins Supabase CLI `2.81.3`, starts a clean local Supabase database, replays all repository migrations and verifies schema, seed, RLS, grant and storage state.
 
+Current-head evidence:
+
+- GitHub Actions workflow: `Supabase Migration Replay`
+- Run ID: `29286268503`
+- Head SHA: `2e96ed7d0ac21fb8d9aef892089829d5b335c9ed`
+- Result: success
+- Evidence artifact: `supabase-migration-replay-evidence`
+- Artifact ID: `8293313917`
+- Artifact digest: `sha256:685461e065eabf88397e53a226a60675dd3bfe924bc63932e3321a2858c5da0c`
+
+Passing steps:
+
+- checkout;
+- Node 24 setup;
+- Supabase CLI `2.81.3` setup and version recording;
+- expected migration file verification;
+- full-statement repair artefact generation;
+- empty local Supabase database start;
+- local database reset and full migration replay;
+- final local migration ledger capture;
+- schema, seed, RLS, grant and storage assertions;
+- local database lint;
+- local database inspection capture;
+- evidence artifact upload.
+
 The workflow generates and uploads the controller-review-only full-statement repair artefact:
 
 ```text
@@ -84,11 +109,16 @@ scripts/phase14-generate-numeric-repair-artifact.mjs
 
 The generated SQL contains real parsed statements from `0001`, `0002`, `0003`, `0004`, `0005`, `0006`, `0007` and `0009`. It contains no marker-only statement arrays and is not placed in the automatic migration directory.
 
+## Replay compatibility correction
+
+Clean replay exposed a Supabase CLI prepared-statement parsing failure in `0007_phase6_v1_1_atomic_scoring.sql` when the large `complete_score_run_atomic` function was followed by a seed insert and transaction commit. The migration was reordered so the settings seed commits before the large function and that function is the final statement in the file. The final schema and runtime function body remain equivalent for the intended empty-project replay path.
+
 ## Supporting artifacts
 
 - `migration-inventory.md` records the inspected migration chain and production-history mapping.
 - `controller-runbook.md` records the approved numeric repair process and rejected alternatives.
 - `prepared-verification-and-repair.sql` records read-only checks, preferred CLI repair, rollback preparation and explicitly removes the marker-only fallback.
+- `numeric-repair-rollback.md` records the metadata-only rollback procedure and read-only verification queries.
 
 ## Cleanup status correction
 
