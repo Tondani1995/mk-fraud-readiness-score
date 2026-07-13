@@ -12,6 +12,7 @@ for (const file of [
   'package.json',
   'next.config.mjs',
   'src/lib/reports/assemble-report-data.ts',
+  'src/lib/reports/report-entitlement.ts',
   'src/lib/reports/fallback-content.ts',
   'src/lib/reports/select-content-blocks.ts',
   'src/lib/reports/roadmap.ts',
@@ -36,14 +37,23 @@ includes('next.config.mjs', '/api/admin/orders/[orderReference]/generate-report'
 includes('next.config.mjs', "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'Chromium must remain external');
 includes('next.config.mjs', "'puppeteer-core': 'commonjs puppeteer-core'", 'Puppeteer must remain external');
 excludes('next.config.mjs', 'serverExternalPackages', 'Next 15-only config must not be introduced');
+excludes('next.config.mjs', 'turbopack', 'Invalid Turbopack config must not be introduced');
 
 const assemble = 'src/lib/reports/assemble-report-data.ts';
 includes(assemble, 'score_runs', 'Assembly must read persisted score runs');
 includes(assemble, 'score_domain_results', 'Assembly must read persisted domain results');
 includes(assemble, 'score_question_traces', 'Assembly must read persisted question traces');
-includes(assemble, "new Set(['payment_received'])", 'Report generation must remain payment gated');
+includes(assemble, 'orderStatus: order.status', 'Assembly must carry order status into the shared guard');
+includes(assemble, 'amountCents: nullableNumber(order.amount_cents)', 'Assembly must carry paid order amount into the shared guard');
 excludes(assemble, "'verified'", 'Legacy verified status must not enable generation');
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate overall score');
+
+const entitlement = 'src/lib/reports/report-entitlement.ts';
+includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report generation must remain restricted to the R5,000 product');
+includes(entitlement, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report generation must remain payment gated');
+includes(entitlement, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report generation must remain restricted to the essential product');
+includes(entitlement, 'mk_validated_assessment', 'R50,000 personalised engagement must be explicitly rejected');
+includes(entitlement, 'Free products are not eligible', 'Free products must be explicitly rejected');
 
 const fallback = 'src/lib/reports/fallback-content.ts';
 includes(fallback, 'FALLBACK_DOMAIN_CONTENT', 'Deterministic domain fallback must remain');
@@ -72,17 +82,19 @@ includes(renderer, 'resolveChromiumExecutablePath', 'Renderer must resolve the e
 excludes(renderer, "import('puppeteer')", 'Renderer must not depend on bundled browser downloads');
 
 const service = 'src/lib/reports/premium-report-service.ts';
-includes(service, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Shared service must map product codes');
+includes(service, 'validatePremiumReportGenerationEntitlement', 'Shared service must enforce the premium entitlement guard');
 includes(service, 'renderHtmlToPdfBuffer', 'Shared service must render PDFs');
 includes(service, "from('reports')", 'Shared service must persist reports');
 includes(service, 'supersedes_report_id', 'Version supersession must remain');
 includes(service, "status: 'generated'", 'Generated status must be explicit');
 includes(service, "from('report_events')", 'Report events must be recorded');
 includes(service, "from('audit_logs')", 'Audit logs must be recorded');
+excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');
 
 const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
 includes(generateRoute, 'generatePremiumReport', 'Admin route must delegate to shared service');
 includes(generateRoute, 'REPORT_GENERATION_ROLES', 'Admin route must remain role protected');
+includes(generateRoute, 'ReportEntitlementError', 'Admin route must return controlled entitlement conflicts');
 excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF logic');
 
 const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
@@ -102,4 +114,4 @@ if (fs.existsSync(optionalPdfInfo)) {
   if (pages) assert(pages >= 18 && pages <= 24, `Rendered PDF page count must remain 18-24; got ${pages}`);
 }
 
-console.log('Phase 10 premium report tests passed on the Node 24 compatibility boundary. Deterministic assembly, payment gating, private storage, versioning and Chromium packaging remain protected.');
+console.log('Phase 10 premium report tests passed on the Node 24 compatibility boundary. Deterministic assembly, shared payment gating, private storage, versioning and Chromium packaging remain protected.');
