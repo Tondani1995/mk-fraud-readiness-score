@@ -91,6 +91,7 @@ function runStaticChecks() {
   assert(exists('src/app'), 'src/app must exist.');
   assert(exists('src/app/api'), 'src/app/api must exist.');
   assert(exists('src/lib/reports/premium-report-service.ts'), 'Shared premium report service must exist.');
+  assert(exists('src/lib/reports/report-entitlement.ts'), 'Shared premium report entitlement guard must exist.');
 
   const packageJson = JSON.parse(read('package.json'));
   assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Next must remain on 14.x in the Phase 11 security patch.');
@@ -132,13 +133,16 @@ function runStaticChecks() {
 
   const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
   const reportService = 'src/lib/reports/premium-report-service.ts';
+  const entitlementGuard = 'src/lib/reports/report-entitlement.ts';
   const paymentRoute = 'src/app/admin/orders/[orderReference]/status/route.ts';
 
   assertIncludes(generateRoute, 'getAdminSession', 'Generate-report route must check admin session');
   assertIncludes(generateRoute, 'REPORT_GENERATION_ROLES', 'Generate-report route must use explicit roles');
   assertIncludes(generateRoute, 'generatePremiumReport', 'Generate-report route delegates to the shared service after authentication');
   assertSourceOrder(generateRoute, 'const admin = await getAdminSession()', 'await generatePremiumReport', 'Generate-report route must authenticate before calling shared generation service');
-  assertIncludes('src/lib/reports/assemble-report-data.ts', "new Set(['payment_received'])", 'Report assembly must require payment_received only');
+  assertIncludes(entitlementGuard, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report entitlement guard must require payment_received only');
+  assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report entitlement guard must require the paid R5,000 product');
+  assertIncludes(entitlementGuard, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report entitlement guard must require the essential self-assessment product');
   assertNotIncludes('src/lib/reports/assemble-report-data.ts', "'verified'", 'Legacy verified status must not be report-generation eligible');
   assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 
@@ -151,6 +155,7 @@ function runStaticChecks() {
   assertNotIncludes(paymentRoute, 'generatePremiumReport(', 'Payment status route must queue rather than synchronously generate a report.');
 
   assertIncludes(reportService, 'assembleReportData', 'Shared service assembles persisted report evidence');
+  assertIncludes(reportService, 'validatePremiumReportGenerationEntitlement', 'Shared service enforces the premium report entitlement guard');
   assertIncludes(reportService, 'renderHtmlToPdfBuffer', 'Shared service owns PDF rendering');
   assertIncludes(reportService, "from('report_events')", 'Shared service writes report events');
   assertIncludes(reportService, "from('audit_logs')", 'Shared service writes audit logs');
