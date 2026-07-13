@@ -74,6 +74,14 @@ export interface AssembledReportData {
   generatedAt: string;
   packageName: string;
   productCode: string | null;
+  orderStatus: string;
+  amountCents: number | null;
+  currency: string | null;
+  productPriceCents: number | null;
+  productCurrency: string | null;
+  requiresPaymentVerification: boolean | null;
+  deliveryMode: string | null;
+  productActive: boolean | null;
   scoreRun: ScoreRunRecord;
   domainResults: DomainResultRecord[];
   exposureAnswers: ExposureAnswerRecord[];
