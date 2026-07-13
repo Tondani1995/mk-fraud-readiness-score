@@ -5,6 +5,7 @@ import ts from 'typescript';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 function loadPureModule(relativePath) {
   const output = ts.transpileModule(read(relativePath), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
@@ -40,16 +41,25 @@ for (const pattern of [
 ]) assert.match(migration, pattern);
 assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all).*to\s+authenticated/i);
 
+assert.equal(exists('src/app/api/internal/phase14-uat/route.ts'), false);
+assert.equal(exists('src/app/api/internal/phase14-uat-status/route.ts'), false);
+
 const flags = read('src/lib/reports/automation/feature-flags.ts');
 assert.match(flags, /autoFulfilmentEnabled:\s*false/);
 assert.match(flags, /aiNarrativeEnabled:\s*false/);
 assert.match(flags, /autoEmailEnabled:\s*false/);
 assert.match(flags, /automation remains disabled/);
 
+const entitlement = read('src/lib/reports/report-entitlement.ts');
+assert.match(entitlement, /ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000/);
+assert.match(entitlement, /PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'/);
+assert.match(entitlement, /mk_validated_assessment/);
+assert.match(entitlement, /Free products are not eligible/);
+
 const fulfilment = read('src/lib/reports/automation/fulfilment.ts');
 assert.match(fulfilment, /premium-report:\$\{orderId\}:\$\{scoreRunId\}/);
-assert.match(fulfilment, /assembled\.productCode !== 'essential_self_assessment'/);
-assert.match(fulfilment, /product_not_automated/);
+assert.match(fulfilment, /validatePremiumReportGenerationEntitlement\(assembled\)/);
+assert.doesNotMatch(fulfilment, /product_not_automated/);
 
 const start = read('src/lib/reports/automation/workflow-start.ts');
 assert.match(start, /from 'workflow\/api'/);
@@ -72,9 +82,11 @@ assert.match(config, /from 'workflow\/next'/);
 assert.match(config, /export default withWorkflow\(nextConfig\)/);
 assert.match(config, /@sparticuz\/chromium\/bin/);
 assert.match(config, /'puppeteer-core': 'commonjs puppeteer-core'/);
+assert.doesNotMatch(config, /turbopack/);
 
 const service = read('src/lib/reports/premium-report-service.ts');
 for (const pattern of [
+  /validatePremiumReportGenerationEntitlement/,
   /preparePremiumReportNarrative/,
   /renderHtmlToPdfBuffer/,
   /ready_for_email_delivery/,
@@ -82,12 +94,54 @@ for (const pattern of [
   /fulfilment_id/,
   /reusedExistingReport/
 ]) assert.match(service, pattern);
+assert.doesNotMatch(service, /mk_validated_assessment:\s*'mk_validated'/);
 
 const payment = read('src/app/admin/orders/[orderReference]/status/route.ts');
 assert.match(payment, /flags\.autoFulfilmentEnabled/);
 assert.match(payment, /queuePremiumReportFulfilment/);
 assert.match(payment, /startPremiumReportWorkflow/);
 assert.match(payment, /triggerSource:\s*'payment_confirmation'/);
+
+const {
+  validatePremiumReportGenerationEntitlement,
+  ReportEntitlementError
+} = loadPureModule('src/lib/reports/report-entitlement.ts');
+const eligibleReport = {
+  orderId: 'order-id',
+  productCode: 'essential_self_assessment',
+  orderStatus: 'payment_received',
+  amountCents: 500000,
+  currency: 'ZAR',
+  productPriceCents: 500000,
+  productCurrency: 'ZAR',
+  requiresPaymentVerification: true,
+  deliveryMode: 'mk_controlled_pdf',
+  productActive: true,
+  scoreRun: { id: 'score-run-id', assessmentId: 'assessment-id' }
+};
+assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), 'essential_self_assessment');
+for (const testCase of [
+  ['R50,000 personalised engagement', { productCode: 'mk_validated_assessment' }, 'order_not_eligible'],
+  ['free product code', { productCode: 'free_snapshot' }, 'order_not_eligible'],
+  ['awaiting payment', { orderStatus: 'awaiting_payment' }, 'order_not_eligible'],
+  ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],
+  ['expired order', { orderStatus: 'expired' }, 'order_not_eligible'],
+  ['missing score run', { scoreRun: null }, 'assessment_not_scored'],
+  ['free order amount', { amountCents: 0 }, 'order_not_eligible'],
+  ['free product price', { productPriceCents: 0 }, 'order_not_eligible'],
+  ['unsupported currency', { currency: 'USD' }, 'order_not_eligible'],
+  ['unsupported product currency', { productCurrency: 'USD' }, 'order_not_eligible'],
+  ['payment verification not required', { requiresPaymentVerification: false }, 'order_not_eligible'],
+  ['unsupported delivery mode', { deliveryMode: 'mk_led_validated_engagement' }, 'order_not_eligible'],
+  ['inactive product', { productActive: false }, 'order_not_eligible']
+]) {
+  const [label, patch, reason] = testCase;
+  assert.throws(
+    () => validatePremiumReportGenerationEntitlement({ ...eligibleReport, ...patch }),
+    (error) => error instanceof ReportEntitlementError && error.reason === reason,
+    label
+  );
+}
 
 const { validatePremiumReportNarrative } = loadPureModule('src/lib/reports/automation/validation.ts');
 const evidence = {
@@ -128,4 +182,4 @@ assert(validatePremiumReportNarrative(benchmark, evidence).issues.some((issue) =
 const unsupportedNumber = clone(valid); unsupportedNumber.executiveDiagnosis.body = 'This gives 99 percent fraud prevention certainty.';
 assert(validatePremiumReportNarrative(unsupportedNumber, evidence).issues.some((issue) => issue.code === 'unsupported_numeric_claim'));
 
-console.log('Phase 14 autonomous report, durable workflow 4.6.0, deterministic validation and conditional email tests passed on Node 24.');
+console.log('Phase 14 autonomous report, entitlement guard, route isolation, durable workflow 4.6.0, deterministic validation and conditional email tests passed on Node 24.');
