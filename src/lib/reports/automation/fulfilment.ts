@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from '../assemble-report-data';
+import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from '../report-entitlement';
 import type {
   PremiumReportFulfilmentStatus,
   PremiumReportGenerationMode,
@@ -74,20 +75,13 @@ export async function queuePremiumReportFulfilment(input: {
   let assembled;
   try {
     assembled = await assembleReportData(input.orderReference);
+    validatePremiumReportGenerationEntitlement(assembled);
   } catch (error) {
-    if (error instanceof ReportAssemblyError) {
+    if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) {
       return { ok: false, reason: error.reason, message: error.message };
     }
     const message = error instanceof Error ? error.message : 'Report evidence could not be assembled.';
     return { ok: false, reason: 'assembly_failed', message };
-  }
-
-  if (assembled.productCode !== 'essential_self_assessment') {
-    return {
-      ok: false,
-      reason: 'product_not_automated',
-      message: 'Only the R5,000 Essential Self-Assessment Report may enter automated fulfilment.'
-    };
   }
 
   const db = createSupabaseServiceClient() as any;
