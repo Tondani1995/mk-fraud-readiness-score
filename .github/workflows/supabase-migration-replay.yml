@@ -1,0 +1,108 @@
+name: Supabase Migration Replay
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/phase14-migration-replay-assertions.sql'
+      - 'scripts/phase14-generate-numeric-repair-artifact.mjs'
+      - 'docs/v1/supabase-migration-reconciliation/**'
+      - '.github/workflows/supabase-migration-replay.yml'
+  push:
+    branches:
+      - main
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/phase14-migration-replay-assertions.sql'
+      - 'scripts/phase14-generate-numeric-repair-artifact.mjs'
+      - 'docs/v1/supabase-migration-reconciliation/**'
+      - '.github/workflows/supabase-migration-replay.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  clean-migration-replay:
+    name: Clean Supabase migration replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      SUPABASE_CLI_VERSION: '2.81.3'
+      LOCAL_DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Record Supabase CLI version
+        run: |
+          mkdir -p tmp/migration-replay
+          supabase --version | tee tmp/migration-replay/supabase-cli-version.txt
+
+      - name: Verify expected migration files and generate repair artefact
+        run: |
+          node scripts/phase14-generate-numeric-repair-artifact.mjs \
+            --out tmp/migration-replay/numeric-migration-repair-full-statement-artifact.sql
+
+      - name: Start empty local Supabase database
+        run: supabase start
+
+      - name: Reset local database and replay all migrations
+        run: supabase db reset --local --yes
+
+      - name: Capture final local migration ledger
+        run: |
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --tuples-only \
+            --command="select version || E'\t' || name || E'\t' || cardinality(statements) from supabase_migrations.schema_migrations order by version;" \
+            | tee tmp/migration-replay/final-local-migration-ledger.tsv
+          supabase migration list --local | tee tmp/migration-replay/supabase-migration-list-local.txt
+
+      - name: Verify final schema, seed state, RLS, grants and storage
+        run: |
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-migration-replay-assertions.sql \
+            | tee tmp/migration-replay/schema-seed-rls-storage-verification.txt
+
+      - name: Run local database lint
+        run: |
+          supabase db lint --local | tee tmp/migration-replay/supabase-db-lint.txt
+
+      - name: Capture local database inspection checks
+        if: always()
+        run: |
+          {
+            echo '## Supabase CLI'
+            supabase --version
+            echo
+            echo '## Migration list'
+            supabase migration list --local || true
+            echo
+            echo '## Tables'
+            psql "$LOCAL_DB_URL" --tuples-only --command="select table_schema || '.' || table_name from information_schema.tables where table_schema in ('public','storage') order by 1;" || true
+            echo
+            echo '## RLS-enabled public tables'
+            psql "$LOCAL_DB_URL" --tuples-only --command="select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity order by 1;" || true
+          } | tee tmp/migration-replay/local-database-inspection.txt
+
+      - name: Upload migration replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-migration-replay-evidence
+          path: tmp/migration-replay
+          if-no-files-found: error
