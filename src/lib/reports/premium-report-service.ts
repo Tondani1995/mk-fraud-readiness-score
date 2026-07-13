@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
+import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
 import { selectRoadmap } from './roadmap';
 import { renderReportHtml } from './templates/report-template';
@@ -17,11 +18,6 @@ import type {
   PremiumReportNarrativeGenerator,
   PreparedPremiumReportNarrative
 } from './automation/types';
-
-const REPORT_TYPE_BY_PRODUCT_CODE: Record<string, string> = {
-  essential_self_assessment: 'essential_self_assessment',
-  mk_validated_assessment: 'mk_validated'
-};
 
 export type PremiumReportActor = {
   actorType: 'admin' | 'system';
@@ -50,6 +46,11 @@ export type GeneratePremiumReportResult = {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error ?? 'Unknown report-generation error');
+}
+
+function reportFailureCode(error: unknown) {
+  if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) return error.reason;
+  return 'generation_failed';
 }
 
 async function updateFulfilmentSafely(
@@ -245,8 +246,7 @@ export async function generatePremiumReport(
     });
 
     const assembled = await assembleReportData(input.orderReference);
-    const reportType = assembled.productCode ? REPORT_TYPE_BY_PRODUCT_CODE[assembled.productCode] : null;
-    if (!reportType) throw new ReportAssemblyError('order_not_eligible', `Unrecognised report product ${assembled.productCode ?? 'none'}.`);
+    const reportType = validatePremiumReportGenerationEntitlement(assembled);
 
     if (input.fulfilmentId) {
       const { data: existingForFulfilment, error: fulfilmentReportError } = await db
@@ -476,7 +476,7 @@ export async function generatePremiumReport(
       fulfilmentId: input.fulfilmentId ?? '',
       status: 'failed',
       currentStep: 'failed',
-      errorCode: error instanceof ReportAssemblyError ? error.reason : 'generation_failed',
+      errorCode: reportFailureCode(error),
       errorMessage: message
     });
     await logReportEvent({
