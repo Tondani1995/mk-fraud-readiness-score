@@ -97,19 +97,23 @@ function maturityMentions(text: string) {
 
 function overallMaturityMentions(text: string) {
   return MATURITY_BANDS.filter((band) => {
-    const overallBefore = new RegExp(
-      `\\b(?:overall|final|organisation(?:'s)?|organization(?:'s)?|enterprise|readiness)\\b[^.\\n]{0,80}\\b${band}\\b`,
+    const bandBeforeOverall = new RegExp(
+      `\\b${band}\\b\\s+(?:as\\s+the\\s+)?overall(?:\\s+(?:fraud\\s+)?(?:readiness|maturity|result|position|level))?\\b`,
       'i'
     );
-    const overallAfter = new RegExp(
-      `\\b${band}\\b[^.\\n]{0,60}\\b(?:overall|final|organisation(?:'s)?|organization(?:'s)?|enterprise|fraud readiness|readiness (?:level|position|result)|maturity (?:level|position|result))\\b`,
+    const overallBeforeBand = new RegExp(
+      `\\b(?:overall|final)(?:\\s+(?:fraud\\s+)?(?:readiness|maturity|result|position|level))?\\s+(?:(?:is|remains|was|sits|stands)(?:\\s+(?:assessed|rated|classified|placed))?\\s+(?:at|as|within)?\\s*)?(?:an?\\s+)?${band}\\b`,
+      'i'
+    );
+    const subjectAssessment = new RegExp(
+      `\\b(?:the\\s+)?(?:organisation|organization|enterprise|assessment|readiness)\\b[^.\\n]{0,40}\\b(?:is|remains|was|presents|assessed|rated|classified|placed)\\s+(?:at|as|within)?\\s*(?:an?\\s+)?${band}\\b`,
       'i'
     );
     const assessedAs = new RegExp(
       `\\b(?:assessed|rated|classified|placed|presents)\\s+(?:at|as|within)?\\s*(?:an?\\s+)?${band}\\b`,
       'i'
     );
-    return overallBefore.test(text) || overallAfter.test(text) || assessedAs.test(text);
+    return bandBeforeOverall.test(text) || overallBeforeBand.test(text) || subjectAssessment.test(text) || assessedAs.test(text);
   });
 }
 
