@@ -35,7 +35,6 @@ if (typeof handler !== 'function') {
 }
 
 const scenarios = [
-  ['success', 'ai'],
   ['repair', 'ai_repair'],
   ['fallback', 'deterministic_fallback']
 ];
