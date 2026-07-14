@@ -15,12 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Collect exact private UAT PDF
+      - name: Reconstruct exact private UAT PDF
         shell: bash
         env:
-          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=E69f1HdE40uoPUTwjJf4dYXCgO853dWK
+          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=KF5NozAVNsCUwUPm7aORcoCjAcK5PYSS
           ARTIFACT_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
+          EXPECTED_BYTES: '310424'
         run: |
           set -euo pipefail
           echo "::add-mask::$SHARE_ROOT"
@@ -30,7 +31,78 @@ jobs:
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME_PATH"
           export CHROME_PATH
-          node -e 'const p=require("puppeteer-core"),c=require("crypto"),f=require("fs");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const k=await g.cookies(),h=k.map(x=>`${x.name}=${x.value}`).join("; ");if(!h.includes("_vercel_jwt"))throw Error(`missing_vercel_jwt:${new URL(g.url()).host}`);const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(x.subarray(0,4).toString("ascii")!=="%PDF")throw Error("not_pdf");if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);f.writeFileSync("/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf",x);f.writeFileSync("/tmp/pdf-review-evidence.json",JSON.stringify({status:r.status,contentType:t,byteLength:x.length,sha256:s},null,2));console.log(`Private UAT PDF collected: ${x.length} bytes`)}finally{await b.close()}})().catch(e=>{console.error(`PDF_COLLECTION_FAILED:${e.message}`);process.exit(1)})'
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const puppeteer = require('puppeteer-core');
+
+          (async () => {
+            const browser = await puppeteer.launch({
+              executablePath: process.env.CHROME_PATH,
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            try {
+              const page = await browser.newPage();
+              await page.goto(process.env.SHARE_ROOT, { waitUntil: 'networkidle2', timeout: 120000 });
+              const cookies = await page.cookies();
+              const cookieHeader = cookies.map(({ name, value }) => `${name}=${value}`).join('; ');
+              if (!cookieHeader.includes('_vercel_jwt')) {
+                throw new Error(`missing_vercel_jwt:${new URL(page.url()).host}`);
+              }
+
+              const parts = [];
+              let totalChunks = null;
+              let totalBytes = null;
+              let checksum = null;
+              for (let index = 0; index < 20; index += 1) {
+                const response = await fetch(`${process.env.ARTIFACT_URL}?chunk=${index}`, {
+                  headers: { cookie: cookieHeader, accept: 'application/json' },
+                  redirect: 'follow',
+                  cache: 'no-store'
+                });
+                const body = await response.json();
+                if (!response.ok || body.ok !== true) {
+                  throw new Error(`chunk_${index}_failed:${response.status}:${JSON.stringify(body).slice(0, 240)}`);
+                }
+                if (body.chunkIndex !== index) throw new Error(`unexpected_chunk_index_${body.chunkIndex}`);
+                totalChunks ??= body.totalChunks;
+                totalBytes ??= body.totalBytes;
+                checksum ??= body.checksum;
+                if (body.totalChunks !== totalChunks || body.totalBytes !== totalBytes || body.checksum !== checksum) {
+                  throw new Error('chunk_metadata_changed');
+                }
+                parts.push(Buffer.from(body.dataBase64, 'base64'));
+                console.log(`Collected chunk ${index + 1}/${totalChunks}`);
+                if (index + 1 === totalChunks) break;
+              }
+
+              if (!Number.isInteger(totalChunks) || parts.length !== totalChunks) throw new Error('incomplete_chunk_set');
+              const pdf = Buffer.concat(parts);
+              const actualSha256 = crypto.createHash('sha256').update(pdf).digest('hex');
+              if (pdf.length !== Number(process.env.EXPECTED_BYTES) || pdf.length !== totalBytes) {
+                throw new Error(`byte_length_${pdf.length}`);
+              }
+              if (pdf.subarray(0, 4).toString('ascii') !== '%PDF') throw new Error('not_pdf');
+              if (actualSha256 !== process.env.EXPECTED_SHA256 || actualSha256 !== checksum) {
+                throw new Error(`checksum_${actualSha256}`);
+              }
+
+              fs.writeFileSync('/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf', pdf);
+              fs.writeFileSync('/tmp/pdf-review-evidence.json', JSON.stringify({
+                totalChunks,
+                byteLength: pdf.length,
+                sha256: actualSha256
+              }, null, 2));
+              console.log(`Private UAT PDF reconstructed: ${pdf.length} bytes`);
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(`PDF_RECONSTRUCTION_FAILED:${error instanceof Error ? error.message : String(error)}`);
+            process.exit(1);
+          });
+          NODE
 
       - name: Check out draft PR branch
         uses: actions/checkout@v4
@@ -49,15 +121,19 @@ jobs:
           mkdir -p tmp/phase14-uat-pdf-review/pages
           pdftoppm -jpeg -r 150 -jpegopt quality=88 /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf tmp/phase14-uat-pdf-review/pages/page >/dev/null
           pdfinfo /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf > tmp/phase14-uat-pdf-review/pdfinfo.txt
+          pdftotext -layout /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf tmp/phase14-uat-pdf-review/extracted-text.txt
           cp /tmp/pdf-review-evidence.json tmp/phase14-uat-pdf-review/evidence.json
+
           python3 <<'PY'
           from pathlib import Path
           from PIL import Image, ImageOps, ImageDraw
           import json
+
           root = Path('tmp/phase14-uat-pdf-review')
           pages = sorted((root / 'pages').glob('page-*.jpg'))
           if not pages:
               raise SystemExit('No rendered pages')
+
           thumbs = []
           for index, path in enumerate(pages, 1):
               image = Image.open(path).convert('RGB')
@@ -68,6 +144,7 @@ jobs:
               canvas.paste(image, (0, 42))
               ImageDraw.Draw(canvas).text((14, 12), f'Page {index}', fill='black')
               thumbs.append(canvas)
+
           columns, gap = 2, 24
           rows = (len(thumbs) + columns - 1) // columns
           cell_w, cell_h = max(i.width for i in thumbs), max(i.height for i in thumbs)
@@ -75,9 +152,14 @@ jobs:
           for i, image in enumerate(thumbs):
               sheet.paste(image, (gap + (i % columns) * (cell_w + gap), gap + (i // columns) * (cell_h + gap)))
           sheet.save(root / 'contact-sheet.jpg', quality=90, optimize=True)
-          (root / 'render-metadata.json').write_text(json.dumps({'page_count': len(pages), 'render_dpi': 150, 'individual_pages': [p.name for p in pages]}, indent=2))
+          (root / 'render-metadata.json').write_text(json.dumps({
+              'page_count': len(pages),
+              'render_dpi': 150,
+              'individual_pages': [p.name for p in pages]
+          }, indent=2))
           print(f'Rendered {len(pages)} pages')
           PY
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tmp/phase14-uat-pdf-review
