@@ -112,6 +112,7 @@ auditability while first-time clean replays receive atomic behavior.
 | Controlled partial-failure and forward recovery | Passed locally: injected fault left neither `phase14_security_gates` nor migration version `20260714194317`; restored source cleanly replayed. |
 | Application service tests, static assertions, Node 24 typecheck and production build | Passed locally. Existing `<img>` and `turbopack` configuration warnings remain non-blocking and pre-existing. |
 | Node 24 Chromium smoke | Deferred to Ubuntu CI: the bundled Linux Chromium executable cannot run on this macOS host (`ENOEXEC`). |
-| Exact-head CI and Preview | Pending push of this draft PR head. |
+| Exact-head CI | Passed for `a3c705418b6b9f60e61464b7eded7e18742bbd6b`: [V1 verification](https://github.com/Tondani1995/mk-fraud-readiness-score/actions/runs/29373604124) and [clean migration replay](https://github.com/Tondani1995/mk-fraud-readiness-score/actions/runs/29373604134). The latter includes the controlled partial-failure/recovery proof. |
+| Exact-head Preview | Not available: Vercel reported the deployment as blocked for this PR head, so no deployed behavior is claimed. [Deployment record](https://vercel.com/tondanis-projects/mk-fraud-readiness-score/CDrHrpeiMsNFoFVQrDxobLGvmTvr). |
 | Deployed UAT / real external-provider UAT | Not run. |
 | Production read-only isolation | No production credentials, migration, policy/gate mutation, provider call, email or webhook were used. |
