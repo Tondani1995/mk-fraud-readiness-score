@@ -2,11 +2,11 @@
 
 ## Result
 
-**Pass for the Phase 14 AI narrative, repair and deterministic-fallback gates on isolated non-production infrastructure.**
+**Pass for the Phase 14 AI narrative, repair, deterministic fallback, live Resend send, idempotent resend reconciliation and signed webhook gates on isolated non-production infrastructure.**
 
-The UAT used Vercel AI Gateway credits purchased on 14 July 2026, the isolated Supabase branch `phase14-uat`, assessment `MKFRS-2026-5C01B4F1EE`, score run `8540d731-afe9-444b-8850-c59060381677`, and the paid R5,000 `essential_self_assessment` entitlement only.
+The UAT used Vercel AI Gateway credits purchased on 14 July 2026, the isolated Supabase branch `phase14-uat` / `nlukprffbrqmvjcmygyr`, assessment `MKFRS-2026-5C01B4F1EE`, score run `8540d731-afe9-444b-8850-c59060381677`, and the paid R5,000 `essential_self_assessment` entitlement only.
 
-No production data was changed. Automatic fulfilment, customer email delivery, the test-recipient override and R50,000 engagement automation remained disabled. No UAT report was released to a customer.
+No production data was changed. Automatic fulfilment, automatic AI narrative, automatic email delivery, the test-recipient override and R50,000 engagement automation remained disabled.
 
 ## Live funded provider result
 
@@ -61,7 +61,67 @@ The locked score run remained:
 
 The AI layer did not calculate or modify the readiness score, final maturity, exposure result, domain scores, critical gaps, hard-gate outcome or score input hash. These remained sourced from the locked score run.
 
-All generated PDFs were stored in the private `generated-reports` bucket. Reports reached the internal delivery-ready state, but automatic email delivery remained disabled, no email event or provider message was created, and no customer release timestamp was written.
+All generated PDFs were stored in the private `generated-reports` bucket. V7 was released only after the controlled normal-recipient email send was accepted by Resend.
+
+## Live V7 email delivery UAT
+
+Deployment `dpl_3RvMHqyoL37y9kSXSUaLSNLVVfvG` at commit `2189ecd374e9d8de5976f8b9d7409a01c50f8b55` was verified READY and used for the live V7 send gate.
+
+- Route: `POST /score/api/admin/reports/66216b58-2e45-44e0-afe8-0d02f808dd7d/send-email`.
+- Result: HTTP `200`.
+- Email event: `aadabe2c-edeb-48e0-af1c-a17c47e330c9`.
+- Recipient: `admin@mkfraud.co.za`.
+- Recipient override: `false`.
+- Test delivery: `false`.
+- Provider message ID: present.
+- Cumulative attempt number: `3`, reflecting two previous pre-provider/configuration failures and one successful provider-accepted send.
+- Report `RPT-MKFRS-2026-5C01B4F1EE-V7` status changed to `released`.
+- Fulfilment `af3bd626-32ed-457e-a01c-09a1615d3d42` completed at `email_sent`.
+- `premium_report_auto_fulfilment_enabled=false`.
+- `premium_report_ai_narrative_enabled=false`.
+- `premium_report_auto_email_enabled=false`.
+- `r50000_automation_enabled=false`.
+- `premium_report_test_recipient_override=null`.
+
+A repeated non-force request returned HTTP `200` with `reusedExistingSend=true`, reused email event `aadabe2c-edeb-48e0-af1c-a17c47e330c9`, and kept the database at exactly one email event and one provider message for V7. This proves provider-accepted messages are reconciled and not blindly resent.
+
+Manual inbox receipt and PDF-open confirmation were not independently performed by Codex in this pass. The database and provider-acceptance evidence prove dispatch acceptance and attachment checksum integrity, but not human inbox observation.
+
+## Signed webhook UAT
+
+Because the Vercel preview is protected, webhook UAT used a temporary preview-only internal harness deployed at commit `805ae4a7ba5196bfa89d0cda3affde8258879dcb` on deployment `dpl_PS3HRZjMmzrGKC1hXuRAkWpxrcVB`. The harness read the deployed `RESEND_WEBHOOK_SECRET` inside the runtime, never returned or logged the secret, generated controlled Svix-compatible signatures, invoked the existing Resend webhook handler, returned only non-secret status evidence, and was removed after evidence capture.
+
+Run ID: `phase14-webhook-uat-1784045410496`.
+
+Verified cases:
+
+- Missing signature rejected with HTTP `400` / `invalid_webhook`.
+- Invalid signature rejected with HTTP `400` / `invalid_webhook`.
+- Stale timestamp rejected with HTTP `400` / `invalid_webhook`.
+- Valid `email.delivered` for the real V7 provider message accepted with HTTP `200`, `status=delivered`, `stateUpdated=true`.
+- Repeated identical delivered event returned HTTP `200`, `duplicate=true`.
+- Older valid `email.sent` for the same message was accepted as a provider event but did not regress current state: `stateUpdated=false`, `staleEvent=true`, `terminalRegression=true`.
+- Unknown provider message returned HTTP `200`, `ignored=true`, `reason=unknown_message`.
+- Synthetic isolated bounce fixture transitioned to `bounced` with `phase14_uat_synthetic_bounce`.
+- Synthetic isolated complaint fixture transitioned to `complained` with `phase14_uat_synthetic_complaint`.
+- Unrelated synthetic fixture remained `sent`.
+- Delivered provider event ID count remained `1`.
+- Synthetic email fixtures deleted: `3`.
+- Synthetic provider-event fixtures deleted: `2`.
+
+Final UAT database evidence after cleanup:
+
+- V7 email event status: `delivered`.
+- V7 provider event ID: `phase14-webhook-uat-1784045410496-delivered`.
+- V7 delivered timestamp: present.
+- V7 last provider event type: `email.delivered`.
+- V7 provider events retained: `email.delivered` and older `email.sent`, both processed without processing errors.
+- Synthetic fixture remaining count: `0`.
+- Synthetic provider fixture remaining count: `0`.
+- Report checksum: `4fcfe873eef1e93d0969bbd12f76f218689363775e42f07bf7b566793fc3f442`.
+- Stored PDF checksum matched the report checksum.
+- Email metadata attachment checksum matched the report checksum.
+- Stored attachment byte length was positive.
 
 ## Validation defect repaired
 
@@ -79,13 +139,15 @@ After the tests:
 - `premium_report_auto_email_enabled=false`
 - `r50000_automation_enabled=false`
 - `premium_report_test_recipient_override=null`
-- the one-use UAT authorisation was disabled and expired;
-- the unused clean-retest order and fulfilment were cancelled;
-- no additional gateway call was made for the clean-pass proof because the actual stored funded first-pass output was revalidated directly;
+- the temporary UAT admin auth user was soft-deleted and permanently banned;
+- the temporary UAT admin profile was revoked;
+- temporary synthetic webhook fixtures were removed after evidence capture;
 - no fulfilment remained queued, assembling, generating, validating, rendering or storing;
-- temporary UAT routes, the temporary post-build runner, the temporary GitHub workflow and the obsolete preview-auth failure artefact were removed;
-- production contained zero matching UAT assessments, orders or reports, and all production Phase 14 flags remained off.
+- temporary UAT routes, the temporary post-build runner, the temporary GitHub workflow and obsolete preview-auth artefacts were removed or scheduled for removal in the final clean commit;
+- production contained zero matching UAT assessments, orders, reports or temporary UAT admin records, and all production Phase 14 flags remained off.
 
 ## Remaining Phase 14 gates
 
-The AI narrative gate is closed. PR #21 remains draft and unmerged. Controlled test-recipient report-email delivery and signed webhook delivery, bounce and complaint UAT remain outstanding before Phase 14 can be considered complete.
+The AI, deterministic fallback, live email acceptance, idempotent non-force resend and signed webhook gates are closed on isolated UAT infrastructure.
+
+PR #21 remains draft and unmerged until the final clean commit, final CI, final preview verification and independent review-only session inspect the final diff and evidence. Do not mark the PR merge-ready in this session.
