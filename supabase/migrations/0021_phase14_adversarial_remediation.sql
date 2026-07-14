@@ -197,7 +197,7 @@ begin
     'expected_trace_count', v_expected_traces,
     'actual_trace_count', v_actual_traces
   );
-end
+end;
 $function$;
 
 create or replace function public.claim_premium_report_generation(
@@ -281,7 +281,7 @@ begin
     'lease_expires_at', v_claim.lease_expires_at,
     'reason', 'claimed'
   );
-end
+end;
 $function$;
 
 create or replace function public.commit_premium_report_draft(
@@ -334,7 +334,7 @@ begin
   set report_id = v_report_id, updated_at = now()
   where claim_token = p_claim_token;
   return v_report_id;
-end
+end;
 $function$;
 
 create or replace function public.publish_premium_report_generation(
@@ -373,7 +373,7 @@ begin
     'version_number', v_report.version_number,
     'superseded_report_id', v_report.supersedes_report_id
   );
-end
+end;
 $function$;
 
 create or replace function public.release_premium_report_generation_claim(p_claim_token uuid)
@@ -386,7 +386,7 @@ begin
   delete from public.report_generation_claims
   where claim_token = p_claim_token and report_id is null;
   return found;
-end
+end;
 $function$;
 
 create or replace function public.assert_premium_report_delivery_entitlement(
@@ -449,7 +449,7 @@ begin
     'recipient', lower(trim(p_recipient)),
     'test_delivery', lower(trim(p_recipient)) is distinct from v_customer_email
   );
-end
+end;
 $function$;
 
 create or replace function public.recover_stale_premium_report_email_sends()
@@ -469,7 +469,7 @@ begin
     and send_lease_expires_at < now();
   get diagnostics v_count = row_count;
   return v_count;
-end
+end;
 $function$;
 
 create or replace function public.apply_email_provider_event_atomic(
@@ -496,7 +496,7 @@ begin
     when 'email.sent' then 'sent'
     when 'email.delivery_delayed' then 'delivery_delayed'
     when 'email.delivered' then 'delivered'
-    when 'email.failed' then 'failed_before_provider'
+    when 'email.failed' then 'delivery_failed'
     when 'email.bounced' then 'bounced'
     when 'email.suppressed' then 'bounced'
     when 'email.complained' then 'complained'
@@ -531,11 +531,11 @@ begin
     when 'queued' then 10 when 'sending' then 20
     when 'provider_acceptance_uncertain' then 25 when 'reconciliation_required' then 26
     when 'sent' then 30 when 'delivery_delayed' then 40
-    when 'delivered' then 50 when 'failed_before_provider' then 50
+    when 'delivered' then 50 when 'failed_before_provider' then 50 when 'delivery_failed' then 60
     when 'bounced' then 60 when 'complained' then 70 else 0 end;
   v_incoming_rank := case v_status
     when 'sent' then 30 when 'delivery_delayed' then 40 when 'delivered' then 50
-    when 'failed_before_provider' then 50 when 'bounced' then 60 when 'complained' then 70 else 0 end;
+    when 'failed_before_provider' then 50 when 'delivery_failed' then 60 when 'bounced' then 60 when 'complained' then 70 else 0 end;
 
   if v_incoming_rank >= v_current_rank
      and (v_email.delivery_updated_at is null or p_event_created_at >= v_email.delivery_updated_at) then
@@ -544,7 +544,7 @@ begin
         provider_event_id = p_provider_event_id,
         delivered_at = case when v_status = 'delivered' then p_event_created_at else delivered_at end,
         delivery_updated_at = p_event_created_at,
-        error_message = case when v_status in ('bounced', 'complained', 'failed_before_provider') then coalesce(p_payload_json->>'reason', v_status) else null end,
+        error_message = case when v_status in ('bounced', 'complained', 'delivery_failed', 'failed_before_provider') then coalesce(p_payload_json->>'reason', v_status) else null end,
         metadata_json = coalesce(metadata_json, '{}'::jsonb) || jsonb_build_object(
           'last_provider_event_type', p_event_type,
           'last_provider_event_created_at', p_event_created_at
@@ -557,7 +557,7 @@ begin
   set processed_at = now(), processing_error = null
   where id = v_provider_event_id;
   return jsonb_build_object('duplicate', false, 'state_updated', v_applied, 'status', v_status);
-end
+end;
 $function$;
 
 do $grants$
@@ -576,7 +576,7 @@ begin
     execute 'revoke execute on function ' || v_signature || ' from public, anon, authenticated';
     execute 'grant execute on function ' || v_signature || ' to service_role';
   end loop;
-end
+end;
 $grants$;
 
 commit;
