@@ -1,0 +1,35 @@
+name: Phase 14 AI UAT Cleanup
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - .github/workflows/phase14-ai-uat-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out draft PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Remove all AI-UAT-only code
+        run: |
+          set -euo pipefail
+          git rm --ignore-unmatch src/app/api/internal/phase14-uat/ai-runtime/route.ts
+          git rm --ignore-unmatch .github/workflows/phase14-ai-runtime-uat.yml
+          git rm --ignore-unmatch .github/workflows/phase14-ai-uat-cleanup.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove temporary Phase 14 AI runtime UAT code"
+          git push origin HEAD:phase14/autonomous-premium-report-engine
