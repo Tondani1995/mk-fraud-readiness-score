@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const EXPECTED_BRANCH = 'phase14/autonomous-premium-report-engine';
-const EXPECTED_COMMIT = '2189ecd374e9d8de5976f8b9d7409a01c50f8b55';
+const EXPECTED_COMMIT = 'd48a514643f55a3da253623479402d3479971d4a';
 const TARGET_REPORT_ID = '66216b58-2e45-44e0-afe8-0d02f808dd7d';
 const TARGET_EMAIL_EVENT_ID = 'aadabe2c-edeb-48e0-af1c-a17c47e330c9';
 
