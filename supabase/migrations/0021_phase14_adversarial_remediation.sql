@@ -487,7 +487,7 @@ language sql
 security definer
 set search_path = ''
 as $stub$
-  select jsonb_build_object('ignored', true, 'reason', 'migration_stub')
+  select jsonb_build_object('ignored', true, 'reason', 'migration_stub');
 $stub$;
 
 do $grants$
