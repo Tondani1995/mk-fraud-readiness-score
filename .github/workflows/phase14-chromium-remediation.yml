@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      APPROVED_PARENT_SHA: 3c9dddc44d687780fd6069240a0ab38a7114b540
+      APPROVED_PARENT_SHA: 3c771052fa97e12df4a02d1409ce6d353f6dc0d4
       TARGET_BRANCH: phase14/autonomous-premium-report-engine
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
@@ -130,10 +130,7 @@ jobs:
             ]);
             const chromium = normalizeChromiumModule(chromiumModule);
             const executablePath = await resolveChromiumExecutablePath(chromium);
-            const args = puppeteer.defaultArgs({
-              args: chromium.args,
-              headless: 'shell'
-            });
+            const args = puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' });
 
             return puppeteer.launch({
               args,
@@ -275,7 +272,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git restore --worktree --staged next-env.d.ts tsconfig.json 2>/dev/null || true
+          git restore --worktree --staged .gitignore next-env.d.ts tsconfig.json 2>/dev/null || true
           mkdir -p tmp/remediation
           git diff --name-only | sort > tmp/remediation/actual-files.txt
           git status --short > tmp/remediation/status.txt
