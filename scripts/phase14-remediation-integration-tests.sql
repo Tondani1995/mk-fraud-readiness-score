@@ -68,8 +68,6 @@ begin
 end
 $fixture$;
 
-set local session_replication_role = origin;
-
 do $tests$
 declare
   v_context jsonb;
@@ -89,62 +87,50 @@ begin
     raise exception 'Authoritative entitlement completeness counts were not 10/68: %', v_context;
   end if;
 
-  perform set_config('session_replication_role', 'replica', true);
   update public.orders set verified_at = null where id = '21000000-0000-0000-0000-000000000003';
-  perform set_config('session_replication_role', 'origin', true);
   begin
     perform public.assert_premium_report_generation_entitlement('ORDER-PH14-REMEDIATION');
     raise exception 'NO_EXPECTED_EXCEPTION:unverified';
   exception when others then
     if sqlerrm not like '%order_missing_verified_at%' then raise; end if;
   end;
-  perform set_config('session_replication_role', 'replica', true);
   update public.orders set verified_at = now(), verified_by = null where id = '21000000-0000-0000-0000-000000000003';
-  perform set_config('session_replication_role', 'origin', true);
   begin
     perform public.assert_premium_report_generation_entitlement('ORDER-PH14-REMEDIATION');
     raise exception 'NO_EXPECTED_EXCEPTION:partial_verification';
   exception when others then
     if sqlerrm not like '%order_missing_verified_by%' then raise; end if;
   end;
-  perform set_config('session_replication_role', 'replica', true);
   update public.orders set verified_by = '21000000-0000-0000-0000-000000000020' where id = '21000000-0000-0000-0000-000000000003';
   update public.score_runs set locked_at = null where id = '21000000-0000-0000-0000-000000000002';
-  perform set_config('session_replication_role', 'origin', true);
   begin
     perform public.assert_premium_report_generation_entitlement('ORDER-PH14-REMEDIATION');
     raise exception 'NO_EXPECTED_EXCEPTION:unlocked';
   exception when others then
     if sqlerrm not like '%score_run_not_locked%' then raise; end if;
   end;
-  perform set_config('session_replication_role', 'replica', true);
   update public.score_runs set locked_at = now(), input_hash = null where id = '21000000-0000-0000-0000-000000000002';
-  perform set_config('session_replication_role', 'origin', true);
   begin
     perform public.assert_premium_report_generation_entitlement('ORDER-PH14-REMEDIATION');
     raise exception 'NO_EXPECTED_EXCEPTION:missing_hash';
   exception when others then
     if sqlerrm not like '%score_run_input_hash_invalid%' then raise; end if;
   end;
-  perform set_config('session_replication_role', 'replica', true);
   update public.score_runs set input_hash = repeat('a', 64) where id = '21000000-0000-0000-0000-000000000002';
   select id into v_domain_result from public.score_domain_results
     where score_run_id = '21000000-0000-0000-0000-000000000002' limit 1;
   delete from public.score_domain_results where id = v_domain_result;
-  perform set_config('session_replication_role', 'origin', true);
   begin
     perform public.assert_premium_report_generation_entitlement('ORDER-PH14-REMEDIATION');
     raise exception 'NO_EXPECTED_EXCEPTION:domain_incomplete';
   exception when others then
     if sqlerrm not like '%score_run_domain_results_incomplete%' then raise; end if;
   end;
-  perform set_config('session_replication_role', 'replica', true);
   insert into public.score_domain_results(id, score_run_id, domain_id, raw_score, weighted_contribution, coverage_pct, critical_gap_count)
   select v_domain_result, '21000000-0000-0000-0000-000000000002', d.id, 60, 0, 100, 0
   from public.domains d
   where d.id not in (select domain_id from public.score_domain_results where score_run_id = '21000000-0000-0000-0000-000000000002')
   limit 1;
-  perform set_config('session_replication_role', 'origin', true);
 
   v_claim_a := public.claim_premium_report_generation(
     'ORDER-PH14-REMEDIATION', 'worker-a', null, 'essential_self_assessment'
