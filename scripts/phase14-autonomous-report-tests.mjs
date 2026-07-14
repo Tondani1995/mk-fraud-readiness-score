@@ -100,7 +100,7 @@ assert.match(service, /temporaryPath = `tmp\/\$\{assembled\.assessmentReference\
 assert.match(service, /commit_premium_report_draft/);
 assert.match(service, /publish_premium_report_generation/);
 assert(service.indexOf("db.rpc('commit_premium_report_draft'") < service.indexOf('.copy(temporaryPath, finalPath)'), 'Report row/checksum must commit before final object publication.');
-assert(service.indexOf('.copy(temporaryPath, finalPath)') < service.indexOf("db.rpc('publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
+assert(service.lastIndexOf('.copy(temporaryPath, finalPath)') < service.lastIndexOf("db.rpc('publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
 
 const durableAi = read('src/lib/reports/automation/durable-ai-attempts.ts');
 assert.match(durableAi, /provider_request_key/);
