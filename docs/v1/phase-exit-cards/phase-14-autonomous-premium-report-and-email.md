@@ -2,11 +2,11 @@
 
 ## Status
 
-**Code, database and Node 24 Chromium assurance: Pass**
+**Code, database, Node 24 Chromium, live AI Gateway, live Resend send and signed webhook assurance: Pass on isolated UAT infrastructure.**
 
-**Exact supported-Workflow Vercel preview, live AI Gateway and live Resend delivery assurance: Outstanding external gates**
+PR #21 remains draft and unmerged. Do not mark merge-ready until an independent review-only session inspects the final clean diff and evidence.
 
-PR #21 remains draft and unmerged. Customer-wide automation remains disabled.
+Customer-wide automation remains disabled.
 
 ## Locked product outcome
 
@@ -48,12 +48,13 @@ Applied and verified:
 - `0017_phase14_autonomous_report_engine.sql`
 - `0018_phase14_pdf_email_delivery.sql`
 - `0019_phase14_email_delivery_state_hardening.sql`
+- `0020_phase14_privileged_function_grants.sql`
 
 Verified:
 
 - RLS enabled on all new operational tables;
 - anonymous access absent;
-- authenticated access limited to SELECT with admin RLS;
+- authenticated admin RLS helper execution preserved;
 - service-role application access preserved;
 - one active fulfilment per order;
 - one generation attempt number per fulfilment;
@@ -118,36 +119,52 @@ Database UAT used a historical paid R5,000 order and verified:
 
 Node 24 runtime UAT verified real Chromium launch and valid PDF rendering in CI.
 
+Funded AI Gateway UAT verified:
+
+- live `openai/gpt-5.5` structured narrative generation;
+- contextual maturity-validator repair;
+- controlled repair after invalid first pass;
+- deterministic fallback after controlled provider failure;
+- deterministic score, maturity, exposure and gap authority preserved.
+
+Live Resend and signed webhook UAT verified:
+
+- deployment `dpl_3RvMHqyoL37y9kSXSUaLSNLVVfvG` at commit `2189ecd374e9d8de5976f8b9d7409a01c50f8b55` returned HTTP `200` for the V7 email send route;
+- one email event exists for V7;
+- one provider message ID exists;
+- cumulative attempt number is `3`, reflecting two pre-provider/configuration failures and one successful provider-accepted send;
+- V7 status is `released`;
+- fulfilment is `completed` at `email_sent`;
+- a repeated non-force delivery request returned `reusedExistingSend=true` and did not create another email event or provider message;
+- missing signature, invalid signature and stale timestamp webhooks were rejected;
+- valid delivered webhook for the real V7 provider message was accepted and persisted;
+- duplicate delivered provider event was idempotent;
+- older `email.sent` event did not regress delivered state;
+- unknown provider message was ignored;
+- synthetic isolated bounce and complaint fixtures transitioned correctly;
+- unrelated synthetic fixture was not mutated;
+- synthetic webhook fixtures were removed after evidence capture;
+- stored PDF checksum matched the report checksum and email metadata attachment checksum.
+
+Manual inbox receipt and PDF-open confirmation were not independently performed by Codex in this pass. Dispatch acceptance, provider message creation, delivery-state mutation and attachment checksum integrity are evidenced.
+
+## Cleanup and isolation
+
+- Temporary UAT admin auth user: soft-deleted, permanently banned, password removed.
+- Temporary UAT admin profile: revoked.
+- Temporary synthetic webhook fixtures: deleted after evidence capture.
+- Temporary webhook UAT route: removed before final clean PR state.
+- Production Supabase: read-only confirmation only; no matching UAT records and all Phase 14 flags remain off.
+
 ## Remaining gates
 
-The following cannot be accepted until an exact supported-Workflow Vercel deployment is available:
-
-1. invoke the preview-only paid-order harness twice;
-2. prove one fulfilment and one workflow run;
-3. prove a real premium report and one private storage object;
-4. prove deterministic fallback in the deployed workflow;
-5. prove one controlled real AI narrative through AI Gateway;
-6. send a PDF to a controlled test recipient through Resend;
-7. prove test-recipient isolation, duplicate send, forced resend and signed webhook handling;
-8. inspect exact-head Vercel runtime logs;
-9. remove the temporary preview-only UAT route;
-10. rerun the final exact-head CI and Vercel preview.
-
-The current Vercel project is blocking new builds through the free-plan build-rate limit. This is an external deployment gate, not a code, database or test failure.
+- Final clean commit must remove the temporary webhook UAT route.
+- Final exact-head GitHub Actions must pass.
+- Final exact-head Vercel preview must be READY and verified.
+- Independent review-only session must inspect the final diff and evidence.
 
 ## Merge and rollout gate
 
-Do not merge or enable customer-wide automation until the remaining exact-preview and provider gates pass.
+Keep PR #21 draft and unmerged. Do not enable any Phase 14 automation flag, send customer email, or mark the PR merge-ready from this session.
 
-After they pass:
-
-1. remove the temporary UAT route;
-2. keep flags off during merge;
-3. verify production deployment and logs;
-4. configure controlled test recipient;
-5. enable AI for one approved order;
-6. verify AI and deterministic fallback;
-7. enable email for test delivery;
-8. verify attachment and webhook delivery;
-9. remove test override;
-10. enable automatic fulfilment and email through a monitored rollout.
+After independent review approval, rollout must still keep flags off at merge, then use a monitored controller-approved enablement sequence.
