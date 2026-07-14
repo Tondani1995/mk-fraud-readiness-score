@@ -27,6 +27,8 @@ export interface PremiumReportAutomationFlags {
   autoFulfilmentEnabled: boolean;
   aiNarrativeEnabled: boolean;
   autoEmailEnabled: boolean;
+  manualDeliveryEnabled: boolean;
+  testRecipientOverrideEnabled: boolean;
   testRecipientOverride: string | null;
   model: string;
   promptVersion: string;
@@ -107,6 +109,7 @@ export interface NarrativeGenerationUsage {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  estimatedCostMicros?: number;
 }
 
 export interface NarrativeGenerationResult {
@@ -155,4 +158,6 @@ export interface BuildPremiumReportNarrativeInput {
   roadmap: { agenda: RoadmapItem[] };
   flags: PremiumReportAutomationFlags;
   generator?: PremiumReportNarrativeGenerator;
+  generationIdentity?: string;
+  fulfilmentId?: string | null;
 }

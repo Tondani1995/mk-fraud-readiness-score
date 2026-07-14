@@ -7,7 +7,14 @@ export const ESSENTIAL_SELF_ASSESSMENT_CURRENCY = 'ZAR';
 export const ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE = 'mk_controlled_pdf';
 export const PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received';
 
-export type ReportEntitlementReason = 'order_not_eligible' | 'assessment_not_scored';
+export type ReportEntitlementReason =
+  | 'order_not_eligible'
+  | 'order_not_verified'
+  | 'relationship_mismatch'
+  | 'assessment_not_scored'
+  | 'score_run_not_locked'
+  | 'score_run_input_hash_invalid'
+  | 'score_run_incomplete';
 
 export class ReportEntitlementError extends Error {
   constructor(
@@ -38,6 +45,42 @@ export function validatePremiumReportGenerationEntitlement(
 ): typeof ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE {
   if (!assembled?.scoreRun?.id || !assembled.scoreRun.assessmentId) {
     reject('assessment_not_scored', 'Premium report generation requires a completed assessment score run.');
+  }
+
+  if (!assembled.orderVerifiedAt || !assembled.orderVerifiedBy) {
+    reject('order_not_verified', 'Premium report generation requires complete manual payment verification evidence.');
+  }
+
+  if (
+    assembled.orderAssessmentId !== assembled.assessmentId
+    || assembled.scoreRun.assessmentId !== assembled.assessmentId
+  ) {
+    reject('relationship_mismatch', 'Order, assessment and score-run relationships are inconsistent.');
+  }
+
+  if (assembled.currentScoreRunId !== assembled.scoreRun.id) {
+    reject('assessment_not_scored', 'The selected score run is not the assessment current score run.');
+  }
+
+  if (assembled.scoreRun.status !== 'completed') {
+    reject('assessment_not_scored', 'Premium report generation requires a completed score run.');
+  }
+
+  if (!assembled.scoreRun.lockedAt) {
+    reject('score_run_not_locked', 'Premium report generation requires an immutable locked score run.');
+  }
+
+  if (!/^[0-9a-f]{64}$/.test(assembled.scoreRun.inputHash ?? '')) {
+    reject('score_run_input_hash_invalid', 'Premium report generation requires a valid SHA-256 score input hash.');
+  }
+
+  if (
+    assembled.expectedDomainResultCount <= 0
+    || assembled.actualDomainResultCount !== assembled.expectedDomainResultCount
+    || assembled.expectedQuestionTraceCount <= 0
+    || assembled.actualQuestionTraceCount !== assembled.expectedQuestionTraceCount
+  ) {
+    reject('score_run_incomplete', 'Premium report generation requires complete domain results and question traces.');
   }
 
   if (assembled.productCode !== ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE) {

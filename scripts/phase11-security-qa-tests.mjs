@@ -132,7 +132,7 @@ function runStaticChecks() {
   assertIncludes('src/lib/auth/admin-route.ts', ".eq('status', 'active')", 'Admin route helper requires active admin profile');
 
   const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
-  const reportService = 'src/lib/reports/premium-report-service.ts';
+  const reportService = 'src/lib/reports/premium-report-service-core.ts';
   const entitlementGuard = 'src/lib/reports/report-entitlement.ts';
   const paymentRoute = 'src/app/admin/orders/[orderReference]/status/route.ts';
 

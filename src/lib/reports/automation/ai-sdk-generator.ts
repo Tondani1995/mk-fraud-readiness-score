@@ -13,6 +13,8 @@ import type {
 } from './types';
 
 const evidenceRefs = z.array(z.string().min(1)).min(1);
+export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500;
+export const PREMIUM_REPORT_AI_TIMEOUT_MS = 45_000;
 
 export const premiumReportNarrativeSchema = z.object({
   executiveDiagnosis: z.object({
@@ -61,11 +63,14 @@ async function runStructuredGeneration(input: {
       name: 'mk_premium_report_narrative',
       description: 'Evidence-cited narrative sections for an MK Fraud Readiness premium report.'
     }),
-    maxOutputTokens: 9000
+    maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(PREMIUM_REPORT_AI_TIMEOUT_MS)
   });
 
   if (!result.output) throw new Error('AI provider returned no structured narrative output.');
 
+  const gatewayCost = Number((result.providerMetadata as any)?.gateway?.cost);
   return {
     output: result.output as PremiumReportNarrative,
     provider: providerFromModel(input.model),
@@ -74,7 +79,8 @@ async function runStructuredGeneration(input: {
     usage: {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
-      totalTokens: result.usage.totalTokens
+      totalTokens: result.usage.totalTokens,
+      estimatedCostMicros: Number.isFinite(gatewayCost) ? Math.round(gatewayCost * 1_000_000) : undefined
     }
   };
 }

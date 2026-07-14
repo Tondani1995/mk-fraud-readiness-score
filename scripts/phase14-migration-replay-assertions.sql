@@ -35,6 +35,8 @@ insert into expected_tables(name) values
   ('report_events'),
   ('report_fulfilments'),
   ('report_generation_runs'),
+  ('report_generation_claims'),
+  ('report_ai_attempts'),
   ('report_templates'),
   ('reports'),
   ('respondents'),
@@ -109,6 +111,14 @@ insert into expected_functions(name) values
   ('is_admin_role'),
   ('is_question_na_applicable'),
   ('prevent_methodology_mutation_after_use'),
+  ('assert_premium_report_generation_entitlement'),
+  ('claim_premium_report_generation'),
+  ('commit_premium_report_draft'),
+  ('publish_premium_report_generation'),
+  ('release_premium_report_generation_claim'),
+  ('assert_premium_report_delivery_entitlement'),
+  ('recover_stale_premium_report_email_sends'),
+  ('apply_email_provider_event_atomic'),
   ('set_updated_at');
 
 do $$
@@ -134,7 +144,7 @@ end $$;
 create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
-  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019');
+  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019'),('0020'),('0021');
 
 do $$
 declare missing text;
@@ -178,6 +188,7 @@ insert into expected_policies(table_name, policy_name) values
   ('reports', 'reports_admin_manage'),
   ('report_fulfilments', 'report_fulfilments_admin_select'),
   ('report_generation_runs', 'report_generation_runs_admin_select'),
+  ('report_ai_attempts', 'report_ai_attempts_admin_select'),
   ('email_provider_events', 'email_provider_events_admin_select');
 
 do $$
@@ -216,6 +227,15 @@ begin
   if not has_table_privilege('authenticated', 'public.report_generation_runs', 'select') then
     raise exception 'authenticated should have SELECT grant on report_generation_runs for admin RLS';
   end if;
+  if has_table_privilege('anon', 'public.report_ai_attempts', 'select') then
+    raise exception 'anon unexpectedly has SELECT on report_ai_attempts';
+  end if;
+  if not has_table_privilege('authenticated', 'public.report_ai_attempts', 'select') then
+    raise exception 'authenticated should have SELECT grant on report_ai_attempts for admin RLS';
+  end if;
+  if has_table_privilege('authenticated', 'public.report_generation_claims', 'select') then
+    raise exception 'authenticated unexpectedly has SELECT on report_generation_claims';
+  end if;
 end $$;
 
 -- Methodology state and seed coverage.
@@ -249,8 +269,8 @@ begin
   if question_count <> 68 then
     raise exception 'Expected 68 active MFRS-V1.1 questions, found %', question_count;
   end if;
-  if domain_count <> 8 then
-    raise exception 'Expected 8 MFRS-V1.1 domains, found %', domain_count;
+  if domain_count <> 10 then
+    raise exception 'Expected 10 MFRS-V1.1 domains, found %', domain_count;
   end if;
   if exposure_count <> 8 then
     raise exception 'Expected 8 MFRS-V1.1 exposure factors, found %', exposure_count;
@@ -262,6 +282,7 @@ do $$
 declare essential_price integer;
 declare advisory_price integer;
 declare flags jsonb;
+declare delivery_policy jsonb;
 begin
   select price_cents into essential_price
   from public.products
@@ -280,6 +301,9 @@ begin
   select value_json into flags
   from public.app_settings
   where setting_key = 'phase14_autonomous_report_engine';
+  select value_json into delivery_policy
+  from public.app_settings
+  where setting_key = 'phase14_delivery_policy';
 
   if essential_price <> 500000 then
     raise exception 'Unexpected essential report price_cents: %', essential_price;
@@ -298,6 +322,12 @@ begin
   end if;
   if coalesce((flags->>'r50000_automation_enabled')::boolean, true) <> false then
     raise exception 'r50000_automation_enabled must be false';
+  end if;
+  if coalesce((delivery_policy->>'premium_report_manual_delivery_enabled')::boolean, true) <> false then
+    raise exception 'premium_report_manual_delivery_enabled must be false';
+  end if;
+  if coalesce((delivery_policy->>'premium_report_test_recipient_override_enabled')::boolean, true) <> false then
+    raise exception 'premium_report_test_recipient_override_enabled must be false';
   end if;
 end $$;
 

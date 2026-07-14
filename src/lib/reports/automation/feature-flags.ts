@@ -9,6 +9,8 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   autoFulfilmentEnabled: false,
   aiNarrativeEnabled: false,
   autoEmailEnabled: false,
+  manualDeliveryEnabled: false,
+  testRecipientOverrideEnabled: false,
   testRecipientOverride: null,
   model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.5',
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
@@ -31,6 +33,8 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
     autoFulfilmentEnabled: enabled(source.premium_report_auto_fulfilment_enabled),
     aiNarrativeEnabled: enabled(source.premium_report_ai_narrative_enabled),
     autoEmailEnabled: enabled(source.premium_report_auto_email_enabled),
+    manualDeliveryEnabled: enabled(source.premium_report_manual_delivery_enabled),
+    testRecipientOverrideEnabled: enabled(source.premium_report_test_recipient_override_enabled),
     testRecipientOverride: optionalText(source.premium_report_test_recipient_override),
     model: optionalText(source.premium_report_ai_model)
       ?? process.env.MK_REPORT_AI_MODEL?.trim()
@@ -47,12 +51,12 @@ export async function getPremiumReportAutomationFlags(): Promise<PremiumReportAu
     const db = createSupabaseServiceClient() as any;
     const { data, error } = await db
       .from('app_settings')
-      .select('value_json')
-      .eq('setting_key', 'phase14_autonomous_report_engine')
-      .maybeSingle();
+      .select('setting_key,value_json')
+      .in('setting_key', ['phase14_autonomous_report_engine', 'phase14_delivery_policy']);
 
     if (error || !data) return { ...DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS };
-    return parsePremiumReportAutomationFlags(data.value_json);
+    const merged = Object.assign({}, ...(data as Array<{ value_json?: Record<string, unknown> }>).map((row) => row.value_json ?? {}));
+    return parsePremiumReportAutomationFlags(merged);
   } catch (error) {
     console.error('Phase 14 feature flags could not be loaded; automation remains disabled.', error);
     return { ...DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS };

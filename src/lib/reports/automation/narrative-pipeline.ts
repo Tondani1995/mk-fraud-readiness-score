@@ -1,6 +1,7 @@
 import { buildDeterministicNarrative, narrativeToSelectedContent } from './content';
 import { buildPremiumReportEvidencePack, evidenceChecksum } from './evidence';
 import { validatePremiumReportNarrative } from './validation';
+import { createDurablePremiumReportNarrativeGenerator } from './durable-ai-attempts';
 import type {
   BuildPremiumReportNarrativeInput,
   PreparedPremiumReportNarrative
@@ -41,6 +42,14 @@ export async function preparePremiumReportNarrative(
   if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled');
   if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable');
 
+  const generator = input.generationIdentity
+    ? createDurablePremiumReportNarrativeGenerator({
+      generator: input.generator,
+      generationIdentity: input.generationIdentity,
+      fulfilmentId: input.fulfilmentId
+    })
+    : input.generator;
+
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
     input.roadmap,
@@ -57,8 +66,8 @@ export async function preparePremiumReportNarrative(
   };
 
   try {
-    const generation = await input.generator.generate(baseGenerationInput);
-    const validation = validatePremiumReportNarrative(generation.output, evidence);
+    const generation = await generator.generate(baseGenerationInput);
+    const validation = validatePremiumReportNarrative(generation.output, evidence, new Date(), { prohibitMetricRestatement: true });
     if (validation.ok) {
       return {
         narrative: generation.output,
@@ -73,12 +82,12 @@ export async function preparePremiumReportNarrative(
     }
 
     try {
-      const repairGeneration = await input.generator.repair({
+      const repairGeneration = await generator.repair({
         ...baseGenerationInput,
         previousOutput: generation.output,
         validationIssues: validation.issues
       });
-      const repairValidation = validatePremiumReportNarrative(repairGeneration.output, evidence);
+      const repairValidation = validatePremiumReportNarrative(repairGeneration.output, evidence, new Date(), { prohibitMetricRestatement: true });
       if (repairValidation.ok) {
         return {
           narrative: repairGeneration.output,

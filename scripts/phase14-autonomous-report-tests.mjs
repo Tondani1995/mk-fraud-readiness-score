@@ -84,7 +84,7 @@ assert.match(config, /@sparticuz\/chromium\/bin/);
 assert.match(config, /'puppeteer-core': 'commonjs puppeteer-core'/);
 assert.doesNotMatch(config, /turbopack/);
 
-const service = read('src/lib/reports/premium-report-service.ts');
+const service = read('src/lib/reports/premium-report-service-core.ts');
 for (const pattern of [
   /validatePremiumReportGenerationEntitlement/,
   /preparePremiumReportNarrative/,
@@ -95,6 +95,43 @@ for (const pattern of [
   /reusedExistingReport/
 ]) assert.match(service, pattern);
 assert.doesNotMatch(service, /mk_validated_assessment:\s*'mk_validated'/);
+assert.doesNotMatch(service, /removeOrphanedStorageObject/);
+assert.match(service, /temporaryPath = `tmp\/\$\{assembled\.assessmentReference\}\/\$\{claimToken\}\/\$\{crypto\.randomUUID\(\)\}\.pdf`/);
+assert.match(service, /commit_premium_report_draft/);
+assert.match(service, /publish_premium_report_generation/);
+assert(service.indexOf("db.rpc('commit_premium_report_draft'") < service.indexOf('.copy(temporaryPath, finalPath)'), 'Report row/checksum must commit before final object publication.');
+assert(service.indexOf('.copy(temporaryPath, finalPath)') < service.indexOf("db.rpc('publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
+
+const durableAi = read('src/lib/reports/automation/durable-ai-attempts.ts');
+assert.match(durableAi, /provider_request_key/);
+assert.match(durableAi, /status:\s*'started'/);
+assert.match(durableAi, /status:\s*'succeeded'/);
+assert.match(durableAi, /provider_result_uncertain/);
+assert.match(durableAi, /automatic replay is blocked/);
+assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2/);
+assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS/);
+assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS/);
+
+const aiGenerator = read('src/lib/reports/automation/ai-sdk-generator.ts');
+assert.match(aiGenerator, /maxRetries:\s*0/);
+assert.match(aiGenerator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);
+assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500/);
+
+const remediationMigration = read('supabase/migrations/0021_phase14_adversarial_remediation.sql');
+for (const pattern of [
+  /create table public\.report_generation_claims/i,
+  /claim_owner text not null/i,
+  /pg_advisory_xact_lock/i,
+  /commit_premium_report_draft/i,
+  /publish_premium_report_generation/i,
+  /create table public\.report_ai_attempts/i
+]) assert.match(remediationMigration, pattern);
+
+const remediationIntegration = read('scripts/phase14-remediation-integration-tests.sql');
+assert.match(remediationIntegration, /worker-a/);
+assert.match(remediationIntegration, /worker-b/);
+assert.match(remediationIntegration, /deterministic supersession/i);
+assert.match(remediationIntegration, /provider-event-stale-sent/);
 
 const payment = read('src/app/admin/orders/[orderReference]/status/route.ts');
 assert.match(payment, /flags\.autoFulfilmentEnabled/);
@@ -108,6 +145,12 @@ const {
 } = loadPureModule('src/lib/reports/report-entitlement.ts');
 const eligibleReport = {
   orderId: 'order-id',
+  orderReference: 'ORDER-TEST',
+  orderAssessmentId: 'assessment-id',
+  assessmentId: 'assessment-id',
+  currentScoreRunId: 'score-run-id',
+  orderVerifiedAt: '2026-07-14T00:00:00.000Z',
+  orderVerifiedBy: 'admin-id',
   productCode: 'essential_self_assessment',
   orderStatus: 'payment_received',
   amountCents: 500000,
@@ -117,7 +160,17 @@ const eligibleReport = {
   requiresPaymentVerification: true,
   deliveryMode: 'mk_controlled_pdf',
   productActive: true,
-  scoreRun: { id: 'score-run-id', assessmentId: 'assessment-id' }
+  expectedDomainResultCount: 10,
+  actualDomainResultCount: 10,
+  expectedQuestionTraceCount: 68,
+  actualQuestionTraceCount: 68,
+  scoreRun: {
+    id: 'score-run-id',
+    assessmentId: 'assessment-id',
+    status: 'completed',
+    lockedAt: '2026-07-14T00:00:00.000Z',
+    inputHash: 'a'.repeat(64)
+  }
 };
 assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), 'essential_self_assessment');
 for (const testCase of [
@@ -127,6 +180,15 @@ for (const testCase of [
   ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],
   ['expired order', { orderStatus: 'expired' }, 'order_not_eligible'],
   ['missing score run', { scoreRun: null }, 'assessment_not_scored'],
+  ['unverified order', { orderVerifiedAt: null, orderVerifiedBy: null }, 'order_not_verified'],
+  ['partially verified order', { orderVerifiedBy: null }, 'order_not_verified'],
+  ['unlocked score run', { scoreRun: { ...eligibleReport.scoreRun, lockedAt: null } }, 'score_run_not_locked'],
+  ['missing score input hash', { scoreRun: { ...eligibleReport.scoreRun, inputHash: null } }, 'score_run_input_hash_invalid'],
+  ['stale current score reference', { currentScoreRunId: 'old-score-run' }, 'assessment_not_scored'],
+  ['order assessment mismatch', { orderAssessmentId: 'other-assessment' }, 'relationship_mismatch'],
+  ['score assessment mismatch', { scoreRun: { ...eligibleReport.scoreRun, assessmentId: 'other-assessment' } }, 'relationship_mismatch'],
+  ['incomplete domain results', { actualDomainResultCount: 9 }, 'score_run_incomplete'],
+  ['incomplete question traces', { actualQuestionTraceCount: 67 }, 'score_run_incomplete'],
   ['free order amount', { amountCents: 0 }, 'order_not_eligible'],
   ['free product price', { productPriceCents: 0 }, 'order_not_eligible'],
   ['unsupported currency', { currency: 'USD' }, 'order_not_eligible'],
@@ -154,7 +216,11 @@ const evidence = {
   items: [
     { id: 'score:overall', kind: 'overall_score', label: 'Overall score', value: 58 },
     { id: 'score:final_maturity', kind: 'final_maturity', label: 'Final maturity', value: 'Developing' },
+    { id: 'score:exposure', kind: 'exposure_score', label: 'Exposure score', value: 41 },
     { id: 'score:exposure_band', kind: 'exposure_band', label: 'Exposure band', value: 'High' },
+    { id: 'score:coverage', kind: 'coverage', label: 'Coverage', value: 83 },
+    { id: 'gaps:critical_count', kind: 'gap_count', label: 'Critical gaps', value: 1 },
+    { id: 'gaps:major_count', kind: 'gap_count', label: 'Major gaps', value: 2 },
     { id: 'domain:GOV', kind: 'domain', label: 'Governance', domainCode: 'GOV', value: { maturityBand: 'Developing', rawScore: 55 } },
     { id: 'domain:OPS', kind: 'domain', label: 'Operations', domainCode: 'OPS', value: { maturityBand: 'Structured', rawScore: 72 } },
     { id: 'gap:Q-GOV-01', kind: 'gap', label: 'Executive ownership', domainCode: 'GOV', questionCode: 'Q-GOV-01', value: { isCriticalGap: true } }
@@ -188,5 +254,19 @@ assert.equal(validatePremiumReportNarrative(domainBandContext, evidence).ok, tru
 const overallContradiction = clone(valid);
 overallContradiction.executiveDiagnosis.body = 'The organisation is Strategic overall.';
 assert(validatePremiumReportNarrative(overallContradiction, evidence).issues.some((issue) => issue.code === 'overall_maturity_contradiction'));
+const reassignedMetricNumber = clone(valid);
+reassignedMetricNumber.falseComfort.body = 'The exposure score is 58.';
+reassignedMetricNumber.falseComfort.evidenceRefs = ['score:overall', 'score:exposure'];
+assert(validatePremiumReportNarrative(reassignedMetricNumber, evidence).issues.some((issue) => issue.code === 'metric_number_reassignment'));
+const outsideExecutiveContradiction = clone(valid);
+outsideExecutiveContradiction.leadershipAttention.body = 'The organisation is Strategic overall.';
+assert(validatePremiumReportNarrative(outsideExecutiveContradiction, evidence).issues.some((issue) => issue.code === 'maturity_evidence_mismatch'));
+const indirectMaturity = clone(valid);
+indirectMaturity.falseComfort.body = 'This is a fully embedded maturity operating model.';
+assert(validatePremiumReportNarrative(indirectMaturity, evidence, new Date(), { prohibitMetricRestatement: true }).issues.some((issue) => issue.code === 'authoritative_maturity_restatement'));
+const paraphrasedMetric = clone(valid);
+paraphrasedMetric.leadershipAttention.body = 'Risk intensity score is 41.';
+paraphrasedMetric.leadershipAttention.evidenceRefs = ['score:exposure'];
+assert(validatePremiumReportNarrative(paraphrasedMetric, evidence, new Date(), { prohibitMetricRestatement: true }).issues.some((issue) => issue.code === 'authoritative_metric_restatement'));
 
 console.log('Phase 14 autonomous report, entitlement guard, route isolation, durable workflow 4.6.0, deterministic validation and conditional email tests passed on Node 24.');

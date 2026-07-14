@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   clean-migration-replay:
     name: Clean Supabase migration replay
@@ -48,6 +52,7 @@ jobs:
 
       - name: Record Supabase CLI version
         run: |
+          set -Eeuo pipefail
           mkdir -p tmp/migration-replay
           supabase --version | tee tmp/migration-replay/supabase-cli-version.txt
           supabase start --help | tee tmp/migration-replay/supabase-start-help.txt
@@ -56,11 +61,13 @@ jobs:
 
       - name: Verify expected migration files and generate repair artefact
         run: |
+          set -Eeuo pipefail
           node scripts/phase14-generate-numeric-repair-artifact.mjs \
             --out tmp/migration-replay/numeric-migration-repair-full-statement-artifact.sql
 
       - name: Start empty local Supabase database
         run: |
+          set -Eeuo pipefail
           set +e
           timeout 12m supabase db start --debug > tmp/migration-replay/supabase-db-start.log 2>&1
           start_status=$?
@@ -87,6 +94,7 @@ jobs:
 
       - name: Capture final local migration ledger
         run: |
+          set -Eeuo pipefail
           psql "$LOCAL_DB_URL" \
             --set=ON_ERROR_STOP=1 \
             --tuples-only \
@@ -96,18 +104,45 @@ jobs:
 
       - name: Verify final schema, seed state, RLS, grants and storage
         run: |
+          set -Eeuo pipefail
           psql "$LOCAL_DB_URL" \
             --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-migration-replay-assertions.sql \
             | tee tmp/migration-replay/schema-seed-rls-storage-verification.txt
 
+      - name: Prove piped SQL assertion failures remain fatal
+        run: |
+          set -Eeuo pipefail
+          set +e
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --command="do \$controlled_failure\$ begin raise exception 'controlled migration gate failure'; end \$controlled_failure\$;" \
+            | tee tmp/migration-replay/controlled-failing-assertion.txt
+          assertion_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$assertion_status" -eq 0 ]; then
+            echo 'Controlled failing SQL assertion unexpectedly returned success.' >&2
+            exit 1
+          fi
+          echo "Controlled failing SQL assertion returned expected status ${assertion_status}."
+
+      - name: Run Phase 14 transactional remediation integration tests
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-remediation-integration-tests.sql \
+            | tee tmp/migration-replay/phase14-remediation-integration-tests.txt
+
       - name: Run local database lint
         run: |
+          set -Eeuo pipefail
           supabase db lint --local | tee tmp/migration-replay/supabase-db-lint.txt
 
       - name: Capture local database inspection checks
         if: always()
         run: |
+          set -Eeuo pipefail
           {
             echo '## Supabase CLI'
             supabase --version

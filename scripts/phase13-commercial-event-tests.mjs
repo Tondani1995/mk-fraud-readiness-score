@@ -43,7 +43,7 @@ const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
 const commercialEventRoute = 'src/app/api/assessments/[assessmentRef]/commercial-event/route.ts';
 const personalisedRoute = 'src/app/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
-const reportService = 'src/lib/reports/premium-report-service.ts';
+const reportService = 'src/lib/reports/premium-report-service-core.ts';
 const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
 
 const requiredEventTypes = [

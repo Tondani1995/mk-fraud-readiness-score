@@ -13,25 +13,19 @@ export async function POST(request: Request, { params }: { params: { reportId: s
 
   const contentType = request.headers.get('content-type') ?? '';
   let forceResend = false;
-  let recipientOverride: string | null = null;
 
   if (contentType.includes('application/json')) {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     forceResend = body.forceResend === true;
-    recipientOverride = typeof body.recipientOverride === 'string' ? body.recipientOverride : null;
   } else {
     const form = await request.formData();
     forceResend = form.get('forceResend') === 'true';
-    recipientOverride = typeof form.get('recipientOverride') === 'string'
-      ? String(form.get('recipientOverride'))
-      : null;
   }
 
   try {
     const result = await deliverPremiumReportEmail({
       reportId: params.reportId,
       forceResend,
-      recipientOverride,
       actor: {
         actorType: 'admin',
         userId: admin.id,

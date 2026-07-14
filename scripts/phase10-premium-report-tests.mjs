@@ -84,12 +84,12 @@ includes(renderer, 'Chromium runtime diagnostics', 'Renderer must preserve safe 
 includes(renderer, 'resolveChromiumExecutablePath', 'Renderer must resolve the executable explicitly');
 excludes(renderer, "import('puppeteer')", 'Renderer must not depend on bundled browser downloads');
 
-const service = 'src/lib/reports/premium-report-service.ts';
+const service = 'src/lib/reports/premium-report-service-core.ts';
 includes(service, 'validatePremiumReportGenerationEntitlement', 'Shared service must enforce the premium entitlement guard');
 includes(service, 'renderHtmlToPdfBuffer', 'Shared service must render PDFs');
-includes(service, "from('reports')", 'Shared service must persist reports');
-includes(service, 'supersedes_report_id', 'Version supersession must remain');
-includes(service, "status: 'generated'", 'Generated status must be explicit');
+includes(service, 'commit_premium_report_draft', 'Shared service must transactionally persist report drafts');
+includes(service, 'publish_premium_report_generation', 'Version supersession must be committed by the publication RPC');
+includes(service, 'superseded_report_id', 'Version supersession must remain');
 includes(service, "from('report_events')", 'Report events must be recorded');
 includes(service, "from('audit_logs')", 'Audit logs must be recorded');
 excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');

@@ -4,6 +4,9 @@ export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
 export interface ScoreRunRecord {
   id: string;
   assessmentId: string;
+  status: string;
+  lockedAt: string | null;
+  inputHash: string | null;
   overallScore: number;
   calculatedMaturity: MaturityBand;
   finalMaturity: MaturityBand;
@@ -67,6 +70,12 @@ export interface RecommendationRuleRecord {
 
 export interface AssembledReportData {
   orderId: string;
+  orderReference: string;
+  orderAssessmentId: string;
+  assessmentId: string;
+  currentScoreRunId: string;
+  orderVerifiedAt: string | null;
+  orderVerifiedBy: string | null;
   organisationName: string;
   respondentName: string;
   assessmentReference: string;
@@ -88,6 +97,10 @@ export interface AssembledReportData {
   criticalMajorGaps: GapQuestionRecord[];
   maturityCapEvents: MaturityCapEventRecord[];
   recommendationRules: RecommendationRuleRecord[];
+  expectedDomainResultCount: number;
+  actualDomainResultCount: number;
+  expectedQuestionTraceCount: number;
+  actualQuestionTraceCount: number;
 }
 
 export interface ContentBlock {
