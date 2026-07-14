@@ -1,0 +1,547 @@
+MK FRAUD INSIGHTS · INDEPENDENT FRAUD RISK ADVISORY
+
+
+
+
+Fraud Readiness Advisory
+Report
+A structured diagnosis of fraud readiness, exposure and
+priority action prepared exclusively for this organisation's
+leadership team.
+
+
+
+
+PREPARED EXCLUSIVELY FOR
+
+
+MK Phase 14 UAT
+
+
+
+
+Report reference: RPT-MKFRS-2026-5C01B4F1EE-V1
+Generated: 14 July 2026
+Package: Essential Self-Assessment Report
+
+
+Confidential. Prepared exclusively for MK Phase 14 UAT and not for wider distribution without MK Fraud Insights' consent.
+Confidentiality and use
+This report is prepared exclusively for MK Phase 14 UAT based on a structured self-
+assessment. It is intended for internal leadership use and is not for external distribution
+without MK Fraud Insights' consent.
+
+Findings reflect the responses provided at the time of assessment and should be read as
+a diagnostic starting point, not a certification, audit opinion or guarantee.
+   EXECUTIVE DIAGNOSIS
+
+
+
+
+76
+                            Real controls exist; the gap is consistency,
+                            not intent
+out of 100
+                            MK Phase 14 UAT scored 76 out of 100. This is a credible position.
+  Structured
+                            Controls exist and are operating across much of what was assessed. The
+                            next step is proving that they work the same way every time, regardless
+                            of who is on duty, how busy the team is, or how long it has been since
+                            the last incident.
+
+
+
+
+    WHAT LEADERSHIP SHOULD PAY ATTENTION TO
+
+    The priority is demonstrating reliable controls to external parties, not only having them
+    internally.
+   READINESS SCORE
+
+
+
+
+What this score means in commercial terms
+
+       SCORE                BAND               EXPOSURE            COVERAGE              FLAGS
+
+
+    76/100            Structured               High                100%                    1
+
+
+A Structured reading means fraud controls are genuinely present and operating, with consistency the
+main remaining gap. This number should be read together with the exposure profile and domain view
+that follow, not in isolation.
+ THE THREE BIGGEST FRAUD-READINESS RISKS
+
+
+
+
+Where leadership attention matters most right now
+
+ RI S K 1
+
+ Operational Fraud Controls
+ Segregation of duties, access controls and review of sensitive manual activity are operating in the
+ processes that matter most. The next risk is not total absence; it is the gap between controls.
+
+
+
+ RI S K 2
+
+ Fraud Detection Capability
+ Monitoring, exception reporting and escalation exist and function. The next question is whether
+ detection keeps pace as fraud methods and data patterns change.
+
+
+
+ RI S K 3
+
+ Digital and Identity Fraud Risk
+ Identity verification and digital monitoring are in place. Because digital fraud methods evolve quickly,
+ adequate controls here have a shorter shelf life than in many other domains.
+    EXPOSURE PROFILE
+
+
+
+High exposure, matched by real readiness: a defensible position
+                                                                           Exposure describes how much inherent fraud risk the operating
+                                                                           model carries, independent of how good controls are. Readiness
+                                                                           describes how well those controls defend against it. The same
+                                                                           readiness score means something different for a low-exposure
+                                                                           organisation than a high-exposure one.
+
+
+
+
+Horizontal: inherent exposure low to high. Vertical: readiness low to
+high.
+
+
+
+What is driving this organisation's exposure
+
+
+  High-risk process footprint (procurement, refunds, claims, stock,                  Third-party and supplier dependency (suppliers, contractors,
+  payments or service delivery)                                                      agents or outsourced providers)
+                                                                 High exposure                                                              High exposure
+
+
+  Digital channel reliance (portals, apps, online forms, WhatsApp                    Identity and personal-data dependency (customers, employees,
+  journeys or customer platforms)                                                    suppliers, beneficiaries or users)
+                                                                 High exposure                                                                  Moderate
+                                                                                                                                                exposure
+
+
+  Cash, stock or high-value asset handling                                           Operational dispersion (branches, depots, regions, sites, field
+                                                                                     teams or remote operations)
+                                                                        Moderate                                                                Moderate
+                                                                        exposure                                                                exposure
+
+
+
+  Manual intervention and exception volume (overrides,                               Public funds, regulated payments or vulnerable stakeholders
+  adjustments, manual approvals or exception handling)
+                                                                  Low exposure                                                              Low exposure
+  DOMAIN HEATMAP
+
+
+
+
+The score is made up of ten areas, not one average
+
+  Fraud        Fraud Risk     Operational       Fraud            Fraud         Whistleblowing   Third-Party   Digital and      Fraud
+Leadership   Identification     Fraud         Detection         Incident           and          and Supply     Identity     Culture and
+   and                         Controls       Capability       Response         Reporting       Chain Fraud   Fraud Risk    Awareness
+Governance                                                                       Culture            Risk
+                 77              73             76               72                                              73            80
+   80                                                                              80              77
+
+
+                                            Continuous Improvement and Fraud Risk Monitoring
+
+
+
+
+                                                                 71
+   PRIORITY GAP DASHBOARD
+
+
+
+
+If leadership reads one page, it should be this one
+
+Operational Fraud Controls                                                                                    CRITICAL
+
+
+Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk
+indicators.
+   CRITICAL FLAGS AND LEADERSHIP BLIND SPOTS
+
+
+
+
+Where a small number of issues can still mean high risk
+A small number of controls in this methodology carry enough weight that a serious gap in one can limit
+the overall reading, regardless of how strong other areas are.
+
+
+
+  A core control area
+  A control did not meet the required standard.
+  This limits the overall reading to Structured, regardless of performance elsewhere.
+   FALSE COMFORT
+
+
+
+
+Where a strong average can still hide a real gap
+A domain score is an average. It can still contain one specific control that is materially weaker than the
+others feeding into the same number. The purpose of this report is to surface that unevenness so
+leadership does not treat the overall score as a substitute for control-level attention.
+   DOMAIN ADVISORY
+
+
+
+
+Foundations: ownership, awareness and reporting culture
+Whether fraud risk has a real owner, whether people are equipped to notice it, and whether concerns can be raised
+safely.
+
+
+
+    Fraud Leadership and Governance                                                                     80/100
+
+
+    Leadership treats fraud as a strategic risk
+    Fraud risk sits inside genuine governance: named ownership, independent review and a leadership rhythm
+    that keeps pace with change. The work now is to keep that rhythm visible and evidence-led.
+
+
+
+
+    Fraud Risk Identification                                                                           77/100
+
+
+    The organisation knows where fraud risk lives
+    A structured risk assessment exists and covers the processes where fraud typically originates. The main
+    work is keeping that map current as systems, suppliers, channels and roles change.
+
+
+
+
+    Fraud Culture and Awareness                                                                         80/100
+
+
+    Awareness is reinforced by current examples
+    Training uses real scenarios and lessons learned, which keeps awareness current rather than becoming an
+    annual formality.
+
+
+
+
+    Whistleblowing and Reporting Culture                                                                80/100
+
+
+    Reporting culture extends beyond employees
+    Reporting channels reach external stakeholders such as suppliers, contractors or customers, widening the
+    opportunity to detect issues early.
+   DOMAIN ADVISORY
+
+
+
+
+Operational defence: controls, detection and third parties
+Whether day-to-day processes, monitoring and supplier relationships are actually protected, not only described as
+protected.
+
+
+
+   Operational Fraud Controls                                                                                          73/100
+
+
+   Core processes are genuinely protected
+   Segregation of duties, access controls and review of sensitive manual activity are operating in the processes
+   that matter most. The next risk is not total absence; it is the gap between controls.
+
+      Critical: A control in Operational Fraud Controls scored low enough to be flagged as a critical gap. This is one of the
+      controls that can limit the overall maturity interpretation because strength elsewhere cannot fully compensate for
+      it.
+
+
+
+
+   Fraud Detection Capability                                                                                          76/100
+
+
+   The organisation can catch what prevention misses
+   Monitoring, exception reporting and escalation exist and function. The next question is whether detection
+   keeps pace as fraud methods and data patterns change.
+
+
+
+
+   Third-Party and Supply Chain Fraud Risk                                                                             77/100
+
+
+   Supplier risk is managed, with thinner edge visibility
+   Due diligence and payment safeguards exist for suppliers and third parties. Ongoing monitoring is where
+   attention should concentrate next, because third-party risk often moves outside direct visibility.
+   DOMAIN ADVISORY
+
+
+
+
+Response and evolution: incidents, digital risk and
+improvement
+Whether the organisation would handle a real incident well, defend fast-moving digital risk, and keep improving.
+
+
+
+   Fraud Incident Response                                                                                    72/100
+
+
+   An incident would be handled, not improvised
+   A documented response process exists, roles are defined and evidence handling is taken seriously. The
+   remaining question is whether that process has been rehearsed.
+
+
+
+
+   Digital and Identity Fraud Risk                                                                            73/100
+
+
+   Digital controls are real, but need frequent review
+   Identity verification and digital monitoring are in place. Because digital fraud methods evolve quickly,
+   adequate controls here have a shorter shelf life than in many other domains.
+
+
+
+
+   Continuous Improvement and Fraud Risk Monitoring                                                           71/100
+
+
+   The organisation reviews itself, but speed matters
+   Fraud risk and controls are periodically reviewed, and incidents feed improvement. As the organisation and
+   threat landscape change, the speed of review matters as much as its existence.
+  ACTION REGISTER
+
+
+
+
+The specific actions behind the roadmap
+
+ DOMAIN                PRIORITY        IMMEDIATE ACTION                               SUGGESTED OWNER
+
+
+                                       Confirm ownership, current evidence and
+ Operational Fraud
+                       Priority gap    the highest-risk gap in Operational Fraud      COO / process owner
+ Controls
+                                       Controls.
+
+
+                                       Confirm ownership, current evidence and
+ Fraud Detection       Strengthening                                                  Fraud analytics /
+                                       the highest-risk gap in Fraud Detection
+ Capability            priority                                                       monitoring owner
+                                       Capability.
+
+
+                                       Confirm ownership, current evidence and        Digital product /
+ Digital and           Strengthening
+                                       the highest-risk gap in Digital and Identity   identity-control
+ Identity Fraud Risk   priority
+                                       Fraud Risk.                                    owner
+
+
+                                       Confirm ownership, current evidence and
+ Fraud Incident        Strengthening                                                  Incident response
+                                       the highest-risk gap in Fraud Incident
+ Response              priority                                                       lead
+                                       Response.
+ 30/60/90-DAY ROADMAP
+
+
+
+
+A sequenced plan, not a repeated checklist
+
+ Operational Fraud Controls                                                                                     PRIORITY GAP
+
+ Suggested owner: COO / process owner
+
+ Prioritised because a specific control weakness in this domain was material enough to be flagged in the persisted score
+ trace.
+
+
+   30 DAYS                                   60 DAYS                                   90 DAYS
+
+   Confirm ownership, current                Implement or tighten the                  Test whether the improved
+   evidence and the highest-risk gap         minimum repeatable control                Operational Fraud Controls
+   in Operational Fraud Controls.            rhythm for Operational Fraud              controls work consistently under
+                                             Controls.                                 realistic pressure.
+
+
+
+
+ Fraud Detection Capability                                                                         STRENGTHENING PRIORITY
+
+ Suggested owner: Fraud analytics / monitoring owner
+
+ Fraud Detection Capability is functioning, so the work is evidence, consistency and pressure-testing rather than basic
+ build-out.
+
+
+   30 DAYS                                   60 DAYS                                   90 DAYS
+
+   Confirm ownership, current                Implement or tighten the                  Test whether the improved Fraud
+   evidence and the highest-risk gap         minimum repeatable control                Detection Capability controls work
+   in Fraud Detection Capability.            rhythm for Fraud Detection                consistently under realistic
+                                             Capability.                               pressure.
+
+
+
+
+ Digital and Identity Fraud Risk                                                                    STRENGTHENING PRIORITY
+
+ Suggested owner: Digital product / identity-control owner
+
+ Digital and Identity Fraud Risk is functioning, so the work is evidence, consistency and pressure-testing rather than basic
+ build-out.
+
+   30 DAYS                                   60 DAYS                                   90 DAYS
+
+   Confirm ownership, current                Implement or tighten the                  Test whether the improved Digital
+   evidence and the highest-risk gap         minimum repeatable control                and Identity Fraud Risk controls
+   in Digital and Identity Fraud Risk.       rhythm for Digital and Identity           work consistently under realistic
+                                             Fraud Risk.                               pressure.
+Fraud Incident Response                                                                           STRENGTHENING PRIORITY
+
+Suggested owner: Incident response lead
+
+Fraud Incident Response is functioning, so the work is evidence, consistency and pressure-testing rather than basic build-
+out.
+
+  30 DAYS                                  60 DAYS                                   90 DAYS
+
+  Confirm ownership, current               Implement or tighten the                  Test whether the improved Fraud
+  evidence and the highest-risk gap        minimum repeatable control                Incident Response controls work
+  in Fraud Incident Response.              rhythm for Fraud Incident                 consistently under realistic
+                                           Response.                                 pressure.
+   LEADERSHIP AGENDA
+
+
+
+
+What each function should be asking
+
+CEO                             Does leadership see fraud readiness evidence often enough to trust it, not just
+                                assume it?
+
+
+CFO                             Where would finance be the last line of defence if an operational control failed
+                                upstream?
+
+
+COO                             Are operational controls tested under real pressure, or only under normal
+                                conditions?
+
+
+Head of Risk / Internal Audit   Is the review cycle fast enough to catch a new risk before it becomes a loss?
+
+
+Head of Technology / IT         Is digital fraud monitoring being updated as fast as digital fraud methods are
+Security                        changing?
+
+
+Head of HR / People             Is fraud awareness reinforced with real examples, or treated as a once-off
+                                induction topic?
+
+
+Legal / Compliance              Has the incident response process actually been rehearsed, not just written
+                                down?
+ WHERE MK FRAUD INSIGHTS CAN HELP NEXT
+
+
+
+
+Natural next steps, not a hard sell
+
+ Targeted control review
+ A focused review of the specific domains flagged as highest priority in this report.
+
+
+ Fraud risk framework design
+ Building the governance, ownership and reporting structure this report's findings point toward.
+
+
+ Advisory retainer
+ Ongoing access to fraud risk expertise as the organisation's controls and exposure evolve.
+   METHODOLOGY AND LIMITATIONS
+
+
+
+
+How this reading was produced
+This report is generated from a structured self-assessment across ten areas of fraud risk management,
+each weighted by relative importance to overall fraud readiness. Certain control failures can limit the
+overall reading even where other areas score well.
+
+
+
+Limitations
+
+This is a structured self-assessment, not a forensic investigation, external audit or compliance
+certification. It reflects responses at a point in time and should be read as a diagnostic starting point, not
+assurance that fraud has not occurred or cannot occur.
+ APPENDIX: SCORE BASIS
+
+
+
+
+Coverage and completeness
+
+                                          Domain          Coverage
+
+Fraud Leadership and Governance                    100%
+
+Fraud Risk Identification                          100%
+
+Operational Fraud Controls                         100%
+
+
+Fraud Detection Capability                         100%
+
+Fraud Incident Response                            100%
+
+Whistleblowing and Reporting Culture               100%
+
+Third-Party and Supply Chain Fraud Risk            100%
+
+Digital and Identity Fraud Risk                    100%
+
+Fraud Culture and Awareness                        100%
+
+Continuous Improvement and Fraud Risk Monitoring   100%
+    VERSION RECORD
+
+
+
+
+Report versioning
+
+
+     Report reference                                                                                  RPT-MKFRS-2026-5C01B4F1EE-V1
+
+     Assessment reference                                                                                       MKFRS-2026-5C01B4F1EE
+
+     Generated                                                                                                             14 July 2026
+
+     Package                                                                                           Essential Self-Assessment Report
+
+
+
+
+MK Fraud Insights | Independent Fraud Risk Advisory | www.mkfraud.co.za | Prepared exclusively for MK Phase 14 UAT
+
