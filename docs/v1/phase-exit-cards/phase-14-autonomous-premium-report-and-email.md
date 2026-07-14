@@ -2,7 +2,7 @@
 
 ## Status
 
-**Code, database, Node 24 Chromium, live AI Gateway, live Resend send and signed webhook assurance: Pass on isolated UAT infrastructure.**
+**Code, database, Node 24 Chromium, live AI Gateway, live Resend send, signed webhook and final clean-preview assurance: Pass on isolated UAT infrastructure.**
 
 PR #21 remains draft and unmerged. Do not mark merge-ready until an independent review-only session inspects the final clean diff and evidence.
 
@@ -148,20 +148,33 @@ Live Resend and signed webhook UAT verified:
 
 Manual inbox receipt and PDF-open confirmation were not independently performed by Codex in this pass. Dispatch acceptance, provider message creation, delivery-state mutation and attachment checksum integrity are evidenced.
 
+## Final clean verification
+
+Final clean commit `5b8c3cd878add5b264ba4cfeee6d8e523419d298` removed the temporary webhook UAT harness.
+
+- GitHub source lookup for `src/app/api/internal/phase14-webhook-uat/route.ts` at that commit returned `404`.
+- GitHub Actions `V1 Verification` run `29348727938` / run number `924`: success.
+- GitHub Actions `Supabase Migration Replay` run `29348728686` / run number `114`: success.
+- Vercel deployment `dpl_4qJNJh1rRdWwyz5obpUUH9E3Suob`: READY.
+- Deployment URL: `https://mk-fraud-readiness-score-d9kycvwo1-tondanis-projects.vercel.app`.
+- Deployment metadata commit: `5b8c3cd878add5b264ba4cfeee6d8e523419d298`.
+- Deployment metadata branch: `phase14/autonomous-premium-report-engine`.
+- Health route `/score/api/health`: HTTP `200`, phase `phase-14-autonomous-premium-report-engine`.
+
+A direct request to the removed internal route could not be used as app-level `404` proof because Vercel protected-preview SSO intercepted the request before app routing. The merge-state proof is the exact deployment metadata plus the GitHub `404` for the removed route file at the deployed commit.
+
 ## Cleanup and isolation
 
 - Temporary UAT admin auth user: soft-deleted, permanently banned, password removed.
 - Temporary UAT admin profile: revoked.
 - Temporary synthetic webhook fixtures: deleted after evidence capture.
 - Temporary webhook UAT route: removed before final clean PR state.
+- UAT flags: all Phase 14 automation flags remain off and `premium_report_test_recipient_override=null`.
 - Production Supabase: read-only confirmation only; no matching UAT records and all Phase 14 flags remain off.
 
-## Remaining gates
+## Remaining gate
 
-- Final clean commit must remove the temporary webhook UAT route.
-- Final exact-head GitHub Actions must pass.
-- Final exact-head Vercel preview must be READY and verified.
-- Independent review-only session must inspect the final diff and evidence.
+Independent review-only session must inspect the final diff and evidence.
 
 ## Merge and rollout gate
 
