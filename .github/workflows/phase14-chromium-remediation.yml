@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      APPROVED_PARENT_SHA: 51d87688298e2b991eb9f402d4b80d4c7d772060
+      APPROVED_PARENT_SHA: 3ab4ba23f330bab235f9bff26727a5a49898c667
       TARGET_BRANCH: phase14/autonomous-premium-report-engine
     steps:
       - name: Checkout approved branch
@@ -156,24 +156,55 @@ jobs:
           }
           EOF
 
-      - name: Strengthen Node 24 Chromium smoke assertions
+      - name: Update durable runtime assertions
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('scripts/phase14-node24-chromium-smoke.mjs')
-          text = path.read_text()
-          marker = "const source = readFileSync(sourcePath, 'utf8');\n"
-          assertions = """const source = readFileSync(sourcePath, 'utf8');
+
+          smoke_path = Path('scripts/phase14-node24-chromium-smoke.mjs')
+          smoke = smoke_path.read_text()
+          smoke_marker = "const source = readFileSync(sourcePath, 'utf8');\n"
+          smoke_assertions = """const source = readFileSync(sourcePath, 'utf8');
           assert(!source.includes('AWS_LAMBDA_JS_RUNTIME'), 'PDF renderer must not spoof AWS_LAMBDA_JS_RUNTIME.');
           assert(!source.includes('AWS_EXECUTION_ENV'), 'PDF renderer must not spoof AWS_EXECUTION_ENV.');
           assert(!source.includes('executablePath(packagedBinDirectory)'), 'PDF renderer must not pass a discovered bin directory into executablePath().');
           assert(source.includes('chromium.executablePath()'), 'PDF renderer must use the supported zero-argument executablePath() call.');
+          assert(source.includes('puppeteer.defaultArgs'), 'PDF renderer must use Puppeteer default arguments with Sparticuz arguments.');
           """
-          if marker not in text:
+          if smoke_marker not in smoke:
               raise SystemExit('Smoke-test insertion point not found')
-          path.write_text(text.replace(marker, assertions, 1))
+          smoke_path.write_text(smoke.replace(smoke_marker, smoke_assertions, 1))
+
+          phase10_path = Path('scripts/phase10-premium-report-tests.mjs')
+          phase10 = phase10_path.read_text()
+          old_phase10 = "includes(renderer, 'bootstrapChromiumRuntimeEnvironment', 'Renderer must bootstrap Lambda runtime');"
+          new_phase10 = """excludes(renderer, 'AWS_LAMBDA_JS_RUNTIME', 'Renderer must not spoof the Lambda runtime');
+          excludes(renderer, 'AWS_EXECUTION_ENV', 'Renderer must not spoof the Lambda execution environment');
+          includes(renderer, 'chromium.executablePath()', 'Renderer must use the supported zero-argument executable path resolution');
+          includes(renderer, 'puppeteer.defaultArgs', 'Renderer must merge Puppeteer and Sparticuz launch arguments');"""
+          if old_phase10 not in phase10:
+              raise SystemExit('Phase 10 runtime assertion not found')
+          phase10_path.write_text(phase10.replace(old_phase10, new_phase10, 1))
+
+          hardening_path = Path('scripts/platform-hardening-tests.mjs')
+          hardening = hardening_path.read_text()
+          dependency_marker = "assert(pkg.dependencies?.workflow === '4.6.0', 'Supported Workflow SDK 4.6.0 must be pinned');\n"
+          dependency_assertions = dependency_marker + """assert(pkg.dependencies?.['@sparticuz/chromium'] === '143.0.4', 'Node 24 Chromium 143.0.4 must be exactly pinned');
+          assert(pkg.dependencies?.['puppeteer-core'] === '24.34.0', 'Puppeteer 24.34.0 must be exactly pinned for Chrome 143.0.7499.169');
+          """
+          if dependency_marker not in hardening:
+              raise SystemExit('Platform dependency insertion point not found')
+          hardening = hardening.replace(dependency_marker, dependency_assertions, 1)
+          lock_marker = "assert(lock.packages?.['node_modules/workflow']?.version === '4.6.0', 'lockfile must contain Workflow 4.6.0');\n"
+          lock_assertions = lock_marker + """assert(lock.packages?.['node_modules/@sparticuz/chromium']?.version === '143.0.4', 'lockfile must contain Chromium 143.0.4');
+          assert(lock.packages?.['node_modules/puppeteer-core']?.version === '24.34.0', 'lockfile must contain puppeteer-core 24.34.0');
+          assert(lock.packages?.['node_modules/@puppeteer/browsers']?.version === '2.11.0', 'lockfile must contain @puppeteer/browsers 2.11.0');
+          """
+          if lock_marker not in hardening:
+              raise SystemExit('Platform lockfile insertion point not found')
+          hardening_path.write_text(hardening.replace(lock_marker, lock_assertions, 1))
           PY
 
       - name: Verify exact dependency mapping
@@ -189,42 +220,46 @@ jobs:
             'puppeteer-core': '24.34.0'
           };
           for (const [name, version] of Object.entries(expected)) {
-            if (pkg.dependencies[name] !== version) {
-              throw new Error(`${name} is ${pkg.dependencies[name]}, expected exact ${version}`);
-            }
+            if (pkg.dependencies[name] !== version) throw new Error(`${name} is ${pkg.dependencies[name]}, expected exact ${version}`);
             const locked = lock.packages[`node_modules/${name}`]?.version;
-            if (locked !== version) {
-              throw new Error(`${name} lock version is ${locked}, expected ${version}`);
-            }
+            if (locked !== version) throw new Error(`${name} lock version is ${locked}, expected ${version}`);
           }
           const browsers = lock.packages['node_modules/@puppeteer/browsers']?.version;
-          if (browsers !== '2.11.0') {
-            throw new Error(`@puppeteer/browsers lock version is ${browsers}, expected 2.11.0`);
-          }
+          if (browsers !== '2.11.0') throw new Error(`@puppeteer/browsers lock version is ${browsers}, expected 2.11.0`);
           console.log(JSON.stringify({ chromium: '143.0.4', chrome: '143.0.7499.169', puppeteerCore: '24.34.0', puppeteerBrowsers: browsers }));
           NODE
 
       - name: Prove lockfile reproducibility
         run: npm ci
 
-      - name: Run Phase 14 and platform verification
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run phase7:test-snapshot
-          npm run phase8:test-admin
-          npm run methodology:copy-test
-          npm run phase9:test-orders
-          npm run phase10:test-report
-          npm run phase11:test-security
-          npm run phase13:test-events
-          npm run phase13:test-conversion
-          npm run phase14:test-report-engine
-          npm run phase14:test-email-delivery
-          npm run phase14:test-node24-pdf
-          npm run platform:test-hardening
-          npm run typecheck
-          npm run build
+      - name: Phase 7 snapshot tests
+        run: npm run phase7:test-snapshot
+      - name: Phase 8 admin tests
+        run: npm run phase8:test-admin
+      - name: Methodology copy tests
+        run: npm run methodology:copy-test
+      - name: Phase 9 order tests
+        run: npm run phase9:test-orders
+      - name: Phase 10 report tests
+        run: npm run phase10:test-report
+      - name: Phase 11 security tests
+        run: npm run phase11:test-security
+      - name: Phase 13 event tests
+        run: npm run phase13:test-events
+      - name: Phase 13 conversion tests
+        run: npm run phase13:test-conversion
+      - name: Phase 14 report engine tests
+        run: npm run phase14:test-report-engine
+      - name: Phase 14 email tests
+        run: npm run phase14:test-email-delivery
+      - name: Node 24 Chromium PDF launch test
+        run: npm run phase14:test-node24-pdf
+      - name: Platform hardening tests
+        run: npm run platform:test-hardening
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Application build
+        run: npm run build
 
       - name: Restrict committed remediation files
         shell: bash
@@ -234,7 +269,9 @@ jobs:
           cat > /tmp/expected-files.txt <<'EOF'
           package-lock.json
           package.json
+          scripts/phase10-premium-report-tests.mjs
           scripts/phase14-node24-chromium-smoke.mjs
+          scripts/platform-hardening-tests.mjs
           src/lib/reports/render-pdf.ts
           EOF
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
@@ -245,6 +282,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json src/lib/reports/render-pdf.ts scripts/phase14-node24-chromium-smoke.mjs
+          git add package.json package-lock.json src/lib/reports/render-pdf.ts scripts/phase10-premium-report-tests.mjs scripts/phase14-node24-chromium-smoke.mjs scripts/platform-hardening-tests.mjs
           git commit -m "Fix Node 24 Chromium runtime packaging"
           git push origin "HEAD:$TARGET_BRANCH"
