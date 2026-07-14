@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      APPROVED_PARENT_SHA: ef8e1c56326d2822d7b095dfe11842de7aa6c688
+      APPROVED_PARENT_SHA: 3c9dddc44d687780fd6069240a0ab38a7114b540
       TARGET_BRANCH: phase14/autonomous-premium-report-engine
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
@@ -229,10 +229,7 @@ jobs:
           const fs = require('node:fs');
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-          const expected = {
-            '@sparticuz/chromium': '143.0.4',
-            'puppeteer-core': '24.34.0'
-          };
+          const expected = { '@sparticuz/chromium': '143.0.4', 'puppeteer-core': '24.34.0' };
           for (const [name, version] of Object.entries(expected)) {
             if (pkg.dependencies[name] !== version) throw new Error(`${name} is ${pkg.dependencies[name]}, expected exact ${version}`);
             const locked = lock.packages[`node_modules/${name}`]?.version;
@@ -245,7 +242,6 @@ jobs:
 
       - name: Prove lockfile reproducibility
         run: npm ci
-
       - name: Phase 7 snapshot tests
         run: npm run phase7:test-snapshot
       - name: Phase 8 admin tests
@@ -275,11 +271,27 @@ jobs:
       - name: Application build
         run: npm run build
 
+      - name: Prepare changed-file evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git restore --worktree --staged next-env.d.ts tsconfig.json 2>/dev/null || true
+          mkdir -p tmp/remediation
+          git diff --name-only | sort > tmp/remediation/actual-files.txt
+          git status --short > tmp/remediation/status.txt
+          cat tmp/remediation/actual-files.txt
+
+      - name: Upload changed-file evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase14-chromium-remediation-files
+          path: tmp/remediation
+          if-no-files-found: error
+
       - name: Restrict committed remediation files
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only | sort > /tmp/actual-files.txt
           cat > /tmp/expected-files.txt <<'EOF'
           package-lock.json
           package.json
@@ -288,7 +300,7 @@ jobs:
           scripts/platform-hardening-tests.mjs
           src/lib/reports/render-pdf.ts
           EOF
-          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt tmp/remediation/actual-files.txt
 
       - name: Commit tested remediation to draft PR branch
         shell: bash
