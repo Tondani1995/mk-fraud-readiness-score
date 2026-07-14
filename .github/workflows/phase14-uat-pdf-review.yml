@@ -8,14 +8,20 @@ on:
       - .github/workflows/phase14-uat-pdf-review.yml
 
 permissions:
-  contents: read
-  issues: write
+  contents: write
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
+      - name: Check out draft PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 1
+          persist-credentials: true
+
       - name: Download protected private UAT PDF once
         shell: bash
         env:
@@ -85,18 +91,68 @@ jobs:
           });
           NODE
 
-      - name: Upload PDF and evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase14-uat-pdf-review
-          path: |
-            /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf
-            /tmp/pdf-review-evidence.json
-          if-no-files-found: error
-
-      - name: Publish artifact run reference
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Render all PDF pages for controller inspection
+        shell: bash
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/issues/21/comments" \
-            -f body="Phase 14 UAT PDF review artifact ready. Run ID: ${GITHUB_RUN_ID}. Commit: ${GITHUB_SHA}. Artifact: phase14-uat-pdf-review."
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils python3-pil >/dev/null
+          rm -rf tmp/phase14-uat-pdf-review
+          mkdir -p tmp/phase14-uat-pdf-review/pages
+          pdftoppm -jpeg -r 150 -jpegopt quality=88 /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf tmp/phase14-uat-pdf-review/pages/page >/dev/null
+          pdfinfo /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf > tmp/phase14-uat-pdf-review/pdfinfo.txt
+          cp /tmp/pdf-review-evidence.json tmp/phase14-uat-pdf-review/evidence.json
+
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageOps, ImageDraw
+          import json
+
+          root = Path('tmp/phase14-uat-pdf-review')
+          pages = sorted((root / 'pages').glob('page-*.jpg'))
+          if not pages:
+              raise SystemExit('No rendered PDF pages found')
+
+          thumbs = []
+          for index, path in enumerate(pages, 1):
+              image = Image.open(path).convert('RGB')
+              target_width = 720
+              target_height = round(image.height * target_width / image.width)
+              image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+              image = ImageOps.expand(image, border=2, fill='black')
+              canvas = Image.new('RGB', (image.width, image.height + 42), 'white')
+              canvas.paste(image, (0, 42))
+              draw = ImageDraw.Draw(canvas)
+              draw.text((14, 12), f'Page {index}', fill='black')
+              thumbs.append(canvas)
+
+          columns = 2
+          gap = 24
+          rows = (len(thumbs) + columns - 1) // columns
+          cell_w = max(im.width for im in thumbs)
+          cell_h = max(im.height for im in thumbs)
+          sheet = Image.new('RGB', (columns * cell_w + (columns + 1) * gap, rows * cell_h + (rows + 1) * gap), '#dddddd')
+          for i, image in enumerate(thumbs):
+              x = gap + (i % columns) * (cell_w + gap)
+              y = gap + (i // columns) * (cell_h + gap)
+              sheet.paste(image, (x, y))
+          sheet.save(root / 'contact-sheet.jpg', quality=90, optimize=True)
+
+          metadata = {
+              'page_count': len(pages),
+              'render_dpi': 150,
+              'individual_pages': [p.name for p in pages]
+          }
+          (root / 'render-metadata.json').write_text(json.dumps(metadata, indent=2))
+          print(json.dumps(metadata))
+          PY
+
+      - name: Commit temporary visual-review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp/phase14-uat-pdf-review
+          git commit -m "Add temporary Phase 14 UAT PDF review renders"
+          git push origin HEAD:phase14/autonomous-premium-report-engine
