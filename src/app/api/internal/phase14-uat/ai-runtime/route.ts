@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { createAiNarrativeGenerator } from '@/lib/reports/automation/ai-sdk-generator';
+import { createAiSdkPremiumReportNarrativeGenerator } from '@/lib/reports/automation/ai-sdk-generator';
 import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/feature-flags';
 import type {
   NarrativeGenerationInput,
@@ -173,7 +173,7 @@ export async function GET(request: Request) {
   if (claimError || !claimed) return fail('scenario_claim_failed', 409, claimError?.message);
 
   try {
-    const live = createAiNarrativeGenerator(flags.model);
+    const live = createAiSdkPremiumReportNarrativeGenerator(flags.model);
     const generator = scenario === 'success'
       ? live
       : scenario === 'repair'
@@ -242,14 +242,18 @@ export async function GET(request: Request) {
     }, modeMatched ? 200 : 409);
   } catch (error) {
     const failedStates = { ...runningStates, [scenario]: 'failed' };
-    await db.from('app_settings').update({
-      value_json: {
-        ...authorisation,
-        scenarios: failedStates,
-        [`${scenario}_failed_at`]: new Date().toISOString(),
-        [`${scenario}_error`]: error instanceof Error ? error.message : 'unknown_error'
-      }
-    }).eq('setting_key', AUTHORISATION_KEY).catch(() => null);
+    try {
+      await db.from('app_settings').update({
+        value_json: {
+          ...authorisation,
+          scenarios: failedStates,
+          [`${scenario}_failed_at`]: new Date().toISOString(),
+          [`${scenario}_error`]: error instanceof Error ? error.message : 'unknown_error'
+        }
+      }).eq('setting_key', AUTHORISATION_KEY);
+    } catch {
+      // Preserve the primary scenario failure.
+    }
     return fail('scenario_execution_failed', 500, error instanceof Error ? error.message : 'unknown_error');
   }
 }
