@@ -29,7 +29,7 @@
     "phase14:test-report-engine": "node scripts/phase14-autonomous-report-tests.mjs",
     "phase14:test-email-delivery": "node scripts/phase14-email-delivery-tests.mjs",
     "phase14:test-node24-pdf": "node scripts/phase14-node24-chromium-smoke.mjs",
-    "platform:test-hardening": "node scripts/platform-hardening-tests.mjs",
+    "platform:test-hardening": "node scripts/platform-hardening-tests.mjs && node scripts/phase14-database-security-hardening-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
