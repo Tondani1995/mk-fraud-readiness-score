@@ -2,10 +2,12 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { generatePremiumReport } from '../premium-report-service';
 import { createAiSdkPremiumReportNarrativeGenerator } from './ai-sdk-generator';
 import { getPremiumReportAutomationFlags } from './feature-flags';
+import type { Phase14WorkerLease } from '../phase14-security';
 import type { PremiumReportNarrativeGenerator } from './types';
 
 export async function processPremiumReportFulfilment(input: {
   fulfilmentId: string;
+  workerLease: Phase14WorkerLease;
   generator?: PremiumReportNarrativeGenerator;
 }) {
   const db = createSupabaseServiceClient() as any;
@@ -60,7 +62,7 @@ export async function processPremiumReportFulfilment(input: {
     orderReference: order.order_reference,
     fulfilmentId: fulfilment.id,
     generator,
-    flags,
+    workerLease: input.workerLease,
     actor: {
       actorType: 'system',
       action: 'automatic_workflow'

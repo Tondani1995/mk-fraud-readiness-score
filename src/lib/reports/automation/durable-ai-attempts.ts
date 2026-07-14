@@ -59,8 +59,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       .select('id,status,output_json,attempt_number,accounting_status')
       .eq('generation_identity', input.generationIdentity)
       .eq('evidence_checksum', generationInput.evidenceChecksum)
-      .eq('provider', input.generator.provider)
-      .eq('model', input.generator.model)
+      .eq('requested_provider', input.generator.provider)
+      .eq('requested_model', input.generator.model)
       .eq('prompt_version', generationInput.promptVersion)
       .eq('schema_version', generationInput.schemaVersion)
       .eq('attempt_kind', kind)
@@ -103,6 +103,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         provider_request_key: providerRequestKey,
         provider: input.generator.provider,
         model: input.generator.model,
+        requested_provider: input.generator.provider,
+        requested_model: input.generator.model,
         evidence_checksum: generationInput.evidenceChecksum,
         prompt_version: generationInput.promptVersion,
         schema_version: generationInput.schemaVersion,
@@ -123,6 +125,9 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       const result = kind === 'generate'
         ? await input.generator.generate(generationInput)
         : await input.generator.repair(generationInput);
+      if (!result.provider?.trim() || !result.model?.trim()) {
+        throw new Error('AI provider result did not identify its resolved provider and model.');
+      }
       const usage = result.usage;
       const accountingValues = [usage?.inputTokens, usage?.outputTokens, usage?.totalTokens, usage?.estimatedCostMicros];
       if (accountingValues.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
@@ -130,6 +135,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           status: 'accounting_unverified',
           accounting_status: 'unverified',
           output_json: result,
+          resolved_provider: result.provider,
+          resolved_model: result.model,
           input_token_count: usage?.inputTokens ?? null,
           output_token_count: usage?.outputTokens ?? null,
           total_token_count: usage?.totalTokens ?? null,
@@ -155,6 +162,10 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           status: 'succeeded',
           accounting_status: 'verified',
           output_json: result,
+          provider: result.provider,
+          model: result.model,
+          resolved_provider: result.provider,
+          resolved_model: result.model,
           input_token_count: usage?.inputTokens ?? null,
           output_token_count: usage?.outputTokens ?? null,
           total_token_count: usage?.totalTokens ?? null,

@@ -74,13 +74,20 @@ function publicationDb(result = { data: { version_number: 2 }, error: null }) {
 async function publish(storage, publication, extra = {}) {
   return publishCommittedReportObject({
     db: storage.db,
-    privilegedDb: publication.db,
     bucket: 'generated-reports',
     temporaryPath: 'tmp/claim.pdf',
     finalPath: `A/report-${checksum}.pdf`,
     checksum,
-    claimToken: '00000000-0000-0000-0000-000000000001',
-    reportId: '00000000-0000-0000-0000-000000000002',
+    cleanupJobId: '00000000-0000-0000-0000-000000000003',
+    async publishReport() {
+      const { data, error } = await publication.db.rpc('publish_premium_report_generation', {
+        p_claim_token: '00000000-0000-0000-0000-000000000001',
+        p_report_id: '00000000-0000-0000-0000-000000000002'
+      });
+      if (error || !data) throw error ?? new Error('publication returned no data');
+      return data;
+    },
+    async recordCleanupResult() { return true; },
     ...extra
   });
 }
@@ -124,12 +131,14 @@ async function publish(storage, publication, extra = {}) {
     removeError: 'isolated cleanup fault'
   });
   const publication = publicationDb();
-  const cleanupErrors = [];
+  const cleanupResults = [];
   const result = await publish(storage, publication, {
-    onCleanupFailure(error) { cleanupErrors.push(error); }
+    recordCleanupResult(value) { cleanupResults.push(value); return true; }
   });
   assert.equal(result.cleanupFailed, true);
-  assert.equal(cleanupErrors.length, 1, 'cleanup failure must be surfaced to operational alerting');
+  assert.equal(cleanupResults.length, 1, 'cleanup failure must be persisted to the durable queue');
+  assert.equal(cleanupResults[0].deleted, false);
+  assert.match(cleanupResults[0].error, /isolated cleanup fault/);
   assert.equal(publication.calls.length, 1, 'database publication must remain exactly once');
 }
 
@@ -139,6 +148,17 @@ async function publish(storage, publication, extra = {}) {
   const publication = publicationDb();
   await assert.rejects(publish(storage, publication), /checksum mismatch/);
   assert.equal(publication.calls.length, 0, 'checksum mismatch must fail before database publication');
+}
+
+{
+  const storage = storageDouble({
+    objects: [['generated-reports/tmp/claim.pdf', bytes]],
+    removeError: 'isolated cleanup fault with queue outage'
+  });
+  const publication = publicationDb();
+  await assert.rejects(publish(storage, publication, {
+    async recordCleanupResult() { throw new Error('durable cleanup queue unavailable'); }
+  }), /durable cleanup queue unavailable/);
 }
 
 {

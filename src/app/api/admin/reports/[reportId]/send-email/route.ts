@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin-route';
-import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
+import {
+  authorizeBouncedReportRedelivery,
+  deliverPremiumReportEmail
+} from '@/lib/reports/email/report-delivery';
 import { Phase14AuthorizationError } from '@/lib/reports/phase14-security';
 
 export const runtime = 'nodejs';
@@ -13,24 +16,41 @@ export async function POST(request: Request, { params }: { params: { reportId: s
   }
 
   const contentType = request.headers.get('content-type') ?? '';
-  let forceResend = false;
-
-  if (contentType.includes('application/json')) {
-    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-    forceResend = body.forceResend === true;
-  } else {
-    const form = await request.formData();
-    forceResend = form.get('forceResend') === 'true';
-  }
+  const submitted = contentType.includes('application/json')
+    ? await request.json().catch(() => ({})) as Record<string, unknown>
+    : Object.fromEntries(await request.formData());
+  const action = typeof submitted.action === 'string' ? submitted.action : 'send';
 
   try {
+    if (action === 'authorize_bounce_retry') {
+      const evidence = typeof submitted.correctedRecipientEvidence === 'object'
+        && submitted.correctedRecipientEvidence !== null
+        && !Array.isArray(submitted.correctedRecipientEvidence)
+        ? submitted.correctedRecipientEvidence as Record<string, unknown>
+        : { corrected_recipient_evidence: String(submitted.correctedRecipientEvidence ?? '').trim() };
+      const result = await authorizeBouncedReportRedelivery({
+        priorEmailEventId: String(submitted.priorEmailEventId ?? ''),
+        reason: String(submitted.reason ?? ''),
+        correctedRecipientEvidence: evidence
+      });
+      return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (!['send', 'send_bounce_retry'].includes(action)) {
+      return NextResponse.json({ ok: false, error: 'invalid_delivery_action' }, { status: 400 });
+    }
+    const remediationId = action === 'send_bounce_retry'
+      ? String(submitted.bounceRemediationId ?? '').trim()
+      : '';
+    if (action === 'send_bounce_retry' && !remediationId) {
+      return NextResponse.json({ ok: false, error: 'bounce_remediation_required' }, { status: 400 });
+    }
     const result = await deliverPremiumReportEmail({
       reportId: params.reportId,
-      forceResend,
+      bounceRetry: remediationId ? { remediationId } : undefined,
       actor: {
         actorType: 'admin',
         userId: admin.id,
-        action: forceResend ? 'admin_resend' : 'admin_send'
+        action: remediationId ? 'admin_resend' : 'admin_send'
       }
     });
     return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });

@@ -78,6 +78,7 @@ export interface AssembledReportData {
   orderVerifiedBy: string | null;
   organisationName: string;
   respondentName: string;
+  customerEmail: string;
   assessmentReference: string;
   reportReference: string;
   generatedAt: string;

@@ -67,11 +67,25 @@ function generator(overrides = {}) {
   };
   return {
     get calls() { return calls; },
-    provider: result.provider,
-    model: result.model,
+    provider: overrides.requestedProvider ?? result.provider,
+    model: overrides.requestedModel ?? result.model,
     async generate() { calls += 1; return result; },
     async repair() { calls += 1; return result; }
   };
+}
+
+{
+  const database = databaseDouble(null);
+  const provider = generator({ usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, estimatedCostMicros: 1 } });
+  const durable = createDurablePremiumReportNarrativeGenerator({
+    generator: provider,
+    generationIdentity: 'generation-policy-disabled',
+    db: database.db,
+    authorizeAction: async () => { throw new Error('phase14_policy_disabled:ai_narrative'); }
+  });
+  await assert.rejects(durable.generate(generationInput), /phase14_policy_disabled:ai_narrative/);
+  assert.equal(provider.calls, 0, 'AI policy revocation must fail before provider invocation');
+  assert.equal(database.calls.length, 0, 'AI policy revocation must fail before durable attempt lookup');
 }
 
 {
@@ -99,8 +113,8 @@ function generator(overrides = {}) {
   assert.deepEqual(fingerprintFields, {
     generation_identity: 'generation-1',
     evidence_checksum: generationInput.evidenceChecksum,
-    provider: 'openai',
-    model: 'gpt-test',
+    requested_provider: 'openai',
+    requested_model: 'gpt-test',
     prompt_version: generationInput.promptVersion,
     schema_version: generationInput.schemaVersion,
     attempt_kind: 'generate'
@@ -127,6 +141,8 @@ function generator(overrides = {}) {
 {
   const database = databaseDouble(null);
   const provider = generator({
+    requestedProvider: 'vercel-ai-gateway',
+    requestedModel: 'gateway/production-alias',
     provider: 'different-provider',
     model: 'different-model',
     usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15, estimatedCostMicros: 100 }
@@ -140,8 +156,12 @@ function generator(overrides = {}) {
   await durable.generate(generationInput);
   assert.equal(provider.calls, 1, 'different provider/model identity must create a new attempt');
   const inserted = database.calls.find(([name]) => name === 'insert')[2];
-  assert.equal(inserted.provider, 'different-provider');
-  assert.equal(inserted.model, 'different-model');
+  assert.equal(inserted.requested_provider, 'vercel-ai-gateway');
+  assert.equal(inserted.requested_model, 'gateway/production-alias');
+  const succeeded = database.calls.find(([name, table, value]) =>
+    name === 'update' && table === 'report_ai_attempts' && value.status === 'succeeded');
+  assert.equal(succeeded[2].resolved_provider, 'different-provider');
+  assert.equal(succeeded[2].resolved_model, 'different-model');
 }
 
 {

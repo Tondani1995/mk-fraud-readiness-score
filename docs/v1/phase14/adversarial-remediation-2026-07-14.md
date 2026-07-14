@@ -63,3 +63,55 @@ These are deliberately not completed by this inert foundation PR:
 7. separately authorized policy enablement, one flag at a time, after health and rollback checks.
 
 Until those controls are complete, the security gate and every Phase 14 policy remain disabled.
+
+## Fourth adversarial remediation addendum
+
+This addendum closes the third independent review findings against the local
+clean-replay database. It does not claim deployed-UAT, real-provider or
+production execution. The gate remains unsatisfied and every policy row remains
+disabled after replay.
+
+| Finding | Closure | Classification and exact local evidence |
+|---|---|---|
+| Direct service-role gate writes | Revoked direct mutation privileges; an AAL2 platform-admin function and row/truncate guards are the only gate transition path. | Single-session SQL: `phase14-fourth-remediation-tests.sql`; clean-replay grant assertion. |
+| Generic worker authority | Durable, one-time/leased capability records bind type, gate, policy, order, assessment, score, fulfilment, report and recipient; generic commercial RPC execution is revoked. | Single-session SQL and clean-replay grant assertion. |
+| Cookie-dependent automation | The durable workflow claims separately authorized generation and delivery capabilities; it has no browser-cookie authorization path. | Service test: `phase14-autonomous-report-tests.mjs`; single-session SQL capability cases. |
+| Gate without policy | Explicit database policy rows cover manual generation, automatic fulfilment, AI, automatic email, manual delivery, recipient override and cleanup; all seed false. | Single-session SQL: remediation, AAL2 and fourth-remediation suites. |
+| Direct report writes / duplicate currents | `reports_admin_manage` is removed; table mutation grants are revoked; explicit transition RPCs and one-current-report partial unique invariant remain. | Clean-replay grant assertion; single-session SQL. |
+| Stale publication | Publication requires the exact live generation lease/token and competes with recovery under locks. | Multi-session SQL: `phase14-multi-session-concurrency-tests.sql`. |
+| Dispatch revalidation | The irreversible dispatch RPC rechecks gate, policy, payment, product, score, current report, checksum, recipient, provider and lease under lock. | Single-session SQL: post-claim eligibility mutations. |
+| Lost provider response | Reconciliation accepts only verified request-key/webhook correlation or AAL2 evidence-backed operator action; it never guesses from recipient/report identity. | Single-session SQL and provider fault-injection test. |
+| Storage cleanup | Durable cleanup queue records path, owner, checksum, retention, lease, attempts, failure and alert state; queue persistence failures propagate. | Storage fault-injection service test; single-session SQL. |
+| Finalization replay | Immutable authorization/event/report/provider/message identity is compared; conflicts create critical alert without mutation. | Single-session SQL. |
+| Complaint/bounce resend | Complaint is permanently non-retriable. A bounce requires an AAL2 reason/evidence authorization and a separately consumed bounce-retry remediation; no generic `forceResend` input remains. | Single-session SQL and email service test. |
+| Requested vs resolved AI identity | Requested provider/model are stored separately from resolved provider/model and reuse requires both. AI remains policy-disabled. | AI-accounting service test. |
+| Migration atomicity | The closure migration now creates the webhook function through a single transactional `DO` block before its sole final commit. A controlled injected failure immediately before that commit rolls back closure state and its ledger entry; a clean replay then succeeds. | Controller verification plus CI migration-replay job step; local result recorded 15 July 2026. |
+
+### Migration reconciliation strategy
+
+`20260714194317_phase14_security_state_machine_closure.sql` is an explicitly
+reconciled correction to an already-applied migration, not a silent change. The
+reviewed-head blob was `19bcf877e2802600c0877aa2a8f65f85e375e75e`; the corrected
+blob is `26ef6dd5a8466dd4deaa33be23faf9c053d54653`. It keeps the same version and
+the same 72-statement ledger count, has no rollback or renumbering, and changes
+only execution atomicity: its webhook function is installed via dynamic SQL
+inside the original transaction before the final commit.
+
+Before any UAT migration, the controller must: record the existing UAT ledger
+row and database backup; record both hashes and the 72-statement count in the
+change record; confirm the existing function signature and grant; and apply only
+the new forward migration `20260714214023_phase14_fourth_adversarial_remediation.sql`.
+No migration ledger row is deleted, repaired or renumbered. This preserves UAT
+auditability while first-time clean replays receive atomic behavior.
+
+### Verification status at this commit
+
+| Evidence | Status |
+|---|---|
+| Clean local replay, ledger, SQL lint, transactional SQL and multi-session concurrency | Passed on 15 July 2026. |
+| Controlled partial-failure and forward recovery | Passed locally: injected fault left neither `phase14_security_gates` nor migration version `20260714194317`; restored source cleanly replayed. |
+| Application service tests, static assertions, Node 24 typecheck and production build | Passed locally. Existing `<img>` and `turbopack` configuration warnings remain non-blocking and pre-existing. |
+| Node 24 Chromium smoke | Deferred to Ubuntu CI: the bundled Linux Chromium executable cannot run on this macOS host (`ENOEXEC`). |
+| Exact-head CI and Preview | Pending push of this draft PR head. |
+| Deployed UAT / real external-provider UAT | Not run. |
+| Production read-only isolation | No production credentials, migration, policy/gate mutation, provider call, email or webhook were used. |

@@ -3,41 +3,71 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { processPremiumReportFulfilment } from '@/lib/reports/automation/processor';
 import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/feature-flags';
 import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
+import {
+  claimPhase14WorkerCapability,
+  completePhase14WorkerCapability,
+  type Phase14WorkerAuthorization,
+  type Phase14WorkerLease
+} from '@/lib/reports/phase14-security';
 
-export async function premiumReportFulfilmentWorkflow(fulfilmentId: string) {
+export type PremiumReportFulfilmentWorkflowInput = {
+  fulfilmentId: string;
+  generationAuthorization: Phase14WorkerAuthorization;
+  deliveryAuthorization?: Phase14WorkerAuthorization | null;
+};
+
+export async function premiumReportFulfilmentWorkflow(input: PremiumReportFulfilmentWorkflowInput) {
   'use workflow';
 
-  await validateFulfilmentStep(fulfilmentId);
-  const report = await generateAndStoreReportStep(fulfilmentId);
-  await verifyDeliveryReadyStep(fulfilmentId, report.reportId);
-  const delivery = await deliverReportEmailIfEnabledStep(report.reportId);
+  await validateFulfilmentStep(input);
+  const generationLease = await claimWorkerCapabilityStep(input.generationAuthorization);
+  const report = await generateAndStoreReportStep(input.fulfilmentId, generationLease);
+  await verifyDeliveryReadyStep(input.fulfilmentId, report.reportId);
+  const delivery = await deliverReportEmailIfEnabledStep(
+    report.reportId,
+    input.deliveryAuthorization ?? null
+  );
 
   return { ...report, delivery };
 }
 
-async function validateFulfilmentStep(fulfilmentId: string) {
+async function validateFulfilmentStep(input: PremiumReportFulfilmentWorkflowInput) {
   'use step';
 
   const db = createSupabaseServiceClient() as any;
   const { data, error } = await db
     .from('report_fulfilments')
-    .select('id,status,order_id,assessment_id,score_run_id')
-    .eq('id', fulfilmentId)
+    .select('id,status,order_id,assessment_id,score_run_id,generation_capability_id,delivery_capability_id')
+    .eq('id', input.fulfilmentId)
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new FatalError(`Fulfilment ${fulfilmentId} was not found.`);
-  if (data.status === 'cancelled') throw new FatalError(`Fulfilment ${fulfilmentId} is cancelled.`);
+  if (!data) throw new FatalError(`Fulfilment ${input.fulfilmentId} was not found.`);
+  if (data.status === 'cancelled') throw new FatalError(`Fulfilment ${input.fulfilmentId} is cancelled.`);
   if (!data.order_id || !data.assessment_id || !data.score_run_id) {
-    throw new FatalError(`Fulfilment ${fulfilmentId} is missing its persisted source references.`);
+    throw new FatalError(`Fulfilment ${input.fulfilmentId} is missing its persisted source references.`);
+  }
+  if (data.generation_capability_id !== input.generationAuthorization.capabilityId) {
+    throw new FatalError(`Fulfilment ${input.fulfilmentId} is not bound to the supplied generation capability.`);
+  }
+  if (
+    input.deliveryAuthorization
+    && data.delivery_capability_id !== input.deliveryAuthorization.capabilityId
+  ) {
+    throw new FatalError(`Fulfilment ${input.fulfilmentId} is not bound to the supplied delivery capability.`);
   }
 
   return { fulfilmentId: data.id, status: data.status };
 }
 
-async function generateAndStoreReportStep(fulfilmentId: string) {
+async function claimWorkerCapabilityStep(authorization: Phase14WorkerAuthorization) {
   'use step';
-  return processPremiumReportFulfilment({ fulfilmentId });
+  return claimPhase14WorkerCapability(authorization);
+}
+
+async function generateAndStoreReportStep(fulfilmentId: string, workerLease: Phase14WorkerLease) {
+  'use step';
+  return processPremiumReportFulfilment({ fulfilmentId, workerLease });
 }
 
 async function verifyDeliveryReadyStep(fulfilmentId: string, reportId: string) {
@@ -78,16 +108,26 @@ async function verifyDeliveryReadyStep(fulfilmentId: string, reportId: string) {
   };
 }
 
-async function deliverReportEmailIfEnabledStep(reportId: string) {
+async function deliverReportEmailIfEnabledStep(
+  reportId: string,
+  authorization: Phase14WorkerAuthorization | null
+) {
   'use step';
 
   const flags = await getPremiumReportAutomationFlags();
   if (!flags.autoEmailEnabled) {
     return { status: 'skipped', reason: 'premium_report_auto_email_disabled' } as const;
   }
+  if (!authorization) {
+    throw new FatalError('Automatic email is enabled but no human-issued delivery capability was supplied.');
+  }
 
-  return deliverPremiumReportEmail({
+  const workerLease = await claimPhase14WorkerCapability(authorization);
+  const result = await deliverPremiumReportEmail({
     reportId,
+    workerLease,
     actor: { actorType: 'system', action: 'automatic_email' }
   });
+  await completePhase14WorkerCapability(workerLease);
+  return result;
 }

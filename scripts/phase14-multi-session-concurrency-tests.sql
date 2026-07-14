@@ -14,6 +14,11 @@ set satisfied_version = required_version, status = 'satisfied',
     reason = 'isolated multi-session test only', updated_at = now()
 where gate_key = 'phase14-premium-report';
 
+update public.phase14_feature_policies
+set enabled = true, updated_by = '22000000-0000-0000-0000-000000000020',
+    reason = 'isolated multi-session test only', updated_at = now()
+where policy_key = 'manual_generation';
+
 do $fixture$
 declare
   v_methodology uuid;
@@ -133,8 +138,85 @@ begin
 end
 $assert_recovery$;
 
+-- True two-session stale-publisher versus recovery race. Regardless of lock
+-- order, the expired publisher must fail and exactly one recovery must own the
+-- replacement token.
 select dblink_disconnect('phase14_worker_a');
 select dblink_disconnect('phase14_worker_b');
+select dblink_connect('phase14_publisher','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_connect('phase14_recovery','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_exec('phase14_publisher', $$set request.jwt.claims = '{"sub":"22000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"22000000-0000-0000-0000-000000000098"}'$$);
+select dblink_exec('phase14_recovery', $$set request.jwt.claims = '{"sub":"22000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"22000000-0000-0000-0000-000000000099"}'$$);
+
+create or replace function public.phase14_test_try_stale_publish(p_token uuid,p_report_id uuid)
+returns text language plpgsql set search_path=''
+as $test$
+begin
+  perform public.publish_premium_report_generation(p_token,p_report_id);
+  return 'unexpected_publication';
+exception when others then
+  return 'blocked:' || sqlerrm;
+end
+$test$;
+
+create or replace function public.phase14_test_try_recovery()
+returns text language plpgsql set search_path=''
+as $test$
+begin
+  return public.recover_premium_report_generation_claim(
+    'ORDER-PH14-MULTI-SESSION','publisher-race-recovery'
+  )::text;
+exception when others then
+  return 'blocked:' || sqlerrm;
+end
+$test$;
+
+insert into storage.objects(id,bucket_id,name,metadata)
+select gen_random_uuid(),final_storage_bucket,final_storage_path,
+  jsonb_build_object('mimetype','application/pdf','sha256',expected_checksum)
+from public.report_generation_claims
+where assessment_id='22000000-0000-0000-0000-000000000001';
+
+create temp table phase14_stale_publication_context(token uuid,report_id uuid);
+insert into phase14_stale_publication_context
+select claim_token,report_id from public.report_generation_claims
+where assessment_id='22000000-0000-0000-0000-000000000001';
+update public.report_generation_claims set lease_expires_at=now()-interval '1 minute'
+where assessment_id='22000000-0000-0000-0000-000000000001';
+
+select dblink_send_query('phase14_publisher',format(
+  'select public.phase14_test_try_stale_publish(%L::uuid,%L::uuid)',token,report_id
+)) from phase14_stale_publication_context;
+select dblink_send_query('phase14_recovery','select public.phase14_test_try_recovery()');
+
+create temp table phase14_publisher_recovery_results(worker text,result text);
+insert into phase14_publisher_recovery_results select 'stale-publisher',result
+from dblink_get_result('phase14_publisher',false) as t(result text);
+insert into phase14_publisher_recovery_results select 'recovery',result
+from dblink_get_result('phase14_recovery',false) as t(result text);
+
+do $assert_publisher_recovery$
+declare v_claim public.report_generation_claims%rowtype;
+begin
+  select * into strict v_claim from public.report_generation_claims
+  where assessment_id='22000000-0000-0000-0000-000000000001';
+  if (select result from phase14_publisher_recovery_results where worker='stale-publisher')
+       not like 'blocked:%'
+     or (select result from phase14_publisher_recovery_results where worker='recovery')
+       like 'blocked:%'
+     or v_claim.claim_owner <> 'publisher-race-recovery'
+     or v_claim.recovery_count <> 2
+     or v_claim.claim_token = (select token from phase14_stale_publication_context) then
+    raise exception 'Stale publisher/recovery race violated lease ownership: %, %',
+      (select jsonb_agg(to_jsonb(r)) from phase14_publisher_recovery_results r),to_jsonb(v_claim);
+  end if;
+end
+$assert_publisher_recovery$;
+
+drop function public.phase14_test_try_stale_publish(uuid,uuid);
+drop function public.phase14_test_try_recovery();
+select dblink_disconnect('phase14_publisher');
+select dblink_disconnect('phase14_recovery');
 
 insert into public.email_events(
   id, assessment_id, order_id, report_id, recipient_email, status, provider,

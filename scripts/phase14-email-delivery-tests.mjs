@@ -92,7 +92,8 @@ assert.match(delivery, /reconcilePremiumReportEmail/);
 assert.doesNotMatch(delivery, /public.*storage/i);
 
 const workflow = read('src/workflows/premium-report-fulfilment.ts');
-assert.equal((workflow.match(/'use step'/g) ?? []).length, 4, 'Workflow must expose generation, validation and conditional email as durable steps.');
+assert.equal((workflow.match(/'use step'/g) ?? []).length, 5, 'Workflow must expose capability claim, generation, validation and conditional email as durable steps.');
+assert.match(workflow, /claimWorkerCapabilityStep/);
 assert.match(workflow, /deliverReportEmailIfEnabledStep/);
 assert.match(workflow, /flags\.autoEmailEnabled/);
 assert.match(workflow, /premium_report_auto_email_disabled/);
@@ -101,7 +102,10 @@ const manualRoute = read('src/app/api/admin/reports/[reportId]/send-email/route.
 assert.match(manualRoute, /getAdminSession/);
 assert.match(manualRoute, /platform_admin/);
 assert.match(manualRoute, /approver/);
-assert.match(manualRoute, /forceResend/);
+assert.doesNotMatch(manualRoute, /forceResend/);
+assert.match(manualRoute, /authorize_bounce_retry/);
+assert.match(manualRoute, /send_bounce_retry/);
+assert.match(manualRoute, /correctedRecipientEvidence/);
 assert.match(manualRoute, /deliverPremiumReportEmail/);
 assert.doesNotMatch(manualRoute, /recipientOverride/);
 
@@ -123,9 +127,11 @@ assert.equal(stateAfterDispatchFailure({ dispatchStarted: false, providerMessage
 assert.equal(stateAfterDispatchFailure({ dispatchStarted: true, providerMessageId: null }), 'reconciliation_required');
 assert.equal(stateAfterDispatchFailure({ dispatchStarted: true, providerMessageId: 'accepted-id' }), 'provider_acceptance_uncertain');
 assert.equal(stateAfterExpiredSendLease('sending'), 'reconciliation_required');
-assert.equal(mayStartProviderSend('reconciliation_required', true), false, 'Force resend must not bypass unresolved provider acceptance.');
-assert.equal(mayStartProviderSend('provider_acceptance_uncertain', true), false, 'Lost provider response must not create a duplicate send.');
-assert.equal(mayStartProviderSend('failed_before_provider', false), true);
+assert.equal(mayStartProviderSend('reconciliation_required', 'bounce_retry'), false, 'Bounce retry must not bypass unresolved provider acceptance.');
+assert.equal(mayStartProviderSend('provider_acceptance_uncertain', 'bounce_retry'), false, 'Lost provider response must not create a duplicate send.');
+assert.equal(mayStartProviderSend('complained', 'bounce_retry'), false, 'Complaints are permanently non-retriable.');
+assert.equal(mayStartProviderSend('bounced', 'bounce_retry'), true, 'Only a bounced delivery may consume bounce-retry authority.');
+assert.equal(mayStartProviderSend('failed_before_provider', 'none'), true);
 const {
   validatePremiumReportDeliveryEntitlement,
   ReportDeliveryEntitlementError

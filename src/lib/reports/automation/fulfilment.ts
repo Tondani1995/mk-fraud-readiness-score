@@ -20,7 +20,17 @@ const ACTIVE_STATUSES: PremiumReportFulfilmentStatus[] = [
 const REUSE_READ_DELAYS_MS = [0, 75, 150, 300, 600];
 
 export type QueuePremiumReportFulfilmentResult =
-  | { ok: true; created: boolean; fulfilment: any }
+  | {
+      ok: true;
+      created: boolean;
+      fulfilment: any;
+      context: {
+        orderId: string;
+        assessmentId: string;
+        scoreRunId: string;
+        recipient: string;
+      };
+    }
   | { ok: false; reason: string; message: string };
 
 export function buildPremiumReportFulfilmentKey(orderId: string, scoreRunId: string) {
@@ -93,7 +103,17 @@ export async function queuePremiumReportFulfilment(input: {
       idempotencyKey,
       orderId: assembled.orderId
     });
-    if (existing) return { ok: true, created: false, fulfilment: existing };
+    if (existing) return {
+      ok: true,
+      created: false,
+      fulfilment: existing,
+      context: {
+        orderId: assembled.orderId,
+        assessmentId: assembled.assessmentId,
+        scoreRunId: assembled.scoreRun.id,
+        recipient: assembled.customerEmail
+      }
+    };
   } catch (error) {
     return {
       ok: false,
@@ -125,7 +145,17 @@ export async function queuePremiumReportFulfilment(input: {
         orderId: assembled.orderId
       });
       if (racedExisting) {
-        return { ok: true, created: false, fulfilment: racedExisting };
+        return {
+          ok: true,
+          created: false,
+          fulfilment: racedExisting,
+          context: {
+            orderId: assembled.orderId,
+            assessmentId: assembled.assessmentId,
+            scoreRunId: assembled.scoreRun.id,
+            recipient: assembled.customerEmail
+          }
+        };
       }
     } catch (reuseError) {
       return {
@@ -170,7 +200,17 @@ export async function queuePremiumReportFulfilment(input: {
     })
   ]);
 
-  return { ok: true, created: true, fulfilment: inserted };
+  return {
+    ok: true,
+    created: true,
+    fulfilment: inserted,
+    context: {
+      orderId: assembled.orderId,
+      assessmentId: assembled.assessmentId,
+      scoreRunId: assembled.scoreRun.id,
+      recipient: assembled.customerEmail
+    }
+  };
 }
 
 export async function updatePremiumReportFulfilment(input: {

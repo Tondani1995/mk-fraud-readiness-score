@@ -1267,27 +1267,9 @@ comment on table public.report_delivery_authorizations is
 comment on function public.cleanup_expired_premium_report_claims(interval) is
   'Cleanup administration operation. It only removes old uncommitted claims and returns temporary paths for Storage API cleanup; active and committed report objects are excluded.';
 
-update public.app_settings
-set value_json = value_json || jsonb_build_object(
-      'premium_report_prompt_version', 'mk-premium-report-v2-evidence-plan',
-      'premium_report_schema_version', 'mk-premium-ai-evidence-plan-v2',
-      'premium_report_auto_fulfilment_enabled', false,
-      'premium_report_ai_narrative_enabled', false,
-      'premium_report_auto_email_enabled', false
-    ),
-    updated_at = now()
-where setting_key = 'phase14_autonomous_report_engine';
-
-update public.app_settings
-set value_json = value_json || jsonb_build_object(
-      'premium_report_manual_delivery_enabled', false,
-      'premium_report_test_recipient_override_enabled', false
-    ),
-    updated_at = now()
-where setting_key = 'phase14_delivery_policy';
-
-commit;
-
+do $phase14_webhook_install$
+begin
+  execute $phase14_webhook_sql$
 create or replace function public.apply_email_provider_event_atomic(
   p_provider text,
   p_provider_event_id text,
@@ -1300,7 +1282,7 @@ create or replace function public.apply_email_provider_event_atomic(
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $phase14_webhook_body$
 declare
   v_email public.email_events%rowtype; v_existing public.email_provider_events%rowtype;
   v_provider_event_id uuid; v_status text; v_current_rank integer; v_incoming_rank integer;
@@ -1380,4 +1362,28 @@ begin
   update public.email_provider_events set processed_at = now(), processing_error = null where id = v_provider_event_id;
   return jsonb_build_object('duplicate', false, 'conflict', false, 'state_updated', v_applied, 'status', v_status);
 end;
-$$;
+$phase14_webhook_body$;
+$phase14_webhook_sql$;
+end;
+$phase14_webhook_install$;
+
+update public.app_settings
+set value_json = value_json || jsonb_build_object(
+      'premium_report_prompt_version', 'mk-premium-report-v2-evidence-plan',
+      'premium_report_schema_version', 'mk-premium-ai-evidence-plan-v2',
+      'premium_report_auto_fulfilment_enabled', false,
+      'premium_report_ai_narrative_enabled', false,
+      'premium_report_auto_email_enabled', false
+    ),
+    updated_at = now()
+where setting_key = 'phase14_autonomous_report_engine';
+
+update public.app_settings
+set value_json = value_json || jsonb_build_object(
+      'premium_report_manual_delivery_enabled', false,
+      'premium_report_test_recipient_override_enabled', false
+    ),
+    updated_at = now()
+where setting_key = 'phase14_delivery_policy';
+
+commit;

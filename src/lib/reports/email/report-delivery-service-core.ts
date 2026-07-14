@@ -1,6 +1,10 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPremiumReportAutomationFlags } from '../automation/feature-flags';
-import { requirePhase14Action } from '../phase14-security';
+import {
+  requirePhase14Action,
+  requirePhase14WorkerAction,
+  type Phase14WorkerLease
+} from '../phase14-security';
 import {
   reconcileReportEmailWithResend,
   sendReportEmailWithResend,
@@ -18,9 +22,10 @@ export type ReportDeliveryActor = {
 export type DeliverPremiumReportEmailInput = {
   reportId: string;
   actor: ReportDeliveryActor;
-  forceResend?: boolean;
+  bounceRetry?: { remediationId: string };
   recipientOverride?: string | null;
   allowNonProductionTestOverride?: boolean;
+  workerLease?: Phase14WorkerLease;
   transport?: ReportEmailTransport;
 };
 
@@ -99,9 +104,17 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   if (input.actor.action !== 'automatic_email' && !flags.manualDeliveryEnabled) {
     throw new Error('Manual premium-report delivery policy is disabled.');
   }
+  if (input.actor.actorType === 'system' && !input.workerLease) {
+    throw new Error('Automatic premium-report email requires a durable worker capability lease.');
+  }
+  if (input.workerLease && (input.bounceRetry || input.recipientOverride)) {
+    throw new Error('Automatic delivery capabilities cannot retry a bounce or override the recipient.');
+  }
 
-  const action = input.forceResend ? 'email_resend' : 'email_delivery';
-  const { client: privilegedDb } = await requirePhase14Action(action);
+  const action = input.bounceRetry ? 'email_resend' : 'email_delivery';
+  const { client: privilegedDb } = input.workerLease
+    ? await requirePhase14WorkerAction(input.workerLease, action)
+    : await requirePhase14Action(action);
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
   const order: any = one(report.orders);
@@ -119,14 +132,25 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   if (!recipient) throw new Error('The resolved report recipient is invalid.');
 
   const { data: authorizationData, error: authorizationError } = await privilegedDb.rpc(
-    'authorize_premium_report_delivery',
-    {
-      p_report_id: input.reportId,
-      p_recipient: recipient,
-      p_force_resend: input.forceResend === true,
-      p_allow_test_override: overridePermitted,
-      p_provider: 'resend'
-    }
+    input.workerLease
+      ? 'worker_authorize_premium_report_delivery'
+      : 'authorize_premium_report_delivery',
+    input.workerLease
+      ? {
+          p_capability_id: input.workerLease.capabilityId,
+          p_capability_lease_token: input.workerLease.leaseToken,
+          p_report_id: input.reportId,
+          p_recipient: recipient,
+          p_provider: 'resend'
+        }
+      : {
+          p_report_id: input.reportId,
+          p_recipient: recipient,
+          p_delivery_mode: input.bounceRetry ? 'bounce_retry' : 'initial',
+          p_allow_test_override: overridePermitted,
+          p_provider: 'resend',
+          p_bounce_remediation_id: input.bounceRetry?.remediationId ?? null
+        }
   );
   if (authorizationError || !authorizationData) {
     throw authorizationError ?? new Error('Delivery authorization was not created.');
@@ -144,9 +168,16 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   }
   if (!authorization.authorization_id) throw new Error('Delivery authorization identity is missing.');
 
-  const { data: claimData, error: claimError } = await db.rpc('claim_premium_report_delivery', {
-    p_authorization_id: authorization.authorization_id
-  });
+  const { data: claimData, error: claimError } = await privilegedDb.rpc(
+    input.workerLease ? 'worker_claim_premium_report_delivery' : 'claim_premium_report_delivery',
+    input.workerLease
+      ? {
+          p_capability_id: input.workerLease.capabilityId,
+          p_capability_lease_token: input.workerLease.leaseToken,
+          p_authorization_id: authorization.authorization_id
+        }
+      : { p_authorization_id: authorization.authorization_id }
+  );
   if (claimError || !claimData) throw claimError ?? new Error('Delivery authorization claim returned no result.');
   const claim = claimData as ClaimedDelivery;
   if (!claim.claimed) throw new Error(`Delivery authorization was ${claim.status ?? 'not claimed'}: ${claim.reason ?? 'ineligible'}.`);
@@ -154,6 +185,8 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   const copy = messageCopy(report.report_reference, order?.customer_name ?? null, order?.organisation_name ?? null);
   const dispatch = await executeClaimedReportDelivery({
     db,
+    rpcDb: privilegedDb,
+    workerLease: input.workerLease,
     report,
     claim,
     transport: input.transport ?? sendReportEmailWithResend,
@@ -185,11 +218,34 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   };
 }
 
+export async function authorizeBouncedReportRedelivery(input: {
+  priorEmailEventId: string;
+  reason: string;
+  correctedRecipientEvidence: Record<string, unknown>;
+}) {
+  const { client } = await requirePhase14Action('email_resend');
+  const hasEvidence = Object.values(input.correctedRecipientEvidence ?? {}).some((value) => (
+    typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined
+  ));
+  if (!input.priorEmailEventId.trim() || !input.reason.trim()
+      || !input.correctedRecipientEvidence
+      || !hasEvidence) {
+    throw new Error('A bounced email event, reason and corrected-recipient evidence are required.');
+  }
+  const { data, error } = await client.rpc('authorize_bounced_report_redelivery', {
+    p_prior_email_event_id: input.priorEmailEventId,
+    p_reason: input.reason,
+    p_evidence: input.correctedRecipientEvidence
+  });
+  if (error || !data) throw error ?? new Error('Bounce remediation authorization was not created.');
+  return { remediationId: data as string };
+}
+
 export async function reconcilePremiumReportEmail(input: {
   emailEventId: string;
   reconciler?: ReportEmailReconciler;
 }) {
-  await requirePhase14Action('provider_reconciliation');
+  const { client: privilegedDb } = await requirePhase14Action('provider_reconciliation');
   const db = createSupabaseServiceClient() as any;
   const { data: event, error } = await db.from('email_events')
     .select('id,status,provider_message_id,provider_request_key')
@@ -213,13 +269,22 @@ export async function reconcilePremiumReportEmail(input: {
   });
   const providerMessageId = result.messageId ?? event.provider_message_id;
   if (result.state === 'accepted' && providerMessageId) {
-    const { data: finalized, error: finalizationError } = await db.rpc('finalize_premium_report_delivery', {
+    const { data: finalized, error: finalizationError } = await privilegedDb.rpc(
+      'resolve_premium_report_delivery_reconciliation', {
       p_authorization_id: authorization.id,
-      p_email_event_id: event.id,
-      p_provider_message_id: providerMessageId
+      p_resolution: 'accepted',
+      p_provider_message_id: providerMessageId,
+      p_correlation_evidence: {
+        provider_request_key: event.provider_request_key,
+        verification_method: 'resend_api_lookup',
+        provider_state: result.state,
+        provider_detail: result.detail ?? null
+      },
+      p_operator_override: false,
+      p_reason: 'Provider API lookup verified acceptance for the durable request key.'
     });
-    if (finalizationError || !finalized) {
-      await markReconciliationRequired(db, authorization.id, providerMessageId,
+    if (finalizationError || !finalized || finalized.finalized === false) {
+      await markReconciliationRequired(privilegedDb, authorization.id, providerMessageId,
         `Authoritative provider acceptance was found but finalization failed: ${finalizationError?.message ?? 'no result'}`);
       throw finalizationError ?? new Error('Accepted delivery finalization returned no result.');
     }
@@ -229,6 +294,6 @@ export async function reconcilePremiumReportEmail(input: {
   const detail = result.state === 'not_found' && event.provider_message_id
     ? 'Provider lookup returned 404 for an event with a provider message ID; acceptance remains inconclusive and resend is prohibited.'
     : result.detail ?? 'Provider acceptance remains unresolved.';
-  await markReconciliationRequired(db, authorization.id, providerMessageId, detail);
+  await markReconciliationRequired(privilegedDb, authorization.id, providerMessageId, detail);
   return { status: 'reconciliation_required', reconciled: false, resendProhibited: true, provider: result };
 }

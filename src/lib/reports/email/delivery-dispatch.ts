@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { ReportEmailTransport } from './resend-transport';
+import type { Phase14WorkerLease } from '../phase14-security';
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
@@ -12,6 +13,8 @@ export type DeliveryDispatchClaim = {
 
 export async function executeClaimedReportDelivery(input: {
   db: any;
+  rpcDb: any;
+  workerLease?: Phase14WorkerLease;
   report: { id: string; storage_bucket: string; storage_path: string; checksum: string };
   claim: DeliveryDispatchClaim;
   transport: ReportEmailTransport;
@@ -32,21 +35,39 @@ export async function executeClaimedReportDelivery(input: {
     }
     const actualChecksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
     if (actualChecksum !== input.claim.report_checksum || actualChecksum !== input.report.checksum) {
-      await input.db.from('phase14_operational_alerts').upsert({
+      const { error: alertError } = await input.db.from('phase14_operational_alerts').upsert({
         alert_key: `email-checksum-mismatch:${input.report.id}:${input.claim.report_checksum}`,
         severity: 'critical',
         category: 'report_email_checksum_mismatch',
         report_id: input.report.id,
         email_event_id: input.claim.email_event_id,
         detail_json: { expected_checksum: input.claim.report_checksum, actual_checksum: actualChecksum }
-      }, { onConflict: 'alert_key', ignoreDuplicates: true }).catch(() => null);
+      }, { onConflict: 'alert_key', ignoreDuplicates: true });
+      if (alertError) {
+        throw new AggregateError(
+          [new Error('Report attachment checksum mismatch.'), alertError],
+          'Report checksum alert could not be persisted.'
+        );
+      }
       throw new Error('Report attachment checksum mismatch.');
     }
 
-    const { error: boundaryError } = await input.db.rpc('mark_premium_report_delivery_dispatch_started', {
-      p_authorization_id: input.claim.authorization_id,
-      p_lease_token: input.claim.lease_token
-    });
+    const { error: boundaryError } = await input.rpcDb.rpc(
+      input.workerLease
+        ? 'worker_mark_premium_report_delivery_dispatch_started'
+        : 'mark_premium_report_delivery_dispatch_started',
+      input.workerLease
+        ? {
+            p_capability_id: input.workerLease.capabilityId,
+            p_capability_lease_token: input.workerLease.leaseToken,
+            p_authorization_id: input.claim.authorization_id,
+            p_delivery_lease_token: input.claim.lease_token
+          }
+        : {
+            p_authorization_id: input.claim.authorization_id,
+            p_lease_token: input.claim.lease_token
+          }
+    );
     if (boundaryError) throw boundaryError;
     dispatchStarted = true;
 
@@ -58,20 +79,31 @@ export async function executeClaimedReportDelivery(input: {
       }
     });
     providerMessageId = provider.messageId;
-    const { data: finalized, error: finalizationError } = await input.db.rpc(
-      'finalize_premium_report_delivery',
-      {
-        p_authorization_id: input.claim.authorization_id,
-        p_email_event_id: input.claim.email_event_id,
-        p_provider_message_id: provider.messageId
-      }
+    const { data: finalized, error: finalizationError } = await input.rpcDb.rpc(
+      input.workerLease
+        ? 'worker_finalize_premium_report_delivery'
+        : 'finalize_premium_report_delivery',
+      input.workerLease
+        ? {
+            p_capability_id: input.workerLease.capabilityId,
+            p_capability_lease_token: input.workerLease.leaseToken,
+            p_authorization_id: input.claim.authorization_id,
+            p_email_event_id: input.claim.email_event_id,
+            p_provider_message_id: provider.messageId
+          }
+        : {
+            p_authorization_id: input.claim.authorization_id,
+            p_email_event_id: input.claim.email_event_id,
+            p_provider_message_id: provider.messageId
+          }
     );
-    if (finalizationError || !finalized) {
+    if (finalizationError || !finalized || finalized.finalized !== true) {
       await markReconciliationRequired(
-        input.db,
+        input.rpcDb,
         input.claim.authorization_id,
         provider.messageId,
-        `Provider accepted the request but atomic finalization failed: ${finalizationError?.message ?? 'no result'}`
+        `Provider accepted the request but atomic finalization failed: ${finalizationError?.message ?? finalized?.reason ?? 'no result'}`,
+        input.workerLease
       );
       throw new Error('Provider acceptance is durable but delivery finalization requires reconciliation.');
     }
@@ -79,13 +111,35 @@ export async function executeClaimedReportDelivery(input: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!dispatchStarted) {
-      await input.db.rpc('fail_premium_report_delivery_before_dispatch', {
-        p_authorization_id: input.claim.authorization_id,
-        p_lease_token: input.claim.lease_token,
-        p_reason: message
-      }).catch(() => null);
+      const { error: failureStateError } = await input.rpcDb.rpc(
+        input.workerLease
+          ? 'worker_fail_premium_report_delivery_before_dispatch'
+          : 'fail_premium_report_delivery_before_dispatch',
+        input.workerLease
+          ? {
+              p_capability_id: input.workerLease.capabilityId,
+              p_capability_lease_token: input.workerLease.leaseToken,
+              p_authorization_id: input.claim.authorization_id,
+              p_delivery_lease_token: input.claim.lease_token,
+              p_reason: message
+            }
+          : {
+              p_authorization_id: input.claim.authorization_id,
+              p_lease_token: input.claim.lease_token,
+              p_reason: message
+            }
+      );
+      if (failureStateError) {
+        throw new AggregateError([error, failureStateError], 'Delivery failure state could not be persisted.');
+      }
     } else if (!providerMessageId) {
-      await markReconciliationRequired(input.db, input.claim.authorization_id, null, message);
+      await markReconciliationRequired(
+        input.rpcDb,
+        input.claim.authorization_id,
+        null,
+        message,
+        input.workerLease
+      );
     }
     throw error;
   }
@@ -95,12 +149,26 @@ export async function markReconciliationRequired(
   db: any,
   authorizationId: string,
   providerMessageId: string | null,
-  reason: string
+  reason: string,
+  workerLease?: Phase14WorkerLease
 ) {
-  const { error } = await db.rpc('mark_premium_report_delivery_reconciliation_required', {
-    p_authorization_id: authorizationId,
-    p_provider_message_id: providerMessageId,
-    p_reason: reason
-  });
+  const { error } = await db.rpc(
+    workerLease
+      ? 'worker_mark_premium_report_delivery_reconciliation_required'
+      : 'mark_premium_report_delivery_reconciliation_required',
+    workerLease
+      ? {
+          p_capability_id: workerLease.capabilityId,
+          p_capability_lease_token: workerLease.leaseToken,
+          p_authorization_id: authorizationId,
+          p_provider_message_id: providerMessageId,
+          p_reason: reason
+        }
+      : {
+          p_authorization_id: authorizationId,
+          p_provider_message_id: providerMessageId,
+          p_reason: reason
+        }
+  );
   if (error) throw new Error(`Delivery reconciliation state could not be persisted: ${error.message}`);
 }

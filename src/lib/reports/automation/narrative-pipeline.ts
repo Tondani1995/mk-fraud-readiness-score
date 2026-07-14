@@ -47,7 +47,8 @@ export async function preparePremiumReportNarrative(
   const generator = createDurablePremiumReportNarrativeGenerator({
     generator: input.generator,
     generationIdentity: input.generationIdentity,
-    fulfilmentId: input.fulfilmentId
+    fulfilmentId: input.fulfilmentId,
+    authorizeAction: input.authorizeAiAction
   });
 
   const evidence = buildPremiumReportEvidencePack(

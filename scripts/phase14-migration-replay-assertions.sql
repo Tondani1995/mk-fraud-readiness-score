@@ -28,6 +28,9 @@ insert into expected_tables(name) values
   ('payment_proofs'),
   ('phase14_operational_alerts'),
   ('phase14_security_gates'),
+  ('phase14_feature_policies'),
+  ('phase14_worker_capabilities'),
+  ('phase14_storage_cleanup_queue'),
   ('products'),
   ('question_applicability_rules'),
   ('questions'),
@@ -36,6 +39,7 @@ insert into expected_tables(name) values
   ('report_content_blocks'),
   ('report_delivery_authorizations'),
   ('report_delivery_finalizations'),
+  ('report_delivery_remediations'),
   ('report_events'),
   ('report_fulfilments'),
   ('report_generation_runs'),
@@ -132,6 +136,14 @@ insert into expected_functions(name) values
   ('abandon_premium_report_generation_claim'),
   ('assert_premium_report_download_entitlement'),
   ('set_phase14_security_gate_version'),
+  ('set_phase14_feature_policy'),
+  ('authorize_phase14_worker_operation'),
+  ('claim_phase14_worker_capability'),
+  ('worker_claim_premium_report_generation'),
+  ('worker_publish_premium_report_generation'),
+  ('worker_authorize_premium_report_delivery'),
+  ('worker_finalize_premium_report_delivery'),
+  ('resolve_premium_report_delivery_reconciliation'),
   ('update_phase14_feature_policy'),
   ('set_updated_at');
 
@@ -159,7 +171,7 @@ create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
   ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019'),('0020'),('0021'),('0022'),
-  ('20260714194317');
+  ('20260714194317'),('20260714201550'),('20260714214023');
 
 do $$
 declare missing text;
@@ -200,14 +212,17 @@ insert into expected_policies(table_name, policy_name) values
   ('assessment_events', 'assessment_events_admin_select'),
   ('assessment_events', 'assessment_events_admin_insert'),
   ('reports', 'reports_admin_select'),
-  ('reports', 'reports_admin_manage'),
   ('report_fulfilments', 'report_fulfilments_admin_select'),
   ('report_generation_runs', 'report_generation_runs_admin_select'),
   ('report_ai_attempts', 'report_ai_attempts_admin_select'),
   ('phase14_security_gates', 'phase14_security_gates_admin_select'),
+  ('phase14_feature_policies', 'phase14_feature_policies_admin_select'),
+  ('phase14_worker_capabilities', 'phase14_worker_capabilities_admin_select'),
+  ('phase14_storage_cleanup_queue', 'phase14_storage_cleanup_admin_select'),
   ('phase14_operational_alerts', 'phase14_operational_alerts_admin_select'),
   ('report_delivery_authorizations', 'report_delivery_authorizations_admin_select'),
   ('report_delivery_finalizations', 'report_delivery_finalizations_admin_select'),
+  ('report_delivery_remediations', 'report_delivery_remediations_admin_select'),
   ('email_provider_events', 'email_provider_events_admin_select');
 
 do $$
@@ -254,6 +269,80 @@ begin
   end if;
   if has_table_privilege('authenticated', 'public.report_generation_claims', 'select') then
     raise exception 'authenticated unexpectedly has SELECT on report_generation_claims';
+  end if;
+  if has_table_privilege('service_role', 'public.reports', 'insert')
+     or has_table_privilege('service_role', 'public.reports', 'update')
+     or has_table_privilege('service_role', 'public.reports', 'delete')
+     or has_table_privilege('service_role', 'public.reports', 'truncate') then
+    raise exception 'service_role unexpectedly has direct report mutation privileges';
+  end if;
+  if has_table_privilege('authenticated', 'public.reports', 'insert')
+     or has_table_privilege('authenticated', 'public.reports', 'update')
+     or has_table_privilege('authenticated', 'public.reports', 'delete')
+     or has_table_privilege('authenticated', 'public.reports', 'truncate')
+     or has_table_privilege('anon', 'public.reports', 'insert')
+     or has_table_privilege('anon', 'public.reports', 'update')
+     or has_table_privilege('anon', 'public.reports', 'delete')
+     or has_table_privilege('anon', 'public.reports', 'truncate') then
+    raise exception 'browser roles unexpectedly have direct report mutation privileges';
+  end if;
+  if has_table_privilege('service_role', 'public.phase14_security_gates', 'insert')
+     or has_table_privilege('service_role', 'public.phase14_security_gates', 'update')
+     or has_table_privilege('service_role', 'public.phase14_security_gates', 'delete')
+     or has_table_privilege('service_role', 'public.phase14_security_gates', 'truncate')
+     or has_table_privilege('service_role', 'public.phase14_security_gates', 'trigger')
+     or has_table_privilege('authenticated', 'public.phase14_security_gates', 'insert')
+     or has_table_privilege('authenticated', 'public.phase14_security_gates', 'update')
+     or has_table_privilege('authenticated', 'public.phase14_security_gates', 'delete')
+     or has_table_privilege('authenticated', 'public.phase14_security_gates', 'truncate')
+     or has_table_privilege('anon', 'public.phase14_security_gates', 'insert')
+     or has_table_privilege('anon', 'public.phase14_security_gates', 'update')
+     or has_table_privilege('anon', 'public.phase14_security_gates', 'delete')
+     or has_table_privilege('anon', 'public.phase14_security_gates', 'truncate') then
+    raise exception 'generic roles unexpectedly have direct security-gate mutation privileges';
+  end if;
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='reports' and policyname='reports_admin_manage') then
+    raise exception 'reports_admin_manage policy must be removed';
+  end if;
+end $$;
+
+-- Generic service-role execution is removed from the commercial state-transition
+-- functions. Workers receive only the narrowly-scoped wrapper surface.
+do $$
+declare exposed text;
+begin
+  select string_agg(p.oid::regprocedure::text, ', ' order by p.oid::regprocedure::text)
+    into exposed
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname in (
+      'set_phase14_security_gate_version',
+      'claim_premium_report_generation',
+      'commit_premium_report_draft',
+      'publish_premium_report_generation',
+      'authorize_premium_report_delivery',
+      'claim_premium_report_delivery',
+      'mark_premium_report_delivery_dispatch_started',
+      'finalize_premium_report_delivery',
+      'register_phase14_storage_cleanup',
+      'record_phase14_storage_cleanup_result'
+    )
+    and has_function_privilege('service_role', p.oid, 'execute');
+
+  if exposed is not null then
+    raise exception 'service_role unexpectedly retains generic state-transition EXECUTE: %', exposed;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'worker_claim_premium_report_generation'
+      and has_function_privilege('service_role', p.oid, 'execute')
+  ) then
+    raise exception 'service_role is missing scoped worker generation wrapper EXECUTE';
   end if;
 end $$;
 
@@ -354,6 +443,9 @@ begin
   if security_gate.status <> 'unsatisfied'
      or security_gate.satisfied_version >= security_gate.required_version then
     raise exception 'Phase 14 database security gate must replay as unsatisfied: %', to_jsonb(security_gate);
+  end if;
+  if exists (select 1 from public.phase14_feature_policies where enabled) then
+    raise exception 'Every Phase 14 database feature policy must replay disabled';
   end if;
 end $$;
 

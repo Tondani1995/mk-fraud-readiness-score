@@ -1,6 +1,9 @@
 import { start } from 'workflow/api';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { premiumReportFulfilmentWorkflow } from '@/workflows/premium-report-fulfilment';
+import {
+  premiumReportFulfilmentWorkflow,
+  type PremiumReportFulfilmentWorkflowInput
+} from '@/workflows/premium-report-fulfilment';
 
 export type StartPremiumReportWorkflowResult =
   | { ok: true; started: true; runId: string }
@@ -8,9 +11,10 @@ export type StartPremiumReportWorkflowResult =
   | { ok: false; started: false; error: string };
 
 export async function startPremiumReportWorkflow(
-  fulfilmentId: string
+  input: PremiumReportFulfilmentWorkflowInput
 ): Promise<StartPremiumReportWorkflowResult> {
   const db = createSupabaseServiceClient() as any;
+  const fulfilmentId = input.fulfilmentId;
 
   const { data: claimed, error: claimError } = await db
     .from('report_fulfilments')
@@ -45,7 +49,7 @@ export async function startPremiumReportWorkflow(
   }
 
   try {
-    const run = await start(premiumReportFulfilmentWorkflow, [fulfilmentId]);
+    const run = await start(premiumReportFulfilmentWorkflow, [input]);
     const now = new Date().toISOString();
     const { error: updateError } = await db
       .from('report_fulfilments')

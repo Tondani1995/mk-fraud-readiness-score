@@ -27,10 +27,10 @@ export function stateAfterDispatchFailure(input: {
   return input.providerMessageId ? 'provider_acceptance_uncertain' : 'reconciliation_required';
 }
 
-export function mayStartProviderSend(status: PremiumReportEmailStatus, forceResend: boolean) {
+export function mayStartProviderSend(status: PremiumReportEmailStatus, retryMode: 'none' | 'bounce_retry') {
   if (UNRESOLVED_PROVIDER_STATUSES.includes(status)) return false;
   if (status === 'failed_before_provider' || status === 'queued') return true;
-  return forceResend && ACCEPTED_EMAIL_STATUSES.has(status);
+  return retryMode === 'bounce_retry' && status === 'bounced';
 }
 
 export function stateAfterExpiredSendLease(status: PremiumReportEmailStatus): PremiumReportEmailStatus {

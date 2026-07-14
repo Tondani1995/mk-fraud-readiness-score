@@ -53,7 +53,11 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
 export async function getPremiumReportAutomationFlags(): Promise<PremiumReportAutomationFlags> {
   try {
     const db = createSupabaseServiceClient() as any;
-    const [{ data, error }, { data: gate, error: gateError }] = await Promise.all([
+    const [
+      { data, error },
+      { data: gate, error: gateError },
+      { data: policyRows, error: policyError }
+    ] = await Promise.all([
       db
       .from('app_settings')
       .select('setting_key,value_json')
@@ -61,24 +65,33 @@ export async function getPremiumReportAutomationFlags(): Promise<PremiumReportAu
       db.from('phase14_security_gates')
         .select('required_version,satisfied_version,status')
         .eq('gate_key', 'phase14-premium-report')
-        .maybeSingle()
+        .maybeSingle(),
+      db.from('phase14_feature_policies').select('policy_key,enabled')
     ]);
 
-    if (error || gateError || !data || !gate) return { ...DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS };
+    if (error || gateError || policyError || !data || !gate || !policyRows) {
+      return { ...DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS };
+    }
     const merged = Object.assign({}, ...(data as Array<{ value_json?: Record<string, unknown> }>).map((row) => row.value_json ?? {}));
     const parsed = parsePremiumReportAutomationFlags(merged);
+    const policies = new Map(
+      (policyRows as Array<{ policy_key: string; enabled: boolean }>)
+        .map((row) => [row.policy_key, row.enabled === true])
+    );
     const securityGateSatisfied = gate.status === 'satisfied'
       && Number(gate.satisfied_version) >= Number(gate.required_version);
     return {
       ...parsed,
       securityGateSatisfied,
       securityGateVersion: securityGateSatisfied ? Number(gate.satisfied_version) : null,
-      autoFulfilmentEnabled: securityGateSatisfied && parsed.autoFulfilmentEnabled,
-      aiNarrativeEnabled: securityGateSatisfied && parsed.aiNarrativeEnabled,
-      autoEmailEnabled: securityGateSatisfied && parsed.autoEmailEnabled,
-      manualDeliveryEnabled: securityGateSatisfied && parsed.manualDeliveryEnabled,
-      testRecipientOverrideEnabled: securityGateSatisfied && parsed.testRecipientOverrideEnabled,
-      testRecipientOverride: securityGateSatisfied ? parsed.testRecipientOverride : null
+      autoFulfilmentEnabled: securityGateSatisfied && policies.get('automatic_fulfilment') === true && parsed.autoFulfilmentEnabled,
+      aiNarrativeEnabled: securityGateSatisfied && policies.get('ai_narrative') === true && parsed.aiNarrativeEnabled,
+      autoEmailEnabled: securityGateSatisfied && policies.get('automatic_email') === true && parsed.autoEmailEnabled,
+      manualDeliveryEnabled: securityGateSatisfied && policies.get('manual_delivery') === true && parsed.manualDeliveryEnabled,
+      testRecipientOverrideEnabled: securityGateSatisfied && policies.get('recipient_override') === true && parsed.testRecipientOverrideEnabled,
+      testRecipientOverride: securityGateSatisfied && policies.get('recipient_override') === true
+        ? parsed.testRecipientOverride
+        : null
     };
   } catch (error) {
     console.error('Phase 14 feature flags could not be loaded; automation remains disabled.', error);

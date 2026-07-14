@@ -66,6 +66,7 @@ function dbDouble(options = {}) {
 async function execute(double, transport) {
   return executeClaimedReportDelivery({
     db: double.db,
+    rpcDb: double.db,
     report,
     claim,
     transport,

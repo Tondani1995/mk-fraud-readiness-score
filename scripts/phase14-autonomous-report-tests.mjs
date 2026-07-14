@@ -63,7 +63,8 @@ assert.doesNotMatch(fulfilment, /product_not_automated/);
 
 const start = read('src/lib/reports/automation/workflow-start.ts');
 assert.match(start, /from 'workflow\/api'/);
-assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[fulfilmentId\]\)/);
+assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[input\]\)/);
+assert.match(start, /PremiumReportFulfilmentWorkflowInput/);
 assert.match(start, /workflow_start_status:\s*'starting'/);
 assert.match(start, /\.is\('workflow_run_id', null\)/);
 assert.match(start, /\.in\('workflow_start_status', \['not_started', 'failed'\]\)/);
@@ -71,8 +72,8 @@ assert.match(start, /\.in\('workflow_start_status', \['not_started', 'failed'\]\
 const workflow = read('src/workflows/premium-report-fulfilment.ts');
 assert.match(workflow, /from 'workflow'/);
 assert.match(workflow, /'use workflow'/);
-assert.equal((workflow.match(/'use step'/g) ?? []).length, 4);
-for (const step of ['validateFulfilmentStep','generateAndStoreReportStep','verifyDeliveryReadyStep','deliverReportEmailIfEnabledStep']) {
+assert.equal((workflow.match(/'use step'/g) ?? []).length, 5);
+for (const step of ['validateFulfilmentStep','claimWorkerCapabilityStep','generateAndStoreReportStep','verifyDeliveryReadyStep','deliverReportEmailIfEnabledStep']) {
   assert.match(workflow, new RegExp(step));
 }
 assert.match(workflow, /flags\.autoEmailEnabled/);
@@ -100,12 +101,15 @@ assert.doesNotMatch(service, /removeOrphanedStorageObject/);
 assert.match(service, /temporaryPath = `tmp\/\$\{assembled\.assessmentReference\}\/\$\{claimToken\}\/\$\{crypto\.randomUUID\(\)\}\.pdf`/);
 assert.match(service, /commit_premium_report_draft/);
 assert.match(service, /publishCommittedReportObject/);
-assert.match(storagePublication, /publish_premium_report_generation/);
-assert(service.indexOf("privilegedDb.rpc('commit_premium_report_draft'") < service.lastIndexOf('publishCommittedReportObject({'), 'Report row/checksum must commit before final object publication.');
+assert.match(storagePublication, /publishReport/);
+assert(service.indexOf("manualFunction: 'commit_premium_report_draft'") < service.lastIndexOf('publishCommittedReportObject({'), 'Report row/checksum must commit before final object publication.');
 const publicationBody = storagePublication.slice(storagePublication.indexOf('export async function publishCommittedReportObject'));
 assert(publicationBody.indexOf('.copy(') < publicationBody.indexOf('await verifyStoredReportChecksum'), 'Final object copy must precede checksum verification.');
-assert(publicationBody.indexOf('await verifyStoredReportChecksum') < publicationBody.indexOf("'publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
+assert(publicationBody.indexOf('await verifyStoredReportChecksum') < publicationBody.indexOf('await input.publishReport'), 'Final path must be checksum-verified before database publication.');
 assert.match(service, /requirePhase14Action\(phase14Action\)/);
+assert.match(service, /requirePhase14WorkerAction\(input\.workerLease, phase14Action\)/);
+assert.match(service, /worker_claim_premium_report_generation/);
+assert.match(service, /worker_publish_premium_report_generation/);
 assert.match(service, /recover_premium_report_generation_claim/);
 assert.match(service, /renew_premium_report_generation_lease/);
 assert.doesNotMatch(service, /p_final_storage_path/);

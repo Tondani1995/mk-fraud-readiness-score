@@ -26,6 +26,11 @@ begin
       reason = 'isolated AAL2 test', updated_at = now()
   where gate_key = 'phase14-premium-report';
 
+  update public.phase14_feature_policies
+  set enabled = true, updated_by = '23000000-0000-0000-0000-000000000001',
+      reason = 'isolated AAL2 authorization test', updated_at = now()
+  where policy_key = 'manual_generation';
+
   perform set_config('request.jwt.claims', '{}', true);
   begin
     perform public.authorize_phase14_action('report_generation');

@@ -2,14 +2,13 @@ import crypto from 'node:crypto';
 
 export type StoragePublicationInput = {
   db: any;
-  privilegedDb: any;
   bucket: string;
   temporaryPath: string;
   finalPath: string;
   checksum: string;
-  claimToken: string;
-  reportId: string;
-  onCleanupFailure?: (error: unknown) => Promise<void> | void;
+  publishReport: () => Promise<any>;
+  cleanupJobId: string;
+  recordCleanupResult: (input: { deleted: boolean; error?: string | null }) => Promise<unknown>;
 };
 
 export async function uploadTemporaryReportObject(input: {
@@ -59,13 +58,8 @@ export async function publishCommittedReportObject(input: StoragePublicationInpu
   }
 
   await verifyStoredReportChecksum(input.db, input.bucket, input.finalPath, input.checksum);
-  const { data: published, error: publishError } = await input.privilegedDb.rpc(
-    'publish_premium_report_generation',
-    { p_claim_token: input.claimToken, p_report_id: input.reportId }
-  );
-  if (publishError || !published) {
-    throw publishError ?? new Error('Report publication returned no result.');
-  }
+  const published = await input.publishReport();
+  if (!published) throw new Error('Report publication returned no result.');
 
   let cleanupFailed = false;
   try {
@@ -73,9 +67,13 @@ export async function publishCommittedReportObject(input: StoragePublicationInpu
       .from(input.bucket)
       .remove([input.temporaryPath]);
     if (cleanupError) throw cleanupError;
+    await input.recordCleanupResult({ deleted: true });
   } catch (error) {
     cleanupFailed = true;
-    await input.onCleanupFailure?.(error);
+    await input.recordCleanupResult({
+      deleted: false,
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
   return { published, cleanupFailed };
 }
