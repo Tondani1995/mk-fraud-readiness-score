@@ -8,14 +8,21 @@ on:
       - .github/workflows/phase14-ai-runtime-retest.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   invoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+
       - name: Invoke success, repair and fallback scenarios
+        id: uat
+        continue-on-error: true
         shell: bash
         env:
           SHARE_ROOT: https://mk-fraud-readiness-score-ho3106c9f-tondanis-projects.vercel.app/?_vercel_share=RNAoiULCg0V9nbpzEsEEo7ARm6Wx9BLF
@@ -61,7 +68,6 @@ jobs:
               }
 
               for (const [scenario, expectedMode] of scenarios) {
-                console.log(`Starting ${scenario} scenario`);
                 const startedAt = Date.now();
                 const response = await fetch(`${process.env.AI_ROUTE}?scenario=${scenario}`, {
                   headers: { cookie: cookieHeader, accept: 'application/json' },
@@ -137,3 +143,31 @@ jobs:
           name: phase14-ai-runtime-retest-evidence
           path: /tmp/phase14-ai-retest/*.json
           if-no-files-found: warn
+
+      - name: Persist controller evidence to branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/v1/phase14/runtime-evidence/funded-ai-retest
+          rm -f docs/v1/phase14/runtime-evidence/funded-ai-retest/*.json
+          if compgen -G '/tmp/phase14-ai-retest/*.json' > /dev/null; then
+            cp /tmp/phase14-ai-retest/*.json docs/v1/phase14/runtime-evidence/funded-ai-retest/
+          else
+            printf '{"error":"no_runtime_evidence_files","recordedAt":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/v1/phase14/runtime-evidence/funded-ai-retest/fatal.json
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/v1/phase14/runtime-evidence/funded-ai-retest
+          if git diff --cached --quiet; then
+            echo 'No evidence change to commit.'
+          else
+            git commit -m 'Record funded Phase 14 AI Gateway retest evidence'
+            git push origin HEAD:phase14/autonomous-premium-report-engine
+          fi
+
+      - name: Enforce UAT result
+        if: always()
+        shell: bash
+        run: |
+          test '${{ steps.uat.outcome }}' = 'success'
