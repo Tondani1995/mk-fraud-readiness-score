@@ -7,7 +7,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const EXPECTED_BRANCH = 'phase14/autonomous-premium-report-engine';
-const EXPECTED_COMMIT = 'd48a514643f55a3da253623479402d3479971d4a';
 const TARGET_REPORT_ID = '66216b58-2e45-44e0-afe8-0d02f808dd7d';
 const TARGET_EMAIL_EVENT_ID = 'aadabe2c-edeb-48e0-af1c-a17c47e330c9';
 
@@ -17,8 +16,7 @@ function forbidden() {
 
 function assertPreviewHarnessAllowed() {
   return process.env.VERCEL_ENV === 'preview'
-    && process.env.VERCEL_GIT_COMMIT_REF === EXPECTED_BRANCH
-    && process.env.VERCEL_GIT_COMMIT_SHA === EXPECTED_COMMIT;
+    && process.env.VERCEL_GIT_COMMIT_REF === EXPECTED_BRANCH;
 }
 
 function signPayload(input: { id: string; timestamp: string; payload: string; secret: string }) {
