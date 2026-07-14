@@ -8,8 +8,7 @@ on:
       - .github/workflows/phase14-uat-pdf-review.yml
 
 permissions:
-  contents: read
-  issues: write
+  contents: write
 
 jobs:
   package:
@@ -21,6 +20,7 @@ jobs:
         with:
           ref: phase14/autonomous-premium-report-engine
           fetch-depth: 1
+          persist-credentials: true
 
       - name: Verify exact review evidence
         run: |
@@ -32,15 +32,30 @@ jobs:
           grep -q 'c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d' tmp/phase14-uat-pdf-review/evidence.json
 
       - name: Upload rendered PDF review evidence
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: phase14-uat-pdf-visual-review
           path: tmp/phase14-uat-pdf-review
           if-no-files-found: error
 
-      - name: Publish artifact run reference
+      - name: Commit artifact reference
         env:
-          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/issues/21/comments" \
-            -f body="Phase 14 UAT PDF visual-review artifact packaged. Run ID: ${GITHUB_RUN_ID}. Commit: ${GITHUB_SHA}. Artifact: phase14-uat-pdf-visual-review."
+          set -euo pipefail
+          cat > tmp/phase14-uat-pdf-review/artifact-reference.json <<EOF
+          {
+            "run_id": ${GITHUB_RUN_ID},
+            "artifact_id": ${ARTIFACT_ID},
+            "artifact_name": "phase14-uat-pdf-visual-review",
+            "artifact_url": "${ARTIFACT_URL}",
+            "commit": "${GITHUB_SHA}"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp/phase14-uat-pdf-review/artifact-reference.json
+          git commit -m "Record Phase 14 UAT PDF review artifact"
+          git push origin HEAD:phase14/autonomous-premium-report-engine
