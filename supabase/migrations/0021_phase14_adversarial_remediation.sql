@@ -472,43 +472,6 @@ begin
 end;
 $function$;
 
--- Create the provider-event RPC once before granting it, then replace its body as
--- the terminal migration statement. Supabase CLI 2.81 otherwise combines a
--- dollar-quoted function with following commands in one prepared statement.
-create or replace function public.apply_email_provider_event_atomic(
-  p_provider text,
-  p_provider_event_id text,
-  p_provider_message_id text,
-  p_event_type text,
-  p_event_created_at timestamptz,
-  p_payload_json jsonb default '{}'::jsonb
-) returns jsonb
-language sql
-security definer
-set search_path = ''
-as $stub$
-  select jsonb_build_object('ignored', true, 'reason', 'migration_stub');
-$stub$;
-
-do $grants$
-declare v_signature text;
-begin
-  foreach v_signature in array array[
-    'public.assert_premium_report_generation_entitlement(text)',
-    'public.claim_premium_report_generation(text,text,uuid,public.report_type)',
-    'public.commit_premium_report_draft(uuid,uuid,text,text,text,uuid,uuid)',
-    'public.publish_premium_report_generation(uuid,uuid,text)',
-    'public.release_premium_report_generation_claim(uuid)',
-    'public.assert_premium_report_delivery_entitlement(uuid,text,boolean)',
-    'public.recover_stale_premium_report_email_sends()',
-    'public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,jsonb)'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public, anon, authenticated';
-    execute 'grant execute on function ' || v_signature || ' to service_role';
-  end loop;
-end;
-$grants$;
-
 commit;
 
 create or replace function public.apply_email_provider_event_atomic(
