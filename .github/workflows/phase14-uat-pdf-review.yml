@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   collect:
@@ -92,3 +93,10 @@ jobs:
             /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf
             /tmp/pdf-review-evidence.json
           if-no-files-found: error
+
+      - name: Publish artifact run reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/issues/21/comments" \
+            -f body="Phase 14 UAT PDF review artifact ready. Run ID: ${GITHUB_RUN_ID}. Commit: ${GITHUB_SHA}. Artifact: phase14-uat-pdf-review."
