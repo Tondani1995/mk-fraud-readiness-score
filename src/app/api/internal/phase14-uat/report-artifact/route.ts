@@ -1,6 +1,8 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 const EXPECTED_BRANCH = 'phase14/autonomous-premium-report-engine';
 const EXPECTED_UAT_REF = 'nlukprffbrqmvjcmygyr';
@@ -10,7 +12,10 @@ const EXPECTED_PATH = 'MKFRS-2026-5C01B4F1EE/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf';
 const AUTHORISATION_KEY = 'phase14_uat_pdf_review';
 
 function jsonFailure(reason: string, status = 409) {
-  return Response.json({ ok: false, reason }, { status });
+  return Response.json({ ok: false, reason }, {
+    status,
+    headers: { 'Cache-Control': 'no-store, max-age=0' }
+  });
 }
 
 export async function GET() {
@@ -21,10 +26,12 @@ export async function GET() {
   if (!supabaseUrl.includes(`${EXPECTED_UAT_REF}.supabase.co`)) return jsonFailure('wrong_supabase_project', 403);
 
   const db = createSupabaseServiceClient() as any;
+  const cacheBuster = new Date(Date.now() + 60_000).toISOString();
   const { data: settings, error: settingsError } = await db
     .from('app_settings')
-    .select('setting_key,value_json')
-    .in('setting_key', ['phase14_autonomous_report_engine', AUTHORISATION_KEY]);
+    .select('setting_key,value_json,updated_at')
+    .in('setting_key', ['phase14_autonomous_report_engine', AUTHORISATION_KEY])
+    .lt('updated_at', cacheBuster);
 
   if (settingsError) return jsonFailure('settings_unavailable', 500);
 
@@ -47,6 +54,7 @@ export async function GET() {
     .from('reports')
     .select('id,status,storage_bucket,storage_path,checksum,released_at')
     .eq('id', EXPECTED_REPORT_ID)
+    .lt('updated_at', cacheBuster)
     .maybeSingle();
 
   if (reportError || !report) return jsonFailure('report_not_found', 404);
