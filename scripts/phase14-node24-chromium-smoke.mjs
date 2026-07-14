@@ -7,6 +7,11 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const sourcePath = join(process.cwd(), 'src/lib/reports/render-pdf.ts');
 const source = readFileSync(sourcePath, 'utf8');
+assert(!source.includes('AWS_LAMBDA_JS_RUNTIME'), 'PDF renderer must not spoof AWS_LAMBDA_JS_RUNTIME.');
+assert(!source.includes('AWS_EXECUTION_ENV'), 'PDF renderer must not spoof AWS_EXECUTION_ENV.');
+assert(!source.includes('executablePath(packagedBinDirectory)'), 'PDF renderer must not pass a discovered bin directory into executablePath().');
+assert(source.includes('chromium.executablePath()'), 'PDF renderer must use the supported zero-argument executablePath() call.');
+assert(source.includes('puppeteer.defaultArgs'), 'PDF renderer must use Puppeteer default arguments with Sparticuz arguments.');
 const output = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.CommonJS,

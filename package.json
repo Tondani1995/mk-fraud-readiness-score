@@ -33,11 +33,11 @@
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^131.0.1",
+    "@sparticuz/chromium": "143.0.4",
     "@supabase/supabase-js": "^2.45.4",
     "ai": "6.0.83",
     "next": "^14.2.13",
-    "puppeteer-core": "^23.11.1",
+    "puppeteer-core": "24.34.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "workflow": "4.6.0",
