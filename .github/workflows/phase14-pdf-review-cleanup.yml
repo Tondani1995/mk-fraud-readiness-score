@@ -1,0 +1,36 @@
+name: Phase 14 PDF Review Cleanup
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - .github/workflows/phase14-pdf-review-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out draft PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Remove all PDF-review-only files
+        run: |
+          set -euo pipefail
+          git rm -r --ignore-unmatch tmp/phase14-uat-pdf-review
+          git rm --ignore-unmatch src/app/api/internal/phase14-uat/report-artifact/route.ts
+          git rm --ignore-unmatch .github/workflows/phase14-uat-pdf-review.yml
+          git rm --ignore-unmatch .github/workflows/phase14-pdf-review-cleanup.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove temporary Phase 14 PDF review evidence"
+          git push origin HEAD:phase14/autonomous-premium-report-engine
