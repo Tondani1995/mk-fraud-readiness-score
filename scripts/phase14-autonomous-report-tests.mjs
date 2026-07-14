@@ -181,5 +181,12 @@ const benchmark = clone(valid); benchmark.executiveDiagnosis.body = 'This is abo
 assert(validatePremiumReportNarrative(benchmark, evidence).issues.some((issue) => issue.code === 'unsupported_benchmark'));
 const unsupportedNumber = clone(valid); unsupportedNumber.executiveDiagnosis.body = 'This gives 99 percent fraud prevention certainty.';
 assert(validatePremiumReportNarrative(unsupportedNumber, evidence).issues.some((issue) => issue.code === 'unsupported_numeric_claim'));
+const domainBandContext = clone(valid);
+domainBandContext.executiveDiagnosis.body = 'The organisation remains Developing overall, while Operations demonstrates Structured domain maturity.';
+domainBandContext.executiveDiagnosis.evidenceRefs.push('domain:OPS');
+assert.equal(validatePremiumReportNarrative(domainBandContext, evidence).ok, true);
+const overallContradiction = clone(valid);
+overallContradiction.executiveDiagnosis.body = 'The organisation is Strategic overall.';
+assert(validatePremiumReportNarrative(overallContradiction, evidence).issues.some((issue) => issue.code === 'overall_maturity_contradiction'));
 
 console.log('Phase 14 autonomous report, entitlement guard, route isolation, durable workflow 4.6.0, deterministic validation and conditional email tests passed on Node 24.');
