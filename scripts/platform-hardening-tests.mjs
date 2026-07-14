@@ -82,7 +82,8 @@ const migrations = [
   '0017_phase14_autonomous_report_engine.sql',
   '0018_phase14_pdf_email_delivery.sql',
   '0019_phase14_email_delivery_state_hardening.sql',
-  '0021_phase14_adversarial_remediation.sql'
+  '0021_phase14_adversarial_remediation.sql',
+  '0022_phase14_adversarial_remediation_grants.sql'
 ];
 for (const migration of migrations) {
   const path = `supabase/migrations/${migration}`;
