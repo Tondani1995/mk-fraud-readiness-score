@@ -1,5 +1,7 @@
 # Phase 14 Funded AI Gateway Runtime UAT
 
+> Superseded for merge-readiness purposes on 14 July 2026. The live-provider observations below remain historical evidence only and do not establish the remediated code's readiness. Use `adversarial-remediation-2026-07-14.md` for the current position. No additional paid AI or real email was invoked during remediation.
+
 ## Result
 
 **Pass for the Phase 14 AI narrative, repair, deterministic fallback, live Resend send, idempotent resend reconciliation, signed webhook and final clean-preview gates on isolated non-production infrastructure.**
