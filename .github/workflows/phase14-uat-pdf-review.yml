@@ -18,7 +18,7 @@ jobs:
       - name: Collect exact private UAT PDF
         shell: bash
         env:
-          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=440EzggkGSeAKLyaoal4GD1cjDJMI7xz
+          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=E69f1HdE40uoPUTwjJf4dYXCgO853dWK
           ARTIFACT_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
         run: |
