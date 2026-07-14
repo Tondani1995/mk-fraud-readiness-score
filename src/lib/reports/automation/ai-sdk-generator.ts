@@ -8,7 +8,7 @@ import {
 import type {
   NarrativeGenerationInput,
   NarrativeGenerationResult,
-  PremiumReportNarrative,
+  PremiumReportAiEditorialPlan,
   PremiumReportNarrativeGenerator
 } from './types';
 
@@ -17,29 +17,15 @@ export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500;
 export const PREMIUM_REPORT_AI_TIMEOUT_MS = 45_000;
 
 export const premiumReportNarrativeSchema = z.object({
-  executiveDiagnosis: z.object({
-    title: z.string().min(1).max(140),
-    body: z.string().min(1).max(2500),
-    evidenceRefs
-  }).strict(),
-  falseComfort: z.object({
-    title: z.string().min(1).max(140),
-    body: z.string().min(1).max(2500),
-    evidenceRefs
-  }).strict(),
-  leadershipAttention: z.object({
-    body: z.string().min(1).max(2500),
-    evidenceRefs
-  }).strict(),
-  domainNarratives: z.array(z.object({
+  executiveEvidenceRefs: evidenceRefs,
+  falseComfortEvidenceRefs: evidenceRefs,
+  leadershipEvidenceRefs: evidenceRefs,
+  domainEvidence: z.array(z.object({
     domainCode: z.string().min(1),
-    title: z.string().min(1).max(140),
-    body: z.string().min(1).max(2500),
     evidenceRefs
   }).strict()),
-  gapCommentary: z.array(z.object({
+  gapEvidence: z.array(z.object({
     questionCode: z.string().min(1),
-    body: z.string().min(1).max(2500),
     evidenceRefs
   }).strict())
 }).strict();
@@ -61,7 +47,7 @@ async function runStructuredGeneration(input: {
     output: Output.object({
       schema: premiumReportNarrativeSchema,
       name: 'mk_premium_report_narrative',
-      description: 'Evidence-cited narrative sections for an MK Fraud Readiness premium report.'
+      description: 'Evidence-reference editorial plan. It contains no scores, control assertions, roadmap claims, or free-form prose.'
     }),
     maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
     maxRetries: 0,
@@ -72,7 +58,7 @@ async function runStructuredGeneration(input: {
 
   const gatewayCost = Number((result.providerMetadata as any)?.gateway?.cost);
   return {
-    output: result.output as PremiumReportNarrative,
+    output: result.output as PremiumReportAiEditorialPlan,
     provider: providerFromModel(input.model),
     model: result.response.modelId || input.model,
     latencyMs: Date.now() - startedAt,

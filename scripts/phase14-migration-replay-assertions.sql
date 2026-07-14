@@ -26,12 +26,16 @@ insert into expected_tables(name) values
   ('orders'),
   ('organisations'),
   ('payment_proofs'),
+  ('phase14_operational_alerts'),
+  ('phase14_security_gates'),
   ('products'),
   ('question_applicability_rules'),
   ('questions'),
   ('rate_limit_hits'),
   ('recommendation_rules'),
   ('report_content_blocks'),
+  ('report_delivery_authorizations'),
+  ('report_delivery_finalizations'),
   ('report_events'),
   ('report_fulfilments'),
   ('report_generation_runs'),
@@ -119,6 +123,16 @@ insert into expected_functions(name) values
   ('assert_premium_report_delivery_entitlement'),
   ('recover_stale_premium_report_email_sends'),
   ('apply_email_provider_event_atomic'),
+  ('authorize_phase14_action'),
+  ('authorize_premium_report_delivery'),
+  ('claim_premium_report_delivery'),
+  ('finalize_premium_report_delivery'),
+  ('renew_premium_report_generation_lease'),
+  ('recover_premium_report_generation_claim'),
+  ('abandon_premium_report_generation_claim'),
+  ('assert_premium_report_download_entitlement'),
+  ('set_phase14_security_gate_version'),
+  ('update_phase14_feature_policy'),
   ('set_updated_at');
 
 do $$
@@ -144,7 +158,8 @@ end $$;
 create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
-  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019'),('0020'),('0021'),('0022');
+  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019'),('0020'),('0021'),('0022'),
+  ('20260714194317');
 
 do $$
 declare missing text;
@@ -189,6 +204,10 @@ insert into expected_policies(table_name, policy_name) values
   ('report_fulfilments', 'report_fulfilments_admin_select'),
   ('report_generation_runs', 'report_generation_runs_admin_select'),
   ('report_ai_attempts', 'report_ai_attempts_admin_select'),
+  ('phase14_security_gates', 'phase14_security_gates_admin_select'),
+  ('phase14_operational_alerts', 'phase14_operational_alerts_admin_select'),
+  ('report_delivery_authorizations', 'report_delivery_authorizations_admin_select'),
+  ('report_delivery_finalizations', 'report_delivery_finalizations_admin_select'),
   ('email_provider_events', 'email_provider_events_admin_select');
 
 do $$
@@ -283,6 +302,7 @@ declare essential_price integer;
 declare advisory_price integer;
 declare flags jsonb;
 declare delivery_policy jsonb;
+declare security_gate public.phase14_security_gates%rowtype;
 begin
   select price_cents into essential_price
   from public.products
@@ -304,6 +324,8 @@ begin
   select value_json into delivery_policy
   from public.app_settings
   where setting_key = 'phase14_delivery_policy';
+  select * into security_gate from public.phase14_security_gates
+  where gate_key = 'phase14-premium-report';
 
   if essential_price <> 500000 then
     raise exception 'Unexpected essential report price_cents: %', essential_price;
@@ -328,6 +350,10 @@ begin
   end if;
   if coalesce((delivery_policy->>'premium_report_test_recipient_override_enabled')::boolean, true) <> false then
     raise exception 'premium_report_test_recipient_override_enabled must be false';
+  end if;
+  if security_gate.status <> 'unsatisfied'
+     or security_gate.satisfied_version >= security_gate.required_version then
+    raise exception 'Phase 14 database security gate must replay as unsatisfied: %', to_jsonb(security_gate);
   end if;
 end $$;
 

@@ -9,6 +9,56 @@ export type ResendWebhookPayload = {
   };
 };
 
+export const RESEND_WEBHOOK_MAX_BODY_BYTES = 64 * 1024;
+export const RESEND_WEBHOOK_MAX_EVENT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const RESEND_WEBHOOK_MAX_EVENT_FUTURE_MS = 10 * 60 * 1000;
+
+export class ResendWebhookBodyTooLargeError extends Error {}
+
+export async function readLimitedWebhookBody(request: Request, maxBytes = RESEND_WEBHOOK_MAX_BODY_BYTES) {
+  const contentLength = Number(request.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new ResendWebhookBodyTooLargeError('Webhook request body exceeds the configured limit.');
+  }
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new ResendWebhookBodyTooLargeError('Webhook request body exceeds the configured limit.');
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
+}
+
+export function validateResendEventCreatedAt(input: {
+  eventCreatedAt?: string;
+  verifiedSvixTimestamp: string | null;
+  receiptTimeMs?: number;
+}) {
+  const receiptTimeMs = input.receiptTimeMs ?? Date.now();
+  const svixTimeMs = Number(input.verifiedSvixTimestamp) * 1000;
+  const eventTimeMs = Date.parse(input.eventCreatedAt ?? '');
+  if (!Number.isFinite(svixTimeMs) || !Number.isFinite(eventTimeMs)) {
+    throw new Error('Webhook event timestamp is invalid.');
+  }
+  const upperBound = Math.min(receiptTimeMs, svixTimeMs) + RESEND_WEBHOOK_MAX_EVENT_FUTURE_MS;
+  const lowerBound = Math.max(receiptTimeMs, svixTimeMs) - RESEND_WEBHOOK_MAX_EVENT_AGE_MS;
+  if (eventTimeMs > upperBound) throw new Error('Webhook event timestamp is unreasonably far in the future.');
+  if (eventTimeMs < lowerBound) throw new Error('Webhook event timestamp is excessively old.');
+  return new Date(eventTimeMs).toISOString();
+}
+
+export function webhookPayloadFingerprint(payload: string) {
+  return crypto.createHash('sha256').update(payload, 'utf8').digest('hex');
+}
+
 function safeEqualBase64(expected: string, actual: string) {
   try {
     const expectedBuffer = Buffer.from(expected, 'base64');
@@ -52,8 +102,8 @@ export function verifyResendWebhook(input: {
   }
 
   const parsed = JSON.parse(input.payload) as ResendWebhookPayload;
-  if (!parsed || typeof parsed.type !== 'string' || !parsed.data?.email_id) {
-    throw new Error('Webhook payload does not contain a supported email event.');
+  if (!parsed || typeof parsed.type !== 'string') {
+    throw new Error('Webhook payload does not contain an event type.');
   }
   return parsed;
 }

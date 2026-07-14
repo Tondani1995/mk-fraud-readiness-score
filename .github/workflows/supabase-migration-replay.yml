@@ -134,6 +134,22 @@ jobs:
             --file=scripts/phase14-remediation-integration-tests.sql \
             | tee tmp/migration-replay/phase14-remediation-integration-tests.txt
 
+      - name: Run Phase 14 security-gate and AAL2 behavioral tests
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-aal2-security-gate-tests.sql \
+            | tee tmp/migration-replay/phase14-aal2-security-gate-tests.txt
+
+      - name: Run Phase 14 true multi-session concurrency tests
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-multi-session-concurrency-tests.sql \
+            | tee tmp/migration-replay/phase14-multi-session-concurrency-tests.txt
+
       - name: Run local database lint
         run: |
           set -Eeuo pipefail

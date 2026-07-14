@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
+import { Phase14AuthorizationError } from '@/lib/reports/phase14-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,13 @@ export async function POST(request: Request, { params }: { params: { reportId: s
     return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Report email could not be sent.';
-    return NextResponse.json({ ok: false, error: 'email_send_failed', message }, { status: 500 });
+    const authorizationError = error instanceof Phase14AuthorizationError;
+    return NextResponse.json({
+      ok: false,
+      error: authorizationError ? error.reason : 'email_send_failed',
+      message
+    }, {
+      status: authorizationError ? (error.reason === 'phase14_security_gate_unsatisfied' ? 503 : 403) : 500
+    });
   }
 }

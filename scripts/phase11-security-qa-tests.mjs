@@ -165,8 +165,10 @@ function runStaticChecks() {
 
   assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'getAdminSession', 'Report download route must check admin session');
   assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'REPORT_DOWNLOAD_ROLES', 'Report download route must use explicit roles');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must use signed URLs');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', '300', 'Report download signed URL TTL must be short-lived');
+  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'downloadPremiumReport', 'Report download route must use the shared entitlement and checksum service');
+  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'Content-Disposition', 'Report download route must stream a controlled attachment');
+  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'private, no-store', 'Report download response must not be cached');
+  assertNotIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
   assertNotIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
   assertIncludes('supabase/migrations/0011_phase10_pdf_report_engine_additions.sql', "values ('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
 

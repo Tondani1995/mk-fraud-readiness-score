@@ -10,6 +10,11 @@ import { renderHtmlToPdfBuffer } from './render-pdf';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
 import { preparePremiumReportNarrative } from './automation/narrative-pipeline';
 import { updatePremiumReportFulfilment } from './automation/fulfilment';
+import { requirePhase14Action } from './phase14-security';
+import {
+  publishCommittedReportObject,
+  uploadTemporaryReportObject
+} from './storage-publication';
 import type {
   PremiumReportAutomationFlags,
   PremiumReportGenerationMode,
@@ -118,6 +123,8 @@ async function persistGenerationProvenance(input: {
     input_token_count: usage?.inputTokens ?? null,
     output_token_count: usage?.outputTokens ?? null,
     total_token_count: usage?.totalTokens ?? null,
+    estimated_cost_micros: usage?.estimatedCostMicros ?? null,
+    accounting_status: input.prepared.mode === 'deterministic_fallback' ? 'not_applicable' : 'verified',
     latency_ms: generation?.latencyMs ?? null,
     status: 'used',
     error_code: input.prepared.fallbackReason ?? null,
@@ -126,14 +133,6 @@ async function persistGenerationProvenance(input: {
   }).select('id').single();
   if (error || !data) throw error ?? new Error('Generation provenance could not be persisted.');
   return data.id as string;
-}
-
-async function verifyStoredChecksum(db: any, bucket: string, path: string, expected: string) {
-  const { data, error } = await db.storage.from(bucket).download(path);
-  if (error || !data) throw new Error(`Stored report verification failed: ${error?.message ?? 'object missing'}`);
-  const bytes = Buffer.from(await data.arrayBuffer());
-  const actual = crypto.createHash('sha256').update(bytes).digest('hex');
-  if (actual !== expected) throw new Error(`Stored report checksum mismatch: expected ${expected}, received ${actual}.`);
 }
 
 async function loadGenerationMetadata(db: any, reportId: string) {
@@ -154,6 +153,7 @@ async function loadGenerationMetadata(db: any, reportId: string) {
 }
 
 async function resumeCommittedDraft(db: any, input: {
+  privilegedDb: any;
   claim: GenerationClaim;
   assessmentReference: string;
   fulfilmentId?: string | null;
@@ -164,18 +164,17 @@ async function resumeCommittedDraft(db: any, input: {
     throw new Error('Committed report draft has incomplete storage metadata.');
   }
   const finalPath = `${input.assessmentReference}/${report.report_reference}-${report.checksum}.pdf`;
-  const { error: copyError } = await db.storage.from(report.storage_bucket).copy(report.storage_path, finalPath);
-  if (copyError && !/already exists|duplicate/i.test(copyError.message)) {
-    throw new Error(`Final report publication failed: ${copyError.message}`);
-  }
-  await verifyStoredChecksum(db, report.storage_bucket, finalPath, report.checksum);
-  const { data: published, error: publishError } = await db.rpc('publish_premium_report_generation', {
-    p_claim_token: input.claim.claim_token,
-    p_report_id: report.id,
-    p_final_storage_path: finalPath
+  await publishCommittedReportObject({
+    db,
+    privilegedDb: input.privilegedDb,
+    bucket: report.storage_bucket,
+    temporaryPath: report.storage_path,
+    finalPath,
+    checksum: report.checksum,
+    claimToken: input.claim.claim_token,
+    reportId: report.id,
+    onCleanupFailure: (error) => recordStorageCleanupAlert(db, report.id, report.storage_path, error)
   });
-  if (publishError || !published) throw publishError ?? new Error('Report publication RPC returned no result.');
-  await db.storage.from(report.storage_bucket).remove([report.storage_path]).catch(() => null);
   await updateFulfilmentSafely(input.fulfilmentId, {
     fulfilmentId: input.fulfilmentId ?? '',
     status: 'ready_for_delivery',
@@ -192,6 +191,16 @@ async function resumeCommittedDraft(db: any, input: {
     readyForEmailDelivery: true,
     reusedExistingReport: true
   };
+}
+
+async function recordStorageCleanupAlert(db: any, reportId: string, temporaryPath: string, error: unknown) {
+  await db.from('phase14_operational_alerts').upsert({
+    alert_key: `report-temp-cleanup:${reportId}:${temporaryPath}`,
+    severity: 'warning',
+    category: 'report_temporary_object_cleanup_failed',
+    report_id: reportId,
+    detail_json: { temporary_path: temporaryPath, error: errorMessage(error) }
+  }, { onConflict: 'alert_key', ignoreDuplicates: true }).catch(() => null);
 }
 
 async function logGenerated(input: {
@@ -250,6 +259,10 @@ async function logGenerated(input: {
 export async function generatePremiumReport(
   input: GeneratePremiumReportInput
 ): Promise<GeneratePremiumReportResult> {
+  const phase14Action = input.actor.action === 'admin_regenerate' || input.actor.action === 'admin_retry'
+    ? 'report_regeneration'
+    : 'report_generation';
+  const { client: privilegedDb } = await requirePhase14Action(phase14Action);
   const db = createSupabaseServiceClient() as any;
   const flags = input.flags ?? await getPremiumReportAutomationFlags();
   let claimToken: string | null = null;
@@ -270,20 +283,33 @@ export async function generatePremiumReport(
     const assembled = await assembleReportData(input.orderReference);
     const reportType = validatePremiumReportGenerationEntitlement(assembled);
     const claimOwner = input.fulfilmentId ? `fulfilment:${input.fulfilmentId}` : `request:${crypto.randomUUID()}`;
-    const { data: claimData, error: claimError } = await db.rpc('claim_premium_report_generation', {
+    const { data: claimData, error: claimError } = await privilegedDb.rpc('claim_premium_report_generation', {
       p_order_reference: input.orderReference,
       p_claim_owner: claimOwner,
       p_fulfilment_id: input.fulfilmentId ?? null,
       p_report_type: reportType
     });
     if (claimError || !claimData) throw claimError ?? new Error('Generation claim RPC returned no result.');
-    const claim = claimData as GenerationClaim;
+    let claim = claimData as GenerationClaim;
+    if (!claim.claimed && claim.reason === 'committed_draft_recovery_required') {
+      const { data: recovered, error: recoveryError } = await privilegedDb.rpc('recover_premium_report_generation_claim', {
+        p_order_reference: input.orderReference,
+        p_claim_owner: claimOwner
+      });
+      if (recoveryError || !recovered) throw recoveryError ?? new Error('Committed draft recovery returned no claim.');
+      claim = recovered as GenerationClaim;
+    }
     if (!claim.claimed || !claim.claim_token) {
       throw new Error(`Premium report generation is already in progress (${claim.reason}).`);
     }
     claimToken = claim.claim_token;
     if (claim.report_id) {
-      return await resumeCommittedDraft(db, { claim, assessmentReference: assembled.assessmentReference, fulfilmentId: input.fulfilmentId });
+      return await resumeCommittedDraft(db, {
+        privilegedDb,
+        claim,
+        assessmentReference: assembled.assessmentReference,
+        fulfilmentId: input.fulfilmentId
+      });
     }
 
     const [{ data: template, error: templateError }, { data: blockRows, error: blockError }] = await Promise.all([
@@ -324,6 +350,10 @@ export async function generatePremiumReport(
       generationIdentity,
       fulfilmentId: input.fulfilmentId ?? null
     });
+    const { error: leaseRenewalError } = await privilegedDb.rpc('renew_premium_report_generation_lease', {
+      p_claim_token: claimToken
+    });
+    if (leaseRenewalError) throw leaseRenewalError;
     const generationRunId = await persistGenerationProvenance({ fulfilmentId: input.fulfilmentId, prepared, flags });
 
     assembled.reportReference = claim.report_reference;
@@ -345,11 +375,17 @@ export async function generatePremiumReport(
       currentStep: 'store_unique_temporary_pdf',
       generationMode: prepared.mode
     });
-    const { error: uploadError } = await db.storage.from(storageBucket)
-      .upload(temporaryPath, pdfBuffer, { contentType: 'application/pdf', upsert: false });
-    if (uploadError) throw new Error(`Temporary storage upload failed: ${uploadError.message}`);
+    await uploadTemporaryReportObject({
+      db,
+      bucket: storageBucket,
+      path: temporaryPath,
+      bytes: pdfBuffer,
+      checksum,
+      reportReference: claim.report_reference,
+      claimToken
+    });
 
-    const { data: reportId, error: commitError } = await db.rpc('commit_premium_report_draft', {
+    const { data: reportId, error: commitError } = await privilegedDb.rpc('commit_premium_report_draft', {
       p_claim_token: claimToken,
       p_template_id: template.id,
       p_storage_bucket: storageBucket,
@@ -361,18 +397,17 @@ export async function generatePremiumReport(
     if (commitError || !reportId) throw commitError ?? new Error('Report draft commit returned no report ID.');
     draftCommitted = true;
 
-    const { error: copyError } = await db.storage.from(storageBucket).copy(temporaryPath, finalPath);
-    if (copyError && !/already exists|duplicate/i.test(copyError.message)) {
-      throw new Error(`Final immutable storage publication failed: ${copyError.message}`);
-    }
-    await verifyStoredChecksum(db, storageBucket, finalPath, checksum);
-    const { data: published, error: publishError } = await db.rpc('publish_premium_report_generation', {
-      p_claim_token: claimToken,
-      p_report_id: reportId,
-      p_final_storage_path: finalPath
+    const { published } = await publishCommittedReportObject({
+      db,
+      privilegedDb,
+      bucket: storageBucket,
+      temporaryPath,
+      finalPath,
+      checksum,
+      claimToken,
+      reportId,
+      onCleanupFailure: (error) => recordStorageCleanupAlert(db, reportId, temporaryPath!, error)
     });
-    if (publishError || !published) throw publishError ?? new Error('Report publication returned no result.');
-    await db.storage.from(storageBucket).remove([temporaryPath]).catch(() => null);
     temporaryPath = null;
 
     if (input.fulfilmentId) {
@@ -416,7 +451,10 @@ export async function generatePremiumReport(
       if (temporaryPath && storageBucket) {
         await db.storage.from(storageBucket).remove([temporaryPath]).catch(() => null);
       }
-      await db.rpc('release_premium_report_generation_claim', { p_claim_token: claimToken }).catch(() => null);
+      await privilegedDb.rpc('abandon_premium_report_generation_claim', {
+        p_claim_token: claimToken,
+        p_reason: errorMessage(error)
+      }).catch(() => null);
     }
     const message = errorMessage(error);
     await updateFulfilmentSafely(input.fulfilmentId, {

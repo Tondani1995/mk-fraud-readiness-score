@@ -2,6 +2,7 @@ import { buildDeterministicNarrative, narrativeToSelectedContent } from './conte
 import { buildPremiumReportEvidencePack, evidenceChecksum } from './evidence';
 import { validatePremiumReportNarrative } from './validation';
 import { createDurablePremiumReportNarrativeGenerator } from './durable-ai-attempts';
+import { validatePremiumReportAiEditorialPlan } from './ai-plan-validation';
 import type {
   BuildPremiumReportNarrativeInput,
   PreparedPremiumReportNarrative
@@ -41,14 +42,13 @@ export async function preparePremiumReportNarrative(
 ): Promise<PreparedPremiumReportNarrative> {
   if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled');
   if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable');
+  if (!input.generationIdentity) return fallbackResult(input, 'ai_generation_identity_missing');
 
-  const generator = input.generationIdentity
-    ? createDurablePremiumReportNarrativeGenerator({
-      generator: input.generator,
-      generationIdentity: input.generationIdentity,
-      fulfilmentId: input.fulfilmentId
-    })
-    : input.generator;
+  const generator = createDurablePremiumReportNarrativeGenerator({
+    generator: input.generator,
+    generationIdentity: input.generationIdentity,
+    fulfilmentId: input.fulfilmentId
+  });
 
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
@@ -67,16 +67,19 @@ export async function preparePremiumReportNarrative(
 
   try {
     const generation = await generator.generate(baseGenerationInput);
-    const validation = validatePremiumReportNarrative(generation.output, evidence, new Date(), { prohibitMetricRestatement: true });
-    if (validation.ok) {
+    const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence);
+    if (planValidation.ok) {
+      const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent);
+      const validation = validatePremiumReportNarrative(narrative, evidence);
+      if (!validation.ok) throw new Error('Deterministic narrative validation failed after the AI evidence plan was accepted.');
       return {
-        narrative: generation.output,
-        selectedContent: narrativeToSelectedContent(input.assembled, generation.output, false),
+        narrative,
+        selectedContent: narrativeToSelectedContent(input.assembled, narrative, true),
         mode: 'ai',
         evidence,
         evidenceChecksum: checksum,
         validation,
-        initialValidation: validation,
+        initialValidation: planValidation,
         generation
       };
     }
@@ -85,18 +88,21 @@ export async function preparePremiumReportNarrative(
       const repairGeneration = await generator.repair({
         ...baseGenerationInput,
         previousOutput: generation.output,
-        validationIssues: validation.issues
+        validationIssues: planValidation.issues
       });
-      const repairValidation = validatePremiumReportNarrative(repairGeneration.output, evidence, new Date(), { prohibitMetricRestatement: true });
+      const repairValidation = validatePremiumReportAiEditorialPlan(repairGeneration.output, evidence);
       if (repairValidation.ok) {
+        const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent);
+        const validation = validatePremiumReportNarrative(narrative, evidence);
+        if (!validation.ok) throw new Error('Deterministic narrative validation failed after the repaired AI evidence plan was accepted.');
         return {
-          narrative: repairGeneration.output,
-          selectedContent: narrativeToSelectedContent(input.assembled, repairGeneration.output, false),
+          narrative,
+          selectedContent: narrativeToSelectedContent(input.assembled, narrative, true),
           mode: 'ai_repair',
           evidence,
           evidenceChecksum: checksum,
-          validation: repairValidation,
-          initialValidation: validation,
+          validation,
+          initialValidation: planValidation,
           repairValidation,
           generation,
           repairGeneration
@@ -105,7 +111,7 @@ export async function preparePremiumReportNarrative(
 
       return {
         ...fallbackResult(input, 'ai_repair_validation_failed'),
-        initialValidation: validation,
+        initialValidation: planValidation,
         repairValidation,
         generation,
         repairGeneration
@@ -114,7 +120,7 @@ export async function preparePremiumReportNarrative(
       const reason = repairError instanceof Error ? repairError.message : 'repair_generation_failed';
       return {
         ...fallbackResult(input, `ai_repair_failed:${reason}`),
-        initialValidation: validation,
+        initialValidation: planValidation,
         generation
       };
     }

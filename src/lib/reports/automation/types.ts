@@ -1,7 +1,7 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
 
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v1';
-export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-narrative-v1';
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v2-evidence-plan';
+export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-evidence-plan-v2';
 
 export type PremiumReportFulfilmentStatus =
   | 'queued'
@@ -24,6 +24,8 @@ export type PremiumReportTriggerSource =
   | 'admin_regenerate';
 
 export interface PremiumReportAutomationFlags {
+  securityGateSatisfied: boolean;
+  securityGateVersion: number | null;
   autoFulfilmentEnabled: boolean;
   aiNarrativeEnabled: boolean;
   autoEmailEnabled: boolean;
@@ -91,6 +93,20 @@ export interface PremiumReportNarrative {
   }>;
 }
 
+export interface PremiumReportAiEditorialPlan {
+  executiveEvidenceRefs: string[];
+  falseComfortEvidenceRefs: string[];
+  leadershipEvidenceRefs: string[];
+  domainEvidence: Array<{
+    domainCode: string;
+    evidenceRefs: string[];
+  }>;
+  gapEvidence: Array<{
+    questionCode: string;
+    evidenceRefs: string[];
+  }>;
+}
+
 export interface NarrativeValidationIssue {
   code: string;
   path: string;
@@ -113,7 +129,7 @@ export interface NarrativeGenerationUsage {
 }
 
 export interface NarrativeGenerationResult {
-  output: PremiumReportNarrative;
+  output: PremiumReportAiEditorialPlan;
   provider: string;
   model: string;
   latencyMs: number;
@@ -127,7 +143,7 @@ export interface NarrativeGenerationInput {
   roadmap: { agenda: RoadmapItem[] };
   promptVersion: string;
   schemaVersion: string;
-  previousOutput?: PremiumReportNarrative;
+  previousOutput?: PremiumReportAiEditorialPlan;
   validationIssues?: NarrativeValidationIssue[];
 }
 

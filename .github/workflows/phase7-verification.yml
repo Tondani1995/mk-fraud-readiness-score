@@ -72,6 +72,21 @@ jobs:
       - name: Run Phase 14 PDF email delivery tests
         run: npm run phase14:test-email-delivery
 
+      - name: Run Phase 14 security closure tests
+        run: npm run phase14:test-security-closure
+
+      - name: Run Phase 14 isolated storage fault-injection tests
+        run: npm run phase14:test-storage-faults
+
+      - name: Run Phase 14 isolated provider fault-injection tests
+        run: npm run phase14:test-provider-faults
+
+      - name: Run Phase 14 webhook adversarial helper tests
+        run: npm run phase14:test-webhook-adversarial
+
+      - name: Run Phase 14 AI fingerprint and accounting tests
+        run: npm run phase14:test-ai-accounting
+
       - name: Render a real PDF under Node 24 Chromium
         run: npm run phase14:test-node24-pdf
 

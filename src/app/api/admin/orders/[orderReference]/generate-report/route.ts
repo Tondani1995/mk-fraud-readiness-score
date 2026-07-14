@@ -3,6 +3,7 @@ import { getAdminSession } from '@/lib/auth/admin-route';
 import { ReportAssemblyError } from '@/lib/reports/assemble-report-data';
 import { ReportEntitlementError } from '@/lib/reports/report-entitlement';
 import { generatePremiumReport } from '@/lib/reports/premium-report-service';
+import { Phase14AuthorizationError } from '@/lib/reports/phase14-security';
 
 const REPORT_GENERATION_ROLES = new Set(['platform_admin', 'reviewer', 'approver']);
 
@@ -34,6 +35,13 @@ function errorMessage(error: unknown) {
 }
 
 function failure(error: unknown) {
+  if (error instanceof Phase14AuthorizationError) {
+    return {
+      reason: error.reason,
+      message: error.message,
+      status: error.reason === 'phase14_security_gate_unsatisfied' ? 503 : 403
+    };
+  }
   if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) {
     return {
       reason: error.reason,

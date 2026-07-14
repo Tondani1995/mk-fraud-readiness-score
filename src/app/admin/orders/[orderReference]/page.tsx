@@ -28,8 +28,7 @@ function SnapshotValue({ label, value }: { label: string; value: string | null |
   );
 }
 
-async function getReportVersions(orderId: string) {
-  const db = createSupabaseServiceClient();
+async function getReportVersions(db: any, orderId: string) {
   const { data, error } = await db
     .from('reports')
     .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
@@ -42,8 +41,7 @@ async function getReportVersions(orderId: string) {
   return data ?? [];
 }
 
-async function getLatestFulfilment(orderId: string) {
-  const db = createSupabaseServiceClient() as any;
+async function getLatestFulfilment(db: any, orderId: string) {
   const { data, error } = await db
     .from('report_fulfilments')
     .select('id,status,current_step,generation_mode,attempt_count,last_error_code,last_error_message,report_id,created_at,updated_at')
@@ -57,13 +55,14 @@ async function getLatestFulfilment(orderId: string) {
 
 export default async function AdminOrderDetailPage({ params }: { params: { orderReference: string } }) {
   const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']);
+  const db = createSupabaseServiceClient() as any;
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
 
   const { order, events, auditEvents } = detail;
   const [reportVersions, fulfilment, automationFlags] = await Promise.all([
-    getReportVersions(order.id),
-    getLatestFulfilment(order.id),
+    getReportVersions(db, order.id),
+    getLatestFulfilment(db, order.id),
     getPremiumReportAutomationFlags()
   ]);
   const eft = order.eft_instructions_snapshot ?? {};

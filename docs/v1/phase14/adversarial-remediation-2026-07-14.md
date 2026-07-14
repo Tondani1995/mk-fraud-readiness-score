@@ -1,34 +1,65 @@
-# Phase 14 Adversarial Remediation — 14 July 2026
+# Phase 14 Security and State-Machine Closure — 14 July 2026
 
-## Decision
+## Decision and scope
 
-All nine independent-review workstreams were accepted. None was rejected. The MFA and provider-data-minimisation items are accepted but reframed as immediate post-PR security gates because they require auth-wide session policy and provider-contract/data-lifecycle decisions beyond this report-engine change.
+PR #21 remains draft, open and unmerged. This closure was implemented and verified only in the branch workspace and an isolated local Supabase stack. It did not apply a production or UAT migration, change a Vercel setting, enable a Phase 14 policy, send email, call an AI provider or submit a real webhook.
 
-PR #21 must remain draft and unmerged for another independent review-only pass. All Phase 14 automation, manual-delivery and test-recipient-override policies remain disabled. This remediation made no production Supabase changes, sent no real email, called no paid AI provider and created no real webhook.
+The database-controlled gate `phase14-premium-report` is seeded with required version 1, satisfied version 0 and status `unsatisfied`. Editable application flags cannot override that gate. The migration also resets every Phase 14 generation, AI, automatic-email, manual-delivery and recipient-override policy to false.
 
-## Finding-by-finding record
+## Finding-by-finding closure matrix
 
-| Workstream | Disposition | Implemented control | Verification | Residual risk |
+| # | Finding | Closure | Authoritative control | Exact evidence and classification |
 |---|---|---|---|---|
-| Migration assurance | Accepted | `.github/workflows/supabase-migration-replay.yml` uses `bash`, `set -Eeuo pipefail`, and an explicit `PIPESTATUS[0]` assertion; methodology assertions now require 68 questions, 10 domains and 8 exposure factors; migrations `0021` and `0022` hold the remediation schema and service-role-only grants. | Clean replay run `29355616852`; its intentional SQL failure returned non-zero and the workflow continued only after confirming that expected status. | The workflow pins Supabase CLI 2.81.3; future CLI upgrades need replay revalidation. |
-| Deep generation entitlement | Accepted | `assemble-report-data.ts`, `report-entitlement.ts` and `assert_premium_report_generation_entitlement` require both verification fields, relationship consistency, the current completed/locked score run, a valid SHA-256 input hash, 10 domain results, 68 traces, and the exact active R5,000/ZAR/manual-verification/delivery product contract. | Negative cases in `phase14-autonomous-report-tests.mjs`; transactional cases in `phase14-remediation-integration-tests.sql`. | Application queries remain useful for assembly, but the database RPC is the authoritative transactional gate. |
-| Shared delivery entitlement | Accepted | `delivery-entitlement.ts` is called from `deliverPremiumReportEmail`; `assert_premium_report_delivery_entitlement` rechecks the current non-voided/non-superseded report, commercial entitlement, locked score, storage metadata and customer recipient. The route no longer accepts a recipient override; manual delivery and non-production override have separate disabled policies. | Delivery behavioral suite plus transactional wrong-recipient/current-report cases. | Manual delivery remains unavailable until explicitly enabled after review. |
-| Generation and storage serialization | Accepted | `report_generation_claims` plus advisory locking serialize assessment/report-type claims and version allocation. Each worker uses a claim-scoped random temp path. A draft row/checksum commits before storage copy; the copied immutable object is downloaded and SHA-256 verified before atomic publication/supersession. Shared-object orphan deletion was removed. | Two-owner/version/supersession integration cases; source-order and unsafe-deletion assertions; runtime PDF/checksum path tests. | Storage copy and database publication cannot be one distributed transaction; a committed draft is deliberately resumable and its unique temp object is not deleted by competitors. |
-| Narrative validation | Accepted | `validation.ts` checks all narrative sections, metric-specific value/reference pairs, paraphrases and indirect maturity language. AI-mode output cannot restate score, maturity or exposure; deterministic rendering owns authoritative metrics and roadmap actions. | Adversarial metric reassignment, outside-executive contradiction, indirect maturity and paraphrase cases in `phase14-autonomous-report-tests.mjs`. | Language validation is conservative and may cause deterministic fallback; it must never relax into free metric restatement. |
-| Durable provider reconciliation | Accepted | Provider request/idempotency identity is stored before dispatch. Delivery uses queued, leased sending, uncertainty/reconciliation, sent, delivered, delivery-failed, bounced and complained states. Stale leases reconcile before resend; unresolved provider acceptance blocks force resend; every recovery write is checked. | Fault-state simulations in `phase14-email-delivery-tests.mjs`; stale lease and monotonic webhook integration cases. | Reconciliation without a provider message ID requires operator/provider evidence and intentionally remains blocked. |
-| AI replay isolation | Accepted | `report_ai_attempts` stores a stable fulfilment/generation identity and attempt before dispatch. Successful validated output is persisted and reused by later rendering/storage retries. Provider retries are disabled; timeout, two-attempt, token and cost ceilings are explicit. | Durable-attempt/source assertions and full Phase 14 workflow suite. No paid call was made. | Provider acceptance with a lost response becomes an unresolved durable attempt; automatic replay is intentionally blocked. |
-| Medium controls | Accepted | Webhook signature verification feeds one atomic provider-event claim/monotonic-transition RPC; webhook payload storage is minimised. Delivery downloads the selected current attachment and verifies SHA-256 before dispatch. Transactional tests replace source-regex-only assurance for claims, versions, webhook ordering and stale leases. | Clean database integration suite, email behavioral suite and Node 24 PDF smoke. | MFA enforcement and a formal provider data-retention/minimisation decision remain production-readiness blockers. |
-| Evidence and isolation | Accepted | Historical UAT documents are marked superseded; this record identifies code, tests and residual risk. | Code head `b35aac8fcd2a8adff8b4f9d1bcd4a13cfb12eda8`: V1 run `29355617984` success; migration run `29355616852` success; Vercel deployment `dpl_CK2RnB4qZesxbUtekZWhzB53X61d` READY; `/score/api/health` HTTP 200 with the Phase 14 identifier. | Evidence-only commits after this code head still require exact-head CI/preview confirmation before handoff. |
+| 1 | Foundation could be activated through editable flags or a deep direct call | Resolved | Versioned database gate plus shared service/RPC checks for generation, download, delivery, resend, reconciliation, webhook mutation and AI | `phase14-aal2-security-gate-tests.sql` — single-session transactional SQL; `phase14-security-closure-tests.mjs` — static source assertion |
+| 2 | Privileged actions did not require server-verified AAL2 | Resolved | JWT `aal`, expiry, authenticated user identity, active admin profile and allowed role are checked in the database | `phase14-aal2-security-gate-tests.sql` — single-session transactional SQL covering no session, inactive, AAL1, AAL2, disallowed, revoked and expired |
+| 3 | Download issued a status-agnostic signed URL | Resolved | Shared entitlement RPC plus authenticated streaming and runtime SHA-256; missing or mismatched objects alert and fail closed | `phase14-storage-fault-injection-tests.mjs` — application service/storage fault-injection; `phase14-remediation-integration-tests.sql` — single-session transactional SQL |
+| 4 | Generation eligibility could change after claim | Resolved | Draft commit and publication reassert persisted order, assessment, score and input-hash identities and complete commercial entitlement | `phase14-remediation-integration-tests.sql` — single-session transactional SQL changing eligibility after claim and after commit |
+| 5 | A committed draft was tied forever to a textual owner | Resolved | Explicit claimed/committed/abandoned states, random claim token, renewable lease, audited recovery, single recovery count and safe cleanup contract | `phase14-multi-session-concurrency-tests.sql` — multi-session concurrency test for two claimers and two takeover attempts; integration SQL — committed abandonment |
+| 6 | Delivery lacked an immutable pre-dispatch authorization | Resolved | Transactional outbox binds report, checksum, recipient, order, score, actor session and gate version; worker revalidates before claim | `phase14-remediation-integration-tests.sql` — single-session transactional SQL revoking an authorization after eligibility changes |
+| 7 | Provider 404 could permit a duplicate resend | Resolved | A 404 with a provider message ID remains reconciliation-required and resend-prohibited; unresolved acceptance blocks force resend | `phase14-email-delivery-tests.mjs` — pure helper/static assertions; `phase14-provider-fault-injection-tests.mjs` — application service/provider fault-injection for ambiguous acceptance |
+| 8 | Successful delivery persistence was fragmented | Resolved | One idempotent compare-and-set RPC finalizes email, provider ID, report release, fulfilment completion and three event records | `phase14-remediation-integration-tests.sql` — single-session transactional SQL including duplicate finalization and exact event counts; provider fault test — finalization failure |
+| 9 | Webhook bounds, identity and ordering were incomplete | Resolved | 64 KiB streaming limit, timestamp bounds, provider-qualified identities, fingerprints/conflict alerts, minimal unsupported records and terminal ranks | `phase14-webhook-adversarial-tests.mjs` — pure helper test; integration SQL — single-session transactional SQL; `phase14-multi-session-concurrency-tests.sql` — concurrent webhook database sessions |
+| 10 | Regex validation could not make AI prose non-authoritative | Resolved by schema replacement | AI can return evidence identifiers only. All client prose, scores, bands, gaps, controls and roadmap states are deterministic. Identifiers are NFKC-normalized and exact-key validated | `phase14-security-closure-tests.mjs` — pure helper test for written numbers, full-width digits, ranges, synonyms and indirect assertions |
+| 11 | AI attempt identity and missing accounting were unsafe | Resolved | Reuse requires generation, evidence, provider, model, prompt, schema and kind; missing usage/cost becomes `accounting_unverified` and cannot be released | `phase14-ai-accounting-tests.mjs` — application service test with injected database/provider doubles; no provider call |
+| 12 | Provider data controls were not merge-appropriate | Resolved for inert merge posture | Gate blocks ingestion; body/payload limits, redaction and minimal stored fields are encoded; categories and roles are documented | `provider-data-controls.md` — controller read-only verification/documented policy; integration SQL verifies unsupported-field discard |
+| 13 | Static checks were described as behavioral concurrency/fault proof | Resolved | Local replay now runs transactional SQL, real dblink sessions and injected service faults | Exact classifications in this table and the verification inventory below |
+| 14 | Evidence overstated concurrency, paraphrase and recovery proof | Resolved | Claims are limited to the evidence category actually run; no real-provider or deployed-UAT claim is made here | This document — controller read-only verification |
+| 15 | Closure lacked complete verification and exact-head evidence | Pending exact-head controller evidence | Local suites, clean replay, lint, typecheck and build must pass; remote CI/Preview evidence is recorded only after push | See “Verification inventory”; exact-head CI and Preview are intentionally not preclaimed |
 
-## Security-gate recommendation
+## Verification inventory
 
-Keep the report-engine fixes in PR #21. Open an immediate security PR before any production flag or manual-delivery policy is enabled to:
+| Test | Classification | Property proven |
+|---|---|---|
+| `scripts/phase14-aal2-security-gate-tests.sql` | Single-session transactional SQL test | Gate default, AAL/session/profile/role matrix |
+| `scripts/phase14-remediation-integration-tests.sql` | Single-session transactional SQL test | Entitlement changes, publication checks, outbox revocation, atomic finalization, webhook conflicts/order/provider identity |
+| `scripts/phase14-multi-session-concurrency-tests.sql` | Multi-session concurrency test | Same-assessment claim election, committed-draft takeover race, concurrent webhook serialization |
+| `scripts/phase14-storage-fault-injection-tests.mjs` | Application service test and storage fault-injection test | Upload/copy/checksum/publication/cleanup faults; download mismatch/missing alerts |
+| `scripts/phase14-provider-fault-injection-tests.mjs` | Application service test and provider fault-injection test | Pre-boundary checksum failure, ambiguous dispatch, provider acceptance/finalization failure, successful finalization call |
+| `scripts/phase14-webhook-adversarial-tests.mjs` | Pure helper test | Valid signature, future/old event rejection, header and streamed body limits, distinct fingerprints |
+| `scripts/phase14-security-closure-tests.mjs` | Pure helper test plus static source assertion | Evidence-only AI schema, Unicode normalization and deterministic authority |
+| `scripts/phase14-ai-accounting-tests.mjs` | Application service test with injected doubles | Exact reuse fingerprint, accounting-unverified, provider/model changes and pre-dispatch size ceiling |
+| `scripts/phase14-migration-replay-assertions.sql` | Clean local migration replay assertion | Tables, functions, grants, counts, private bucket and disabled policy state |
+| `supabase db lint --local` | Controller read-only verification | No local schema lint errors |
 
-1. enforce MFA/AAL for privileged admin sessions at the shared authentication and middleware boundary, with recovery and break-glass procedures; and
-2. approve and encode provider-data minimisation, retention, deletion, logging and contractual controls for AI and email providers.
+There was no deployed-UAT test and no real external-provider UAT in this closure. Earlier UAT artifacts are historical and do not prove the new security state machine.
 
-These are cross-cutting production controls rather than safe report-module-only edits. PR #21 records both as required gates in `phase14_delivery_policy`; it does not claim them complete.
+## New migrations
 
-## Current handoff gate
+- `20260714194317_phase14_security_state_machine_closure.sql`
+- `20260714201550_phase14_webhook_state_machine.sql`
 
-Keep PR #21 draft and unmerged. Do not enable production automation, manual delivery or recipient override. Require another independent review-only pass over the final diff and this evidence before any merge-readiness decision.
+The second migration contains only the grant transition for the new webhook overload because Supabase CLI 2.81.3 cannot prepare a direct `REVOKE FUNCTION; GRANT FUNCTION;` pair as one migration statement. The grant transition is wrapped in one database block and is replay-tested.
+
+## Enablement-only controls
+
+These are deliberately not completed by this inert foundation PR:
+
+1. independent third review and controller approval of the exact head;
+2. production migration approval and a separately recorded security-gate version change by an AAL2 platform administrator;
+3. organization-wide MFA enrollment, recovery and break-glass operating procedure;
+4. provider contract/DPA approval and automated retention/deletion schedules;
+5. alert routing, runbooks and operator reconciliation training;
+6. separately authorized real-provider UAT for AI, email and webhooks;
+7. separately authorized policy enablement, one flag at a time, after health and rollback checks.
+
+Until those controls are complete, the security gate and every Phase 14 policy remain disabled.

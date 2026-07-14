@@ -85,6 +85,7 @@ assert.match(config, /'puppeteer-core': 'commonjs puppeteer-core'/);
 assert.doesNotMatch(config, /turbopack/);
 
 const service = read('src/lib/reports/premium-report-service-core.ts');
+const storagePublication = read('src/lib/reports/storage-publication.ts');
 for (const pattern of [
   /validatePremiumReportGenerationEntitlement/,
   /preparePremiumReportNarrative/,
@@ -98,9 +99,16 @@ assert.doesNotMatch(service, /mk_validated_assessment:\s*'mk_validated'/);
 assert.doesNotMatch(service, /removeOrphanedStorageObject/);
 assert.match(service, /temporaryPath = `tmp\/\$\{assembled\.assessmentReference\}\/\$\{claimToken\}\/\$\{crypto\.randomUUID\(\)\}\.pdf`/);
 assert.match(service, /commit_premium_report_draft/);
-assert.match(service, /publish_premium_report_generation/);
-assert(service.indexOf("db.rpc('commit_premium_report_draft'") < service.indexOf('.copy(temporaryPath, finalPath)'), 'Report row/checksum must commit before final object publication.');
-assert(service.lastIndexOf('.copy(temporaryPath, finalPath)') < service.lastIndexOf("db.rpc('publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
+assert.match(service, /publishCommittedReportObject/);
+assert.match(storagePublication, /publish_premium_report_generation/);
+assert(service.indexOf("privilegedDb.rpc('commit_premium_report_draft'") < service.lastIndexOf('publishCommittedReportObject({'), 'Report row/checksum must commit before final object publication.');
+const publicationBody = storagePublication.slice(storagePublication.indexOf('export async function publishCommittedReportObject'));
+assert(publicationBody.indexOf('.copy(') < publicationBody.indexOf('await verifyStoredReportChecksum'), 'Final object copy must precede checksum verification.');
+assert(publicationBody.indexOf('await verifyStoredReportChecksum') < publicationBody.indexOf("'publish_premium_report_generation'"), 'Final path must be checksum-verified before database publication.');
+assert.match(service, /requirePhase14Action\(phase14Action\)/);
+assert.match(service, /recover_premium_report_generation_claim/);
+assert.match(service, /renew_premium_report_generation_lease/);
+assert.doesNotMatch(service, /p_final_storage_path/);
 
 const durableAi = read('src/lib/reports/automation/durable-ai-attempts.ts');
 assert.match(durableAi, /provider_request_key/);
@@ -111,6 +119,10 @@ assert.match(durableAi, /automatic replay is blocked/);
 assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2/);
 assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS/);
 assert.match(durableAi, /PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS/);
+assert.match(durableAi, /accounting_unverified/);
+assert.match(durableAi, /prompt_version/);
+assert.match(durableAi, /schema_version/);
+assert.match(durableAi, /inputSizeBytes/);
 
 const aiGenerator = read('src/lib/reports/automation/ai-sdk-generator.ts');
 assert.match(aiGenerator, /maxRetries:\s*0/);
@@ -126,6 +138,18 @@ for (const pattern of [
   /publish_premium_report_generation/i,
   /create table public\.report_ai_attempts/i
 ]) assert.match(remediationMigration, pattern);
+
+const closureMigration = read('supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql');
+for (const pattern of [
+  /create table public\.phase14_security_gates/i,
+  /satisfied_version integer not null default 0/i,
+  /phase14_aal2_required/i,
+  /recover_premium_report_generation_claim/i,
+  /create table public\.report_delivery_authorizations/i,
+  /finalize_premium_report_delivery/i,
+  /provider_event_payload_conflict/i,
+  /accounting_unverified/i
+]) assert.match(closureMigration, pattern);
 
 const remediationIntegration = read('scripts/phase14-remediation-integration-tests.sql');
 assert.match(remediationIntegration, /worker-a/);

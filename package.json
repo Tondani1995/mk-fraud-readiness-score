@@ -28,6 +28,11 @@
     "phase13:test-conversion": "node scripts/phase13-customer-commercial-conversion-tests.mjs",
     "phase14:test-report-engine": "node scripts/phase14-autonomous-report-tests.mjs",
     "phase14:test-email-delivery": "node scripts/phase14-email-delivery-tests.mjs",
+    "phase14:test-security-closure": "node scripts/phase14-security-closure-tests.mjs",
+    "phase14:test-storage-faults": "node scripts/phase14-storage-fault-injection-tests.mjs",
+    "phase14:test-provider-faults": "node scripts/phase14-provider-fault-injection-tests.mjs",
+    "phase14:test-webhook-adversarial": "node scripts/phase14-webhook-adversarial-tests.mjs",
+    "phase14:test-ai-accounting": "node scripts/phase14-ai-accounting-tests.mjs",
     "phase14:test-node24-pdf": "node scripts/phase14-node24-chromium-smoke.mjs",
     "platform:test-hardening": "node scripts/platform-hardening-tests.mjs && node scripts/phase14-database-security-hardening-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"

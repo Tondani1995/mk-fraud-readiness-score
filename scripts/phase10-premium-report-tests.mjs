@@ -19,6 +19,8 @@ for (const file of [
   'src/lib/reports/render-pdf.ts',
   'src/lib/reports/templates/report-template.ts',
   'src/lib/reports/premium-report-service.ts',
+  'src/lib/reports/storage-publication.ts',
+  'src/lib/reports/download-verification.ts',
   'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/api/admin/reports/[reportId]/download/route.ts',
   'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql'
@@ -88,7 +90,7 @@ const service = 'src/lib/reports/premium-report-service-core.ts';
 includes(service, 'validatePremiumReportGenerationEntitlement', 'Shared service must enforce the premium entitlement guard');
 includes(service, 'renderHtmlToPdfBuffer', 'Shared service must render PDFs');
 includes(service, 'commit_premium_report_draft', 'Shared service must transactionally persist report drafts');
-includes(service, 'publish_premium_report_generation', 'Version supersession must be committed by the publication RPC');
+includes('src/lib/reports/storage-publication.ts', 'publish_premium_report_generation', 'Version supersession must be committed by the publication RPC');
 includes(service, 'superseded_report_id', 'Version supersession must remain');
 includes(service, "from('report_events')", 'Report events must be recorded');
 includes(service, "from('audit_logs')", 'Audit logs must be recorded');
@@ -101,7 +103,9 @@ includes(generateRoute, 'ReportEntitlementError', 'Admin route must return contr
 excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF logic');
 
 const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
-includes(download, 'createSignedUrl', 'Downloads must use signed URLs');
+includes(download, 'downloadPremiumReport', 'Downloads must stream through the shared verified service');
+excludes(download, 'createSignedUrl', 'Downloads must not issue raw signed storage URLs');
+includes('src/lib/reports/download-verification.ts', 'sha256', 'Downloads must verify the runtime object checksum');
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
 const template = read('src/lib/reports/templates/report-template.ts');

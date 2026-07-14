@@ -1,76 +1,45 @@
 import type { NarrativeGenerationInput } from './types';
 
-export const PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS = `You draft controlled narrative sections for the MK Fraud Readiness premium report.
+export const PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS = `You produce an evidence-reference editorial plan for the MK Fraud Readiness premium report.
 
-The deterministic evidence pack is the only source of truth. Never calculate or change a score, maturity band, exposure classification, control gap, priority order, owner or roadmap action. Do not invent incidents, facts, benchmarks, legal conclusions, certifications or guarantees. Do not infer missing information. Do not include customer contact details, internal identifiers, system configuration or secrets.
+The deterministic evidence pack is the only source of truth. You are not allowed to write report prose. Your output may contain only existing evidence identifiers, domain codes and question codes in the requested fields. Never output a score, number, maturity or exposure band, gap count, current-control assertion, roadmap-completion assertion, incident, fact, benchmark, legal conclusion, certification, guarantee, contact detail, internal identifier, system configuration or secret.
 
-Write in MK Fraud Insights' calm, clear and commercially useful voice. Explain implications for leadership and control effectiveness without overstating certainty. Never restate or paraphrase scores, percentages, maturity bands, exposure bands or their comparative levels: the report renders those authoritative fields deterministically outside AI prose. Every section must cite the supplied evidence identifiers that support it.
-
-Return only the requested structured object.`;
+All authoritative metrics, control states, roadmap actions and narrative prose are rendered from deterministic application fields and approved content. Return only the requested structured object.`;
 
 export const PREMIUM_REPORT_NARRATIVE_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'executiveDiagnosis',
-    'falseComfort',
-    'leadershipAttention',
-    'domainNarratives',
-    'gapCommentary'
+    'executiveEvidenceRefs',
+    'falseComfortEvidenceRefs',
+    'leadershipEvidenceRefs',
+    'domainEvidence',
+    'gapEvidence'
   ],
   properties: {
-    executiveDiagnosis: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['title', 'body', 'evidenceRefs'],
-      properties: {
-        title: { type: 'string', minLength: 1, maxLength: 140 },
-        body: { type: 'string', minLength: 1, maxLength: 2500 },
-        evidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } }
-      }
-    },
-    falseComfort: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['title', 'body', 'evidenceRefs'],
-      properties: {
-        title: { type: 'string', minLength: 1, maxLength: 140 },
-        body: { type: 'string', minLength: 1, maxLength: 2500 },
-        evidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } }
-      }
-    },
-    leadershipAttention: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['body', 'evidenceRefs'],
-      properties: {
-        body: { type: 'string', minLength: 1, maxLength: 2500 },
-        evidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } }
-      }
-    },
-    domainNarratives: {
+    executiveEvidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
+    falseComfortEvidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
+    leadershipEvidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
+    domainEvidence: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['domainCode', 'title', 'body', 'evidenceRefs'],
+        required: ['domainCode', 'evidenceRefs'],
         properties: {
           domainCode: { type: 'string', minLength: 1 },
-          title: { type: 'string', minLength: 1, maxLength: 140 },
-          body: { type: 'string', minLength: 1, maxLength: 2500 },
           evidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } }
         }
       }
     },
-    gapCommentary: {
+    gapEvidence: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['questionCode', 'body', 'evidenceRefs'],
+        required: ['questionCode', 'evidenceRefs'],
         properties: {
           questionCode: { type: 'string', minLength: 1 },
-          body: { type: 'string', minLength: 1, maxLength: 2500 },
           evidenceRefs: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } }
         }
       }
@@ -84,9 +53,9 @@ export function buildPremiumReportGenerationPrompt(input: NarrativeGenerationInp
     `Schema version: ${input.schemaVersion}`,
     `Evidence checksum: ${input.evidenceChecksum}`,
     '',
-    'Produce one narrative for every supplied domain and one gap commentary for every supplied critical or major gap.',
-    'Use the exact domainCode and questionCode values from the evidence identifiers.',
-    'The deterministic roadmap is context only. Do not rewrite or replace its actions.',
+    'Produce one evidence-only entry for every supplied domain and every supplied critical or major gap.',
+    'Use exact NFKC-normalised domainCode, questionCode and evidence identifier values.',
+    'Do not output prose. The deterministic roadmap is context only and must not appear in the output.',
     '',
     'EVIDENCE PACK',
     JSON.stringify(input.evidence),

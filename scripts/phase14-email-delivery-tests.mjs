@@ -73,22 +73,21 @@ assert.match(transport, /RESEND_API_KEY/);
 const deliveryWrapper = read('src/lib/reports/email/report-delivery.ts');
 assert.match(deliveryWrapper, /report-delivery-service/);
 const delivery = read('src/lib/reports/email/report-delivery-service-core.ts');
-assert.match(delivery, /premium-report-delivery:\$\{report\.id\}:\$\{recipient\}/);
+const dispatch = read('src/lib/reports/email/delivery-dispatch.ts');
 assert.match(delivery, /flags\.testRecipientOverride/);
 assert.match(delivery, /overridePermitted/);
 assert.match(delivery, /manualDeliveryEnabled/);
-assert.match(delivery, /email_test_sent/);
-assert.match(delivery, /customer release unchanged/);
-assert.match(delivery, /failed_before_provider/);
-assert.match(delivery, /requires provider reconciliation before any resend/);
-assert.match(delivery, /\.eq\('status', 'queued'\)/);
-assert.match(delivery, /provider_acceptance_uncertain/);
-assert.match(delivery, /MAX_ATTACHMENT_BYTES/);
-assert.match(delivery, /\.download\(report\.storage_path\)/);
-assert.match(delivery, /actualChecksum !== report\.checksum/);
-assert.match(delivery, /pdfBuffer\.toString\('base64'\)/);
+assert.match(dispatch, /fail_premium_report_delivery_before_dispatch/);
+assert.match(delivery, /authorize_premium_report_delivery/);
+assert.match(delivery, /claim_premium_report_delivery/);
+assert.match(dispatch, /mark_premium_report_delivery_dispatch_started/);
+assert.match(dispatch, /finalize_premium_report_delivery/);
+assert.match(delivery, /resend is prohibited/);
+assert.match(dispatch, /MAX_ATTACHMENT_BYTES/);
+assert.match(dispatch, /\.download\(input\.report\.storage_path\)/);
+assert.match(dispatch, /actualChecksum !== input\.report\.checksum/);
+assert.match(dispatch, /pdfBuffer\.toString\('base64'\)/);
 assert.match(delivery, /reusedExistingSend:\s*true/);
-assert.match(delivery, /status:\s*'released'/);
 assert.match(delivery, /reconcilePremiumReportEmail/);
 assert.doesNotMatch(delivery, /public.*storage/i);
 
@@ -107,7 +106,7 @@ assert.match(manualRoute, /deliverPremiumReportEmail/);
 assert.doesNotMatch(manualRoute, /recipientOverride/);
 
 const webhookRoute = read('src/app/api/webhooks/resend/route.ts');
-assert.match(webhookRoute, /await request\.text\(\)/);
+assert.match(webhookRoute, /readLimitedWebhookBody/);
 assert.match(webhookRoute, /svix-id/);
 assert.match(webhookRoute, /svix-timestamp/);
 assert.match(webhookRoute, /svix-signature/);
@@ -162,7 +161,13 @@ for (const [label, patch, reason] of [
   );
 }
 
-const { verifyResendWebhook, mapResendEventStatus } = loadWebhookModule();
+const {
+  verifyResendWebhook,
+  mapResendEventStatus,
+  validateResendEventCreatedAt,
+  readLimitedWebhookBody,
+  webhookPayloadFingerprint
+} = loadWebhookModule();
 const secretBytes = Buffer.from('phase14-webhook-test-secret');
 const secret = `whsec_${secretBytes.toString('base64')}`;
 const eventId = 'msg_phase14_test';
@@ -206,5 +211,24 @@ assert.throws(() => verifyResendWebhook({
 assert.equal(mapResendEventStatus('email.delivered'), 'delivered');
 assert.equal(mapResendEventStatus('email.failed'), 'delivery_failed');
 assert.equal(mapResendEventStatus('email.opened'), null);
+assert.equal(webhookPayloadFingerprint(payload).length, 64);
+assert.throws(() => validateResendEventCreatedAt({
+  eventCreatedAt: new Date(Number(timestamp) * 1000 + 11 * 60 * 1000).toISOString(),
+  verifiedSvixTimestamp: timestamp,
+  receiptTimeMs: Number(timestamp) * 1000
+}), /future/i);
+assert.throws(() => validateResendEventCreatedAt({
+  eventCreatedAt: new Date(Number(timestamp) * 1000 - 8 * 24 * 60 * 60 * 1000).toISOString(),
+  verifiedSvixTimestamp: timestamp,
+  receiptTimeMs: Number(timestamp) * 1000
+}), /old/i);
+await assert.rejects(
+  readLimitedWebhookBody(new Request('https://example.invalid', {
+    method: 'POST',
+    headers: { 'content-length': String(65 * 1024) },
+    body: 'x'
+  })),
+  /limit/i
+);
 
 console.log('Phase 14 PDF email delivery, retry recovery, test-recipient isolation and replay-safe webhook tests passed.');
