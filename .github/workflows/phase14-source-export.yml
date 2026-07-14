@@ -13,8 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out exact commit
+      - name: Check out exact PR head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Archive tracked source
         run: git archive --format=tar.gz --output="$RUNNER_TEMP/pr21-head-source.tar.gz" HEAD
