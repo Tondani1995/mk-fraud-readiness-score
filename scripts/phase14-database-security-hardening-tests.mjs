@@ -17,7 +17,7 @@ function walk(dir) {
   });
 }
 
-function assertGrantPosture(sql, signature) {
+function assertServiceRoleOnlyPosture(sql, signature) {
   const compact = normalizeSql(sql);
   const normalizedSignature = normalizeSql(signature);
   for (const role of ['public', 'anon', 'authenticated']) {
@@ -28,8 +28,29 @@ function assertGrantPosture(sql, signature) {
   }
   assert(
     compact.includes(`grant execute on function ${normalizedSignature} to service_role`),
-    `${signature} must grant EXECUTE only to service_role`
+    `${signature} must grant EXECUTE to service_role`
   );
+}
+
+function assertAuthenticatedAdminHelperPosture(sql, signature) {
+  const compact = normalizeSql(sql);
+  const normalizedSignature = normalizeSql(signature);
+  for (const role of ['public', 'anon']) {
+    assert(
+      compact.includes(`revoke execute on function ${normalizedSignature} from ${role}`),
+      `${signature} must revoke EXECUTE from ${role}`
+    );
+  }
+  assert(
+    !compact.includes(`revoke execute on function ${normalizedSignature} from authenticated`),
+    `${signature} must not revoke EXECUTE from authenticated because admin RLS policies invoke it`
+  );
+  for (const role of ['authenticated', 'service_role']) {
+    assert(
+      compact.includes(`grant execute on function ${normalizedSignature} to ${role}`),
+      `${signature} must grant EXECUTE to ${role}`
+    );
+  }
 }
 
 const migrationPath = 'supabase/migrations/0020_phase14_privileged_function_grants.sql';
@@ -53,13 +74,13 @@ for (const forbidden of [
 }
 assert.match(migration, /DO\s+\$phase14_privileged_function_grants\$/i, '0020 must stay as one Supabase CLI replay-safe DO block');
 
-assertGrantPosture(migration, 'public.check_rate_limit(text, integer, integer)');
-assertGrantPosture(
+assertServiceRoleOnlyPosture(migration, 'public.check_rate_limit(text, integer, integer)');
+assertServiceRoleOnlyPosture(
   migration,
   'public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb)'
 );
-assertGrantPosture(migration, 'public.current_admin_role()');
-assertGrantPosture(migration, 'public.is_admin_role(public.admin_role[])');
+assertAuthenticatedAdminHelperPosture(migration, 'public.current_admin_role()');
+assertAuthenticatedAdminHelperPosture(migration, 'public.is_admin_role(public.admin_role[])');
 
 const allMigrationSql = fs.readdirSync(path.join(root, 'supabase/migrations'))
   .filter((file) => file.endsWith('.sql'))
