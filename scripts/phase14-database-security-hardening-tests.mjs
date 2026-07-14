@@ -22,12 +22,12 @@ function assertGrantPosture(sql, signature) {
   const normalizedSignature = normalizeSql(signature);
   for (const role of ['public', 'anon', 'authenticated']) {
     assert(
-      compact.includes(`revoke execute on function ${normalizedSignature} from ${role};`),
+      compact.includes(`revoke execute on function ${normalizedSignature} from ${role}`),
       `${signature} must revoke EXECUTE from ${role}`
     );
   }
   assert(
-    compact.includes(`grant execute on function ${normalizedSignature} to service_role;`),
+    compact.includes(`grant execute on function ${normalizedSignature} to service_role`),
     `${signature} must grant EXECUTE only to service_role`
   );
 }
@@ -51,6 +51,7 @@ for (const forbidden of [
 ]) {
   assert.doesNotMatch(migration, forbidden, `0020 must stay grant/comment-only and avoid ${forbidden}`);
 }
+assert.match(migration, /DO\s+\$phase14_privileged_function_grants\$/i, '0020 must stay as one Supabase CLI replay-safe DO block');
 
 assertGrantPosture(migration, 'public.check_rate_limit(text, integer, integer)');
 assertGrantPosture(
