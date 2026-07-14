@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Diagnose protected alias authentication with immutable artifact target
+      - name: Verify protected UAT PDF artifact access
         shell: bash
         env:
           SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=wrLfqWed6zSe48xiIOLZiaAp5jVGqW01
-          ARTIFACT_URL: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
+          ARTIFACT_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
         run: |
           set -euo pipefail
@@ -30,4 +30,4 @@ jobs:
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME_PATH"
           export CHROME_PATH
-          node -e 'const p=require("puppeteer-core"),c=require("crypto");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const u=g.url(),k=await g.cookies(),n=k.map(x=>x.name),h=k.map(x=>`${x.name}=${x.value}`).join("; ");console.log(`share_final_host=${new URL(u).host}`);console.log(`cookie_names=${n.join(",")}`);if(!h.includes("_vercel_jwt"))throw Error("missing_vercel_jwt");const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");console.log(`artifact_status=${r.status}`);console.log(`artifact_type=${t}`);console.log(`artifact_bytes=${x.length}`);console.log(`artifact_sha256=${s}`);if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);console.log("PDF_ACCESS_DIAGNOSTIC_PASSED")}finally{await b.close()}})().catch(e=>{console.error(`PDF_ACCESS_DIAGNOSTIC_FAILED:${e.message}`);process.exit(1)})'
+          node -e 'const p=require("puppeteer-core"),c=require("crypto"),f=require("fs");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const u=g.url(),k=await g.cookies(),n=k.map(x=>x.name),h=k.map(x=>`${x.name}=${x.value}`).join("; ");console.log(`share_final_host=${new URL(u).host}`);console.log(`cookie_names=${n.join(",")}`);if(!h.includes("_vercel_jwt"))throw Error("missing_vercel_jwt");const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");console.log(`artifact_status=${r.status}`);console.log(`artifact_type=${t}`);console.log(`artifact_bytes=${x.length}`);console.log(`artifact_sha256=${s}`);if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);f.writeFileSync("/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf",x);console.log("PDF_ACCESS_DIAGNOSTIC_PASSED")}finally{await b.close()}})().catch(e=>{console.error(`PDF_ACCESS_DIAGNOSTIC_FAILED:${e.message}`);process.exit(1)})'
