@@ -8,17 +8,17 @@ on:
       - .github/workflows/phase14-uat-pdf-review.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnose:
+  collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Verify protected UAT PDF artifact access
+      - name: Collect exact private UAT PDF
         shell: bash
         env:
-          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=wrLfqWed6zSe48xiIOLZiaAp5jVGqW01
+          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=440EzggkGSeAKLyaoal4GD1cjDJMI7xz
           ARTIFACT_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
         run: |
@@ -30,4 +30,56 @@ jobs:
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME_PATH"
           export CHROME_PATH
-          node -e 'const p=require("puppeteer-core"),c=require("crypto"),f=require("fs");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const u=g.url(),k=await g.cookies(),n=k.map(x=>x.name),h=k.map(x=>`${x.name}=${x.value}`).join("; ");console.log(`share_final_host=${new URL(u).host}`);console.log(`cookie_names=${n.join(",")}`);if(!h.includes("_vercel_jwt"))throw Error("missing_vercel_jwt");const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");console.log(`artifact_status=${r.status}`);console.log(`artifact_type=${t}`);console.log(`artifact_bytes=${x.length}`);console.log(`artifact_sha256=${s}`);if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);f.writeFileSync("/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf",x);console.log("PDF_ACCESS_DIAGNOSTIC_PASSED")}finally{await b.close()}})().catch(e=>{console.error(`PDF_ACCESS_DIAGNOSTIC_FAILED:${e.message}`);process.exit(1)})'
+          node -e 'const p=require("puppeteer-core"),c=require("crypto"),f=require("fs");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const k=await g.cookies(),h=k.map(x=>`${x.name}=${x.value}`).join("; ");if(!h.includes("_vercel_jwt"))throw Error(`missing_vercel_jwt:${new URL(g.url()).host}`);const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(x.subarray(0,4).toString("ascii")!=="%PDF")throw Error("not_pdf");if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);f.writeFileSync("/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf",x);f.writeFileSync("/tmp/pdf-review-evidence.json",JSON.stringify({status:r.status,contentType:t,byteLength:x.length,sha256:s},null,2));console.log(`Private UAT PDF collected: ${x.length} bytes`)}finally{await b.close()}})().catch(e=>{console.error(`PDF_COLLECTION_FAILED:${e.message}`);process.exit(1)})'
+
+      - name: Check out draft PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Render and commit temporary visual-review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils python3-pil >/dev/null
+          rm -rf tmp/phase14-uat-pdf-review
+          mkdir -p tmp/phase14-uat-pdf-review/pages
+          pdftoppm -jpeg -r 150 -jpegopt quality=88 /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf tmp/phase14-uat-pdf-review/pages/page >/dev/null
+          pdfinfo /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf > tmp/phase14-uat-pdf-review/pdfinfo.txt
+          cp /tmp/pdf-review-evidence.json tmp/phase14-uat-pdf-review/evidence.json
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageOps, ImageDraw
+          import json
+          root = Path('tmp/phase14-uat-pdf-review')
+          pages = sorted((root / 'pages').glob('page-*.jpg'))
+          if not pages:
+              raise SystemExit('No rendered pages')
+          thumbs = []
+          for index, path in enumerate(pages, 1):
+              image = Image.open(path).convert('RGB')
+              width = 720
+              image = image.resize((width, round(image.height * width / image.width)), Image.Resampling.LANCZOS)
+              image = ImageOps.expand(image, border=2, fill='black')
+              canvas = Image.new('RGB', (image.width, image.height + 42), 'white')
+              canvas.paste(image, (0, 42))
+              ImageDraw.Draw(canvas).text((14, 12), f'Page {index}', fill='black')
+              thumbs.append(canvas)
+          columns, gap = 2, 24
+          rows = (len(thumbs) + columns - 1) // columns
+          cell_w, cell_h = max(i.width for i in thumbs), max(i.height for i in thumbs)
+          sheet = Image.new('RGB', (columns * cell_w + (columns + 1) * gap, rows * cell_h + (rows + 1) * gap), '#dddddd')
+          for i, image in enumerate(thumbs):
+              sheet.paste(image, (gap + (i % columns) * (cell_w + gap), gap + (i // columns) * (cell_h + gap)))
+          sheet.save(root / 'contact-sheet.jpg', quality=90, optimize=True)
+          (root / 'render-metadata.json').write_text(json.dumps({'page_count': len(pages), 'render_dpi': 150, 'individual_pages': [p.name for p in pages]}, indent=2))
+          print(f'Rendered {len(pages)} pages')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp/phase14-uat-pdf-review
+          git commit -m "Add temporary Phase 14 UAT PDF review renders"
+          git push origin HEAD:phase14/autonomous-premium-report-engine
