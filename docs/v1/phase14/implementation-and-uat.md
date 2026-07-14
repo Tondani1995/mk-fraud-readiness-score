@@ -86,6 +86,8 @@ Phase 14 moves the application to Node.js 24 and pins supported Workflow SDK `4.
 
 The previous Node 20 Chromium guard was replaced only after establishing a permanent Node 24 gate that preserves Chromium tracing, package externals and the full report regression boundary. CI now launches packaged Chromium and renders a real PDF under Node 24.
 
+The Vercel runtime remediation pins `@sparticuz/chromium` `143.0.4`, `puppeteer-core` `24.34.0` and `@puppeteer/browsers` `2.11.0`. The renderer uses the supported zero-argument `chromium.executablePath()` path and Puppeteer default arguments rather than spoofing an AWS Lambda runtime.
+
 ## Applied database changes
 
 The following repository migrations are applied to Supabase:
@@ -93,12 +95,13 @@ The following repository migrations are applied to Supabase:
 - `0017_phase14_autonomous_report_engine.sql`
 - `0018_phase14_pdf_email_delivery.sql`
 - `0019_phase14_email_delivery_state_hardening.sql`
+- `0020_phase14_privileged_function_grants.sql`
 
 The first migration was applied through four equivalent controlled steps because the migration tool rejected the original monolithic transaction at its safety boundary. The resulting live schema was verified against the repository migration.
 
 ## Database UAT completed
 
-A controlled paid-order fixture was used without leaving test records. Verified:
+A controlled paid-order fixture was used to verify the database state machine. Verified:
 
 - initial fulfilment creation;
 - same-idempotency-key reuse;
@@ -106,10 +109,11 @@ A controlled paid-order fixture was used without leaving test records. Verified:
 - unique generation attempt number per fulfilment;
 - `updated_at` trigger behaviour across separate transactions;
 - anonymous access absent;
-- authenticated role limited to SELECT plus admin RLS;
-- all temporary fulfilment and generation rows removed.
+- authenticated role limited to SELECT plus admin RLS.
 
 Post-migration advisors show no new Phase 14 security findings and no unindexed foreign keys on the new operational tables. Newly created indexes appear as unused until live traffic, as expected.
+
+Labelled runtime-UAT records are retained only on the isolated Supabase branch as controller evidence. Production contains no matching UAT organisation, assessment or order records.
 
 ## Code and CI assurance
 
@@ -123,37 +127,78 @@ The verification workflow covers:
 - TypeScript;
 - the production application build.
 
-V1 Verification run #671 passed on head `bc7a5c5a8c38755b4a885694a1784a3c1609eeb3`. The real Chromium PDF artifact was downloaded, rendered and visually inspected. It is a valid A4 PDF produced by Chromium/Skia with embedded Open Sans fonts, readable text and no clipping, broken glyphs or rendering artefacts.
+The real Chromium assurance launches the packaged browser and creates a non-trivial A4 PDF under Node 24. Clean Supabase migration replay verifies the complete numeric migration chain, schema, seed state, RLS, grants and private report storage.
+
+## Isolated Vercel runtime UAT — 14 July 2026
+
+The Preview branch was proven to use isolated Supabase ref `nlukprffbrqmvjcmygyr`; production remained on `jvjxlphdyzerrhwcgkup`.
+
+The R5,000 UAT order `MKORD-2026-B8C7U5WQ` completed the respondent, scoring, manual-EFT and entitlement journey. Duplicate detailed-report requests reused one order and duplicate fulfilment triggers reused one workflow run.
+
+The first hosted PDF attempt exposed a real Node 24 packaging defect: Chromium could not load `libnspr4.so`. After the supported Chromium/Puppeteer remediation, the retained fulfilment was retried rather than replaced. Vercel runtime diagnostics then proved:
+
+- Node `24.18.0`;
+- the Chromium executable exists;
+- the AL2023 native library directory exists;
+- `libnspr4.so` exists;
+- `LD_LIBRARY_PATH` contains the AL2023 library directory;
+- the workflow rendered and stored the premium PDF successfully.
+
+The resulting report `RPT-MKFRS-2026-5C01B4F1EE-V1` is a 310,424-byte private PDF with SHA-256 checksum `c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d`.
+
+All 21 rendered pages were visually inspected. No clipping, overlap, broken glyphs, missing fonts or rendering corruption was observed. The cover, scorecards, exposure profile, domain pages, roadmap and methodology sections are readable and consistently branded.
+
+A release-quality presentation issue remains: several pages are materially under-filled, which makes the 21-page report feel longer than its substantive content. Pages containing the confidentiality note, methodology summary, gap dashboard, critical flag and false-comfort section should be consolidated or reflowed before customer release.
+
+## Isolated AI runtime UAT — conditional
+
+Three labelled, paid and manually verified R5,000 UAT orders exercised the real narrative pipeline while automatic fulfilment and email remained off:
+
+1. normal live AI generation;
+2. a controller-injected invalid first pass followed by the real repair call;
+3. a controller-injected provider failure.
+
+The injected invalid first pass was rejected with 18 blocking validation issues, confirming that unsupported benchmark/compliance claims, unknown evidence references and missing required sections cannot pass into a report.
+
+The normal generation and repair calls both reached Vercel AI Gateway but were denied because the Vercel team does not yet have a valid payment card on file. Both scenarios safely produced validated deterministic fallback reports. The injected provider-failure scenario also produced a validated deterministic fallback report.
+
+The fallback gate therefore passed, but live AI success and live AI repair remain blocked by external AI Gateway billing enablement. No AI token usage was recorded for the denied requests.
+
+Throughout AI UAT:
+
+- deterministic score-run values and input hash remained unchanged;
+- all generated reports remained unreleased;
+- no email or provider event was created;
+- production contained no matching UAT records;
+- all UAT and production Phase 14 flags were restored to off;
+- the test-recipient override remained `null`.
 
 ## External enablement requirements
 
-Before customer-wide automation is enabled, the exact supported-Workflow head must complete one Vercel preview UAT proving:
+Before customer-wide automation is enabled, the remaining isolated gates must prove:
 
-- two queue attempts create one fulfilment;
-- two start attempts create one workflow run;
-- real report generation completes;
-- Node 24 Chromium renders a real premium PDF;
-- one report version and one storage object are created;
-- AI success and deterministic fallback are both observed;
-- test email sends a PDF attachment without releasing the customer report;
-- duplicate send and forced resend behaviour are correct;
-- signed webhook delivery and duplicate handling are correct;
-- no fatal runtime logs occur.
+- a valid live AI first-pass response;
+- a valid live AI repair response after validator rejection;
+- controlled test-recipient PDF email delivery without customer release;
+- duplicate-send and forced-resend behaviour;
+- signed webhook delivery, invalid-signature rejection and duplicate/out-of-order handling;
+- no fatal runtime logs.
 
-The preview deployment is currently blocked by the Vercel project build-rate limit. This is an external deployment gate, not a code or database failure.
+The current external blocker is Vercel AI Gateway billing enablement. A valid payment method or an explicitly approved alternative provider configuration is required before live AI success and repair can be retested.
 
 ## Production enablement sequence
 
 1. keep all flags off during merge and production deployment;
 2. verify production health, build metadata and runtime logs;
-3. configure AI Gateway and Resend credentials/domain/webhook;
-4. set a controlled test-recipient override;
-5. enable AI narrative for one approved UAT order;
-6. verify AI success and fallback;
+3. enable and validate the approved AI provider billing/credential boundary;
+4. complete live AI success and repair UAT;
+5. configure Resend credentials, domain and webhook;
+6. set a controlled test-recipient override;
 7. enable email for the test-recipient order only;
 8. verify attachment and webhook delivery;
 9. remove the recipient override;
-10. enable automatic fulfilment and email in a controlled production rollout;
-11. monitor failure, fallback, latency, cost and delivery rates.
+10. tighten the sparse PDF page layouts before customer release;
+11. enable automatic fulfilment and email in a controlled production rollout;
+12. monitor failure, fallback, latency, cost and delivery rates.
 
-No customer-wide flag may be enabled before the external preview and provider gates pass.
+No customer-wide flag may be enabled before the external provider, email and final presentation gates pass.
