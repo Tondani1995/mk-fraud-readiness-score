@@ -204,7 +204,7 @@ assert.throws(() => verifyResendWebhook({
   nowMs: (Number(timestamp) + 301) * 1000
 }), /replay window/i);
 assert.equal(mapResendEventStatus('email.delivered'), 'delivered');
-assert.equal(mapResendEventStatus('email.failed'), 'failed');
+assert.equal(mapResendEventStatus('email.failed'), 'delivery_failed');
 assert.equal(mapResendEventStatus('email.opened'), null);
 
 console.log('Phase 14 PDF email delivery, retry recovery, test-recipient isolation and replay-safe webhook tests passed.');
