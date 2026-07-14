@@ -1,4 +1,4 @@
-# Controller-authorised rerun after resetting the one-use UAT review record.
+# Controller-authorised, immutable-deployment PDF visual review.
 name: Phase 14 UAT PDF Review
 
 on:
@@ -26,8 +26,8 @@ jobs:
       - name: Download protected private UAT PDF once
         shell: bash
         env:
-          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=I59ZwM4gykrlj49aSnK6B8LrMa0umk0v
-          ARTIFACT_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
+          SHARE_ROOT: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/?_vercel_share=46WR3B0UAHTgHIiq5IGm8B31llrlNQ9r
+          ARTIFACT_URL: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
         run: |
           set -euo pipefail
