@@ -49,9 +49,19 @@ A controller-injected provider failure was used to prove continuity when the AI 
 
 ## Deterministic authority and release boundary
 
+The locked score run remained:
+
+- overall score: `75.90`;
+- calculated and final maturity: `Structured`;
+- exposure score: `59.50`;
+- exposure band: `High`;
+- coverage: `100.00%`;
+- critical gaps: `1`;
+- scoring input hash: `ef9a4b4aeca3496a6525cbfef6ffcc936b849dcb7df1a22e42748f5acd584d18`.
+
 The AI layer did not calculate or modify the readiness score, final maturity, exposure result, domain scores, critical gaps, hard-gate outcome or score input hash. These remained sourced from the locked score run.
 
-All generated PDFs were stored in the private `generated-reports` bucket. Reports reached the internal `ready_for_email_delivery` state, but automatic email delivery remained disabled and no customer release timestamp was written.
+All generated PDFs were stored in the private `generated-reports` bucket. Reports reached the internal delivery-ready state, but automatic email delivery remained disabled, no email event or provider message was created, and no customer release timestamp was written.
 
 ## Validation defect repaired
 
@@ -60,7 +70,7 @@ All generated PDFs were stored in the private `generated-reports` bucket. Report
 - “The organisation remains Developing overall, while Operations demonstrates Structured domain maturity” is valid where the evidence supports both statements.
 - “The organisation is Strategic overall” is rejected where the deterministic final maturity is Developing.
 
-## Cleanup
+## Cleanup and isolation proof
 
 After the tests:
 
@@ -71,8 +81,11 @@ After the tests:
 - `premium_report_test_recipient_override=null`
 - the one-use UAT authorisation was disabled and expired;
 - the unused clean-retest order and fulfilment were cancelled;
-- no additional gateway call was made for the clean-pass proof because the actual stored funded first-pass output was revalidated directly.
+- no additional gateway call was made for the clean-pass proof because the actual stored funded first-pass output was revalidated directly;
+- no fulfilment remained queued, assembling, generating, validating, rendering or storing;
+- temporary UAT routes, the temporary post-build runner, the temporary GitHub workflow and the obsolete preview-auth failure artefact were removed;
+- production contained zero matching UAT assessments, orders or reports, and all production Phase 14 flags remained off.
 
 ## Remaining Phase 14 gates
 
-The AI narrative gate is closed. PR #21 must remain draft until controlled test-recipient report-email delivery and signed webhook delivery/bounce/complaint UAT are completed, temporary UAT code is removed, and exact-head verification passes.
+The AI narrative gate is closed. PR #21 remains draft and unmerged. Controlled test-recipient report-email delivery and signed webhook delivery, bounce and complaint UAT remain outstanding before Phase 14 can be considered complete.
