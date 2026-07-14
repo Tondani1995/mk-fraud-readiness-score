@@ -2,7 +2,7 @@
 
 ## Result
 
-**Pass for the Phase 14 AI narrative, repair, deterministic fallback, live Resend send, idempotent resend reconciliation and signed webhook gates on isolated non-production infrastructure.**
+**Pass for the Phase 14 AI narrative, repair, deterministic fallback, live Resend send, idempotent resend reconciliation, signed webhook and final clean-preview gates on isolated non-production infrastructure.**
 
 The UAT used Vercel AI Gateway credits purchased on 14 July 2026, the isolated Supabase branch `phase14-uat` / `nlukprffbrqmvjcmygyr`, assessment `MKFRS-2026-5C01B4F1EE`, score run `8540d731-afe9-444b-8850-c59060381677`, and the paid R5,000 `essential_self_assessment` entitlement only.
 
@@ -143,11 +143,26 @@ After the tests:
 - the temporary UAT admin profile was revoked;
 - temporary synthetic webhook fixtures were removed after evidence capture;
 - no fulfilment remained queued, assembling, generating, validating, rendering or storing;
-- temporary UAT routes, the temporary post-build runner, the temporary GitHub workflow and obsolete preview-auth artefacts were removed or scheduled for removal in the final clean commit;
+- temporary UAT routes, the temporary post-build runner, the temporary GitHub workflow and obsolete preview-auth artefact were removed before final clean verification;
 - production contained zero matching UAT assessments, orders, reports or temporary UAT admin records, and all production Phase 14 flags remained off.
 
-## Remaining Phase 14 gates
+## Final clean verification
 
-The AI, deterministic fallback, live email acceptance, idempotent non-force resend and signed webhook gates are closed on isolated UAT infrastructure.
+Final clean commit `5b8c3cd878add5b264ba4cfeee6d8e523419d298` removed the temporary webhook UAT harness.
 
-PR #21 remains draft and unmerged until the final clean commit, final CI, final preview verification and independent review-only session inspect the final diff and evidence. Do not mark the PR merge-ready in this session.
+- GitHub source lookup for `src/app/api/internal/phase14-webhook-uat/route.ts` at that commit returned `404`.
+- GitHub Actions `V1 Verification` run `29348727938` / run number `924`: success.
+- GitHub Actions `Supabase Migration Replay` run `29348728686` / run number `114`: success.
+- Vercel deployment `dpl_4qJNJh1rRdWwyz5obpUUH9E3Suob`: READY.
+- Deployment URL: `https://mk-fraud-readiness-score-d9kycvwo1-tondanis-projects.vercel.app`.
+- Deployment metadata commit: `5b8c3cd878add5b264ba4cfeee6d8e523419d298`.
+- Deployment metadata branch: `phase14/autonomous-premium-report-engine`.
+- Health route `/score/api/health`: HTTP `200`, phase `phase-14-autonomous-premium-report-engine`.
+
+A direct request to the removed internal route could not be used as app-level `404` proof because Vercel protected-preview SSO intercepted the request before app routing. The merge-state proof is the exact deployment metadata plus the GitHub `404` for the removed route file at the deployed commit.
+
+## Remaining Phase 14 gate
+
+The AI, deterministic fallback, live email acceptance, idempotent non-force resend, signed webhook and final clean-preview gates are closed on isolated UAT infrastructure.
+
+PR #21 remains draft and unmerged until an independent review-only session inspects the final diff and evidence. Do not mark the PR merge-ready in this session.
