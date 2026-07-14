@@ -7,6 +7,7 @@ export type PremiumReportEmailStatus =
   | 'failed_before_provider'
   | 'delivery_delayed'
   | 'delivered'
+  | 'delivery_failed'
   | 'bounced'
   | 'complained';
 
