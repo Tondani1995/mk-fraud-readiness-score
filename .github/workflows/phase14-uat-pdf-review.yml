@@ -8,14 +8,14 @@ on:
       - .github/workflows/phase14-uat-pdf-review.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  collect:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Collect exact private UAT PDF
+      - name: Diagnose exact protected PDF access
         shell: bash
         env:
           SHARE_ROOT: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/?_vercel_share=46WR3B0UAHTgHIiq5IGm8B31llrlNQ9r
@@ -24,141 +24,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "::add-mask::$SHARE_ROOT"
-          echo "Preparing isolated browser caller"
-          rm -rf /tmp/phase14-pdf-review
-          mkdir -p /tmp/phase14-pdf-review
-          cd /tmp/phase14-pdf-review
+          rm -rf /tmp/p14 && mkdir /tmp/p14 && cd /tmp/p14
           npm init -y >/dev/null 2>&1
           npm install --silent --no-save --ignore-scripts puppeteer-core@24.34.0
-
-          CHROME_PATH=""
-          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
-            if command -v "$candidate" >/dev/null 2>&1; then
-              CHROME_PATH="$(command -v "$candidate")"
-              break
-            fi
-          done
-          if [ -z "$CHROME_PATH" ]; then
-            echo "No supported Chrome executable is installed on the runner" >&2
-            exit 1
-          fi
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_PATH"
           export CHROME_PATH
-          echo "Browser caller ready"
-
-          node <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const puppeteer = require('/tmp/phase14-pdf-review/node_modules/puppeteer-core');
-
-          (async () => {
-            const browser = await puppeteer.launch({
-              executablePath: process.env.CHROME_PATH,
-              headless: true,
-              args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            try {
-              const page = await browser.newPage();
-              console.log('Opening exact protected deployment');
-              await page.goto(process.env.SHARE_ROOT, { waitUntil: 'networkidle2', timeout: 120000 });
-              const cookies = await page.cookies();
-              const cookieHeader = cookies.map(({ name, value }) => `${name}=${value}`).join('; ');
-              if (!cookieHeader.includes('_vercel_jwt')) {
-                throw new Error(`Protected-preview access cookie was not established; final host=${new URL(page.url()).host}`);
-              }
-
-              console.log('Fetching private PDF route');
-              const response = await fetch(process.env.ARTIFACT_URL, {
-                headers: { cookie: cookieHeader, accept: 'application/pdf' },
-                redirect: 'follow',
-                cache: 'no-store'
-              });
-              const bytes = Buffer.from(await response.arrayBuffer());
-              const contentType = response.headers.get('content-type') ?? '';
-              const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-
-              if (!response.ok) throw new Error(`Artifact route returned ${response.status}: ${bytes.toString('utf8', 0, 300)}`);
-              if (!contentType.includes('application/pdf')) throw new Error(`Unexpected content type: ${contentType}`);
-              if (bytes.subarray(0, 4).toString('ascii') !== '%PDF') throw new Error('Artifact is not a PDF.');
-              if (sha256 !== process.env.EXPECTED_SHA256) throw new Error(`Checksum mismatch: ${sha256}`);
-
-              fs.writeFileSync('/tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf', bytes);
-              fs.writeFileSync('/tmp/pdf-review-evidence.json', JSON.stringify({
-                status: response.status,
-                contentType,
-                byteLength: bytes.length,
-                sha256
-              }, null, 2));
-              console.log(`Private UAT PDF collected: ${bytes.length} bytes`);
-            } finally {
-              await browser.close();
-            }
-          })().catch((error) => {
-            console.error(`PDF collection failed: ${error instanceof Error ? error.message : String(error)}`);
-            process.exit(1);
-          });
-          NODE
-
-      - name: Check out draft PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: phase14/autonomous-premium-report-engine
-          fetch-depth: 1
-          persist-credentials: true
-
-      - name: Render pages and commit temporary review evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq poppler-utils python3-pil >/dev/null
-          rm -rf tmp/phase14-uat-pdf-review
-          mkdir -p tmp/phase14-uat-pdf-review/pages
-          pdftoppm -jpeg -r 150 -jpegopt quality=88 /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf tmp/phase14-uat-pdf-review/pages/page >/dev/null
-          pdfinfo /tmp/RPT-MKFRS-2026-5C01B4F1EE-V1.pdf > tmp/phase14-uat-pdf-review/pdfinfo.txt
-          cp /tmp/pdf-review-evidence.json tmp/phase14-uat-pdf-review/evidence.json
-
-          python3 <<'PY'
-          from pathlib import Path
-          from PIL import Image, ImageOps, ImageDraw
-          import json
-
-          root = Path('tmp/phase14-uat-pdf-review')
-          pages = sorted((root / 'pages').glob('page-*.jpg'))
-          if not pages:
-              raise SystemExit('No rendered PDF pages found')
-
-          thumbs = []
-          for index, path in enumerate(pages, 1):
-              image = Image.open(path).convert('RGB')
-              target_width = 720
-              target_height = round(image.height * target_width / image.width)
-              image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-              image = ImageOps.expand(image, border=2, fill='black')
-              canvas = Image.new('RGB', (image.width, image.height + 42), 'white')
-              canvas.paste(image, (0, 42))
-              ImageDraw.Draw(canvas).text((14, 12), f'Page {index}', fill='black')
-              thumbs.append(canvas)
-
-          columns = 2
-          gap = 24
-          rows = (len(thumbs) + columns - 1) // columns
-          cell_w = max(im.width for im in thumbs)
-          cell_h = max(im.height for im in thumbs)
-          sheet = Image.new('RGB', (columns * cell_w + (columns + 1) * gap, rows * cell_h + (rows + 1) * gap), '#dddddd')
-          for i, image in enumerate(thumbs):
-              x = gap + (i % columns) * (cell_w + gap)
-              y = gap + (i // columns) * (cell_h + gap)
-              sheet.paste(image, (x, y))
-          sheet.save(root / 'contact-sheet.jpg', quality=90, optimize=True)
-          (root / 'render-metadata.json').write_text(json.dumps({
-              'page_count': len(pages),
-              'render_dpi': 150,
-              'individual_pages': [p.name for p in pages]
-          }, indent=2))
-          PY
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tmp/phase14-uat-pdf-review
-          git commit -m "Add temporary Phase 14 UAT PDF review renders"
-          git push origin HEAD:phase14/autonomous-premium-report-engine
+          node -e 'const p=require("puppeteer-core"),c=require("crypto");(async()=>{const b=await p.launch({executablePath:process.env.CHROME_PATH,headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});try{const g=await b.newPage();await g.goto(process.env.SHARE_ROOT,{waitUntil:"networkidle2",timeout:120000});const u=g.url(),k=await g.cookies(),n=k.map(x=>x.name),h=k.map(x=>`${x.name}=${x.value}`).join("; ");console.log(`share_final_host=${new URL(u).host}`);console.log(`cookie_names=${n.join(",")}`);if(!h.includes("_vercel_jwt"))throw Error("missing_vercel_jwt");const r=await fetch(process.env.ARTIFACT_URL,{headers:{cookie:h,accept:"application/pdf"},redirect:"follow",cache:"no-store"}),x=Buffer.from(await r.arrayBuffer()),t=r.headers.get("content-type")||"",s=c.createHash("sha256").update(x).digest("hex");console.log(`artifact_status=${r.status}`);console.log(`artifact_type=${t}`);console.log(`artifact_bytes=${x.length}`);console.log(`artifact_sha256=${s}`);if(!r.ok)throw Error(`artifact_http_${r.status}:${x.toString("utf8",0,120)}`);if(!t.includes("application/pdf"))throw Error(`artifact_type_${t}`);if(s!==process.env.EXPECTED_SHA256)throw Error(`checksum_${s}`);console.log("PDF_ACCESS_DIAGNOSTIC_PASSED")}finally{await b.close()}})().catch(e=>{console.error(`PDF_ACCESS_DIAGNOSTIC_FAILED:${e.message}`);process.exit(1)})'
