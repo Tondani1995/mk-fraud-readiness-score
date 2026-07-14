@@ -78,6 +78,7 @@ declare
   v_published jsonb;
   v_template uuid;
   v_domain_result uuid;
+  v_domain uuid;
   v_email uuid := '21000000-0000-0000-0000-000000000030';
   v_stale_email uuid := '21000000-0000-0000-0000-000000000031';
 begin
@@ -117,7 +118,7 @@ begin
     if sqlerrm not like '%score_run_input_hash_invalid%' then raise; end if;
   end;
   update public.score_runs set input_hash = repeat('a', 64) where id = '21000000-0000-0000-0000-000000000002';
-  select id into v_domain_result from public.score_domain_results
+  select id, domain_id into v_domain_result, v_domain from public.score_domain_results
     where score_run_id = '21000000-0000-0000-0000-000000000002' limit 1;
   delete from public.score_domain_results where id = v_domain_result;
   begin
@@ -126,11 +127,11 @@ begin
   exception when others then
     if sqlerrm not like '%score_run_domain_results_incomplete%' then raise; end if;
   end;
-  insert into public.score_domain_results(id, score_run_id, domain_id, raw_score, weighted_contribution, coverage_pct, critical_gap_count)
-  select v_domain_result, '21000000-0000-0000-0000-000000000002', d.id, 60, 0, 100, 0
-  from public.domains d
-  where d.id not in (select domain_id from public.score_domain_results where score_run_id = '21000000-0000-0000-0000-000000000002')
-  limit 1;
+  insert into public.score_domain_results(
+    id, score_run_id, domain_id, raw_score, weighted_contribution, coverage_pct, critical_gap_count
+  ) values (
+    v_domain_result, '21000000-0000-0000-0000-000000000002', v_domain, 60, 0, 100, 0
+  );
 
   v_claim_a := public.claim_premium_report_generation(
     'ORDER-PH14-REMEDIATION', 'worker-a', null, 'essential_self_assessment'
