@@ -1,0 +1,250 @@
+name: Phase 14 Chromium Remediation
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - .github/workflows/phase14-chromium-remediation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APPROVED_PARENT_SHA: 51d87688298e2b991eb9f402d4b80d4c7d772060
+      TARGET_BRANCH: phase14/autonomous-premium-report-engine
+    steps:
+      - name: Checkout approved branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase14/autonomous-premium-report-engine
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Verify controller-approved starting point
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "$TARGET_BRANCH"
+          parent_sha="$(git rev-parse HEAD^)"
+          test "$parent_sha" = "$APPROVED_PARENT_SHA"
+          changed_files="$(git diff --name-only HEAD^ HEAD)"
+          test "$changed_files" = ".github/workflows/phase14-chromium-remediation.yml"
+          echo "Approved parent and branch verified."
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Pin supported Chromium and Puppeteer pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --save-exact @sparticuz/chromium@143.0.4 puppeteer-core@24.34.0
+
+      - name: Replace unsupported Lambda runtime bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > src/lib/reports/render-pdf.ts <<'EOF'
+          let browserPromise: Promise<any> | null = null;
+
+          type ChromiumRuntime = {
+            args: string[];
+            defaultViewport: { width: number; height: number } | null;
+            executablePath: () => Promise<string>;
+            headless: boolean | 'shell';
+          };
+
+          function normalizeChromiumModule(chromiumModule: unknown): ChromiumRuntime {
+            const candidate = (chromiumModule as { default?: ChromiumRuntime }).default ?? chromiumModule;
+            return candidate as ChromiumRuntime;
+          }
+
+          async function fileExists(pathname: string): Promise<boolean> {
+            const fs = await import('node:fs/promises');
+            try {
+              return (await fs.stat(pathname)).isFile();
+            } catch {
+              return false;
+            }
+          }
+
+          async function directoryExists(pathname: string): Promise<boolean> {
+            const fs = await import('node:fs/promises');
+            try {
+              return (await fs.stat(pathname)).isDirectory();
+            } catch {
+              return false;
+            }
+          }
+
+          async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise<string> {
+            const executablePath = await chromium.executablePath();
+            const executableExists = await fileExists(executablePath);
+            const al2023LibraryPath = '/tmp/al2023/lib';
+            const al2023LibraryDirectoryExists = await directoryExists(al2023LibraryPath);
+            const libNsprExists = await fileExists(`${al2023LibraryPath}/libnspr4.so`);
+            const ldLibraryPath = process.env.LD_LIBRARY_PATH ?? '';
+
+            console.info('Chromium runtime diagnostics', {
+              executablePath,
+              executableExists,
+              nodeVersion: process.version,
+              al2023LibraryDirectoryExists,
+              libNsprExists,
+              ldLibraryPathContainsAl2023: ldLibraryPath.split(':').includes(al2023LibraryPath)
+            });
+
+            if (!executableExists) {
+              throw new Error(`Packaged Chromium executable was resolved but does not exist: ${executablePath}`);
+            }
+
+            return executablePath;
+          }
+
+          async function launchBrowser() {
+            const [{ default: puppeteer }, chromiumModule] = await Promise.all([
+              import('puppeteer-core'),
+              import('@sparticuz/chromium')
+            ]);
+            const chromium = normalizeChromiumModule(chromiumModule);
+            const executablePath = await resolveChromiumExecutablePath(chromium);
+            const args = puppeteer.defaultArgs({
+              args: chromium.args,
+              headless: 'shell'
+            });
+
+            return puppeteer.launch({
+              args,
+              defaultViewport: chromium.defaultViewport,
+              executablePath,
+              headless: 'shell'
+            });
+          }
+
+          async function getBrowser() {
+            if (!browserPromise) {
+              browserPromise = launchBrowser().catch((error) => {
+                browserPromise = null;
+                throw error;
+              });
+            }
+            return browserPromise;
+          }
+
+          export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
+            const browser = await getBrowser();
+            const page = await browser.newPage();
+            try {
+              await page.setContent(html, { waitUntil: 'networkidle0' });
+              const pdf = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '0', right: '0', bottom: '0', left: '0' }
+              });
+              return Buffer.from(pdf);
+            } finally {
+              await page.close();
+            }
+          }
+          EOF
+
+      - name: Strengthen Node 24 Chromium smoke assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/phase14-node24-chromium-smoke.mjs')
+          text = path.read_text()
+          marker = "const source = readFileSync(sourcePath, 'utf8');\n"
+          assertions = """const source = readFileSync(sourcePath, 'utf8');
+          assert(!source.includes('AWS_LAMBDA_JS_RUNTIME'), 'PDF renderer must not spoof AWS_LAMBDA_JS_RUNTIME.');
+          assert(!source.includes('AWS_EXECUTION_ENV'), 'PDF renderer must not spoof AWS_EXECUTION_ENV.');
+          assert(!source.includes('executablePath(packagedBinDirectory)'), 'PDF renderer must not pass a discovered bin directory into executablePath().');
+          assert(source.includes('chromium.executablePath()'), 'PDF renderer must use the supported zero-argument executablePath() call.');
+          """
+          if marker not in text:
+              raise SystemExit('Smoke-test insertion point not found')
+          path.write_text(text.replace(marker, assertions, 1))
+          PY
+
+      - name: Verify exact dependency mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const expected = {
+            '@sparticuz/chromium': '143.0.4',
+            'puppeteer-core': '24.34.0'
+          };
+          for (const [name, version] of Object.entries(expected)) {
+            if (pkg.dependencies[name] !== version) {
+              throw new Error(`${name} is ${pkg.dependencies[name]}, expected exact ${version}`);
+            }
+            const locked = lock.packages[`node_modules/${name}`]?.version;
+            if (locked !== version) {
+              throw new Error(`${name} lock version is ${locked}, expected ${version}`);
+            }
+          }
+          const browsers = lock.packages['node_modules/@puppeteer/browsers']?.version;
+          if (browsers !== '2.11.0') {
+            throw new Error(`@puppeteer/browsers lock version is ${browsers}, expected 2.11.0`);
+          }
+          console.log(JSON.stringify({ chromium: '143.0.4', chrome: '143.0.7499.169', puppeteerCore: '24.34.0', puppeteerBrowsers: browsers }));
+          NODE
+
+      - name: Prove lockfile reproducibility
+        run: npm ci
+
+      - name: Run Phase 14 and platform verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run phase7:test-snapshot
+          npm run phase8:test-admin
+          npm run methodology:copy-test
+          npm run phase9:test-orders
+          npm run phase10:test-report
+          npm run phase11:test-security
+          npm run phase13:test-events
+          npm run phase13:test-conversion
+          npm run phase14:test-report-engine
+          npm run phase14:test-email-delivery
+          npm run phase14:test-node24-pdf
+          npm run platform:test-hardening
+          npm run typecheck
+          npm run build
+
+      - name: Restrict committed remediation files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          package-lock.json
+          package.json
+          scripts/phase14-node24-chromium-smoke.mjs
+          src/lib/reports/render-pdf.ts
+          EOF
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+      - name: Commit tested remediation to draft PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/lib/reports/render-pdf.ts scripts/phase14-node24-chromium-smoke.mjs
+          git commit -m "Fix Node 24 Chromium runtime packaging"
+          git push origin "HEAD:$TARGET_BRANCH"
