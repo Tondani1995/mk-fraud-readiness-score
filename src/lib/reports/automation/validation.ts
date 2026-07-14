@@ -95,6 +95,24 @@ function maturityMentions(text: string) {
   return MATURITY_BANDS.filter((band) => new RegExp(`\\b${band}\\b`, 'i').test(text));
 }
 
+function overallMaturityMentions(text: string) {
+  return MATURITY_BANDS.filter((band) => {
+    const overallBefore = new RegExp(
+      `\\b(?:overall|final|organisation(?:'s)?|organization(?:'s)?|enterprise|readiness)\\b[^.\\n]{0,80}\\b${band}\\b`,
+      'i'
+    );
+    const overallAfter = new RegExp(
+      `\\b${band}\\b[^.\\n]{0,60}\\b(?:overall|final|organisation(?:'s)?|organization(?:'s)?|enterprise|fraud readiness|readiness (?:level|position|result)|maturity (?:level|position|result))\\b`,
+      'i'
+    );
+    const assessedAs = new RegExp(
+      `\\b(?:assessed|rated|classified|placed|presents)\\s+(?:at|as|within)?\\s*(?:an?\\s+)?${band}\\b`,
+      'i'
+    );
+    return overallBefore.test(text) || overallAfter.test(text) || assessedAs.test(text);
+  });
+}
+
 function exposureMentions(text: string) {
   return EXPOSURE_BANDS.filter((band) => new RegExp(`\\b${band}\\s+exposure\\b`, 'i').test(text));
 }
@@ -204,7 +222,7 @@ export function validatePremiumReportNarrative(
   const finalMaturityItem = evidence.items.find((item) => item.id === 'score:final_maturity');
   const finalMaturity = typeof finalMaturityItem?.value === 'string' ? finalMaturityItem.value : null;
   if (finalMaturity && record(executive)) {
-    const mentions = maturityMentions(sectionText(executive));
+    const mentions = overallMaturityMentions(sectionText(executive));
     if (mentions.some((band) => band.toLowerCase() !== finalMaturity.toLowerCase())) {
       issues.push(issue('overall_maturity_contradiction', 'executiveDiagnosis', `Executive diagnosis contradicts the deterministic ${finalMaturity} maturity result.`));
     }
