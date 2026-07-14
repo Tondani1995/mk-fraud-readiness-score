@@ -1,9 +1,7 @@
 name: Phase 14 Source Export
 
 on:
-  push:
-    branches:
-      - phase14/autonomous-premium-report-engine
+  pull_request:
     paths:
       - '.github/workflows/phase14-source-export.yml'
 
