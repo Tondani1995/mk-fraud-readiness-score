@@ -15,8 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      APPROVED_PARENT_SHA: 3ab4ba23f330bab235f9bff26727a5a49898c667
+      APPROVED_PARENT_SHA: ef8e1c56326d2822d7b095dfe11842de7aa6c688
       TARGET_BRANCH: phase14/autonomous-premium-report-engine
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+      SUPABASE_JWT_SECRET: ci-jwt-secret
+      ASSESSMENT_TOKEN_PEPPER: ci-token-pepper
+      ASSESSMENT_RESUME_TOKEN_TTL_HOURS: '336'
+      ASSESSMENT_SNAPSHOT_TOKEN_TTL_HOURS: '168'
+      ASSESSMENT_REPORT_REQUEST_TOKEN_TTL_HOURS: '168'
+      ASSESSMENT_TOKEN_MAX_USES: '25'
+      ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES: '100'
+      MK_BUILD_PHASE: phase-14-autonomous-premium-report-engine
+      MK_RELEASE_CHANNEL: ci
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
     steps:
       - name: Checkout approved branch
         uses: actions/checkout@v4
