@@ -1,0 +1,138 @@
+name: Phase 14 AI Runtime UAT
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - .github/workflows/phase14-ai-runtime-uat.yml
+
+permissions:
+  contents: read
+
+jobs:
+  invoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Invoke success, repair and fallback scenarios
+        shell: bash
+        env:
+          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=flSlUNwjixTpPkO2wvqDargQ7uZX9P0q
+          AI_ROUTE: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/ai-runtime
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$SHARE_ROOT"
+          rm -rf /tmp/phase14-ai-uat
+          mkdir -p /tmp/phase14-ai-uat/runtime
+          cd /tmp/phase14-ai-uat/runtime
+          npm init -y >/dev/null 2>&1
+          npm install --silent --no-save --ignore-scripts puppeteer-core@24.34.0
+
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_PATH"
+          export CHROME_PATH
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const puppeteer = require('puppeteer-core');
+
+          const scenarios = [
+            ['success', 'ai'],
+            ['repair', 'ai_repair'],
+            ['fallback', 'deterministic_fallback']
+          ];
+
+          (async () => {
+            const browser = await puppeteer.launch({
+              executablePath: process.env.CHROME_PATH,
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            const evidence = [];
+            let failed = false;
+            try {
+              const page = await browser.newPage();
+              await page.goto(process.env.SHARE_ROOT, { waitUntil: 'networkidle2', timeout: 120000 });
+              const cookies = await page.cookies();
+              const cookieHeader = cookies.map(({ name, value }) => `${name}=${value}`).join('; ');
+              if (!cookieHeader.includes('_vercel_jwt')) {
+                throw new Error(`Protected-preview cookie missing; final host=${new URL(page.url()).host}`);
+              }
+
+              for (const [scenario, expectedMode] of scenarios) {
+                console.log(`Starting ${scenario} scenario`);
+                const startedAt = Date.now();
+                const response = await fetch(`${process.env.AI_ROUTE}?scenario=${scenario}`, {
+                  headers: { cookie: cookieHeader, accept: 'application/json' },
+                  redirect: 'follow',
+                  cache: 'no-store'
+                });
+                const text = await response.text();
+                let body;
+                try {
+                  body = JSON.parse(text);
+                } catch {
+                  body = { ok: false, reason: 'non_json_response', preview: text.slice(0, 240) };
+                }
+
+                const record = {
+                  scenario,
+                  expectedMode,
+                  httpStatus: response.status,
+                  elapsedMs: Date.now() - startedAt,
+                  body
+                };
+                evidence.push(record);
+                fs.writeFileSync(`/tmp/phase14-ai-uat/${scenario}.json`, JSON.stringify(record, null, 2));
+
+                const passed = response.status === 200
+                  && body?.ok === true
+                  && body?.scenario === scenario
+                  && body?.expectedMode === expectedMode
+                  && body?.actualMode === expectedMode
+                  && body?.modeMatched === true
+                  && body?.emailEnabled === false
+                  && Array.isArray(body?.runs)
+                  && body.runs.length >= 1;
+
+                console.log(JSON.stringify({
+                  scenario,
+                  passed,
+                  httpStatus: response.status,
+                  actualMode: body?.actualMode,
+                  reportReference: body?.reportReference,
+                  versionNumber: body?.versionNumber,
+                  runModes: Array.isArray(body?.runs) ? body.runs.map((run) => `${run.mode}:${run.status}`) : []
+                }));
+
+                if (!passed) failed = true;
+              }
+
+              fs.writeFileSync('/tmp/phase14-ai-uat/summary.json', JSON.stringify({
+                completedAt: new Date().toISOString(),
+                allPassed: !failed,
+                scenarios: evidence
+              }, null, 2));
+            } finally {
+              await browser.close();
+            }
+
+            if (failed) process.exit(1);
+          })().catch((error) => {
+            fs.writeFileSync('/tmp/phase14-ai-uat/fatal.json', JSON.stringify({
+              error: error instanceof Error ? error.message : String(error),
+              failedAt: new Date().toISOString()
+            }, null, 2));
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
+
+      - name: Upload AI UAT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase14-ai-runtime-uat-evidence
+          path: /tmp/phase14-ai-uat/*.json
+          if-no-files-found: warn
