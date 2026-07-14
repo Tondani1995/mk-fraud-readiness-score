@@ -1,0 +1,63 @@
+name: Phase 14 UAT Runtime Retry
+
+on:
+  push:
+    branches:
+      - phase14/autonomous-premium-report-engine
+    paths:
+      - .github/workflows/phase14-uat-runtime-retry.yml
+
+permissions:
+  contents: read
+
+jobs:
+  invoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Invoke protected exact-preview retry route once
+        shell: bash
+        env:
+          RETRY_URL: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/score/api/internal/phase14-uat/retry-browser?_vercel_share=K0Q0LAkiOkRwigECxCChILpDeoIcGYVY
+        run: |
+          set -euo pipefail
+          rm -f /tmp/vercel-cookie-jar /tmp/retry-body.json
+          curl --fail-with-body --silent --show-error --location \
+            --cookie-jar /tmp/vercel-cookie-jar \
+            --cookie /tmp/vercel-cookie-jar \
+            "$RETRY_URL" \
+            --output /tmp/retry-body.json
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(fs.readFileSync('/tmp/retry-body.json', 'utf8'));
+          const expected = {
+            ok: true,
+            environment: 'preview',
+            supabaseProjectRef: 'nlukprffbrqmvjcmygyr',
+            orderReference: 'MKORD-2026-B8C7U5WQ',
+            fulfilmentId: '172484f3-9fcf-4710-a657-a46faf87539e',
+            workflowStarted: true,
+            aiEnabled: false,
+            emailEnabled: false
+          };
+          for (const [key, value] of Object.entries(expected)) {
+            if (body[key] !== value) throw new Error(`Unexpected ${key}: ${JSON.stringify(body[key])}`);
+          }
+          if (typeof body.workflowRunId !== 'string' || !body.workflowRunId.startsWith('wrun_')) {
+            throw new Error('Workflow run ID was not returned.');
+          }
+          fs.writeFileSync('/tmp/retry-evidence.json', JSON.stringify({
+            ...expected,
+            workflowRunId: body.workflowRunId,
+            workflowStatus: body.workflowStatus
+          }, null, 2));
+          console.log(`UAT runtime retry started: ${body.workflowRunId}`);
+          NODE
+
+      - name: Upload retry evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase14-uat-runtime-retry-evidence
+          path: /tmp/retry-evidence.json
+          if-no-files-found: error
