@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Diagnose exact protected PDF access
+      - name: Diagnose protected alias authentication with immutable artifact target
         shell: bash
         env:
-          SHARE_ROOT: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/?_vercel_share=46WR3B0UAHTgHIiq5IGm8B31llrlNQ9r
+          SHARE_ROOT: https://mk-fraud-readiness-score-git-phase14-a-e0f02c-tondanis-projects.vercel.app/?_vercel_share=wrLfqWed6zSe48xiIOLZiaAp5jVGqW01
           ARTIFACT_URL: https://mk-fraud-readiness-score-6yehl0tj9-tondanis-projects.vercel.app/score/api/internal/phase14-uat/report-artifact
           EXPECTED_SHA256: c3408eba0cee20013bc08fb3a9f609f57144ba7d813d5ab5190f76ce3548530d
         run: |
