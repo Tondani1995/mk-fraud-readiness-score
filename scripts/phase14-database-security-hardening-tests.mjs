@@ -5,6 +5,7 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
+const normalizeSql = (sql) => sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
 function walk(dir) {
   const absolute = path.join(root, dir);
@@ -17,17 +18,16 @@ function walk(dir) {
 }
 
 function assertGrantPosture(sql, signature) {
-  const escaped = signature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+  const compact = normalizeSql(sql);
+  const normalizedSignature = normalizeSql(signature);
   for (const role of ['public', 'anon', 'authenticated']) {
-    assert.match(
-      sql,
-      new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+${escaped}\\s+from\\s+${role}`, 'i'),
+    assert(
+      compact.includes(`revoke execute on function ${normalizedSignature} from ${role};`),
       `${signature} must revoke EXECUTE from ${role}`
     );
   }
-  assert.match(
-    sql,
-    new RegExp(`grant\\s+execute\\s+on\\s+function\\s+${escaped}\\s+to\\s+service_role`, 'i'),
+  assert(
+    compact.includes(`grant execute on function ${normalizedSignature} to service_role;`),
     `${signature} must grant EXECUTE only to service_role`
   );
 }
