@@ -62,7 +62,7 @@ export function mapResendEventStatus(type: string) {
   switch (type) {
     case 'email.delivered': return 'delivered';
     case 'email.bounced': return 'bounced';
-    case 'email.failed': return 'failed';
+    case 'email.failed': return 'delivery_failed';
     case 'email.suppressed': return 'suppressed';
     case 'email.complained': return 'complained';
     case 'email.delivery_delayed': return 'delivery_delayed';
