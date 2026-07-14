@@ -1,5 +1,7 @@
 # Phase 14 Exit Card - Autonomous Premium Report and PDF Email Delivery
 
+> Superseded for merge-readiness purposes on 14 July 2026. This card records historical isolated UAT, but its former pass conclusion predates the independent adversarial review. Use `docs/v1/phase14/adversarial-remediation-2026-07-14.md` for the current control and verification position.
+
 ## Status
 
 **Code, database, Node 24 Chromium, live AI Gateway, live Resend send, signed webhook and final clean-preview assurance: Pass on isolated UAT infrastructure.**
