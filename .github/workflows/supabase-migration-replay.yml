@@ -8,12 +8,15 @@ on:
       - 'scripts/phase14-generate-numeric-repair-artifact.mjs'
       - 'scripts/phase14-inject-controlled-migration-failure.mjs'
       - 'scripts/phase14-fifth-remediation-tests.sql'
+      - 'scripts/phase14-sixth-remediation-tests.sql'
+      - 'scripts/phase14-uat-canonical-reconciliation.sql'
       - 'scripts/phase14-schema-equivalence-inventory.sql'
       - 'scripts/phase14-webhook-route-db-*'
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
       - 'scripts/phase14-runtime-mutation-guard-tests.sql'
       - 'scripts/phase14-grant-inventory.sql'
       - 'docs/v1/supabase-migration-reconciliation/**'
+      - 'docs/v1/phase14/migration-audit-archive/**'
       - '.github/workflows/supabase-migration-replay.yml'
   push:
     branches:
@@ -25,12 +28,15 @@ on:
       - 'scripts/phase14-generate-numeric-repair-artifact.mjs'
       - 'scripts/phase14-inject-controlled-migration-failure.mjs'
       - 'scripts/phase14-fifth-remediation-tests.sql'
+      - 'scripts/phase14-sixth-remediation-tests.sql'
+      - 'scripts/phase14-uat-canonical-reconciliation.sql'
       - 'scripts/phase14-schema-equivalence-inventory.sql'
       - 'scripts/phase14-webhook-route-db-*'
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
       - 'scripts/phase14-runtime-mutation-guard-tests.sql'
       - 'scripts/phase14-grant-inventory.sql'
       - 'docs/v1/supabase-migration-reconciliation/**'
+      - 'docs/v1/phase14/migration-audit-archive/**'
       - '.github/workflows/supabase-migration-replay.yml'
 
 permissions:
@@ -47,7 +53,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      SUPABASE_CLI_VERSION: '2.81.3'
+      SUPABASE_CLI_VERSION: '2.109.1'
       LOCAL_DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 
     steps:
@@ -103,47 +109,41 @@ jobs:
           docker ps -a | tee tmp/migration-replay/docker-ps-after-start.txt
           exit 1
 
-      - name: Prove former post-commit boundary rolls back and is restartable
+      - name: Verify archived SQL identities and canonical post-commit recovery
         run: |
           set -Eeuo pipefail
-          historical='supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql'
-          expected_historical_blob='19bcf877e2802600c0877aa2a8f65f85e375e75e'
-          test "$(git hash-object "$historical")" = "$expected_historical_blob"
-          migration='supabase/migrations/20260715022146_phase14_fifth_adversarial_remediation.sql'
-          backup='tmp/migration-replay/phase14-fifth-adversarial-remediation.original.sql'
-          cp "$migration" "$backup"
-          restore_migration() { cp "$backup" "$migration"; }
-          trap restore_migration EXIT
-          node scripts/phase14-inject-controlled-migration-failure.mjs "$migration"
-          set +e
-          supabase db reset --local --yes > tmp/migration-replay/controlled-partial-failure.log 2>&1
-          reset_status=$?
-          set -e
-          if [ "$reset_status" -eq 0 ]; then
-            echo 'Controlled migration failure unexpectedly succeeded.' >&2
-            exit 1
-          fi
-          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 <<'SQL'
-          do $verification$
-          begin
-            if to_regclass('public.phase14_ai_route_policies') is not null then
-              raise exception 'fifth-remediation state survived the controlled pre-commit failure';
-            end if;
-            if exists (
-              select 1 from supabase_migrations.schema_migrations
-              where version = '20260715022146'
-            ) then
-              raise exception 'failed closure migration was recorded in the ledger';
-            end if;
-          end;
-          $verification$;
-          SQL
-          restore_migration
-          if grep -q 'controlled_phase14_post_boundary_failure' "$migration"; then
-            echo 'Controlled failure injection was not restored.' >&2
-            exit 1
-          fi
+          sha256sum --check docs/v1/phase14/migration-audit-archive/SHA256SUMS
+          canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
+          backup='tmp/migration-replay/canonical-for-former-boundary.sql'
+          mv "$canonical" "$backup"
+          cp docs/v1/phase14/migration-audit-archive/uat-applied/00*.sql supabase/migrations/
+          restore_canonical() {
+            rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
+              supabase/migrations/0018_phase14_pdf_email_delivery.sql \
+              supabase/migrations/0019_phase14_email_delivery_state_hardening.sql \
+              supabase/migrations/0020_phase14_privileged_function_grants.sql \
+              supabase/migrations/0021_phase14_adversarial_remediation.sql \
+              supabase/migrations/0022_phase14_adversarial_remediation_grants.sql
+            mv "$backup" "$canonical"
+          }
+          trap restore_canonical EXIT
+          supabase db reset --local --yes
+          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 \
+            --file=docs/v1/phase14/migration-audit-archive/uat-applied/20260714194317_phase14_security_state_machine_closure.sql \
+            > tmp/migration-replay/former-post-commit-boundary.txt
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select to_regclass('public.phase14_security_gates') is not null")" = 't'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='20260714194317'")" = '0'
+          restore_canonical
           trap - EXIT
+          supabase db reset --local --yes --version 0016
+          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/migrations/0017_phase14_canonical_disabled_foundation.sql \
+            > tmp/migration-replay/canonical-commit-without-ledger-ack.txt
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '0'
+          recovery_hash=$(psql "$LOCAL_DB_URL" -XAt --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
+          test "$recovery_hash" = 'c2bad3b402d79afa337536a2becc9326c376fd97bc77ec3673e7c9e69fbeb163'
+          supabase migration repair 0017 --status applied --local
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '1'
 
       - name: Reset local database and replay all migrations
         run: supabase db reset --local --yes
@@ -214,6 +214,14 @@ jobs:
             --file=scripts/phase14-fifth-remediation-tests.sql \
             | tee tmp/migration-replay/phase14-fifth-remediation-tests.txt
 
+      - name: Run Phase 14 sixth adversarial remediation tests
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-sixth-remediation-tests.sql \
+            | tee tmp/migration-replay/phase14-sixth-remediation-tests.txt
+
       - name: Run Phase 14 true multi-session concurrency tests
         run: |
           set -Eeuo pipefail
@@ -275,17 +283,42 @@ jobs:
       - name: Prove fresh and current-UAT upgrade schema equivalence
         run: |
           set -Eeuo pipefail
-          fresh_hash=$(psql "$LOCAL_DB_URL" --tuples-only --no-align \
+          fresh_hash=$(psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
-          supabase db reset --local --yes --version 20260714214023
-          supabase migration up --local
-          upgrade_hash=$(psql "$LOCAL_DB_URL" --tuples-only --no-align \
+          canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
+          backup='tmp/migration-replay/0017_phase14_canonical_disabled_foundation.sql'
+          mv "$canonical" "$backup"
+          cp docs/v1/phase14/migration-audit-archive/uat-applied/*.sql supabase/migrations/
+          restore_migrations() {
+            rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
+              supabase/migrations/0018_phase14_pdf_email_delivery.sql \
+              supabase/migrations/0019_phase14_email_delivery_state_hardening.sql \
+              supabase/migrations/0020_phase14_privileged_function_grants.sql \
+              supabase/migrations/0021_phase14_adversarial_remediation.sql \
+              supabase/migrations/0022_phase14_adversarial_remediation_grants.sql \
+              supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql \
+              supabase/migrations/20260714201550_phase14_webhook_state_machine.sql \
+              supabase/migrations/20260714214023_phase14_fourth_adversarial_remediation.sql
+            mv "$backup" "$canonical"
+          }
+          trap restore_migrations EXIT
+          supabase db reset --local --yes
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-uat-canonical-reconciliation.sql \
+            | tee tmp/migration-replay/uat-canonical-reconciliation-first.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-uat-canonical-reconciliation.sql \
+            | tee tmp/migration-replay/uat-canonical-reconciliation-safe-restart.txt
+          upgrade_hash=$(psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
           {
             echo "fresh=${fresh_hash}"
             echo "upgrade=${upgrade_hash}"
           } | tee tmp/migration-replay/fresh-vs-uat-equivalence.sha256
           test "$fresh_hash" = "$upgrade_hash"
+          test "$fresh_hash" = 'c2bad3b402d79afa337536a2becc9326c376fd97bc77ec3673e7c9e69fbeb163'
+          restore_migrations
+          trap - EXIT
 
       - name: Capture local database inspection checks
         if: always()

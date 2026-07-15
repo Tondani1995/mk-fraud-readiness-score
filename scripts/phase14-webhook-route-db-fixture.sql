@@ -11,6 +11,8 @@ set status='satisfied',satisfied_version=required_version,
 where gate_key='phase14-premium-report';
 update public.phase14_feature_policies
 set enabled=true,approved_gate_version=(select required_version from public.phase14_security_gates
+    where gate_key='phase14-premium-report'),
+  approved_authority_epoch=(select authority_epoch from public.phase14_security_gates
     where gate_key='phase14-premium-report'),approved_at=now(),
   updated_by='25000000-0000-0000-0000-000000000001',
   reason='isolated route-to-database test',updated_at=now()

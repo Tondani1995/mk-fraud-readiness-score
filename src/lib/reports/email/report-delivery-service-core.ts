@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPremiumReportAutomationFlags } from '../automation/feature-flags';
 import {
+  executePhase14WorkerStep,
   requirePhase14Action,
   requirePhase14WorkerAction,
   type Phase14WorkerLease
@@ -133,26 +134,30 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     : customerRecipient);
   if (!recipient) throw new Error('The resolved report recipient is invalid.');
 
-  const { data: authorizationData, error: authorizationError } = await privilegedDb.rpc(
-    input.workerLease
-      ? 'worker_authorize_premium_report_delivery'
-      : 'authorize_premium_report_delivery',
-    input.workerLease
-      ? {
-          p_capability_id: input.workerLease.capabilityId,
-          p_report_id: input.reportId,
-          p_recipient: recipient,
-          p_provider: 'resend'
+  const { data: authorizationData, error: authorizationError } = input.workerLease
+    ? await (async () => {
+        try {
+          return {
+            data: await executePhase14WorkerStep(
+              input.workerLease!,
+              'worker_authorize_premium_report_delivery',
+              { report_id: input.reportId, recipient, provider: 'resend' },
+              { reportId: input.reportId, recipient }
+            ),
+            error: null
+          };
+        } catch (caught) {
+          return { data: null, error: caught };
         }
-      : {
+      })()
+    : await privilegedDb.rpc('authorize_premium_report_delivery', {
           p_report_id: input.reportId,
           p_recipient: recipient,
           p_delivery_mode: input.bounceRetry ? 'bounce_retry' : 'initial',
           p_allow_test_override: overridePermitted,
           p_provider: 'resend',
           p_bounce_remediation_id: input.bounceRetry?.remediationId ?? null
-        }
-  );
+        });
   if (authorizationError || !authorizationData) {
     throw authorizationError ?? new Error('Delivery authorization was not created.');
   }
@@ -169,15 +174,24 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   }
   if (!authorization.authorization_id) throw new Error('Delivery authorization identity is missing.');
 
-  const { data: claimData, error: claimError } = await privilegedDb.rpc(
-    input.workerLease ? 'worker_claim_premium_report_delivery' : 'claim_premium_report_delivery',
-    input.workerLease
-      ? {
-          p_capability_id: input.workerLease.capabilityId,
-          p_authorization_id: authorization.authorization_id
+  const { data: claimData, error: claimError } = input.workerLease
+    ? await (async () => {
+        try {
+          return {
+            data: await executePhase14WorkerStep(
+              input.workerLease!,
+              'worker_claim_premium_report_delivery',
+              { authorization_id: authorization.authorization_id }
+            ),
+            error: null
+          };
+        } catch (caught) {
+          return { data: null, error: caught };
         }
-      : { p_authorization_id: authorization.authorization_id }
-  );
+      })()
+    : await privilegedDb.rpc('claim_premium_report_delivery', {
+        p_authorization_id: authorization.authorization_id
+      });
   if (claimError || !claimData) throw claimError ?? new Error('Delivery authorization claim returned no result.');
   const claim = claimData as ClaimedDelivery;
   if (!claim.claimed) throw new Error(`Delivery authorization was ${claim.status ?? 'not claimed'}: ${claim.reason ?? 'ineligible'}.`);
@@ -220,24 +234,17 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
 
 export async function authorizeBouncedReportRedelivery(input: {
   priorEmailEventId: string;
-  correctedRecipient: string;
+  verificationId: string;
   reason: string;
-  correctedRecipientEvidence: Record<string, unknown>;
 }) {
   const { client } = await requirePhase14Action('email_resend');
-  const hasEvidence = Object.values(input.correctedRecipientEvidence ?? {}).some((value) => (
-    typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined
-  ));
-  if (!input.priorEmailEventId.trim() || !email(input.correctedRecipient) || !input.reason.trim()
-      || !input.correctedRecipientEvidence
-      || !hasEvidence) {
-    throw new Error('A bounced email event, reason and corrected-recipient evidence are required.');
+  if (!input.priorEmailEventId.trim() || !input.verificationId.trim() || !input.reason.trim()) {
+    throw new Error('A bounced email event, independent contact verification and reason are required.');
   }
   const { data, error } = await client.rpc('authorize_bounced_report_redelivery', {
     p_prior_email_event_id: input.priorEmailEventId,
-    p_corrected_recipient: input.correctedRecipient,
-    p_reason: input.reason,
-    p_evidence: input.correctedRecipientEvidence
+    p_verification_id: input.verificationId,
+    p_reason: input.reason
   });
   if (error || !data) throw error ?? new Error('Bounce remediation authorization was not created.');
   return { remediationId: data as string };

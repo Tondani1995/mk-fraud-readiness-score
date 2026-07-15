@@ -84,7 +84,7 @@ assert.match(downloadService, /readVerifiedReportObject/);
 assert.match(downloadVerification, /sha256/);
 assert.match(downloadVerification, /record_phase14_operational_alert/);
 
-const closure = read('supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql');
+const closure = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const assertion of [
   /status text not null default 'unsatisfied'/,
   /phase14_aal2_required/,

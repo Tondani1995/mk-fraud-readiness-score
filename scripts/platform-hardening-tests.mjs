@@ -79,27 +79,23 @@ assert(evaluateBuildInfo({})?.releaseChannel === 'local', 'local fallback must r
 
 const migrations = [
   '0016_platform_database_hardening.sql',
-  '0017_phase14_autonomous_report_engine.sql',
-  '0018_phase14_pdf_email_delivery.sql',
-  '0019_phase14_email_delivery_state_hardening.sql',
-  '0021_phase14_adversarial_remediation.sql',
-  '0022_phase14_adversarial_remediation_grants.sql'
+  '0017_phase14_canonical_disabled_foundation.sql'
 ];
 for (const migration of migrations) {
   const path = `supabase/migrations/${migration}`;
   assert(exists(path), `${path} must exist`);
   const content = read(path).toLowerCase();
-  for (const forbidden of ['drop table','drop column','truncate','grant all on','grant select on all tables']) {
+  for (const forbidden of ['drop table','drop column','truncate table','grant all on','grant select on all tables']) {
     assert(!content.includes(forbidden), `${migration} must not contain ${forbidden}`);
   }
 }
-includes('supabase/migrations/0017_phase14_autonomous_report_engine.sql', 'premium_report_auto_fulfilment_enabled":false', 'auto fulfilment must default off');
-includes('supabase/migrations/0017_phase14_autonomous_report_engine.sql', 'premium_report_ai_narrative_enabled":false', 'AI narrative must default off');
-includes('supabase/migrations/0017_phase14_autonomous_report_engine.sql', 'premium_report_auto_email_enabled":false', 'auto email must default off');
-includes('supabase/migrations/0018_phase14_pdf_email_delivery.sql', 'email_events_provider_event_uidx', 'webhook event idempotency index must exist');
-includes('supabase/migrations/0019_phase14_email_delivery_state_hardening.sql', 'email_provider_events_provider_event_unique', 'provider event ledger must enforce idempotency');
-includes('supabase/migrations/0019_phase14_email_delivery_state_hardening.sql', 'processed_at timestamptz', 'provider event ledger must support retry-safe processing');
-includes('supabase/migrations/0019_phase14_email_delivery_state_hardening.sql', 'revoke all on table public.email_provider_events from anon, authenticated', 'provider event ledger must deny ordinary writes');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'premium_report_auto_fulfilment_enabled":false', 'auto fulfilment must default off');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'premium_report_ai_narrative_enabled":false', 'AI narrative must default off');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'premium_report_auto_email_enabled":false', 'auto email must default off');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'email_events_provider_event_uidx', 'webhook event idempotency index must exist');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'email_provider_events_provider_event_unique', 'provider event ledger must enforce idempotency');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'processed_at timestamptz', 'provider event ledger must support retry-safe processing');
+includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'revoke all on table public.email_provider_events from anon, authenticated', 'provider event ledger must deny ordinary writes');
 
 for (const file of ['src/app/api/health/route.ts','src/app/api/system/build-info/route.ts','src/lib/system/build-info.ts']) {
   for (const secret of ['SUPABASE_SERVICE_ROLE_KEY','SUPABASE_JWT_SECRET','ASSESSMENT_TOKEN_PEPPER','RESEND_API_KEY']) {

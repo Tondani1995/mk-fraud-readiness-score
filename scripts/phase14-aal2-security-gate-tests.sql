@@ -38,6 +38,7 @@ begin
   update public.phase14_feature_policies
   set enabled = true, updated_by = '23000000-0000-0000-0000-000000000001',
       approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+      approved_authority_epoch=(select authority_epoch from public.phase14_security_gates where gate_key='phase14-premium-report'),
       approved_at=now(), reason = 'isolated AAL2 authorization test', updated_at = now()
   where policy_key = 'manual_generation';
 

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { ReportEmailTransport } from './resend-transport';
 import type { Phase14WorkerLease } from '../phase14-security';
+import { executePhase14WorkerStep } from '../phase14-security';
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
@@ -50,21 +51,26 @@ export async function executeClaimedReportDelivery(input: {
       throw new Error('Report attachment checksum mismatch.');
     }
 
-    const { error: boundaryError } = await input.rpcDb.rpc(
-      input.workerLease
-        ? 'worker_mark_premium_report_delivery_dispatch_started'
-        : 'mark_premium_report_delivery_dispatch_started',
-      input.workerLease
-        ? {
-            p_capability_id: input.workerLease.capabilityId,
-            p_authorization_id: input.claim.authorization_id,
-            p_delivery_lease_token: input.claim.lease_token
+    const { error: boundaryError } = input.workerLease
+      ? await (async () => {
+          try {
+            await executePhase14WorkerStep(
+              input.workerLease!,
+              'worker_mark_premium_report_delivery_dispatch_started',
+              {
+                authorization_id: input.claim.authorization_id,
+                delivery_lease_token: input.claim.lease_token
+              }
+            );
+            return { error: null };
+          } catch (caught) {
+            return { error: caught };
           }
-        : {
+        })()
+      : await input.rpcDb.rpc('mark_premium_report_delivery_dispatch_started', {
             p_authorization_id: input.claim.authorization_id,
             p_lease_token: input.claim.lease_token
-          }
-    );
+          });
     if (boundaryError) throw boundaryError;
     dispatchStarted = true;
 
@@ -76,23 +82,30 @@ export async function executeClaimedReportDelivery(input: {
       }
     });
     providerMessageId = provider.messageId;
-    const { data: finalized, error: finalizationError } = await input.rpcDb.rpc(
-      input.workerLease
-        ? 'worker_finalize_premium_report_delivery'
-        : 'finalize_premium_report_delivery',
-      input.workerLease
-        ? {
-            p_capability_id: input.workerLease.capabilityId,
+    const { data: finalized, error: finalizationError } = input.workerLease
+      ? await (async () => {
+          try {
+            return {
+              data: await executePhase14WorkerStep(
+                input.workerLease!,
+                'worker_finalize_premium_report_delivery',
+                {
+                  authorization_id: input.claim.authorization_id,
+                  email_event_id: input.claim.email_event_id,
+                  provider_message_id: provider.messageId
+                }
+              ),
+              error: null
+            };
+          } catch (caught) {
+            return { data: null, error: caught };
+          }
+        })()
+      : await input.rpcDb.rpc('finalize_premium_report_delivery', {
             p_authorization_id: input.claim.authorization_id,
             p_email_event_id: input.claim.email_event_id,
             p_provider_message_id: provider.messageId
-          }
-        : {
-            p_authorization_id: input.claim.authorization_id,
-            p_email_event_id: input.claim.email_event_id,
-            p_provider_message_id: provider.messageId
-          }
-    );
+          });
     if (finalizationError || !finalized || finalized.finalized !== true) {
       await markReconciliationRequired(
         input.rpcDb,
@@ -107,23 +120,28 @@ export async function executeClaimedReportDelivery(input: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!dispatchStarted) {
-      const { error: failureStateError } = await input.rpcDb.rpc(
-        input.workerLease
-          ? 'worker_fail_premium_report_delivery_before_dispatch'
-          : 'fail_premium_report_delivery_before_dispatch',
-        input.workerLease
-          ? {
-              p_capability_id: input.workerLease.capabilityId,
-              p_authorization_id: input.claim.authorization_id,
-              p_delivery_lease_token: input.claim.lease_token,
-              p_reason: message
+      const { error: failureStateError } = input.workerLease
+        ? await (async () => {
+            try {
+              await executePhase14WorkerStep(
+                input.workerLease!,
+                'worker_fail_premium_report_delivery_before_dispatch',
+                {
+                  authorization_id: input.claim.authorization_id,
+                  delivery_lease_token: input.claim.lease_token,
+                  reason: message
+                }
+              );
+              return { error: null };
+            } catch (caught) {
+              return { error: caught };
             }
-          : {
+          })()
+        : await input.rpcDb.rpc('fail_premium_report_delivery_before_dispatch', {
               p_authorization_id: input.claim.authorization_id,
               p_lease_token: input.claim.lease_token,
               p_reason: message
-            }
-      );
+            });
       if (failureStateError) {
         throw new AggregateError([error, failureStateError], 'Delivery failure state could not be persisted.');
       }
@@ -147,22 +165,23 @@ export async function markReconciliationRequired(
   reason: string,
   workerLease?: Phase14WorkerLease
 ) {
-  const { error } = await db.rpc(
-    workerLease
-      ? 'worker_mark_premium_report_delivery_reconciliation_required'
-      : 'mark_premium_report_delivery_reconciliation_required',
-    workerLease
-      ? {
-          p_capability_id: workerLease.capabilityId,
+  const { error } = workerLease
+    ? await (async () => {
+        try {
+          await executePhase14WorkerStep(
+            workerLease,
+            'worker_mark_premium_report_delivery_reconciliation_required',
+            { authorization_id: authorizationId, provider_message_id: providerMessageId, reason }
+          );
+          return { error: null };
+        } catch (caught) {
+          return { error: caught };
+        }
+      })()
+    : await db.rpc('mark_premium_report_delivery_reconciliation_required', {
           p_authorization_id: authorizationId,
           p_provider_message_id: providerMessageId,
           p_reason: reason
-        }
-      : {
-          p_authorization_id: authorizationId,
-          p_provider_message_id: providerMessageId,
-          p_reason: reason
-        }
-  );
+        });
   if (error) throw new Error(`Delivery reconciliation state could not be persisted: ${error.message}`);
 }

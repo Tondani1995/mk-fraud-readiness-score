@@ -53,8 +53,8 @@ function assertAuthenticatedAdminHelperPosture(sql, signature) {
   }
 }
 
-const migrationPath = 'supabase/migrations/0020_phase14_privileged_function_grants.sql';
-assert.equal(exists(migrationPath), true, 'Phase 14 privileged function grant migration must exist');
+const migrationPath = 'docs/v1/phase14/migration-audit-archive/uat-applied/0020_phase14_privileged_function_grants.sql';
+assert.equal(exists(migrationPath), true, 'archived Phase 14 privileged function grant migration must exist');
 const migration = read(migrationPath);
 
 for (const forbidden of [
@@ -102,7 +102,7 @@ assert.match(sources['src/lib/security/rate-limit.ts'], /createSupabaseServiceCl
 assert.deepEqual(filesContaining("rpc('current_admin_role'"), [], 'current_admin_role must not be directly called as an app RPC');
 assert.deepEqual(filesContaining("rpc('is_admin_role'"), [], 'is_admin_role must not be directly called as an app RPC');
 
-const phase14Migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
+const phase14Migration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const flag of [
   'premium_report_auto_fulfilment_enabled',
   'premium_report_ai_narrative_enabled',

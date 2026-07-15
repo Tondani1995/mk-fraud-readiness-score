@@ -36,13 +36,13 @@ function loadPureModule(relativePath, dependencies = {}) {
   return module.exports;
 }
 
-const migration18 = read('supabase/migrations/0018_phase14_pdf_email_delivery.sql');
+const migration18 = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 assert.match(migration18, /provider_event_id text/i);
 assert.match(migration18, /email_events_provider_event_uidx/i);
 assert.match(migration18, /email_events_report_status_idx/i);
 assert.match(migration18, /attempt_number integer not null default 1/i);
 
-const migration19 = read('supabase/migrations/0019_phase14_email_delivery_state_hardening.sql');
+const migration19 = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 assert.match(migration19, /create table if not exists public\.email_provider_events/i);
 assert.match(migration19, /email_provider_events_provider_event_unique/i);
 assert.match(migration19, /processed_at timestamptz/i);
@@ -51,7 +51,7 @@ assert.match(migration19, /email_provider_events_unprocessed_idx/i);
 assert.match(migration19, /enable row level security/i);
 assert.match(migration19, /revoke all.*anon, authenticated/i);
 
-const migration21 = read('supabase/migrations/0021_phase14_adversarial_remediation.sql');
+const migration21 = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [
   /provider_request_key text/i,
   /send_lease_expires_at timestamptz/i,
@@ -105,7 +105,8 @@ assert.match(manualRoute, /approver/);
 assert.doesNotMatch(manualRoute, /forceResend/);
 assert.match(manualRoute, /authorize_bounce_retry/);
 assert.match(manualRoute, /send_bounce_retry/);
-assert.match(manualRoute, /correctedRecipientEvidence/);
+assert.match(manualRoute, /contactVerificationId/);
+assert.doesNotMatch(manualRoute, /correctedRecipientEvidence/);
 assert.match(manualRoute, /deliverPremiumReportEmail/);
 assert.doesNotMatch(manualRoute, /recipientOverride/);
 

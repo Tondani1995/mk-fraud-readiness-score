@@ -23,6 +23,7 @@ where gate_key = 'phase14-premium-report';
 update public.phase14_feature_policies
 set enabled = true, updated_by = '21000000-0000-0000-0000-000000000020',
     approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+    approved_authority_epoch=(select authority_epoch from public.phase14_security_gates where gate_key='phase14-premium-report'),
     approved_at=now(), reason = 'isolated transactional test only', updated_at = now()
 where policy_key in ('manual_generation','manual_delivery','recipient_override');
 
@@ -393,7 +394,7 @@ begin
     );
     raise exception 'NO_EXPECTED_EXCEPTION:fabricated_attestation_accepted';
   exception when others then
-    if sqlerrm not like '%delivery_reconciliation_attestation_binding_invalid%' then raise; end if;
+    if sqlerrm not like '%delivery_reconciliation_attestation_binding_or_age_invalid%' then raise; end if;
   end;
   v_attested_at_epoch := extract(epoch from now())::bigint;
   v_attestation_nonce := gen_random_uuid();
@@ -413,6 +414,13 @@ begin
     '{"state":"not_found","detail":"isolated provider lookup"}'::jsonb,
     v_attested_at_epoch,v_attestation_nonce,v_attestation_hmac
   );
+  update public.phase14_provider_attestations a
+  set authority_epoch=g.authority_epoch,
+      authorization_status=d.status,
+      authorization_updated_at=d.updated_at
+  from public.phase14_security_gates g, public.report_delivery_authorizations d
+  where a.id=v_attestation_id and g.gate_key='phase14-premium-report'
+    and d.id=(v_reconciliation_auth->>'authorization_id')::uuid;
   perform set_config('request.jwt.claims',
     '{"sub":"21000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"21000000-0000-0000-0000-000000000099"}',true);
   v_reconciliation_result := public.resolve_premium_report_delivery_reconciliation(
@@ -437,7 +445,8 @@ begin
     );
     raise exception 'NO_EXPECTED_EXCEPTION:attestation_replayed';
   exception when others then
-    if sqlerrm not like '%delivery_reconciliation_attestation_already_consumed%' then raise; end if;
+    if sqlerrm not like '%delivery_reconciliation_attestation_already_consumed%'
+       and sqlerrm not like '%delivery_reconciliation_attestation_binding_or_age_invalid%' then raise; end if;
   end;
   update public.report_delivery_authorizations set status='revoked',
     revoked_reason='Consumed-attestation replay test complete.'

@@ -8,10 +8,23 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
 }).outputText;
 const module = { exports: {} };
+let activeDb = null;
 new Function('require', 'module', 'exports', compiled)((specifier) => {
   if (specifier === 'node:crypto') return { __esModule: true, default: crypto };
   if (specifier === '@/lib/supabase/server') return { createSupabaseServiceClient() { throw new Error('test must inject db'); } };
-  if (specifier === '../phase14-security') return { requirePhase14Action() { throw new Error('test must inject authorization'); } };
+  if (specifier === '../phase14-security') return {
+    requirePhase14Action() { throw new Error('test must inject authorization'); },
+    async loadPhase14WorkerLease(capabilityId) { return { capabilityId, expectedStep: 'ai_attempt_claim' }; },
+    async executePhase14WorkerStep(_lease, action, payload) {
+      if (!activeDb) throw new Error('AI test database was not installed.');
+      const args = action === 'claim_phase14_ai_attempt'
+        ? { p_attempt: payload.attempt }
+        : { p_attempt_id: payload.attempt_id, p_result: payload.result };
+      const { data, error } = await activeDb.rpc(action, args);
+      if (error) throw error;
+      return data;
+    }
+  };
   if (specifier === './ai-sdk-generator') return {
     PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 3500,
     PREMIUM_REPORT_AI_TIMEOUT_MS: 45_000
@@ -24,7 +37,7 @@ const { createDurablePremiumReportNarrativeGenerator } = module.exports;
 
 function databaseDouble(existing = null) {
   const calls = [];
-  return {
+  const result = {
     calls,
     db: {
       async rpc(name, value) {
@@ -52,6 +65,8 @@ function databaseDouble(existing = null) {
       }
     }
   };
+  activeDb = result.db;
+  return result;
 }
 
 const generationInput = {

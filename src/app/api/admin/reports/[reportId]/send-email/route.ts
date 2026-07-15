@@ -23,16 +23,10 @@ export async function POST(request: Request, { params }: { params: { reportId: s
 
   try {
     if (action === 'authorize_bounce_retry') {
-      const evidence = typeof submitted.correctedRecipientEvidence === 'object'
-        && submitted.correctedRecipientEvidence !== null
-        && !Array.isArray(submitted.correctedRecipientEvidence)
-        ? submitted.correctedRecipientEvidence as Record<string, unknown>
-        : { corrected_recipient_evidence: String(submitted.correctedRecipientEvidence ?? '').trim() };
       const result = await authorizeBouncedReportRedelivery({
         priorEmailEventId: String(submitted.priorEmailEventId ?? ''),
-        correctedRecipient: String(submitted.correctedRecipient ?? ''),
-        reason: String(submitted.reason ?? ''),
-        correctedRecipientEvidence: evidence
+        verificationId: String(submitted.contactVerificationId ?? ''),
+        reason: String(submitted.reason ?? '')
       });
       return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });
     }

@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { executeClaimedReportDelivery } from '../src/lib/reports/email/delivery-dispatch.ts';
+import fs from 'node:fs';
+import ts from 'typescript';
+
+const compiled = ts.transpileModule(
+  fs.readFileSync('src/lib/reports/email/delivery-dispatch.ts', 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }
+).outputText;
+const deliveryModule = { exports: {} };
+new Function('require', 'module', 'exports', compiled)((specifier) => {
+  if (specifier === 'node:crypto') return { __esModule: true, default: crypto };
+  if (specifier === '../phase14-security') return {
+    async executePhase14WorkerStep() { throw new Error('worker path was not expected in this provider test'); }
+  };
+  throw new Error(`Unexpected delivery-dispatch dependency: ${specifier}`);
+}, deliveryModule, deliveryModule.exports);
+const { executeClaimedReportDelivery } = deliveryModule.exports;
 
 const pdf = Buffer.from('%PDF-1.7\nphase14 isolated provider test');
 const checksum = crypto.createHash('sha256').update(pdf).digest('hex');

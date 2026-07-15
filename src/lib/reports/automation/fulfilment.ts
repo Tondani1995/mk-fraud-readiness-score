@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { createPhase14PrivilegedClient } from '../phase14-security';
+import { executePhase14WorkerStep, type Phase14WorkerLease } from '../phase14-security';
 import { assembleReportData, ReportAssemblyError } from '../assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from '../report-entitlement';
 import type {
@@ -127,9 +128,9 @@ export async function updatePremiumReportFulfilment(input: {
   incrementAttempt?: boolean;
   errorCode?: string | null;
   errorMessage?: string | null;
-  capabilityId?: string | null;
+  workerLease?: Phase14WorkerLease;
 }) {
-  const db = input.capabilityId
+  const db = input.workerLease
     ? createSupabaseServiceClient() as any
     : createPhase14PrivilegedClient();
   const now = new Date().toISOString();
@@ -146,7 +147,7 @@ export async function updatePremiumReportFulfilment(input: {
   if (input.status === 'completed') patch.completed_at = now;
   if (input.status === 'failed') patch.failed_at = now;
 
-  if (input.incrementAttempt) {
+  if (input.incrementAttempt && !input.workerLease) {
     const { data: current, error: currentError } = await db
       .from('report_fulfilments')
       .select('attempt_count')
@@ -156,8 +157,20 @@ export async function updatePremiumReportFulfilment(input: {
     patch.attempt_count = Number(current.attempt_count ?? 0) + 1;
   }
 
+  if (input.workerLease) {
+    return executePhase14WorkerStep(input.workerLease, 'transition_premium_report_fulfilment', {
+      fulfilment_id: input.fulfilmentId,
+      status: input.status,
+      current_step: input.currentStep,
+      generation_mode: input.generationMode ?? null,
+      report_id: input.reportId ?? null,
+      increment_attempt: input.incrementAttempt ?? false,
+      error_code: input.errorCode ?? null,
+      error_message: input.errorMessage ?? null
+    });
+  }
   const { data, error } = await db.rpc('transition_premium_report_fulfilment', {
-    p_capability_id: input.capabilityId ?? null,
+    p_capability_id: null,
     p_fulfilment_id: input.fulfilmentId,
     p_status: input.status,
     p_current_step: input.currentStep,

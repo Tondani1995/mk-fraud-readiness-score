@@ -12,6 +12,7 @@ insert into expected_tables(name) values
   ('assessment_tokens'),
   ('assessments'),
   ('audit_logs'),
+  ('customer_contact_verifications'),
   ('data_requests'),
   ('domains'),
   ('eft_settings'),
@@ -29,7 +30,11 @@ insert into expected_tables(name) values
   ('phase14_operational_alerts'),
   ('phase14_security_gates'),
   ('phase14_feature_policies'),
+  ('phase14_ai_route_policies'),
+  ('phase14_provider_attestations'),
+  ('phase14_provider_attestation_consumptions'),
   ('phase14_worker_capabilities'),
+  ('phase14_workflow_start_outbox'),
   ('phase14_storage_cleanup_queue'),
   ('products'),
   ('question_applicability_rules'),
@@ -170,8 +175,7 @@ end $$;
 create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
-  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),('0018'),('0019'),('0020'),('0021'),('0022'),
-  ('20260714194317'),('20260714201550'),('20260714214023'),('20260715022146');
+  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017');
 
 do $$
 declare missing text;
@@ -184,6 +188,18 @@ begin
 
   if missing is not null then
     raise exception 'Missing expected local migration versions: %', missing;
+  end if;
+  if exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version > '0017'
+  ) then
+    raise exception 'Legacy unpublished Phase 14 migration versions remain in the canonical ledger';
+  end if;
+  if not exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '0017' and name = 'phase14_canonical_disabled_foundation'
+  ) then
+    raise exception 'Canonical Phase 14 ledger identity is missing';
   end if;
 end $$;
 
@@ -335,14 +351,22 @@ begin
   end if;
 
   if not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'worker_claim_premium_report_generation'
-      and has_function_privilege('service_role', p.oid, 'execute')
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname='execute_phase14_worker_step'
+      and has_function_privilege('service_role',p.oid,'execute')
+  ) or not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname='terminal_phase14_generation_publication'
+      and has_function_privilege('service_role',p.oid,'execute')
   ) then
-    raise exception 'service_role is missing scoped worker generation wrapper EXECUTE';
+    raise exception 'service_role is missing the attested dispatcher or terminal publication RPC';
+  end if;
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname like 'worker\_%' escape '\'
+      and has_function_privilege('service_role',p.oid,'execute')
+  ) then
+    raise exception 'service_role retains a legacy capability-ID-only worker facade';
   end if;
 end $$;
 

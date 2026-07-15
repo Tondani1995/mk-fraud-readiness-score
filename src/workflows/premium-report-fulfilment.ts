@@ -5,6 +5,8 @@ import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/featur
 import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
 import {
   claimPhase14WorkerCapability,
+  loadPhase14WorkerAuthorization,
+  loadPhase14WorkerLease,
   type Phase14WorkerLease
 } from '@/lib/reports/phase14-security';
 
@@ -60,12 +62,7 @@ async function validateFulfilmentStep(input: PremiumReportFulfilmentWorkflowInpu
 
 async function claimWorkerCapabilityStep(capabilityId: string) {
   'use step';
-  return claimPhase14WorkerCapability({
-    capabilityId,
-    capabilityType: 'automatic_generation',
-    operationKey: capabilityId,
-    expiresAt: ''
-  });
+  return loadPhase14WorkerLease(capabilityId);
 }
 
 async function generateAndStoreReportStep(fulfilmentId: string, workerLease: Phase14WorkerLease) {
@@ -125,12 +122,8 @@ async function deliverReportEmailIfEnabledStep(
     throw new FatalError('Automatic email is enabled but no human-issued delivery capability was supplied.');
   }
 
-  const workerLease = await claimPhase14WorkerCapability({
-    capabilityId,
-    capabilityType: 'automatic_delivery',
-    operationKey: capabilityId,
-    expiresAt: ''
-  });
+  const authorization = await loadPhase14WorkerAuthorization(capabilityId);
+  const workerLease = await claimPhase14WorkerCapability(authorization, authorization.operationKey);
   const result = await deliverPremiumReportEmail({
     reportId,
     workerLease,

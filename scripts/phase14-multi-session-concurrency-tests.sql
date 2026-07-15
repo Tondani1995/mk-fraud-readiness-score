@@ -22,8 +22,9 @@ where gate_key = 'phase14-premium-report';
 update public.phase14_feature_policies
 set enabled = true, updated_by = '22000000-0000-0000-0000-000000000020',
     approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+    approved_authority_epoch=(select authority_epoch from public.phase14_security_gates where gate_key='phase14-premium-report'),
     approved_at=now(),reason = 'isolated multi-session test only', updated_at = now()
-where policy_key = 'manual_generation';
+where policy_key in ('manual_generation','manual_delivery');
 
 do $fixture$
 declare
@@ -272,9 +273,96 @@ $assert_webhooks$;
 select dblink_disconnect('phase14_worker_a');
 select dblink_disconnect('phase14_worker_b');
 
+-- Two sessions must not consume the same independent customer-contact
+-- verification.  One transaction wins the row locks; the other observes the
+-- consumed state and is denied without creating a second remediation.
+select set_config('phase14.authoritative_transition','migration',false);
+insert into public.email_events(
+  id,assessment_id,order_id,report_id,recipient_email,status,provider,
+  provider_request_key,phase14_operation_ref
+)
+select '22000000-0000-0000-0000-000000000031',assessment_id,order_id,report_id,
+  'concurrency@example.invalid','bounced','resend','phase14-contact-race-request',
+  'phase14:contact-verification-race'
+from public.report_generation_claims
+where assessment_id='22000000-0000-0000-0000-000000000001';
+select set_config('phase14.authoritative_transition','',false);
+
+create temp table phase14_contact_context(verification_id uuid);
+insert into phase14_contact_context
+select public.create_customer_contact_verification(
+  '22000000-0000-0000-0000-000000000003',
+  'contact-race-winner@example.invalid','support_callback',
+  'support-case-concurrent-consumption',600
+);
+
+create or replace function public.phase14_test_try_contact_consumption(
+  p_event_id uuid,p_verification_id uuid
+) returns text language plpgsql set search_path=''
+as $test$
+begin
+  return public.authorize_bounced_report_redelivery(
+    p_event_id,p_verification_id,'Concurrent verification consumption test.'
+  )::text;
+exception when others then
+  return 'blocked:'||sqlerrm;
+end
+$test$;
+
+select dblink_connect('phase14_contact_a','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_connect('phase14_contact_b','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_exec('phase14_contact_a', $$set request.jwt.claims = '{"sub":"22000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"22000000-0000-0000-0000-000000000096"}'$$);
+select dblink_exec('phase14_contact_b', $$set request.jwt.claims = '{"sub":"22000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"22000000-0000-0000-0000-000000000097"}'$$);
+select dblink_send_query('phase14_contact_a',format(
+  'select public.phase14_test_try_contact_consumption(%L::uuid,%L::uuid)',
+  '22000000-0000-0000-0000-000000000031',verification_id
+)) from phase14_contact_context;
+select dblink_send_query('phase14_contact_b',format(
+  'select public.phase14_test_try_contact_consumption(%L::uuid,%L::uuid)',
+  '22000000-0000-0000-0000-000000000031',verification_id
+)) from phase14_contact_context;
+create temp table phase14_contact_results(worker text,result text);
+insert into phase14_contact_results select 'contact-a',result
+from dblink_get_result('phase14_contact_a',false) as t(result text);
+insert into phase14_contact_results select 'contact-b',result
+from dblink_get_result('phase14_contact_b',false) as t(result text);
+do $assert_contact_race$
+begin
+  if (select count(*) from phase14_contact_results where result not like 'blocked:%')<>1
+     or (select count(*) from phase14_contact_results where result like 'blocked:%')<>1
+     or (select count(*) from public.report_delivery_remediations
+         where prior_email_event_id='22000000-0000-0000-0000-000000000031')<>1
+     or not exists(
+       select 1 from public.customer_contact_verifications v
+       join phase14_contact_context c on c.verification_id=v.id
+       where v.status='consumed' and v.consumed_by_remediation_id is not null
+     )
+     or (select lower(customer_email::text) from public.orders
+         where id='22000000-0000-0000-0000-000000000003')
+        <>'contact-race-winner@example.invalid' then
+    raise exception 'Concurrent contact verification was not exactly-once: %',
+      (select jsonb_agg(to_jsonb(r)) from phase14_contact_results r);
+  end if;
+end
+$assert_contact_race$;
+drop function public.phase14_test_try_contact_consumption(uuid,uuid);
+select dblink_disconnect('phase14_contact_a');
+select dblink_disconnect('phase14_contact_b');
+
 set request.jwt.claims = '';
 begin;
 set local session_replication_role = replica;
+delete from public.assessment_events
+where assessment_id='22000000-0000-0000-0000-000000000001'
+  and dedupe_key like 'phase14-bounce-remediation:%';
+delete from public.audit_logs
+where assessment_id='22000000-0000-0000-0000-000000000001'
+  and entity_table in ('customer_contact_verifications','report_delivery_remediations');
+delete from public.customer_contact_verifications
+where order_id='22000000-0000-0000-0000-000000000003';
+delete from public.report_delivery_remediations
+where prior_email_event_id='22000000-0000-0000-0000-000000000031';
+delete from public.email_events where id='22000000-0000-0000-0000-000000000031';
 delete from public.email_provider_events where email_event_id = '22000000-0000-0000-0000-000000000030';
 delete from public.email_events where id = '22000000-0000-0000-0000-000000000030';
 delete from public.report_generation_claims where assessment_id = '22000000-0000-0000-0000-000000000001';
@@ -284,6 +372,11 @@ delete from public.score_question_traces where score_run_id = '22000000-0000-000
 delete from public.score_domain_results where score_run_id = '22000000-0000-0000-0000-000000000002';
 delete from public.assessments where id = '22000000-0000-0000-0000-000000000001';
 delete from public.score_runs where id = '22000000-0000-0000-0000-000000000002';
+update public.phase14_feature_policies
+set enabled=false,approved_gate_version=null,approved_authority_epoch=null,
+    approved_at=null,updated_by=null,
+    reason='Multi-session test cleanup restored the inert policy.',updated_at=now()
+where policy_key in ('manual_generation','manual_delivery');
 delete from public.admin_profiles where id = '22000000-0000-0000-0000-000000000020';
 update public.phase14_security_gates
 set satisfied_version = 0, status = 'unsatisfied', satisfied_by = null, satisfied_at = null,

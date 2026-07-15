@@ -36,16 +36,15 @@ where n.nspname='public' and (
 
 \echo 'REVIEWED STATE-TRANSITION MAPPING'
 select * from (values
-  ('workflow start','claim_premium_report_workflow_start / record_premium_report_workflow_start'),
-  ('fulfilment progress','transition_premium_report_fulfilment'),
-  ('generation provenance','record_premium_report_generation_run'),
-  ('generation completion','complete_phase14_generation_operation'),
-  ('AI attempt','claim_phase14_ai_attempt / settle_phase14_ai_attempt'),
-  ('delivery','worker_*premium_report_delivery / finalize_premium_report_delivery'),
+  ('all worker non-terminal steps','execute_phase14_worker_step (HMAC-attested dispatcher)'),
+  ('generation terminal','terminal_phase14_generation_publication (HMAC-attested atomic RPC)'),
+  ('workflow start','dispatcher + phase14_workflow_start_outbox'),
+  ('AI attempt','dispatcher claim/settle steps'),
+  ('delivery','dispatcher authorize/claim/dispatch/finalize steps'),
   ('provider webhook','ingest_phase14_provider_webhook'),
   ('provider lookup receipt','record_phase14_provider_lookup_attestation'),
   ('operator reconciliation','resolve_premium_report_delivery_reconciliation'),
   ('download event','record_phase14_report_download'),
-  ('cleanup','claim_phase14_storage_cleanup_jobs / complete_phase14_storage_cleanup_job'),
+  ('cleanup','dispatcher claim/settle steps with strict provider result class'),
   ('operational alert','record_phase14_operational_alert')
 ) as mapping(state_class,reviewed_rpc) order by state_class;

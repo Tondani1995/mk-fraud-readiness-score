@@ -26,7 +26,7 @@ assert.equal(pkg.dependencies.ai, '6.0.83');
 assert.equal(pkg.dependencies.zod, '4.1.8');
 assert.equal(lock.packages['node_modules/workflow']?.version, '4.6.0');
 
-const migration = read('supabase/migrations/0017_phase14_autonomous_report_engine.sql');
+const migration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [
   /create table if not exists public\.report_fulfilments/i,
   /create table if not exists public\.report_generation_runs/i,
@@ -66,8 +66,10 @@ assert.match(start, /from 'workflow\/api'/);
 assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[durableInput\]\)/);
 assert.match(start, /PremiumReportFulfilmentWorkflowInput/);
 assert.match(start, /claim_premium_report_workflow_start/);
+assert.match(start, /mark_phase14_workflow_start_dispatching/);
 assert.match(start, /record_premium_report_workflow_start/);
-assert.match(start, /claim_phase14_worker_operation/);
+assert.match(start, /executePhase14WorkerStep/);
+assert.match(start, /phase14_workflow_start_acceptance_uncertain/);
 
 const workflow = read('src/workflows/premium-report-fulfilment.ts');
 assert.match(workflow, /from 'workflow'/);
@@ -84,12 +86,8 @@ assert.match(workflow, /flags\.autoEmailEnabled/);
   }).outputText;
   const module = { exports: {} };
   let serializedWorkflowArguments = '';
-  const db = {
-    async rpc(name) {
-      if (name === 'claim_premium_report_workflow_start') return { data: { claimed: true }, error: null };
-      return { data: true, error: null };
-    }
-  };
+  const lease = { expectedStep: 'workflow_start_claim', leaseGeneration: 1 };
+  let workerStep = 0;
   new Function('require', 'module', 'exports', output)((specifier) => {
     if (specifier === 'workflow/api') return {
       async start(_workflow, args) {
@@ -97,18 +95,45 @@ assert.match(workflow, /flags\.autoEmailEnabled/);
         return { runId: 'opaque-workflow-run' };
       }
     };
-    if (specifier === '@/lib/supabase/server') return { createSupabaseServiceClient: () => db };
+    if (specifier === '@/lib/reports/phase14-security') return {
+      async claimPhase14WorkerCapability() { return lease; },
+      async executePhase14WorkerStep(currentLease, action) {
+        assert.equal(currentLease, lease);
+        workerStep += 1;
+        if (action === 'claim_premium_report_workflow_start') {
+          return { claimed: true, outbox_id: 'outbox-opaque' };
+        }
+        if (action === 'record_premium_report_workflow_start') {
+          return { status: 'started', run_id: 'opaque-workflow-run' };
+        }
+        return { status: 'acceptance_uncertain' };
+      }
+    };
     if (specifier === '@/workflows/premium-report-fulfilment') return { premiumReportFulfilmentWorkflow() {} };
     throw new Error(`Unexpected workflow-start dependency: ${specifier}`);
   }, module, module.exports);
   const result = await module.exports.startPremiumReportWorkflow({
     fulfilmentId: 'fulfilment-opaque',
-    generationCapabilityId: 'generation-capability-opaque',
+    generationAuthorization: {
+      capabilityId: 'generation-capability-opaque',
+      capabilityType: 'automatic_generation',
+      operationKey: 'generation-operation-opaque',
+      expiresAt: '2099-01-01T00:00:00Z',
+      authorityEpoch: 7,
+      expectedStep: 'claim',
+      orderId: null,
+      assessmentId: null,
+      scoreRunId: null,
+      fulfilmentId: 'fulfilment-opaque',
+      reportId: null,
+      recipient: null,
+      issueSecret: 'must-never-serialize',
+      leaseToken: 'must-never-serialize'
+    },
     deliveryCapabilityId: 'delivery-capability-opaque',
-    issueSecret: 'must-never-serialize',
-    leaseToken: 'must-never-serialize'
   });
   assert.equal(result.started, true);
+  assert.equal(workerStep, 3);
   assert.deepEqual(JSON.parse(serializedWorkflowArguments), [{
     fulfilmentId: 'fulfilment-opaque',
     generationCapabilityId: 'generation-capability-opaque',
@@ -172,7 +197,7 @@ assert.match(aiGenerator, /maxRetries:\s*0/);
 assert.match(aiGenerator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);
 assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500/);
 
-const remediationMigration = read('supabase/migrations/0021_phase14_adversarial_remediation.sql');
+const remediationMigration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [
   /create table public\.report_generation_claims/i,
   /claim_owner text not null/i,
@@ -182,7 +207,7 @@ for (const pattern of [
   /create table public\.report_ai_attempts/i
 ]) assert.match(remediationMigration, pattern);
 
-const closureMigration = read('supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql');
+const closureMigration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [
   /create table public\.phase14_security_gates/i,
   /satisfied_version integer not null default 0/i,

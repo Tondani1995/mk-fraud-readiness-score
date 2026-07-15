@@ -1,6 +1,10 @@
 # Phase 14 Migration History Note
 
-The repository keeps the Phase 14 autonomous-report schema in `supabase/migrations/0017_phase14_autonomous_report_engine.sql` for source review, but production was reconciled through controller-approved split migration records `0017` through `0019`.
+The repository now keeps the complete disabled Phase 14 foundation in the
+single atomic migration
+`supabase/migrations/0017_phase14_canonical_disabled_foundation.sql`. Exact
+historical UAT-applied SQL is retained outside the deployable migration path in
+`docs/v1/phase14/migration-audit-archive`; production has not received Phase 14.
 
 This documentation change does not change the live schema. It records the current assurance position only:
 

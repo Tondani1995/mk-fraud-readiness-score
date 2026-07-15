@@ -1,13 +1,36 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import {
+import fs from 'node:fs';
+import ts from 'typescript';
+
+function compileCommonJs(path, dependency) {
+  const output = ts.transpileModule(fs.readFileSync(path, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+  }).outputText;
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', output)(dependency, module, module.exports);
+  return module.exports;
+}
+
+const classifier = compileCommonJs('src/lib/reports/storage-error-classifier.ts', () => {
+  throw new Error('The storage classifier must remain dependency-free.');
+});
+const {
   publishCommittedReportObject,
   uploadTemporaryReportObject
-} from '../src/lib/reports/storage-publication.ts';
+} = compileCommonJs('src/lib/reports/storage-publication.ts', (specifier) => {
+  if (specifier === 'node:crypto') return { __esModule: true, default: crypto };
+  if (specifier === './storage-error-classifier') return classifier;
+  throw new Error(`Unexpected storage-publication dependency: ${specifier}`);
+});
 import { readVerifiedReportObject } from '../src/lib/reports/download-verification.ts';
 
 const bytes = Buffer.from('%PDF-1.7\nphase14 isolated storage test');
 const checksum = crypto.createHash('sha256').update(bytes).digest('hex');
+const missingObjectError = () => Object.assign(new Error('Object not found'), {
+  statusCode: 404,
+  code: 'not_found'
+});
 
 function storageDouble(options = {}) {
   const objects = new Map(options.objects ?? []);
@@ -47,7 +70,7 @@ function storageDouble(options = {}) {
             const value = objects.get(`${bucket}/${path}`);
             return value
               ? { data: new Blob([value]), error: null }
-              : { data: null, error: new Error('object missing') };
+              : { data: null, error: missingObjectError() };
           },
           async remove(paths) {
             calls.push(['remove', bucket, ...paths]);
@@ -125,8 +148,8 @@ async function publish(storage, publication, extra = {}) {
   const publication = publicationDb({ data: null, error: new Error('isolated database publication fault') });
   await assert.rejects(publish(storage, publication), /database publication fault/);
   assert(storage.objects.has(finalPath), 'verified final object must remain for deterministic retry');
-  assert(storage.objects.has('generated-reports/tmp/claim.pdf'), 'temporary object must remain until database publication succeeds');
-  assert.equal(storage.calls.filter(([name]) => name === 'remove').length, 0);
+  assert(!storage.objects.has('generated-reports/tmp/claim.pdf'), 'temporary object must be removed and its absence verified before terminal publication');
+  assert.equal(storage.calls.filter(([name]) => name === 'remove').length, 1);
 }
 
 {
@@ -141,7 +164,9 @@ async function publish(storage, publication, extra = {}) {
   });
   assert.equal(result.cleanupFailed, true);
   assert.equal(cleanupResults.length, 1, 'cleanup failure must be persisted to the durable queue');
-  assert.equal(cleanupResults[0].deleted, false);
+  assert.equal(cleanupResults[0].deletionRequested, true);
+  assert.equal(cleanupResults[0].deleteApiAccepted, false);
+  assert.equal(cleanupResults[0].providerResultClass, 'unknown_provider_error');
   assert.match(cleanupResults[0].error, /isolated cleanup fault/);
   assert.equal(publication.calls.length, 1, 'database publication must remain exactly once');
 }

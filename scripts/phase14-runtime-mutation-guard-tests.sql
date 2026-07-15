@@ -2,22 +2,22 @@
 begin;
 
 set local session_replication_role = replica;
-insert into public.audit_logs(id,actor_type,entity_table,action,after_json)
-values ('26000000-0000-0000-0000-000000000001','system','reports','report_generated','{}');
-insert into public.report_events(id,report_id,event_type,metadata_json)
+insert into public.audit_logs(id,actor_type,entity_table,action,after_json,phase14_operation_ref)
+values ('26000000-0000-0000-0000-000000000001','system','reports','report_generated','{}','phase14:runtime-guard-audit');
+insert into public.report_events(id,report_id,event_type,metadata_json,phase14_operation_ref)
 values ('26000000-0000-0000-0000-000000000002','26000000-0000-0000-0000-000000000099',
-  'generated','{}');
-insert into public.assessment_events(id,assessment_id,event_type,dedupe_key,metadata_json)
+  'generated','{}','phase14:runtime-guard-report');
+insert into public.assessment_events(id,assessment_id,event_type,dedupe_key,metadata_json,phase14_operation_ref)
 values ('26000000-0000-0000-0000-000000000003','26000000-0000-0000-0000-000000000098',
-  'report_generated','phase14-runtime-guard-fixture','{}');
-insert into public.email_events(id,recipient_email,status,notification_type,provider_request_key)
+  'report_generated','phase14-runtime-guard-fixture','{}','phase14:runtime-guard-assessment');
+insert into public.email_events(id,recipient_email,status,notification_type,provider_request_key,phase14_operation_ref)
 values ('26000000-0000-0000-0000-000000000004','guard@example.invalid','queued',
-  'premium_report_pdf','phase14-runtime-guard-request');
+  'premium_report_pdf','phase14-runtime-guard-request','phase14:runtime-guard-email');
 insert into public.email_provider_events(
-  id,email_event_id,provider,provider_event_id,event_type,payload_json,supported_event
+  id,email_event_id,provider,provider_event_id,event_type,payload_json,supported_event,phase14_operation_ref
 ) values (
   '26000000-0000-0000-0000-000000000005','26000000-0000-0000-0000-000000000004',
-  'resend','phase14-runtime-guard-event','email.sent','{}',true
+  'resend','phase14-runtime-guard-event','email.sent','{}',true,'phase14:runtime-guard-provider'
 );
 set local session_replication_role = origin;
 
@@ -112,8 +112,8 @@ begin
     '%phase14_authoritative_rpc_required%');
 
   perform public.phase14_test_expect_error(
-    $$insert into public.email_provider_events(provider,provider_event_id,event_type,payload_json)
-      values('resend','forged-provider-event','email.sent','{}')$$,
+    $$insert into public.email_provider_events(provider,provider_event_id,event_type,payload_json,phase14_operation_ref)
+      values('resend','forged-provider-event','email.sent','{}','phase14:forged-provider-event')$$,
     '%phase14_authoritative_rpc_required%');
   perform public.phase14_test_expect_error(
     $$update public.email_provider_events set payload_json='{}' where id='26000000-0000-0000-0000-000000000005'$$,
