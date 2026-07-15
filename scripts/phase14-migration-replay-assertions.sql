@@ -175,7 +175,8 @@ end $$;
 create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
-  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017');
+  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),
+  ('0023');
 
 do $$
 declare missing text;
@@ -191,9 +192,9 @@ begin
   end if;
   if exists (
     select 1 from supabase_migrations.schema_migrations
-    where version > '0017'
+    where version > '0017' and version <> '0023'
   ) then
-    raise exception 'Legacy unpublished Phase 14 migration versions remain in the canonical ledger';
+    raise exception 'Unexpected post-canonical migration versions remain in the ledger';
   end if;
   if not exists (
     select 1 from supabase_migrations.schema_migrations
