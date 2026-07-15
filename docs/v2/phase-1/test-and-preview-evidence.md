@@ -79,7 +79,7 @@ The historical Phase 5 smoke script remains incompatible with the repository's a
 
 Intentionally not run: tests that apply migration 0017, connect with staging/UAT/production credentials, invoke providers, or need external secrets. Those operations are outside the Phase 1 safety boundary.
 
-CI exposed two ledger guardrail assumptions. First, the replay workflow temporarily restores archived Phase 14 migrations `0018`–`0022`, so the original Phase 1 filename at `0018` collided despite valid SQL. The migration was renamed to `0023`. Second, the replay assertion rejected every post-`0017` version; it now permits exactly `0023` while continuing to reject archived `0018`–`0022` and every other unexpected post-canonical version. The migration behavior is unchanged.
+CI exposed that the repository's existing replay is a Phase 14-specific workflow: it temporarily restores archived migrations `0018`–`0022` and applies canonical migration `0017`. The original Phase 1 filename at `0018` therefore collided despite valid SQL. The migration was renamed to `0023`, and a dedicated Phase 1 CI replay now stops at `0016`, applies `0023` manually in its disposable local database, and proves that Phase 14 structures remain absent. The Phase 14 replay assertions remain unchanged and that workflow skips this Phase 1 PR.
 
 ## Protected Preview evidence
 

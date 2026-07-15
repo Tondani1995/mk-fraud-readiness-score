@@ -1,0 +1,100 @@
+name: Phase 1 Migration Replay
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql'
+      - 'scripts/phase1-production-stabilisation-tests.mjs'
+      - '.github/workflows/phase1-migration-replay.yml'
+      - '.github/workflows/supabase-migration-replay.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  phase1-safe-replay:
+    name: Phase 1 safe migration replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOCAL_DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+      SUPABASE_CLI_VERSION: '2.109.1'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Start disposable local Supabase
+        run: |
+          set -Eeuo pipefail
+          mkdir -p tmp/phase1-migration-replay
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor \
+            > tmp/phase1-migration-replay/supabase-start.log 2>&1
+
+      - name: Replay permitted baseline and Phase 1 migration
+        run: |
+          set -Eeuo pipefail
+          supabase db reset --local --yes --version 0016
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '0'
+          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql \
+            | tee tmp/phase1-migration-replay/0023-apply.txt
+
+      - name: Verify Phase 1 schema and disabled boundary
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 <<'SQL' | tee tmp/phase1-migration-replay/assertions.txt
+          do $$
+          begin
+            if to_regclass('public.manual_report_generation_attempts') is null
+               or to_regclass('public.manual_report_delivery_attempts') is null then
+              raise exception 'Phase 1 attempt ledgers are missing';
+            end if;
+            if to_regclass('public.phase14_security_gates') is not null
+               or to_regclass('public.phase14_feature_policies') is not null then
+              raise exception 'Phase 14 structures must remain unapplied';
+            end if;
+            if not exists (
+              select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+              where n.nspname='public'
+                and c.relname in ('manual_report_generation_attempts','manual_report_delivery_attempts')
+                and c.relrowsecurity
+              group by n.nspname having count(*)=2
+            ) then
+              raise exception 'Phase 1 attempt ledgers must have RLS enabled';
+            end if;
+            if (select public from storage.buckets where id='generated-reports') then
+              raise exception 'Generated report bucket must remain private';
+            end if;
+            if not exists (
+              select 1 from public.app_settings
+              where setting_key='v2_phase1_manual_fulfilment'
+                and value_json->>'phase14_enabled' = 'false'
+            ) then
+              raise exception 'Phase 14 disabled setting is missing';
+            end if;
+          end $$;
+          SQL
+          node scripts/phase1-production-stabilisation-tests.mjs
+
+      - name: Upload Phase 1 replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-migration-replay-evidence
+          path: tmp/phase1-migration-replay
+          if-no-files-found: error
