@@ -138,8 +138,8 @@ function runStaticChecks() {
 
   assertIncludes(generateRoute, 'getAdminSession', 'Generate-report route must check admin session');
   assertIncludes(generateRoute, 'REPORT_GENERATION_ROLES', 'Generate-report route must use explicit roles');
-  assertIncludes(generateRoute, 'generatePremiumReport', 'Generate-report route delegates to the shared service after authentication');
-  assertSourceOrder(generateRoute, 'const admin = await getAdminSession()', 'await generatePremiumReport', 'Generate-report route must authenticate before calling shared generation service');
+  assertIncludes(generateRoute, 'generateManualPhase1Report', 'Generate-report route delegates to the controlled manual service after authentication');
+  assertSourceOrder(generateRoute, 'const admin = await getAdminSession()', 'await generateManualPhase1Report', 'Generate-report route must authenticate before calling shared generation service');
   assertIncludes(entitlementGuard, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report entitlement guard must require payment_received only');
   assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report entitlement guard must require the paid R5,000 product');
   assertIncludes(entitlementGuard, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report entitlement guard must require the essential self-assessment product');
@@ -147,10 +147,9 @@ function runStaticChecks() {
   assertIncludes('src/app/score/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 
   assertIncludes(paymentRoute, 'updateAdminOrderStatus', 'Payment status route records the finance status transition');
-  assertIncludes(paymentRoute, 'getPremiumReportAutomationFlags', 'Payment status route loads safe automation flags');
-  assertIncludes(paymentRoute, 'flags.autoFulfilmentEnabled', 'Payment status route cannot queue fulfilment while automation is disabled');
-  assertIncludes(paymentRoute, 'queuePremiumReportFulfilment', 'Later automatic fulfilment uses the idempotent queue');
-  assertSourceOrder(paymentRoute, 'const result = await updateAdminOrderStatus', 'if (status === \'payment_received\')', 'Payment must be persisted before optional fulfilment queueing');
+  assertNotIncludes(paymentRoute, 'getPremiumReportAutomationFlags', 'Payment status route does not activate autonomous fulfilment');
+  assertNotIncludes(paymentRoute, 'autoFulfilmentEnabled', 'Payment status route cannot queue fulfilment while automation is disabled');
+  assertNotIncludes(paymentRoute, 'queuePremiumReportFulfilment', 'Payment status route does not queue automatic fulfilment');
   assertNotIncludes(paymentRoute, 'renderHtmlToPdfBuffer', 'Marking payment received must never render a PDF inside the finance route.');
   assertNotIncludes(paymentRoute, 'generatePremiumReport(', 'Payment status route must queue rather than synchronously generate a report.');
 
@@ -168,10 +167,11 @@ function runStaticChecks() {
 
   assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'getAdminSession', 'Report download route must check admin session');
   assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'REPORT_DOWNLOAD_ROLES', 'Report download route must use explicit roles');
-  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'downloadPremiumReport', 'Report download route must use the shared entitlement and checksum service');
-  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'Content-Disposition', 'Report download route must stream a controlled attachment');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSecurePhase1ReportAccess', 'Report download route must use the shared binding and checksum service');
+  assertIncludes('src/lib/reports/phase1-report-access.ts', 'download: report.file_name', 'Report download must request a controlled attachment filename');
   assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'private, no-store', 'Report download response must not be cached');
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
+  assertIncludes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Shared access service must expire signed access quickly');
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
   assertIncludes('supabase/migrations/0011_phase10_pdf_report_engine_additions.sql', "values ('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
 
@@ -196,7 +196,8 @@ function runStaticChecks() {
   assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Shared report service must use the administrator terminal state machine');
   assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Shared report service must use the worker terminal state machine');
   assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must not retain the legacy split event route');
-  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Report download route must record download_requested through the Phase 14 state machine');
+  assertIncludes('src/lib/reports/phase1-report-access.ts', "from('report_events').insert", 'Report access must record a report event');
+  assertIncludes('src/lib/reports/phase1-report-access.ts', "from('order_events').insert", 'Report access must appear in the order timeline');
 }
 
 async function runHttpChecks() {

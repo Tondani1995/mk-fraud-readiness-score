@@ -228,10 +228,10 @@ assert.match(remediationIntegration, /deterministic supersession/i);
 assert.match(remediationIntegration, /provider-event-stale-sent/);
 
 const payment = read('src/app/score/admin/orders/[orderReference]/status/route.ts');
-assert.match(payment, /flags\.autoFulfilmentEnabled/);
-assert.match(payment, /queuePremiumReportFulfilment/);
-assert.match(payment, /startPremiumReportWorkflow/);
-assert.match(payment, /triggerSource:\s*'payment_confirmation'/);
+assert.doesNotMatch(payment, /flags\.autoFulfilmentEnabled/);
+assert.doesNotMatch(payment, /queuePremiumReportFulfilment/);
+assert.doesNotMatch(payment, /startPremiumReportWorkflow/);
+assert.doesNotMatch(payment, /triggerSource:\s*'payment_confirmation'/);
 
 const {
   validatePremiumReportGenerationEntitlement,

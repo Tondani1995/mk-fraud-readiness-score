@@ -29,12 +29,8 @@ export async function POST(request: Request, { params }: { params: { assessmentR
 
   const assessment = snapshotValidation.assessment;
 
-  const [{ data: organisation }, { data: respondent }] = await Promise.all([
-    service.from('organisations').select('legal_name,trading_name').eq('id', assessment.organisation_id).maybeSingle(),
-    assessment.primary_respondent_id
-      ? service.from('respondents').select('id,email,full_name').eq('id', assessment.primary_respondent_id).maybeSingle()
-      : Promise.resolve({ data: null })
-  ]);
+  const organisation = snapshotValidation.organisation;
+  const respondent = snapshotValidation.respondent;
 
   const email = body?.email ?? respondent?.email ?? null;
 

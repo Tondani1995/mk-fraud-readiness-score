@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getFulfilmentSchemaCapability } from '@/lib/reports/phase1-schema-capability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,12 +32,14 @@ export default async function AdminReportsPage() {
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const db = createSupabaseServiceClient() as any;
   const reports = await getRecentReports(db);
+  const capability = await getFulfilmentSchemaCapability(db);
   return (
     <AdminShell admin={admin}>
       <div className="space-y-6">
         <PageHeader eyebrow="Report control" title="Generated report versions" description="Review generated report versions and access controlled admin downloads. Report creation happens from eligible paid orders only." />
+        {capability.status !== 'available' ? <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">{capability.message}</div> : null}
         <Card><CardHeader><CardTitle>Recent reports</CardTitle></CardHeader><CardContent className="space-y-3">
-          {reports.map((report: any) => <div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mk-line bg-white p-4 text-sm"><div><div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(report.status)}</Badge><span className="font-semibold text-mk-ink">{report.report_reference}</span></div><p className="mt-2 text-mk-muted">Version {report.version_number} · {report.assessments?.assessment_reference ?? 'Assessment not linked'} · {report.orders?.organisation_name ?? 'Organisation not captured'}</p><p className="mt-1 text-mk-muted">Generated {report.generated_at ? new Date(report.generated_at).toLocaleString('en-ZA') : 'date not captured'}</p></div><div className="flex flex-wrap gap-2">{report.orders?.order_reference ? <Button asChild variant="secondary"><Link href={`/score/admin/orders/${report.orders.order_reference}`}>Open order</Link></Button> : null}{report.storage_bucket && report.storage_path ? <Button asChild><a href={`/score/api/admin/reports/${report.id}/download`}>Download</a></Button> : null}</div></div>)}
+          {reports.map((report: any) => <div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mk-line bg-white p-4 text-sm"><div><div className="flex flex-wrap items-center gap-2"><Badge>{cleanStatus(report.status)}</Badge><span className="font-semibold text-mk-ink">{report.report_reference}</span></div><p className="mt-2 text-mk-muted">Version {report.version_number} · {report.assessments?.assessment_reference ?? 'Assessment not linked'} · {report.orders?.organisation_name ?? 'Organisation not captured'}</p><p className="mt-1 text-mk-muted">Generated {report.generated_at ? new Date(report.generated_at).toLocaleString('en-ZA') : 'date not captured'}</p></div><div className="flex flex-wrap gap-2">{report.orders?.order_reference ? <Button asChild variant="secondary"><Link href={`/score/admin/orders/${report.orders.order_reference}`}>Open order</Link></Button> : null}{capability.status === 'available' && report.storage_bucket && report.storage_path && report.orders?.order_reference ? <><Button asChild variant="secondary"><a href={`/score/api/admin/reports/${report.id}/preview?order=${encodeURIComponent(report.orders.order_reference)}`}>Preview</a></Button><Button asChild><a href={`/score/api/admin/reports/${report.id}/download?order=${encodeURIComponent(report.orders.order_reference)}`}>Download</a></Button></> : null}</div></div>)}
           {!reports.length ? <p className="text-sm leading-6 text-mk-muted">No generated reports yet. Reports are generated from an eligible order after manual payment confirmation.</p> : null}
         </CardContent></Card>
       </div>

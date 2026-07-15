@@ -41,7 +41,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: assessment, error: assessmentError } = await supabase
     .from('assessments')
-    .select('id, assessment_reference, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+    .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
     .eq('id', order.assessment_id)
     .maybeSingle();
 
@@ -179,6 +179,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     orderReference: order.order_reference,
     orderAssessmentId: order.assessment_id,
     assessmentId: assessment.id,
+    organisationId: assessment.organisation_id,
     currentScoreRunId: assessment.current_score_run_id,
     orderVerifiedAt: order.verified_at ?? null,
     orderVerifiedBy: order.verified_by ?? null,

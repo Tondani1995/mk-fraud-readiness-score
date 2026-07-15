@@ -73,6 +73,7 @@ export interface AssembledReportData {
   orderReference: string;
   orderAssessmentId: string;
   assessmentId: string;
+  organisationId: string;
   currentScoreRunId: string;
   orderVerifiedAt: string | null;
   orderVerifiedBy: string | null;

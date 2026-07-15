@@ -106,7 +106,7 @@ assertIncludes('src/app/score/admin/config/products/page.tsx', 'Release boundary
 assertIncludes('src/app/score/admin/config/content/page.tsx', 'does not generate reports', 'Content config blocks report generation');
 assertIncludes('src/app/score/admin/audit-log/page.tsx', 'append-only', 'Audit log is documented as append-only');
 assertNotIncludes('src/app/score/admin/config/products/page.tsx', 'Phase 9', 'Product config must not expose phase labels');
-assertNotIncludes('src/app/score/admin/orders/page.tsx', 'Phase', 'Order controls page must not expose phase labels');
+assert(!/>[^<{]*Phase\s+\d/i.test(read('src/app/score/admin/orders/page.tsx')), 'Order controls page must not expose phase labels in rendered copy');
 assertNotIncludes('src/app/score/admin/reports/page.tsx', 'Phase', 'Report controls page must not expose phase labels');
 
 const changedSources = requiredAdminRoutes.concat([
