@@ -157,8 +157,9 @@ function runStaticChecks() {
   assertIncludes(reportService, 'assembleReportData', 'Shared service assembles persisted report evidence');
   assertIncludes(reportService, 'validatePremiumReportGenerationEntitlement', 'Shared service enforces the premium report entitlement guard');
   assertIncludes(reportService, 'renderHtmlToPdfBuffer', 'Shared service owns PDF rendering');
-  assertIncludes(reportService, "from('report_events')", 'Shared service writes report events');
-  assertIncludes(reportService, "from('audit_logs')", 'Shared service writes audit logs');
+  assertIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared service writes report and audit events transactionally');
+  assertNotIncludes(reportService, "from('report_events')", 'Shared service must not bypass the Phase 14 report-event state machine');
+  assertNotIncludes(reportService, "from('audit_logs')", 'Shared service must not bypass the Phase 14 audit state machine');
   assertIncludes(reportService, 'ready_for_email_delivery', 'Shared service stops at a controlled delivery-ready state');
   assertNotIncludes(reportService, 'resend.emails.send', 'Phase 14A shared service must not dispatch customer email.');
   assertNotIncludes(reportService, 'publicUrl', 'Shared service must not expose permanent public report URLs.');
@@ -190,9 +191,8 @@ function runStaticChecks() {
   assertIncludes('src/app/api/assessments/[assessmentRef]/report-request/route.ts', "from('audit_logs')", 'Report request route must audit customer report requests');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('order_events')", 'Order service must write order events');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('audit_logs')", 'Order service must write audit logs');
-  assertIncludes(reportService, "from('report_events')", 'Shared report service must write report events');
-  assertIncludes(reportService, "from('audit_logs')", 'Shared report service must write audit logs');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "event_type: 'download_requested'", 'Report download route must write download_requested events');
+  assertIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must write report and audit events through the Phase 14 state machine');
+  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Report download route must record download_requested through the Phase 14 state machine');
 }
 
 async function runHttpChecks() {
