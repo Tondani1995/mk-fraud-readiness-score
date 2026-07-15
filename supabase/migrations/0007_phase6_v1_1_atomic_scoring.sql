@@ -108,6 +108,13 @@ create trigger trg_maturity_cap_events_identity
 before insert or update on public.maturity_cap_events
 for each row execute function public.guard_score_trace_identity();
 
+insert into public.app_settings (setting_key, value_json)
+values
+  ('phase6_v1_1_atomic_scoring', '{"atomic_rpc":"complete_score_run_atomic","trace_identity_guards":true,"direct_engine_tests":true,"critical_controls":19,"hard_gates":17,"partial_score_runs_prohibited":true}'::jsonb)
+on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
+
+commit;
+
 create or replace function public.complete_score_run_atomic(
   p_assessment_id uuid,
   p_methodology_version_id uuid,
@@ -123,7 +130,7 @@ returns table(score_run_id uuid, run_number int)
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $complete_score_run_atomic$
 declare
   v_assessment record;
   v_score_run_id uuid;
@@ -404,11 +411,4 @@ begin
   run_number := v_run_number;
   return next;
 end;
-$$;
-
-insert into public.app_settings (setting_key, value_json)
-values
-  ('phase6_v1_1_atomic_scoring', '{"atomic_rpc":"complete_score_run_atomic","trace_identity_guards":true,"direct_engine_tests":true,"critical_controls":19,"hard_gates":17,"partial_score_runs_prohibited":true}'::jsonb)
-on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
-
-commit;
+$complete_score_run_atomic$;

@@ -1,0 +1,1 @@
+Draft implementation ready for CI and preview review. Migration unapplied. Automation disabled.

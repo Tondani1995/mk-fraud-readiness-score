@@ -24,3 +24,20 @@ export function createSupabaseAnonServerClient() {
     }
   });
 }
+
+export function createSupabaseAuthenticatedServerClient(accessToken: string) {
+  const url = requireServerEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const anonKey = requireServerEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const token = accessToken.trim();
+  if (!token) throw new Error('An authenticated Supabase access token is required.');
+
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    global: {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  });
+}

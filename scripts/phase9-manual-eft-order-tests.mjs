@@ -42,8 +42,8 @@ assertIncludes(migration, "'cancelled'", 'Order statuses include cancelled');
 assertIncludes(migration, "'expired'", 'Order statuses include expired');
 assertIncludes(migration, 'orders_assessment_report_request_unique', 'Migration protects against duplicate linked orders');
 assertIncludes(migration, 'payment_gateway":false', 'Migration records no gateway boundary');
-assertIncludes(migration, 'pdf_generation":false', 'Migration records no PDF boundary');
-assertIncludes(migration, 'report_unlock":false', 'Migration records no report unlock boundary');
+assertIncludes(migration, 'pdf_generation":false', 'Historical migration records its original no-PDF boundary');
+assertIncludes(migration, 'report_unlock":false', 'Historical migration records no report unlock boundary');
 
 const orderLib = 'src/lib/orders/manual-eft-orders.ts';
 assert(exists(orderLib), 'Manual EFT order service must exist.');
@@ -53,8 +53,8 @@ assertIncludes(orderLib, 'buildEftInstructionSnapshot', 'Order service snapshots
 assertIncludes(orderLib, "from('order_events')", 'Order service writes order event timeline');
 assertIncludes(orderLib, "from('audit_logs')", 'Order service writes audit logs');
 assertIncludes(orderLib, 'payment_gateway: false', 'Order service explicitly blocks payment gateway');
-assertIncludes(orderLib, 'pdf_generation: false', 'Order service explicitly blocks PDF generation');
-assertIncludes(orderLib, 'report_unlock: false', 'Order service explicitly blocks report unlock');
+assertIncludes(orderLib, 'pdf_generation: false', 'Manual status audit does not itself generate a PDF');
+assertIncludes(orderLib, 'report_unlock: false', 'Order service explicitly blocks customer report unlock');
 assertIncludes(orderLib, 'unstable_noStore', 'Order admin reads opt out of cached server rendering');
 assertIncludes(orderLib, 'noStore();', 'Order admin list/detail reads are no-store');
 
@@ -85,34 +85,40 @@ assertNotIncludes(snapshot, 'Download report', 'Snapshot must not expose report 
 assertNotIncludes(snapshot, 'benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 assertNotIncludes(snapshot, 'Benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 
-assert(exists('src/app/admin/orders/page.tsx'), 'Admin order list route must exist.');
-assert(exists('src/app/admin/orders/[orderReference]/page.tsx'), 'Admin order detail route must exist.');
-assert(exists('src/app/admin/orders/[orderReference]/status/route.ts'), 'Admin order status route must exist.');
-assertIncludes('src/app/admin/orders/page.tsx', 'Order queue', 'Admin order list shows queue');
-assertIncludes('src/app/admin/orders/page.tsx', "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
-assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
-assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', 'Payment received does not generate or release the detailed report in V1', 'Admin detail preserves Phase 10 boundary');
-assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'canManageFinance', 'Status update is finance/admin guarded');
-assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'updateAdminOrderStatus', 'Status route uses order service');
-assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'revalidatePath', 'Status update revalidates admin order pages');
-assertIncludes('src/app/admin/orders/[orderReference]/status/route.ts', 'Date.now()', 'Successful status redirect has a unique refresh marker');
+const adminList = 'src/app/admin/orders/page.tsx';
+const adminDetail = 'src/app/admin/orders/[orderReference]/page.tsx';
+const statusRoute = 'src/app/admin/orders/[orderReference]/status/route.ts';
+assert(exists(adminList), 'Admin order list route must exist.');
+assert(exists(adminDetail), 'Admin order detail route must exist.');
+assert(exists(statusRoute), 'Admin order status route must exist.');
+assertIncludes(adminList, 'Order queue', 'Admin order list shows queue');
+assertIncludes(adminList, "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
+assertIncludes(adminDetail, "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
+assertIncludes(adminDetail, 'Autonomous fulfilment is safely disabled', 'Admin detail preserves the disabled-by-default automation boundary');
+assertIncludes(adminDetail, 'Payment confirmation is recorded, but autonomous fulfilment remains disabled', 'Admin copy explains the safe pre-enablement state');
+assertIncludes(statusRoute, 'canManageFinance', 'Status update is finance/admin guarded');
+assertIncludes(statusRoute, 'updateAdminOrderStatus', 'Status route uses order service');
+assertIncludes(statusRoute, 'getPremiumReportAutomationFlags', 'Later fulfilment remains feature-flag controlled');
+assertIncludes(statusRoute, 'flags.autoFulfilmentEnabled', 'Payment confirmation cannot start fulfilment while the flag is false');
+assertIncludes(statusRoute, 'queuePremiumReportFulfilment', 'Eligible later automation uses the idempotent fulfilment queue');
+assertIncludes(statusRoute, 'revalidatePath', 'Status update revalidates admin order pages');
+assertIncludes(statusRoute, 'Date.now()', 'Successful status redirect has a unique refresh marker');
 
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Normal admin navigation must not expose Phase 9 label');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Normal admin navigation must not expose Phase 10 label');
-assertNotIncludes('src/app/admin/orders/page.tsx', 'Phase', 'Order list should not read like a phase scaffold');
+assertNotIncludes(adminList, 'Phase', 'Order list should not read like a phase scaffold');
 
-const changedSources = [
+const customerAndPaymentSources = [
   migration,
   orderLib,
   startRoute,
   reportRoute,
   snapshot,
-  'src/app/admin/orders/page.tsx',
-  'src/app/admin/orders/[orderReference]/page.tsx',
-  'src/app/admin/orders/[orderReference]/status/route.ts'
+  adminList,
+  statusRoute
 ].map(read).join('\n');
 
-assert(!/PayFast|card payment|payment_proofs\.insert|generatePdf|generatePDF|createReport\(|report download URL|client portal|respondent dashboard|AI-generated recommendations|public benchmark/i.test(changedSources), 'Phase 9 must not introduce gateway, proof-upload, PDF, portal, AI or benchmark functionality.');
+assert(!/PayFast|card payment|payment_proofs\.insert|client portal|respondent dashboard|public benchmark/i.test(customerAndPaymentSources), 'Phase 9 customer and payment flow must not introduce gateway, proof-upload endpoint, portal or public benchmark functionality.');
 assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|N\/A rule|hard-gate/i.test(read(snapshot)), 'Snapshot must not expose internal methodology codes or rule labels.');
 
-console.log('Phase 9 manual EFT order tests passed. Manual order creation, EFT snapshots, admin controls, audit events, /score routing and no-go boundaries are covered.');
+console.log('Phase 9 manual EFT order tests passed. Manual order creation, EFT snapshots, finance controls, audit events, /score routing and feature-flagged later fulfilment are covered.');

@@ -14,6 +14,7 @@ export class ReportAssemblyError extends Error {
       | 'order_not_found'
       | 'order_not_eligible'
       | 'assessment_not_scored'
+      | 'entitlement_snapshot_failed'
       | 'score_run_missing_domain_results'
       | 'score_run_missing_question_traces',
     message: string
@@ -23,21 +24,20 @@ export class ReportAssemblyError extends Error {
   }
 }
 
-const ELIGIBLE_ORDER_STATUSES = new Set(['payment_received']);
+function nullableNumber(value: unknown) {
+  return value === null || value === undefined ? null : Number(value);
+}
 
 export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
   const supabase = createSupabaseServiceClient();
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_reference, status, product_id, assessment_id, organisation_name, customer_name, products:product_id(product_code, name)')
+    .select('id, order_reference, status, product_id, assessment_id, amount_cents, currency, organisation_name, customer_name, customer_email, verified_at, verified_by, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
     .eq('order_reference', orderReference)
     .maybeSingle();
 
   if (orderError || !order) throw new ReportAssemblyError('order_not_found', `Order ${orderReference} was not found.`);
-  if (!ELIGIBLE_ORDER_STATUSES.has(order.status)) {
-    throw new ReportAssemblyError('order_not_eligible', `Order ${orderReference} has status "${order.status}" and is not eligible for report generation.`);
-  }
 
   const { data: assessment, error: assessmentError } = await supabase
     .from('assessments')
@@ -51,12 +51,31 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: scoreRunRow, error: scoreRunError } = await supabase
     .from('score_runs')
-    .select('id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status')
+    .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash')
     .eq('id', assessment.current_score_run_id)
     .eq('status', 'completed')
     .maybeSingle();
 
   if (scoreRunError || !scoreRunRow) throw new ReportAssemblyError('assessment_not_scored', `Score run ${assessment.current_score_run_id} is missing or incomplete.`);
+
+  const [
+    { count: expectedDomainCount, error: expectedDomainError },
+    { count: actualDomainCount, error: actualDomainError },
+    { count: expectedTraceCount, error: expectedTraceError },
+    { count: actualTraceCount, error: actualTraceError }
+  ] = await Promise.all([
+    supabase.from('domains').select('id', { count: 'exact', head: true })
+      .eq('methodology_version_id', scoreRunRow.methodology_version_id),
+    supabase.from('score_domain_results').select('domain_id', { count: 'exact', head: true })
+      .eq('score_run_id', scoreRunRow.id),
+    supabase.from('questions').select('id', { count: 'exact', head: true })
+      .eq('methodology_version_id', scoreRunRow.methodology_version_id).eq('active', true),
+    supabase.from('score_question_traces').select('question_id', { count: 'exact', head: true })
+      .eq('score_run_id', scoreRunRow.id)
+  ]);
+  if (expectedDomainError || actualDomainError || expectedTraceError || actualTraceError) {
+    throw new ReportAssemblyError('entitlement_snapshot_failed', 'Report completeness counts could not be loaded.');
+  }
 
   const { data: domainRows, error: domainError } = await supabase
     .from('score_domain_results')
@@ -157,16 +176,34 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   return {
     orderId: order.id,
+    orderReference: order.order_reference,
+    orderAssessmentId: order.assessment_id,
+    assessmentId: assessment.id,
+    currentScoreRunId: assessment.current_score_run_id,
+    orderVerifiedAt: order.verified_at ?? null,
+    orderVerifiedBy: order.verified_by ?? null,
     organisationName: (assessment.organisations as any)?.legal_name ?? (assessment.organisations as any)?.trading_name ?? order.organisation_name ?? 'Organisation',
     respondentName: (assessment.respondents as any)?.full_name ?? order.customer_name ?? 'Respondent',
+    customerEmail: String(order.customer_email ?? '').trim().toLowerCase(),
     assessmentReference: assessment.assessment_reference,
     reportReference: `RPT-${assessment.assessment_reference}`,
     generatedAt: new Date().toISOString(),
     packageName: (product as any)?.name ?? 'Detailed Fraud Readiness Report',
     productCode: (product as any)?.product_code ?? null,
+    orderStatus: order.status,
+    amountCents: nullableNumber(order.amount_cents),
+    currency: order.currency ?? null,
+    productPriceCents: nullableNumber((product as any)?.price_cents),
+    productCurrency: (product as any)?.currency ?? null,
+    requiresPaymentVerification: (product as any)?.requires_payment_verification ?? null,
+    deliveryMode: (product as any)?.delivery_mode ?? null,
+    productActive: (product as any)?.active ?? null,
     scoreRun: {
       id: scoreRunRow.id,
-      assessmentId: assessment.id,
+      assessmentId: scoreRunRow.assessment_id,
+      status: scoreRunRow.status,
+      lockedAt: scoreRunRow.locked_at ?? null,
+      inputHash: scoreRunRow.input_hash ?? null,
       overallScore: Number(scoreRunRow.overall_score),
       calculatedMaturity: scoreRunRow.calculated_maturity,
       finalMaturity: scoreRunRow.final_maturity,
@@ -183,6 +220,10 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     exposureAnswers,
     criticalMajorGaps,
     maturityCapEvents,
-    recommendationRules
+    recommendationRules,
+    expectedDomainResultCount: Number(expectedDomainCount ?? 0),
+    actualDomainResultCount: Number(actualDomainCount ?? 0),
+    expectedQuestionTraceCount: Number(expectedTraceCount ?? 0),
+    actualQuestionTraceCount: Number(actualTraceCount ?? 0)
   };
 }

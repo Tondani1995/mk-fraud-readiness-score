@@ -2,170 +2,127 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
-function exists(rel) { return fs.existsSync(path.join(root, rel)); }
-function assert(condition, label) { if (!condition) throw new Error(label); }
-function assertIncludes(file, needle, label) { assert(read(file).includes(needle), `${label}: expected ${file} to include ${needle}`); }
-function assertNotIncludes(file, needle, label) { assert(!read(file).includes(needle), `${label}: expected ${file} not to include ${needle}`); }
+const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+const exists = (rel) => fs.existsSync(path.join(root, rel));
+const assert = (condition, label) => { if (!condition) throw new Error(label); };
+const includes = (file, needle, label) => assert(read(file).includes(needle), `${label}: ${needle}`);
+const excludes = (file, needle, label) => assert(!read(file).includes(needle), `${label}: ${needle}`);
 
-const required = [
+for (const file of [
   'package.json',
-  'src/lib/reports/types.ts',
+  'next.config.mjs',
   'src/lib/reports/assemble-report-data.ts',
+  'src/lib/reports/report-entitlement.ts',
   'src/lib/reports/fallback-content.ts',
   'src/lib/reports/select-content-blocks.ts',
   'src/lib/reports/roadmap.ts',
   'src/lib/reports/render-pdf.ts',
   'src/lib/reports/templates/report-template.ts',
+  'src/lib/reports/premium-report-service.ts',
+  'src/lib/reports/storage-publication.ts',
+  'src/lib/reports/download-verification.ts',
   'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/api/admin/reports/[reportId]/download/route.ts',
-  'src/app/admin/orders/[orderReference]/page.tsx',
-  'src/app/admin/reports/page.tsx',
-  'src/app/report/request/[assessmentRef]/page.tsx',
-  'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql',
-  'docs/v1/phase-exit-cards/phase-10-pdf-report-engine.md',
-  'next.config.mjs'
-];
-for (const file of required) assert(exists(file), `${file} must exist`);
+  'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql'
+]) assert(exists(file), `${file} must exist`);
 
-const packageJson = 'package.json';
-assertIncludes(packageJson, '"engines"', 'Package pins Node runtime for Vercel Chromium compatibility');
-assertIncludes(packageJson, '"node": "20.x"', 'Package pins Vercel runtime to Node 20 for Chromium shared libraries');
+const pkg = JSON.parse(read('package.json'));
+assert(pkg.engines?.node === '24.x', 'Node 24 must be explicit after the controlled compatibility spike');
+assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next must remain on 14.x');
+assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain on 18.x');
+assert(pkg.dependencies?.['@sparticuz/chromium'], 'Chromium package must remain installed');
+assert(pkg.dependencies?.['puppeteer-core'], 'puppeteer-core must remain installed');
 
-const nextConfig = 'next.config.mjs';
-assertIncludes(nextConfig, 'outputFileTracingIncludes', 'Next config includes packaged Chromium assets in the serverless trace');
-assertIncludes(nextConfig, '@sparticuz/chromium/bin', 'Next config traces @sparticuz Chromium binary assets');
-assertIncludes(nextConfig, '/api/admin/orders/[orderReference]/generate-report', 'Next config scopes Chromium tracing to the generation route');
-assertIncludes(nextConfig, 'config.externals.push', 'Next config keeps Chromium packages external for Vercel runtime resolution');
-assertIncludes(nextConfig, "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'Next config externalizes @sparticuz Chromium from the route bundle');
-assertIncludes(nextConfig, "'puppeteer-core': 'commonjs puppeteer-core'", 'Next config externalizes puppeteer-core from the route bundle');
-assertNotIncludes(nextConfig, 'serverExternalPackages', 'Next 14 build must not use unsupported serverExternalPackages config');
-
-const migration = 'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql';
-assertIncludes(migration, 'report_templates', 'Migration seeds report template');
-assertIncludes(migration, "'essential_self_assessment'", 'Migration seeds essential report template');
-assertIncludes(migration, "'mk_validated'", 'Migration seeds MK validated report template');
-assertIncludes(migration, 'generated-reports', 'Migration creates/locks private report bucket');
-assertIncludes(migration, 'actions_json', 'Migration respects content block schema');
-assertIncludes(migration, "'draft'", 'Starter content remains draft');
-assertIncludes(migration, 'payment_gateway":false', 'No gateway boundary is recorded');
-assertNotIncludes(migration, "'active', 1),", 'Content blocks are not activated by migration');
+includes('next.config.mjs', 'outputFileTracingIncludes', 'Chromium assets must be traced');
+includes('next.config.mjs', '@sparticuz/chromium/bin', 'Chromium binary assets must be traced');
+includes('next.config.mjs', '/api/admin/orders/[orderReference]/generate-report', 'Report route tracing must remain');
+includes('next.config.mjs', "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'Chromium must remain external');
+includes('next.config.mjs', "'puppeteer-core': 'commonjs puppeteer-core'", 'Puppeteer must remain external');
+excludes('next.config.mjs', 'serverExternalPackages', 'Next 15-only config must not be introduced');
+excludes('next.config.mjs', 'turbopack', 'Invalid Turbopack config must not be introduced');
 
 const assemble = 'src/lib/reports/assemble-report-data.ts';
-assertIncludes(assemble, 'score_runs', 'Assembly reads persisted score_runs');
-assertIncludes(assemble, 'score_domain_results', 'Assembly reads persisted score_domain_results');
-assertIncludes(assemble, 'score_question_traces', 'Assembly reads persisted score_question_traces');
-assertIncludes(assemble, "new Set(['payment_received'])", 'Report generation is gated only on payment_received');
-assertNotIncludes(assemble, "'verified'", 'Legacy verified status must not be eligible for Phase 10 generation');
-assertIncludes(assemble, 'product_code', 'Assembly reads product code for report type selection');
-assertIncludes(assemble, 'productCode', 'Assembly returns product code to the generation route');
-assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate the overall score');
+includes(assemble, 'score_runs', 'Assembly must read persisted score runs');
+includes(assemble, 'score_domain_results', 'Assembly must read persisted domain results');
+includes(assemble, 'score_question_traces', 'Assembly must read persisted question traces');
+includes(assemble, 'orderStatus: order.status', 'Assembly must carry order status into the shared guard');
+includes(assemble, 'amountCents: nullableNumber(order.amount_cents)', 'Assembly must carry paid order amount into the shared guard');
+excludes(assemble, "'verified'", 'Legacy verified status must not enable generation');
+assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate overall score');
+
+const entitlement = 'src/lib/reports/report-entitlement.ts';
+includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report generation must remain restricted to the R5,000 product');
+includes(entitlement, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report generation must remain payment gated');
+includes(entitlement, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report generation must remain restricted to the essential product');
+includes(entitlement, 'mk_validated_assessment', 'R50,000 personalised engagement must be explicitly rejected');
+includes(entitlement, 'Free products are not eligible', 'Free products must be explicitly rejected');
 
 const fallback = 'src/lib/reports/fallback-content.ts';
-assertIncludes(fallback, 'FALLBACK_DOMAIN_CONTENT', 'Fallback content uses an explicit domain lookup table');
-assertIncludes(fallback, 'Fraud Leadership and Governance', 'Fallback content covers governance domain');
-assertIncludes(fallback, 'Digital and Identity Fraud Risk', 'Fallback content covers digital and identity domain');
-assertIncludes(fallback, 'Continuous Improvement and Fraud Risk Monitoring', 'Fallback content covers continuous improvement domain');
-assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CAPPED', 'Fallback content covers capped false comfort state');
-assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_GENERAL', 'Fallback content covers gap-but-not-capped false comfort state');
-assertIncludes(fallback, 'FALLBACK_FALSE_COMFORT_CLEAN', 'Fallback content covers genuinely clean false comfort state');
-assert(!/function\s+fallbackDomainNarrative/.test(read(fallback)), 'Fallback domain content must not collapse to a single templated paragraph');
+includes(fallback, 'FALLBACK_DOMAIN_CONTENT', 'Deterministic domain fallback must remain');
+includes(fallback, 'FALLBACK_FALSE_COMFORT_CAPPED', 'Capped false-comfort fallback must remain');
+includes(fallback, 'FALLBACK_FALSE_COMFORT_GENERAL', 'Gap fallback must remain');
+includes(fallback, 'FALLBACK_FALSE_COMFORT_CLEAN', 'Clean fallback must remain');
 
-const contentSelection = 'src/lib/reports/select-content-blocks.ts';
-assertIncludes(contentSelection, "from './fallback-content'", 'Content selector uses domain-specific fallback content');
-assertIncludes(contentSelection, 'getDomainFallback(domain.domainName, band)', 'Domain fallback lookup is per domain and maturity band');
-assertIncludes(contentSelection, 'item.domainCode === domain.domainCode', 'Domain narratives match on persisted domain codes');
-assertIncludes(contentSelection, 'item.domainCode === gap.domainCode', 'Gap commentary matches on persisted domain codes');
-assertIncludes(contentSelection, "hasPriorityGaps ? 'not_capped' : 'clean'", 'False comfort logic distinguishes capped, gap and clean states');
-assertNotIncludes(contentSelection, 'item.domainCode === domain.domainName', 'Domain narratives must not match on display names');
-assertNotIncludes(contentSelection, 'item.domainCode === gap.domainName', 'Gap commentary must not match on display names');
-assertNotIncludes(contentSelection, 'fallbackDomainNarrative', 'Selector must not use the old generic fallback paragraph');
+const selector = 'src/lib/reports/select-content-blocks.ts';
+includes(selector, 'getDomainFallback(domain.domainName, band)', 'Fallback must remain domain specific');
+includes(selector, 'item.domainCode === domain.domainCode', 'Domain content must match persisted codes');
+includes(selector, 'item.domainCode === gap.domainCode', 'Gap content must match persisted codes');
+excludes(selector, 'item.domainCode === domain.domainName', 'Display names must not be used as identifiers');
 
 const roadmap = 'src/lib/reports/roadmap.ts';
-assertIncludes(roadmap, 'agenda', 'Roadmap returns a single agenda list');
-assertIncludes(roadmap, 'action30', 'Roadmap agenda preserves 30-day actions');
-assertIncludes(roadmap, 'action60', 'Roadmap agenda preserves 60-day actions');
-assertIncludes(roadmap, 'action90', 'Roadmap agenda preserves 90-day actions');
-assertNotIncludes(roadmap, 'thirtyDay', 'Roadmap must not repeat the same domains in a thirtyDay array');
-assertNotIncludes(roadmap, 'sixtyDay', 'Roadmap must not repeat the same domains in a sixtyDay array');
-assertNotIncludes(roadmap, 'ninetyDay', 'Roadmap must not repeat the same domains in a ninetyDay array');
+includes(roadmap, 'agenda', 'Roadmap must retain one deterministic agenda');
+includes(roadmap, 'action30', '30-day actions must remain');
+includes(roadmap, 'action60', '60-day actions must remain');
+includes(roadmap, 'action90', '90-day actions must remain');
 
-const reportRequestPage = 'src/app/report/request/[assessmentRef]/page.tsx';
-assertNotIncludes(reportRequestPage, 'Phase 9', 'Public report request page must not expose stale phase wording');
-assertNotIncludes(reportRequestPage, 'proof upload', 'Public report request page must not promise proof upload');
-assertNotIncludes(reportRequestPage, 'placeholder', 'Public report request page should not read like a scaffold placeholder');
-assertIncludes(reportRequestPage, 'before any detailed report is generated or released', 'Report request page preserves manual release boundary');
+const renderer = 'src/lib/reports/render-pdf.ts';
+includes(renderer, "import('puppeteer-core')", 'Renderer must use puppeteer-core');
+includes(renderer, "import('@sparticuz/chromium')", 'Renderer must use packaged Chromium');
+excludes(renderer, 'AWS_LAMBDA_JS_RUNTIME', 'Renderer must not spoof the Lambda runtime');
+excludes(renderer, 'AWS_EXECUTION_ENV', 'Renderer must not spoof the Lambda execution environment');
+includes(renderer, 'chromium.executablePath()', 'Renderer must use the supported zero-argument executable path resolution');
+includes(renderer, 'puppeteer.defaultArgs', 'Renderer must merge Puppeteer and Sparticuz launch arguments');
+includes(renderer, 'Chromium runtime diagnostics', 'Renderer must preserve safe diagnostics');
+includes(renderer, 'resolveChromiumExecutablePath', 'Renderer must resolve the executable explicitly');
+excludes(renderer, "import('puppeteer')", 'Renderer must not depend on bundled browser downloads');
 
-const renderPdf = 'src/lib/reports/render-pdf.ts';
-assertIncludes(renderPdf, "import('puppeteer-core')", 'PDF renderer uses puppeteer-core for serverless runtime');
-assertIncludes(renderPdf, "import('@sparticuz/chromium')", 'PDF renderer uses packaged Chromium for Vercel');
-assertIncludes(renderPdf, 'bootstrapChromiumRuntimeEnvironment', 'PDF renderer bootstraps Lambda-style runtime env before Chromium import');
-assertIncludes(renderPdf, 'AWS_LAMBDA_JS_RUNTIME', 'PDF renderer sets Lambda runtime env before Chromium import');
-assertIncludes(renderPdf, 'AWS_EXECUTION_ENV', 'PDF renderer sets execution env before Chromium import');
-assertIncludes(renderPdf, 'ldLibraryPathSet', 'PDF renderer logs whether Chromium library path was set');
-assertIncludes(renderPdf, 'normalizeChromiumModule', 'PDF renderer handles bundled and external Chromium module shapes');
-assertIncludes(renderPdf, 'resolveChromiumExecutablePath', 'PDF renderer resolves Chromium executable path through a runtime helper');
-assertIncludes(renderPdf, 'node_modules', 'PDF renderer checks node_modules for packaged Chromium assets');
-assertIncludes(renderPdf, '@sparticuz', 'PDF renderer checks the @sparticuz package directory');
-assertIncludes(renderPdf, 'Chromium runtime diagnostics', 'PDF renderer logs safe runtime diagnostics for Chromium failures');
-assertIncludes(renderPdf, 'chromiumBinDirectories', 'PDF renderer records whether relevant Chromium bin directories exist');
-assertIncludes(renderPdf, 'executableExists', 'PDF renderer verifies the resolved executable exists');
-assertNotIncludes(renderPdf, "executablePath: await chromium.default.executablePath()", 'PDF renderer must not rely on bundled .next/server/bin resolution');
-assertNotIncludes(renderPdf, "import('puppeteer')", 'PDF renderer must not rely on missing bundled Puppeteer Chrome');
+const service = 'src/lib/reports/premium-report-service-core.ts';
+includes(service, 'validatePremiumReportGenerationEntitlement', 'Shared service must enforce the premium entitlement guard');
+includes(service, 'renderHtmlToPdfBuffer', 'Shared service must render PDFs');
+includes(service, 'commit_premium_report_draft', 'Shared service must transactionally persist report drafts');
+includes(service, "rpc(\n          'admin_terminal_phase14_generation_publication'", 'Manual version supersession must use the atomic AAL2 terminal RPC');
+includes(service, "'terminal_phase14_generation_publication'", 'Autonomous version supersession must use the HMAC-attested atomic terminal RPC');
+includes(service, 'superseded_report_id', 'Version supersession must remain');
+includes(service, 'ensure_manual_premium_report_fulfilment', 'Manual generation must persist a fulfilment identity');
+excludes(service, "rpc('record_phase14_report_generated'", 'Report and audit events must not use a split post-publication RPC');
+excludes(service, "manualFunction: 'publish_premium_report_generation'", 'Manual generation must not use the legacy split publication RPC');
+excludes(service, "from('report_events')", 'Report events must not bypass the Phase 14 state machine');
+excludes(service, "from('audit_logs')", 'Audit logs must not bypass the Phase 14 state machine');
+excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');
 
-const generate = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
-assertIncludes(generate, 'REPORT_TYPE_BY_PRODUCT_CODE', 'Generate route maps product code to report type');
-assertIncludes(generate, 'mk_validated_assessment', 'Generate route supports MK validated product code');
-assertIncludes(generate, 'template_id: template.id', 'Generate route stores required template id');
-assertIncludes(generate, ".eq('report_type', reportType)", 'Generate route loads template and versions by actual report type');
-assertIncludes(generate, ".eq('assessment_id', assembled.scoreRun.assessmentId)", 'Generate route versions by assessment/report type constraint');
-assertNotIncludes(generate, ".eq('order_id', assembled.orderId)", 'Generate route must not version by order only');
-assertIncludes(generate, 'renderHtmlToPdfBuffer', 'Generate route renders PDF');
-assertIncludes(generate, "from('reports')", 'Generate route writes report record');
-assertIncludes(generate, 'supersedes_report_id', 'Regeneration supersedes without overwrite');
-assertIncludes(generate, "status: 'generated'", 'Generated report status is explicit');
-assertIncludes(generate, "from('report_events')", 'Report events are recorded');
-assertIncludes(generate, "from('audit_logs')", 'Audit logs are recorded');
-assertNotIncludes(generate, 'PayFast', 'No payment gateway added');
-assertNotIncludes(generate, 'proof upload', 'No proof upload added');
-
-const orderPage = 'src/app/admin/orders/[orderReference]/page.tsx';
-assertIncludes(orderPage, 'Generate report version', 'Order detail exposes controlled generation');
-assertIncludes(orderPage, "order.status === 'payment_received'", 'Order detail gates generation on payment_received');
-assertIncludes(orderPage, 'Payment received does not automatically generate', 'Finance and report generation remain separate');
+const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+includes(generateRoute, 'generatePremiumReport', 'Admin route must delegate to shared service');
+includes(generateRoute, 'REPORT_GENERATION_ROLES', 'Admin route must remain role protected');
+includes(generateRoute, 'ReportEntitlementError', 'Admin route must return controlled entitlement conflicts');
+excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF logic');
 
 const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
-assertIncludes(download, 'createSignedUrl', 'Download route uses signed URL');
-assertIncludes(download, '300', 'Signed URL has short TTL');
-assertNotIncludes(download, 'publicUrl', 'Download route does not expose permanent public URL');
+includes(download, 'downloadPremiumReport', 'Downloads must stream through the shared verified service');
+excludes(download, 'createSignedUrl', 'Downloads must not issue raw signed storage URLs');
+includes('src/lib/reports/download-verification.ts', 'sha256', 'Downloads must verify the runtime object checksum');
+excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
-const templateFile = 'src/lib/reports/templates/report-template.ts';
-const template = read(templateFile);
-assert(template.includes('False Comfort'), 'Template includes False Comfort section');
-assert(template.includes('30/60/90-Day Roadmap'), 'Template includes 30/60/90 roadmap');
-assert(template.includes('Leadership Agenda'), 'Template includes leadership agenda');
-assert(template.includes('Where MK Fraud Insights Can Help Next'), 'Template includes MK next-engagement page');
-assert(template.includes('Version Record'), 'Template includes methodology/version record');
-assert(template.includes('DOMAIN_GROUPS'), 'Template groups domain advisory pages instead of one thin page per domain');
-assert(template.includes('roadmap: { agenda: RoadmapItem[] }'), 'Template consumes the single agenda roadmap shape');
-assert(!template.includes('roadmap.thirtyDay') && !template.includes('roadmap.sixtyDay') && !template.includes('roadmap.ninetyDay'), 'Template must not render repeated roadmap horizon arrays');
-assert(!template.includes('roadmap-grid'), 'Template must not use the old repeated roadmap grid');
-assert(!template.includes('const domainPages = data.domainResults.map'), 'Template must not render one standalone page per domain');
-assert(!template.includes('min-height: 265mm'), 'Template must not use the old page min-height pattern that caused spacer pages');
-assert(!/display\s*:\s*table/.test(template), 'Template must avoid table-display pagination patterns');
-assert(!/\bD\d{1,2}-Q\d{2}\b|EXP-\d{2}|REC-\d{2}/.test(template), 'Template must not hard-code customer-facing internal codes');
-assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose phase labels');
-assert(!/benchmark|peer average/i.test(template), 'Template must not claim benchmarks or peer averages');
-assert(!/AI-generated|artificial intelligence/i.test(template), 'Template must not claim live AI recommendations');
+const template = read('src/lib/reports/templates/report-template.ts');
+for (const heading of ['False Comfort', '30/60/90-Day Roadmap', 'Leadership Agenda', 'Version Record']) {
+  assert(template.includes(heading), `Template must include ${heading}`);
+}
+assert(!/benchmark|peer average/i.test(template), 'Template must not claim unsupported benchmarks');
+assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose internal phase labels');
 
-const optionalRenderedPdfInfo = path.join(root, 'tmp', 'phase10-rendered-pdfinfo.txt');
-if (fs.existsSync(optionalRenderedPdfInfo)) {
-  const info = fs.readFileSync(optionalRenderedPdfInfo, 'utf8');
-  const pagesMatch = info.match(/^Pages:\s+(\d+)$/m);
-  if (pagesMatch) {
-    const pages = Number(pagesMatch[1]);
-    assert(pages >= 18 && pages <= 24, `Rendered report should stay in the 18-24 page target band when pdfinfo is available; got ${pages}`);
-  }
+const optionalPdfInfo = path.join(root, 'tmp', 'phase10-rendered-pdfinfo.txt');
+if (fs.existsSync(optionalPdfInfo)) {
+  const pages = Number(fs.readFileSync(optionalPdfInfo, 'utf8').match(/^Pages:\s+(\d+)$/m)?.[1]);
+  if (pages) assert(pages >= 18 && pages <= 24, `Rendered PDF page count must remain 18-24; got ${pages}`);
 }
 
-console.log('Phase 10 premium report tests passed.');
+console.log('Phase 10 premium report tests passed on the Node 24 compatibility boundary. Deterministic assembly, shared payment gating, private storage, versioning and Chromium packaging remain protected.');

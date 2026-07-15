@@ -14,8 +14,7 @@ function cleanStatus(status: string | null | undefined) {
   return (status ?? 'generated').replace(/_/g, ' ');
 }
 
-async function getRecentReports() {
-  const db = createSupabaseServiceClient();
+async function getRecentReports(db: any) {
   const { data, error } = await db
     .from('reports')
     .select('id, report_reference, version_number, status, generated_at, storage_bucket, storage_path, orders(order_reference, organisation_name), assessments(assessment_reference)')
@@ -30,7 +29,8 @@ async function getRecentReports() {
 
 export default async function AdminReportsPage() {
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
-  const reports = await getRecentReports();
+  const db = createSupabaseServiceClient() as any;
+  const reports = await getRecentReports(db);
   return (
     <AdminShell admin={admin}>
       <div className="space-y-6">
