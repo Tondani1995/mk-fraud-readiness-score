@@ -1,33 +1,11 @@
-import { EmbeddedHeightReporter } from '@/components/assessment/EmbeddedHeightReporter';
 import { StartAssessmentForm } from '@/components/assessment/StartAssessmentForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
+import { redirect } from 'next/navigation';
 
 export default function StartAssessmentPage({ searchParams }: { searchParams?: { embed?: string } }) {
-  const embedded = searchParams?.embed === '1';
-
-  if (embedded) {
-    return (
-      <>
-        <EmbeddedHeightReporter />
-        <SectionShell className="py-0">
-          <Card className="border-slate-200 shadow-none">
-            <CardHeader>
-              <CardTitle>Assess your organisation</CardTitle>
-              <p className="mt-2 text-sm leading-6 text-mk-muted">
-                Start with the organisation details. Once submitted, the fraud readiness questions open immediately in the same journey.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <StartAssessmentForm />
-            </CardContent>
-          </Card>
-        </SectionShell>
-      </>
-    );
-  }
-
+  if (searchParams?.embed === '1') redirect('/score/start');
   return (
     <SectionShell className="py-12 md:py-16">
       <div className="mb-10 rounded-[2rem] border border-mk-line bg-mk-paper px-6 py-10 md:px-10 md:py-14">

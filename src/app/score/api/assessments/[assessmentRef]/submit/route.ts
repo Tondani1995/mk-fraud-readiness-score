@@ -27,11 +27,10 @@ function publicScoreBaseUrlFor(request: Request) {
   return normaliseScoreBase(configured);
 }
 
-function buildSnapshotUrl(request: Request, assessmentReference: string, rawToken: string, embed?: string) {
+function buildSnapshotUrl(request: Request, assessmentReference: string, rawToken: string) {
   const scoreBase = publicScoreBaseUrlFor(request).replace(/\/$/, '');
   const snapshotUrl = new URL(`${scoreBase}/snapshot/${encodeURIComponent(assessmentReference)}`);
   snapshotUrl.searchParams.set('token', rawToken);
-  if (embed === '1') snapshotUrl.searchParams.set('embed', '1');
   return snapshotUrl.toString();
 }
 
@@ -68,7 +67,7 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     assessmentReference: submitted.assessmentReference,
     ipAddress: requestHeaders.get('x-forwarded-for')
   });
-  const snapshotUrl = buildSnapshotUrl(request, submitted.assessmentReference, snapshotToken.rawToken, body?.embed);
+  const snapshotUrl = buildSnapshotUrl(request, submitted.assessmentReference, snapshotToken.rawToken);
 
   return NextResponse.json({
     ok: true,

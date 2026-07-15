@@ -2,22 +2,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
-
-function isEmbeddedExperience() {
-  if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('embed') === '1' || window.self !== window.top;
-}
 
 export function Header() {
-  const [embedded, setEmbedded] = useState(false);
-
-  useEffect(() => {
-    setEmbedded(isEmbeddedExperience());
-  }, []);
-
-  if (embedded) return null;
-
   return (
     <header className="border-b border-mk-line bg-mk-paper">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">

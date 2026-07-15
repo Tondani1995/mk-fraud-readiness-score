@@ -5,12 +5,12 @@ import { SectionShell } from '@/components/ui/SectionShell';
 
 type ResultPageProps = {
   params: { assessmentRef: string };
-  searchParams?: { token?: string; embed?: string };
+  searchParams?: { token?: string };
 };
 
 export default async function ResultPage({ params, searchParams }: ResultPageProps) {
   if (searchParams?.token) {
-    const snapshotPath = `/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(searchParams.token)}${searchParams.embed === '1' ? '&embed=1' : ''}`;
+    const snapshotPath = `/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(searchParams.token)}`;
     redirect(snapshotPath);
   }
 

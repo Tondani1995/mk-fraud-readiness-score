@@ -1,22 +1,6 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
-function isEmbeddedExperience() {
-  if (typeof window === 'undefined') return false;
-  return new URLSearchParams(window.location.search).get('embed') === '1' || window.self !== window.top;
-}
-
 export function Footer() {
-  const [embedded, setEmbedded] = useState(false);
-
-  useEffect(() => {
-    setEmbedded(isEmbeddedExperience());
-  }, []);
-
-  if (embedded) return null;
-
   return (
     <footer className="border-t border-mk-line bg-mk-charcoal text-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 text-sm md:grid-cols-[1.2fr_0.8fr_0.8fr] md:px-8">

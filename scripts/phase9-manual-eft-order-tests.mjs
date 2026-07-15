@@ -95,12 +95,13 @@ assertIncludes(adminList, 'Order queue', 'Admin order list shows queue');
 assertIncludes(adminList, "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
 assertIncludes(adminDetail, "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
 assertIncludes(adminDetail, 'Phase 14 automation remains disabled', 'Admin detail preserves the disabled automation boundary');
-assertIncludes(adminDetail, 'Payment confirmation is recorded only', 'Admin copy explains the manual payment boundary');
+assertIncludes(adminDetail, 'deterministic Phase 1 fulfilment', 'Admin copy explains the controlled fulfilment boundary');
 assertIncludes(statusRoute, 'canManageFinance', 'Status update is finance/admin guarded');
 assertIncludes(statusRoute, 'updateAdminOrderStatus', 'Status route uses order service');
 assertNotIncludes(statusRoute, 'getPremiumReportAutomationFlags', 'Payment status changes do not inspect autonomous fulfilment flags');
 assertNotIncludes(statusRoute, 'autoFulfilmentEnabled', 'Payment confirmation cannot start autonomous fulfilment');
-assertNotIncludes(statusRoute, 'queuePremiumReportFulfilment', 'Payment confirmation does not queue report generation');
+assertIncludes(statusRoute, 'confirmManualPayment', 'Payment confirmation uses the shared payment state service when available');
+assertNotIncludes(statusRoute, 'queuePremiumReportFulfilment', 'Payment confirmation does not queue a Phase 14 workflow');
 assertIncludes(statusRoute, 'revalidatePath', 'Status update revalidates admin order pages');
 assertIncludes(statusRoute, 'Date.now()', 'Successful status redirect has a unique refresh marker');
 

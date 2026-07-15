@@ -11,6 +11,7 @@ import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-
 import { getPhase1OrderOperations } from '@/lib/reports/phase1-operations';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_ERROR_MESSAGE } from '@/lib/reports/phase1-schema-capability';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getPaymentOrderOperations } from '@/lib/payments/payment-operations';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -69,9 +70,10 @@ export default async function AdminOrderDetailPage({
   const { order, events, auditEvents } = detail;
   const capability = await getPhase1SchemaCapability(db);
   const capabilityAvailable = capability.status === 'available';
-  const [reportResult, operations] = await Promise.all([
+  const [reportResult, operations, payment] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
-    getPhase1OrderOperations(order.id, capability)
+    getPhase1OrderOperations(order.id, capability),
+    getPaymentOrderOperations(order.id, order.status)
   ]);
   const reportVersions = reportResult.reports;
   const operationalAvailable = capabilityAvailable && operations.schemaAvailable && reportResult.available;
@@ -114,7 +116,7 @@ export default async function AdminOrderDetailPage({
           <CardHeader><CardTitle>Fulfilment status</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-              <SnapshotValue label="Payment state" value={cleanStatus(order.status)} />
+              <SnapshotValue label="Payment state" value={cleanStatus(payment.record.state ?? order.status)} />
               <SnapshotValue label="Generation state" value={cleanStatus(generationState)} />
               <SnapshotValue label="Latest attempt" value={operations.latestGeneration?.id ?? 'No attempt'} />
               <SnapshotValue label="Report version" value={latestReport ? `Version ${latestReport.version_number}` : 'No report'} />
@@ -146,6 +148,24 @@ export default async function AdminOrderDetailPage({
               {operations.generationHistory.length ? <a href="#generation-history">View Generation History</a> : null}
               {operations.deliveryHistory.length ? <a href="#delivery-history">View Delivery History</a> : null}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+              <SnapshotValue label="Expected amount" value={formatOrderAmount(payment.record.expected_amount_cents ?? order.amount_cents, payment.record.currency ?? order.currency)} />
+              <SnapshotValue label="Received amount" value={payment.record.received_amount_cents == null ? 'Not received' : formatOrderAmount(payment.record.received_amount_cents, payment.record.currency)} />
+              <SnapshotValue label="Confirmation source" value={cleanStatus(payment.record.confirmation_source)} />
+              <SnapshotValue label="Verification" value={cleanStatus(payment.record.verification_result)} />
+              <SnapshotValue label="Provider transaction" value={payment.record.provider_transaction_reference ?? 'Not captured'} />
+              <SnapshotValue label="Event time" value={dateTime(payment.record.last_event_at)} />
+              <SnapshotValue label="Fulfilment trigger" value={cleanStatus(payment.record.fulfilment_trigger_result)} />
+              <SnapshotValue label="Review reason" value={payment.record.review_reason ?? 'None'} />
+            </div>
+            {payment.capability.status !== 'available' ? <p className="rounded-xl border border-mk-line bg-mk-cream p-4 text-sm">{payment.capability.message}</p> : null}
+            <div className="space-y-3">{payment.events.map((event: any) => <div key={event.id} className="rounded-xl border border-mk-line p-4 text-sm"><div className="flex flex-wrap gap-2"><Badge>{cleanStatus(event.new_state)}</Badge><span className="text-mk-muted">{dateTime(event.created_at)}</span></div><p className="mt-2">{cleanStatus(event.old_state)} → {cleanStatus(event.new_state)} · {cleanStatus(event.source)}</p><p className="mt-1 text-xs text-mk-muted">Verification: {cleanStatus(event.verification_result)} · Reference: {event.technical_reference}</p>{event.safe_note ? <p className="mt-2">{event.safe_note}</p> : null}</div>)}</div>
           </CardContent>
         </Card>
 
@@ -201,13 +221,16 @@ export default async function AdminOrderDetailPage({
           <CardHeader><CardTitle>Payment status update</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">
-              Payment confirmation is recorded only. It does not trigger automatic generation, a workflow, a provider, or a webhook.
+              Manual and verified-provider confirmation share one payment state machine. A valid final payment requests deterministic Phase 1 fulfilment only when its schema capability is available. Phase 14 remains disabled.
             </div>
-            <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
+            <form action={`/score/admin/orders/${order.order_reference}/status`} method="post" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[190px_160px_100px_1fr_auto]">
               <select name="status" defaultValue={order.status} className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink">
                 {statusOptions.map((option) => <option key={option} value={option}>{cleanStatus(option)}</option>)}
               </select>
+              <input name="amountCents" type="number" min="0" defaultValue={order.amount_cents} aria-label="Received amount in cents" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="currency" defaultValue={order.currency} aria-label="Payment currency" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
               <input name="note" placeholder="Admin note for activity timeline" className="rounded-xl border border-mk-line bg-white px-4 py-3 text-sm text-mk-ink" />
+              <input name="idempotencyKey" type="hidden" value={`manual-payment:${order.order_reference}`} />
               <Button type="submit">Update status</Button>
             </form>
           </CardContent>

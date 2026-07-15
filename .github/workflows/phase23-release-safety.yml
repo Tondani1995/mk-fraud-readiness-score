@@ -1,0 +1,105 @@
+name: Phase 2-3 Release Safety
+
+on:
+  pull_request:
+    paths:
+      - 'src/app/score/**'
+      - 'src/app/(website)/fraud-readiness-score/**'
+      - 'src/components/assessment/**'
+      - 'src/components/payments/**'
+      - 'src/lib/assessment-experience/**'
+      - 'src/lib/payments/**'
+      - 'src/lib/respondent/**'
+      - 'src/lib/reports/phase1-manual-fulfilment.ts'
+      - 'supabase/migrations/0024_phase23_payment_automation.sql'
+      - 'supabase/migrations/0025_phase23_assessment_resume.sql'
+      - 'scripts/phase23-*'
+      - 'scripts/apply-phase23-*'
+      - 'docs/v2/phases-2-3/**'
+      - '.github/workflows/phase23-release-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  release-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      LOCAL_INTEGRATION_BASE_URL: http://127.0.0.1:3100
+      PHASE23_BASE_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+      ASSESSMENT_TOKEN_PEPPER: disposable-phase23-pepper-only
+      JWT_SECRET: disposable-phase23-jwt-only
+      PAYMENT_PROVIDER_MODE: double
+      PHASE1_DELIVERY_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Fresh dependency install
+        run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - name: Start disposable database at the approved 0016 boundary
+        run: |
+          mkdir -p tmp/held-migrations tmp/phase23-evidence
+          mv supabase/migrations/0017_*.sql supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql tmp/held-migrations/
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor > tmp/phase23-evidence/supabase-start.log 2>&1
+          mv tmp/held-migrations/*.sql supabase/migrations/
+          supabase status -o env > tmp/phase23-evidence/supabase.env
+          source tmp/phase23-evidence/supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+          test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where version between '0017' and '0025'")" = 0
+      - name: Static, type, build and focused release checks
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+          npm run phase23:test-release-safety
+          npm run consolidation:test-routes
+          npm run phase1:test-stabilisation
+          npm run phase6:test-engine
+          npm run phase14:test-node24-pdf
+      - name: Pre-0023 compatibility
+        run: |
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          npm start -- --port 3100 > tmp/phase23-evidence/pre-0023-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break; sleep 1; done
+          PHASE1_EXPECT_CAPABILITY=unavailable npm run phase1:test-schema-compatibility
+      - name: Exact migration replay and production-history simulation
+        run: npm run phase23:test-exact-replay
+      - name: Post-migration respondent, scoring and browser evidence
+        run: |
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          npm start -- --port 3100 > tmp/phase23-evidence/post-0025-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break; sleep 1; done
+          npm run consolidation:test-routes
+          npm run consolidation:test-respondent
+          npm run phase23:test-payment-db
+          npm run phase23:test-browser
+      - name: Confirm prohibited history remains absent
+        run: |
+          test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where version between '0017' and '0022'")" = 0
+          test "$(psql "$LOCAL_DB_URL" -XAtq -c "select to_regclass('public.phase14_security_gates') is null")" = t
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase23-release-safety-evidence
+          path: |
+            tmp/phase23-evidence
+            tmp/phase23-migration-replay
+            tmp/phase23-browser-evidence

@@ -4,6 +4,7 @@ import { validateResumeToken } from '@/lib/respondent/tokens';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { loadAssessmentAnswers, loadAssessmentMethodology, calculateAssessmentProgress } from '@/lib/respondent/assessment-methodology';
 import { evaluateNAEligibility, type ExposureSelectionMap } from '@/lib/respondent/na-rules';
+import { getAssessmentResumeCapability } from '@/lib/assessment-experience/resume-capability';
 
 export type SaveAssessmentPayload = {
   assessmentReference: string;
@@ -20,6 +21,12 @@ export type SaveAssessmentPayload = {
     selectedLabel: string;
     pointsAwarded: number;
   }>;
+  navigation?: {
+    activeDomainKey?: string | null;
+    activeQuestionId?: string | null;
+    completionPercentage?: number;
+    eventType?: 'assessment_resumed' | 'answer_saved' | 'save_failed' | 'domain_completed' | 'assessment_completed';
+  };
 };
 
 export function validateAnswerPayload(payload: SaveAssessmentPayload): string[] {
@@ -218,7 +225,23 @@ export async function saveAssessmentDraft(payload: SaveAssessmentPayload) {
     }
   });
 
-  return { ok: true as const, progress };
+  const resumeCapability = await getAssessmentResumeCapability(service);
+  if (resumeCapability.status === 'available' && payload.navigation) {
+    const { error: resumeError } = await service.rpc('save_assessment_resume_state', {
+      p_assessment_reference: payload.assessmentReference,
+      p_active_domain_key: payload.navigation.activeDomainKey ?? null,
+      p_active_question_id: payload.navigation.activeQuestionId ?? null,
+      p_completion_percentage: payload.navigation.completionPercentage ?? progress.overallPct,
+      p_event_type: payload.navigation.eventType ?? 'answer_saved'
+    });
+    if (resumeError) {
+      console.error('assessment_save_failed', { assessmentReference: payload.assessmentReference, stage: 'resume_cursor', code: resumeError.code ?? null });
+      return { ok: false as const, status: 500, errors: ['Answers were retained, but navigation progress could not be saved. Retry before continuing.'], progress };
+    }
+  }
+  console.info('assessment_answer_saved', { assessmentReference: payload.assessmentReference, progressPct: progress.overallPct, resumeMode: resumeCapability.status });
+
+  return { ok: true as const, progress, savedAt: new Date().toISOString(), resumeMode: resumeCapability.status };
 }
 
 export async function submitAssessment(payload: { assessmentReference: string; token: string }) {

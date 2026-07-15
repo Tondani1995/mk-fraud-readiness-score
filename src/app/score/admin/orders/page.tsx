@@ -12,6 +12,7 @@ import {
   queueCounts,
   type Phase1QueueKey
 } from '@/lib/reports/phase1-operations';
+import { annotateOrdersWithPaymentState, PAYMENT_QUEUE_LABELS, paymentQueueCounts, type PaymentQueueKey } from '@/lib/payments/payment-operations';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,9 +42,13 @@ export default async function AdminOrdersPage({
   const selectedQueue = candidateQueue && candidateQueue in PHASE1_QUEUE_LABELS ? candidateQueue : undefined;
   const sourceOrders = await getAdminOrderList({ status, search });
   const phase1 = await annotateOrdersWithPhase1State(sourceOrders);
-  const annotated = phase1.orders;
+  const payment = await annotateOrdersWithPaymentState(phase1.orders);
+  const annotated = payment.orders;
   const counts = queueCounts(annotated);
-  const orders = selectedQueue
+  const paymentQueue = searchParams?.queue as PaymentQueueKey | undefined;
+  const selectedPaymentQueue = paymentQueue && paymentQueue in PAYMENT_QUEUE_LABELS ? paymentQueue : undefined;
+  const paymentCounts = paymentQueueCounts(annotated);
+  const orders = selectedPaymentQueue ? annotated.filter((order) => order.paymentQueues?.includes(selectedPaymentQueue)) : selectedQueue
     ? annotated.filter((order) => order.queues.includes(selectedQueue))
     : annotated;
 
@@ -61,6 +66,11 @@ export default async function AdminOrdersPage({
             {phase1.capability.message}
           </div>
         ) : null}
+        {payment.capability.status !== 'available' ? <div className="rounded-xl border border-mk-line bg-white p-4 text-sm text-mk-muted">{payment.capability.message}</div> : null}
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {(Object.keys(PAYMENT_QUEUE_LABELS) as PaymentQueueKey[]).map((queue) => <Link key={queue} href={`/score/admin/orders?queue=${queue}`} className="rounded-2xl border border-mk-line bg-white p-5 shadow-sm transition hover:border-mk-brass"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">{PAYMENT_QUEUE_LABELS[queue]}</p><p className="mt-3 text-3xl font-semibold text-mk-ink">{paymentCounts[queue]}</p></Link>)}
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {priorityQueues.map((queue) => (
@@ -93,7 +103,7 @@ export default async function AdminOrdersPage({
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>{selectedQueue ? PHASE1_QUEUE_LABELS[selectedQueue] : 'All relevant orders'}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{selectedPaymentQueue ? PAYMENT_QUEUE_LABELS[selectedPaymentQueue] : selectedQueue ? PHASE1_QUEUE_LABELS[selectedQueue] : 'All relevant orders'}</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -107,7 +117,7 @@ export default async function AdminOrdersPage({
                       <td className="py-3 text-mk-muted">{order.organisation_name ?? 'Organisation'}</td>
                       <td className="py-3 text-mk-muted">{order.product_name}</td>
                       <td className="py-3 text-mk-muted">{formatOrderAmount(order.amount_cents, order.currency)}</td>
-                      <td className="py-3"><Badge>{cleanStatus(order.status)}</Badge></td>
+                      <td className="py-3"><Badge>{cleanStatus(order.paymentState ?? order.status)}</Badge>{order.paymentReviewReason ? <p className="mt-1 max-w-48 text-xs text-mk-danger">{order.paymentReviewReason}</p> : null}</td>
                       <td className="py-3"><Badge>{cleanStatus(order.generationState)}</Badge>{order.generation?.safe_operational_error ? <p className="mt-1 max-w-48 text-xs text-mk-danger">{order.generation.safe_operational_error}</p> : null}</td>
                       <td className="py-3"><Badge>{cleanStatus(order.deliveryState)}</Badge>{order.delivery?.safe_operational_error ? <p className="mt-1 max-w-48 text-xs text-mk-danger">{order.delivery.safe_operational_error}</p> : null}</td>
                       <td className="py-3 text-mk-muted">{new Date(order.updated_at ?? order.created_at).toLocaleDateString('en-ZA')}</td>
