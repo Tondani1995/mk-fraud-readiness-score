@@ -10,8 +10,8 @@ const requiredFiles = [
   'src/lib/respondent/assessment-methodology.ts',
   'src/lib/respondent/assessment-save.ts',
   'src/lib/respondent/na-rules.ts',
-  'src/app/api/assessments/[assessmentRef]/answers/route.ts',
-  'src/app/api/assessments/[assessmentRef]/submit/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/answers/route.ts',
+  'src/app/score/api/assessments/[assessmentRef]/submit/route.ts',
   'supabase/migrations/0003_phase5_methodology_seed.sql',
   'supabase/migrations/0005_phase5_v1_1_guards.sql',
   'docs/PHASE_5_TEST_PLAN.md',
@@ -65,7 +65,7 @@ for (const guard of [
   if (!guards.includes(guard)) failures.push(`Phase 5 v1.1 guard migration missing: ${guard}`);
 }
 
-const assessmentPage = read('src/app/assessment/[assessmentRef]/page.tsx');
+const assessmentPage = read('src/app/score/assessment/[assessmentRef]/page.tsx');
 if (!assessmentPage.includes('validateResumeToken') || !assessmentPage.includes('consume: false')) {
   failures.push('Assessment page must validate resume token with consume:false before rendering the engine.');
 }

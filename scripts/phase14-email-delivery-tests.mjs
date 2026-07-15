@@ -98,7 +98,7 @@ assert.match(workflow, /deliverReportEmailIfEnabledStep/);
 assert.match(workflow, /flags\.autoEmailEnabled/);
 assert.match(workflow, /premium_report_auto_email_disabled/);
 
-const manualRoute = read('src/app/api/admin/reports/[reportId]/send-email/route.ts');
+const manualRoute = read('src/app/score/api/admin/reports/[reportId]/send-email/route.ts');
 assert.match(manualRoute, /getAdminSession/);
 assert.match(manualRoute, /platform_admin/);
 assert.match(manualRoute, /approver/);
@@ -110,7 +110,7 @@ assert.doesNotMatch(manualRoute, /correctedRecipientEvidence/);
 assert.match(manualRoute, /deliverPremiumReportEmail/);
 assert.doesNotMatch(manualRoute, /recipientOverride/);
 
-const webhookRoute = read('src/app/api/webhooks/resend/route.ts');
+const webhookRoute = read('src/app/score/api/webhooks/resend/route.ts');
 assert.match(webhookRoute, /readLimitedWebhookBody/);
 assert.match(webhookRoute, /svix-id/);
 assert.match(webhookRoute, /svix-timestamp/);

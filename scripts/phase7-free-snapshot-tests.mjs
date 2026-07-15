@@ -244,12 +244,12 @@ assertEqual(nATrace.numeratorContribution, 0, 'N/A trace numerator contribution'
 assertEqual(nATrace.denominatorContribution, 0, 'N/A trace denominator contribution');
 assert(nAResult.summary.nARatePct > 0, 'N/A rate visible in score summary.');
 
-const snapshotRoute = read('src/app/snapshot/[assessmentRef]/page.tsx');
+const snapshotRoute = read('src/app/score/snapshot/[assessmentRef]/page.tsx');
 assert(snapshotRoute.includes('validateSnapshotToken'), 'Snapshot route must validate snapshot token.');
 assert(snapshotRoute.includes('loadFreeSnapshotByReference'), 'Snapshot route must load persisted free snapshot.');
 assert(snapshotRoute.includes('consume: false'), 'Snapshot refresh must not consume token budget.');
 
-const submitRoute = read('src/app/api/assessments/[assessmentRef]/submit/route.ts');
+const submitRoute = read('src/app/score/api/assessments/[assessmentRef]/submit/route.ts');
 assert(submitRoute.includes('createSnapshotTokenForAssessment'), 'Submit route must create snapshot token.');
 assert(submitRoute.includes('snapshotUrl'), 'Submit route must return snapshot URL.');
 assert(submitRoute.includes('loadFreeSnapshotByReference'), 'Submit response must load persisted snapshot.');

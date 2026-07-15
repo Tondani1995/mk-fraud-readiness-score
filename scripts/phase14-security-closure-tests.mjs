@@ -74,7 +74,7 @@ assert.doesNotMatch(aiSchema, /title:\s*z\.string/);
 assert.match(aiSchema, /domainEvidence/);
 assert.match(aiSchema, /gapEvidence/);
 
-const downloadRoute = read('src/app/api/admin/reports/[reportId]/download/route.ts');
+const downloadRoute = read('src/app/score/api/admin/reports/[reportId]/download/route.ts');
 const downloadService = read('src/lib/reports/premium-report-download.ts');
 const downloadVerification = read('src/lib/reports/download-verification.ts');
 assert.doesNotMatch(downloadRoute, /createSignedUrl/);

@@ -41,10 +41,10 @@ const cleanupMigration = 'supabase/migrations/0013_phase13_event_index_cleanup.s
 const taxonomy = 'docs/v1/phase13/phase13-commercial-event-taxonomy.md';
 const eventHelper = 'src/lib/analytics/assessment-events.ts';
 const notificationHelper = 'src/lib/notifications/internal-notifications.ts';
-const commercialEventRoute = 'src/app/api/assessments/[assessmentRef]/commercial-event/route.ts';
-const personalisedRoute = 'src/app/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
+const commercialEventRoute = 'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts';
+const personalisedRoute = 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts';
 const reportService = 'src/lib/reports/premium-report-service-core.ts';
-const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+const generateRoute = 'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts';
 
 const requiredEventTypes = [
   'assessment_started',
@@ -116,8 +116,8 @@ assertIncludes('src/lib/respondent/start-assessment.ts', "eventType: 'assessment
 assertIncludes('src/lib/respondent/assessment-save.ts', "eventType: 'assessment_submitted'", 'Assessment submission is tracked server-side');
 assertIncludes('src/lib/respondent/assessment-save.ts', "notificationType: 'assessment_completed'", 'Assessment completion queues internal lead notification');
 assertSourceOrder('src/lib/respondent/assessment-save.ts', 'if (!lockedAssessment)', "eventType: 'assessment_submitted'", 'Submission event must be after stale-submit conflict guard');
-assertIncludes('src/app/snapshot/[assessmentRef]/page.tsx', "eventType: 'snapshot_viewed'", 'Snapshot view is tracked server-side');
-assertSourceOrder('src/app/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
+assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', "eventType: 'snapshot_viewed'", 'Snapshot view is tracked server-side');
+assertSourceOrder('src/app/score/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'eft_order_created'", 'EFT order creation/reuse is tracked');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_order_created'", 'EFT order queues internal lead notification');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "optionCode: 'full_report_5000'", 'EFT order event is linked to R5k option code');
@@ -126,7 +126,7 @@ assertIncludes(generateRoute, 'generatePremiumReport', 'Admin report route deleg
 assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Successful manual report generation records events inside the atomic terminal transaction');
 assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Successful worker report generation records events inside the atomic terminal transaction');
 assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Report generation must not emit events after publication in a split transaction');
-assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Successful admin report download is tracked transactionally');
+assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Successful admin report download is tracked transactionally');
 
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');
@@ -168,11 +168,11 @@ const noGoImplementationSources = [
   personalisedRoute,
   'src/lib/respondent/start-assessment.ts',
   'src/lib/respondent/assessment-save.ts',
-  'src/app/snapshot/[assessmentRef]/page.tsx',
+  'src/app/score/snapshot/[assessmentRef]/page.tsx',
   'src/components/assessment/FreeSnapshot.tsx',
   'src/lib/orders/manual-eft-orders.ts',
   generateRoute,
-  'src/app/api/admin/reports/[reportId]/download/route.ts'
+  'src/app/score/api/admin/reports/[reportId]/download/route.ts'
 ].map(read).join('\n');
 
 assert(!/PayFast|Stitch|card payment|subscription|respondent account|client portal|peer average|public benchmark|live AI|instant customer download|automated report release/i.test(noGoImplementationSources), 'Phase 13 customer/commercial surfaces must not introduce prohibited gateway, account, benchmark or report-release features.');

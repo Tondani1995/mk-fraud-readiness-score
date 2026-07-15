@@ -6,11 +6,18 @@ const { withWorkflow } = workflowNext;
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  basePath: '/score',
+  async rewrites() {
+    return [
+      {
+        source: '/score/.well-known/workflow/:path*',
+        destination: '/.well-known/workflow/:path*'
+      }
+    ];
+  },
   experimental: {
     typedRoutes: false,
     outputFileTracingIncludes: {
-      '/api/admin/orders/[orderReference]/generate-report': [
+      '/score/api/admin/orders/[orderReference]/generate-report': [
         './node_modules/@sparticuz/chromium/bin/**/*'
       ]
     }

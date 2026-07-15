@@ -89,7 +89,7 @@ async function fetchPath(pathname, init = {}) {
 
 function runStaticChecks() {
   assert(exists('src/app'), 'src/app must exist.');
-  assert(exists('src/app/api'), 'src/app/api must exist.');
+  assert(exists('src/app/score/api'), 'src/app/score/api must exist.');
   assert(exists('src/lib/reports/premium-report-service.ts'), 'Shared premium report service must exist.');
   assert(exists('src/lib/reports/report-entitlement.ts'), 'Shared premium report entitlement guard must exist.');
 
@@ -101,18 +101,18 @@ function runStaticChecks() {
   assertIncludes('src/lib/auth/session-cookies.ts', 'export function getAdminAccessTokenFromCookies(): string | null', 'Next 14 cookie helper must remain synchronous');
 
   const adminPages = [
-    'src/app/admin/page.tsx',
-    'src/app/admin/assessments/page.tsx',
-    'src/app/admin/assessments/[assessmentRef]/page.tsx',
-    'src/app/admin/audit-log/page.tsx',
-    'src/app/admin/config/content/page.tsx',
-    'src/app/admin/config/products/page.tsx',
-    'src/app/admin/config/questions/page.tsx',
-    'src/app/admin/methodology/page.tsx',
-    'src/app/admin/orders/page.tsx',
-    'src/app/admin/orders/[orderReference]/page.tsx',
-    'src/app/admin/reports/page.tsx',
-    'src/app/admin/settings/page.tsx'
+    'src/app/score/admin/page.tsx',
+    'src/app/score/admin/assessments/page.tsx',
+    'src/app/score/admin/assessments/[assessmentRef]/page.tsx',
+    'src/app/score/admin/audit-log/page.tsx',
+    'src/app/score/admin/config/content/page.tsx',
+    'src/app/score/admin/config/products/page.tsx',
+    'src/app/score/admin/config/questions/page.tsx',
+    'src/app/score/admin/methodology/page.tsx',
+    'src/app/score/admin/orders/page.tsx',
+    'src/app/score/admin/orders/[orderReference]/page.tsx',
+    'src/app/score/admin/reports/page.tsx',
+    'src/app/score/admin/settings/page.tsx'
   ];
 
   for (const file of adminPages) {
@@ -120,21 +120,21 @@ function runStaticChecks() {
     assert(source.includes('requireAdmin') || source.includes('ProtectedAdminPage'), `${file} must require admin access.`);
   }
 
-  assertSourceOrder('src/app/admin/audit-log/page.tsx', 'const admin = await requireAdmin', 'await getAdminAuditLog', 'Audit log page must authenticate before reading audit events');
-  assertSourceOrder('src/app/admin/config/content/page.tsx', 'const admin = await requireAdmin', 'await getAdminMethodologyConfig', 'Content config page must authenticate before reading methodology content');
-  assertSourceOrder('src/app/admin/config/products/page.tsx', 'const admin = await requireAdmin', 'await getAdminProductConfig', 'Product config page must authenticate before reading commercial settings');
-  assertSourceOrder('src/app/admin/config/questions/page.tsx', 'const admin = await requireAdmin', 'await getAdminMethodologyConfig', 'Question config page must authenticate before reading methodology config');
-  assertSourceOrder('src/app/admin/orders/page.tsx', 'const admin = await requireAdmin', 'await getAdminOrderList', 'Order queue page must authenticate before reading orders');
-  assertSourceOrder('src/app/admin/orders/[orderReference]/page.tsx', 'const admin = await requireAdmin', 'await getAdminOrderDetail', 'Order detail page must authenticate before reading order detail');
-  assertSourceOrder('src/app/admin/reports/page.tsx', 'const admin = await requireAdmin', 'await getRecentReports', 'Reports page must authenticate before reading report versions');
+  assertSourceOrder('src/app/score/admin/audit-log/page.tsx', 'const admin = await requireAdmin', 'await getAdminAuditLog', 'Audit log page must authenticate before reading audit events');
+  assertSourceOrder('src/app/score/admin/config/content/page.tsx', 'const admin = await requireAdmin', 'await getAdminMethodologyConfig', 'Content config page must authenticate before reading methodology content');
+  assertSourceOrder('src/app/score/admin/config/products/page.tsx', 'const admin = await requireAdmin', 'await getAdminProductConfig', 'Product config page must authenticate before reading commercial settings');
+  assertSourceOrder('src/app/score/admin/config/questions/page.tsx', 'const admin = await requireAdmin', 'await getAdminMethodologyConfig', 'Question config page must authenticate before reading methodology config');
+  assertSourceOrder('src/app/score/admin/orders/page.tsx', 'const admin = await requireAdmin', 'await getAdminOrderList', 'Order queue page must authenticate before reading orders');
+  assertSourceOrder('src/app/score/admin/orders/[orderReference]/page.tsx', 'const admin = await requireAdmin', 'await getAdminOrderDetail', 'Order detail page must authenticate before reading order detail');
+  assertSourceOrder('src/app/score/admin/reports/page.tsx', 'const admin = await requireAdmin', 'await getRecentReports', 'Reports page must authenticate before reading report versions');
 
   assertIncludes('src/lib/auth/admin-route.ts', 'getAdminAccessTokenFromCookies', 'Admin route helper reads the httpOnly admin session cookie');
   assertIncludes('src/lib/auth/admin-route.ts', ".eq('status', 'active')", 'Admin route helper requires active admin profile');
 
-  const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+  const generateRoute = 'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts';
   const reportService = 'src/lib/reports/premium-report-service-core.ts';
   const entitlementGuard = 'src/lib/reports/report-entitlement.ts';
-  const paymentRoute = 'src/app/admin/orders/[orderReference]/status/route.ts';
+  const paymentRoute = 'src/app/score/admin/orders/[orderReference]/status/route.ts';
 
   assertIncludes(generateRoute, 'getAdminSession', 'Generate-report route must check admin session');
   assertIncludes(generateRoute, 'REPORT_GENERATION_ROLES', 'Generate-report route must use explicit roles');
@@ -144,7 +144,7 @@ function runStaticChecks() {
   assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report entitlement guard must require the paid R5,000 product');
   assertIncludes(entitlementGuard, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report entitlement guard must require the essential self-assessment product');
   assertNotIncludes('src/lib/reports/assemble-report-data.ts', "'verified'", 'Legacy verified status must not be report-generation eligible');
-  assertIncludes('src/app/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
+  assertIncludes('src/app/score/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 
   assertIncludes(paymentRoute, 'updateAdminOrderStatus', 'Payment status route records the finance status transition');
   assertIncludes(paymentRoute, 'getPremiumReportAutomationFlags', 'Payment status route loads safe automation flags');
@@ -166,37 +166,37 @@ function runStaticChecks() {
   assertNotIncludes(reportService, 'resend.emails.send', 'Phase 14A shared service must not dispatch customer email.');
   assertNotIncludes(reportService, 'publicUrl', 'Shared service must not expose permanent public report URLs.');
 
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'getAdminSession', 'Report download route must check admin session');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'REPORT_DOWNLOAD_ROLES', 'Report download route must use explicit roles');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'downloadPremiumReport', 'Report download route must use the shared entitlement and checksum service');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'Content-Disposition', 'Report download route must stream a controlled attachment');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'private, no-store', 'Report download response must not be cached');
-  assertNotIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
-  assertNotIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'getAdminSession', 'Report download route must check admin session');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'REPORT_DOWNLOAD_ROLES', 'Report download route must use explicit roles');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'downloadPremiumReport', 'Report download route must use the shared entitlement and checksum service');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'Content-Disposition', 'Report download route must stream a controlled attachment');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'private, no-store', 'Report download response must not be cached');
+  assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
+  assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
   assertIncludes('supabase/migrations/0011_phase10_pdf_report_engine_additions.sql', "values ('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
 
-  assertIncludes('src/app/snapshot/[assessmentRef]/page.tsx', 'validateSnapshotToken', 'Snapshot route must validate private snapshot token');
-  assertIncludes('src/app/assessment/[assessmentRef]/result/page.tsx', 'Private snapshot link required', 'Legacy result route must not render snapshots by reference only');
-  assertNotIncludes('src/app/assessment/[assessmentRef]/result/page.tsx', 'loadFreeSnapshotByReference', 'Legacy result route must not load snapshots without token validation');
-  assertIncludes('src/app/api/assessments/[assessmentRef]/report-request/route.ts', 'validateSnapshotToken', 'Report request route must require snapshot token');
+  assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', 'validateSnapshotToken', 'Snapshot route must validate private snapshot token');
+  assertIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'Private snapshot link required', 'Legacy result route must not render snapshots by reference only');
+  assertNotIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'loadFreeSnapshotByReference', 'Legacy result route must not load snapshots without token validation');
+  assertIncludes('src/app/score/api/assessments/[assessmentRef]/report-request/route.ts', 'validateSnapshotToken', 'Report request route must require snapshot token');
   assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotTokenFromUrl', 'Snapshot client must send private snapshot token for report requests');
 
   assertMatches('src/components/assessment/FreeSnapshot.tsx', /Request detailed report|Continue to EFT instructions/, 'Free snapshot keeps a report request CTA');
   assertNoCustomerFacingLeakage('FreeSnapshot component', read('src/components/assessment/FreeSnapshot.tsx'));
-  assertNoCustomerFacingLeakage('report request page', read('src/app/report/request/[assessmentRef]/page.tsx'));
+  assertNoCustomerFacingLeakage('report request page', read('src/app/score/report/request/[assessmentRef]/page.tsx'));
 
   const reportTemplate = read('src/lib/reports/templates/report-template.ts');
   assert(!/\bD\d{1,2}-Q\d{2}\b|EXP-\d{2}|REC-\d{2}/.test(reportTemplate), 'Report template must not hard-code internal codes.');
   assert(!/Phase 9|Phase 10|Phase 11/.test(reportTemplate), 'Report template must not expose phase labels.');
   assert(!/peer average|AI-generated/i.test(reportTemplate), 'Report template must not claim unsupported benchmarks or label output as AI-generated.');
 
-  assertIncludes('src/app/api/assessments/[assessmentRef]/report-request/route.ts', "from('audit_logs')", 'Report request route must audit customer report requests');
+  assertIncludes('src/app/score/api/assessments/[assessmentRef]/report-request/route.ts', "from('audit_logs')", 'Report request route must audit customer report requests');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('order_events')", 'Order service must write order events');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('audit_logs')", 'Order service must write audit logs');
   assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Shared report service must use the administrator terminal state machine');
   assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Shared report service must use the worker terminal state machine');
   assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must not retain the legacy split event route');
-  assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Report download route must record download_requested through the Phase 14 state machine');
+  assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Report download route must record download_requested through the Phase 14 state machine');
 }
 
 async function runHttpChecks() {

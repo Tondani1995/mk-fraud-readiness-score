@@ -100,6 +100,9 @@ jobs:
       - name: Run platform hardening tests
         run: npm run platform:test-hardening
 
+      - name: Verify consolidated route ownership
+        run: npm run consolidation:test-routes
+
       - name: Run TypeScript check
         run: npm run typecheck
 

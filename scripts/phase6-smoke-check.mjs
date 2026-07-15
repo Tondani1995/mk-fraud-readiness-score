@@ -19,7 +19,7 @@ function assertFile(rel) {
 const required = [
   'src/lib/scoring/scoring-engine.ts',
   'src/lib/scoring/score-assessment.ts',
-  'src/app/api/admin/assessments/[assessmentRef]/score/route.ts',
+  'src/app/score/api/admin/assessments/[assessmentRef]/score/route.ts',
   'supabase/migrations/0006_phase6_scoring_guards.sql',
   'supabase/migrations/0007_phase6_v1_1_atomic_scoring.sql',
   'scripts/phase6-scenario-tests.mjs',
@@ -42,7 +42,7 @@ assertIncludes('src/lib/scoring/score-assessment.ts', "rpc('complete_score_run_a
 assertNotIncludes('src/lib/scoring/score-assessment.ts', ".from('score_domain_results').insert", 'non-atomic domain trace insert');
 assertNotIncludes('src/lib/scoring/score-assessment.ts', ".from('score_question_traces').insert", 'non-atomic question trace insert');
 assertNotIncludes('src/lib/scoring/score-assessment.ts', ".from('maturity_cap_events').insert", 'non-atomic cap event insert');
-assertIncludes('src/app/api/admin/assessments/[assessmentRef]/score/route.ts', 'requireAdmin', 'admin-before-scoring protection');
+assertIncludes('src/app/score/api/admin/assessments/[assessmentRef]/score/route.ts', 'requireAdmin', 'admin-before-scoring protection');
 
 assertIncludes('supabase/migrations/0006_phase6_scoring_guards.sql', 'Completed score runs are immutable', 'score-run immutability guard');
 assertIncludes('supabase/migrations/0006_phase6_scoring_guards.sql', 'Current score run must be completed', 'current-score guard');
