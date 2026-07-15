@@ -1,8 +1,7 @@
 import Wrapper from "@/components/website/Wrapper";
+import AutoHeightAssessmentFrame from "@/components/website/assessment/AutoHeightAssessmentFrame";
 import { ArrowRight, BarChart3, CheckCircle2, FileText, Shield } from "lucide-react";
 import Link from "next/link";
-
-const scoreAppUrl = "/score/start?embed=1";
 
 export default function FraudReadinessScorePage() {
   return (
@@ -94,7 +93,7 @@ export default function FraudReadinessScorePage() {
             </div>
 
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-              <iframe title="MK Fraud Readiness Score" src={scoreAppUrl} className="h-[1900px] w-full border-0" loading="lazy" />
+              <AutoHeightAssessmentFrame />
             </div>
           </div>
         </section>
