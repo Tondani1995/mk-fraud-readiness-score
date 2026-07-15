@@ -197,7 +197,9 @@ assert.match(durableAi, /inputSizeBytes/);
 const aiGenerator = read('src/lib/reports/automation/ai-sdk-generator.ts');
 assert.match(aiGenerator, /maxRetries:\s*0/);
 assert.match(aiGenerator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);
-assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500/);
+// Bumped from 3500 (evidence-refs-only schema) to accommodate bounded body prose per section
+// now that AI output actually reaches the report (Phase 14 Independent Review C1 fix).
+assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 5000/);
 
 const remediationMigration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [

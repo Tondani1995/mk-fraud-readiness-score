@@ -7,13 +7,28 @@ import type {
 
 const ROOT_KEYS = new Set([
   'executiveEvidenceRefs',
+  'executiveBody',
   'falseComfortEvidenceRefs',
+  'falseComfortBody',
   'leadershipEvidenceRefs',
+  'leadershipBody',
   'domainEvidence',
   'gapEvidence'
 ]);
-const DOMAIN_KEYS = new Set(['domainCode', 'evidenceRefs']);
-const GAP_KEYS = new Set(['questionCode', 'evidenceRefs']);
+const DOMAIN_KEYS = new Set(['domainCode', 'evidenceRefs', 'body']);
+const GAP_KEYS = new Set(['questionCode', 'evidenceRefs', 'body']);
+const MAX_BODY_CHARS = 2000;
+
+function body(value: unknown, path: string, issues: NarrativeValidationIssue[]): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    issues.push(issue('invalid_ai_body', path, 'A non-empty narrative body is required.'));
+    return '';
+  }
+  if (value.length > MAX_BODY_CHARS) {
+    issues.push(issue('ai_body_too_long', path, `Narrative body exceeds ${MAX_BODY_CHARS} characters.`));
+  }
+  return value;
+}
 
 function issue(code: string, path: string, message: string): NarrativeValidationIssue {
   return { code, path, message, blocking: true };
@@ -54,12 +69,15 @@ export function validatePremiumReportAiEditorialPlan(
   const issues: NarrativeValidationIssue[] = [];
   const known = new Set(evidence.items.map((item) => normaliseAiIdentifier(item.id)));
   if (!record(value)) {
-    return { ok: false, issues: [issue('invalid_ai_plan_schema', '$', 'AI output must be an evidence-only object.')], checkedAt: now.toISOString(), schemaVersion: evidence.schemaVersion };
+    return { ok: false, issues: [issue('invalid_ai_plan_schema', '$', 'AI output must be a grounded-narrative object.')], checkedAt: now.toISOString(), schemaVersion: evidence.schemaVersion };
   }
   validateKeys(value, ROOT_KEYS, '$', issues);
   refs(value.executiveEvidenceRefs, 'executiveEvidenceRefs', known, issues);
+  body(value.executiveBody, 'executiveBody', issues);
   refs(value.falseComfortEvidenceRefs, 'falseComfortEvidenceRefs', known, issues);
+  body(value.falseComfortBody, 'falseComfortBody', issues);
   refs(value.leadershipEvidenceRefs, 'leadershipEvidenceRefs', known, issues);
+  body(value.leadershipBody, 'leadershipBody', issues);
 
   const expectedDomains = new Set(evidence.items.filter((item) => item.kind === 'domain' && item.domainCode).map((item) => normaliseAiIdentifier(item.domainCode!)));
   const seenDomains = new Set<string>();
@@ -79,6 +97,7 @@ export function validatePremiumReportAiEditorialPlan(
       seenDomains.add(code);
       const evidenceRefs = refs(entry.evidenceRefs, `${path}.evidenceRefs`, known, issues);
       if (!evidenceRefs.includes(`domain:${code}`)) issues.push(issue('missing_own_evidence', `${path}.evidenceRefs`, `Domain ${code} must cite its deterministic domain evidence.`));
+      body(entry.body, `${path}.body`, issues);
     });
   }
   expectedDomains.forEach((code) => {
@@ -103,6 +122,7 @@ export function validatePremiumReportAiEditorialPlan(
       seenGaps.add(code);
       const evidenceRefs = refs(entry.evidenceRefs, `${path}.evidenceRefs`, known, issues);
       if (!evidenceRefs.includes(`gap:${code}`)) issues.push(issue('missing_own_evidence', `${path}.evidenceRefs`, `Gap ${code} must cite its deterministic gap evidence.`));
+      body(entry.body, `${path}.body`, issues);
     });
   }
   expectedGaps.forEach((code) => {

@@ -38,16 +38,19 @@ const evidence = {
 };
 const validPlan = {
   executiveEvidenceRefs: ['score:final_maturity'],
+  executiveBody: 'The organisation shows a Developing maturity position based on the cited evidence.',
   falseComfortEvidenceRefs: ['gap:Q1'],
+  falseComfortBody: 'A single strong control does not offset the cited gap.',
   leadershipEvidenceRefs: ['domain:D1'],
-  domainEvidence: [{ domainCode: 'D1', evidenceRefs: ['domain:D1'] }],
-  gapEvidence: [{ questionCode: 'Q1', evidenceRefs: ['gap:Q1'] }]
+  leadershipBody: 'Leadership should prioritise the D1 domain given the cited evidence.',
+  domainEvidence: [{ domainCode: 'D1', evidenceRefs: ['domain:D1'], body: 'Domain D1 requires attention based on its cited evidence.' }],
+  gapEvidence: [{ questionCode: 'Q1', evidenceRefs: ['gap:Q1'], body: 'This gap remains open based on the cited evidence.' }]
 };
 assert.equal(validatePremiumReportAiEditorialPlan(validPlan, evidence).ok, true);
 assert.equal(validatePremiumReportAiEditorialPlan({
   ...validPlan,
-  domainEvidence: [{ domainCode: 'Ｄ１', evidenceRefs: ['domain：Ｄ１'] }],
-  gapEvidence: [{ questionCode: 'Ｑ１', evidenceRefs: ['gap：Ｑ１'] }]
+  domainEvidence: [{ domainCode: 'Ｄ１', evidenceRefs: ['domain：Ｄ１'], body: validPlan.domainEvidence[0].body }],
+  gapEvidence: [{ questionCode: 'Ｑ１', evidenceRefs: ['gap：Ｑ１'], body: validPlan.gapEvidence[0].body }]
 }, evidence).ok, true, 'NFKC normalization must occur before identifier validation.');
 
 for (const [label, prohibitedText] of [
@@ -68,11 +71,29 @@ for (const [label, prohibitedText] of [
   assert(result.issues.some((entry) => entry.code === 'ai_schema_field_forbidden'), label);
 }
 
+// Schema v3 (docs/v1/phase14/ai-narrative-fix.md): the AI is now permitted to draft bounded,
+// evidence-grounded body prose (previously it was evidence-references-only and its output was
+// silently discarded -- see Phase 14 Independent Review C1). It must never receive a "title"
+// field (titles stay MK-authored/deterministic) and every body field must be length-bounded.
 const aiSchema = read('src/lib/reports/automation/ai-sdk-generator.ts');
-assert.doesNotMatch(aiSchema, /body:\s*z\.string/);
+assert.match(aiSchema, /body:\s*(z\.string|narrativeBody)/);
 assert.doesNotMatch(aiSchema, /title:\s*z\.string/);
+assert.match(aiSchema, /narrativeBody\s*=\s*z\.string\(\)\.min\(1\)\.max\(/, 'AI body fields must be length-bounded.');
 assert.match(aiSchema, /domainEvidence/);
 assert.match(aiSchema, /gapEvidence/);
+
+// The full-narrative fact-checker must actually run on AI output before it can reach the report
+// (C1 fix): buildAndValidateAiNarrative in narrative-pipeline.ts must call the same
+// validatePremiumReportNarrative used for deterministic content, and the resulting narrative --
+// not the deterministic one -- must be what is returned for 'ai' and 'ai_repair' modes.
+const pipelineSource = read('src/lib/reports/automation/narrative-pipeline.ts');
+assert.match(pipelineSource, /buildAndValidateAiNarrative/);
+assert.match(pipelineSource, /aiPlanToNarrative/);
+assert.doesNotMatch(
+  pipelineSource,
+  /mode:\s*'ai',[\s\S]{0,80}narrative:\s*buildDeterministicNarrative/,
+  'AI-mode results must not silently substitute deterministic content.'
+);
 
 const downloadRoute = read('src/app/score/api/admin/reports/[reportId]/download/route.ts');
 const downloadService = read('src/lib/reports/premium-report-download.ts');

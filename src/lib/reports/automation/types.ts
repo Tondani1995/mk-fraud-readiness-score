@@ -1,7 +1,11 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
 
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v2-evidence-plan';
-export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-evidence-plan-v2';
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v3-grounded-narrative';
+export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-grounded-narrative-v3';
+
+/** Maximum characters the AI may write for any single narrative body field. Mirrors the
+ * deterministic-validator body length ceiling in automation/validation.ts (2500). */
+export const PREMIUM_REPORT_AI_BODY_MAX_CHARS = 2000;
 
 export type PremiumReportFulfilmentStatus =
   | 'queued'
@@ -93,17 +97,31 @@ export interface PremiumReportNarrative {
   }>;
 }
 
+/**
+ * The AI's grounded-narrative draft. Every body field is customer-facing prose the AI is
+ * proposing; every evidenceRefs field is the closed set of deterministic evidence identifiers
+ * that must support that body (enforced by validatePremiumReportAiEditorialPlan and, on the
+ * fully assembled narrative, by validatePremiumReportNarrative). The AI never supplies titles,
+ * scores, bands, counts or roadmap actions -- those remain deterministic and are attached by
+ * aiPlanToNarrative() in content.ts. Prior to schema v3 this type carried evidence references
+ * only and no narrative body ever reached the report; see docs/v1/phase14/ai-narrative-fix.md.
+ */
 export interface PremiumReportAiEditorialPlan {
   executiveEvidenceRefs: string[];
+  executiveBody: string;
   falseComfortEvidenceRefs: string[];
+  falseComfortBody: string;
   leadershipEvidenceRefs: string[];
+  leadershipBody: string;
   domainEvidence: Array<{
     domainCode: string;
     evidenceRefs: string[];
+    body: string;
   }>;
   gapEvidence: Array<{
     questionCode: string;
     evidenceRefs: string[];
+    body: string;
   }>;
 }
 
