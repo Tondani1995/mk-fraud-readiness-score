@@ -30,6 +30,7 @@ export async function POST(request: Request, { params }: { params: { reportId: s
         : { corrected_recipient_evidence: String(submitted.correctedRecipientEvidence ?? '').trim() };
       const result = await authorizeBouncedReportRedelivery({
         priorEmailEventId: String(submitted.priorEmailEventId ?? ''),
+        correctedRecipient: String(submitted.correctedRecipient ?? ''),
         reason: String(submitted.reason ?? ''),
         correctedRecipientEvidence: evidence
       });

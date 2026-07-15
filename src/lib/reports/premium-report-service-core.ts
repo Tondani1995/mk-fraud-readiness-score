@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
@@ -11,7 +10,6 @@ import { getPremiumReportAutomationFlags } from './automation/feature-flags';
 import { preparePremiumReportNarrative } from './automation/narrative-pipeline';
 import { updatePremiumReportFulfilment } from './automation/fulfilment';
 import {
-  completePhase14WorkerCapability,
   requirePhase14Action,
   requirePhase14WorkerAction,
   type Phase14WorkerLease
@@ -73,7 +71,6 @@ async function generationRpc(input: {
   const parameters = input.workerLease
     ? {
         p_capability_id: input.workerLease.capabilityId,
-        p_capability_lease_token: input.workerLease.leaseToken,
         ...(input.workerParameters ?? input.parameters)
       }
     : input.parameters;
@@ -108,9 +105,11 @@ async function persistGenerationProvenance(input: {
   fulfilmentId?: string | null;
   prepared: PreparedPremiumReportNarrative;
   flags: PremiumReportAutomationFlags;
+  db: any;
+  capabilityId?: string | null;
 }) {
   if (!input.fulfilmentId) return null;
-  const db = createSupabaseServiceClient() as any;
+  const db = input.db;
   const { data: existing, error: existingError } = await db
     .from('report_generation_runs')
     .select('id,status')
@@ -124,18 +123,10 @@ async function persistGenerationProvenance(input: {
     ? input.prepared.repairGeneration
     : input.prepared.generation;
   const usage = generation?.usage;
-  const { data: latest, error: latestError } = await db
-    .from('report_generation_runs')
-    .select('attempt_number')
-    .eq('fulfilment_id', input.fulfilmentId)
-    .order('attempt_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (latestError) throw latestError;
-
-  const { data, error } = await db.from('report_generation_runs').insert({
-    fulfilment_id: input.fulfilmentId,
-    attempt_number: Number(latest?.attempt_number ?? 0) + 1,
+  const { data, error } = await db.rpc('record_premium_report_generation_run', {
+    p_capability_id: input.capabilityId ?? null,
+    p_fulfilment_id: input.fulfilmentId,
+    p_run: {
     generation_mode: input.prepared.mode,
     provider: generation?.provider ?? null,
     model: generation?.model ?? null,
@@ -162,9 +153,10 @@ async function persistGenerationProvenance(input: {
     error_code: input.prepared.fallbackReason ?? null,
     error_message: input.prepared.fallbackReason ?? null,
     completed_at: new Date().toISOString()
-  }).select('id').single();
+    }
+  });
   if (error || !data) throw error ?? new Error('Generation provenance could not be persisted.');
-  return data.id as string;
+  return data as string;
 }
 
 async function loadGenerationMetadata(db: any, reportId: string) {
@@ -190,6 +182,7 @@ async function resumeCommittedDraft(db: any, input: {
   assessmentReference: string;
   fulfilmentId?: string | null;
   workerLease?: Phase14WorkerLease;
+  actor: PremiumReportActor;
 }) : Promise<GeneratePremiumReportResult> {
   if (!input.claim.claim_token || !input.claim.report_id) throw new Error('Committed draft resume context is incomplete.');
   const { report, run } = await loadGenerationMetadata(db, input.claim.report_id);
@@ -252,12 +245,42 @@ async function resumeCommittedDraft(db: any, input: {
     },
     recordCleanupResult
   });
-  await updateFulfilmentSafely(input.fulfilmentId, {
-    fulfilmentId: input.fulfilmentId ?? '',
-    status: 'ready_for_delivery',
-    currentStep: 'ready_for_email_delivery',
-    reportId: report.id
-  });
+  if (input.workerLease && input.fulfilmentId) {
+    const { data: completed, error: completionError } = await input.privilegedDb.rpc(
+      'complete_phase14_generation_operation',
+      {
+        p_capability_id: input.workerLease.capabilityId,
+        p_fulfilment_id: input.fulfilmentId,
+        p_generation_run_id: report.generation_run_id ?? null,
+        p_report_id: report.id,
+        p_generation_mode: run?.generation_mode ?? 'deterministic_fallback',
+        p_actor_user_id: input.actor.userId ?? null,
+        p_event_type: report.supersedes_report_id ? 'regenerated' : 'generated',
+        p_note: `Version ${report.version_number} completed through committed-draft recovery.`,
+        p_metadata: {
+          fulfilment_id: input.fulfilmentId,
+          generation_run_id: report.generation_run_id ?? null,
+          evidence_checksum: run?.evidence_checksum ?? null,
+          ready_for_email_delivery: true,
+          report_reference: report.report_reference,
+          version_number: report.version_number,
+          generation_mode: run?.generation_mode ?? 'deterministic_fallback',
+          recovery: true
+        }
+      }
+    );
+    if (completionError || !completed?.completed) {
+      throw completionError ?? new Error('Committed-draft completion was not persisted atomically.');
+    }
+  } else {
+    await updateFulfilmentSafely(input.fulfilmentId, {
+      fulfilmentId: input.fulfilmentId ?? '',
+      status: 'ready_for_delivery',
+      currentStep: 'ready_for_email_delivery',
+      reportId: report.id,
+      capabilityId: null
+    });
+  }
   return {
     reportId: report.id,
     reportReference: report.report_reference,
@@ -283,44 +306,28 @@ async function logGenerated(input: {
   fulfilmentId?: string | null;
   generationRunId: string | null;
   prepared: PreparedPremiumReportNarrative;
+  db: any;
+  capabilityId?: string | null;
 }) {
-  const db = createSupabaseServiceClient() as any;
-  await Promise.all([
-    db.from('report_events').insert({
-      report_id: input.reportId,
-      event_type: input.supersededReportId ? 'regenerated' : 'generated',
-      actor_user_id: input.actor.userId ?? null,
-      note: `Version ${input.versionNumber} created using ${input.prepared.mode}.`,
-      metadata_json: {
+  const { error } = await input.db.rpc('record_phase14_report_generated', {
+      p_capability_id: input.capabilityId ?? null,
+      p_report_id: input.reportId,
+      p_actor_user_id: input.actor.userId ?? null,
+      p_event_type: input.supersededReportId ? 'regenerated' : 'generated',
+      p_note: `Version ${input.versionNumber} created using ${input.prepared.mode}.`,
+      p_metadata: {
         fulfilment_id: input.fulfilmentId ?? null,
         generation_run_id: input.generationRunId,
         evidence_checksum: input.prepared.evidenceChecksum,
-        ready_for_email_delivery: true
-      }
-    }),
-    db.from('audit_logs').insert({
-      actor_type: input.actor.actorType,
-      actor_user_id: input.actor.userId ?? null,
-      assessment_id: input.assessmentId,
-      entity_table: 'reports',
-      entity_id: input.reportId,
-      action: input.supersededReportId ? 'report_regenerated' : 'report_generated',
-      after_json: { report_reference: input.reportReference, version_number: input.versionNumber }
-    }),
-    trackAssessmentEvent({
-      eventType: 'report_generated',
-      assessmentId: input.assessmentId,
-      orderId: input.orderId,
-      reportId: input.reportId,
-      metadata: {
+        ready_for_email_delivery: true,
         order_reference: input.orderReference,
         report_reference: input.reportReference,
         report_type: input.reportType,
         version_number: input.versionNumber,
         generation_mode: input.prepared.mode
       }
-    })
-  ]);
+  });
+  if (error) throw error;
 }
 
 export async function generatePremiumReport(
@@ -350,7 +357,8 @@ export async function generatePremiumReport(
       currentStep: 'assemble_evidence',
       incrementAttempt: true,
       errorCode: null,
-      errorMessage: null
+      errorMessage: null,
+      capabilityId: input.workerLease?.capabilityId ?? null
     });
 
     const assembled = await assembleReportData(input.orderReference);
@@ -399,9 +407,9 @@ export async function generatePremiumReport(
         claim,
         assessmentReference: assembled.assessmentReference,
         fulfilmentId: input.fulfilmentId,
-        workerLease: input.workerLease
+        workerLease: input.workerLease,
+        actor: input.actor
       });
-      if (input.workerLease) await completePhase14WorkerCapability(input.workerLease);
       return recovered;
     }
 
@@ -433,6 +441,7 @@ export async function generatePremiumReport(
       fulfilmentId: input.fulfilmentId ?? '',
       status: flags.aiNarrativeEnabled ? 'generating' : 'validating',
       currentStep: flags.aiNarrativeEnabled ? 'generate_narrative' : 'validate_deterministic_fallback'
+      ,capabilityId: input.workerLease?.capabilityId ?? null
     });
     const prepared = await preparePremiumReportNarrative({
       assembled,
@@ -442,6 +451,7 @@ export async function generatePremiumReport(
       generator: input.generator,
       generationIdentity,
       fulfilmentId: input.fulfilmentId ?? null,
+      workerCapabilityId: input.workerLease?.capabilityId ?? null,
       authorizeAiAction: input.workerLease
         ? () => requirePhase14WorkerAction(input.workerLease!, 'ai_narrative_generation')
         : undefined
@@ -454,14 +464,18 @@ export async function generatePremiumReport(
       parameters: { p_claim_token: claimToken }
     });
     if (leaseRenewalError) throw leaseRenewalError;
-    const generationRunId = await persistGenerationProvenance({ fulfilmentId: input.fulfilmentId, prepared, flags });
+    const generationRunId = await persistGenerationProvenance({
+      fulfilmentId: input.fulfilmentId, prepared, flags, db: privilegedDb,
+      capabilityId: input.workerLease?.capabilityId ?? null
+    });
 
     assembled.reportReference = claim.report_reference;
     await updateFulfilmentSafely(input.fulfilmentId, {
       fulfilmentId: input.fulfilmentId ?? '',
       status: 'rendering',
       currentStep: 'render_pdf',
-      generationMode: prepared.mode
+      generationMode: prepared.mode,
+      capabilityId: input.workerLease?.capabilityId ?? null
     });
     const pdfBuffer = await renderHtmlToPdfBuffer(renderReportHtml(assembled, prepared.selectedContent, roadmap));
     const checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
@@ -491,7 +505,8 @@ export async function generatePremiumReport(
       fulfilmentId: input.fulfilmentId ?? '',
       status: 'storing',
       currentStep: 'store_unique_temporary_pdf',
-      generationMode: prepared.mode
+      generationMode: prepared.mode,
+      capabilityId: input.workerLease?.capabilityId ?? null
     });
     await uploadTemporaryReportObject({
       db,
@@ -572,36 +587,69 @@ export async function generatePremiumReport(
     });
     temporaryPath = null;
 
-    if (input.workerLease) {
-      await completePhase14WorkerCapability(input.workerLease);
+    if (input.workerLease && input.fulfilmentId) {
+      const completionMetadata = {
+        fulfilment_id: input.fulfilmentId,
+        generation_run_id: generationRunId,
+        evidence_checksum: prepared.evidenceChecksum,
+        ready_for_email_delivery: true,
+        order_reference: input.orderReference,
+        report_reference: claim.report_reference,
+        report_type: reportType,
+        version_number: Number(published.version_number),
+        generation_mode: prepared.mode
+      };
+      const { data: completed, error: completionError } = await privilegedDb.rpc(
+        'complete_phase14_generation_operation',
+        {
+          p_capability_id: input.workerLease.capabilityId,
+          p_fulfilment_id: input.fulfilmentId,
+          p_generation_run_id: generationRunId,
+          p_report_id: reportId,
+          p_generation_mode: prepared.mode,
+          p_actor_user_id: input.actor.userId ?? null,
+          p_event_type: published.superseded_report_id ? 'regenerated' : 'generated',
+          p_note: `Version ${Number(published.version_number)} created using ${prepared.mode}.`,
+          p_metadata: completionMetadata
+        }
+      );
+      if (completionError || !completed?.completed) {
+        throw completionError ?? new Error('Generation completion was not persisted atomically.');
+      }
+    } else {
+      if (input.fulfilmentId) {
+        const { error: generationLinkError } = await privilegedDb.rpc('link_premium_report_generation_run', {
+          p_capability_id: null,
+          p_generation_run_id: generationRunId,
+          p_report_id: reportId
+        });
+        if (generationLinkError) throw generationLinkError;
+        await updateFulfilmentSafely(input.fulfilmentId, {
+          fulfilmentId: input.fulfilmentId,
+          status: 'ready_for_delivery',
+          currentStep: 'ready_for_email_delivery',
+          generationMode: prepared.mode,
+          reportId,
+          capabilityId: null
+        });
+      }
+      await logGenerated({
+        reportId,
+        actor: input.actor,
+        assessmentId: assembled.assessmentId,
+        orderId: assembled.orderId,
+        orderReference: input.orderReference,
+        reportReference: claim.report_reference,
+        reportType,
+        versionNumber: Number(published.version_number),
+        supersededReportId: published.superseded_report_id ?? null,
+        fulfilmentId: input.fulfilmentId,
+        generationRunId,
+        prepared,
+        db: privilegedDb,
+        capabilityId: null
+      });
     }
-
-    if (input.fulfilmentId) {
-      const { error: generationLinkError } = await db.from('report_generation_runs')
-        .update({ report_id: reportId }).eq('id', generationRunId);
-      if (generationLinkError) throw generationLinkError;
-    }
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
-      status: 'ready_for_delivery',
-      currentStep: 'ready_for_email_delivery',
-      generationMode: prepared.mode,
-      reportId
-    });
-    await logGenerated({
-      reportId,
-      actor: input.actor,
-      assessmentId: assembled.assessmentId,
-      orderId: assembled.orderId,
-      orderReference: input.orderReference,
-      reportReference: claim.report_reference,
-      reportType,
-      versionNumber: Number(published.version_number),
-      supersededReportId: published.superseded_report_id ?? null,
-      fulfilmentId: input.fulfilmentId,
-      generationRunId,
-      prepared
-    });
 
     return {
       reportId,
@@ -650,7 +698,8 @@ export async function generatePremiumReport(
       status: 'failed',
       currentStep: draftCommitted ? 'publication_recovery_required' : 'failed',
       errorCode: reportFailureCode(error),
-      errorMessage: message
+      errorMessage: message,
+      capabilityId: input.workerLease?.capabilityId ?? null
     });
     throw error;
   }

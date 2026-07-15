@@ -48,6 +48,7 @@ export async function preparePremiumReportNarrative(
     generator: input.generator,
     generationIdentity: input.generationIdentity,
     fulfilmentId: input.fulfilmentId,
+    workerCapabilityId: input.workerCapabilityId,
     authorizeAction: input.authorizeAiAction
   });
 

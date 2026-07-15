@@ -31,6 +31,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
   generator: PremiumReportNarrativeGenerator;
   generationIdentity: string;
   fulfilmentId?: string | null;
+  workerCapabilityId?: string | null;
   db?: any;
   authorizeAction?: () => Promise<unknown>;
 }): PremiumReportNarrativeGenerator {
@@ -93,11 +94,14 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       kind
     })).digest('hex').slice(0, 24);
     const providerRequestKey = `premium-report-ai:${fingerprint}:${attemptNumber}`;
-    const { data: attempt, error: insertError } = await db
-      .from('report_ai_attempts')
-      .insert({
+    if (!input.workerCapabilityId || !input.fulfilmentId) {
+      throw new Error('AI attempt persistence requires an opaque worker capability and fulfilment binding.');
+    }
+    const { data: attempt, error: insertError } = await db.rpc('claim_phase14_ai_attempt', {
+      p_capability_id: input.workerCapabilityId,
+      p_attempt: {
         generation_identity: input.generationIdentity,
-        fulfilment_id: input.fulfilmentId ?? null,
+        fulfilment_id: input.fulfilmentId,
         attempt_kind: kind,
         attempt_number: attemptNumber,
         provider_request_key: providerRequestKey,
@@ -115,9 +119,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         timeout_ms: PREMIUM_REPORT_AI_TIMEOUT_MS,
         status: 'started',
         accounting_status: 'unverified'
-      })
-      .select('id')
-      .single();
+      }
+    });
     if (insertError || !attempt) throw insertError ?? new Error('AI attempt could not be persisted before provider dispatch.');
 
     let accountingStatePersisted = false;
@@ -131,7 +134,10 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       const usage = result.usage;
       const accountingValues = [usage?.inputTokens, usage?.outputTokens, usage?.totalTokens, usage?.estimatedCostMicros];
       if (accountingValues.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
-        const { error: accountingError } = await db.from('report_ai_attempts').update({
+        const { error: accountingError } = await db.rpc('settle_phase14_ai_attempt', {
+          p_capability_id: input.workerCapabilityId,
+          p_attempt_id: attempt.id,
+          p_result: {
           status: 'accounting_unverified',
           accounting_status: 'unverified',
           output_json: result,
@@ -144,7 +150,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           latency_ms: result.latencyMs,
           completed_at: new Date().toISOString(),
           error_message: 'Provider usage or cost metadata is incomplete; AI output is prohibited from release.'
-        }).eq('id', attempt.id).eq('status', 'started');
+          }
+        });
         if (accountingError) throw accountingError;
         accountingStatePersisted = true;
         throw new Error('AI accounting metadata is unverified; generated content cannot be released.');
@@ -156,9 +163,10 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         throw new Error('AI provider result exceeded the configured cost limit.');
       }
 
-      const { data: persisted, error: persistError } = await db
-        .from('report_ai_attempts')
-        .update({
+      const { data: persisted, error: persistError } = await db.rpc('settle_phase14_ai_attempt', {
+        p_capability_id: input.workerCapabilityId,
+        p_attempt_id: attempt.id,
+        p_result: {
           status: 'succeeded',
           accounting_status: 'verified',
           output_json: result,
@@ -173,17 +181,15 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           latency_ms: result.latencyMs,
           completed_at: new Date().toISOString(),
           error_message: null
-        })
-        .eq('id', attempt.id)
-        .eq('status', 'started')
-        .select('id')
-        .maybeSingle();
+        }
+      });
       if (persistError || !persisted) {
-        const { error: uncertainError } = await db.from('report_ai_attempts').update({
-          status: 'provider_result_uncertain',
-          error_message: `Provider returned output but durable persistence failed: ${persistError?.message ?? 'compare-and-set lost'}`,
-          completed_at: new Date().toISOString()
-        }).eq('id', attempt.id).eq('status', 'started');
+        const { error: uncertainError } = await db.rpc('settle_phase14_ai_attempt', {
+          p_capability_id: input.workerCapabilityId,
+          p_attempt_id: attempt.id,
+          p_result: { status: 'provider_result_uncertain', accounting_status: 'unverified',
+            error_message: `Provider returned output but durable persistence failed: ${persistError?.message ?? 'compare-and-set lost'}` }
+        });
         if (uncertainError) {
           throw new Error(`AI output persistence and uncertainty recovery both failed: ${persistError?.message}; ${uncertainError.message}`);
         }
@@ -193,11 +199,11 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     } catch (error) {
       if (accountingStatePersisted) throw error;
       const message = error instanceof Error ? error.message : String(error);
-      const { error: recoveryError } = await db.from('report_ai_attempts').update({
-        status: 'provider_result_uncertain',
-        error_message: message,
-        completed_at: new Date().toISOString()
-      }).eq('id', attempt.id).eq('status', 'started');
+      const { error: recoveryError } = await db.rpc('settle_phase14_ai_attempt', {
+        p_capability_id: input.workerCapabilityId,
+        p_attempt_id: attempt.id,
+        p_result: { status: 'provider_result_uncertain', accounting_status: 'unverified', error_message: message }
+      });
       if (recoveryError) {
         throw new Error(`AI provider failure and durable recovery update both failed: ${message}; ${recoveryError.message}`);
       }

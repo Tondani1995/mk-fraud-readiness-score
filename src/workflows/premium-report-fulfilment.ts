@@ -5,27 +5,25 @@ import { getPremiumReportAutomationFlags } from '@/lib/reports/automation/featur
 import { deliverPremiumReportEmail } from '@/lib/reports/email/report-delivery';
 import {
   claimPhase14WorkerCapability,
-  completePhase14WorkerCapability,
-  type Phase14WorkerAuthorization,
   type Phase14WorkerLease
 } from '@/lib/reports/phase14-security';
 
 export type PremiumReportFulfilmentWorkflowInput = {
   fulfilmentId: string;
-  generationAuthorization: Phase14WorkerAuthorization;
-  deliveryAuthorization?: Phase14WorkerAuthorization | null;
+  generationCapabilityId: string;
+  deliveryCapabilityId?: string | null;
 };
 
 export async function premiumReportFulfilmentWorkflow(input: PremiumReportFulfilmentWorkflowInput) {
   'use workflow';
 
   await validateFulfilmentStep(input);
-  const generationLease = await claimWorkerCapabilityStep(input.generationAuthorization);
+  const generationLease = await claimWorkerCapabilityStep(input.generationCapabilityId);
   const report = await generateAndStoreReportStep(input.fulfilmentId, generationLease);
   await verifyDeliveryReadyStep(input.fulfilmentId, report.reportId);
   const delivery = await deliverReportEmailIfEnabledStep(
     report.reportId,
-    input.deliveryAuthorization ?? null
+    input.deliveryCapabilityId ?? null
   );
 
   return { ...report, delivery };
@@ -47,12 +45,12 @@ async function validateFulfilmentStep(input: PremiumReportFulfilmentWorkflowInpu
   if (!data.order_id || !data.assessment_id || !data.score_run_id) {
     throw new FatalError(`Fulfilment ${input.fulfilmentId} is missing its persisted source references.`);
   }
-  if (data.generation_capability_id !== input.generationAuthorization.capabilityId) {
+  if (data.generation_capability_id !== input.generationCapabilityId) {
     throw new FatalError(`Fulfilment ${input.fulfilmentId} is not bound to the supplied generation capability.`);
   }
   if (
-    input.deliveryAuthorization
-    && data.delivery_capability_id !== input.deliveryAuthorization.capabilityId
+    input.deliveryCapabilityId
+    && data.delivery_capability_id !== input.deliveryCapabilityId
   ) {
     throw new FatalError(`Fulfilment ${input.fulfilmentId} is not bound to the supplied delivery capability.`);
   }
@@ -60,9 +58,14 @@ async function validateFulfilmentStep(input: PremiumReportFulfilmentWorkflowInpu
   return { fulfilmentId: data.id, status: data.status };
 }
 
-async function claimWorkerCapabilityStep(authorization: Phase14WorkerAuthorization) {
+async function claimWorkerCapabilityStep(capabilityId: string) {
   'use step';
-  return claimPhase14WorkerCapability(authorization);
+  return claimPhase14WorkerCapability({
+    capabilityId,
+    capabilityType: 'automatic_generation',
+    operationKey: capabilityId,
+    expiresAt: ''
+  });
 }
 
 async function generateAndStoreReportStep(fulfilmentId: string, workerLease: Phase14WorkerLease) {
@@ -110,7 +113,7 @@ async function verifyDeliveryReadyStep(fulfilmentId: string, reportId: string) {
 
 async function deliverReportEmailIfEnabledStep(
   reportId: string,
-  authorization: Phase14WorkerAuthorization | null
+  capabilityId: string | null
 ) {
   'use step';
 
@@ -118,16 +121,20 @@ async function deliverReportEmailIfEnabledStep(
   if (!flags.autoEmailEnabled) {
     return { status: 'skipped', reason: 'premium_report_auto_email_disabled' } as const;
   }
-  if (!authorization) {
+  if (!capabilityId) {
     throw new FatalError('Automatic email is enabled but no human-issued delivery capability was supplied.');
   }
 
-  const workerLease = await claimPhase14WorkerCapability(authorization);
+  const workerLease = await claimPhase14WorkerCapability({
+    capabilityId,
+    capabilityType: 'automatic_delivery',
+    operationKey: capabilityId,
+    expiresAt: ''
+  });
   const result = await deliverPremiumReportEmail({
     reportId,
     workerLease,
     actor: { actorType: 'system', action: 'automatic_email' }
   });
-  await completePhase14WorkerCapability(workerLease);
   return result;
 }

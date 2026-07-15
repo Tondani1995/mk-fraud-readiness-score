@@ -176,5 +176,6 @@ export interface BuildPremiumReportNarrativeInput {
   generator?: PremiumReportNarrativeGenerator;
   generationIdentity?: string;
   fulfilmentId?: string | null;
+  workerCapabilityId?: string | null;
   authorizeAiAction?: () => Promise<unknown>;
 }

@@ -75,8 +75,8 @@ export async function POST(request: Request, { params }: { params: { orderRefere
                 : null;
               const workflow = await startPremiumReportWorkflow({
                 fulfilmentId: fulfilment.fulfilment.id,
-                generationAuthorization,
-                deliveryAuthorization
+                generationCapabilityId: generationAuthorization.capabilityId,
+                deliveryCapabilityId: deliveryAuthorization?.capabilityId ?? null
               });
               if (workflow.ok) {
                 detailUrl.searchParams.set('fulfilment', workflow.started ? 'workflow_started' : 'queued');

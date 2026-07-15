@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import {
   ResendWebhookBodyTooLargeError,
+  createProviderWebhookDatabaseAttestation,
   readLimitedWebhookBody,
   validateResendEventCreatedAt,
   verifyResendWebhook,
@@ -51,17 +52,30 @@ export async function POST(request: Request) {
     ?? (event.data?.bounce as { message?: string } | undefined)?.message
     ?? null;
   const db = createSupabaseServiceClient() as any;
-  const { data, error } = await db.rpc('apply_email_provider_event_atomic', {
+  const payloadSha256 = webhookPayloadFingerprint(payload);
+  let attestation;
+  try {
+    attestation = createProviderWebhookDatabaseAttestation({
+      provider: 'resend', providerEventId, providerMessageId,
+      eventType: event.type, eventCreatedAt, payloadSha256
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: 'webhook_attestation_unavailable' }, { status: 503 });
+  }
+  const { data, error } = await db.rpc('ingest_phase14_provider_webhook', {
     p_provider: 'resend',
     p_provider_event_id: providerEventId,
     p_provider_message_id: providerMessageId,
     p_event_type: event.type,
     p_event_created_at: eventCreatedAt,
-    p_payload_fingerprint: webhookPayloadFingerprint(payload),
-    p_payload_json: { type: event.type, created_at: event.created_at ?? null, reason }
+    p_payload_sha256: payloadSha256,
+    p_payload_json: { type: event.type, created_at: event.created_at ?? null, reason },
+    p_attested_at_epoch: attestation.attestedAtEpoch,
+    p_nonce: attestation.nonce,
+    p_attestation_hmac: attestation.hmac
   });
   if (error) {
-    const gateUnsatisfied = error.message?.includes('phase14_security_gate_unsatisfied');
+    const gateUnsatisfied = /phase14_(security_gate|feature_policy)/.test(error.message ?? '');
     return NextResponse.json(
       { ok: false, error: gateUnsatisfied ? 'security_gate_unsatisfied' : 'processing_failed' },
       { status: gateUnsatisfied ? 503 : 500 }

@@ -12,5 +12,5 @@ export async function downloadPremiumReport(reportId: string) {
   const entitlement = data as VerifiedDownloadEntitlement;
   const db = createSupabaseServiceClient() as any;
   const bytes = await readVerifiedReportObject(db, entitlement);
-  return { bytes, entitlement };
+  return { bytes, entitlement, auditClient: privilegedDb };
 }

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPremiumReportAutomationFlags } from '../automation/feature-flags';
 import {
@@ -12,6 +13,7 @@ import {
   type ReportEmailTransport
 } from './resend-transport';
 import { executeClaimedReportDelivery, markReconciliationRequired } from './delivery-dispatch';
+import { createProviderLookupDatabaseAttestation } from './resend-webhook';
 
 export type ReportDeliveryActor = {
   actorType: 'system' | 'admin';
@@ -138,7 +140,6 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     input.workerLease
       ? {
           p_capability_id: input.workerLease.capabilityId,
-          p_capability_lease_token: input.workerLease.leaseToken,
           p_report_id: input.reportId,
           p_recipient: recipient,
           p_provider: 'resend'
@@ -173,7 +174,6 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     input.workerLease
       ? {
           p_capability_id: input.workerLease.capabilityId,
-          p_capability_lease_token: input.workerLease.leaseToken,
           p_authorization_id: authorization.authorization_id
         }
       : { p_authorization_id: authorization.authorization_id }
@@ -220,6 +220,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
 
 export async function authorizeBouncedReportRedelivery(input: {
   priorEmailEventId: string;
+  correctedRecipient: string;
   reason: string;
   correctedRecipientEvidence: Record<string, unknown>;
 }) {
@@ -227,13 +228,14 @@ export async function authorizeBouncedReportRedelivery(input: {
   const hasEvidence = Object.values(input.correctedRecipientEvidence ?? {}).some((value) => (
     typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined
   ));
-  if (!input.priorEmailEventId.trim() || !input.reason.trim()
+  if (!input.priorEmailEventId.trim() || !email(input.correctedRecipient) || !input.reason.trim()
       || !input.correctedRecipientEvidence
       || !hasEvidence) {
     throw new Error('A bounced email event, reason and corrected-recipient evidence are required.');
   }
   const { data, error } = await client.rpc('authorize_bounced_report_redelivery', {
     p_prior_email_event_id: input.priorEmailEventId,
+    p_corrected_recipient: input.correctedRecipient,
     p_reason: input.reason,
     p_evidence: input.correctedRecipientEvidence
   });
@@ -268,18 +270,29 @@ export async function reconcilePremiumReportEmail(input: {
     providerRequestKey: event.provider_request_key
   });
   const providerMessageId = result.messageId ?? event.provider_message_id;
+  const minimalEvidence = { state: result.state, detail: result.detail ?? null };
+  const payloadSha256 = crypto.createHash('sha256').update(JSON.stringify(minimalEvidence)).digest('hex');
+  const attestation = createProviderLookupDatabaseAttestation({
+    provider: 'resend', providerRequestKey: event.provider_request_key,
+    authorizationId: authorization.id, emailEventId: event.id,
+    providerMessageId, providerState: result.state, payloadSha256
+  });
+  const { data: attestationId, error: attestationError } = await db.rpc(
+    'record_phase14_provider_lookup_attestation', {
+      p_provider: 'resend', p_provider_request_key: event.provider_request_key,
+      p_authorization_id: authorization.id, p_email_event_id: event.id,
+      p_provider_message_id: providerMessageId, p_provider_state: result.state,
+      p_payload_sha256: payloadSha256, p_payload_json: minimalEvidence,
+      p_attested_at_epoch: attestation.attestedAtEpoch, p_nonce: attestation.nonce,
+      p_attestation_hmac: attestation.hmac
+    });
+  if (attestationError || !attestationId) throw attestationError ?? new Error('Provider attestation was not persisted.');
   if (result.state === 'accepted' && providerMessageId) {
     const { data: finalized, error: finalizationError } = await privilegedDb.rpc(
       'resolve_premium_report_delivery_reconciliation', {
       p_authorization_id: authorization.id,
       p_resolution: 'accepted',
-      p_provider_message_id: providerMessageId,
-      p_correlation_evidence: {
-        provider_request_key: event.provider_request_key,
-        verification_method: 'resend_api_lookup',
-        provider_state: result.state,
-        provider_detail: result.detail ?? null
-      },
+      p_attestation_id: attestationId,
       p_operator_override: false,
       p_reason: 'Provider API lookup verified acceptance for the durable request key.'
     });

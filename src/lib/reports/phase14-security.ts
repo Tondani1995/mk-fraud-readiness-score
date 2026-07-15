@@ -24,7 +24,6 @@ export type Phase14WorkerAuthorization = {
   capabilityId: string;
   capabilityType: Phase14WorkerCapabilityType;
   operationKey: string;
-  issueSecret: string;
   expiresAt: string;
 };
 
@@ -32,7 +31,8 @@ export type Phase14WorkerLease = {
   capabilityId: string;
   capabilityType: Phase14WorkerCapabilityType;
   operationKey: string;
-  leaseToken: string;
+  leaseOwner: string;
+  leaseGeneration: number;
   leaseExpiresAt: string;
 };
 
@@ -93,7 +93,7 @@ export async function authorizePhase14WorkerOperation(input: {
   });
   if (error || !data) authorizationFailure(error, 'phase14_worker_capability_authorization_failed');
   const row = data as Record<string, unknown>;
-  if (!row.capability_id || !row.issue_secret || !row.capability_type || !row.operation_key) {
+  if (!row.capability_id || !row.capability_type || !row.operation_key) {
     throw new Phase14AuthorizationError(
       'phase14_worker_capability_response_invalid',
       'The worker capability response was incomplete.'
@@ -103,22 +103,22 @@ export async function authorizePhase14WorkerOperation(input: {
     capabilityId: String(row.capability_id),
     capabilityType: row.capability_type as Phase14WorkerCapabilityType,
     operationKey: String(row.operation_key),
-    issueSecret: String(row.issue_secret),
     expiresAt: String(row.expires_at)
   };
 }
 
 export async function claimPhase14WorkerCapability(
-  authorization: Phase14WorkerAuthorization
+  authorization: Phase14WorkerAuthorization,
+  leaseOwner = `workflow:${authorization.capabilityId}`
 ): Promise<Phase14WorkerLease> {
   const client = createSupabaseServiceClient() as any;
-  const { data, error } = await client.rpc('claim_phase14_worker_capability', {
+  const { data, error } = await client.rpc('claim_phase14_worker_operation', {
     p_capability_id: authorization.capabilityId,
-    p_issue_secret: authorization.issueSecret
+    p_lease_owner: leaseOwner
   });
   if (error || !data) authorizationFailure(error, 'phase14_worker_capability_claim_failed');
   const row = data as Record<string, unknown>;
-  if (!row.lease_token || row.capability_id !== authorization.capabilityId) {
+  if (!row.lease_owner || row.capability_id !== authorization.capabilityId) {
     throw new Phase14AuthorizationError(
       'phase14_worker_capability_lease_invalid',
       'The worker capability lease response was invalid.'
@@ -128,7 +128,8 @@ export async function claimPhase14WorkerCapability(
     capabilityId: String(row.capability_id),
     capabilityType: row.capability_type as Phase14WorkerCapabilityType,
     operationKey: String(row.operation_key),
-    leaseToken: String(row.lease_token),
+    leaseOwner: String(row.lease_owner),
+    leaseGeneration: Number(row.lease_generation),
     leaseExpiresAt: String(row.lease_expires_at)
   };
 }
@@ -140,7 +141,6 @@ export async function requirePhase14WorkerAction(
   const client = createSupabaseServiceClient() as any;
   const { data, error } = await client.rpc('authorize_phase14_worker_action', {
     p_capability_id: lease.capabilityId,
-    p_lease_token: lease.leaseToken,
     p_action: action
   });
   if (error || !data) authorizationFailure(error, 'phase14_worker_action_failed');
@@ -149,9 +149,8 @@ export async function requirePhase14WorkerAction(
 
 export async function completePhase14WorkerCapability(lease: Phase14WorkerLease) {
   const client = createSupabaseServiceClient() as any;
-  const { data, error } = await client.rpc('complete_phase14_worker_capability', {
-    p_capability_id: lease.capabilityId,
-    p_lease_token: lease.leaseToken
+  const { data, error } = await client.rpc('complete_phase14_worker_operation', {
+    p_capability_id: lease.capabilityId
   });
   if (error || data !== true) authorizationFailure(error, 'phase14_worker_capability_completion_failed');
 }

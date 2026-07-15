@@ -114,7 +114,8 @@ assert.match(webhookRoute, /readLimitedWebhookBody/);
 assert.match(webhookRoute, /svix-id/);
 assert.match(webhookRoute, /svix-timestamp/);
 assert.match(webhookRoute, /svix-signature/);
-assert.match(webhookRoute, /apply_email_provider_event_atomic/);
+assert.match(webhookRoute, /ingest_phase14_provider_webhook/);
+assert.match(webhookRoute, /createProviderWebhookDatabaseAttestation/);
 assert.doesNotMatch(webhookRoute, /\.from\('email_events'\)/);
 
 const reportEntitlement = loadPureModule('src/lib/reports/report-entitlement.ts');

@@ -9,6 +9,9 @@ insert into public.admin_profiles(id,email,full_name,role,status,mfa_required)
 values ('24000000-0000-0000-0000-000000000020','fourth-remediation@example.invalid',
   'Fourth Remediation Admin','platform_admin','active',true);
 
+insert into auth.sessions(id,user_id,aal,not_after)
+values ('24000000-0000-0000-0000-000000000099','24000000-0000-0000-0000-000000000020','aal2',now()+interval '1 day');
+
 do $fixture$
 declare v_methodology uuid; v_product uuid;
 begin
@@ -66,6 +69,7 @@ do $tests$
 declare
   v_generation_authorization jsonb; v_generation_lease jsonb; v_claim jsonb;
   v_cleanup_authorization jsonb; v_cleanup_lease jsonb; v_template uuid;
+  v_cleanup_jobs jsonb; v_cleanup_id uuid; v_work_lease uuid;
 begin
   -- A generic service-role JWT cannot mutate any gate row through any verb.
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
@@ -75,6 +79,7 @@ begin
   exception when others then
     if sqlerrm not like '%phase14_no_session%' then raise; end if;
   end;
+
   begin
     insert into public.phase14_security_gates(gate_key,required_version,reason)
     values ('service-insert',1,'service insert');
@@ -108,8 +113,8 @@ begin
     '24000000-0000-0000-0000-000000000002','24000000-0000-0000-0000-000000000004',
     null,null,3600,'Human-approved isolated generation capability.'
   );
-  if coalesce(v_generation_authorization->>'issue_secret','')='' then
-    raise exception 'Worker authorization did not return its one-time issue secret.';
+  if coalesce(v_generation_authorization->>'capability_id','')='' or v_generation_authorization ? 'issue_secret' then
+    raise exception 'Worker authorization did not return an opaque-only capability.';
   end if;
 
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
@@ -122,14 +127,14 @@ begin
   exception when others then
     if sqlerrm not like '%phase14_worker_context_missing%' then raise; end if;
   end;
-  v_generation_lease := public.claim_phase14_worker_capability(
+  v_generation_lease := public.claim_phase14_worker_operation(
     (v_generation_authorization->>'capability_id')::uuid,
-    v_generation_authorization->>'issue_secret'
+    'fourth-test-worker'
   );
   begin
     perform public.worker_claim_premium_report_generation(
-      (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token',
-      'ORDER-PH14-FOURTH','wrong-binding','24000000-0000-0000-0000-000000000099',
+      (v_generation_lease->>'capability_id')::uuid,
+      'ORDER-PH14-FOURTH','wrong-binding','24000000-0000-0000-0000-000000000099'::uuid,
       'essential_self_assessment'
     );
     raise exception 'NO_EXPECTED_EXCEPTION:wrong_fulfilment_binding';
@@ -137,8 +142,8 @@ begin
     if sqlerrm not like '%worker_capability_fulfilment_mismatch%' then raise; end if;
   end;
   v_claim := public.worker_claim_premium_report_generation(
-    (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token',
-    'ORDER-PH14-FOURTH','scoped-worker','24000000-0000-0000-0000-000000000004',
+    (v_generation_lease->>'capability_id')::uuid,
+    'ORDER-PH14-FOURTH','scoped-worker','24000000-0000-0000-0000-000000000004'::uuid,
     'essential_self_assessment'
   );
   if not (v_claim->>'claimed')::boolean then raise exception 'Scoped generation capability was not usable: %',v_claim; end if;
@@ -150,7 +155,7 @@ begin
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
   begin
     perform public.worker_renew_premium_report_generation_lease(
-      (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token',
+      (v_generation_lease->>'capability_id')::uuid,
       (v_claim->>'claim_token')::uuid
     );
     raise exception 'NO_EXPECTED_EXCEPTION:policy_revoked_after_claim';
@@ -164,24 +169,18 @@ begin
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
   begin
     perform public.worker_renew_premium_report_generation_lease(
-      (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token',
+      (v_generation_lease->>'capability_id')::uuid,
       (v_claim->>'claim_token')::uuid
     );
     raise exception 'NO_EXPECTED_EXCEPTION:gate_changed_after_claim';
   exception when others then
-    if sqlerrm not like '%phase14_worker_capability_gate_changed%' then raise; end if;
+    if sqlerrm not like '%phase14_worker_capability_gate_changed%'
+       and sqlerrm not like '%phase14_worker_capability_not_leased%' then raise; end if;
   end;
   perform set_config('request.jwt.claims',
     '{"sub":"24000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"24000000-0000-0000-0000-000000000099"}',true);
   perform public.set_phase14_security_gate_version(1,'Restore isolated gate version.');
-  perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
-  perform public.worker_renew_premium_report_generation_lease(
-    (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token',
-    (v_claim->>'claim_token')::uuid
-  );
-  perform public.complete_phase14_worker_capability(
-    (v_generation_lease->>'capability_id')::uuid,v_generation_lease->>'lease_token'
-  );
+  perform public.set_phase14_feature_policy('storage_cleanup',true,'Restore cleanup policy after gate invalidation.');
 
   -- Maintenance capabilities are unbound and retention is positively bounded.
   perform set_config('request.jwt.claims',
@@ -191,17 +190,48 @@ begin
     'Human-approved isolated cleanup capability.'
   );
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
-  v_cleanup_lease := public.claim_phase14_worker_capability(
-    (v_cleanup_authorization->>'capability_id')::uuid,v_cleanup_authorization->>'issue_secret'
+  v_cleanup_lease := public.claim_phase14_worker_operation(
+    (v_cleanup_authorization->>'capability_id')::uuid,'fourth-cleanup-worker'
   );
   begin
     perform public.worker_cleanup_expired_premium_report_claims(
-      (v_cleanup_lease->>'capability_id')::uuid,v_cleanup_lease->>'lease_token',interval '-1 hour'
+      (v_cleanup_lease->>'capability_id')::uuid,interval '-1 hour'
     );
     raise exception 'NO_EXPECTED_EXCEPTION:negative_cleanup_retention';
   exception when others then
     if sqlerrm not like '%phase14_cleanup_retention_out_of_range%' then raise; end if;
   end;
+  insert into public.phase14_storage_cleanup_queue(
+    id,storage_bucket,storage_path,expected_checksum,owner_capability_id,cleanup_reason
+  ) values (
+    '24000000-0000-0000-0000-000000000030','generated-reports',
+    'tmp/fourth/cleanup.pdf',repeat('4',64),
+    (v_cleanup_lease->>'capability_id')::uuid,'Cleanup lease-binding test.'
+  );
+  v_cleanup_jobs := public.claim_phase14_storage_cleanup_jobs(
+    (v_cleanup_lease->>'capability_id')::uuid,1
+  );
+  v_cleanup_id := ((v_cleanup_jobs->'jobs')->0->>'id')::uuid;
+  v_work_lease := (v_cleanup_jobs->>'work_lease_token')::uuid;
+  begin
+    perform public.complete_phase14_storage_cleanup_job(
+      (v_cleanup_lease->>'capability_id')::uuid,v_cleanup_id,v_work_lease,
+      'generated-reports','tmp/fourth/cleanup.pdf',repeat('5',64),
+      true,true,null
+    );
+    raise exception 'NO_EXPECTED_EXCEPTION:cleanup_object_binding';
+  exception when others then
+    if sqlerrm not like '%cleanup_job_object_binding_invalid%' then raise; end if;
+  end;
+  if not exists(select 1 from public.phase14_storage_cleanup_queue
+    where id=v_cleanup_id and status='leased' and lease_token=v_work_lease) then
+    raise exception 'cleanup binding mismatch consumed or changed the work lease';
+  end if;
+  perform public.complete_phase14_storage_cleanup_job(
+    (v_cleanup_lease->>'capability_id')::uuid,v_cleanup_id,v_work_lease,
+    'generated-reports','tmp/fourth/cleanup.pdf',repeat('4',64),
+    false,false,'Isolated failure result after exact binding verification.'
+  );
 
   -- The current-report partial unique index rejects a second active version.
   perform set_config('request.jwt.claims',

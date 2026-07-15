@@ -82,7 +82,7 @@ assert.match(downloadRoute, /Content-Disposition/);
 assert.match(downloadService, /assert_premium_report_download_entitlement/);
 assert.match(downloadService, /readVerifiedReportObject/);
 assert.match(downloadVerification, /sha256/);
-assert.match(downloadVerification, /phase14_operational_alerts/);
+assert.match(downloadVerification, /record_phase14_operational_alert/);
 
 const closure = read('supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql');
 for (const assertion of [

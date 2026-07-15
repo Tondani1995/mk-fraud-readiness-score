@@ -27,6 +27,11 @@ function databaseDouble(existing = null) {
   return {
     calls,
     db: {
+      async rpc(name, value) {
+        calls.push(['rpc', name, value]);
+        if (name === 'claim_phase14_ai_attempt') return { data: { id: 'attempt-1' }, error: null };
+        return { data: { id: 'attempt-1' }, error: null };
+      },
       from(table) {
         const state = { operation: 'lookup', selected: false };
         const builder = {
@@ -80,6 +85,7 @@ function generator(overrides = {}) {
   const durable = createDurablePremiumReportNarrativeGenerator({
     generator: provider,
     generationIdentity: 'generation-policy-disabled',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
     db: database.db,
     authorizeAction: async () => { throw new Error('phase14_policy_disabled:ai_narrative'); }
   });
@@ -102,6 +108,7 @@ function generator(overrides = {}) {
   const durable = createDurablePremiumReportNarrativeGenerator({
     generator: provider,
     generationIdentity: 'generation-1',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
     db: database.db,
     authorizeAction: async () => true
   });
@@ -127,15 +134,16 @@ function generator(overrides = {}) {
   const durable = createDurablePremiumReportNarrativeGenerator({
     generator: provider,
     generationIdentity: 'generation-missing-accounting',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
     db: database.db,
     authorizeAction: async () => true
   });
   await assert.rejects(durable.generate(generationInput), /accounting metadata is unverified/);
   assert.equal(provider.calls, 1);
-  const accounting = database.calls.find(([name, table, value]) =>
-    name === 'update' && table === 'report_ai_attempts' && value.status === 'accounting_unverified');
+  const accounting = database.calls.find(([name, rpc, value]) =>
+    name === 'rpc' && rpc === 'settle_phase14_ai_attempt' && value.p_result.status === 'accounting_unverified');
   assert(accounting, 'missing usage/cost must persist accounting_unverified, never numeric zero');
-  assert.equal(accounting[2].estimated_cost_micros, null);
+  assert.equal(accounting[2].p_result.estimated_cost_micros, null);
 }
 
 {
@@ -150,18 +158,19 @@ function generator(overrides = {}) {
   const durable = createDurablePremiumReportNarrativeGenerator({
     generator: provider,
     generationIdentity: 'generation-2',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
     db: database.db,
     authorizeAction: async () => true
   });
   await durable.generate(generationInput);
   assert.equal(provider.calls, 1, 'different provider/model identity must create a new attempt');
-  const inserted = database.calls.find(([name]) => name === 'insert')[2];
+  const inserted = database.calls.find(([name, rpc]) => name === 'rpc' && rpc === 'claim_phase14_ai_attempt')[2].p_attempt;
   assert.equal(inserted.requested_provider, 'vercel-ai-gateway');
   assert.equal(inserted.requested_model, 'gateway/production-alias');
-  const succeeded = database.calls.find(([name, table, value]) =>
-    name === 'update' && table === 'report_ai_attempts' && value.status === 'succeeded');
-  assert.equal(succeeded[2].resolved_provider, 'different-provider');
-  assert.equal(succeeded[2].resolved_model, 'different-model');
+  const succeeded = database.calls.find(([name, rpc, value]) =>
+    name === 'rpc' && rpc === 'settle_phase14_ai_attempt' && value.p_result.status === 'succeeded');
+  assert.equal(succeeded[2].p_result.resolved_provider, 'different-provider');
+  assert.equal(succeeded[2].p_result.resolved_model, 'different-model');
 }
 
 {
@@ -170,6 +179,7 @@ function generator(overrides = {}) {
   const durable = createDurablePremiumReportNarrativeGenerator({
     generator: provider,
     generationIdentity: 'generation-oversized',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
     db: database.db,
     authorizeAction: async () => true
   });

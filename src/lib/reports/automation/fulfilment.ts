@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { createPhase14PrivilegedClient } from '../phase14-security';
 import { assembleReportData, ReportAssemblyError } from '../assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from '../report-entitlement';
 import type {
@@ -94,121 +95,25 @@ export async function queuePremiumReportFulfilment(input: {
     return { ok: false, reason: 'assembly_failed', message };
   }
 
-  const db = createSupabaseServiceClient() as any;
-  const idempotencyKey = buildPremiumReportFulfilmentKey(assembled.orderId, assembled.scoreRun.id);
-
-  try {
-    const existing = await findReusableFulfilment({
-      db,
-      idempotencyKey,
-      orderId: assembled.orderId
-    });
-    if (existing) return {
-      ok: true,
-      created: false,
-      fulfilment: existing,
-      context: {
-        orderId: assembled.orderId,
-        assessmentId: assembled.assessmentId,
-        scoreRunId: assembled.scoreRun.id,
-        recipient: assembled.customerEmail
-      }
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      reason: 'fulfilment_store_unavailable',
-      message: error instanceof Error ? error.message : 'Fulfilment lookup failed.'
-    };
-  }
-
-  const { data: inserted, error: insertError } = await db
-    .from('report_fulfilments')
-    .insert({
-      order_id: assembled.orderId,
-      assessment_id: assembled.scoreRun.assessmentId,
-      score_run_id: assembled.scoreRun.id,
-      idempotency_key: idempotencyKey,
-      trigger_source: input.triggerSource,
-      status: 'queued',
-      current_step: 'claim_fulfilment',
-      requested_by_admin_user_id: input.requestedByAdminUserId ?? null
-    })
-    .select('*')
-    .single();
-
-  if (insertError || !inserted) {
-    try {
-      const racedExisting = await findReusableFulfilment({
-        db,
-        idempotencyKey,
-        orderId: assembled.orderId
-      });
-      if (racedExisting) {
-        return {
-          ok: true,
-          created: false,
-          fulfilment: racedExisting,
-          context: {
-            orderId: assembled.orderId,
-            assessmentId: assembled.assessmentId,
-            scoreRunId: assembled.scoreRun.id,
-            recipient: assembled.customerEmail
-          }
-        };
-      }
-    } catch (reuseError) {
-      return {
-        ok: false,
-        reason: 'fulfilment_store_unavailable',
-        message: reuseError instanceof Error ? reuseError.message : 'Fulfilment reuse lookup failed.'
-      };
-    }
-
-    return {
-      ok: false,
-      reason: 'fulfilment_create_failed',
-      message: insertError?.message ?? 'Fulfilment could not be created.'
-    };
-  }
-
-  await Promise.all([
-    db.from('order_events').insert({
-      order_id: assembled.orderId,
-      event_type: 'premium_report_fulfilment_queued',
-      note: 'Autonomous premium-report fulfilment queued.',
-      actor_admin_user_id: input.requestedByAdminUserId ?? null,
-      metadata_json: {
-        fulfilment_id: inserted.id,
-        trigger_source: input.triggerSource,
-        idempotency_key: idempotencyKey,
-        automatic_email_pending_phase14b: true
-      }
-    }),
-    db.from('audit_logs').insert({
-      actor_type: input.requestedByAdminUserId ? 'admin' : 'system',
-      actor_user_id: input.requestedByAdminUserId ?? null,
-      assessment_id: assembled.scoreRun.assessmentId,
-      entity_table: 'report_fulfilments',
-      entity_id: inserted.id,
-      action: 'premium_report_fulfilment_queued',
-      after_json: {
-        order_reference: input.orderReference,
-        trigger_source: input.triggerSource,
-        score_run_id: assembled.scoreRun.id
-      }
-    })
-  ]);
-
+  const db = createPhase14PrivilegedClient();
+  const { data, error } = await db.rpc('queue_premium_report_fulfilment', {
+    p_order_reference: input.orderReference,
+    p_trigger_source: input.triggerSource
+  });
+  if (error || !data) return {
+    ok: false,
+    reason: 'fulfilment_create_failed',
+    message: error?.message ?? 'Fulfilment could not be queued.'
+  };
   return {
     ok: true,
-    created: true,
-    fulfilment: inserted,
+    created: Boolean(data.created),
+    fulfilment: data.fulfilment,
     context: {
-      orderId: assembled.orderId,
-      assessmentId: assembled.assessmentId,
-      scoreRunId: assembled.scoreRun.id,
-      recipient: assembled.customerEmail
+      orderId: data.context.order_id,
+      assessmentId: data.context.assessment_id,
+      scoreRunId: data.context.score_run_id,
+      recipient: data.context.recipient
     }
   };
 }
@@ -222,8 +127,11 @@ export async function updatePremiumReportFulfilment(input: {
   incrementAttempt?: boolean;
   errorCode?: string | null;
   errorMessage?: string | null;
+  capabilityId?: string | null;
 }) {
-  const db = createSupabaseServiceClient() as any;
+  const db = input.capabilityId
+    ? createSupabaseServiceClient() as any
+    : createPhase14PrivilegedClient();
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     status: input.status,
@@ -248,12 +156,17 @@ export async function updatePremiumReportFulfilment(input: {
     patch.attempt_count = Number(current.attempt_count ?? 0) + 1;
   }
 
-  const { data, error } = await db
-    .from('report_fulfilments')
-    .update(patch)
-    .eq('id', input.fulfilmentId)
-    .select('*')
-    .single();
+  const { data, error } = await db.rpc('transition_premium_report_fulfilment', {
+    p_capability_id: input.capabilityId ?? null,
+    p_fulfilment_id: input.fulfilmentId,
+    p_status: input.status,
+    p_current_step: input.currentStep,
+    p_generation_mode: input.generationMode ?? null,
+    p_report_id: input.reportId ?? null,
+    p_increment_attempt: input.incrementAttempt ?? false,
+    p_error_code: input.errorCode ?? null,
+    p_error_message: input.errorMessage ?? null
+  });
   if (error) throw error;
   return data;
 }

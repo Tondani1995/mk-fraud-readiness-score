@@ -59,6 +59,49 @@ export function webhookPayloadFingerprint(payload: string) {
   return crypto.createHash('sha256').update(payload, 'utf8').digest('hex');
 }
 
+export function createProviderWebhookDatabaseAttestation(input: {
+  provider: string;
+  providerEventId: string;
+  providerMessageId: string | null;
+  eventType: string;
+  eventCreatedAt: string;
+  payloadSha256: string;
+  attestedAtEpoch?: number;
+  nonce?: string;
+}) {
+  const secret = process.env.PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET?.trim();
+  if (!secret) throw new Error('The provider webhook database-attestation secret is not configured.');
+  const attestedAtEpoch = input.attestedAtEpoch ?? Math.floor(Date.now() / 1000);
+  const nonce = input.nonce ?? crypto.randomUUID();
+  const canonical = [
+    'webhook', input.provider.toLowerCase().trim(), input.providerEventId,
+    input.providerMessageId ?? '', input.eventType, input.eventCreatedAt,
+    input.payloadSha256, String(attestedAtEpoch), nonce
+  ].join('|');
+  return {
+    attestedAtEpoch,
+    nonce,
+    hmac: crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex')
+  };
+}
+
+export function createProviderLookupDatabaseAttestation(input: {
+  provider: string; providerRequestKey: string; authorizationId: string; emailEventId: string;
+  providerMessageId: string | null;
+  providerState: string; payloadSha256: string; attestedAtEpoch?: number; nonce?: string;
+}) {
+  const secret = process.env.PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET?.trim();
+  if (!secret) throw new Error('The provider lookup database-attestation secret is not configured.');
+  const attestedAtEpoch = input.attestedAtEpoch ?? Math.floor(Date.now() / 1000);
+  const nonce = input.nonce ?? crypto.randomUUID();
+  const canonical = ['provider_lookup', input.provider.toLowerCase().trim(),
+    input.providerRequestKey, input.authorizationId, input.emailEventId,
+    input.providerMessageId ?? '', input.providerState,
+    input.payloadSha256, String(attestedAtEpoch), nonce].join('|');
+  return { attestedAtEpoch, nonce,
+    hmac: crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex') };
+}
+
 function safeEqualBase64(expected: string, actual: string) {
   try {
     const expectedBuffer = Buffer.from(expected, 'base64');

@@ -35,14 +35,12 @@ export async function executeClaimedReportDelivery(input: {
     }
     const actualChecksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
     if (actualChecksum !== input.claim.report_checksum || actualChecksum !== input.report.checksum) {
-      const { error: alertError } = await input.db.from('phase14_operational_alerts').upsert({
-        alert_key: `email-checksum-mismatch:${input.report.id}:${input.claim.report_checksum}`,
-        severity: 'critical',
-        category: 'report_email_checksum_mismatch',
-        report_id: input.report.id,
-        email_event_id: input.claim.email_event_id,
-        detail_json: { expected_checksum: input.claim.report_checksum, actual_checksum: actualChecksum }
-      }, { onConflict: 'alert_key', ignoreDuplicates: true });
+      const { error: alertError } = await input.db.rpc('record_phase14_operational_alert', {
+        p_alert_key: `email-checksum-mismatch:${input.report.id}:${input.claim.report_checksum}`,
+        p_severity: 'critical', p_category: 'report_email_checksum_mismatch',
+        p_report_id: input.report.id, p_email_event_id: input.claim.email_event_id,
+        p_detail_json: { expected_checksum: input.claim.report_checksum, actual_checksum: actualChecksum }
+      });
       if (alertError) {
         throw new AggregateError(
           [new Error('Report attachment checksum mismatch.'), alertError],
@@ -59,7 +57,6 @@ export async function executeClaimedReportDelivery(input: {
       input.workerLease
         ? {
             p_capability_id: input.workerLease.capabilityId,
-            p_capability_lease_token: input.workerLease.leaseToken,
             p_authorization_id: input.claim.authorization_id,
             p_delivery_lease_token: input.claim.lease_token
           }
@@ -86,7 +83,6 @@ export async function executeClaimedReportDelivery(input: {
       input.workerLease
         ? {
             p_capability_id: input.workerLease.capabilityId,
-            p_capability_lease_token: input.workerLease.leaseToken,
             p_authorization_id: input.claim.authorization_id,
             p_email_event_id: input.claim.email_event_id,
             p_provider_message_id: provider.messageId
@@ -118,7 +114,6 @@ export async function executeClaimedReportDelivery(input: {
         input.workerLease
           ? {
               p_capability_id: input.workerLease.capabilityId,
-              p_capability_lease_token: input.workerLease.leaseToken,
               p_authorization_id: input.claim.authorization_id,
               p_delivery_lease_token: input.claim.lease_token,
               p_reason: message
@@ -159,7 +154,6 @@ export async function markReconciliationRequired(
     workerLease
       ? {
           p_capability_id: workerLease.capabilityId,
-          p_capability_lease_token: workerLease.leaseToken,
           p_authorization_id: authorizationId,
           p_provider_message_id: providerMessageId,
           p_reason: reason

@@ -40,6 +40,7 @@ async function runStructuredGeneration(input: {
   prompt: string;
 }): Promise<NarrativeGenerationResult> {
   const startedAt = Date.now();
+  const requestedProvider = providerFromModel(input.model);
   const result = await generateText({
     model: input.model,
     system: PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS,
@@ -51,16 +52,30 @@ async function runStructuredGeneration(input: {
     }),
     maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
     maxRetries: 0,
+    providerOptions: {
+      gateway: { only: [requestedProvider] }
+    },
     abortSignal: AbortSignal.timeout(PREMIUM_REPORT_AI_TIMEOUT_MS)
   });
 
   if (!result.output) throw new Error('AI provider returned no structured narrative output.');
 
-  const gatewayCost = Number((result.providerMetadata as any)?.gateway?.cost);
+  const gatewayMetadata = (result.providerMetadata as any)?.gateway;
+  const gatewayCost = Number(gatewayMetadata?.cost);
+  const resolvedProvider = String(
+    gatewayMetadata?.provider ?? gatewayMetadata?.providerName ?? gatewayMetadata?.routing?.provider ?? ''
+  ).trim().toLowerCase();
+  const resolvedModel = String(result.response.modelId ?? '').trim();
+  if (!resolvedProvider || !resolvedModel) {
+    throw new Error('AI Gateway response omitted authoritative provider or model identity.');
+  }
+  if (resolvedProvider !== requestedProvider.toLowerCase()) {
+    throw new Error(`AI Gateway routed to an unapproved provider: ${resolvedProvider}.`);
+  }
   return {
     output: result.output as PremiumReportAiEditorialPlan,
-    provider: providerFromModel(input.model),
-    model: result.response.modelId || input.model,
+    provider: resolvedProvider,
+    model: resolvedModel,
     latencyMs: Date.now() - startedAt,
     usage: {
       inputTokens: result.usage.inputTokens,

@@ -7,6 +7,13 @@ set local session_replication_role = replica;
 insert into public.admin_profiles(id, email, full_name, role, status, mfa_required)
 values ('21000000-0000-0000-0000-000000000020', 'phase14-admin@example.invalid', 'Phase 14 Test Admin', 'platform_admin', 'active', true);
 
+insert into auth.sessions(id,user_id,aal,not_after)
+values ('21000000-0000-0000-0000-000000000099','21000000-0000-0000-0000-000000000020','aal2',now()+interval '1 day');
+
+insert into phase14_private.runtime_secrets(secret_key,secret_value,rotated_by)
+values ('provider_lookup_db_hmac','phase14-integration-lookup-secret-000000000001',
+  '21000000-0000-0000-0000-000000000020');
+
 update public.phase14_security_gates
 set satisfied_version = required_version, status = 'satisfied',
     satisfied_by = '21000000-0000-0000-0000-000000000020', satisfied_at = now(),
@@ -15,7 +22,8 @@ where gate_key = 'phase14-premium-report';
 
 update public.phase14_feature_policies
 set enabled = true, updated_by = '21000000-0000-0000-0000-000000000020',
-    reason = 'isolated transactional test only', updated_at = now()
+    approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+    approved_at=now(), reason = 'isolated transactional test only', updated_at = now()
 where policy_key in ('manual_generation','manual_delivery','recipient_override');
 
 set local request.jwt.claims = '{"sub":"21000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"21000000-0000-0000-0000-000000000099"}';
@@ -125,6 +133,10 @@ declare
   v_reconciliation_auth jsonb;
   v_reconciliation_claim jsonb;
   v_reconciliation_result jsonb;
+  v_attestation_id uuid;
+  v_attested_at_epoch bigint;
+  v_attestation_nonce uuid;
+  v_attestation_hmac text;
   v_bounce_remediation_id uuid;
   v_bounce_retry jsonb;
 begin
@@ -309,6 +321,26 @@ begin
   perform public.mark_premium_report_delivery_dispatch_started(
     (v_authorization_b->>'authorization_id')::uuid, (v_delivery_claim->>'lease_token')::uuid
   );
+  update public.report_fulfilments set status='cancelled',current_step='cancelled_for_test'
+  where id='21000000-0000-0000-0000-000000000005';
+  begin
+    perform public.finalize_premium_report_delivery(
+      (v_authorization_b->>'authorization_id')::uuid,
+      (v_authorization_b->>'email_event_id')::uuid,
+      'provider-finalization-idempotency-test'
+    );
+    raise exception 'NO_EXPECTED_EXCEPTION:cancelled_fulfilment_finalized';
+  exception when others then
+    if sqlerrm not like '%delivery_finalization_fulfilment_state_invalid:cancelled%' then raise; end if;
+  end;
+  if exists(select 1 from public.report_delivery_finalizations
+      where authorization_id=(v_authorization_b->>'authorization_id')::uuid)
+     or (select status from public.email_events
+      where id=(v_authorization_b->>'email_event_id')::uuid) <> 'sending' then
+    raise exception 'cancelled fulfilment finalization left partial durable state';
+  end if;
+  update public.report_fulfilments set status='ready_for_delivery',current_step='ready_for_email_delivery'
+  where id='21000000-0000-0000-0000-000000000005';
   v_finalized_a := public.finalize_premium_report_delivery(
     (v_authorization_b->>'authorization_id')::uuid,
     (v_authorization_b->>'email_event_id')::uuid,
@@ -356,32 +388,62 @@ begin
   );
   begin
     perform public.resolve_premium_report_delivery_reconciliation(
-      (v_reconciliation_auth->>'authorization_id')::uuid,'accepted',null,
-      jsonb_build_object('provider_request_key',v_reconciliation_auth->>'provider_request_key',
-        'verification_method','resend_api_lookup'),false,'Provider accepted without a canonical ID.'
+      (v_reconciliation_auth->>'authorization_id')::uuid,'accepted',gen_random_uuid(),
+      false,'Caller-authored evidence is not a provider attestation.'
     );
-    raise exception 'NO_EXPECTED_EXCEPTION:null_provider_id_accepted';
+    raise exception 'NO_EXPECTED_EXCEPTION:fabricated_attestation_accepted';
   exception when others then
-    if sqlerrm not like '%delivery_reconciliation_provider_id_required%' then raise; end if;
+    if sqlerrm not like '%delivery_reconciliation_attestation_binding_invalid%' then raise; end if;
   end;
-  begin
-    perform public.resolve_premium_report_delivery_reconciliation(
-      (v_reconciliation_auth->>'authorization_id')::uuid,'not_accepted',null,
-      '{"verification_method":"operator_review"}'::jsonb,false,'No acceptance found.'
-    );
-    raise exception 'NO_EXPECTED_EXCEPTION:null_provider_id_without_override';
-  exception when others then
-    if sqlerrm not like '%delivery_reconciliation_operator_override_required%' then raise; end if;
-  end;
+  v_attested_at_epoch := extract(epoch from now())::bigint;
+  v_attestation_nonce := gen_random_uuid();
+  v_attestation_hmac := encode(extensions.hmac(
+    convert_to(concat_ws('|','provider_lookup','resend',
+      v_reconciliation_auth->>'provider_request_key',
+      v_reconciliation_auth->>'authorization_id',
+      v_reconciliation_auth->>'email_event_id','',
+      'not_found',repeat('9',64),v_attested_at_epoch::text,v_attestation_nonce::text),'UTF8'),
+    convert_to('phase14-integration-lookup-secret-000000000001','UTF8'),'sha256'
+  ),'hex');
+  perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
+  v_attestation_id := public.record_phase14_provider_lookup_attestation(
+    'resend',v_reconciliation_auth->>'provider_request_key',
+    (v_reconciliation_auth->>'authorization_id')::uuid,
+    (v_reconciliation_auth->>'email_event_id')::uuid,null,'not_found',repeat('9',64),
+    '{"state":"not_found","detail":"isolated provider lookup"}'::jsonb,
+    v_attested_at_epoch,v_attestation_nonce,v_attestation_hmac
+  );
+  perform set_config('request.jwt.claims',
+    '{"sub":"21000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"21000000-0000-0000-0000-000000000099"}',true);
   v_reconciliation_result := public.resolve_premium_report_delivery_reconciliation(
-    (v_reconciliation_auth->>'authorization_id')::uuid,'not_accepted',null,
-    '{"verification_method":"operator_review","evidence_reference":"isolated-case-1"}'::jsonb,
-    true,'AAL2 operator verified that the provider did not accept the request.'
+    (v_reconciliation_auth->>'authorization_id')::uuid,'not_accepted',v_attestation_id,
+    true,'AAL2 operator accepted the server-owned not-found attestation.'
   );
   if not (v_reconciliation_result->>'resolved')::boolean
-     or (select status from public.email_events where id=(v_reconciliation_auth->>'email_event_id')::uuid) <> 'failed_before_provider' then
-    raise exception 'Explicit null-ID operator resolution did not remain controlled: %',v_reconciliation_result;
+     or (select status from public.email_events where id=(v_reconciliation_auth->>'email_event_id')::uuid) <> 'failed_before_provider'
+     or not exists(select 1 from public.phase14_provider_attestation_consumptions
+       where attestation_id=v_attestation_id
+         and authorization_id=(v_reconciliation_auth->>'authorization_id')::uuid) then
+    raise exception 'Trusted provider attestation was not consumed atomically: %',v_reconciliation_result;
   end if;
+  update public.report_delivery_authorizations set status='reconciliation_required'
+  where id=(v_reconciliation_auth->>'authorization_id')::uuid;
+  update public.email_events set status='reconciliation_required'
+  where id=(v_reconciliation_auth->>'email_event_id')::uuid;
+  begin
+    perform public.resolve_premium_report_delivery_reconciliation(
+      (v_reconciliation_auth->>'authorization_id')::uuid,'not_accepted',v_attestation_id,
+      true,'Attempt to replay a consumed provider attestation.'
+    );
+    raise exception 'NO_EXPECTED_EXCEPTION:attestation_replayed';
+  exception when others then
+    if sqlerrm not like '%delivery_reconciliation_attestation_already_consumed%' then raise; end if;
+  end;
+  update public.report_delivery_authorizations set status='revoked',
+    revoked_reason='Consumed-attestation replay test complete.'
+  where id=(v_reconciliation_auth->>'authorization_id')::uuid;
+  update public.email_events set status='failed_before_provider'
+  where id=(v_reconciliation_auth->>'email_event_id')::uuid;
 
   insert into public.email_events(
     id, assessment_id, order_id, report_id, recipient_email, status, provider_message_id,
@@ -429,6 +491,36 @@ begin
     'resend', 'provider-event-bounced-after-delivered', 'provider-message-1', 'email.bounced',
     '2026-07-14T12:07:00Z', repeat('d',64), '{"type":"email.bounced","reason":"isolated bounce"}'::jsonb
   );
+  insert into public.email_events(
+    id,assessment_id,order_id,report_id,recipient_email,status,provider,
+    provider_message_id,provider_request_key,provider_idempotency_key,dedupe_key,
+    notification_type,attempt_number,delivery_updated_at
+  ) values (
+    v_bounced_email,'21000000-0000-0000-0000-000000000001',
+    '21000000-0000-0000-0000-000000000003',v_report_id,'integration@example.invalid',
+    'bounced','resend','provider-bounce-remediation','request-bounce-remediation',
+    'request-bounce-remediation','dedupe-bounce-remediation','premium_report_pdf',1,now()
+  );
+  begin
+    perform public.authorize_premium_report_delivery(
+      v_report_id,'bounce@example.invalid','bounce_retry',true,'resend',null
+    );
+    raise exception 'NO_EXPECTED_EXCEPTION:bounce_retry_without_remediation';
+  exception when others then
+    if sqlerrm not like '%delivery_bounce_remediation_required%' then raise; end if;
+  end;
+  v_bounce_remediation_id := public.authorize_bounced_report_redelivery(
+    v_bounced_email,'bounce@example.invalid','Recipient address was corrected and independently verified.',
+    '{"evidence_reference":"isolated-bounce-case","verification_method":"two-person-check","verified_at":"2026-07-14T12:08:00Z"}'::jsonb
+  );
+  v_bounce_retry := public.authorize_premium_report_delivery(
+    v_report_id,'bounce@example.invalid','bounce_retry',true,'resend',v_bounce_remediation_id
+  );
+  if v_bounce_retry->>'status' <> 'queued'
+     or (select status from public.report_delivery_remediations where id=v_bounce_remediation_id) <> 'consumed' then
+    raise exception 'Bounce retry did not require and consume a fresh remediation authorization: %',v_bounce_retry;
+  end if;
+
   perform public.apply_email_provider_event_atomic(
     'resend', 'provider-event-complained-after-bounced', 'provider-message-1', 'email.complained',
     '2026-07-14T12:08:00Z', repeat('e',64), '{"type":"email.complained","reason":"isolated complaint"}'::jsonb
@@ -442,42 +534,12 @@ begin
   end if;
   begin
     perform public.authorize_premium_report_delivery(
-      v_report_id,'integration@example.invalid','bounce_retry',false,'resend',null
+      v_report_id,'bounce@example.invalid','bounce_retry',false,'resend',null
     );
     raise exception 'NO_EXPECTED_EXCEPTION:complaint_retry';
   exception when others then
     if sqlerrm not like '%delivery_complaint_permanently_non_retriable%' then raise; end if;
   end;
-
-  insert into public.email_events(
-    id,assessment_id,order_id,report_id,recipient_email,status,provider,
-    provider_message_id,provider_request_key,provider_idempotency_key,dedupe_key,
-    notification_type,attempt_number,delivery_updated_at
-  ) values (
-    v_bounced_email,'21000000-0000-0000-0000-000000000001',
-    '21000000-0000-0000-0000-000000000003',v_report_id,'bounce@example.invalid',
-    'bounced','resend','provider-bounce-remediation','request-bounce-remediation',
-    'request-bounce-remediation','dedupe-bounce-remediation','premium_report_pdf',1,now()
-  );
-  begin
-    perform public.authorize_premium_report_delivery(
-      v_report_id,'bounce@example.invalid','bounce_retry',true,'resend',null
-    );
-    raise exception 'NO_EXPECTED_EXCEPTION:bounce_retry_without_remediation';
-  exception when others then
-    if sqlerrm not like '%delivery_bounce_remediation_required%' then raise; end if;
-  end;
-  v_bounce_remediation_id := public.authorize_bounced_report_redelivery(
-    v_bounced_email,'Recipient address was corrected and independently verified.',
-    '{"evidence_reference":"isolated-bounce-case","verification":"two-person-check"}'::jsonb
-  );
-  v_bounce_retry := public.authorize_premium_report_delivery(
-    v_report_id,'bounce@example.invalid','bounce_retry',true,'resend',v_bounce_remediation_id
-  );
-  if v_bounce_retry->>'status' <> 'queued'
-     or (select status from public.report_delivery_remediations where id=v_bounce_remediation_id) <> 'consumed' then
-    raise exception 'Bounce retry did not require and consume a fresh remediation authorization: %',v_bounce_retry;
-  end if;
 
   insert into public.email_events(
     id, assessment_id, order_id, report_id, recipient_email, status, provider,

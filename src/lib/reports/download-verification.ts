@@ -18,14 +18,11 @@ async function alert(
   category: string,
   detail: Record<string, unknown>
 ) {
-  await db.from('phase14_operational_alerts').upsert({
-    alert_key: `${category}:${reportId}:${String(detail.expectedChecksum ?? 'unknown')}`,
-    severity: 'critical',
-    category,
-    report_id: reportId,
-    detail_json: detail,
-    status: 'open'
-  }, { onConflict: 'alert_key', ignoreDuplicates: true }).catch(() => null);
+  await db.rpc('record_phase14_operational_alert', {
+    p_alert_key: `${category}:${reportId}:${String(detail.expectedChecksum ?? 'unknown')}`,
+    p_severity: 'critical', p_category: category, p_report_id: reportId,
+    p_email_event_id: null, p_detail_json: detail
+  }).catch(() => null);
 }
 
 export async function readVerifiedReportObject(db: any, entitlement: VerifiedDownloadEntitlement) {

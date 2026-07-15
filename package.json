@@ -32,7 +32,10 @@
     "phase14:test-storage-faults": "node scripts/phase14-storage-fault-injection-tests.mjs",
     "phase14:test-provider-faults": "node scripts/phase14-provider-fault-injection-tests.mjs",
     "phase14:test-webhook-adversarial": "node scripts/phase14-webhook-adversarial-tests.mjs",
+    "phase14:test-webhook-route-db": "node scripts/phase14-webhook-route-db-test.mjs",
+    "phase14:test-atomic-capability-completion": "psql \"$LOCAL_DB_URL\" --set=ON_ERROR_STOP=1 --file=scripts/phase14-atomic-capability-completion-tests.sql",
     "phase14:test-ai-accounting": "node scripts/phase14-ai-accounting-tests.mjs",
+    "phase14:test-fifth-remediation": "psql \"$DATABASE_URL\" --set=ON_ERROR_STOP=1 --file=scripts/phase14-fifth-remediation-tests.sql",
     "phase14:test-node24-pdf": "node scripts/phase14-node24-chromium-smoke.mjs",
     "platform:test-hardening": "node scripts/platform-hardening-tests.mjs && node scripts/phase14-database-security-hardening-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"

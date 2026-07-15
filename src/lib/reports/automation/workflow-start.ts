@@ -15,22 +15,26 @@ export async function startPremiumReportWorkflow(
 ): Promise<StartPremiumReportWorkflowResult> {
   const db = createSupabaseServiceClient() as any;
   const fulfilmentId = input.fulfilmentId;
+  const durableInput: PremiumReportFulfilmentWorkflowInput = {
+    fulfilmentId,
+    generationCapabilityId: input.generationCapabilityId,
+    deliveryCapabilityId: input.deliveryCapabilityId ?? null
+  };
 
-  const { data: claimed, error: claimError } = await db
-    .from('report_fulfilments')
-    .update({
-      workflow_start_status: 'starting',
-      workflow_start_error: null
-    })
-    .eq('id', fulfilmentId)
-    .is('workflow_run_id', null)
-    .in('workflow_start_status', ['not_started', 'failed'])
-    .select('id,workflow_run_id,workflow_start_status')
-    .maybeSingle();
+  const { error: capabilityError } = await db.rpc('claim_phase14_worker_operation', {
+    p_capability_id: input.generationCapabilityId,
+    p_lease_owner: `workflow:${input.generationCapabilityId}`
+  });
+  if (capabilityError) return { ok: false, started: false, error: capabilityError.message };
+
+  const { data: claimed, error: claimError } = await db.rpc('claim_premium_report_workflow_start', {
+    p_capability_id: input.generationCapabilityId,
+    p_fulfilment_id: fulfilmentId
+  });
 
   if (claimError) return { ok: false, started: false, error: claimError.message };
 
-  if (!claimed) {
+  if (!claimed?.claimed) {
     const { data: existing, error: existingError } = await db
       .from('report_fulfilments')
       .select('workflow_run_id,workflow_start_status')
@@ -49,18 +53,14 @@ export async function startPremiumReportWorkflow(
   }
 
   try {
-    const run = await start(premiumReportFulfilmentWorkflow, [input]);
-    const now = new Date().toISOString();
-    const { error: updateError } = await db
-      .from('report_fulfilments')
-      .update({
-        workflow_start_status: 'started',
-        workflow_run_id: run.runId,
-        workflow_started_at: now,
-        workflow_start_error: null
-      })
-      .eq('id', fulfilmentId)
-      .eq('workflow_start_status', 'starting');
+    const run = await start(premiumReportFulfilmentWorkflow, [durableInput]);
+    const { error: updateError } = await db.rpc('record_premium_report_workflow_start', {
+      p_capability_id: input.generationCapabilityId,
+      p_fulfilment_id: fulfilmentId,
+      p_started: true,
+      p_workflow_run_id: run.runId,
+      p_error: null
+    });
 
     if (updateError) {
       console.error('Premium report workflow started but run metadata could not be persisted.', {
@@ -73,16 +73,13 @@ export async function startPremiumReportWorkflow(
     return { ok: true, started: true, runId: run.runId };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? 'Workflow could not be started.');
-    await db
-      .from('report_fulfilments')
-      .update({
-        workflow_start_status: 'failed',
-        workflow_start_error: message,
-        last_error_code: 'workflow_start_failed',
-        last_error_message: message
-      })
-      .eq('id', fulfilmentId)
-      .eq('workflow_start_status', 'starting');
+    await db.rpc('record_premium_report_workflow_start', {
+      p_capability_id: input.generationCapabilityId,
+      p_fulfilment_id: fulfilmentId,
+      p_started: false,
+      p_workflow_run_id: null,
+      p_error: message
+    });
 
     return { ok: false, started: false, error: message };
   }

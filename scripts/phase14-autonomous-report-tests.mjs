@@ -63,11 +63,11 @@ assert.doesNotMatch(fulfilment, /product_not_automated/);
 
 const start = read('src/lib/reports/automation/workflow-start.ts');
 assert.match(start, /from 'workflow\/api'/);
-assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[input\]\)/);
+assert.match(start, /await start\(premiumReportFulfilmentWorkflow, \[durableInput\]\)/);
 assert.match(start, /PremiumReportFulfilmentWorkflowInput/);
-assert.match(start, /workflow_start_status:\s*'starting'/);
-assert.match(start, /\.is\('workflow_run_id', null\)/);
-assert.match(start, /\.in\('workflow_start_status', \['not_started', 'failed'\]\)/);
+assert.match(start, /claim_premium_report_workflow_start/);
+assert.match(start, /record_premium_report_workflow_start/);
+assert.match(start, /claim_phase14_worker_operation/);
 
 const workflow = read('src/workflows/premium-report-fulfilment.ts');
 assert.match(workflow, /from 'workflow'/);
@@ -77,6 +77,45 @@ for (const step of ['validateFulfilmentStep','claimWorkerCapabilityStep','genera
   assert.match(workflow, new RegExp(step));
 }
 assert.match(workflow, /flags\.autoEmailEnabled/);
+
+{
+  const output = ts.transpileModule(start, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+  }).outputText;
+  const module = { exports: {} };
+  let serializedWorkflowArguments = '';
+  const db = {
+    async rpc(name) {
+      if (name === 'claim_premium_report_workflow_start') return { data: { claimed: true }, error: null };
+      return { data: true, error: null };
+    }
+  };
+  new Function('require', 'module', 'exports', output)((specifier) => {
+    if (specifier === 'workflow/api') return {
+      async start(_workflow, args) {
+        serializedWorkflowArguments = JSON.stringify(args);
+        return { runId: 'opaque-workflow-run' };
+      }
+    };
+    if (specifier === '@/lib/supabase/server') return { createSupabaseServiceClient: () => db };
+    if (specifier === '@/workflows/premium-report-fulfilment') return { premiumReportFulfilmentWorkflow() {} };
+    throw new Error(`Unexpected workflow-start dependency: ${specifier}`);
+  }, module, module.exports);
+  const result = await module.exports.startPremiumReportWorkflow({
+    fulfilmentId: 'fulfilment-opaque',
+    generationCapabilityId: 'generation-capability-opaque',
+    deliveryCapabilityId: 'delivery-capability-opaque',
+    issueSecret: 'must-never-serialize',
+    leaseToken: 'must-never-serialize'
+  });
+  assert.equal(result.started, true);
+  assert.deepEqual(JSON.parse(serializedWorkflowArguments), [{
+    fulfilmentId: 'fulfilment-opaque',
+    generationCapabilityId: 'generation-capability-opaque',
+    deliveryCapabilityId: 'delivery-capability-opaque'
+  }]);
+  assert.doesNotMatch(serializedWorkflowArguments, /issueSecret|leaseToken|must-never-serialize/);
+}
 
 const config = read('next.config.mjs');
 assert.match(config, /from 'workflow\/next'/);

@@ -7,11 +7,11 @@ const marker = '\ncommit;';
 const source = fs.readFileSync(migrationPath, 'utf8');
 const markerIndex = source.indexOf(marker);
 if (markerIndex < 0 || source.indexOf(marker, markerIndex + marker.length) >= 0) {
-  throw new Error('Expected exactly one webhook boundary marker.');
+  throw new Error('Expected exactly one migration commit marker.');
 }
 const commitIndex = source.lastIndexOf(marker);
 if (commitIndex !== markerIndex || source.slice(0, markerIndex).includes('\ncommit;')) {
-  throw new Error('Closure migration is not atomic across the former webhook boundary.');
+  throw new Error('Migration is not atomic before its final commit marker.');
 }
 
 const controlledFailure = `do $phase14_controlled_boundary_failure$

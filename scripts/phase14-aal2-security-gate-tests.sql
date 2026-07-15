@@ -9,6 +9,15 @@ insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) v
   ('23000000-0000-0000-0000-000000000003','aal2-revoked@example.invalid','AAL2 Revoked','platform_admin','revoked',true),
   ('23000000-0000-0000-0000-000000000004','aal2-role@example.invalid','AAL2 Role','finance_admin','active',true);
 
+insert into auth.sessions(id,user_id,aal,not_after) values
+ ('23000000-0000-0000-0000-000000000011','23000000-0000-0000-0000-000000000001','aal2',now()+interval '1 day'),
+ ('23000000-0000-0000-0000-000000000012','23000000-0000-0000-0000-000000000002','aal2',now()+interval '1 day'),
+ ('23000000-0000-0000-0000-000000000013','23000000-0000-0000-0000-000000000001','aal2',now()+interval '1 day'),
+ ('23000000-0000-0000-0000-000000000014','23000000-0000-0000-0000-000000000004','aal2',now()+interval '1 day'),
+ ('23000000-0000-0000-0000-000000000015','23000000-0000-0000-0000-000000000003','aal2',now()+interval '1 day'),
+ ('23000000-0000-0000-0000-000000000016','23000000-0000-0000-0000-000000000001','aal2',now()-interval '1 hour'),
+ ('23000000-0000-0000-0000-000000000017','23000000-0000-0000-0000-000000000001','aal2',now()+interval '1 day');
+
 do $tests$
 declare v_context jsonb;
 begin
@@ -28,7 +37,8 @@ begin
 
   update public.phase14_feature_policies
   set enabled = true, updated_by = '23000000-0000-0000-0000-000000000001',
-      reason = 'isolated AAL2 authorization test', updated_at = now()
+      approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+      approved_at=now(), reason = 'isolated AAL2 authorization test', updated_at = now()
   where policy_key = 'manual_generation';
 
   perform set_config('request.jwt.claims', '{}', true);
@@ -37,6 +47,22 @@ begin
     raise exception 'NO_EXPECTED_EXCEPTION:no_session';
   exception when others then
     if sqlerrm not like '%phase14_no_session%' then raise; end if;
+  end;
+
+  perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800}', true);
+  begin
+    perform public.authorize_phase14_action('report_generation');
+    raise exception 'NO_EXPECTED_EXCEPTION:missing_session_id';
+  exception when others then
+    if sqlerrm not like '%phase14_session_id_required%' then raise; end if;
+  end;
+
+  perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"23000000-0000-0000-0000-000000000018"}', true);
+  begin
+    perform public.authorize_phase14_action('report_generation');
+    raise exception 'NO_EXPECTED_EXCEPTION:revoked_auth_session';
+  exception when others then
+    if sqlerrm not like '%phase14_session_revoked_or_expired%' then raise; end if;
   end;
 
   perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"23000000-0000-0000-0000-000000000012"}', true);
@@ -71,12 +97,12 @@ begin
     if sqlerrm not like '%phase14_profile_revoked%' then raise; end if;
   end;
 
-  perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":1,"session_id":"23000000-0000-0000-0000-000000000016"}', true);
+  perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"23000000-0000-0000-0000-000000000016"}', true);
   begin
     perform public.authorize_phase14_action('report_generation');
     raise exception 'NO_EXPECTED_EXCEPTION:expired_session';
   exception when others then
-    if sqlerrm not like '%phase14_session_expired%' then raise; end if;
+    if sqlerrm not like '%phase14_session_revoked_or_expired%' then raise; end if;
   end;
 
   perform set_config('request.jwt.claims', '{"sub":"23000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"23000000-0000-0000-0000-000000000017"}', true);

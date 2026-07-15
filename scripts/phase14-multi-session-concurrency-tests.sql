@@ -8,6 +8,11 @@ set local session_replication_role = replica;
 insert into public.admin_profiles(id, email, full_name, role, status, mfa_required)
 values ('22000000-0000-0000-0000-000000000020', 'phase14-concurrency@example.invalid', 'Concurrency Admin', 'platform_admin', 'active', true);
 
+insert into auth.sessions(id,user_id,aal,not_after)
+select ('22000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid,
+  '22000000-0000-0000-0000-000000000020'::uuid,'aal2',now()+interval '1 day'
+from generate_series(91,99) n;
+
 update public.phase14_security_gates
 set satisfied_version = required_version, status = 'satisfied',
     satisfied_by = '22000000-0000-0000-0000-000000000020', satisfied_at = now(),
@@ -16,7 +21,8 @@ where gate_key = 'phase14-premium-report';
 
 update public.phase14_feature_policies
 set enabled = true, updated_by = '22000000-0000-0000-0000-000000000020',
-    reason = 'isolated multi-session test only', updated_at = now()
+    approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+    approved_at=now(),reason = 'isolated multi-session test only', updated_at = now()
 where policy_key = 'manual_generation';
 
 do $fixture$
@@ -218,6 +224,8 @@ drop function public.phase14_test_try_recovery();
 select dblink_disconnect('phase14_publisher');
 select dblink_disconnect('phase14_recovery');
 
+select set_config('phase14.authoritative_transition','migration',false);
+
 insert into public.email_events(
   id, assessment_id, order_id, report_id, recipient_email, status, provider,
   provider_message_id, provider_request_key, provider_idempotency_key,
@@ -229,6 +237,7 @@ select '22000000-0000-0000-0000-000000000030', assessment_id, order_id, report_i
   'premium_report_pdf', 1, '2026-07-14T12:00:00Z'
 from public.report_generation_claims
 where assessment_id = '22000000-0000-0000-0000-000000000001';
+select set_config('phase14.authoritative_transition','',false);
 
 select dblink_connect('phase14_worker_a', 'host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
 select dblink_connect('phase14_worker_b', 'host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
