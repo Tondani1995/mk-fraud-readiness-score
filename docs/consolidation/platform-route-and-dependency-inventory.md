@@ -5,9 +5,11 @@ Tracking issue: `Tondani1995/mk-fraud-readiness-score#22`
 ## Immutable source references
 
 - Destination repository: `Tondani1995/mk-fraud-readiness-score`
-- Destination base commit: `71605200915fcf7c5448f9e4ff2d517cece7c471`
+- Original destination base commit: `71605200915fcf7c5448f9e4ff2d517cece7c471`
+- Current product parity commit: `60c2f5c9bebd294efd18c0ab1a8ddc0f4d89a748`
 - Source website repository: `Tondani1995/fraud_website`
-- Source website commit: `5e74f9ec9390b2b053ca26ee669f529b7ef47c9b`
+- Original source website commit: `5e74f9ec9390b2b053ca26ee669f529b7ef47c9b`
+- Current website parity commit: `76c8a4cfc8b94c260f98111b853044f83675edf7`
 - Consolidation branch: `consolidation/single-mk-platform`
 - Vercel project ID: `prj_jFSTfwL14kk8UURjaaRwYe2HWuhK`
 
@@ -21,6 +23,8 @@ The only rewrite is same-application compatibility for Workflow DevKit callbacks
 
 It has no host or protocol destination and cannot proxy to the retired website or product deployments.
 
+Repository-wide hostname review found old product Preview URLs only in historical `docs/v1/**` evidence. They are not imported by runtime code or configuration. The generic `.vercel.app` suffix check in the respondent submit route deliberately preserves the current Preview origin when it builds a snapshot URL; it contains no project hostname and performs no proxying. No old website deployment hostname is present.
+
 ## Route ownership
 
 ### Public website
@@ -30,6 +34,7 @@ It has no host or protocol destination and cannot proxy to the retired website o
 - Website APIs: `/api/insights`, `/api/insights/[id]`, `/api/auth/admin-login`
 - Discovery: `/robots.txt`, `/sitemap.xml`, favicon and structured-data metadata
 - The score landing page embeds `/score/start?embed=1` in a same-origin iframe. CTA links use `/fraud-readiness-score#start-score`.
+- The embedded product reports document-height changes with `ResizeObserver`, load and resize events. The website validates both message origin and iframe source before adjusting the eager-loaded frame. The frame starts at a safe 620px minimum and contains no fixed 1900px height.
 
 The source website's `/api/ai/generate-insight` and `/api/ai/generate-tags` endpoints were intentionally not imported. No new AI route, provider call, or feature activation is part of the consolidation.
 

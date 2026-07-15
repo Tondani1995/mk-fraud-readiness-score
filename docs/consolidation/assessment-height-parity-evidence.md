@@ -40,10 +40,10 @@ CONSOLIDATION_BASE_URL=http://127.0.0.1:3100 node scripts/consolidation-assessme
     "viewportWidthPx": 1440,
     "viewportHeightPx": 1000,
     "state": "validation-error",
-    "iframeRenderedHeightPx": 996,
+    "iframeRenderedHeightPx": 997,
     "embeddedContentScrollHeightPx": 997,
-    "heightDifferencePx": -1.16,
-    "cardBottomToFooterStartPx": 79.84,
+    "heightDifferencePx": 0,
+    "cardBottomToFooterStartPx": 81,
     "internalVerticalScrollbar": false,
     "clipped": false,
     "outerPageScrollable": true
@@ -105,4 +105,4 @@ CONSOLIDATION_BASE_URL=http://127.0.0.1:3100 node scripts/consolidation-assessme
 
 ## Result
 
-All six desktop/mobile states passed with no internal vertical scrollbar and no clipped assessment content. The iframe tracked its embedded document to within 1.16px in every state, while the expected outer-page scrollbar remained available for normal page scrolling. The fixed `1900px` height is not present in the implementation.
+All six desktop/mobile states passed with no internal vertical scrollbar and no clipped assessment content. The iframe matched its embedded document height in every recorded state, while the expected outer-page scrollbar remained available for normal page scrolling. The fixed `1900px` height is not present in the implementation.
