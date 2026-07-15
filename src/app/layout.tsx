@@ -1,19 +1,17 @@
-import type { Metadata } from 'next';
+import { Poppins } from 'next/font/google';
 import './globals.css';
-import { siteConfig } from '@/lib/config/site';
-import { AppChrome } from '@/components/layout/AppChrome';
 
-export const metadata: Metadata = {
-  title: siteConfig.name,
-  description: siteConfig.description,
-  metadataBase: new URL(siteConfig.url)
-};
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins'
+});
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-ZA">
-      <body>
-        <AppChrome>{children}</AppChrome>
+    <html lang="en-ZA" className={poppins.variable}>
+      <body className={`${poppins.className} antialiased`}>
+        {children}
       </body>
     </html>
   );

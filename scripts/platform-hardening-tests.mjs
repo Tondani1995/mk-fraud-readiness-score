@@ -60,7 +60,10 @@ for (const swc of [
 ]) assert(Boolean(lock.packages?.[`node_modules/${swc}`]), `lockfile must include ${swc}`);
 
 includes('scripts/phase10-premium-report-tests.mjs', 'Node 24 compatibility boundary', 'Phase 10 must explicitly guard Node 24');
-includes('next.config.mjs', "basePath: '/score'", 'basePath must remain /score');
+excludes('next.config.mjs', 'basePath:', 'global basePath must be removed after explicit /score routing');
+assert(exists('src/app/score/start/page.tsx'), 'respondent start page must live at explicit /score route');
+assert(exists('src/app/score/api/health/route.ts'), 'health API must live at explicit /score route');
+includes('next.config.mjs', "source: '/score/.well-known/workflow/:path*'", 'legacy /score Workflow callbacks must remain compatible');
 includes('next.config.mjs', 'outputFileTracingIncludes', 'Chromium tracing must remain');
 includes('next.config.mjs', '@sparticuz/chromium/bin', 'Chromium bin must remain traced');
 includes('next.config.mjs', "'@sparticuz/chromium': 'commonjs @sparticuz/chromium'", 'Chromium must remain external');
@@ -97,7 +100,7 @@ includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', '
 includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'processed_at timestamptz', 'provider event ledger must support retry-safe processing');
 includes('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql', 'revoke all on table public.email_provider_events from anon, authenticated', 'provider event ledger must deny ordinary writes');
 
-for (const file of ['src/app/api/health/route.ts','src/app/api/system/build-info/route.ts','src/lib/system/build-info.ts']) {
+for (const file of ['src/app/score/api/health/route.ts','src/app/score/api/system/build-info/route.ts','src/lib/system/build-info.ts']) {
   for (const secret of ['SUPABASE_SERVICE_ROLE_KEY','SUPABASE_JWT_SECRET','ASSESSMENT_TOKEN_PEPPER','RESEND_API_KEY']) {
     excludes(file, secret, `${file} must not expose ${secret}`);
   }

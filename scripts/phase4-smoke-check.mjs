@@ -3,12 +3,12 @@ import path from 'node:path';
 
 const root = process.cwd();
 const requiredFiles = [
-  'src/app/api/admin/login/route.ts',
-  'src/app/api/admin/logout/route.ts',
-  'src/app/api/admin/me/route.ts',
-  'src/app/api/assessments/start/route.ts',
-  'src/app/api/assessments/resume/route.ts',
-  'src/app/admin/login/page.tsx',
+  'src/app/score/api/admin/login/route.ts',
+  'src/app/score/api/admin/logout/route.ts',
+  'src/app/score/api/admin/me/route.ts',
+  'src/app/score/api/assessments/start/route.ts',
+  'src/app/score/api/assessments/resume/route.ts',
+  'src/app/score/admin/login/page.tsx',
   'src/components/admin/AdminLoginForm.tsx',
   'src/components/admin/AdminShell.tsx',
   'src/components/admin/ProtectedAdminPage.tsx',
@@ -124,7 +124,7 @@ for (const file of filesToScan) {
       violations.push(`${path.relative(root, file)} contains forbidden legacy value: ${forbidden}`);
     }
   }
-  if (path.relative(root, file).startsWith('src/app/admin/') && file.endsWith('.tsx')) {
+  if (path.relative(root, file).startsWith('src/app/score/admin/') && file.endsWith('.tsx')) {
     assertAdminProtectionBeforeServiceQueries(file, text);
   }
 }
@@ -156,10 +156,10 @@ if (startPageSource.includes('password') || startPageSource.includes('create acc
 }
 
 const rateLimitedRoutes = [
-  'src/app/api/admin/login/route.ts',
-  'src/app/api/assessments/start/route.ts',
-  'src/app/api/assessments/resume/route.ts',
-  'src/app/assessment/[assessmentRef]/page.tsx'
+  'src/app/score/api/admin/login/route.ts',
+  'src/app/score/api/assessments/start/route.ts',
+  'src/app/score/api/assessments/resume/route.ts',
+  'src/app/score/assessment/[assessmentRef]/page.tsx'
 ];
 for (const relativePath of rateLimitedRoutes) {
   const fullPath = path.join(root, relativePath);

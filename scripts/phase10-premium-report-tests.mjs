@@ -21,8 +21,8 @@ for (const file of [
   'src/lib/reports/premium-report-service.ts',
   'src/lib/reports/storage-publication.ts',
   'src/lib/reports/download-verification.ts',
-  'src/app/api/admin/orders/[orderReference]/generate-report/route.ts',
-  'src/app/api/admin/reports/[reportId]/download/route.ts',
+  'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts',
+  'src/app/score/api/admin/reports/[reportId]/download/route.ts',
   'supabase/migrations/0011_phase10_pdf_report_engine_additions.sql'
 ]) assert(exists(file), `${file} must exist`);
 
@@ -100,13 +100,13 @@ excludes(service, "from('report_events')", 'Report events must not bypass the Ph
 excludes(service, "from('audit_logs')", 'Audit logs must not bypass the Phase 14 state machine');
 excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');
 
-const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
+const generateRoute = 'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts';
 includes(generateRoute, 'generatePremiumReport', 'Admin route must delegate to shared service');
 includes(generateRoute, 'REPORT_GENERATION_ROLES', 'Admin route must remain role protected');
 includes(generateRoute, 'ReportEntitlementError', 'Admin route must return controlled entitlement conflicts');
 excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF logic');
 
-const download = 'src/app/api/admin/reports/[reportId]/download/route.ts';
+const download = 'src/app/score/api/admin/reports/[reportId]/download/route.ts';
 includes(download, 'downloadPremiumReport', 'Downloads must stream through the shared verified service');
 excludes(download, 'createSignedUrl', 'Downloads must not issue raw signed storage URLs');
 includes('src/lib/reports/download-verification.ts', 'sha256', 'Downloads must verify the runtime object checksum');

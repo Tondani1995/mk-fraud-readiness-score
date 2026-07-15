@@ -42,10 +42,10 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
 export async function requireAdmin(allowedRoles?: AdminRole[]): Promise<AdminSession> {
   const admin = await getAdminSession();
-  if (!admin) redirect('/admin/login');
+  if (!admin) redirect('/score/admin/login');
 
   if (allowedRoles && !allowedRoles.includes(admin.role)) {
-    redirect('/admin/login?error=forbidden');
+    redirect('/score/admin/login?error=forbidden');
   }
 
   return admin;

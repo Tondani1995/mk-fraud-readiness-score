@@ -58,13 +58,13 @@ assertIncludes(orderLib, 'report_unlock: false', 'Order service explicitly block
 assertIncludes(orderLib, 'unstable_noStore', 'Order admin reads opt out of cached server rendering');
 assertIncludes(orderLib, 'noStore();', 'Order admin list/detail reads are no-store');
 
-const startRoute = 'src/app/api/assessments/start/route.ts';
+const startRoute = 'src/app/score/api/assessments/start/route.ts';
 assertIncludes(startRoute, 'x-forwarded-host', 'Start route uses forwarded request host for preview-safe links');
 assertIncludes(startRoute, "request.headers.get('host')", 'Start route falls back to request host');
 assertNotIncludes(startRoute, 'NEXT_PUBLIC_APP_URL', 'Start route must not let canonical production env override preview links');
 assertNotIncludes(startRoute, 'getOptionalServerEnv', 'Start route no longer uses canonical app URL override for respondent links');
 
-const reportRoute = 'src/app/api/assessments/[assessmentRef]/report-request/route.ts';
+const reportRoute = 'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts';
 assertIncludes(reportRoute, 'createOrGetOrderForReportRequest', 'Report request route creates or returns manual EFT order');
 assertIncludes(reportRoute, 'validateSnapshotToken', 'Report request route validates the private snapshot token before creating an order');
 assertIncludes(reportRoute, 'snapshotToken', 'Report request route requires a snapshot token in the request body');
@@ -85,9 +85,9 @@ assertNotIncludes(snapshot, 'Download report', 'Snapshot must not expose report 
 assertNotIncludes(snapshot, 'benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 assertNotIncludes(snapshot, 'Benchmarks', 'Snapshot must not mention benchmarks in customer-facing text');
 
-const adminList = 'src/app/admin/orders/page.tsx';
-const adminDetail = 'src/app/admin/orders/[orderReference]/page.tsx';
-const statusRoute = 'src/app/admin/orders/[orderReference]/status/route.ts';
+const adminList = 'src/app/score/admin/orders/page.tsx';
+const adminDetail = 'src/app/score/admin/orders/[orderReference]/page.tsx';
+const statusRoute = 'src/app/score/admin/orders/[orderReference]/status/route.ts';
 assert(exists(adminList), 'Admin order list route must exist.');
 assert(exists(adminDetail), 'Admin order detail route must exist.');
 assert(exists(statusRoute), 'Admin order status route must exist.');

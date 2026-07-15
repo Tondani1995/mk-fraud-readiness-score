@@ -41,8 +41,8 @@ for (const pattern of [
 ]) assert.match(migration, pattern);
 assert.doesNotMatch(migration, /grant\s+(insert|update|delete|all).*to\s+authenticated/i);
 
-assert.equal(exists('src/app/api/internal/phase14-uat/route.ts'), false);
-assert.equal(exists('src/app/api/internal/phase14-uat-status/route.ts'), false);
+assert.equal(exists('src/app/score/api/internal/phase14-uat/route.ts'), false);
+assert.equal(exists('src/app/score/api/internal/phase14-uat-status/route.ts'), false);
 
 const flags = read('src/lib/reports/automation/feature-flags.ts');
 assert.match(flags, /autoFulfilmentEnabled:\s*false/);
@@ -227,7 +227,7 @@ assert.match(remediationIntegration, /worker-b/);
 assert.match(remediationIntegration, /deterministic supersession/i);
 assert.match(remediationIntegration, /provider-event-stale-sent/);
 
-const payment = read('src/app/admin/orders/[orderReference]/status/route.ts');
+const payment = read('src/app/score/admin/orders/[orderReference]/status/route.ts');
 assert.match(payment, /flags\.autoFulfilmentEnabled/);
 assert.match(payment, /queuePremiumReportFulfilment/);
 assert.match(payment, /startPremiumReportWorkflow/);

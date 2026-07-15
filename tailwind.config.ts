@@ -9,6 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
+        secondary: { DEFAULT: 'var(--secondary)', foreground: 'var(--secondary-foreground)' },
+        destructive: { DEFAULT: 'var(--destructive)', foreground: '#ffffff' },
+        muted: { DEFAULT: 'var(--muted)', foreground: 'var(--muted-foreground)' },
+        accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
+        popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
+        card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
         mk: {
           ink: '#001030',
           charcoal: '#001030',
@@ -24,10 +36,17 @@ const config: Config = {
         }
       },
       boxShadow: {
-        soft: '0 18px 45px rgba(0, 16, 48, 0.10)'
+        soft: '0 18px 45px rgba(0, 16, 48, 0.10)',
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+      },
+      fontFamily: {
+        sans: ['var(--font-poppins)', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       borderRadius: {
-        xl2: '1.25rem'
+        xl2: '1.25rem',
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)'
       }
     }
   },

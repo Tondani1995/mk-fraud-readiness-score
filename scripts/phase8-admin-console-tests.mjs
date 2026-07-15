@@ -22,13 +22,13 @@ function assertNotIncludes(file, needle, label) {
 }
 
 const requiredAdminRoutes = [
-  'src/app/admin/page.tsx',
-  'src/app/admin/assessments/page.tsx',
-  'src/app/admin/assessments/[assessmentRef]/page.tsx',
-  'src/app/admin/config/questions/page.tsx',
-  'src/app/admin/config/products/page.tsx',
-  'src/app/admin/config/content/page.tsx',
-  'src/app/admin/audit-log/page.tsx'
+  'src/app/score/admin/page.tsx',
+  'src/app/score/admin/assessments/page.tsx',
+  'src/app/score/admin/assessments/[assessmentRef]/page.tsx',
+  'src/app/score/admin/config/questions/page.tsx',
+  'src/app/score/admin/config/products/page.tsx',
+  'src/app/score/admin/config/content/page.tsx',
+  'src/app/score/admin/audit-log/page.tsx'
 ];
 
 for (const route of requiredAdminRoutes) {
@@ -55,13 +55,13 @@ assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(score
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/answers`)', 'Assessment autosave posts through score base path');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/submit`)', 'Assessment submit posts through score base path');
 assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
-assertIncludes('src/app/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
+assertIncludes('src/app/score/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
-assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');
-assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicExposureFactors(methodology)', 'Assessment page must pass a customer-safe exposure view model');
-assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicSavedAnswers(saved)', 'Assessment page must strip saved question codes before client props');
-assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicSavedExposureAnswers(saved)', 'Assessment page must strip saved exposure codes before client props');
-assertIncludes('src/app/assessment/[assessmentRef]/page.tsx', 'publicAssessmentProgress(progress)', 'Assessment page must strip domain progress codes before client props');
+assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');
+assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicExposureFactors(methodology)', 'Assessment page must pass a customer-safe exposure view model');
+assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicSavedAnswers(saved)', 'Assessment page must strip saved question codes before client props');
+assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicSavedExposureAnswers(saved)', 'Assessment page must strip saved exposure codes before client props');
+assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicAssessmentProgress(progress)', 'Assessment page must strip domain progress codes before client props');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicDomain', 'Assessment engine must use a public domain type');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicExposureFactor', 'Assessment engine must use a public exposure type');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'publicLabel(', 'Assessment engine must strip any upstream code prefixes from display labels');
@@ -78,19 +78,19 @@ assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'hard-gate', 'Pu
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'Complete EXP-', 'Respondent-facing applicability reason must not expose EXP labels');
 assertNotIncludes('src/lib/respondent/na-rules.ts', 'questionCode', 'Respondent-facing applicability logic must not depend on question codes');
 
-assertIncludes('src/app/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
-assertIncludes('src/app/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
-assertIncludes('src/app/admin/page.tsx', 'Detailed report interest', 'Admin dashboard uses client-facing product terms');
+assertIncludes('src/app/score/admin/page.tsx', 'MK Fraud Readiness Score', 'Admin dashboard uses MK Fraud product language');
+assertIncludes('src/app/score/admin/page.tsx', 'Internal review control room', 'Admin dashboard no longer reads like a scaffold');
+assertIncludes('src/app/score/admin/page.tsx', 'Detailed report interest', 'Admin dashboard uses client-facing product terms');
 
-assertIncludes('src/app/admin/assessments/page.tsx', "requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin'])", 'Assessment list is admin guarded');
-assertIncludes('src/app/admin/assessments/page.tsx', 'getAdminAssessmentList', 'Assessment list uses server-side data access');
-assertIncludes('src/app/admin/assessments/page.tsx', 'statusOptions', 'Assessment list supports status filtering');
-assertIncludes('src/app/admin/assessments/page.tsx', 'Client readiness queue', 'Assessment queue uses polished MK review copy');
+assertIncludes('src/app/score/admin/assessments/page.tsx', "requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin'])", 'Assessment list is admin guarded');
+assertIncludes('src/app/score/admin/assessments/page.tsx', 'getAdminAssessmentList', 'Assessment list uses server-side data access');
+assertIncludes('src/app/score/admin/assessments/page.tsx', 'statusOptions', 'Assessment list supports status filtering');
+assertIncludes('src/app/score/admin/assessments/page.tsx', 'Client readiness queue', 'Assessment queue uses polished MK review copy');
 
-assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'getAdminAssessmentDetail', 'Assessment detail loads admin detail model');
-assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'Answer trace', 'Assessment detail shows answer trace');
-assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'Question-level score trace', 'Assessment detail shows score trace');
-assertIncludes('src/app/admin/assessments/[assessmentRef]/page.tsx', 'dataRequests', 'Assessment detail shows report request visibility');
+assertIncludes('src/app/score/admin/assessments/[assessmentRef]/page.tsx', 'getAdminAssessmentDetail', 'Assessment detail loads admin detail model');
+assertIncludes('src/app/score/admin/assessments/[assessmentRef]/page.tsx', 'Answer trace', 'Assessment detail shows answer trace');
+assertIncludes('src/app/score/admin/assessments/[assessmentRef]/page.tsx', 'Question-level score trace', 'Assessment detail shows score trace');
+assertIncludes('src/app/score/admin/assessments/[assessmentRef]/page.tsx', 'dataRequests', 'Assessment detail shows report request visibility');
 
 assertIncludes('src/lib/admin/assessment-review.ts', 'admin_assessment_detail_viewed', 'Assessment detail access is audited');
 assertIncludes('src/lib/admin/assessment-review.ts', 'score_question_traces', 'Admin detail reads score question trace');
@@ -100,14 +100,14 @@ assertIncludes('src/lib/admin/assessment-review.ts', 'report_content_blocks', 'A
 assertIncludes('src/lib/admin/assessment-review.ts', 'products', 'Admin config reads product pricing foundation');
 assertIncludes('src/lib/admin/assessment-review.ts', 'audit_logs', 'Admin audit log is visible');
 
-assertIncludes('src/app/admin/config/questions/page.tsx', 'criticalCount', 'Question config shows critical controls');
-assertIncludes('src/app/admin/config/questions/page.tsx', 'hardGateCount', 'Question config shows hard gates');
-assertIncludes('src/app/admin/config/products/page.tsx', 'Release boundary', 'Product config uses release-boundary language');
-assertIncludes('src/app/admin/config/content/page.tsx', 'does not generate reports', 'Content config blocks report generation');
-assertIncludes('src/app/admin/audit-log/page.tsx', 'append-only', 'Audit log is documented as append-only');
-assertNotIncludes('src/app/admin/config/products/page.tsx', 'Phase 9', 'Product config must not expose phase labels');
-assertNotIncludes('src/app/admin/orders/page.tsx', 'Phase', 'Order controls page must not expose phase labels');
-assertNotIncludes('src/app/admin/reports/page.tsx', 'Phase', 'Report controls page must not expose phase labels');
+assertIncludes('src/app/score/admin/config/questions/page.tsx', 'criticalCount', 'Question config shows critical controls');
+assertIncludes('src/app/score/admin/config/questions/page.tsx', 'hardGateCount', 'Question config shows hard gates');
+assertIncludes('src/app/score/admin/config/products/page.tsx', 'Release boundary', 'Product config uses release-boundary language');
+assertIncludes('src/app/score/admin/config/content/page.tsx', 'does not generate reports', 'Content config blocks report generation');
+assertIncludes('src/app/score/admin/audit-log/page.tsx', 'append-only', 'Audit log is documented as append-only');
+assertNotIncludes('src/app/score/admin/config/products/page.tsx', 'Phase 9', 'Product config must not expose phase labels');
+assertNotIncludes('src/app/score/admin/orders/page.tsx', 'Phase', 'Order controls page must not expose phase labels');
+assertNotIncludes('src/app/score/admin/reports/page.tsx', 'Phase', 'Report controls page must not expose phase labels');
 
 const changedSources = requiredAdminRoutes.concat([
   'src/components/admin/AdminShell.tsx',
