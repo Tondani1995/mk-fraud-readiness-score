@@ -4,7 +4,9 @@ These SQL files are inert audit artefacts outside `supabase/migrations`. The
 `uat-applied` directory preserves the exact historical bytes applied to the
 isolated UAT branch through `20260714214023`. The `unpublished-remediation`
 directory preserves the reviewed fifth and sixth deltas used by the controlled
-UAT reconciliation. Production has not received any of these Phase 14 files.
+UAT reconciliation. Production contains the schema represented by archived
+`0017`–`0019` under six timestamped records. Production has not received the
+archived security-closure, fourth, fifth, sixth or sixth-handoff controls.
 
 The deployable history is now the single atomic, disabled migration
 `supabase/migrations/0017_phase14_canonical_disabled_foundation.sql`.
@@ -22,16 +24,17 @@ The deployable history is now the single atomic, disabled migration
 | UAT-applied | `20260714214023_phase14_fourth_adversarial_remediation.sql` | `421e4d4048f112032ef78d43603388537e9c3bea` | `0a9215cb5798e7695500dc88ceed2577dac4d60425beb43ce52d7ca4b0479f16` |
 | Unpublished | `20260715022146_phase14_fifth_adversarial_remediation.sql` | `9f239133c47646daec17b56237d88ff970d7e2f2` | `a472e8d9a93052c8a51d2ec1cc2bc97a6b827a0b5fba97d3fdaa6f150ffab84b` |
 | Unpublished | `20260715073613_phase14_sixth_adversarial_remediation.sql` | `3f4321b800c0524a947000eb4a583033fe4dcf2e` | `f9589a09d28590728f84978129209f4e748ea1e248218fea78e036c2a09bff18` |
+| Unpublished | `20260715073614_phase14_sixth_handoff_corrections.sql` | pending commit | `d2ac47847dd764befae2772c18a44cd0e5427c034d5ac5d4d08717d3a1178d33` |
 
-Canonical migration SHA-256: `f8ebf18edd3bd40ac2a71da1a3fd8add08116bdc414e9fa80643fc95636090dc`.
+Canonical migration SHA-256: `37220215aa9fdfc6d5458e94ee708e0c816ef5d41a2ada97db9ffbbfef0256e1`.
 
 The disposable fresh replay and simulated-UAT reconciliation both produce
 canonical schema-inventory SHA-256
-`c2bad3b402d79afa337536a2becc9326c376fd97bc77ec3673e7c9e69fbeb163`.
+`5488895a97156f89e406491e782a65cd226e49fbe6293d4d964a31af2ead231a`.
 
 The one-time script `scripts/phase14-uat-canonical-reconciliation.sql` first
 locks and verifies the exact historical ledger/schema boundary, applies only
-the archived fifth and sixth delta in one transaction, reconciles the ledger in
+the archived fifth, sixth and sixth-handoff delta in one transaction, reconciles the ledger in
 that same transaction, and validates final markers before commit. It is a
 verified no-op after a successful commit, covering a lost client acknowledgement.
 It must be controller-reviewed and run against UAT only in a separately

@@ -157,10 +157,12 @@ function runStaticChecks() {
   assertIncludes(reportService, 'assembleReportData', 'Shared service assembles persisted report evidence');
   assertIncludes(reportService, 'validatePremiumReportGenerationEntitlement', 'Shared service enforces the premium report entitlement guard');
   assertIncludes(reportService, 'renderHtmlToPdfBuffer', 'Shared service owns PDF rendering');
-  assertIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared service writes report and audit events transactionally');
+  assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Shared service writes manual report and audit events in the atomic terminal transaction');
+  assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Shared service writes worker report and audit events in the atomic terminal transaction');
+  assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared service must not write terminal evidence after publication in a split transaction');
   assertNotIncludes(reportService, "from('report_events')", 'Shared service must not bypass the Phase 14 report-event state machine');
   assertNotIncludes(reportService, "from('audit_logs')", 'Shared service must not bypass the Phase 14 audit state machine');
-  assertIncludes(reportService, 'ready_for_email_delivery', 'Shared service stops at a controlled delivery-ready state');
+  assertIncludes(reportService, 'readyForEmailDelivery: true', 'Shared service returns only after the terminal transaction reaches the controlled delivery-ready state');
   assertNotIncludes(reportService, 'resend.emails.send', 'Phase 14A shared service must not dispatch customer email.');
   assertNotIncludes(reportService, 'publicUrl', 'Shared service must not expose permanent public report URLs.');
 
@@ -191,7 +193,9 @@ function runStaticChecks() {
   assertIncludes('src/app/api/assessments/[assessmentRef]/report-request/route.ts', "from('audit_logs')", 'Report request route must audit customer report requests');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('order_events')", 'Order service must write order events');
   assertIncludes('src/lib/orders/manual-eft-orders.ts', "from('audit_logs')", 'Order service must write audit logs');
-  assertIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must write report and audit events through the Phase 14 state machine');
+  assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Shared report service must use the administrator terminal state machine');
+  assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Shared report service must use the worker terminal state machine');
+  assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Shared report service must not retain the legacy split event route');
   assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Report download route must record download_requested through the Phase 14 state machine');
 }
 

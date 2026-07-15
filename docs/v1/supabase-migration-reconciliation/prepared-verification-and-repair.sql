@@ -1,3 +1,7 @@
+\echo 'STOP: superseded numeric-repair artefact. Production already contains 0001-0007 and 0009.'
+\echo 'Use production-canonical-reconciliation.md for the current controller-review-only strategy.'
+\quit
+
 -- MK Fraud Readiness Score V1
 -- Supabase migration-chain reconciliation prepared SQL
 --

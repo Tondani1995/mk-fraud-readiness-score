@@ -155,7 +155,7 @@ for (const pattern of [
   /validatePremiumReportGenerationEntitlement/,
   /preparePremiumReportNarrative/,
   /renderHtmlToPdfBuffer/,
-  /ready_for_email_delivery/,
+  /readyForEmailDelivery:\s*true/,
   /report_generation_runs/,
   /fulfilment_id/,
   /reusedExistingReport/
@@ -173,7 +173,9 @@ assert(publicationBody.indexOf('await verifyStoredReportChecksum') < publication
 assert.match(service, /requirePhase14Action\(phase14Action\)/);
 assert.match(service, /requirePhase14WorkerAction\(input\.workerLease, phase14Action\)/);
 assert.match(service, /worker_claim_premium_report_generation/);
-assert.match(service, /worker_publish_premium_report_generation/);
+assert.match(service, /terminal_phase14_generation_publication/);
+assert.match(service, /admin_terminal_phase14_generation_publication/);
+assert.doesNotMatch(service, /worker_publish_premium_report_generation/);
 assert.match(service, /recover_premium_report_generation_claim/);
 assert.match(service, /renew_premium_report_generation_lease/);
 assert.doesNotMatch(service, /p_final_storage_path/);

@@ -29,4 +29,7 @@ Status: **Implementation in progress; migration and live automation remain disab
 
 ## Production safety
 
-Migration `0017` is not applied. All automation flags remain off. No live AI generation or customer email is enabled. Existing production flow remains unchanged.
+Production contains the early disabled Phase 14 foundation under six timestamped
+migration records; canonical `0017` and the later security/remediation controls
+are not applied. All automation flags remain off. No live AI generation or
+customer email is enabled. Existing production flow remains unchanged.

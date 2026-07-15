@@ -16,6 +16,12 @@ export type WorkerAttestationBindings = {
   recipient?: string | null;
 };
 
+export type WorkerRecoveryBindings = WorkerAttestationBindings & {
+  oldExecutionId: string;
+  proposedExecutionId: string;
+  reason: string;
+};
+
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === 'object') {
@@ -95,4 +101,55 @@ export function createWorkerAttestation(input: {
   ].join('|');
   const signature = crypto.createHmac('sha256', secret).update(canonical).digest('hex');
   return { attestation, signature, requestPayload };
+}
+
+export function createWorkerRecoveryAttestation(input: WorkerRecoveryBindings) {
+  const { keyId, secret } = workerAttestationSecret();
+  const reason = input.reason.trim();
+  if (!reason || reason.length > 500) throw new Error('phase14_worker_recovery_reason_invalid');
+  const issuedAtEpoch = Math.floor(Date.now() / 1000);
+  const attestation = {
+    key_id: keyId,
+    capability_id: input.capabilityId,
+    capability_type: input.capabilityType,
+    operation_key: input.operationKey,
+    old_execution_id: input.oldExecutionId,
+    proposed_execution_id: input.proposedExecutionId,
+    expected_step: input.expectedStep,
+    lease_generation: String(input.leaseGeneration),
+    order_id: input.orderId ?? '',
+    assessment_id: input.assessmentId ?? '',
+    score_run_id: input.scoreRunId ?? '',
+    fulfilment_id: input.fulfilmentId ?? '',
+    report_id: input.reportId ?? '',
+    recipient: (input.recipient ?? '').trim().toLowerCase(),
+    authority_epoch: String(input.authorityEpoch),
+    reason,
+    issued_at_epoch: String(issuedAtEpoch),
+    expires_at_epoch: String(issuedAtEpoch + 60),
+    nonce: crypto.randomUUID()
+  };
+  const canonical = [
+    attestation.key_id,
+    attestation.capability_id,
+    attestation.capability_type,
+    attestation.operation_key,
+    attestation.old_execution_id,
+    attestation.proposed_execution_id,
+    attestation.expected_step,
+    attestation.lease_generation,
+    attestation.order_id,
+    attestation.assessment_id,
+    attestation.score_run_id,
+    attestation.fulfilment_id,
+    attestation.report_id,
+    attestation.recipient,
+    attestation.authority_epoch,
+    attestation.reason,
+    attestation.issued_at_epoch,
+    attestation.expires_at_epoch,
+    attestation.nonce
+  ].join('|');
+  const signature = crypto.createHmac('sha256', secret).update(canonical).digest('hex');
+  return { attestation, signature };
 }

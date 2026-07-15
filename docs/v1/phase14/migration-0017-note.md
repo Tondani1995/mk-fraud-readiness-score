@@ -4,7 +4,9 @@ The repository now keeps the complete disabled Phase 14 foundation in the
 single atomic migration
 `supabase/migrations/0017_phase14_canonical_disabled_foundation.sql`. Exact
 historical UAT-applied SQL is retained outside the deployable migration path in
-`docs/v1/phase14/migration-audit-archive`; production has not received Phase 14.
+`docs/v1/phase14/migration-audit-archive`. Production has the early disabled
+Phase 14 foundation through the timestamped equivalents of `0017`–`0019`, but
+not the security closure or fourth/fifth/sixth remediation controls.
 
 This documentation change does not change the live schema. It records the current assurance position only:
 

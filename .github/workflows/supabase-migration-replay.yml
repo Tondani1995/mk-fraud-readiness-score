@@ -9,7 +9,10 @@ on:
       - 'scripts/phase14-inject-controlled-migration-failure.mjs'
       - 'scripts/phase14-fifth-remediation-tests.sql'
       - 'scripts/phase14-sixth-remediation-tests.sql'
+      - 'scripts/phase14-multi-session-concurrency-tests.sql'
       - 'scripts/phase14-uat-canonical-reconciliation.sql'
+      - 'scripts/phase14-generate-production-reconciliation.mjs'
+      - 'scripts/phase14-production-*'
       - 'scripts/phase14-schema-equivalence-inventory.sql'
       - 'scripts/phase14-webhook-route-db-*'
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
@@ -29,7 +32,10 @@ on:
       - 'scripts/phase14-inject-controlled-migration-failure.mjs'
       - 'scripts/phase14-fifth-remediation-tests.sql'
       - 'scripts/phase14-sixth-remediation-tests.sql'
+      - 'scripts/phase14-multi-session-concurrency-tests.sql'
       - 'scripts/phase14-uat-canonical-reconciliation.sql'
+      - 'scripts/phase14-generate-production-reconciliation.mjs'
+      - 'scripts/phase14-production-*'
       - 'scripts/phase14-schema-equivalence-inventory.sql'
       - 'scripts/phase14-webhook-route-db-*'
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
@@ -141,7 +147,7 @@ jobs:
             > tmp/migration-replay/canonical-commit-without-ledger-ack.txt
           test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '0'
           recovery_hash=$(psql "$LOCAL_DB_URL" -XAt --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
-          test "$recovery_hash" = 'c2bad3b402d79afa337536a2becc9326c376fd97bc77ec3673e7c9e69fbeb163'
+          test "$recovery_hash" = '5488895a97156f89e406491e782a65cd226e49fbe6293d4d964a31af2ead231a'
           supabase migration repair 0017 --status applied --local
           test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '1'
 
@@ -283,8 +289,10 @@ jobs:
       - name: Prove fresh and current-UAT upgrade schema equivalence
         run: |
           set -Eeuo pipefail
-          fresh_hash=$(psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
-            --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
+          psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
+            --file=scripts/phase14-schema-equivalence-inventory.sql \
+            > tmp/migration-replay/fresh-canonical-schema-inventory.txt
+          fresh_hash=$(sha256sum tmp/migration-replay/fresh-canonical-schema-inventory.txt | awk '{print $1}')
           canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
           backup='tmp/migration-replay/0017_phase14_canonical_disabled_foundation.sql'
           mv "$canonical" "$backup"
@@ -316,7 +324,69 @@ jobs:
             echo "upgrade=${upgrade_hash}"
           } | tee tmp/migration-replay/fresh-vs-uat-equivalence.sha256
           test "$fresh_hash" = "$upgrade_hash"
-          test "$fresh_hash" = 'c2bad3b402d79afa337536a2becc9326c376fd97bc77ec3673e7c9e69fbeb163'
+          test "$fresh_hash" = '5488895a97156f89e406491e782a65cd226e49fbe6293d4d964a31af2ead231a'
+          restore_migrations
+          trap - EXIT
+
+      - name: Prove exact production-history convergence without external writes
+        run: |
+          set -Eeuo pipefail
+          node scripts/phase14-generate-production-reconciliation.mjs --check
+          canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
+          backup='tmp/migration-replay/canonical-for-production-history.sql'
+          mv "$canonical" "$backup"
+          cp docs/v1/phase14/migration-audit-archive/uat-applied/001[789]_*.sql supabase/migrations/
+          restore_migrations() {
+            rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
+              supabase/migrations/0018_phase14_pdf_email_delivery.sql \
+              supabase/migrations/0019_phase14_email_delivery_state_hardening.sql
+            mv "$backup" "$canonical"
+          }
+          trap restore_migrations EXIT
+          supabase db reset --local --yes
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-ledger-reproduction.sql \
+            > tmp/migration-replay/exact-production-ledger-reproduction.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-baseline-acl-reproduction.sql
+          psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-schema-inventory.sql \
+            > tmp/migration-replay/exact-production-schema-inventory.txt
+          test "$(tail -n 1 tmp/migration-replay/exact-production-schema-inventory.txt)" = \
+            'ZZ|inventory_sha256|417dfbf2fb7fdea1727d7dc9d84d0463a597db6b545def32de18d2e15d8509cd'
+          before_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-preservation-fixture.sql | tail -n 1)
+          test "$before_checksum" = '258c8fa9d59383cc27857efb093c219f0db02c130ad6dc8ac62eb25d9f5275e4'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-canonical-reconciliation.sql \
+            | tee tmp/migration-replay/production-history-convergence.txt
+          after_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-preservation-assertions.sql | tail -n 1)
+          test "$after_checksum" = "$before_checksum"
+          psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
+            --file=scripts/phase14-schema-equivalence-inventory.sql \
+            > tmp/migration-replay/production-converged-schema-inventory.txt
+          cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/production-converged-schema-inventory.txt
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) filter(where version='0017' and name='phase14_canonical_disabled_foundation')||'|'||count(*) filter(where version in ('20260712180303','20260712180317','20260712180329','20260712180346','20260712182003','20260712184501')) from supabase_migrations.schema_migrations")" = '1|0'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select (select count(*) from public.phase14_security_gates where status<>'unsatisfied' or satisfied_version<>0)||'|'||(select count(*) from public.phase14_feature_policies where enabled)||'|'||(select count(*) from public.phase14_ai_route_policies where enabled)")" = '0|0|0'
+
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-ledger-reproduction.sql \
+            > tmp/migration-replay/production-missing-ledger-reproduction.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-canonical-reconciliation.sql \
+            | tee tmp/migration-replay/production-missing-ledger-recovery.txt
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017' and name='phase14_canonical_disabled_foundation'")" = '1'
+          test "$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 --file=scripts/phase14-production-preservation-assertions.sql | tail -n 1)" = "$before_checksum"
+          psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
+            --file=scripts/phase14-schema-equivalence-inventory.sql \
+            > tmp/migration-replay/production-ledger-recovered-schema-inventory.txt
+          cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/production-ledger-recovered-schema-inventory.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase14-production-canonical-reconciliation.sql \
+            | tee tmp/migration-replay/production-safe-restart.txt
           restore_migrations
           trap - EXIT
 

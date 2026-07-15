@@ -3,7 +3,7 @@ import {
   createSupabaseAuthenticatedServerClient,
   createSupabaseServiceClient
 } from '@/lib/supabase/server';
-import { createWorkerAttestation } from './worker-attestation';
+import { createWorkerAttestation, createWorkerRecoveryAttestation } from './worker-attestation';
 
 export type Phase14Action =
   | 'report_generation'
@@ -245,6 +245,52 @@ export async function loadPhase14WorkerLease(capabilityId: string): Promise<Phas
     fulfilmentId: row.fulfilment_id ?? null,
     reportId: row.report_id ?? null,
     recipient: row.recipient ?? null
+  };
+}
+
+export async function recoverExpiredPhase14WorkerLease(input: {
+  capabilityId: string;
+  proposedExecutionId: string;
+  reason: string;
+}): Promise<Phase14WorkerLease> {
+  const previous = await loadPhase14WorkerLease(input.capabilityId);
+  const signed = createWorkerRecoveryAttestation({
+    ...previous,
+    oldExecutionId: previous.executionId,
+    proposedExecutionId: input.proposedExecutionId,
+    reason: input.reason
+  });
+  const client = createSupabaseServiceClient() as any;
+  const { data, error } = await client.rpc('recover_phase14_worker_capability_lease', {
+    p_attestation: signed.attestation,
+    p_signature: signed.signature
+  });
+  if (error || !data) authorizationFailure(error, 'phase14_worker_lease_recovery_failed');
+  const row = data as Record<string, any>;
+  if (String(row.capability_id) !== previous.capabilityId
+      || String(row.execution_id) !== input.proposedExecutionId
+      || Number(row.lease_generation) !== previous.leaseGeneration + 1
+      || String(row.expected_step) !== previous.expectedStep) {
+    throw new Phase14AuthorizationError(
+      'phase14_worker_lease_recovery_response_invalid',
+      'The expired-lease recovery response did not preserve the persisted business step.'
+    );
+  }
+  return {
+    capabilityId: String(row.capability_id),
+    capabilityType: row.capability_type as Phase14WorkerCapabilityType,
+    operationKey: String(row.operation_key),
+    executionId: String(row.execution_id),
+    leaseGeneration: Number(row.lease_generation),
+    leaseExpiresAt: String(row.lease_expires_at),
+    authorityEpoch: Number(row.authority_epoch),
+    expectedStep: String(row.expected_step),
+    orderId: row.order_id ?? previous.orderId,
+    assessmentId: row.assessment_id ?? previous.assessmentId,
+    scoreRunId: row.score_run_id ?? previous.scoreRunId,
+    fulfilmentId: row.fulfilment_id ?? previous.fulfilmentId,
+    reportId: row.report_id ?? previous.reportId,
+    recipient: row.recipient ?? previous.recipient
   };
 }
 

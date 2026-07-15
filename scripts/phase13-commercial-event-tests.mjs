@@ -123,7 +123,9 @@ assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_or
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "optionCode: 'full_report_5000'", 'EFT order event is linked to R5k option code');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marked_received'", 'Payment received admin status is tracked');
 assertIncludes(generateRoute, 'generatePremiumReport', 'Admin report route delegates to shared generation service');
-assertIncludes(reportService, "rpc('record_phase14_report_generated'", 'Successful report generation is tracked transactionally by the shared service');
+assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Successful manual report generation records events inside the atomic terminal transaction');
+assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Successful worker report generation records events inside the atomic terminal transaction');
+assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Report generation must not emit events after publication in a split transaction');
 assertIncludes('src/app/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Successful admin report download is tracked transactionally');
 
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');

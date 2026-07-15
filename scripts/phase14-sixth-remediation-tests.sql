@@ -355,17 +355,107 @@ begin
 end;
 $terminal_fixture$;
 
+do $manual_terminal_faults$
+declare v_point text; v_payload jsonb; v_result jsonb;
+begin
+  perform set_config('request.jwt.claims',
+    '{"sub":"26000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"26000000-0000-0000-0000-000000000099"}',true);
+  perform public.set_phase14_feature_policy('manual_generation',true,
+    'Disposable manual terminal-publication rollback test.');
+  set local session_replication_role=replica;
+  update public.phase14_storage_cleanup_queue set
+    owner_admin_user_id='26000000-0000-0000-0000-000000000020',owner_capability_id=null
+  where id='26000000-0000-0000-0000-000000000084';
+  set local session_replication_role=origin;
+  foreach v_point in array array[
+    'after_administrator_authorization','after_claim_lock','after_report_lock',
+    'after_fulfilment_lock','after_generation_run_lock','after_cleanup_lock','after_order_read',
+    'after_entitlement','after_storage_binding','after_previous_report_supersession',
+    'after_report_publication','after_generation_run_link','after_claim_settlement',
+    'after_fulfilment_transition','after_cleanup_transition','after_report_event',
+    'after_assessment_event','after_audit_event'
+  ] loop
+    v_payload:=jsonb_build_object(
+      'claim_token','26000000-0000-0000-0000-000000000083',
+      'fulfilment_id','26000000-0000-0000-0000-000000000004',
+      'generation_run_id','26000000-0000-0000-0000-000000000081',
+      'report_id','26000000-0000-0000-0000-000000000082',
+      'final_cleanup_id','26000000-0000-0000-0000-000000000084',
+      'generation_mode','deterministic_fallback','metadata','{}'::jsonb,
+      'fault_after',v_point);
+    begin
+      perform public.admin_terminal_phase14_generation_publication(v_payload);
+      raise exception 'NO_EXPECTED_EXCEPTION:manual_terminal_fault_%',v_point;
+    exception when others then
+      if sqlerrm like 'NO_EXPECTED_EXCEPTION:%' then raise; end if;
+      if sqlerrm not like '%phase14_terminal_fault:'||v_point||'%' then raise; end if;
+    end;
+    if not exists(select 1 from public.reports
+        where id='26000000-0000-0000-0000-000000000082' and status='draft'
+          and storage_path='tmp/sixth-terminal.pdf' and generation_run_id is null)
+       or not exists(select 1 from public.report_generation_claims
+        where claim_token='26000000-0000-0000-0000-000000000083' and state='committed')
+       or not exists(select 1 from public.report_generation_runs
+        where id='26000000-0000-0000-0000-000000000081' and report_id is null and status='validated')
+       or not exists(select 1 from public.report_fulfilments
+        where id='26000000-0000-0000-0000-000000000004' and status='storing' and report_id is null)
+       or not exists(select 1 from public.phase14_storage_cleanup_queue
+        where id='26000000-0000-0000-0000-000000000084' and status='pending')
+       or exists(select 1 from public.report_events
+        where report_id='26000000-0000-0000-0000-000000000082') then
+      raise exception 'Manual terminal fault % left partial durable state',v_point;
+    end if;
+  end loop;
+  v_payload:=v_payload-'fault_after';
+  v_result:=public.admin_terminal_phase14_generation_publication(v_payload);
+  if not coalesce((v_result->>'completed')::boolean,false)
+     or v_result->>'entry_point'<>'manual'
+     or not exists(select 1 from public.reports
+       where id='26000000-0000-0000-0000-000000000082' and status='generated'
+         and generation_run_id='26000000-0000-0000-0000-000000000081')
+     or not exists(select 1 from public.report_generation_claims
+       where claim_token='26000000-0000-0000-0000-000000000083' and state='settled')
+     or not exists(select 1 from public.report_fulfilments
+       where id='26000000-0000-0000-0000-000000000004' and status='ready_for_delivery'
+         and report_id='26000000-0000-0000-0000-000000000082')
+     or not exists(select 1 from public.phase14_storage_cleanup_queue
+       where id='26000000-0000-0000-0000-000000000084' and status='retained') then
+    raise exception 'Successful manual terminal publication was not atomic';
+  end if;
+
+  -- Restore the identical business identities for the worker-wrapper proof.
+  set local session_replication_role=replica;
+  delete from public.report_events where report_id='26000000-0000-0000-0000-000000000082';
+  delete from public.assessment_events
+  where dedupe_key='phase14-terminal-generation:26000000-0000-0000-0000-000000000083';
+  delete from public.audit_logs where entity_id='26000000-0000-0000-0000-000000000082'
+    and action in ('premium_report_generated','premium_report_regenerated');
+  update public.reports set status='draft',storage_path='tmp/sixth-terminal.pdf',generation_run_id=null
+  where id='26000000-0000-0000-0000-000000000082';
+  update public.report_generation_runs set report_id=null,status='validated'
+  where id='26000000-0000-0000-0000-000000000081';
+  update public.report_generation_claims set state='committed'
+  where claim_token='26000000-0000-0000-0000-000000000083';
+  update public.report_fulfilments set status='storing',current_step='store',report_id=null
+  where id='26000000-0000-0000-0000-000000000004';
+  update public.phase14_storage_cleanup_queue set status='pending',
+    owner_admin_user_id=null,owner_capability_id='26000000-0000-0000-0000-000000000080'
+  where id='26000000-0000-0000-0000-000000000084';
+  set local session_replication_role=origin;
+end;
+$manual_terminal_faults$;
+
 do $terminal_faults$
 declare v_point text; v_payload text; v_att jsonb; v_result jsonb;
 begin
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);
   foreach v_point in array array[
-    'after_attestation','after_capability_context','after_capability_lock','after_claim_lock',
-    'after_report_lock','after_fulfilment_lock','after_cleanup_lock','after_order_read',
+    'after_attestation','after_capability_lock','after_claim_lock',
+    'after_report_lock','after_fulfilment_lock','after_generation_run_lock','after_cleanup_lock','after_order_read',
     'after_entitlement','after_storage_binding','after_previous_report_supersession',
     'after_report_publication','after_generation_run_link','after_claim_settlement',
-    'after_fulfilment_transition','after_report_event','after_audit_event',
-    'after_assessment_event','after_cleanup_transition','after_capability_consumption'
+    'after_fulfilment_transition','after_cleanup_transition','after_report_event',
+    'after_assessment_event','after_audit_event','after_capability_consumption'
   ] loop
     v_payload:=jsonb_build_object(
       'capability_id','26000000-0000-0000-0000-000000000080',

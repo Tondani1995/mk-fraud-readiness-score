@@ -208,7 +208,6 @@ async function resumeCommittedDraft(db: any, input: {
   assessmentReference: string;
   fulfilmentId?: string | null;
   workerLease?: Phase14WorkerLease;
-  actor: PremiumReportActor;
 }) : Promise<GeneratePremiumReportResult> {
   if (!input.claim.claim_token || !input.claim.report_id) throw new Error('Committed draft resume context is incomplete.');
   const { report, run } = await loadGenerationMetadata(db, input.claim.report_id);
@@ -240,44 +239,60 @@ async function resumeCommittedDraft(db: any, input: {
     parameters: { p_cleanup_id: cleanupJobId, p_report_id: report.id }
   });
   if (cleanupLinkError) throw cleanupLinkError;
-  let finalCleanupId: string | null = null;
-  if (input.workerLease) {
-    const { data, error } = await generationRpc({
-      client: input.privilegedDb,
-      workerLease: input.workerLease,
-      manualFunction: 'register_phase14_storage_cleanup',
-      workerFunction: 'worker_register_phase14_storage_cleanup',
-      parameters: {
+  const finalCleanupRegistration = input.workerLease
+    ? await generationRpc({
+        client: input.privilegedDb,
+        workerLease: input.workerLease,
+        manualFunction: 'register_phase14_storage_cleanup',
+        workerFunction: 'worker_register_phase14_storage_cleanup',
+        parameters: {
+          p_storage_bucket: report.storage_bucket,
+          p_storage_path: finalPath,
+          p_expected_checksum: report.checksum,
+          p_claim_token: input.claim.claim_token,
+          p_reason: 'Recovered final object orphan protection until terminal publication',
+          p_report_id: report.id
+        }
+      })
+    : await input.privilegedDb.rpc('register_phase14_manual_final_storage_cleanup', {
         p_storage_bucket: report.storage_bucket,
         p_storage_path: finalPath,
         p_expected_checksum: report.checksum,
         p_claim_token: input.claim.claim_token,
         p_reason: 'Recovered final object orphan protection until terminal publication',
         p_report_id: report.id
-      }
-    });
-    if (error || !data) throw error ?? new Error('Recovered final object cleanup ownership could not be registered.');
-    finalCleanupId = String(data);
+      });
+  if (finalCleanupRegistration.error || !finalCleanupRegistration.data) {
+    throw finalCleanupRegistration.error ?? new Error('Recovered final object cleanup ownership could not be registered.');
   }
+  const finalCleanupId = String(finalCleanupRegistration.data);
   const recordCleanupResult = async (result: {
     deletionRequested: boolean;
     deleteApiAccepted: boolean;
     providerResultClass: string;
     error?: string | null;
   }) => {
-    const { data, error } = await generationRpc({
-      client: input.privilegedDb,
-      workerLease: input.workerLease,
-      manualFunction: 'record_phase14_storage_cleanup_result',
-      workerFunction: 'worker_record_phase14_storage_cleanup_result',
-      parameters: {
-        p_cleanup_id: cleanupJobId,
-        p_deletion_requested: result.deletionRequested,
-        p_delete_api_accepted: result.deleteApiAccepted,
-        p_provider_result_class: result.providerResultClass,
-        p_error: result.error ?? null
-      }
-    });
+    const { data, error } = input.workerLease
+      ? await generationRpc({
+          client: input.privilegedDb,
+          workerLease: input.workerLease,
+          manualFunction: 'record_phase14_storage_cleanup_result',
+          workerFunction: 'worker_record_phase14_storage_cleanup_result',
+          parameters: {
+            p_cleanup_id: cleanupJobId,
+            p_deletion_requested: result.deletionRequested,
+            p_delete_api_accepted: result.deleteApiAccepted,
+            p_provider_result_class: result.providerResultClass,
+            p_error: result.error ?? null
+          }
+        })
+      : await input.privilegedDb.rpc('record_phase14_storage_cleanup_result', {
+          p_cleanup_id: cleanupJobId,
+          p_deleted: result.providerResultClass === 'object_not_found',
+          p_error: result.error ?? (result.providerResultClass === 'object_not_found'
+            ? null
+            : `Storage absence was not verified (${result.providerResultClass}).`)
+        });
     if (error || !data) throw error ?? new Error('Storage cleanup result was not persisted.');
     return data;
   };
@@ -289,51 +304,43 @@ async function resumeCommittedDraft(db: any, input: {
     checksum: report.checksum,
     cleanupJobId,
     publishReport: async () => {
-      if (input.workerLease && input.fulfilmentId) {
-        if (!report.generation_run_id || !finalCleanupId) {
-          throw new Error('Recovered terminal publication bindings are incomplete.');
-        }
+      if (!input.fulfilmentId || !report.generation_run_id) {
+        throw new Error('Recovered terminal publication bindings are incomplete.');
+      }
+      const terminalPayload = {
+        claim_token: input.claim.claim_token,
+        fulfilment_id: input.fulfilmentId,
+        generation_run_id: report.generation_run_id,
+        report_id: report.id,
+        final_cleanup_id: finalCleanupId,
+        generation_mode: run?.generation_mode ?? 'deterministic_fallback',
+        metadata: {
+          evidence_checksum: run?.evidence_checksum ?? null,
+          report_reference: report.report_reference,
+          recovery: true
+        },
+        fault_after: null
+      };
+      if (input.workerLease) {
         return executePhase14WorkerStep<Record<string, any>>(
           input.workerLease,
           'terminal_phase14_generation_publication',
           {
             capability_id: input.workerLease.capabilityId,
-            claim_token: input.claim.claim_token,
-            fulfilment_id: input.fulfilmentId,
-            generation_run_id: report.generation_run_id,
-            report_id: report.id,
-            final_cleanup_id: finalCleanupId,
-            generation_mode: run?.generation_mode ?? 'deterministic_fallback',
-            metadata: {
-              evidence_checksum: run?.evidence_checksum ?? null,
-              report_reference: report.report_reference,
-              recovery: true
-            },
-            fault_after: null
+            ...terminalPayload
           },
           { terminalGeneration: true, reportId: report.id }
         );
       }
-      const { data, error } = await generationRpc({
-        client: input.privilegedDb,
-        workerLease: input.workerLease,
-        manualFunction: 'publish_premium_report_generation',
-        workerFunction: 'worker_publish_premium_report_generation',
-        parameters: { p_claim_token: input.claim.claim_token, p_report_id: report.id }
-      });
-      if (error || !data) throw error ?? new Error('Report publication returned no result.');
+      const { data, error } = await input.privilegedDb.rpc(
+        'admin_terminal_phase14_generation_publication',
+        { p_request_payload: terminalPayload }
+      );
+      if (error || !data) throw error ?? new Error('Atomic manual report publication returned no result.');
       return data;
     },
     recordCleanupResult
   });
-  if (!input.workerLease) {
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
-      status: 'ready_for_delivery',
-      currentStep: 'ready_for_email_delivery',
-      reportId: report.id
-    });
-  }
   return {
     reportId: report.id,
     reportReference: report.report_reference,
@@ -344,43 +351,6 @@ async function resumeCommittedDraft(db: any, input: {
     readyForEmailDelivery: true,
     reusedExistingReport: true
   };
-}
-
-async function logGenerated(input: {
-  reportId: string;
-  actor: PremiumReportActor;
-  assessmentId: string;
-  orderId: string;
-  orderReference: string;
-  reportReference: string;
-  reportType: string;
-  versionNumber: number;
-  supersededReportId: string | null;
-  fulfilmentId?: string | null;
-  generationRunId: string | null;
-  prepared: PreparedPremiumReportNarrative;
-  db: any;
-  capabilityId?: string | null;
-}) {
-  const { error } = await input.db.rpc('record_phase14_report_generated', {
-      p_capability_id: input.capabilityId ?? null,
-      p_report_id: input.reportId,
-      p_actor_user_id: input.actor.userId ?? null,
-      p_event_type: input.supersededReportId ? 'regenerated' : 'generated',
-      p_note: `Version ${input.versionNumber} created using ${input.prepared.mode}.`,
-      p_metadata: {
-        fulfilment_id: input.fulfilmentId ?? null,
-        generation_run_id: input.generationRunId,
-        evidence_checksum: input.prepared.evidenceChecksum,
-        ready_for_email_delivery: true,
-        order_reference: input.orderReference,
-        report_reference: input.reportReference,
-        report_type: input.reportType,
-        version_number: input.versionNumber,
-        generation_mode: input.prepared.mode
-      }
-  });
-  if (error) throw error;
 }
 
 export async function generatePremiumReport(
@@ -395,6 +365,21 @@ export async function generatePremiumReport(
   const { client: privilegedDb } = input.workerLease
     ? await requirePhase14WorkerAction(input.workerLease, phase14Action)
     : await requirePhase14Action(phase14Action);
+  let fulfilmentId = input.fulfilmentId ?? null;
+  if (!input.workerLease) {
+    const { data: manualIdentity, error: manualIdentityError } = await privilegedDb.rpc(
+      'ensure_manual_premium_report_fulfilment',
+      {
+        p_order_reference: input.orderReference,
+        p_trigger_source: input.actor.action
+      }
+    );
+    const persistedFulfilmentId = manualIdentity?.fulfilment?.id;
+    if (manualIdentityError || !persistedFulfilmentId) {
+      throw manualIdentityError ?? new Error('Manual generation fulfilment identity was not persisted.');
+    }
+    fulfilmentId = String(persistedFulfilmentId);
+  }
   const db = createSupabaseServiceClient() as any;
   const flags = await getPremiumReportAutomationFlags();
   let claimToken: string | null = null;
@@ -407,7 +392,7 @@ export async function generatePremiumReport(
   try {
     const assembled = await assembleReportData(input.orderReference);
     const reportType = validatePremiumReportGenerationEntitlement(assembled);
-    const claimOwner = input.fulfilmentId ? `fulfilment:${input.fulfilmentId}` : `request:${crypto.randomUUID()}`;
+    const claimOwner = fulfilmentId ? `fulfilment:${fulfilmentId}` : `request:${crypto.randomUUID()}`;
     const { data: claimData, error: claimError } = await generationRpc({
       client: privilegedDb,
       workerLease: input.workerLease,
@@ -416,7 +401,7 @@ export async function generatePremiumReport(
       parameters: {
         p_order_reference: input.orderReference,
         p_claim_owner: claimOwner,
-        p_fulfilment_id: input.fulfilmentId ?? null,
+        p_fulfilment_id: fulfilmentId ?? null,
         p_report_type: reportType
       }
     });
@@ -435,7 +420,7 @@ export async function generatePremiumReport(
         workerParameters: {
           p_order_reference: input.orderReference,
           p_claim_owner: claimOwner,
-          p_fulfilment_id: input.fulfilmentId ?? null
+          p_fulfilment_id: fulfilmentId ?? null
         }
       });
       if (recoveryError || !recovered) throw recoveryError ?? new Error('Committed draft recovery returned no claim.');
@@ -450,15 +435,14 @@ export async function generatePremiumReport(
         privilegedDb,
         claim,
         assessmentReference: assembled.assessmentReference,
-        fulfilmentId: input.fulfilmentId,
-        workerLease: input.workerLease,
-        actor: input.actor
+        fulfilmentId: fulfilmentId,
+        workerLease: input.workerLease
       });
       return recovered;
     }
 
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
+    await updateFulfilmentSafely(fulfilmentId, {
+      fulfilmentId: fulfilmentId ?? '',
       status: 'assembling',
       currentStep: 'assemble_evidence',
       incrementAttempt: true,
@@ -488,11 +472,11 @@ export async function generatePremiumReport(
       status: block.status
     })));
     const roadmap = selectRoadmap(assembled);
-    const generationIdentity = input.fulfilmentId
-      ? `fulfilment:${input.fulfilmentId}:score:${assembled.scoreRun.id}`
+    const generationIdentity = fulfilmentId
+      ? `fulfilment:${fulfilmentId}:score:${assembled.scoreRun.id}`
       : `generation-claim:${claimToken}`;
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
+    await updateFulfilmentSafely(fulfilmentId, {
+      fulfilmentId: fulfilmentId ?? '',
       status: flags.aiNarrativeEnabled ? 'generating' : 'validating',
       currentStep: flags.aiNarrativeEnabled ? 'generate_narrative' : 'validate_deterministic_fallback'
       ,workerLease: input.workerLease
@@ -504,7 +488,7 @@ export async function generatePremiumReport(
       flags,
       generator: input.generator,
       generationIdentity,
-      fulfilmentId: input.fulfilmentId ?? null,
+      fulfilmentId: fulfilmentId ?? null,
       workerCapabilityId: input.workerLease?.capabilityId ?? null,
       authorizeAiAction: input.workerLease
         ? () => requirePhase14WorkerAction(input.workerLease!, 'ai_narrative_generation')
@@ -519,13 +503,13 @@ export async function generatePremiumReport(
     });
     if (leaseRenewalError) throw leaseRenewalError;
     const generationRunId = await persistGenerationProvenance({
-      fulfilmentId: input.fulfilmentId, prepared, flags, db: privilegedDb,
+      fulfilmentId: fulfilmentId, prepared, flags, db: privilegedDb,
       workerLease: input.workerLease
     });
 
     assembled.reportReference = claim.report_reference;
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
+    await updateFulfilmentSafely(fulfilmentId, {
+      fulfilmentId: fulfilmentId ?? '',
       status: 'rendering',
       currentStep: 'render_pdf',
       generationMode: prepared.mode,
@@ -555,8 +539,8 @@ export async function generatePremiumReport(
     }
     cleanupJobId = registeredCleanupId as string;
 
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
+    await updateFulfilmentSafely(fulfilmentId, {
+      fulfilmentId: fulfilmentId ?? '',
       status: 'storing',
       currentStep: 'store_unique_temporary_pdf',
       generationMode: prepared.mode,
@@ -607,26 +591,33 @@ export async function generatePremiumReport(
     });
     if (cleanupLinkError) throw cleanupLinkError;
 
-    if (input.workerLease) {
-      const { data: registeredFinalCleanupId, error: finalCleanupError } = await generationRpc({
-        client: privilegedDb,
-        workerLease: input.workerLease,
-        manualFunction: 'register_phase14_storage_cleanup',
-        workerFunction: 'worker_register_phase14_storage_cleanup',
-        parameters: {
+    const finalCleanupRegistration = input.workerLease
+      ? await generationRpc({
+          client: privilegedDb,
+          workerLease: input.workerLease,
+          manualFunction: 'register_phase14_storage_cleanup',
+          workerFunction: 'worker_register_phase14_storage_cleanup',
+          parameters: {
+            p_storage_bucket: storageBucket,
+            p_storage_path: finalPath,
+            p_expected_checksum: checksum,
+            p_claim_token: claimToken,
+            p_reason: 'Final object orphan protection until terminal database publication',
+            p_report_id: reportId
+          }
+        })
+      : await privilegedDb.rpc('register_phase14_manual_final_storage_cleanup', {
           p_storage_bucket: storageBucket,
           p_storage_path: finalPath,
           p_expected_checksum: checksum,
           p_claim_token: claimToken,
           p_reason: 'Final object orphan protection until terminal database publication',
           p_report_id: reportId
-        }
-      });
-      if (finalCleanupError || !registeredFinalCleanupId) {
-        throw finalCleanupError ?? new Error('Final object orphan cleanup ownership could not be registered.');
-      }
-      finalCleanupJobId = String(registeredFinalCleanupId);
+        });
+    if (finalCleanupRegistration.error || !finalCleanupRegistration.data) {
+      throw finalCleanupRegistration.error ?? new Error('Final object orphan cleanup ownership could not be registered.');
     }
+    finalCleanupJobId = String(finalCleanupRegistration.data);
 
     const recordCleanupResult = async (result: {
       deletionRequested: boolean;
@@ -634,19 +625,27 @@ export async function generatePremiumReport(
       providerResultClass: string;
       error?: string | null;
     }) => {
-      const { data, error } = await generationRpc({
-        client: privilegedDb,
-        workerLease: input.workerLease,
-        manualFunction: 'record_phase14_storage_cleanup_result',
-        workerFunction: 'worker_record_phase14_storage_cleanup_result',
-        parameters: {
-          p_cleanup_id: cleanupJobId,
-          p_deletion_requested: result.deletionRequested,
-          p_delete_api_accepted: result.deleteApiAccepted,
-          p_provider_result_class: result.providerResultClass,
-          p_error: result.error ?? null
-        }
-      });
+      const { data, error } = input.workerLease
+        ? await generationRpc({
+            client: privilegedDb,
+            workerLease: input.workerLease,
+            manualFunction: 'record_phase14_storage_cleanup_result',
+            workerFunction: 'worker_record_phase14_storage_cleanup_result',
+            parameters: {
+              p_cleanup_id: cleanupJobId,
+              p_deletion_requested: result.deletionRequested,
+              p_delete_api_accepted: result.deleteApiAccepted,
+              p_provider_result_class: result.providerResultClass,
+              p_error: result.error ?? null
+            }
+          })
+        : await privilegedDb.rpc('record_phase14_storage_cleanup_result', {
+            p_cleanup_id: cleanupJobId,
+            p_deleted: result.providerResultClass === 'object_not_found',
+            p_error: result.error ?? (result.providerResultClass === 'object_not_found'
+              ? null
+              : `Storage absence was not verified (${result.providerResultClass}).`)
+          });
       if (error || !data) throw error ?? new Error('Storage cleanup result was not persisted.');
       return data;
     };
@@ -659,79 +658,45 @@ export async function generatePremiumReport(
       checksum,
       cleanupJobId,
       publishReport: async () => {
-        if (input.workerLease && input.fulfilmentId) {
-          if (!generationRunId || !finalCleanupJobId) {
-            throw new Error('Terminal generation publication bindings are incomplete.');
-          }
+        if (!fulfilmentId || !generationRunId || !finalCleanupJobId) {
+          throw new Error('Terminal generation publication bindings are incomplete.');
+        }
+        const terminalPayload = {
+          claim_token: claimToken,
+          fulfilment_id: fulfilmentId,
+          generation_run_id: generationRunId,
+          report_id: reportId,
+          final_cleanup_id: finalCleanupJobId,
+          generation_mode: prepared.mode,
+          metadata: {
+            evidence_checksum: prepared.evidenceChecksum,
+            order_reference: input.orderReference,
+            report_reference: claim.report_reference,
+            report_type: reportType
+          },
+          fault_after: null
+        };
+        if (input.workerLease) {
           return executePhase14WorkerStep<Record<string, any>>(
             input.workerLease,
             'terminal_phase14_generation_publication',
             {
               capability_id: input.workerLease.capabilityId,
-              claim_token: claimToken,
-              fulfilment_id: input.fulfilmentId,
-              generation_run_id: generationRunId,
-              report_id: reportId,
-              final_cleanup_id: finalCleanupJobId,
-              generation_mode: prepared.mode,
-              metadata: {
-                evidence_checksum: prepared.evidenceChecksum,
-                order_reference: input.orderReference,
-                report_reference: claim.report_reference,
-                report_type: reportType
-              },
-              fault_after: null
+              ...terminalPayload
             },
             { terminalGeneration: true, reportId }
           );
         }
-        const { data, error } = await generationRpc({
-          client: privilegedDb,
-          workerLease: input.workerLease,
-          manualFunction: 'publish_premium_report_generation',
-          workerFunction: 'worker_publish_premium_report_generation',
-          parameters: { p_claim_token: claimToken, p_report_id: reportId }
-        });
-        if (error || !data) throw error ?? new Error('Report publication returned no result.');
+        const { data, error } = await privilegedDb.rpc(
+          'admin_terminal_phase14_generation_publication',
+          { p_request_payload: terminalPayload }
+        );
+        if (error || !data) throw error ?? new Error('Atomic manual report publication returned no result.');
         return data;
       },
       recordCleanupResult
     });
     temporaryPath = null;
-
-    if (!input.workerLease) {
-      if (input.fulfilmentId) {
-        const { error: generationLinkError } = await privilegedDb.rpc('link_premium_report_generation_run', {
-          p_capability_id: null,
-          p_generation_run_id: generationRunId,
-          p_report_id: reportId
-        });
-        if (generationLinkError) throw generationLinkError;
-        await updateFulfilmentSafely(input.fulfilmentId, {
-          fulfilmentId: input.fulfilmentId,
-          status: 'ready_for_delivery',
-          currentStep: 'ready_for_email_delivery',
-          generationMode: prepared.mode,
-          reportId
-        });
-      }
-      await logGenerated({
-        reportId,
-        actor: input.actor,
-        assessmentId: assembled.assessmentId,
-        orderId: assembled.orderId,
-        orderReference: input.orderReference,
-        reportReference: claim.report_reference,
-        reportType,
-        versionNumber: Number(published.version_number),
-        supersededReportId: published.superseded_report_id ?? null,
-        fulfilmentId: input.fulfilmentId,
-        generationRunId,
-        prepared,
-        db: privilegedDb,
-        capabilityId: null
-      });
-    }
 
     return {
       reportId,
@@ -775,8 +740,8 @@ export async function generatePremiumReport(
       }
     }
     const message = errorMessage(error);
-    await updateFulfilmentSafely(input.fulfilmentId, {
-      fulfilmentId: input.fulfilmentId ?? '',
+    await updateFulfilmentSafely(fulfilmentId, {
+      fulfilmentId: fulfilmentId ?? '',
       status: 'failed',
       currentStep: draftCommitted ? 'publication_recovery_required' : 'failed',
       errorCode: reportFailureCode(error),

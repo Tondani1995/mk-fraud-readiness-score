@@ -11,7 +11,8 @@ values ('22000000-0000-0000-0000-000000000020', 'phase14-concurrency@example.inv
 insert into auth.sessions(id,user_id,aal,not_after)
 select ('22000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid,
   '22000000-0000-0000-0000-000000000020'::uuid,'aal2',now()+interval '1 day'
-from generate_series(91,99) n;
+from generate_series(91,99) n
+on conflict (id) do update set user_id=excluded.user_id,aal=excluded.aal,not_after=excluded.not_after;
 
 update public.phase14_security_gates
 set satisfied_version = required_version, status = 'satisfied',
@@ -24,7 +25,7 @@ set enabled = true, updated_by = '22000000-0000-0000-0000-000000000020',
     approved_gate_version=(select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
     approved_authority_epoch=(select authority_epoch from public.phase14_security_gates where gate_key='phase14-premium-report'),
     approved_at=now(),reason = 'isolated multi-session test only', updated_at = now()
-where policy_key in ('manual_generation','manual_delivery');
+where policy_key in ('manual_generation','manual_delivery','automatic_fulfilment','storage_cleanup');
 
 do $fixture$
 declare
@@ -349,9 +350,214 @@ drop function public.phase14_test_try_contact_consumption(uuid,uuid);
 select dblink_disconnect('phase14_contact_a');
 select dblink_disconnect('phase14_contact_b');
 
+-- Expired step-lease recovery uses its own signed envelope.  Two independent
+-- database sessions race the same locked capability; exactly one may replace
+-- the execution identity and neither may advance the persisted business step.
+do $lease_recovery_fixture$
+declare v_secret_id uuid; v_epoch bigint; v_gate_version integer;
+begin
+  select authority_epoch,required_version into strict v_epoch,v_gate_version
+  from public.phase14_security_gates where gate_key='phase14-premium-report';
+  v_secret_id:=vault.create_secret(
+    'phase14-multi-session-recovery-secret-000000000001',
+    'phase14-multi-session-recovery-key','Disposable lease recovery test key',null
+  );
+  insert into phase14_private.worker_attestation_keys(key_id,vault_secret_id,status,valid_from)
+  values ('multi-session-recovery-key',v_secret_id,'current',clock_timestamp()-interval '1 minute');
+  set local session_replication_role=replica;
+  insert into public.phase14_worker_capabilities(
+    id,capability_type,policy_key,operation_key,issue_secret_hash,security_gate_version,
+    authorised_by,authorised_session_id,reason,status,expires_at,lease_expires_at,
+    lease_owner,lease_generation,last_heartbeat_at,takeover_count,authority_epoch,
+    expected_step,workflow_execution_id
+  ) values
+  ('22000000-0000-0000-0000-000000000040','storage_cleanup','storage_cleanup',
+    'phase14-recovery-race',repeat('1',64),v_gate_version,
+    '22000000-0000-0000-0000-000000000020','22000000-0000-0000-0000-000000000091',
+    'Concurrent expired-lease recovery test.','leased',clock_timestamp()+interval '2 hours',
+    clock_timestamp()+interval '10 minutes','old-worker',7,clock_timestamp(),0,v_epoch,
+    'cleanup_settle','old-worker'),
+  ('22000000-0000-0000-0000-000000000041','storage_cleanup','storage_cleanup',
+    'phase14-recovery-overall-expired',repeat('1',64),v_gate_version,
+    '22000000-0000-0000-0000-000000000020','22000000-0000-0000-0000-000000000091',
+    'Overall expiry recovery rejection test.','leased',clock_timestamp()-interval '1 second',
+    clock_timestamp()-interval '2 minutes','expired-worker',3,clock_timestamp(),0,v_epoch,
+    'cleanup_settle','expired-worker'),
+  ('22000000-0000-0000-0000-000000000042','storage_cleanup','storage_cleanup',
+    'phase14-recovery-restart',repeat('1',64),v_gate_version,
+    '22000000-0000-0000-0000-000000000020','22000000-0000-0000-0000-000000000091',
+    'Same-execution process restart test.','leased',clock_timestamp()+interval '2 hours',
+    clock_timestamp()-interval '2 minutes','restart-worker',11,clock_timestamp(),0,v_epoch,
+    'cleanup_settle','restart-worker'),
+  ('22000000-0000-0000-0000-000000000043','storage_cleanup','storage_cleanup',
+    'phase14-recovery-stale-epoch',repeat('1',64),v_gate_version,
+    '22000000-0000-0000-0000-000000000020','22000000-0000-0000-0000-000000000091',
+    'Stale authority epoch recovery rejection test.','leased',clock_timestamp()+interval '2 hours',
+    clock_timestamp()-interval '2 minutes','stale-epoch-worker',5,clock_timestamp(),0,v_epoch+1,
+    'cleanup_settle','stale-epoch-worker');
+  set local session_replication_role=origin;
+end
+$lease_recovery_fixture$;
+
+create or replace function public.phase14_test_try_expired_lease_recovery(
+  p_capability_id uuid,p_old_execution text,p_new_execution text,p_generation integer,
+  p_expected_step text,p_reason text,p_nonce uuid
+) returns text language plpgsql security definer set search_path=''
+as $test$
+declare v_cap public.phase14_worker_capabilities%rowtype; v_now bigint; v_att jsonb;
+  v_canonical text; v_signature text;
+begin
+  select * into strict v_cap from public.phase14_worker_capabilities where id=p_capability_id;
+  v_now:=floor(extract(epoch from clock_timestamp()))::bigint;
+  v_att:=jsonb_build_object(
+    'key_id','multi-session-recovery-key','capability_id',v_cap.id::text,
+    'capability_type',v_cap.capability_type,'operation_key',v_cap.operation_key,
+    'old_execution_id',p_old_execution,'proposed_execution_id',p_new_execution,
+    'expected_step',p_expected_step,'lease_generation',p_generation::text,
+    'order_id',coalesce(v_cap.order_id::text,''),'assessment_id',coalesce(v_cap.assessment_id::text,''),
+    'score_run_id',coalesce(v_cap.score_run_id::text,''),'fulfilment_id',coalesce(v_cap.fulfilment_id::text,''),
+    'report_id',coalesce(v_cap.report_id::text,''),'recipient',coalesce(lower(v_cap.recipient_email::text),''),
+    'authority_epoch',v_cap.authority_epoch::text,'reason',p_reason,
+    'issued_at_epoch',v_now::text,'expires_at_epoch',(v_now+60)::text,'nonce',p_nonce::text
+  );
+  v_canonical:=concat_ws('|',v_att->>'key_id',v_att->>'capability_id',v_att->>'capability_type',
+    v_att->>'operation_key',v_att->>'old_execution_id',v_att->>'proposed_execution_id',
+    v_att->>'expected_step',v_att->>'lease_generation',v_att->>'order_id',v_att->>'assessment_id',
+    v_att->>'score_run_id',v_att->>'fulfilment_id',v_att->>'report_id',v_att->>'recipient',
+    v_att->>'authority_epoch',v_att->>'reason',v_att->>'issued_at_epoch',
+    v_att->>'expires_at_epoch',v_att->>'nonce');
+  v_signature:=encode(extensions.hmac(convert_to(v_canonical,'utf8'),
+    convert_to('phase14-multi-session-recovery-secret-000000000001','utf8'),'sha256'),'hex');
+  return public.recover_phase14_worker_capability_lease(v_att,v_signature)::text;
+exception when others then return 'blocked:'||sqlerrm;
+end
+$test$;
+
+create or replace function public.phase14_test_try_former_worker_attestation(
+  p_capability_id uuid,p_execution text,p_generation integer,p_nonce uuid
+) returns text language plpgsql security definer set search_path=''
+as $test$
+declare v_cap public.phase14_worker_capabilities%rowtype; v_now bigint; v_payload text:='{}';
+  v_hash text; v_att jsonb; v_canonical text; v_signature text;
+begin
+  select * into strict v_cap from public.phase14_worker_capabilities where id=p_capability_id;
+  v_now:=floor(extract(epoch from clock_timestamp()))::bigint;
+  v_hash:=encode(extensions.digest(convert_to(v_payload,'utf8'),'sha256'),'hex');
+  v_att:=jsonb_build_object(
+    'key_id','multi-session-recovery-key','capability_id',v_cap.id::text,
+    'capability_type',v_cap.capability_type,'operation_key',v_cap.operation_key,
+    'execution_id',p_execution,'action','renew_phase14_worker_operation','step','cleanup_settle',
+    'order_id','','assessment_id','','score_run_id','','fulfilment_id','','report_id','','recipient','',
+    'lease_generation',p_generation::text,'request_payload_hash',v_hash,
+    'issued_at_epoch',v_now::text,'expires_at_epoch',(v_now+60)::text,
+    'nonce',p_nonce::text,'authority_epoch',v_cap.authority_epoch::text
+  );
+  v_canonical:=concat_ws('|',v_att->>'key_id',v_att->>'capability_id',v_att->>'capability_type',
+    v_att->>'operation_key',v_att->>'execution_id',v_att->>'action',v_att->>'step',
+    v_att->>'order_id',v_att->>'assessment_id',v_att->>'score_run_id',v_att->>'fulfilment_id',
+    v_att->>'report_id',v_att->>'recipient',v_att->>'lease_generation',v_att->>'request_payload_hash',
+    v_att->>'issued_at_epoch',v_att->>'expires_at_epoch',v_att->>'nonce',v_att->>'authority_epoch');
+  v_signature:=encode(extensions.hmac(convert_to(v_canonical,'utf8'),
+    convert_to('phase14-multi-session-recovery-secret-000000000001','utf8'),'sha256'),'hex');
+  return public.execute_phase14_worker_step(v_att,v_signature,v_payload)::text;
+exception when others then return 'blocked:'||sqlerrm;
+end
+$test$;
+
+set request.jwt.claims='{"role":"service_role","exp":4102444800}';
+do $before_expiry_and_bounded_failures$
+declare v_result text;
+begin
+  v_result:=public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000040','old-worker','early-worker',7,
+    'cleanup_settle','Takeover before expiry must fail.',gen_random_uuid());
+  if v_result not like 'blocked:%phase14_worker_recovery_lease_not_expired%' then
+    raise exception 'Takeover before lease expiry was not rejected: %',v_result;
+  end if;
+  v_result:=public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000041','expired-worker','replacement-worker',3,
+    'cleanup_settle','Overall expiry must block recovery.',gen_random_uuid());
+  if v_result not like 'blocked:%phase14_worker_recovery_capability_expired%' then
+    raise exception 'Overall capability expiry did not block recovery: %',v_result;
+  end if;
+  v_result:=public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000043','stale-epoch-worker','replacement-worker',5,
+    'cleanup_settle','Authority epoch mismatch must block recovery.',gen_random_uuid());
+  if v_result not like 'blocked:%phase14_worker_recovery_authority_epoch_stale%' then
+    raise exception 'Authority epoch mismatch did not block recovery: %',v_result;
+  end if;
+  v_result:=public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000042','restart-worker','restart-worker',11,
+    'cleanup_settle','Controlled resumption after process restart.',gen_random_uuid());
+  if v_result like 'blocked:%' then raise exception 'Same-execution restart recovery failed: %',v_result; end if;
+end
+$before_expiry_and_bounded_failures$;
+
+update public.phase14_worker_capabilities set lease_expires_at=clock_timestamp()-interval '1 minute'
+where id='22000000-0000-0000-0000-000000000040';
+select dblink_connect('phase14_takeover_a','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_connect('phase14_takeover_b','host=host.docker.internal port=54322 dbname=postgres user=postgres password=postgres');
+select dblink_exec('phase14_takeover_a',$$set request.jwt.claims='{"role":"service_role","exp":4102444800}'$$);
+select dblink_exec('phase14_takeover_b',$$set request.jwt.claims='{"role":"service_role","exp":4102444800}'$$);
+select dblink_send_query('phase14_takeover_a',$$
+  select public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000040','old-worker','replacement-a',7,
+    'cleanup_settle','Competing replacement worker A.','22000000-0000-0000-0000-000000000044')
+$$);
+select dblink_send_query('phase14_takeover_b',$$
+  select public.phase14_test_try_expired_lease_recovery(
+    '22000000-0000-0000-0000-000000000040','old-worker','replacement-b',7,
+    'cleanup_settle','Competing replacement worker B.','22000000-0000-0000-0000-000000000045')
+$$);
+create temp table phase14_takeover_results(worker text,result text);
+insert into phase14_takeover_results select 'a',result
+from dblink_get_result('phase14_takeover_a',false) as t(result text);
+insert into phase14_takeover_results select 'b',result
+from dblink_get_result('phase14_takeover_b',false) as t(result text);
+select dblink_disconnect('phase14_takeover_a');
+select dblink_disconnect('phase14_takeover_b');
+
+do $assert_expired_lease_race$
+declare v_cap public.phase14_worker_capabilities%rowtype; v_former text; v_stale text;
+begin
+  select * into strict v_cap from public.phase14_worker_capabilities
+  where id='22000000-0000-0000-0000-000000000040';
+  if (select count(*) from phase14_takeover_results where result not like 'blocked:%')<>1
+     or (select count(*) from phase14_takeover_results where result like 'blocked:%')<>1
+     or v_cap.workflow_execution_id not in ('replacement-a','replacement-b')
+     or v_cap.lease_generation<>8 or v_cap.takeover_count<>1
+     or v_cap.expected_step<>'cleanup_settle' then
+    raise exception 'Expired-lease election was not exactly-one/preserved-step: %, %',
+      (select jsonb_agg(to_jsonb(r)) from phase14_takeover_results r),to_jsonb(v_cap);
+  end if;
+  v_former:=public.phase14_test_try_former_worker_attestation(v_cap.id,'old-worker',7,gen_random_uuid());
+  v_stale:=public.phase14_test_try_former_worker_attestation(v_cap.id,v_cap.workflow_execution_id,7,gen_random_uuid());
+  if v_former not like 'blocked:%phase14_worker_attestation_step_or_lease_invalid%'
+     or v_stale not like 'blocked:%phase14_worker_attestation_step_or_lease_invalid%' then
+    raise exception 'Former execution or stale generation remained usable: %, %',v_former,v_stale;
+  end if;
+  if (select count(*) from public.audit_logs where entity_id=v_cap.id
+      and action='phase14_worker_expired_lease_recovered')<>1 then
+    raise exception 'Recovery audit evidence was not exactly once';
+  end if;
+  if not exists(select 1 from public.phase14_worker_capabilities
+      where id='22000000-0000-0000-0000-000000000042'
+        and workflow_execution_id='restart-worker' and lease_generation=12
+        and expected_step='cleanup_settle' and takeover_count=1) then
+    raise exception 'Controlled process-restart resumption did not preserve its step';
+  end if;
+end
+$assert_expired_lease_race$;
+
+drop function public.phase14_test_try_former_worker_attestation(uuid,text,integer,uuid);
+drop function public.phase14_test_try_expired_lease_recovery(uuid,text,text,integer,text,text,uuid);
+set request.jwt.claims='';
+
 set request.jwt.claims = '';
 begin;
 set local session_replication_role = replica;
+delete from storage.objects where bucket_id='generated-reports'
+  and (name like 'PH14-MULTI-SESSION/%' or name like 'tmp/PH14-MULTI-SESSION/%');
 delete from public.assessment_events
 where assessment_id='22000000-0000-0000-0000-000000000001'
   and dedupe_key like 'phase14-bounce-remediation:%';
@@ -376,8 +582,25 @@ update public.phase14_feature_policies
 set enabled=false,approved_gate_version=null,approved_authority_epoch=null,
     approved_at=null,updated_by=null,
     reason='Multi-session test cleanup restored the inert policy.',updated_at=now()
-where policy_key in ('manual_generation','manual_delivery');
+where policy_key in ('manual_generation','manual_delivery','automatic_fulfilment','storage_cleanup');
+delete from public.audit_logs where entity_table='phase14_worker_capabilities'
+  and entity_id in ('22000000-0000-0000-0000-000000000040','22000000-0000-0000-0000-000000000042');
+delete from phase14_private.worker_recovery_nonces
+where capability_id in (
+  '22000000-0000-0000-0000-000000000040','22000000-0000-0000-0000-000000000041',
+  '22000000-0000-0000-0000-000000000042','22000000-0000-0000-0000-000000000043'
+);
+delete from public.phase14_worker_capabilities where id in (
+  '22000000-0000-0000-0000-000000000040','22000000-0000-0000-0000-000000000041',
+  '22000000-0000-0000-0000-000000000042','22000000-0000-0000-0000-000000000043'
+);
+with removed_key as (
+  delete from phase14_private.worker_attestation_keys where key_id='multi-session-recovery-key'
+  returning vault_secret_id
+)
+delete from vault.secrets where id in (select vault_secret_id from removed_key);
 delete from public.admin_profiles where id = '22000000-0000-0000-0000-000000000020';
+delete from auth.sessions where user_id='22000000-0000-0000-0000-000000000020';
 update public.phase14_security_gates
 set satisfied_version = 0, status = 'unsatisfied', satisfied_by = null, satisfied_at = null,
     reason = 'Multi-session test cleanup restored the inert gate.', updated_at = now()
