@@ -13,6 +13,10 @@ function storageDouble(options = {}) {
   const objects = new Map(options.objects ?? []);
   const calls = [];
   const db = {
+    async rpc(name, args) {
+      calls.push(['rpc', name, args]);
+      return { data: true, error: null };
+    },
     from(table) {
       return {
         async upsert(value) {
@@ -172,9 +176,9 @@ async function publish(storage, publication, extra = {}) {
     assessment_id: '00000000-0000-0000-0000-000000000021',
     order_id: '00000000-0000-0000-0000-000000000022'
   }), /checksum does not match/);
-  assert(storage.calls.some(([name, table, value]) =>
-    name === 'upsert' && table === 'phase14_operational_alerts'
-    && value.category === 'report_download_checksum_mismatch'),
+  assert(storage.calls.some(([kind, name, args]) =>
+    kind === 'rpc' && name === 'record_phase14_operational_alert'
+    && args.p_category === 'report_download_checksum_mismatch'),
   'download mismatch must create an operational alert');
 }
 
@@ -189,9 +193,9 @@ async function publish(storage, publication, extra = {}) {
     assessment_id: '00000000-0000-0000-0000-000000000024',
     order_id: '00000000-0000-0000-0000-000000000025'
   }), /object is missing/);
-  assert(storage.calls.some(([name, table, value]) =>
-    name === 'upsert' && table === 'phase14_operational_alerts'
-    && value.category === 'report_download_object_missing'));
+  assert(storage.calls.some(([kind, name, args]) =>
+    kind === 'rpc' && name === 'record_phase14_operational_alert'
+    && args.p_category === 'report_download_object_missing'));
 }
 
 console.log('phase14_storage_fault_injection_tests_passed');
