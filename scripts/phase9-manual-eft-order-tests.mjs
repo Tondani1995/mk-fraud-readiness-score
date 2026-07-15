@@ -94,19 +94,19 @@ assert(exists(statusRoute), 'Admin order status route must exist.');
 assertIncludes(adminList, 'Order queue', 'Admin order list shows queue');
 assertIncludes(adminList, "dynamic = 'force-dynamic'", 'Admin order list is forced dynamic');
 assertIncludes(adminDetail, "dynamic = 'force-dynamic'", 'Admin order detail is forced dynamic');
-assertIncludes(adminDetail, 'Autonomous fulfilment is safely disabled', 'Admin detail preserves the disabled-by-default automation boundary');
-assertIncludes(adminDetail, 'Payment confirmation is recorded, but autonomous fulfilment remains disabled', 'Admin copy explains the safe pre-enablement state');
+assertIncludes(adminDetail, 'Phase 14 automation remains disabled', 'Admin detail preserves the disabled automation boundary');
+assertIncludes(adminDetail, 'Payment confirmation is recorded only', 'Admin copy explains the manual payment boundary');
 assertIncludes(statusRoute, 'canManageFinance', 'Status update is finance/admin guarded');
 assertIncludes(statusRoute, 'updateAdminOrderStatus', 'Status route uses order service');
-assertIncludes(statusRoute, 'getPremiumReportAutomationFlags', 'Later fulfilment remains feature-flag controlled');
-assertIncludes(statusRoute, 'flags.autoFulfilmentEnabled', 'Payment confirmation cannot start fulfilment while the flag is false');
-assertIncludes(statusRoute, 'queuePremiumReportFulfilment', 'Eligible later automation uses the idempotent fulfilment queue');
+assertNotIncludes(statusRoute, 'getPremiumReportAutomationFlags', 'Payment status changes do not inspect autonomous fulfilment flags');
+assertNotIncludes(statusRoute, 'autoFulfilmentEnabled', 'Payment confirmation cannot start autonomous fulfilment');
+assertNotIncludes(statusRoute, 'queuePremiumReportFulfilment', 'Payment confirmation does not queue report generation');
 assertIncludes(statusRoute, 'revalidatePath', 'Status update revalidates admin order pages');
 assertIncludes(statusRoute, 'Date.now()', 'Successful status redirect has a unique refresh marker');
 
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Normal admin navigation must not expose Phase 9 label');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Normal admin navigation must not expose Phase 10 label');
-assertNotIncludes(adminList, 'Phase', 'Order list should not read like a phase scaffold');
+assert(!/>[^<{]*Phase\s+\d/i.test(read(adminList)), 'Order list should not render phase scaffold copy');
 
 const customerAndPaymentSources = [
   migration,

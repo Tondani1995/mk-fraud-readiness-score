@@ -1,63 +1,40 @@
+import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/admin-route';
-import {
-  authorizeBouncedReportRedelivery,
-  deliverPremiumReportEmail
-} from '@/lib/reports/email/report-delivery';
-import { Phase14AuthorizationError } from '@/lib/reports/phase14-security';
+import { deliverPhase1Report, Phase1DeliveryError } from '@/lib/reports/phase1-manual-delivery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { reportId: string } }) {
   const admin = await getAdminSession();
-  if (!admin || !['platform_admin', 'approver'].includes(admin.role)) {
-    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  if (!admin) return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Authentication is required.' }, { status: 401 });
+  if (!['platform_admin', 'approver'].includes(admin.role)) {
+    return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Your role cannot initiate report delivery.' }, { status: 403 });
   }
-
   const contentType = request.headers.get('content-type') ?? '';
   const submitted = contentType.includes('application/json')
     ? await request.json().catch(() => ({})) as Record<string, unknown>
     : Object.fromEntries(await request.formData());
-  const action = typeof submitted.action === 'string' ? submitted.action : 'send';
-
+  const orderReference = String(submitted.orderReference ?? submitted.order_reference ?? '');
+  const requestKey = String(request.headers.get('x-idempotency-key') ?? submitted.requestKey ?? crypto.randomUUID());
   try {
-    if (action === 'authorize_bounce_retry') {
-      const result = await authorizeBouncedReportRedelivery({
-        priorEmailEventId: String(submitted.priorEmailEventId ?? ''),
-        verificationId: String(submitted.contactVerificationId ?? ''),
-        reason: String(submitted.reason ?? '')
-      });
-      return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });
-    }
-    if (!['send', 'send_bounce_retry'].includes(action)) {
-      return NextResponse.json({ ok: false, error: 'invalid_delivery_action' }, { status: 400 });
-    }
-    const remediationId = action === 'send_bounce_retry'
-      ? String(submitted.bounceRemediationId ?? '').trim()
-      : '';
-    if (action === 'send_bounce_retry' && !remediationId) {
-      return NextResponse.json({ ok: false, error: 'bounce_remediation_required' }, { status: 400 });
-    }
-    const result = await deliverPremiumReportEmail({
+    const result = await deliverPhase1Report({
       reportId: params.reportId,
-      bounceRetry: remediationId ? { remediationId } : undefined,
-      actor: {
-        actorType: 'admin',
-        userId: admin.id,
-        action: remediationId ? 'admin_resend' : 'admin_send'
-      }
+      orderReference,
+      requestedBy: admin.id,
+      requestKey
     });
-    return NextResponse.json({ ok: true, result }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: true, ...result }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Report email could not be sent.';
-    const authorizationError = error instanceof Phase14AuthorizationError;
+    const mapped = error instanceof Phase1DeliveryError
+      ? error
+      : new Phase1DeliveryError('delivery_failed', 'The delivery request failed.', 500, 'unavailable');
     return NextResponse.json({
       ok: false,
-      error: authorizationError ? error.reason : 'email_send_failed',
-      message
-    }, {
-      status: authorizationError ? (error.reason === 'phase14_security_gate_unsatisfied' ? 503 : 403) : 500
-    });
+      reason: mapped.reason,
+      message: mapped.message,
+      technicalReference: mapped.technicalReference
+    }, { status: mapped.status, headers: { 'Cache-Control': 'no-store' } });
   }
 }

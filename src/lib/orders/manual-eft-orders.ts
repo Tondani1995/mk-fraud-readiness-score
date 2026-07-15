@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
+import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminSession } from '@/lib/auth/admin-route';
 
@@ -199,7 +200,7 @@ export async function createOrGetOrderForReportRequest(input: {
   const existing = input.dataRequest?.id
     ? await db
       .from('orders')
-      .select('id,order_reference,status,product_name,amount_cents,currency,eft_instructions_snapshot')
+      .select('id,order_reference,status,product_id,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,eft_instructions_snapshot,products:product_id(product_code,name)')
       .eq('assessment_id', input.assessment.id)
       .eq('report_request_id', input.dataRequest.id)
       .maybeSingle()
@@ -207,6 +208,12 @@ export async function createOrGetOrderForReportRequest(input: {
 
   if (existing.data) {
     await trackEftOrderEvent(input, existing.data, false);
+    await recordPhase1OrderNotifications({
+      ...input,
+      order: existing.data,
+      product: Array.isArray(existing.data.products) ? existing.data.products[0] : existing.data.products,
+      eftSnapshot: existing.data.eft_instructions_snapshot
+    });
     return toCustomerOrder(existing.data);
   }
 
@@ -239,7 +246,7 @@ export async function createOrGetOrderForReportRequest(input: {
         organisation_name: organisationName,
         eft_instructions_snapshot: eftSnapshot
       })
-      .select('id,order_reference,status,product_name,amount_cents,currency,eft_instructions_snapshot')
+      .select('id,order_reference,status,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,eft_instructions_snapshot')
       .single();
 
     if (!error) inserted = data;
@@ -248,18 +255,31 @@ export async function createOrGetOrderForReportRequest(input: {
 
   if (!inserted) throw new Error(lastError?.message ?? 'Order could not be created.');
 
-  await db.from('order_events').insert({
-    order_id: inserted.id,
-    event_type: 'order_created_from_report_request',
-    new_status: inserted.status,
-    metadata_json: {
-      assessment_reference: input.assessment.assessment_reference,
-      data_request_id: input.dataRequest?.id ?? null,
-      payment_gateway: false,
-      proof_upload: false,
-      report_unlock: false
+  await db.from('order_events').insert([
+    {
+      order_id: inserted.id,
+      event_type: 'assessment_completed',
+      note: 'Assessment completion is linked to this order.',
+      metadata_json: {
+        actor_type: 'system',
+        assessment_reference: input.assessment.assessment_reference
+      },
+      created_at: input.assessment.submitted_at ?? inserted.created_at
+    },
+    {
+      order_id: inserted.id,
+      event_type: 'order_created_from_report_request',
+      new_status: inserted.status,
+      metadata_json: {
+        actor_type: 'respondent_token',
+        assessment_reference: input.assessment.assessment_reference,
+        data_request_id: input.dataRequest?.id ?? null,
+        payment_gateway: false,
+        proof_upload: false,
+        report_unlock: false
+      }
     }
-  });
+  ]);
 
   await db.from('audit_logs').insert({
     actor_type: 'respondent_token',
@@ -276,6 +296,12 @@ export async function createOrGetOrderForReportRequest(input: {
   });
 
   await trackEftOrderEvent(input, inserted, true);
+  await recordPhase1OrderNotifications({
+    ...input,
+    order: inserted,
+    product,
+    eftSnapshot
+  });
 
   return toCustomerOrder(inserted);
 }
@@ -283,24 +309,28 @@ export async function createOrGetOrderForReportRequest(input: {
 export async function getAdminOrderList(filters: { status?: string; search?: string } = {}) {
   noStore();
   const db = service();
-  let query: any = db
-    .from('orders')
-    .select('id,order_reference,status,amount_cents,currency,product_name,customer_email,customer_name,organisation_name,created_at,updated_at,assessments(assessment_reference,status),data_requests(status,request_type,created_at)')
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
-  if (filters.search) {
-    const term = filters.search.trim();
-    if (term) query = query.or(`order_reference.ilike.%${term}%,organisation_name.ilike.%${term}%`);
+  const rows: any[] = [];
+  const pageSize = 1_000;
+  for (let from = 0; ; from += pageSize) {
+    let query: any = db
+      .from('orders')
+      .select('id,order_reference,status,amount_cents,currency,product_name,customer_email,customer_name,organisation_name,created_at,updated_at,assessments(assessment_reference,status),data_requests(status,request_type,created_at)')
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters.search) {
+      const term = filters.search.trim();
+      if (term) query = query.or(`order_reference.ilike.%${term}%,organisation_name.ilike.%${term}%`);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error('admin order list query failed', { from, message: error.message });
+      return rows;
+    }
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < pageSize) break;
   }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error('admin order list query failed', error);
-    return [];
-  }
-  return data ?? [];
+  return rows;
 }
 
 export async function getAdminOrderDetail(orderReference: string) {
@@ -319,8 +349,8 @@ export async function getAdminOrderDetail(orderReference: string) {
   if (!order) return null;
 
   const [{ data: events }, { data: auditEvents }] = await Promise.all([
-    db.from('order_events').select('event_type,previous_status,new_status,note,actor_admin_user_id,metadata_json,created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
-    db.from('audit_logs').select('actor_type,actor_user_id,action,before_json,after_json,created_at').eq('entity_table', 'orders').eq('entity_id', order.id).order('created_at', { ascending: false }).limit(25)
+    db.from('order_events').select('id,event_type,previous_status,new_status,note,actor_admin_user_id,metadata_json,created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
+    db.from('audit_logs').select('id,actor_type,actor_user_id,action,before_json,after_json,created_at').eq('entity_table', 'orders').eq('entity_id', order.id).order('created_at', { ascending: false }).limit(25)
   ]);
 
   return { order, events: events ?? [], auditEvents: auditEvents ?? [] };
@@ -361,20 +391,41 @@ export async function updateAdminOrderStatus(input: {
 
   if (error) return { ok: false, error: error.message };
 
-  await db.from('order_events').insert({
-    order_id: detail.order.id,
-    event_type: 'admin_status_updated',
-    previous_status: detail.order.status,
-    new_status: input.nextStatus,
-    note: input.note?.trim() || null,
-    actor_admin_user_id: input.admin.id,
-    metadata_json: {
-      payment_gateway: false,
-      proof_upload: false,
-      pdf_generation: false,
-      report_unlock: false
+  const statusEvents: any[] = [
+    {
+      order_id: detail.order.id,
+      event_type: 'admin_status_updated',
+      previous_status: detail.order.status,
+      new_status: input.nextStatus,
+      note: input.note?.trim() || null,
+      actor_admin_user_id: input.admin.id,
+      metadata_json: {
+        payment_gateway: false,
+        proof_upload: false,
+        automatic_pdf_generation: false,
+        report_unlock: false
+      }
+    },
+    {
+      order_id: detail.order.id,
+      event_type: 'payment_status_changed',
+      previous_status: detail.order.status,
+      new_status: input.nextStatus,
+      note: input.note?.trim() || 'Payment state updated by an authorised finance administrator.',
+      actor_admin_user_id: input.admin.id,
+      metadata_json: { automatic_generation_started: false }
     }
-  });
+  ];
+  if (input.note?.trim()) {
+    statusEvents.push({
+      order_id: detail.order.id,
+      event_type: 'admin_note_added',
+      note: input.note.trim(),
+      actor_admin_user_id: input.admin.id,
+      metadata_json: { related_transition: 'payment_status_changed' }
+    });
+  }
+  await db.from('order_events').insert(statusEvents);
 
   await db.from('audit_logs').insert({
     actor_type: 'admin',

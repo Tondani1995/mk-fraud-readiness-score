@@ -101,15 +101,16 @@ excludes(service, "from('audit_logs')", 'Audit logs must not bypass the Phase 14
 excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');
 
 const generateRoute = 'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts';
-includes(generateRoute, 'generatePremiumReport', 'Admin route must delegate to shared service');
+includes(generateRoute, 'generateManualPhase1Report', 'Admin route must delegate to the controlled manual service');
 includes(generateRoute, 'REPORT_GENERATION_ROLES', 'Admin route must remain role protected');
-includes(generateRoute, 'ReportEntitlementError', 'Admin route must return controlled entitlement conflicts');
+includes('src/lib/reports/phase1-manual-fulfilment.ts', 'ReportEntitlementError', 'Manual service must return controlled entitlement conflicts');
 excludes(generateRoute, 'renderHtmlToPdfBuffer', 'Route must not duplicate PDF logic');
 
 const download = 'src/app/score/api/admin/reports/[reportId]/download/route.ts';
-includes(download, 'downloadPremiumReport', 'Downloads must stream through the shared verified service');
+includes(download, 'createSecurePhase1ReportAccess', 'Downloads must use the shared verified access service');
 excludes(download, 'createSignedUrl', 'Downloads must not issue raw signed storage URLs');
-includes('src/lib/reports/download-verification.ts', 'sha256', 'Downloads must verify the runtime object checksum');
+includes('src/lib/reports/phase1-report-access.ts', "createHash('sha256')", 'Downloads must verify the runtime object checksum');
+includes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Downloads must issue only short-lived access');
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
 const template = read('src/lib/reports/templates/report-template.ts');

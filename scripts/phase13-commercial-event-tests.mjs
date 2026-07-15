@@ -122,11 +122,13 @@ assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'eft_order_cre
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_order_created'", 'EFT order queues internal lead notification');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "optionCode: 'full_report_5000'", 'EFT order event is linked to R5k option code');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marked_received'", 'Payment received admin status is tracked');
-assertIncludes(generateRoute, 'generatePremiumReport', 'Admin report route delegates to shared generation service');
+assertIncludes(generateRoute, 'generateManualPhase1Report', 'Admin report route delegates to the controlled manual generation service');
+assertNotIncludes(generateRoute, 'phase14-security', 'Manual generation does not depend on the disabled Phase 14 gate');
 assertIncludes(reportService, "'admin_terminal_phase14_generation_publication'", 'Successful manual report generation records events inside the atomic terminal transaction');
 assertIncludes(reportService, "'terminal_phase14_generation_publication'", 'Successful worker report generation records events inside the atomic terminal transaction');
 assertNotIncludes(reportService, "rpc('record_phase14_report_generated'", 'Report generation must not emit events after publication in a split transaction');
-assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', "rpc('record_phase14_report_download'", 'Successful admin report download is tracked transactionally');
+assertIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSecurePhase1ReportAccess', 'Successful admin report download uses protected verified access');
+assertIncludes('src/lib/reports/phase1-report-access.ts', "from('report_events').insert", 'Successful admin report access is recorded');
 
 assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');
