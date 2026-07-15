@@ -93,8 +93,9 @@ includes(service, 'commit_premium_report_draft', 'Shared service must transactio
 includes(service, "manualFunction: 'publish_premium_report_generation'", 'Manual version supersession must use the gated publication RPC');
 includes(service, "workerFunction: 'worker_publish_premium_report_generation'", 'Autonomous version supersession must use the capability-scoped publication RPC');
 includes(service, 'superseded_report_id', 'Version supersession must remain');
-includes(service, "from('report_events')", 'Report events must be recorded');
-includes(service, "from('audit_logs')", 'Audit logs must be recorded');
+includes(service, "rpc('record_phase14_report_generated'", 'Report and audit events must be recorded transactionally');
+excludes(service, "from('report_events')", 'Report events must not bypass the Phase 14 state machine');
+excludes(service, "from('audit_logs')", 'Audit logs must not bypass the Phase 14 state machine');
 excludes(service, "mk_validated_assessment: 'mk_validated'", 'R50,000 personalised engagement must not map to a generated report type');
 
 const generateRoute = 'src/app/api/admin/orders/[orderReference]/generate-report/route.ts';
