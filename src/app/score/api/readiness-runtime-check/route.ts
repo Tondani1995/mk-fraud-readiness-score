@@ -4,6 +4,8 @@ import { validateResumeToken } from '@/lib/respondent/tokens';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getOptionalServerEnv } from '@/lib/env/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const service = createSupabaseServiceClient();
   const appBaseUrl = getOptionalServerEnv('NEXT_PUBLIC_APP_URL', new URL(request.url).origin);

@@ -6,6 +6,8 @@ const middleware = await readFile(new URL('../src/middleware.ts', import.meta.ur
 const scoreLanding = await readFile(new URL('../src/app/(website)/fraud-readiness-score/page.tsx', import.meta.url), 'utf8');
 const scoreFrame = await readFile(new URL('../src/components/website/assessment/AutoHeightAssessmentFrame.tsx', import.meta.url), 'utf8');
 const heightReporter = await readFile(new URL('../src/components/assessment/EmbeddedHeightReporter.tsx', import.meta.url), 'utf8');
+const runtimeCheck = await readFile(new URL('../src/app/score/api/readiness-runtime-check/route.ts', import.meta.url), 'utf8');
+const uatStartCheck = await readFile(new URL('../src/app/score/api/internal/uat-start-check/route.ts', import.meta.url), 'utf8');
 const navbar = await readFile(new URL('../src/components/website/Navbar.tsx', import.meta.url), 'utf8');
 const contact = await readFile(new URL('../src/app/(website)/contact/page.tsx', import.meta.url), 'utf8');
 
@@ -25,6 +27,8 @@ assert.match(scoreFrame, /event\.source !== iframeRef\.current\?\.contentWindow/
 assert.match(scoreFrame, /style=\{\{ height \}\}/);
 assert.match(heightReporter, /ResizeObserver/);
 assert.match(heightReporter, /window\.parent\.postMessage/);
+assert.match(runtimeCheck, /dynamic = ['"]force-dynamic['"]/, 'Runtime check must never execute during build.');
+assert.match(uatStartCheck, /dynamic = ['"]force-dynamic['"]/, 'UAT start check must never execute during build.');
 assert.equal((navbar.match(/\/fraud-readiness-score#start-score/g) ?? []).length, 2, 'Desktop and mobile navigation CTAs must share the score anchor.');
 assert.match(contact, /https:\/\/api\.web3forms\.com\/submit/);
 assert.match(contact, /const cleanName = formData\.name\.trim\(\)/);
