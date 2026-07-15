@@ -8,7 +8,7 @@ Review and approve the draft PR separately from any database change. Confirm CI,
 
 ## 2. Future database migration approval
 
-Migration `0018_phase1_manual_fulfilment_recovery.sql` requires a separate change window and named database approver. Before approval:
+Migration `0023_phase1_manual_fulfilment_recovery.sql` requires a separate change window and named database approver. Before approval:
 
 - rerun fresh replay and production-history simulation from a schema-only/data-shape-safe copy;
 - inventory current `reports` and `email_events` constraints;
@@ -16,7 +16,7 @@ Migration `0018_phase1_manual_fulfilment_recovery.sql` requires a separate chang
 - take an approved backup and record restore identifiers;
 - confirm no Phase 14 gate, feature policy or secret is introduced.
 
-Apply only 0018 in the approved environment. Validate row counts, private bucket state, new table/RPC grants and legacy report backfill. Do not run production reconciliation.
+Apply only 0023 in the approved environment. Validate row counts, private bucket state, new table/RPC grants and legacy report backfill. Do not run production reconciliation.
 
 ## 3. Provider provisioning
 

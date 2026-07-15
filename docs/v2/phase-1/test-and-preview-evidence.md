@@ -21,7 +21,7 @@ Environment boundary: local/disposable infrastructure only; production, staging 
 
 ## Database replay evidence
 
-A disposable database was created inside the local Supabase Postgres container. Migrations 0001–0016 were replayed in order, migration 0017 was explicitly skipped, and migration 0018 was applied.
+A disposable database was created inside the local Supabase Postgres container. Migrations 0001–0016 were replayed in order, migration 0017 was explicitly skipped, and migration 0023 was applied.
 
 Result:
 
@@ -78,6 +78,8 @@ The following final-tree suites passed:
 The historical Phase 5 smoke script remains incompatible with the repository's already-implemented later phases: it rejects score runs and snapshot status by design. It fails on the base SHA for those same later-phase constructs; the final tree adds one expected `score_runs` reference in the new order-notification validator. This is recorded as a pre-existing test-boundary conflict, not a Phase 1 regression.
 
 Intentionally not run: tests that apply migration 0017, connect with staging/UAT/production credentials, invoke providers, or need external secrets. Those operations are outside the Phase 1 safety boundary.
+
+The first CI attempt exposed a numeric-ledger collision: the repository replay workflow temporarily restores archived Phase 14 migrations `0018`–`0022`, so the original Phase 1 filename at `0018` collided despite valid SQL. The migration was renamed to `0023`; its behavior is unchanged and the final CI run records the collision-free replay.
 
 ## Protected Preview evidence
 

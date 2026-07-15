@@ -6,7 +6,7 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const required = [
-  'supabase/migrations/0018_phase1_manual_fulfilment_recovery.sql',
+  'supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql',
   'src/lib/reports/phase1-manual-fulfilment.ts',
   'src/lib/reports/phase1-report-access.ts',
   'src/lib/reports/phase1-manual-delivery.ts',

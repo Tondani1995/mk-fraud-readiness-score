@@ -39,6 +39,7 @@ Scope: production-compatible manual fulfilment only. Migration `0017_phase14_can
 
 - Existing tables reused: `orders`, `order_events`, `assessments`, `score_runs`, `reports`, `report_events`, `email_events`, `audit_logs`, `report_templates`, `report_content_blocks`.
 - Existing private bucket reused and reasserted: `generated-reports`.
+- New Phase 1 migration: `0023_phase1_manual_fulfilment_recovery.sql` (numbered after the archived Phase 14 migration range to keep clean replay unambiguous).
 - New Phase 1 tables: `manual_report_generation_attempts`, `manual_report_delivery_attempts`.
 - New Phase 1 RPCs: claim/start/complete/fail manual generation and claim/complete manual delivery.
 - New object path: `<organisation UUID>/<order UUID>/v<version>/<report reference>-<checksum prefix>.pdf`.

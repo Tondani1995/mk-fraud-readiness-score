@@ -2,7 +2,7 @@
 
 ## Boundary
 
-This implementation is manual and synchronous. It reuses deterministic assembly, content selection, HTML templating and PDF rendering. It does not call AI, start a workflow, process payment webhooks or send real email. Phase 14 remains disabled and migration 0017 is neither referenced by the Phase 1 runtime nor required by migration 0018.
+This implementation is manual and synchronous. It reuses deterministic assembly, content selection, HTML templating and PDF rendering. It does not call AI, start a workflow, process payment webhooks or send real email. Phase 14 remains disabled and migration 0017 is neither referenced by the Phase 1 runtime nor required by migration 0023.
 
 ## Generation lifecycle
 
@@ -22,7 +22,7 @@ The synchronous runtime transitions queued → generating, renders the determini
 
 Version numbers are allocated while the order row is locked. A successful regeneration inserts a new `reports` row, points `supersedes_report_id` at the previous version and marks only the previous current version `superseded`. Earlier objects remain private and unchanged.
 
-Migration 0018 adds explicit organisation, file name, MIME type, file size, storage status and verification timestamp to `reports`. The `generated-reports` bucket is reasserted as private and PDF-only. `REPORT_READY` is only committed after object read-back and checksum validation. Legacy rows are not assumed verified: an authorised Preview/Download performs read-back and atomically records verification before delivery becomes available.
+Migration 0023 adds explicit organisation, file name, MIME type, file size, storage status and verification timestamp to `reports`. The `generated-reports` bucket is reasserted as private and PDF-only. `REPORT_READY` is only committed after object read-back and checksum validation. Legacy rows are not assumed verified: an authorised Preview/Download performs read-back and atomically records verification before delivery becomes available.
 
 ## Access authorisation
 
@@ -56,8 +56,8 @@ The order page shows payment, generation, attempt, version, storage, delivery, r
 
 Every major transition writes an order event. Generation and access also write report/audit events; delivery and notifications write observable email events. Runtime logs use request/order/report/attempt/status/category/reference fields and omit tokens, URLs, credentials and stack traces.
 
-## Why migration 0018 is necessary
+## Why migration 0023 is necessary
 
-Existing production-compatible tables could represent orders, reports and generic events, but could not enforce one active manual generation attempt, preserve request-level failure/retry state, represent delivery independently, or state that a stored object was verified with MIME/size/organisation linkage. Migration 0018 adds only those gaps. It preserves existing rows and backfills legacy report metadata where the base fields prove a stored object was intended.
+Existing production-compatible tables could represent orders, reports and generic events, but could not enforce one active manual generation attempt, preserve request-level failure/retry state, represent delivery independently, or state that a stored object was verified with MIME/size/organisation linkage. Migration 0023 adds only those gaps. It is numbered after the archived Phase 14 `0018`–`0022` range so the repository's canonical clean-replay workflow remains collision-free. It preserves existing rows and backfills legacy report metadata where the base fields prove a stored object was intended.
 
 It does not copy the dormant Phase 14 design, create autonomous fulfilments, create AI/provider gates or enable feature policies.
