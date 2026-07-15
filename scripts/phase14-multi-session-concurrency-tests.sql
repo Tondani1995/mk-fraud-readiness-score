@@ -291,4 +291,9 @@ set satisfied_version = 0, status = 'unsatisfied', satisfied_by = null, satisfie
 where gate_key = 'phase14-premium-report';
 commit;
 
+-- dblink is a test-only dependency. Remove its public extension-owned
+-- functions so subsequent schema-equivalence snapshots observe only the
+-- application schema produced by migrations.
+drop extension dblink;
+
 select 'phase14_multi_session_concurrency_tests_passed' as result;
