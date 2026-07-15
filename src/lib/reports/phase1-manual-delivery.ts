@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 
 export class Phase1DeliveryError extends Error {
   constructor(
@@ -29,7 +30,7 @@ function mapDeliveryError(error: unknown, technicalReference: string) {
   if (message.includes('report_not_ready')) return new Phase1DeliveryError('report_not_ready', 'Delivery requires a verified ready report.', 409, technicalReference);
   if (message.includes('recipient_missing')) return new Phase1DeliveryError('recipient_missing', 'The order does not have a delivery email address.', 409, technicalReference);
   if (/claim_manual_report_delivery|manual_report_delivery_attempts|function .* does not exist|schema cache/i.test(message)) {
-    return new Phase1DeliveryError('phase1_schema_unavailable', 'Manual delivery is not configured in this environment.', 503, technicalReference);
+    return new Phase1DeliveryError('phase1_schema_unavailable', PHASE1_SCHEMA_UNAVAILABLE_MESSAGE, 503, technicalReference);
   }
   return new Phase1DeliveryError('delivery_failed', 'The delivery request failed. Retry using the technical reference.', 500, technicalReference);
 }
@@ -43,6 +44,10 @@ export async function deliverPhase1Report(input: {
   const technicalReference = crypto.randomUUID();
   const mode = providerMode();
   const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    throw new Phase1DeliveryError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
+  }
   const { data: report, error: reportError } = await db.from('reports')
     .select('id,order_id,storage_bucket,storage_path,storage_status,checksum,file_size_bytes')
     .eq('id', input.reportId).maybeSingle();

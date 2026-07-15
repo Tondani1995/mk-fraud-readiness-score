@@ -4,6 +4,10 @@
 
 This implementation is manual and synchronous. It reuses deterministic assembly, content selection, HTML templating and PDF rendering. It does not call AI, start a workflow, process payment webhooks or send real email. Phase 14 remains disabled and migration 0017 is neither referenced by the Phase 1 runtime nor required by migration 0023.
 
+The source is also deployable before 0023. `getPhase1SchemaCapability` first reads the existing `app_settings` table. With no transactional 0023 marker it returns typed `unavailable` without probing a new table, column, or RPC. When the marker exists, the service-role-only `phase1_manual_fulfilment_capability()` function verifies both attempt ledgers, the required report and email columns, all six Phase 1 RPCs, and the service-role privileges needed by the runtime. Marker/RPC/permission failures return `error`; they are never treated as proof of absence.
+
+Every new Phase 1 service checks this boundary before its first new-schema access. Admin order/report pages retain their through-0016 reads, show the exact upgrade-not-activated message, and hide fulfilment controls until capability is available. Auth and role checks remain outside and before the service boundary, so unauthenticated or unauthorised callers are still rejected rather than receiving a schema oracle.
+
 ## Generation lifecycle
 
 The protected route validates the current admin role, loads the order and completed locked score, validates the paid-product entitlement, and then calls `claim_manual_report_generation`. The RPC:
@@ -61,3 +65,7 @@ Every major transition writes an order event. Generation and access also write r
 Existing production-compatible tables could represent orders, reports and generic events, but could not enforce one active manual generation attempt, preserve request-level failure/retry state, represent delivery independently, or state that a stored object was verified with MIME/size/organisation linkage. Migration 0023 adds only those gaps. It is numbered after the archived Phase 14 `0018`–`0022` range so the repository's canonical clean-replay workflow remains collision-free. It preserves existing rows and backfills legacy report metadata where the base fields prove a stored object was intended.
 
 It does not copy the dormant Phase 14 design, create autonomous fulfilments, create AI/provider gates or enable feature policies.
+
+## Exact application boundary
+
+`scripts/apply-phase1-0023-only.sh` is the only documented production mechanism. It requires a read-only target fingerprint, exact literal confirmation, and the reviewed migration SHA-256. Its psql controller rejects 0017–0022 or Phase 14 history, an existing 0023 entry, missing through-0016 preconditions, and any partial 0023 object state. It applies the migration bytes and records only the hash-bound 0023 ledger row in one transaction. The disposable replay suite covers a fresh boundary, production-style history, duplicate execution, a prohibited ledger entry, and forced failure immediately before ledger recording.

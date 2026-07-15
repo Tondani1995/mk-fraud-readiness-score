@@ -15,6 +15,7 @@ type Props = {
   canGenerate: boolean;
   canRegenerate: boolean;
   canDeliver: boolean;
+  capabilityAvailable: boolean;
 };
 
 type Notice = { tone: 'success' | 'error' | 'info'; text: string } | null;
@@ -98,17 +99,17 @@ export function FulfilmentActions(props: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {props.canGenerate && props.eligible && !props.storageCandidate && props.generationState !== 'GENERATION_FAILED' ? (
+        {props.capabilityAvailable && props.canGenerate && props.eligible && !props.storageCandidate && props.generationState !== 'GENERATION_FAILED' ? (
           <Button type="button" disabled={Boolean(running) || generationActive} onClick={() => generation('admin_generate')}>
             {generationActive || running === 'admin_generate' ? 'Generating report…' : 'Generate Report'}
           </Button>
         ) : null}
-        {props.canGenerate && props.eligible && (props.generationState === 'GENERATION_FAILED' || props.generationStuck) ? (
+        {props.capabilityAvailable && props.canGenerate && props.eligible && (props.generationState === 'GENERATION_FAILED' || props.generationStuck) ? (
           <Button type="button" disabled={Boolean(running)} onClick={() => generation('admin_retry')}>
             {running === 'admin_retry' ? 'Generating report…' : 'Retry Generation'}
           </Button>
         ) : null}
-        {props.storageCandidate ? (
+        {props.capabilityAvailable && props.storageCandidate ? (
           <>
             <Button type="button" variant="secondary" disabled={Boolean(running)} onClick={() => access('preview')}>
               {running === 'preview' ? 'Preparing preview…' : 'Preview Report'}
@@ -118,12 +119,12 @@ export function FulfilmentActions(props: Props) {
             </Button>
           </>
         ) : null}
-        {props.canDeliver && props.storageReady && props.deliveryState !== 'DELIVERED' ? (
+        {props.capabilityAvailable && props.canDeliver && props.storageReady && props.deliveryState !== 'DELIVERED' ? (
           <Button type="button" disabled={Boolean(running) || deliveryActive} onClick={deliver}>
             {deliveryActive ? 'Delivery Pending' : props.deliveryState === 'DELIVERY_FAILED' ? 'Retry Delivery' : 'Initiate Delivery'}
           </Button>
         ) : null}
-        {props.canRegenerate && props.storageReady ? (
+        {props.capabilityAvailable && props.canRegenerate && props.storageReady ? (
           <Button type="button" variant="secondary" disabled={Boolean(running) || generationActive} onClick={() => generation('admin_regenerate')}>
             {running === 'admin_regenerate' ? 'Generating report…' : 'Create New Version'}
           </Button>

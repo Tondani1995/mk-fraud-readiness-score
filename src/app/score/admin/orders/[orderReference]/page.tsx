@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
 import { getPhase1OrderOperations } from '@/lib/reports/phase1-operations';
+import { getPhase1SchemaCapability, PHASE1_SCHEMA_ERROR_MESSAGE } from '@/lib/reports/phase1-schema-capability';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -33,22 +34,25 @@ function SnapshotValue({ label, value }: { label: string; value: string | null |
   );
 }
 
-async function getReportVersions(db: any, orderId: string) {
+async function getReportVersions(db: any, orderId: string, capabilityAvailable: boolean) {
+  if (!capabilityAvailable) {
+    const base = await db.from('reports')
+      .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
+      .eq('order_id', orderId).order('version_number', { ascending: false });
+    if (base.error) {
+      console.error('phase1_order_reports_query', { orderId, reason: 'base_report_query_failed' });
+      return { reports: [], available: false };
+    }
+    return { reports: (base.data ?? []).map((report: any) => ({ ...report, storage_status: 'NOT_STORED' })), available: true };
+  }
   const detailed = await db.from('reports')
     .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at')
     .eq('order_id', orderId).order('version_number', { ascending: false });
-  if (!detailed.error) return detailed.data ?? [];
-  const fallback = await db.from('reports')
-    .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
-    .eq('order_id', orderId).order('version_number', { ascending: false });
-  if (fallback.error) {
-    console.error('phase1_order_reports_query', { orderId, reason: fallback.error.message });
-    return [];
+  if (detailed.error) {
+    console.error('phase1_order_reports_query', { orderId, reason: 'phase1_report_query_failed' });
+    return { reports: [], available: false };
   }
-  return (fallback.data ?? []).map((report: any) => ({
-    ...report,
-    storage_status: report.storage_bucket && report.storage_path && report.checksum ? 'VERIFIED' : 'NOT_STORED'
-  }));
+  return { reports: detailed.data ?? [], available: true };
 }
 
 export default async function AdminOrderDetailPage({
@@ -63,10 +67,14 @@ export default async function AdminOrderDetailPage({
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
   const { order, events, auditEvents } = detail;
-  const [reportVersions, operations] = await Promise.all([
-    getReportVersions(db, order.id),
-    getPhase1OrderOperations(order.id)
+  const capability = await getPhase1SchemaCapability(db);
+  const capabilityAvailable = capability.status === 'available';
+  const [reportResult, operations] = await Promise.all([
+    getReportVersions(db, order.id, capabilityAvailable),
+    getPhase1OrderOperations(order.id, capability)
   ]);
+  const reportVersions = reportResult.reports;
+  const operationalAvailable = capabilityAvailable && operations.schemaAvailable && reportResult.available;
   const latestReport = reportVersions[0] ?? null;
   const storageCandidate = Boolean(latestReport?.storage_bucket && latestReport?.storage_path && latestReport?.checksum);
   const storageReady = Boolean(latestReport?.storage_status === 'VERIFIED' && latestReport.storage_bucket && latestReport.storage_path);
@@ -96,9 +104,9 @@ export default async function AdminOrderDetailPage({
           </div>
         ) : null}
 
-        {!operations.schemaAvailable ? (
+        {!operationalAvailable ? (
           <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
-            Phase 1 operational persistence is not installed in this environment. Manual actions will remain blocked until migration 0018 is approved and applied here.
+            {capability.status === 'available' ? PHASE1_SCHEMA_ERROR_MESSAGE : capability.message}
           </div>
         ) : null}
 
@@ -132,6 +140,7 @@ export default async function AdminOrderDetailPage({
               canGenerate={canGenerate}
               canRegenerate={canRegenerate}
               canDeliver={canDeliver}
+              capabilityAvailable={operationalAvailable}
             />
             <div className="flex flex-wrap gap-4 text-sm font-semibold text-mk-brassDark">
               {operations.generationHistory.length ? <a href="#generation-history">View Generation History</a> : null}

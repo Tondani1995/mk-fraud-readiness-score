@@ -1,5 +1,9 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import {
+  getPhase1SchemaCapability,
+  requirePhase1SchemaCapability
+} from '@/lib/reports/phase1-schema-capability';
 
 type NotificationContext = {
   assessment: any;
@@ -85,6 +89,14 @@ async function recordNotification(db: any, input: {
 
 export async function recordPhase1OrderNotifications(context: NotificationContext) {
   const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    return {
+      skipped: true,
+      reason: capability.status,
+      message: capability.message
+    };
+  }
   const { data: score } = context.assessment.current_score_run_id
     ? await db.from('score_runs').select('overall_score,final_maturity').eq('id', context.assessment.current_score_run_id).maybeSingle()
     : { data: null };
@@ -129,6 +141,7 @@ export async function recordPhase1OrderNotifications(context: NotificationContex
 
 export async function retryPhase1NotificationWithDouble(emailEventId: string, result: 'success' | 'failure') {
   const db = createSupabaseServiceClient() as any;
+  await requirePhase1SchemaCapability(db);
   const { data: event, error } = await db.from('email_events')
     .select('id,retry_count,provider_mode').eq('id', emailEventId).maybeSingle();
   if (error || !event) throw error ?? new Error('Notification event not found.');

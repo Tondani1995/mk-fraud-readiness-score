@@ -40,7 +40,8 @@ export default async function AdminOrdersPage({
   const candidateQueue = searchParams?.queue as Phase1QueueKey | undefined;
   const selectedQueue = candidateQueue && candidateQueue in PHASE1_QUEUE_LABELS ? candidateQueue : undefined;
   const sourceOrders = await getAdminOrderList({ status, search });
-  const annotated = await annotateOrdersWithPhase1State(sourceOrders);
+  const phase1 = await annotateOrdersWithPhase1State(sourceOrders);
+  const annotated = phase1.orders;
   const counts = queueCounts(annotated);
   const orders = selectedQueue
     ? annotated.filter((order) => order.queues.includes(selectedQueue))
@@ -54,6 +55,12 @@ export default async function AdminOrdersPage({
           title="Orders and exception queues"
           description="Every order remains visible. Priority queues are derived from persisted payment, generation, storage and delivery state."
         />
+
+        {phase1.capability.status !== 'available' ? (
+          <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
+            {phase1.capability.message}
+          </div>
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {priorityQueues.map((queue) => (

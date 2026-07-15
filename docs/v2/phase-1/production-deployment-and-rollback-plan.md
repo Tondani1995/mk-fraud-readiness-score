@@ -1,52 +1,56 @@
-# V2 Phase 1 — Production deployment and rollback plan
+# V2 Phase 1 — production deployment and recovery plan
 
-This is a future approval plan. This Phase 1 task does not deploy production, apply a remote migration, provision a provider or merge the PR.
+This is an approval plan, not an authorisation to deploy. PR #26 remains draft and must not merge or change production as part of release-safety verification. Production is compatible through migration 0016 only; migrations 0017–0022 are prohibited for this release.
 
-## 1. Source merge approval
+## Mandatory source-first sequence
 
-Review and approve the draft PR separately from any database change. Confirm CI, exact-SHA protected Preview evidence, Phase 14-disabled assertions and security review. Merging source does not itself authorise database migration or provider provisioning.
+1. **Merge source.** Only after PR #26 has the approved final SHA, green fresh-install/static/regression/pre-post/replay/PDF evidence, and an exact-SHA protected Preview, approve and merge that source revision. Merging does not approve a database change.
+2. **Production deployment becomes READY.** Deploy the compatible source first, record the production deployment ID and prior rollback deployment ID, and wait for the new deployment to report READY while production remains on the schema-through-0016 boundary.
+3. **Application runs safely in pre-0023 compatibility mode.** Confirm the exact upgrade-not-activated message is present, Phase 1 controls are absent, existing data remains readable, and logs contain no missing Phase 1 object query. If unhealthy, redeploy the recorded rollback deployment and stop; the database is unchanged.
+4. **Verify public site and current admin routes.** Check `/`, `/score/admin/login`, the admin orders list, one existing order detail, the reports page, and an existing order-status update. Require successful rendering without a generic 500 and retain normal authentication/role enforcement.
+5. **Separately approve the production database change.** Open a distinct change window with a named database approver. Record the target label and the read-only fingerprint returned by `current_database()`, `current_user`, `inet_server_addr()`, and `inet_server_port()`. Run `PHASE1_ACTION=verify`; require the through-0016 boundary, 0017–0022/Phase 14 absence, 0023 absence, and all preconditions.
+6. **Back up and record restore identifiers.** Take the approved backup immediately before the database operation and record its immutable restore identifier, timestamp, owner, retention, and restore procedure.
+7. **Execute the exact 0023-only mechanism.** Set the literal target confirmation and use `PHASE1_ACTION=apply`. The controller verifies the reviewed SHA-256, locks the ledger, executes only `0023_phase1_manual_fulfilment_recovery.sql`, verifies its objects, and records only version `0023`/name `phase1_manual_fulfilment_recovery` in the same transaction. It never fabricates 0017–0022. Duplicate, prohibited, partial, and unexpected states are rejected.
+8. **Verify schema capability becomes available.** Require `available=true` and `schema_version=0023`; both attempt ledgers with RLS; all required report/email columns and six RPCs; a private report bucket; one hash-bound 0023 ledger entry; and continued absence of 0017–0022 and Phase 14 objects.
+9. **Verify Phase 1 controls activate.** Refresh the authorised admin order and reports pages. Confirm generation, secure preview/download, and permitted delivery controls are visible only to their existing authorised roles, while unauthenticated and unauthorised access remains blocked.
+10. **Run a designated non-customer smoke test.** Verify one generation attempt creates one version and one verified private PDF; preview/download create short-lived links plus audits; disabled delivery records a pending attempt without provider activity; duplicate keys remain idempotent; and the existing order-status path still works.
+11. **Retain provider delivery in disabled mode.** Keep `PHASE1_DELIVERY_MODE=disabled`, observe source/database logs, and attach non-sensitive evidence. Do not provision providers, webhooks, AI, autonomous workflows, or customer sends. Close the window only when source and database are healthy; otherwise use the recovery boundaries below.
 
-## 2. Future database migration approval
+## Exact controlled command shape
 
-Migration `0023_phase1_manual_fulfilment_recovery.sql` requires a separate change window and named database approver. Before approval:
+First obtain and independently review the target fingerprint with a read-only database session. Then run readiness:
 
-- rerun fresh replay and production-history simulation from a schema-only/data-shape-safe copy;
-- inventory current `reports` and `email_events` constraints;
-- confirm migration 0017 remains unapplied;
-- take an approved backup and record restore identifiers;
-- confirm no Phase 14 gate, feature policy or secret is introduced.
+```bash
+DATABASE_URL='<approved secret supplied outside shell history>' \
+PHASE1_ACTION=verify \
+PHASE1_TARGET_LABEL=production \
+PHASE1_EXPECTED_TARGET_FINGERPRINT='<database|role|address|port>' \
+bash scripts/apply-phase1-0023-only.sh
+```
 
-Apply only 0023 in the approved environment. Validate row counts, private bucket state, new table/RPC grants and legacy report backfill. Do not run production reconciliation.
+Only after approval of that output, apply with the literal confirmation assembled from the same label and fingerprint:
 
-## 3. Provider provisioning
+```bash
+DATABASE_URL='<approved secret supplied outside shell history>' \
+PHASE1_ACTION=apply \
+PHASE1_TARGET_LABEL=production \
+PHASE1_EXPECTED_TARGET_FINGERPRINT='<database|role|address|port>' \
+PHASE1_CONFIRM='APPLY-0023-ONLY:production:<database|role|address|port>' \
+bash scripts/apply-phase1-0023-only.sh
+```
 
-Provider provisioning is not part of Phase 1. Keep `PHASE1_DELIVERY_MODE=disabled`. A later approved phase must select a provider, provision secrets, verify domain/sender policy, define bounce handling and obtain explicit permission before any real customer delivery.
+Never run the migration file directly and never use a broad migration-push command for this release.
 
-## 4. Production smoke testing
+## Recovery boundaries
 
-After source and migration are independently approved and deployed:
+**Source rollback before 0023:** redeploy the recorded prior production deployment. No database repair is needed.
 
-- verify `/`, `/score/api/health` and `/score/admin/login`;
-- use a designated non-customer test order only;
-- confirm a permitted admin sees the order and persisted state;
-- verify Generate produces one attempt and one private verified object;
-- verify preview/download access and event logging;
-- record a delivery request in disabled mode and confirm no email is sent;
-- confirm paid/no-report and ready/not-delivered queues;
-- inspect structured logs for safe references and no secrets.
+**Source rollback after 0023:** redeploy the prior source. Migration 0023 is additive and the prior source does not depend on its objects. Retain all attempt/report history; do not drop columns, tables, or stored PDFs during an application incident.
 
-Production smoke testing does not authorise real provider, webhook, AI or customer activity.
+**Failure inside the controlled apply:** `psql --single-transaction` rolls back the migration objects and the 0023 ledger entry together. Re-run readiness, diagnose the exact error, and use a newly reviewed forward correction if source SQL needs adjustment.
 
-## 5. Rollback and forward repair
+**Unexpected partial state detected before apply:** stop. Do not delete objects or manufacture ledger history. Preserve evidence, compare the target to the reviewed 0023 manifest, and choose either an approved backup restore or a separately reviewed forward-repair transaction. The normal controller must continue rejecting the target until the database controller signs off the repair.
 
-Source rollback: redeploy the last known-good production deployment. This disables new Phase 1 route/UI behaviour without deleting generated reports or history.
+**Committed 0023 with a later application fault:** prefer source rollback followed by forward repair. A destructive schema rollback is not a routine release action and requires a separate incident plan proving no Phase 1 row, report metadata, or stored object depends on the additive schema.
 
-Database forward repair is preferred after Phase 1 records exist. Failed attempts remain terminal and a retry creates a new row. Missing objects are marked `MISSING`; they are not silently treated as permission errors.
-
-Schema rollback is allowed only if no Phase 1 rows or new report metadata are in use. In a separately approved transaction, revoke/drop the six Phase 1 RPCs, drop the two attempt tables and remove additive columns only after exporting their history. Do not delete report objects as part of schema rollback. Restore the previous backup only under the database incident plan.
-
-Provider rollback: not applicable while disabled. If a later phase provisions one, disabling the provider must not alter report readiness or versions.
-
-## Activation blockers
-
-H1–H6 and M1–M2 remain unresolved Phase 14 activation blockers. This plan does not close or bypass them.
+Provider rollback is not applicable because delivery remains disabled. Phase 14 activation blockers remain unresolved and are not changed by this plan.

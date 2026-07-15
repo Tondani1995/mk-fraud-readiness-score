@@ -7,6 +7,7 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const required = [
   'supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql',
+  'src/lib/reports/phase1-schema-capability.ts',
   'src/lib/reports/phase1-manual-fulfilment.ts',
   'src/lib/reports/phase1-report-access.ts',
   'src/lib/reports/phase1-manual-delivery.ts',
@@ -18,7 +19,10 @@ const required = [
   'src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts',
   'src/app/score/api/admin/reports/[reportId]/download/route.ts',
   'src/app/score/api/admin/reports/[reportId]/preview/route.ts',
-  'src/app/score/api/admin/reports/[reportId]/send-email/route.ts'
+  'src/app/score/api/admin/reports/[reportId]/send-email/route.ts',
+  'scripts/apply-phase1-0023-only.sh',
+  'scripts/phase1-0023-only-controller.sql',
+  '.github/workflows/phase1-migration-replay.yml'
 ];
 for (const file of required) assert.ok(fs.existsSync(path.join(root, file)), `${file} must exist`);
 
@@ -38,6 +42,20 @@ assert.ok(migration.includes("public=false"), 'generated report bucket remains p
 assert.ok(migration.includes("'phase14_enabled',false"), 'Phase 14 remains explicitly disabled');
 assert.ok(!migration.includes('phase14_require_policy'), 'Phase 1 migration does not satisfy a Phase 14 gate');
 assert.ok(!migration.includes('automatic_workflow'), 'Phase 1 migration does not enable autonomous workflow');
+assert.ok(migration.includes('phase1_manual_fulfilment_capability'), '0023 installs one authoritative database capability function');
+for (const structure of ['manual_report_generation_attempts', 'manual_report_delivery_attempts', 'organisation_id', 'file_size_bytes', 'request_id', 'provider_mode']) {
+  assert.ok(migration.includes(structure), `capability manifest covers ${structure}`);
+}
+for (const rpc of ['claim_manual_report_generation', 'start_manual_report_generation', 'complete_manual_report_generation', 'fail_manual_report_generation', 'claim_manual_report_delivery', 'complete_manual_report_delivery']) {
+  assert.ok(migration.includes(rpc), `capability manifest covers ${rpc}`);
+}
+
+const capability = read('src/lib/reports/phase1-schema-capability.ts');
+assert.ok(capability.includes("'available' | 'unavailable' | 'error'"), 'capability result has an explicit three-state type');
+assert.ok(capability.indexOf(".from('app_settings')") < capability.indexOf(".rpc('phase1_manual_fulfilment_capability')"), 'existing marker is read before the 0023-only RPC');
+assert.ok(capability.includes('if (markerError)'), 'permission and database errors are not treated as migration absence');
+assert.ok(capability.includes('PHASE1_SCHEMA_UNAVAILABLE_MESSAGE'), 'unavailable state uses one shared operational message');
+assert.ok(!/process\.env.*(PHASE1.*SCHEMA|MIGRATION)/i.test(capability), 'capability is not inferred from environment flags');
 
 const generationRoute = read('src/app/score/api/admin/orders/[orderReference]/generate-report/route.ts');
 assert.ok(generationRoute.includes('X-Idempotency-Key') || generationRoute.includes('x-idempotency-key'), 'generation route accepts a stable idempotency key');
@@ -45,6 +63,7 @@ assert.ok(!generationRoute.includes('phase14-security'), 'manual generation rout
 assert.ok(generationRoute.includes('getAdminSession'), 'generation requires an authenticated admin session');
 
 const generation = read('src/lib/reports/phase1-manual-fulfilment.ts');
+assert.ok(generation.indexOf('await getPhase1SchemaCapability') < generation.indexOf('assembled = await assembleReportData'), 'generation checks capability before report work');
 assert.ok(generation.includes("upsert: false"), 'report objects are immutable');
 assert.ok(generation.includes("subarray(0, 4).toString('ascii') !== '%PDF'"), 'PDF output is validated');
 assert.ok(generation.includes('verifyPrivateObject'), 'stored output is read back and verified');
@@ -52,6 +71,7 @@ assert.ok(generation.includes('organisationId') && generation.includes('orderId'
 assert.ok(!generation.includes('createSignedUrl'), 'generation never exposes storage URLs');
 
 const access = read('src/lib/reports/phase1-report-access.ts');
+assert.ok(access.indexOf('getPhase1SchemaCapability') < access.indexOf(".from('reports')"), 'report access checks capability before 0023 report columns');
 for (const reason of ['report_record_missing', 'stored_file_missing', 'signed_link_creation_failed', 'expired_link', 'report_order_mismatch', 'storage_path_mismatch']) {
   assert.ok(access.includes(reason), `access differentiates ${reason}`);
 }
@@ -60,11 +80,13 @@ assert.ok(access.includes('report_order_mismatch'), 'manipulated order/report id
 assert.ok(!access.includes('signed_url:'), 'signed URLs are not written to activity metadata');
 
 const delivery = read('src/lib/reports/phase1-manual-delivery.ts');
+assert.ok(delivery.indexOf('getPhase1SchemaCapability') < delivery.indexOf(".from('reports')"), 'delivery checks capability before 0023 report columns');
 assert.ok(delivery.includes("return process.env.PHASE1_DELIVERY_MODE === 'double' ? 'double' : 'disabled'"), 'delivery defaults to disabled provider mode');
 assert.ok(delivery.includes('providerSendAttempted: false'), 'delivery double never claims a real provider send');
 assert.ok(!delivery.includes('resend'), 'Phase 1 delivery does not invoke Resend');
 
 const notifications = read('src/lib/notifications/phase1-order-notifications.ts');
+assert.ok(notifications.indexOf('getPhase1SchemaCapability') < notifications.indexOf(".select('overall_score,final_maturity')"), 'new notification work checks capability before Phase 1 persistence');
 assert.ok(notifications.includes('customer_order_confirmation'), 'customer order confirmation is recorded');
 assert.ok(notifications.includes('admin_new_order_notification'), 'admin new-order notification is recorded');
 assert.ok(notifications.includes('dedupeKey'), 'notifications are idempotent');
@@ -85,6 +107,28 @@ for (const label of ['Requires Immediate Attention', 'Paid but No Report', 'Repo
 const statusRoute = read('src/app/score/admin/orders/[orderReference]/status/route.ts');
 assert.ok(!statusRoute.includes('queuePremiumReportFulfilment'), 'payment confirmation does not trigger automatic generation');
 assert.ok(!statusRoute.includes('startPremiumReportWorkflow'), 'payment confirmation does not start a workflow');
+
+const orderDetail = read('src/app/score/admin/orders/[orderReference]/page.tsx');
+const orderList = read('src/app/score/admin/orders/page.tsx');
+const reportsPage = read('src/app/score/admin/reports/page.tsx');
+const exactUnavailable = 'Phase 1 fulfilment upgrade is not yet activated in this environment.';
+assert.ok(capability.includes(exactUnavailable), 'the required activation message is exact');
+for (const page of [orderDetail, orderList, reportsPage]) assert.ok(page.includes('capability'), 'admin Phase 1 page consumes the authoritative capability');
+assert.ok(orderDetail.includes('capabilityAvailable={operationalAvailable}'), 'order controls fail closed on capability or query failure');
+
+const applyController = read('scripts/phase1-0023-only-controller.sql');
+const applyWrapper = read('scripts/apply-phase1-0023-only.sh');
+assert.ok(applyWrapper.includes('--single-transaction'), 'exact 0023 application and ledger recording are atomic');
+assert.ok(applyWrapper.includes('PHASE1_EXPECTED_TARGET_FINGERPRINT'), 'controller requires exact target confirmation');
+assert.ok(applyWrapper.includes('sha256'), 'controller verifies the reviewed migration bytes');
+assert.ok(applyController.includes('phase1_0023_refused_prohibited_migration_history'), 'prohibited migration history is rejected');
+assert.ok(applyController.includes("'0023'"), 'controller records only the 0023 ledger version');
+assert.ok(!applyController.includes("values('0017'"), 'controller does not fabricate prohibited ledger history');
+
+const releaseWorkflow = read('.github/workflows/phase1-migration-replay.yml');
+for (const evidence of ['npm ci', 'PHASE1_EXPECT_CAPABILITY=unavailable', 'phase1-0023-replay-tests.sh', 'PHASE1_EXPECT_CAPABILITY=available']) {
+  assert.ok(releaseWorkflow.includes(evidence), `release workflow covers ${evidence}`);
+}
 
 class LocalFulfilmentDouble {
   constructor() {

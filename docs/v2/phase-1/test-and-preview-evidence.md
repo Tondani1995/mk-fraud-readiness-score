@@ -1,90 +1,64 @@
-# V2 Phase 1 — Test and Preview evidence
+# V2 Phase 1 — release-safety evidence
 
 Date: 15 July 2026
 
-Environment boundary: local/disposable infrastructure only; production, staging and UAT were not queried or modified.
+Environment boundary: local/disposable infrastructure only. Production, staging and UAT were not queried or modified. No remote migration was applied and no provider/webhook operation was invoked.
 
-## Automated and local scenario evidence
+## Clean build and static scenarios
 
-- `node scripts/phase1-production-stabilisation-tests.mjs`
-  - Result: pass.
-  - Covered P1-A through P1-F with in-memory storage and provider doubles.
-  - Covered eligibility, unauthorised access, request replay, concurrent active-attempt control, visible failure, retry, immutable versions, missing object, delivery failure/retry, notification idempotency, queue visibility and safe timeline content.
-- `tsc --noEmit`
-  - Result: pass.
-- `eslint .`
-  - Result: pass.
-- `next build`
-  - Result: pass on Node 24.14.0. The build includes the new generation, preview, download and delivery endpoints and the admin order queues/detail views.
-- `node scripts/phase14-node24-chromium-smoke.mjs`
-  - Result: pass using the local Chrome executable; a 36,546-byte PDF was generated and the temporary artifact was removed.
+- Fresh `npm ci`: pass after synchronising the existing package lock with the pinned package manifest.
+- ESLint: pass, no warnings or errors.
+- TypeScript: pass.
+- Next.js production build: pass on Node 24.14.0.
+- `phase1-production-stabilisation-tests.mjs`: pass; P1-A through P1-F cover eligibility, roles, idempotency/concurrency, generation failure/retry, immutable versions, missing private object, delivery failure/retry, notifications, queues and safe event content.
+- Node 24 Chromium smoke: pass with the explicit local Chrome override; valid 36,546-byte PDF produced.
 
-## Database replay evidence
+## Pre-0023 application compatibility
 
-A disposable database was created inside the local Supabase Postgres container. Migrations 0001–0016 were replayed in order, migration 0017 was explicitly skipped, and migration 0023 was applied.
+A disposable Supabase schema was reset through version 0016. Ledger versions 0017–0023 and all Phase 1/Phase 14 objects were absent. The local harness reproduced the service-role ACLs already expected by the production-compatible application.
 
-Result:
+The production build then passed the following against that database:
 
-`manual_report_generation_attempts|manual_report_delivery_attempts|f|false`
+- `/`, `/score/admin/login`, `/score/admin/orders`, an existing order detail, and `/score/admin/reports` returned successfully;
+- the exact upgrade-not-activated message appeared on all new fulfilment surfaces;
+- Generate, Preview, Download and Delivery controls were not rendered;
+- authenticated generation, preview, download and delivery requests returned controlled HTTP 503 responses with the exact operational message;
+- existing order status mutation persisted successfully;
+- server logs contained no missing generation-ledger, delivery-ledger, report-column, or capability-RPC query.
 
-This proves both tables exist, the report bucket remains non-public and the Phase 1 app setting records Phase 14 as false.
+Result: `expected=unavailable`, normal order status advanced to `payment_received`.
 
-## Production-history simulation
+## Post-0023 activation
 
-A second disposable database replayed 0001–0016, received a legacy organisation/assessment/score/order/report fixture, then applied 0018.
+The same exact controller applied reviewed migration 0023 to the disposable through-0016 database. The capability function returned `available`, and the production build passed an end-to-end designated-test flow:
 
-Result:
+- controls became available to the authorised platform administrator;
+- a fully scored, paid and manually verified Essential Self-Assessment produced one generation attempt, one report version and one private checksum-verified PDF;
+- authorised Preview and Download returned short-lived signed links and recorded access evidence;
+- Delivery created `DELIVERY_PENDING` in explicit disabled-provider mode and sent no email;
+- the existing order status path remained functional after fulfilment.
 
-`reports_before=1 reports_after=1 legacy_backfill=t|HISTORY-REPORT-003.pdf|application/pdf|NOT_STORED|t phase14_unapplied=t`
+Result: `expected=available`, one report ID returned, existing order status changed independently to `awaiting_payment`.
 
-The migration preserved the row count, backfilled organisation/file/MIME fields, deliberately left the legacy object unverified, and left Phase 14 absent. The first authorised Preview/Download reads and checks the legacy object before it can become `VERIFIED` or delivery-ready.
+## Exact 0023-only replay
 
-The final migration was reapplied to that disposable history database after the stuck-attempt recovery addition. It remained replay-safe and returned:
+`phase1-0023-replay-tests.sh` invokes the same checksum- and target-bound mechanism documented for a future approved production window. All scenarios passed:
 
-`report_count_preserved=t legacy_row_preserved=t legacy_not_verified=t verified_timestamp_null=t phase14_unapplied=t`
+- fresh schema through 0016: readiness pass; only ledger version 0023 added;
+- production-style historical ledger: all prior version/name rows and preservation fixture unchanged; only 0023 added;
+- already applied: duplicate safely rejected with one 0023 row retained;
+- prohibited version 0018: readiness safely rejected and no 0023 object created;
+- controlled failure immediately before ledger insert: the migration objects, columns, marker and ledger entry all rolled back;
+- final replay: capability available, 0017–0022 absent, Phase 14 objects absent, reviewed SHA-256 recorded in the sole 0023 entry.
 
-## Database concurrency/version simulation
+Forward repair and source rollback procedures are documented in `production-deployment-and-rollback-plan.md`. The mechanism was not run against production.
 
-Two different request keys claimed the same paid order before completion. The first claim succeeded; the second returned `already_active`; the active row count remained one. Completing the attempt produced version 2 while retaining version 1 as superseded.
+## Allowed regression boundary
 
-Result:
+Passing final-tree suites cover consolidation routes and methodology copy; Phase 3/4; Phase 6 scenarios/engine/smoke; Phase 7; Phase 8; Phase 9; Phase 10; Phase 11 static security; both Phase 13 suites; allowed Phase 14 static/double suites for report, email, security closure, storage/provider faults, webhook and AI accounting; platform hardening; and database-security static checks.
 
-`first_claimed=true second_reason=already_active active_count=1`
+The historical Phase 5 smoke remains intentionally excluded because it rejects score runs and snapshot status introduced by later completed phases; it fails on the base revision for that same reason. Tests that apply migration 0017, connect to staging/UAT/production, use external secrets, or invoke real providers remain prohibited.
 
-`report_versions=2 latest_version=2 superseded_versions=1 attempt_status=REPORT_READY`
+## Protected Preview
 
-Delivery-double failure then retry produced retry count 1 without changing the two report versions. A third delivery request returned `already_delivered`.
-
-Result:
-
-`report_versions=2 retry_count=1 duplicate_reason=already_delivered observable_email_events=2`
-
-## Regression and build evidence
-
-The following final-tree suites passed:
-
-- consolidation route checks and methodology copy checks;
-- Phase 3 and Phase 4 smoke checks;
-- Phase 6 scenarios, direct scoring engine and smoke checks;
-- Phase 7 snapshot checks;
-- Phase 8 admin console checks;
-- Phase 9 manual EFT order checks;
-- Phase 10 deterministic premium report checks;
-- Phase 11 static security/QA checks (rendered route checks were not requested because no base URL was supplied at this stage);
-- both Phase 13 commercial-event suites;
-- Phase 14 autonomous-report, email-delivery, security-closure, storage-fault, provider-fault, webhook-adversarial and AI-accounting static/double suites;
-- platform hardening and Phase 14 database hardening static checks.
-
-The historical Phase 5 smoke script remains incompatible with the repository's already-implemented later phases: it rejects score runs and snapshot status by design. It fails on the base SHA for those same later-phase constructs; the final tree adds one expected `score_runs` reference in the new order-notification validator. This is recorded as a pre-existing test-boundary conflict, not a Phase 1 regression.
-
-Intentionally not run: tests that apply migration 0017, connect with staging/UAT/production credentials, invoke providers, or need external secrets. Those operations are outside the Phase 1 safety boundary.
-
-CI exposed that the repository's existing replay is a Phase 14-specific workflow: it temporarily restores archived migrations `0018`–`0022` and applies canonical migration `0017`. The original Phase 1 filename at `0018` therefore collided despite valid SQL. The migration was renamed to `0023`, and a dedicated Phase 1 CI replay now stops at `0016`, applies `0023` manually in its disposable local database, and proves that Phase 14 structures remain absent. The Phase 14 replay assertions remain unchanged and that workflow skips this Phase 1 PR.
-
-## Protected Preview evidence
-
-The Git-linked deployment targets Vercel project `prj_jFSTfwL14kk8UURjaaRwYe2HWuhK` in Preview mode. An unauthenticated request is redirected to Vercel SSO, while an authenticated browser session renders `/` and `/score/admin/login` without console errors. No production alias or domain operation is permitted.
-
-The application-admin data pages were not authenticated on Preview because no dedicated disposable Preview identity/database was available and using a production-backed identity would violate this phase's safety boundary. Their role/redirect behavior was verified locally, and full manual fulfilment paths were covered with local disposable fixtures/doubles.
-
-Deployment ID, URL, exact final-SHA association, final CI run IDs and the protected health response are recorded in the draft PR after the last source commit. Keeping those live identifiers in the PR avoids changing the SHA they attest to.
+The final Git-linked Preview must be created only after the release-safety commit is pushed. It must remain Preview-only and access-protected, have no production alias, and use no production/staging/UAT database or provider secret. Its deployment ID, URL, READY state, exact final SHA, protected health response and final CI run IDs are recorded in draft PR #26 so that adding live evidence does not change the attested source SHA.

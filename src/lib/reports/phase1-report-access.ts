@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getPhase1SchemaCapability } from './phase1-schema-capability';
 
 export type ReportAccessMode = 'preview' | 'download';
 export type ReportAccessReason =
@@ -10,7 +11,8 @@ export type ReportAccessReason =
   | 'expired_link'
   | 'report_order_mismatch'
   | 'storage_path_mismatch'
-  | 'integrity_failed';
+  | 'integrity_failed'
+  | 'phase1_schema_unavailable';
 
 export class ReportAccessError extends Error {
   constructor(
@@ -101,6 +103,10 @@ export async function createSecurePhase1ReportAccess(input: {
 }) {
   const technicalReference = crypto.randomUUID();
   const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    throw new ReportAccessError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
+  }
   const { data: report, error } = await db.from('reports')
     .select('id,assessment_id,order_id,report_reference,version_number,status,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,orders!inner(order_reference)')
     .eq('id', input.reportId)

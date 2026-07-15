@@ -2,8 +2,6 @@
 -- Additive, production-compatible state for the permitted synchronous/manual model.
 -- This migration is intentionally independent of, and does not enable, migration 0017.
 
-begin;
-
 alter table public.reports
   add column if not exists organisation_id uuid references public.organisations(id) on delete set null,
   add column if not exists file_name text,
@@ -572,6 +570,122 @@ grant execute on function public.complete_manual_report_generation(uuid,uuid,pub
 grant execute on function public.fail_manual_report_generation(uuid,text,text) to service_role;
 grant execute on function public.claim_manual_report_delivery(uuid,text,uuid,text,text,text) to service_role;
 grant execute on function public.complete_manual_report_delivery(uuid,text,text,text) to service_role;
+grant select on public.manual_report_generation_attempts to service_role;
+grant select on public.manual_report_delivery_attempts to service_role;
+grant select, insert, update on public.reports to service_role;
+grant select, insert, update on public.email_events to service_role;
+
+create or replace function public.phase1_manual_fulfilment_capability()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_catalog, pg_temp
+as $$
+declare
+  v_missing_tables text[];
+  v_missing_report_columns text[];
+  v_missing_email_columns text[];
+  v_missing_functions text[];
+  v_missing_permissions text[];
+begin
+  select coalesce(array_agg(required_name order by required_name), array[]::text[])
+  into v_missing_tables
+  from unnest(array[
+    'manual_report_generation_attempts',
+    'manual_report_delivery_attempts'
+  ]) required_name
+  where to_regclass('public.' || required_name) is null;
+
+  select coalesce(array_agg(required_name order by required_name), array[]::text[])
+  into v_missing_report_columns
+  from unnest(array[
+    'organisation_id',
+    'file_name',
+    'mime_type',
+    'file_size_bytes',
+    'storage_status',
+    'storage_verified_at'
+  ]) required_name
+  where not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='reports' and column_name=required_name
+  );
+
+  select coalesce(array_agg(required_name order by required_name), array[]::text[])
+  into v_missing_email_columns
+  from unnest(array[
+    'request_id',
+    'provider_mode',
+    'retry_count',
+    'updated_at'
+  ]) required_name
+  where not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='email_events' and column_name=required_name
+  );
+
+  select coalesce(array_agg(required_name order by required_name), array[]::text[])
+  into v_missing_functions
+  from unnest(array[
+    'claim_manual_report_generation(text,uuid,text,text,text)',
+    'start_manual_report_generation(uuid)',
+    'complete_manual_report_generation(uuid,uuid,report_type,text,text,text,text,bigint,text)',
+    'fail_manual_report_generation(uuid,text,text)',
+    'claim_manual_report_delivery(uuid,text,uuid,text,text,text)',
+    'complete_manual_report_delivery(uuid,text,text,text)'
+  ]) required_name
+  where to_regprocedure('public.' || required_name) is null;
+
+  select coalesce(array_agg(required_name order by required_name), array[]::text[])
+  into v_missing_permissions
+  from unnest(array[
+    'manual_report_generation_attempts:select',
+    'manual_report_delivery_attempts:select',
+    'reports:select',
+    'reports:insert',
+    'reports:update',
+    'email_events:select',
+    'email_events:insert',
+    'email_events:update'
+  ]) required_name
+  where not has_table_privilege(
+    'service_role',
+    'public.' || split_part(required_name,':',1),
+    upper(split_part(required_name,':',2))
+  );
+
+  v_missing_permissions := v_missing_permissions || coalesce(array(
+    select 'function:' || required_name
+    from unnest(array[
+      'claim_manual_report_generation(text,uuid,text,text,text)',
+      'start_manual_report_generation(uuid)',
+      'complete_manual_report_generation(uuid,uuid,report_type,text,text,text,text,bigint,text)',
+      'fail_manual_report_generation(uuid,text,text)',
+      'claim_manual_report_delivery(uuid,text,uuid,text,text,text)',
+      'complete_manual_report_delivery(uuid,text,text,text)'
+    ]) required_name
+    where to_regprocedure('public.' || required_name) is not null
+      and not has_function_privilege('service_role', to_regprocedure('public.' || required_name), 'EXECUTE')
+  ), array[]::text[]);
+
+  return jsonb_build_object(
+    'available', cardinality(v_missing_tables)=0
+      and cardinality(v_missing_report_columns)=0
+      and cardinality(v_missing_email_columns)=0
+      and cardinality(v_missing_functions)=0
+      and cardinality(v_missing_permissions)=0,
+    'schema_version', '0023',
+    'missing_tables', to_jsonb(v_missing_tables),
+    'missing_report_columns', to_jsonb(v_missing_report_columns),
+    'missing_email_columns', to_jsonb(v_missing_email_columns),
+    'missing_functions', to_jsonb(v_missing_functions),
+    'missing_permissions', to_jsonb(v_missing_permissions)
+  );
+end;
+$$;
+
+revoke all on function public.phase1_manual_fulfilment_capability() from public, anon, authenticated;
+grant execute on function public.phase1_manual_fulfilment_capability() to service_role;
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('generated-reports','generated-reports',false,15728640,array['application/pdf'])
@@ -580,11 +694,9 @@ on conflict(id) do update set public=false,file_size_limit=excluded.file_size_li
 
 insert into public.app_settings(setting_key,value_json)
 values('v2_phase1_manual_fulfilment',jsonb_build_object(
-  'status','manual_only','phase14_enabled',false,'automatic_generation',false,
+  'schema_version','0023','status','manual_only','phase14_enabled',false,'automatic_generation',false,
   'automatic_delivery',false,'email_provider_mode','disabled','storage_bucket','generated-reports'
 )) on conflict(setting_key) do update set value_json=excluded.value_json,updated_at=now();
-
-commit;
 
 -- Forward repair: failed attempts are retained and retried as new rows; never delete history.
 -- Rollback: disable Phase 1 routes, then drop the two manual attempt tables/functions and

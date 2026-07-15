@@ -7,6 +7,7 @@ import { selectRoadmap } from './roadmap';
 import { renderReportHtml } from './templates/report-template';
 import { renderHtmlToPdfBuffer } from './render-pdf';
 import type { ContentBlock } from './types';
+import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 
 export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate';
 
@@ -81,7 +82,7 @@ function mapRpcFailure(error: unknown, technicalReference: string): Phase1Genera
   if (/claim_manual_report_generation|manual_report_generation_attempts|function .* does not exist|schema cache/i.test(message)) {
     return new Phase1GenerationError(
       'phase1_schema_unavailable',
-      'Manual fulfilment is not configured in this environment. Apply the approved Phase 1 migration before retrying.',
+      PHASE1_SCHEMA_UNAVAILABLE_MESSAGE,
       503,
       technicalReference
     );
@@ -158,6 +159,12 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     throw new Phase1GenerationError('generation_failed', 'A request key is required for safe report generation.', 400, technicalReference);
   }
 
+  const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    throw new Phase1GenerationError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
+  }
+
   let assembled;
   let reportType;
   try {
@@ -167,7 +174,6 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     throw mapPreflightFailure(error, technicalReference);
   }
 
-  const db = createSupabaseServiceClient() as any;
   const { data: template, error: templateError } = await db
     .from('report_templates')
     .select('id,template_code,version_number')

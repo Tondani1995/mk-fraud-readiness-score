@@ -1,10 +1,17 @@
-name: Phase 1 Migration Replay
+name: Phase 1 Release Safety
 
 on:
   pull_request:
     paths:
+      - 'src/app/score/admin/**'
+      - 'src/app/score/api/admin/**'
+      - 'src/components/admin/FulfilmentActions.tsx'
+      - 'src/lib/notifications/phase1-order-notifications.ts'
+      - 'src/lib/reports/phase1-*.ts'
       - 'supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql'
-      - 'scripts/phase1-production-stabilisation-tests.mjs'
+      - 'scripts/apply-phase1-0023-only.sh'
+      - 'scripts/phase1-*'
+      - 'docs/v2/phase-1/**'
       - '.github/workflows/phase1-migration-replay.yml'
       - '.github/workflows/supabase-migration-replay.yml'
 
@@ -16,13 +23,19 @@ defaults:
     shell: bash
 
 jobs:
-  phase1-safe-replay:
-    name: Phase 1 safe migration replay
+  phase1-release-safety:
+    name: Phase 1 pre/post schema and exact replay
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       LOCAL_DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
       SUPABASE_CLI_VERSION: '2.109.1'
+      LOCAL_INTEGRATION_BASE_URL: 'http://127.0.0.1:3100'
+      NEXT_PUBLIC_APP_URL: 'http://127.0.0.1:3100'
+      NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3100'
+      ASSESSMENT_TOKEN_PEPPER: 'disposable-phase1-release-safety-pepper-only'
+      JWT_SECRET: 'disposable-phase1-release-safety-jwt-only'
+      PHASE1_DELIVERY_MODE: 'disabled'
 
     steps:
       - name: Check out repository
@@ -32,6 +45,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+
+      - name: Fresh dependency install
+        run: npm ci
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
@@ -40,61 +57,63 @@ jobs:
 
       - name: Start disposable local Supabase
         run: |
-          set -Eeuo pipefail
           mkdir -p tmp/phase1-migration-replay
           supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor \
             > tmp/phase1-migration-replay/supabase-start.log 2>&1
+          supabase status -o env > tmp/phase1-migration-replay/supabase.env
+          source tmp/phase1-migration-replay/supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
 
-      - name: Replay permitted baseline and Phase 1 migration
+      - name: Static checks and production build
         run: |
-          set -Eeuo pipefail
+          npm run lint
+          npm run typecheck
+          npm run build
+          npm run phase1:test-stabilisation
+          npm run phase14:test-node24-pdf
+
+      - name: Verify source compatibility before 0023
+        run: |
           supabase db reset --local --yes --version 0016
-          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations where version='0017'")" = '0'
-          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 \
-            --file=supabase/migrations/0023_phase1_manual_fulfilment_recovery.sql \
-            | tee tmp/phase1-migration-replay/0023-apply.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          npm start -- --port 3100 > tmp/phase1-migration-replay/pre-0023-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break
+            sleep 1
+          done
+          PHASE1_EXPECT_CAPABILITY=unavailable node scripts/phase1-schema-compatibility-integration.mjs \
+            | tee tmp/phase1-migration-replay/pre-0023-compatibility.txt
+          if grep -Eqi 'manual_report_(generation|delivery)_attempts.*(does not exist|schema cache)|column .*storage_status.*does not exist|phase1_manual_fulfilment_capability.*not found' tmp/phase1-migration-replay/pre-0023-server.log; then
+            echo 'A forbidden missing Phase 1 object query reached the pre-0023 database.' >&2
+            exit 1
+          fi
 
-      - name: Verify Phase 1 schema and disabled boundary
+      - name: Exercise exact 0023 mechanism and replay safety
+        run: bash scripts/phase1-0023-replay-tests.sh
+
+      - name: Verify controlled fulfilment after 0023
         run: |
-          set -Eeuo pipefail
-          psql "$LOCAL_DB_URL" --set=ON_ERROR_STOP=1 <<'SQL' | tee tmp/phase1-migration-replay/assertions.txt
-          do $$
-          begin
-            if to_regclass('public.manual_report_generation_attempts') is null
-               or to_regclass('public.manual_report_delivery_attempts') is null then
-              raise exception 'Phase 1 attempt ledgers are missing';
-            end if;
-            if to_regclass('public.phase14_security_gates') is not null
-               or to_regclass('public.phase14_feature_policies') is not null then
-              raise exception 'Phase 14 structures must remain unapplied';
-            end if;
-            if not exists (
-              select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
-              where n.nspname='public'
-                and c.relname in ('manual_report_generation_attempts','manual_report_delivery_attempts')
-                and c.relrowsecurity
-              group by n.nspname having count(*)=2
-            ) then
-              raise exception 'Phase 1 attempt ledgers must have RLS enabled';
-            end if;
-            if (select public from storage.buckets where id='generated-reports') then
-              raise exception 'Generated report bucket must remain private';
-            end if;
-            if not exists (
-              select 1 from public.app_settings
-              where setting_key='v2_phase1_manual_fulfilment'
-                and value_json->>'phase14_enabled' = 'false'
-            ) then
-              raise exception 'Phase 14 disabled setting is missing';
-            end if;
-          end $$;
-          SQL
-          node scripts/phase1-production-stabilisation-tests.mjs
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          npm start -- --port 3100 > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break
+            sleep 1
+          done
+          PHASE1_EXPECT_CAPABILITY=available node scripts/phase1-schema-compatibility-integration.mjs \
+            | tee tmp/phase1-migration-replay/post-0023-compatibility.txt
 
-      - name: Upload Phase 1 replay evidence
+      - name: Upload release-safety evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase1-migration-replay-evidence
+          name: phase1-release-safety-evidence
           path: tmp/phase1-migration-replay
           if-no-files-found: error

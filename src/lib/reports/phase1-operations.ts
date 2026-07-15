@@ -1,4 +1,9 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import {
+  getPhase1SchemaCapability,
+  PHASE1_SCHEMA_ERROR_MESSAGE,
+  type Phase1SchemaCapability
+} from './phase1-schema-capability';
 
 export const PHASE1_QUEUE_LABELS = {
   immediate_attention: 'Requires Immediate Attention',
@@ -22,8 +27,33 @@ function latestBy<T extends { order_id: string; created_at: string }>(rows: T[])
   return map;
 }
 
-export async function getPhase1OrderOperations(orderId: string) {
+function withoutPhase1State(orders: any[]) {
+  return orders.map((order) => ({
+    ...order,
+    report: null,
+    generation: null,
+    delivery: null,
+    generationState: 'NOT_REQUESTED',
+    deliveryState: 'NOT_READY',
+    stuckReason: null,
+    queues: order.status === 'awaiting_payment' || order.status === 'draft' ? ['new_orders'] : []
+  }));
+}
+
+export async function getPhase1OrderOperations(orderId: string, checkedCapability?: Phase1SchemaCapability) {
   const db = createSupabaseServiceClient() as any;
+  const capability = checkedCapability ?? await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    return {
+      capability,
+      schemaAvailable: false,
+      generationHistory: [],
+      latestGeneration: null,
+      deliveryHistory: [],
+      latestDelivery: null,
+      notifications: []
+    };
+  }
   const [generationResult, deliveryResult, notificationResult] = await Promise.all([
     db.from('manual_report_generation_attempts')
       .select('id,request_id,order_id,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,error_category,safe_operational_error,technical_reference,output_report_id,created_at,updated_at')
@@ -35,8 +65,17 @@ export async function getPhase1OrderOperations(orderId: string) {
       .select('id,notification_type,recipient_email,status,provider_mode,retry_count,error_message,created_at,updated_at')
       .eq('order_id', orderId).order('created_at', { ascending: false })
   ]);
+  if (generationResult.error || deliveryResult.error || notificationResult.error) {
+    console.error('phase1_order_operations', {
+      outcome: 'error',
+      generationCode: generationResult.error?.code ?? null,
+      deliveryCode: deliveryResult.error?.code ?? null,
+      notificationCode: notificationResult.error?.code ?? null
+    });
+  }
   return {
-    schemaAvailable: !generationResult.error && !deliveryResult.error,
+    capability,
+    schemaAvailable: !generationResult.error && !deliveryResult.error && !notificationResult.error,
     generationHistory: generationResult.data ?? [],
     latestGeneration: generationResult.data?.[0] ?? null,
     deliveryHistory: deliveryResult.data ?? [],
@@ -45,9 +84,12 @@ export async function getPhase1OrderOperations(orderId: string) {
   };
 }
 
-export async function annotateOrdersWithPhase1State(orders: any[]) {
-  if (!orders.length) return [];
+export async function annotateOrdersWithPhase1State(orders: any[], checkedCapability?: Phase1SchemaCapability) {
   const db = createSupabaseServiceClient() as any;
+  const capability = checkedCapability ?? await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available' || !orders.length) {
+    return { capability, orders: withoutPhase1State(orders) };
+  }
   const orderIds = orders.map((order) => order.id);
   const chunks = Array.from({ length: Math.ceil(orderIds.length / 200) }, (_, index) => orderIds.slice(index * 200, (index + 1) * 200));
   const results = await Promise.all(chunks.map(async (ids) => Promise.all([
@@ -58,6 +100,14 @@ export async function annotateOrdersWithPhase1State(orders: any[]) {
     db.from('manual_report_delivery_attempts').select('order_id,status,safe_operational_error,created_at')
       .in('order_id', ids).order('created_at', { ascending: false })
   ])));
+  const queryError = results.flatMap((result) => result).find((result) => result.error)?.error;
+  if (queryError) {
+    console.error('phase1_order_annotations', { outcome: 'error', code: queryError.code ?? null });
+    return {
+      capability: { status: 'error', schemaVersion: '0023', message: PHASE1_SCHEMA_ERROR_MESSAGE } as Phase1SchemaCapability,
+      orders: withoutPhase1State(orders)
+    };
+  }
   const reportRows = results.flatMap((result) => result[0].data ?? []);
   const generationRows = results.flatMap((result) => result[1].data ?? []);
   const deliveryRows = results.flatMap((result) => result[2].data ?? []);
@@ -65,7 +115,7 @@ export async function annotateOrdersWithPhase1State(orders: any[]) {
   const generationByOrder = latestBy(generationRows);
   const deliveryByOrder = latestBy(deliveryRows);
 
-  return orders.map((order) => {
+  const annotated = orders.map((order) => {
     const report: any = reportByOrder.get(order.id) ?? null;
     const generation: any = generationByOrder.get(order.id) ?? null;
     const delivery: any = deliveryByOrder.get(order.id) ?? null;
@@ -101,6 +151,7 @@ export async function annotateOrdersWithPhase1State(orders: any[]) {
       queues: [...queues]
     };
   });
+  return { capability, orders: annotated };
 }
 
 export function queueCounts(orders: Array<{ queues: Phase1QueueKey[] }>) {
