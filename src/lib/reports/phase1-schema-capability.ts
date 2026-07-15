@@ -21,6 +21,7 @@ export type Phase1SchemaCapability = {
 };
 
 type CapabilityRpcResult = {
+  status?: Phase1SchemaCapabilityStatus;
   available?: boolean;
   schema_version?: string;
   missing_tables?: unknown;
@@ -64,6 +65,14 @@ export async function getPhase1SchemaCapability(db = createSupabaseServiceClient
     missingFunctions: strings(result.missing_functions),
     missingPermissions: strings(result.missing_permissions)
   };
+  if (result.status === 'error' || checks.missingPermissions.length > 0) {
+    console.error('phase1_schema_capability', {
+      stage: 'verification',
+      outcome: 'error',
+      missingPermissionCount: checks.missingPermissions.length
+    });
+    return { status: 'error', schemaVersion: '0023', message: PHASE1_SCHEMA_ERROR_MESSAGE, checks };
+  }
   if (result.available !== true || result.schema_version !== '0023') {
     console.error('phase1_schema_capability', {
       stage: 'verification',

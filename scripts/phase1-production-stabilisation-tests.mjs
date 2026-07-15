@@ -54,6 +54,7 @@ const capability = read('src/lib/reports/phase1-schema-capability.ts');
 assert.ok(capability.includes("'available' | 'unavailable' | 'error'"), 'capability result has an explicit three-state type');
 assert.ok(capability.indexOf(".from('app_settings')") < capability.indexOf(".rpc('phase1_manual_fulfilment_capability')"), 'existing marker is read before the 0023-only RPC');
 assert.ok(capability.includes('if (markerError)'), 'permission and database errors are not treated as migration absence');
+assert.ok(capability.includes("result.status === 'error'") && capability.includes('missingPermissions.length > 0'), 'verified permission failures return error rather than unavailable');
 assert.ok(capability.includes('PHASE1_SCHEMA_UNAVAILABLE_MESSAGE'), 'unavailable state uses one shared operational message');
 assert.ok(!/process\.env.*(PHASE1.*SCHEMA|MIGRATION)/i.test(capability), 'capability is not inferred from environment flags');
 

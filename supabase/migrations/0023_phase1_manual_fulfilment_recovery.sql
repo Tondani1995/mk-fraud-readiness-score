@@ -648,11 +648,12 @@ begin
     'email_events:insert',
     'email_events:update'
   ]) required_name
-  where not has_table_privilege(
-    'service_role',
-    'public.' || split_part(required_name,':',1),
-    upper(split_part(required_name,':',2))
-  );
+  where to_regclass('public.' || split_part(required_name,':',1)) is not null
+    and not has_table_privilege(
+      'service_role',
+      'public.' || split_part(required_name,':',1),
+      upper(split_part(required_name,':',2))
+    );
 
   v_missing_permissions := v_missing_permissions || coalesce(array(
     select 'function:' || required_name
@@ -669,6 +670,14 @@ begin
   ), array[]::text[]);
 
   return jsonb_build_object(
+    'status', case
+      when cardinality(v_missing_permissions)>0 then 'error'
+      when cardinality(v_missing_tables)=0
+        and cardinality(v_missing_report_columns)=0
+        and cardinality(v_missing_email_columns)=0
+        and cardinality(v_missing_functions)=0 then 'available'
+      else 'unavailable'
+    end,
     'available', cardinality(v_missing_tables)=0
       and cardinality(v_missing_report_columns)=0
       and cardinality(v_missing_email_columns)=0

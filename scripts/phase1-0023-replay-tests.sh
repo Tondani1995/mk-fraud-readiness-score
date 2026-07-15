@@ -38,6 +38,17 @@ select count(*)=1 from supabase_migrations.schema_migrations where version='0023
 select count(*)=0 from supabase_migrations.schema_migrations where version between '0017' and '0022';
 select to_regclass('public.phase14_security_gates') is null and to_regclass('public.phase14_feature_policies') is null;
 SQL
+psql "$db_url" -X --set=ON_ERROR_STOP=1 <<'SQL' | tee "$evidence_dir/permission-error-classification.txt"
+begin;
+revoke select on public.reports from service_role;
+do $$
+begin
+  if public.phase1_manual_fulfilment_capability()->>'status' <> 'error' then
+    raise exception 'A permission failure was misclassified as migration absence';
+  end if;
+end $$;
+rollback;
+SQL
 if run_controller apply >"$evidence_dir/duplicate-run.txt" 2>&1; then
   echo 'Duplicate 0023 application unexpectedly succeeded.' >&2
   exit 1
