@@ -1,3 +1,4 @@
+import { EmbeddedHeightReporter } from '@/components/assessment/EmbeddedHeightReporter';
 import { StartAssessmentForm } from '@/components/assessment/StartAssessmentForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -8,19 +9,22 @@ export default function StartAssessmentPage({ searchParams }: { searchParams?: {
 
   if (embedded) {
     return (
-      <SectionShell className="py-0">
-        <Card className="border-slate-200 shadow-none">
-          <CardHeader>
-            <CardTitle>Assess your organisation</CardTitle>
-            <p className="mt-2 text-sm leading-6 text-mk-muted">
-              Start with the organisation details. Once submitted, the fraud readiness questions open immediately in the same journey.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <StartAssessmentForm />
-          </CardContent>
-        </Card>
-      </SectionShell>
+      <>
+        <EmbeddedHeightReporter />
+        <SectionShell className="py-0">
+          <Card className="border-slate-200 shadow-none">
+            <CardHeader>
+              <CardTitle>Assess your organisation</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-mk-muted">
+                Start with the organisation details. Once submitted, the fraud readiness questions open immediately in the same journey.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <StartAssessmentForm />
+            </CardContent>
+          </Card>
+        </SectionShell>
+      </>
     );
   }
 
