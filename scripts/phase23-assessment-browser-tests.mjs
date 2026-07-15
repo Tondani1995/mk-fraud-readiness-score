@@ -6,7 +6,8 @@ import puppeteer from 'puppeteer-core';
 
 const baseUrl = (process.env.PHASE23_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
 const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23-browser-evidence';
-const executablePath = process.env.CHROME_EXECUTABLE ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const executablePath = process.env.CHROME_EXECUTABLE
+  ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
 const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
 await mkdir(outputDirectory, { recursive: true });
 
