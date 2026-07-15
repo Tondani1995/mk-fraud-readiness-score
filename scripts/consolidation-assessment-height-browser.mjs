@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer-core';
 const baseUrl = (process.env.CONSOLIDATION_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
 const outputDirectory = process.env.HEIGHT_EVIDENCE_DIR ?? 'tmp/assessment-height-evidence';
 const executablePath = process.env.CHROME_EXECUTABLE ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
 
 await mkdir(outputDirectory, { recursive: true });
 
@@ -26,6 +27,9 @@ try {
   for (const viewport of viewports) {
     const page = await browser.newPage();
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
+    if (protectionBypass) {
+      await page.setExtraHTTPHeaders({ 'x-vercel-protection-bypass': protectionBypass });
+    }
     await page.setRequestInterception(true);
 
     page.on('request', async (request) => {

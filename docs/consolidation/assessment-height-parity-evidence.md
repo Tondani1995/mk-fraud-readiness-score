@@ -16,6 +16,8 @@ Run the repeatable check against a local or protected Preview base URL with:
 CONSOLIDATION_BASE_URL=http://127.0.0.1:3100 node scripts/consolidation-assessment-height-browser.mjs
 ```
 
+For a protected Preview, set the existing Vercel automation bypass value in `VERCEL_PROTECTION_BYPASS`; the value is never written to the evidence output.
+
 ## Machine-readable measurements
 
 `heightDifferencePx` is `iframeRenderedHeightPx - embeddedContentScrollHeightPx`. A difference within two pixels accounts for browser subpixel rounding. `cardBottomToFooterStartPx` measures the parent-page distance between the embedded assessment card bottom and the website footer start.
