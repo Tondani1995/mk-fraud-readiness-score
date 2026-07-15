@@ -270,7 +270,8 @@ assert(envExample.includes('ASSESSMENT_SNAPSHOT_TOKEN_MAX_USES=100'), 'Snapshot 
 assert(envExample.includes('fallback is 100'), 'Snapshot token max-use fallback must be documented.');
 
 const engine = read('src/components/assessment/AssessmentEngine.tsx');
-assert(engine.includes('const saved = await saveDraft'), 'Client submit must stop if final save fails.');
+assert(engine.includes('const saved = await persist(answers, exposureAnswers'), 'Client submit must persist the final draft before submission.');
+assert(engine.includes("if (!saved) { interactionLockRef.current = false; setSubmitState('idle'); return; }"), 'Client submit must stop if final save fails.');
 assert(engine.includes("submitState !== 'idle'"), 'Client submit must block repeated clicks.');
 assert(engine.includes('snapshotUrl'), 'Client must surface durable snapshot URL.');
 
