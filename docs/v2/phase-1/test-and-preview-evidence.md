@@ -83,4 +83,8 @@ The first CI attempt exposed a numeric-ledger collision: the repository replay w
 
 ## Protected Preview evidence
 
-To be updated only after a Preview-target deployment is created for the exact final SHA. No production alias or domain operation is permitted.
+The Git-linked deployment targets Vercel project `prj_jFSTfwL14kk8UURjaaRwYe2HWuhK` in Preview mode. An unauthenticated request is redirected to Vercel SSO, while an authenticated browser session renders `/` and `/score/admin/login` without console errors. No production alias or domain operation is permitted.
+
+The application-admin data pages were not authenticated on Preview because no dedicated disposable Preview identity/database was available and using a production-backed identity would violate this phase's safety boundary. Their role/redirect behavior was verified locally, and full manual fulfilment paths were covered with local disposable fixtures/doubles.
+
+Deployment ID, URL, exact final-SHA association, final CI run IDs and the protected health response are recorded in the draft PR after the last source commit. Keeping those live identifiers in the PR avoids changing the SHA they attest to.
