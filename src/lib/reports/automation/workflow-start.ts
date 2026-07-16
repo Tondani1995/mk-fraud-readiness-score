@@ -8,6 +8,7 @@ import {
   executePhase14WorkerStep,
   type Phase14WorkerAuthorization
 } from '@/lib/reports/phase14-security';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export type StartPremiumReportWorkflowResult =
   | { ok: true; started: true; runId: string }
@@ -72,9 +73,41 @@ export async function startPremiumReportWorkflow(
         run_id: null,
         error: message
       });
-    } catch {
-      // The durable pre-call boundary remains acceptance_uncertain.  Never log
-      // the attestation, its signature, or workflow input while reconciling.
+    } catch (settleError) {
+      // M5: this is the double-fault case -- the durable start() call itself was already
+      // ambiguous, and the follow-up attempt to durably record that ambiguity ALSO failed. The
+      // outbox row remains stuck in 'acceptance_uncertain' with no durable trace of why the
+      // reconciliation attempt failed, which previously left an operator with only the outbox row
+      // itself and no diagnostic signal. This must never log the worker attestation, its HMAC
+      // signature, or the raw workflow input (durableInput may carry evidence-pack content) --
+      // only stable, non-sensitive identifiers and the settle error's message.
+      const settleMessage = settleError instanceof Error ? settleError.message : String(settleError ?? 'unknown');
+      console.error('phase14_workflow_start_double_fault', {
+        fulfilmentId,
+        outboxId: claimed.outbox_id,
+        capabilityId: input.generationAuthorization.capabilityId,
+        startError: message,
+        settleError: settleMessage
+      });
+      try {
+        const alertDb = createSupabaseServiceClient() as any;
+        await alertDb.rpc('record_phase14_operational_alert', {
+          p_alert_key: `workflow-start-double-fault:${claimed.outbox_id}`,
+          p_category: 'workflow_start_double_fault',
+          p_severity: 'critical',
+          p_report_id: null,
+          p_email_event_id: null,
+          p_detail_json: {
+            fulfilment_id: fulfilmentId,
+            outbox_id: claimed.outbox_id,
+            start_error: message,
+            settle_error: settleMessage
+          }
+        });
+      } catch {
+        // Best-effort only -- the console.error above is the guaranteed signal; the alert RPC
+        // itself must never be allowed to throw a third time out of this catch block.
+      }
     }
     return {
       ok: false,
