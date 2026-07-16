@@ -13,7 +13,9 @@ const adminLinks = [
   { href: '/admin/audit-log', label: 'Audit trail' },
   { href: '/admin/orders', label: 'Order controls' },
   { href: '/admin/enquiries', label: 'Personalised enquiries' },
-  { href: '/admin/reports', label: 'Report controls' }
+  { href: '/admin/reports', label: 'Report controls' },
+  { href: '/admin/phase14-activation', label: 'Automation activation controls' },
+  { href: '/admin/security', label: 'Security (MFA)' }
 ];
 
 function scorePath(path: string) {
