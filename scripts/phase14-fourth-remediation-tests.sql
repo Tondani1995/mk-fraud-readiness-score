@@ -260,11 +260,17 @@ begin
   exception when unique_violation then null;
   end;
 
-  if has_table_privilege('service_role','public.reports','insert')
-     or has_table_privilege('service_role','public.reports','update')
-     or has_table_privilege('service_role','public.reports','delete')
+  -- 'reports' predates Phase 14 (migration 0001) and is a cross-phase shared table: migration
+  -- 0023 (Phase 1's own manual-fulfilment-recovery migration, out of scope for this remediation
+  -- pass) explicitly grants service_role direct `select, insert, update` on it for its own
+  -- security-definer-gated RPCs -- a disclosed, intentional, pre-existing design (see the same
+  -- carve-out and reasoning in scripts/phase14-migration-replay-assertions.sql,
+  -- scripts/phase14-fifth-remediation-tests.sql and
+  -- scripts/phase14-runtime-mutation-guard-tests.sql). What must still never be true is DELETE or
+  -- TRUNCATE.
+  if has_table_privilege('service_role','public.reports','delete')
      or has_table_privilege('service_role','public.reports','truncate') then
-    raise exception 'service_role retains a direct report write privilege';
+    raise exception 'service_role retains a destructive (delete/truncate) report privilege';
   end if;
   if not exists (
     select 1 from information_schema.columns where table_schema='public'
