@@ -12,21 +12,29 @@ import type {
   PremiumReportNarrativeGenerator
 } from './types';
 
+import { PREMIUM_REPORT_AI_BODY_MAX_CHARS } from './types';
+
 const evidenceRefs = z.array(z.string().min(1)).min(1);
-export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500;
+const narrativeBody = z.string().min(1).max(PREMIUM_REPORT_AI_BODY_MAX_CHARS);
+export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 5000;
 export const PREMIUM_REPORT_AI_TIMEOUT_MS = 45_000;
 
 export const premiumReportNarrativeSchema = z.object({
   executiveEvidenceRefs: evidenceRefs,
+  executiveBody: narrativeBody,
   falseComfortEvidenceRefs: evidenceRefs,
+  falseComfortBody: narrativeBody,
   leadershipEvidenceRefs: evidenceRefs,
+  leadershipBody: narrativeBody,
   domainEvidence: z.array(z.object({
     domainCode: z.string().min(1),
-    evidenceRefs
+    evidenceRefs,
+    body: narrativeBody
   }).strict()),
   gapEvidence: z.array(z.object({
     questionCode: z.string().min(1),
-    evidenceRefs
+    evidenceRefs,
+    body: narrativeBody
   }).strict())
 }).strict();
 

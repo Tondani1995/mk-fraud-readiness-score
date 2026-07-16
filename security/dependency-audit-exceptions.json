@@ -1,0 +1,22 @@
+{
+  "$schema": "./dependency-audit-exceptions.schema.json",
+  "description": "M11: documented temporary exceptions to the npm audit CI gate (.github/workflows/security-scans.yml). Every entry MUST have a reason, an owner, and an expiry date. scripts/phase14-dependency-audit-gate.mjs fails the build if an unexpired Critical/High advisory affecting a production dependency is not listed here, or if any entry here has expired.",
+  "exceptions": [
+    {
+      "advisoryIdPattern": "GHSA-.*",
+      "package": "next",
+      "severity": "high",
+      "reason": "Fix requires a Next.js 14 -> 16 major version upgrade. This repository's own docs/v1/phase14/no-go-boundary.md explicitly prohibits a Node/Next/React upgrade during the Phase 14 Round 7 commercial-launch remediation pass -- a major framework upgrade needs its own dedicated regression pass across the entire application, which is out of scope for this engagement. The specific advisories (DoS via Image Optimizer, HTTP request smuggling in rewrites, cache poisoning, XSS in beforeInteractive scripts, SSRF via WebSocket upgrades, Middleware/Proxy i18n bypass) require an attacker-controlled Image Optimizer remotePatterns config, App Router CSP-nonce usage, or Pages Router i18n -- none of which this application currently enables. Tracked as a residual risk in docs/v2/phase14-commercial-launch/known-risks-and-launch-limitations.md.",
+      "owner": "platform-engineering",
+      "expires": "2026-10-16"
+    },
+    {
+      "advisoryIdPattern": "GHSA-qx2v-qp2m-jg93",
+      "package": "postcss",
+      "severity": "moderate",
+      "reason": "Transitive dependency of next@14.2.x itself (node_modules/next/node_modules/postcss), not a direct dependency this repo controls independently. Fixed only by the same Next.js major upgrade covered by the next/GHSA-* exception above.",
+      "owner": "platform-engineering",
+      "expires": "2026-10-16"
+    }
+  ]
+}

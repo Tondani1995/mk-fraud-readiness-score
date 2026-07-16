@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
 import {
   ResendWebhookBodyTooLargeError,
   createProviderWebhookDatabaseAttestation,
@@ -14,6 +15,18 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const receiptTimeMs = Date.now();
+  // L5: global volumetric ceiling, checked before any request-body work. Deliberately not
+  // per-IP -- see RATE_LIMITS.resendWebhookGlobal's comment in src/lib/security/rate-limit.ts
+  // for why. This is a defense-in-depth backstop layered underneath (not instead of) the HMAC
+  // signature verification, timestamp replay window and body-size cap below, which remain the
+  // primary defenses.
+  const rateLimit = await checkRateLimits([
+    { key: 'resend_webhook:global', ...RATE_LIMITS.resendWebhookGlobal() }
+  ]);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+  }
+
   let payload: string;
   try {
     payload = await readLimitedWebhookBody(request);
@@ -51,6 +64,21 @@ export async function POST(request: Request) {
   const reason = (event.data?.failed as { reason?: string } | undefined)?.reason
     ?? (event.data?.bounce as { message?: string } | undefined)?.message
     ?? null;
+  // H4: forward Resend's own send-time tags through to the ingest RPC so it can fall back to
+  // delivery_attempt_ref-based correlation for a "lost response" attempt whose provider_message_id
+  // was never captured (a plain provider_message_id match can never reach that row -- see the
+  // ingest_phase14_provider_webhook comment in migration 0028 for the full reasoning). Validated
+  // and shape-limited defensively before forwarding; the RPC itself independently re-validates the
+  // format and requires an exact, unambiguous match against an existing authorization row before
+  // it ever acts on this, so a malformed or attacker-shaped tag here can only ever fail closed.
+  const rawTags = Array.isArray((event.data as { tags?: unknown } | undefined)?.tags)
+    ? (event.data as { tags: unknown[] }).tags
+    : [];
+  const safeTags = rawTags
+    .filter((tag): tag is { name: string; value: string } =>
+      !!tag && typeof tag === 'object' && typeof (tag as any).name === 'string' && typeof (tag as any).value === 'string')
+    .slice(0, 32)
+    .map((tag) => ({ name: tag.name.slice(0, 64), value: tag.value.slice(0, 256) }));
   const db = createSupabaseServiceClient() as any;
   const payloadSha256 = webhookPayloadFingerprint(payload);
   let attestation;
@@ -69,7 +97,7 @@ export async function POST(request: Request) {
     p_event_type: event.type,
     p_event_created_at: eventCreatedAt,
     p_payload_sha256: payloadSha256,
-    p_payload_json: { type: event.type, created_at: event.created_at ?? null, reason },
+    p_payload_json: { type: event.type, created_at: event.created_at ?? null, reason, data: { tags: safeTags } },
     p_attested_at_epoch: attestation.attestedAtEpoch,
     p_nonce: attestation.nonce,
     p_attestation_hmac: attestation.hmac

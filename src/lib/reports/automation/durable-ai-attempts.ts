@@ -9,6 +9,7 @@ import {
   PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
   PREMIUM_REPORT_AI_TIMEOUT_MS
 } from './ai-sdk-generator';
+import { aiAttemptStatusForFailureClass, classifyAiProviderFailure } from './ai-failure-classification';
 import type {
   NarrativeGenerationInput,
   NarrativeGenerationResult,
@@ -83,9 +84,34 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       throw new Error(`AI ${kind} attempt ${existing.id} has unresolved provider state; automatic replay is blocked.`);
     }
 
+    // M2/M3: PREMIUM_REPORT_AI_MAX_ATTEMPTS is a COMBINED generate+repair budget, not a per-kind
+    // one -- a hard-coded `kind === 'repair' ? 1 : 0` assumption here previously mispriced any
+    // history with more than exactly one prior generate attempt (for example, a proven-not-
+    // reached-provider generate retry followed by a repair). This is now an authoritative count of
+    // every prior attempt for this exact fingerprint, any kind, matching the same cross-kind check
+    // enforced atomically in public.claim_phase14_ai_attempt (migration 0029) -- this TS check
+    // remains a cheap early exit; the SQL count is the real, authoritative boundary.
     const attemptNumber = Number(existing?.attempt_number ?? 0) + 1;
-    const totalPriorAttempts = kind === 'repair' ? 1 : 0;
-    if (attemptNumber + totalPriorAttempts > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
+    // M1: a `failed_before_provider` attempt is PROVEN to have made zero real provider
+    // calls (see ai-failure-classification.ts), so it must not consume the same
+    // combined budget as an attempt that actually reached the provider -- otherwise
+    // "automatic retry is allowed for proven pre-dispatch failures" would be
+    // meaningless in practice: two configuration/validation glitches in a row would
+    // silently exhaust the entire real-provider-call budget before a single real
+    // attempt was ever made. Excluded here and in the matching SQL-side count inside
+    // public.claim_phase14_ai_attempt (migration 0030).
+    const { count: totalPriorAttempts, error: totalCountError } = await db
+      .from('report_ai_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('generation_identity', input.generationIdentity)
+      .eq('evidence_checksum', generationInput.evidenceChecksum)
+      .eq('requested_provider', input.generator.provider)
+      .eq('requested_model', input.generator.model)
+      .eq('prompt_version', generationInput.promptVersion)
+      .eq('schema_version', generationInput.schemaVersion)
+      .neq('status', 'failed_before_provider');
+    if (totalCountError) throw totalCountError;
+    if ((totalPriorAttempts ?? 0) + 1 > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
       throw new Error('Premium report AI maximum attempt limit reached.');
     }
     const fingerprint = crypto.createHash('sha256').update(JSON.stringify({
@@ -222,12 +248,24 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     } catch (error) {
       if (accountingStatePersisted) throw error;
       const message = error instanceof Error ? error.message : String(error);
+      // M1: classify BEFORE persisting. Only a failure proven (by AI SDK error class) to
+      // have happened before any HTTP request was dispatched is recorded as
+      // `failed_before_provider` -- the one status the top-of-run() existing-attempt
+      // lookup does not block on, so the durable workflow can claim a fresh attempt on
+      // its next call without any operator action. Every other failure (a genuine
+      // network/timeout ambiguity, or a response we know the provider sent but could not
+      // use) is recorded as `provider_result_uncertain`, which remains blocked pending
+      // reconciliation -- retrying either of those automatically risks a duplicate real
+      // provider call or simply repeats a certain rejection.
+      const failureClass = classifyAiProviderFailure(error);
+      const settledStatus = aiAttemptStatusForFailureClass(failureClass);
+      const classifiedMessage = `[${failureClass}] ${message}`;
       let recoveryError: any = null;
       try {
         const recoveryLease = await loadPhase14WorkerLease(input.workerCapabilityId);
         await executePhase14WorkerStep(recoveryLease, 'settle_phase14_ai_attempt', {
           attempt_id: attempt.id,
-          result: { status: 'provider_result_uncertain', accounting_status: 'unverified', error_message: message }
+          result: { status: settledStatus, accounting_status: 'unverified', error_message: classifiedMessage }
         });
       } catch (caught) {
         recoveryError = caught;

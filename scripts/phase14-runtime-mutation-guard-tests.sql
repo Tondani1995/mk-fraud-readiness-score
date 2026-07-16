@@ -44,8 +44,19 @@ set search_path = ''
 as $function$
 declare v_row record;
 begin
+  -- 'reports' predates Phase 14 (migration 0001) and is a cross-phase shared table: migration
+  -- 0023 (Phase 1's own manual-fulfilment-recovery migration, out of scope for this remediation
+  -- pass) explicitly grants service_role direct `select, insert, update` on it for its own
+  -- security-definer-gated RPCs -- a disclosed, intentional, pre-existing design independent of
+  -- the strictly RPC-only Phase 14 operational tables below. It is excluded from this loop (which
+  -- asserts a genuine Postgres GRANT-level 'permission denied' on every mutation verb) and
+  -- checked separately for exactly the boundary that must still hold: service_role must never
+  -- gain DELETE or TRUNCATE on it, regardless of the legitimate insert/update grant.
+  perform public.phase14_test_expect_error('delete from public.reports where false','%permission denied%');
+  perform public.phase14_test_expect_error('truncate public.reports','%permission denied%');
+
   for v_row in select * from (values
-    ('reports','id'),('report_fulfilments','id'),('report_generation_runs','id'),
+    ('report_fulfilments','id'),('report_generation_runs','id'),
     ('report_ai_attempts','id'),('report_generation_claims','assessment_id'),
     ('report_delivery_authorizations','id'),('report_delivery_finalizations','authorization_id'),
     ('report_delivery_remediations','id'),('phase14_operational_alerts','id'),

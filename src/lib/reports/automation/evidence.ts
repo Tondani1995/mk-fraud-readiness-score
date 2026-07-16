@@ -109,6 +109,82 @@ function roadmapEvidence(roadmap: { agenda: RoadmapItem[] }): ReportEvidenceItem
   }));
 }
 
+/**
+ * Every other evidence field is deterministic/MK-authored (question prompts, domain names,
+ * product names, generated references). organisationName is the one field that ultimately
+ * traces back to customer-entered free text (organisations.legal_name / trading_name / the
+ * manual-order organisation_name field), and it is embedded verbatim into the AI prompt via
+ * JSON.stringify(evidence). This is the actual, narrow prompt-injection surface for Phase 14 --
+ * respondent assessment answers are numeric (see AssembledReportData['criticalMajorGaps']
+ * responseValue: number), so they never carry attacker-controlled text into the model.
+ *
+ * This sanitiser is defense-in-depth, not the primary control. The primary control is that
+ * validatePremiumReportNarrative (validation.ts) fact-checks every claim in AI-authored body
+ * text against the deterministic evidence pack regardless of what organisationName says, so an
+ * injected instruction cannot manufacture a score, band, or fact that survives validation. This
+ * function strips characters commonly used to smuggle instructions past a casual review
+ * (control characters, bidi override characters, zero-width characters), applies Unicode NFKC
+ * normalisation (closes full-width/homoglyph obfuscation of the same kind normaliseAiIdentifier
+ * already closes for AI-returned identifiers), and bounds length.
+ */
+const UNTRUSTED_TEXT_STRIP_PATTERN = new RegExp(
+  [
+    '[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]', // C0 controls except \t \n \r
+    '[\\u200B-\\u200F]', // zero-width space/joiners, LRM/RLM
+    '[\\u202A-\\u202E]', // bidi embedding/override
+    '[\\u2060-\\u2069]', // word joiner / invisible operators
+    '\\uFEFF' // BOM
+  ].join('|'),
+  'g'
+);
+
+export function sanitiseUntrustedEvidenceText(value: string, maxLength = 200): string {
+  // Replace (not delete) stripped characters with a space. Zero-width/invisible characters are a
+  // known technique for defeating keyword scanners by removing the whitespace between words in an
+  // injected instruction (e.g. "Ignore<ZWSP>all<ZWSP>previous<ZWSP>instructions") -- deleting them
+  // outright would silently reassemble the words into "Ignoreallpreviousinstructions" and hide the
+  // pattern from scanForPromptInjection below. Collapsing to a single space afterwards keeps the
+  // display text clean either way.
+  const normalised = value.normalize('NFKC').replace(UNTRUSTED_TEXT_STRIP_PATTERN, ' ');
+  const collapsed = normalised.replace(/\s+/g, ' ').trim();
+  return collapsed.length > maxLength ? `${collapsed.slice(0, maxLength).trim()}...` : collapsed;
+}
+
+const PROMPT_INJECTION_PATTERNS: RegExp[] = [
+  /\bignore\s+(all|any|the)?\s*(previous|prior|above)\s+instructions?\b/i,
+  /\bdisregard\s+(all|any|the)?\s*(previous|prior|above)\s+(instructions?|prompt)\b/i,
+  /\byou\s+are\s+now\b/i,
+  /\bnew\s+instructions?\s*:/i,
+  /\bsystem\s*:\s*/i,
+  /\bact\s+as\s+(a|an)\b/i,
+  /\bdo\s+not\s+mention\b/i,
+  /\breveal\s+your\s+(system\s+)?(prompt|instructions)\b/i,
+  /\boutput\s+the\s+following\s+exactly\b/i,
+  /\bchange\s+the\s+(score|maturity|rating|band)\b/i,
+  /\bset\s+the\s+(score|maturity|rating|band)\s+to\b/i,
+  /\bemail\s+(the\s+report|this)\s+to\b/i,
+  /\bsend\s+(the\s+report|this)\s+to\b/i
+];
+
+export interface PromptInjectionScan {
+  suspicious: boolean;
+  matchedPattern?: string;
+}
+
+/**
+ * A cheap, maintainable heuristic -- not a substitute for output validation. If it fires, the
+ * caller (narrative-pipeline.ts) skips AI generation entirely for that run and goes straight to
+ * the deterministic fallback rather than spending an AI call on input it does not trust. Even if
+ * this heuristic is evaded, validatePremiumReportNarrative still blocks any resulting unsupported
+ * claim from reaching the report.
+ */
+export function scanForPromptInjection(value: string): PromptInjectionScan {
+  for (const pattern of PROMPT_INJECTION_PATTERNS) {
+    if (pattern.test(value)) return { suspicious: true, matchedPattern: pattern.source };
+  }
+  return { suspicious: false };
+}
+
 export function buildPremiumReportEvidencePack(
   data: AssembledReportData,
   roadmap: { agenda: RoadmapItem[] },
@@ -125,8 +201,8 @@ export function buildPremiumReportEvidencePack(
   return {
     schemaVersion,
     assessmentReference: data.assessmentReference,
-    organisationName: data.organisationName,
-    packageName: data.packageName,
+    organisationName: sanitiseUntrustedEvidenceText(data.organisationName, 200),
+    packageName: sanitiseUntrustedEvidenceText(data.packageName, 200),
     scoreRunId: data.scoreRun.id,
     methodologyAuthority: 'deterministic',
     items

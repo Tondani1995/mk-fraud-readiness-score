@@ -110,6 +110,11 @@ assert.match(workflow, /flags\.autoEmailEnabled/);
       }
     };
     if (specifier === '@/workflows/premium-report-fulfilment') return { premiumReportFulfilmentWorkflow() {} };
+    if (specifier === '@/lib/supabase/server') return {
+      createSupabaseServiceClient() {
+        throw new Error('service client must not be constructed on the happy path');
+      }
+    };
     throw new Error(`Unexpected workflow-start dependency: ${specifier}`);
   }, module, module.exports);
   const result = await module.exports.startPremiumReportWorkflow({
@@ -140,6 +145,134 @@ assert.match(workflow, /flags\.autoEmailEnabled/);
     deliveryCapabilityId: 'delivery-capability-opaque'
   }]);
   assert.doesNotMatch(serializedWorkflowArguments, /issueSecret|leaseToken|must-never-serialize/);
+}
+
+// M5: the workflow-start double fault -- start() itself throws/is ambiguous, AND the follow-up
+// attempt to durably record that ambiguity also throws. Previously a bare `catch {}`; now must
+// log a structured, non-sensitive signal and best-effort record an operational alert, and must
+// never let the alert RPC itself throw a third time out of this handler.
+{
+  const output = ts.transpileModule(start, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+  }).outputText;
+  const module = { exports: {} };
+  const lease = { expectedStep: 'workflow_start_claim', leaseGeneration: 1 };
+  let alertRpcCalls = [];
+  const originalConsoleError = console.error;
+  const consoleErrorCalls = [];
+  console.error = (...args) => { consoleErrorCalls.push(args); };
+  try {
+    new Function('require', 'module', 'exports', output)((specifier) => {
+      if (specifier === 'workflow/api') return {
+        async start() { throw new Error('isolated durable-start transport failure'); }
+      };
+      if (specifier === '@/lib/reports/phase14-security') return {
+        async claimPhase14WorkerCapability() { return lease; },
+        async executePhase14WorkerStep(_currentLease, action) {
+          if (action === 'claim_premium_report_workflow_start') {
+            return { claimed: true, outbox_id: 'outbox-double-fault' };
+          }
+          if (action === 'mark_phase14_workflow_start_dispatching') return {};
+          if (action === 'record_premium_report_workflow_start') {
+            throw new Error('isolated settle-call failure -- the durable boundary itself is unreachable');
+          }
+          throw new Error(`unexpected action: ${action}`);
+        }
+      };
+      if (specifier === '@/workflows/premium-report-fulfilment') return { premiumReportFulfilmentWorkflow() {} };
+      if (specifier === '@/lib/supabase/server') return {
+        createSupabaseServiceClient() {
+          return {
+            async rpc(name, args) {
+              alertRpcCalls.push([name, args]);
+              return { data: 'alert-opaque-id', error: null };
+            }
+          };
+        }
+      };
+      throw new Error(`Unexpected workflow-start dependency: ${specifier}`);
+    }, module, module.exports);
+    const result = await module.exports.startPremiumReportWorkflow({
+      fulfilmentId: 'fulfilment-double-fault',
+      generationAuthorization: {
+        capabilityId: 'generation-capability-opaque', capabilityType: 'automatic_generation',
+        operationKey: 'generation-operation-opaque', expiresAt: '2099-01-01T00:00:00Z',
+        authorityEpoch: 7, expectedStep: 'claim', orderId: null, assessmentId: null,
+        scoreRunId: null, fulfilmentId: 'fulfilment-double-fault', reportId: null, recipient: null,
+        issueSecret: 'must-never-log', leaseToken: 'must-never-log'
+      },
+      deliveryCapabilityId: null
+    });
+    // The function must still return its existing, safe acceptance_uncertain result -- the
+    // double fault changes observability, not the caller-facing contract.
+    assert.equal(result.ok, false);
+    assert.equal(result.started, false);
+    assert.equal(result.error, 'phase14_workflow_start_acceptance_uncertain');
+
+    const doubleFaultLog = consoleErrorCalls.find((args) => args[0] === 'phase14_workflow_start_double_fault');
+    assert.ok(doubleFaultLog, 'the double fault must be logged as a distinct, greppable structured signal, not silently swallowed');
+    const detail = doubleFaultLog[1];
+    assert.equal(detail.fulfilmentId, 'fulfilment-double-fault');
+    assert.equal(detail.outboxId, 'outbox-double-fault');
+    const serializedLog = JSON.stringify(doubleFaultLog);
+    assert.doesNotMatch(serializedLog, /must-never-log/, 'the worker attestation issueSecret/leaseToken must never appear in the double-fault log');
+
+    assert.equal(alertRpcCalls.length, 1, 'exactly one operational alert must be recorded for the double fault');
+    assert.equal(alertRpcCalls[0][0], 'record_phase14_operational_alert');
+    assert.equal(alertRpcCalls[0][1].p_category, 'workflow_start_double_fault');
+    assert.doesNotMatch(JSON.stringify(alertRpcCalls[0][1]), /must-never-log/);
+  } finally {
+    console.error = originalConsoleError;
+  }
+}
+
+// The alert RPC itself failing must never become a third, unhandled fault out of the same catch.
+{
+  const output = ts.transpileModule(start, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+  }).outputText;
+  const module = { exports: {} };
+  const lease = { expectedStep: 'workflow_start_claim', leaseGeneration: 1 };
+  const originalConsoleError = console.error;
+  console.error = () => {};
+  try {
+    new Function('require', 'module', 'exports', output)((specifier) => {
+      if (specifier === 'workflow/api') return {
+        async start() { throw new Error('isolated durable-start transport failure'); }
+      };
+      if (specifier === '@/lib/reports/phase14-security') return {
+        async claimPhase14WorkerCapability() { return lease; },
+        async executePhase14WorkerStep(_currentLease, action) {
+          if (action === 'claim_premium_report_workflow_start') return { claimed: true, outbox_id: 'outbox-triple-fault' };
+          if (action === 'mark_phase14_workflow_start_dispatching') return {};
+          if (action === 'record_premium_report_workflow_start') throw new Error('isolated settle-call failure');
+          throw new Error(`unexpected action`);
+        }
+      };
+      if (specifier === '@/workflows/premium-report-fulfilment') return { premiumReportFulfilmentWorkflow() {} };
+      if (specifier === '@/lib/supabase/server') return {
+        createSupabaseServiceClient() {
+          return { async rpc() { throw new Error('isolated alert RPC failure'); } };
+        }
+      };
+      throw new Error(`Unexpected workflow-start dependency: ${specifier}`);
+    }, module, module.exports);
+    const result = await module.exports.startPremiumReportWorkflow({
+      fulfilmentId: 'fulfilment-triple-fault',
+      generationAuthorization: {
+        capabilityId: 'generation-capability-opaque', capabilityType: 'automatic_generation',
+        operationKey: 'generation-operation-opaque', expiresAt: '2099-01-01T00:00:00Z',
+        authorityEpoch: 7, expectedStep: 'claim', orderId: null, assessmentId: null,
+        scoreRunId: null, fulfilmentId: 'fulfilment-triple-fault', reportId: null, recipient: null,
+        issueSecret: 'x', leaseToken: 'y'
+      },
+      deliveryCapabilityId: null
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'phase14_workflow_start_acceptance_uncertain');
+  } finally {
+    console.error = originalConsoleError;
+  }
 }
 
 const config = read('next.config.mjs');
@@ -197,7 +330,9 @@ assert.match(durableAi, /inputSizeBytes/);
 const aiGenerator = read('src/lib/reports/automation/ai-sdk-generator.ts');
 assert.match(aiGenerator, /maxRetries:\s*0/);
 assert.match(aiGenerator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);
-assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 3500/);
+// Bumped from 3500 (evidence-refs-only schema) to accommodate bounded body prose per section
+// now that AI output actually reaches the report (Phase 14 Independent Review C1 fix).
+assert.match(aiGenerator, /PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 5000/);
 
 const remediationMigration = read('supabase/migrations/0017_phase14_canonical_disabled_foundation.sql');
 for (const pattern of [

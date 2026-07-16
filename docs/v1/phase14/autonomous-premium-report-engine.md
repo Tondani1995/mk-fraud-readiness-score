@@ -49,7 +49,7 @@ Missing configuration or database access always resolves to automation disabled.
 
 The evidence pack contains stable references for persisted scores, maturity, exposure, domains, gaps, caps and deterministic roadmap items. It excludes contact details, EFT details, admin notes, access tokens and secrets. A canonical JSON representation is SHA-256 hashed for provenance.
 
-AI SDK 6.0.83 is pinned because it supports the existing Node 20 runtime. Structured output uses `generateText` with `Output.object` and a strict Zod schema. The model is configurable and defaults to `openai/gpt-5.5` through Vercel AI Gateway.
+AI SDK 6.0.83 is pinned because it supports the current Node 24 runtime (the project ran on Node 20 at the time this pin was first chosen; the runtime has since migrated to Node 24 -- see docs/v1/platform-hardening/node24-compatibility-spike.md for that decision record -- and AI SDK 6.0.83 remains compatible). Structured output uses `generateText` with `Output.object` and a strict Zod schema. The model is configurable and defaults to `openai/gpt-5.5` through Vercel AI Gateway.
 
 Every output passes a non-AI validator. The validator checks section completeness, domain and question identities, evidence references, prohibited claims, unsupported numbers, internal leakage, length limits and maturity/exposure contradictions.
 

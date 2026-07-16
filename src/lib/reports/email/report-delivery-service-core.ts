@@ -15,6 +15,7 @@ import {
 } from './resend-transport';
 import { executeClaimedReportDelivery, markReconciliationRequired } from './delivery-dispatch';
 import { createProviderLookupDatabaseAttestation } from './resend-webhook';
+import { assertReportAccessEligible, resolveCurrentReportId } from '../report-access-eligibility';
 
 export type ReportDeliveryActor = {
   actorType: 'system' | 'admin';
@@ -93,10 +94,25 @@ function messageCopy(reportReference: string, customerName: string | null, organ
 async function loadReport(db: any, reportId: string) {
   const { data, error } = await db.from('reports').select(`
     id,report_reference,storage_bucket,storage_path,checksum,
-    orders:order_id(customer_email,customer_name,organisation_name)
+    assessment_id,order_id,report_type,status,version_number,
+    orders:order_id(customer_email,customer_name,organisation_name,order_reference)
   `).eq('id', reportId).maybeSingle();
   if (error || !data) throw error ?? new Error(`Report ${reportId} was not found.`);
   return data as any;
+}
+
+// H4 correlation tags: Resend tags are the only thing attached to a send that a human can search
+// on later if the delivery-attempt/order/report identifiers never made it into our own database
+// (the exact "lost response" scenario). Tag VALUES must therefore be safe, low-entropy
+// identifiers -- never respondent tokens, secrets, signed URLs, raw customer answers, payment
+// details, or credentials. This strips anything outside a conservative identifier charset and
+// caps length defensively; it never receives free-text customer input.
+function safeCorrelationTagValue(raw: string, maxLength = 256) {
+  return raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, maxLength);
+}
+
+function deliveryEnvironmentIdentifier() {
+  return safeCorrelationTagValue(process.env.VERCEL_ENV?.trim() || process.env.NODE_ENV?.trim() || 'unknown');
 }
 
 export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmailInput): Promise<DeliverPremiumReportEmailResult> {
@@ -120,6 +136,21 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     : await requirePhase14Action(action);
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
+  // H5: application-layer defense-in-depth, on top of (never instead of) the RPC call below to
+  // the authoritative public.phase14_delivery_entitlement (via authorize_premium_report_delivery).
+  // Fails fast, before any authorization/claim cycle is spent, if this report is
+  // draft/superseded/voided, is not the current version for its assessment and report type, or
+  // has no verified storage metadata.
+  const currentReportId = await resolveCurrentReportId(db, report.assessment_id, report.report_type);
+  assertReportAccessEligible({
+    report: {
+      id: report.id, order_id: report.order_id, report_type: report.report_type,
+      status: report.status, version_number: report.version_number,
+      storage_bucket: report.storage_bucket, storage_path: report.storage_path, checksum: report.checksum
+    },
+    currentReportId,
+    purpose: 'email_delivery'
+  });
   const order: any = one(report.orders);
   const customerRecipient = email(order?.customer_email);
   if (!customerRecipient) throw new Error('The customer delivery address is invalid.');
@@ -196,6 +227,15 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   const claim = claimData as ClaimedDelivery;
   if (!claim.claimed) throw new Error(`Delivery authorization was ${claim.status ?? 'not claimed'}: ${claim.reason ?? 'ineligible'}.`);
 
+  // M8: an absent/invalid idempotency key must fail explicitly before any request reaches
+  // Resend, never fall through as the literal string "undefined" via a non-null assertion. The
+  // provider request key is what makes a retried send idempotent at Resend's edge; dispatching
+  // without one risks a duplicate customer email on any client-side retry.
+  const idempotencyKey = authorization.provider_request_key?.trim();
+  if (!idempotencyKey) {
+    throw new Error('Delivery authorization has no durable provider request key; refusing to dispatch without an idempotency key.');
+  }
+
   const copy = messageCopy(report.report_reference, order?.customer_name ?? null, order?.organisation_name ?? null);
   const dispatch = await executeClaimedReportDelivery({
     db,
@@ -215,10 +255,17 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
         filename: `${report.report_reference}-MK-Fraud-Readiness-Report.pdf`,
         contentBase64: ''
       },
-      idempotencyKey: authorization.provider_request_key!,
+      idempotencyKey,
+      // H4 correlation tags: sufficient to find this exact delivery attempt in the Resend
+      // dashboard by hand if our own provider_message_id capture is ever lost, without carrying
+      // any respondent token, secret, signed URL, customer answer, or payment detail.
       tags: [
         { name: 'message_type', value: 'premium_report_pdf' },
-        { name: 'report_id', value: report.id.replace(/-/g, '') }
+        { name: 'report_id', value: report.id.replace(/-/g, '') },
+        { name: 'report_reference', value: safeCorrelationTagValue(report.report_reference ?? '') },
+        { name: 'delivery_attempt_ref', value: safeCorrelationTagValue(claim.authorization_id.replace(/-/g, '')) },
+        { name: 'order_reference', value: safeCorrelationTagValue(order?.order_reference ?? '') },
+        { name: 'environment', value: deliveryEnvironmentIdentifier() }
       ]
     }
   });

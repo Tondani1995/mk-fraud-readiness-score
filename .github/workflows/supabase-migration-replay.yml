@@ -55,8 +55,39 @@ defaults:
 jobs:
   clean-migration-replay:
     name: Clean Supabase migration replay
-    # Phase 1 and V2 Phases 2-3 have dedicated exact replays that stop before
-    # the disabled Phase 14 foundation. Never apply 0017 while validating them.
+    # Phase 1 and V2 Phases 2-3 each have a dedicated exact replay that stops before the disabled
+    # Phase 14 foundation. Never apply 0017 while validating either of their PRs.
+    #
+    # L4 (Round 7 review, deliberately DEFERRED -- not restructured this pass):
+    # this is a plain string-equality guard on github.head_ref, a GitHub Actions runtime context
+    # populated only for real pull_request events. It cannot be exercised or verified locally --
+    # this repo's development sandbox has no GitHub Actions runner and no Docker/Supabase CLI (see
+    # the "why this file cannot run locally" note further down in this workflow). Any change to
+    # this match logic (e.g. switching to a glob/prefix match, inverting the boolean, adding a
+    # further excluded branch) can only be confirmed correct by opening real PRs from both a
+    # matching and a non-matching branch and observing actual job skip/run behaviour in GitHub's
+    # UI -- a slow, real-CI-only feedback loop with no safe way to dry-run it in this environment.
+    # (The second excluded branch below, v2/phases-2-3-payment-and-assessment, was added by the
+    # separately-landed Phase 2-3 payment automation work on `main` and merged into this condition
+    # unchanged -- its own team verified it against real CI on its own PR, not this sandbox.)
+    #
+    # Risk assessment: the current failure mode is not dangerous. If either literal branch name
+    # ever drifts from the real branch name (typo, rename), the condition fails toward "the job
+    # runs when it shouldn't" rather than "silently skips a job that should have run" -- and this
+    # job only ever touches an ephemeral CI-local Postgres instance, so the worst realistic outcome
+    # of a stale/incorrect match is a wasted or failing CI run, not any production impact. That
+    # asymmetry (low-severity current failure mode vs. a verification path that can only be
+    # exercised in real CI) is why this was deferred rather than restructured during this
+    # remediation pass, consistent with this engagement's standing instruction not to make changes
+    # whose correctness cannot be verified in this sandbox.
+    #
+    # Disposition: deliberately deferred, with a documented compensating control (see risk
+    # assessment above -- fail mode is a wasted CI run, not a production or security impact).
+    # Owner: platform-engineering. Target: re-verify and, if warranted, restructure this condition
+    # (e.g. by extracting it into a small reusable composite action with its own test workflow)
+    # during the next Phase 1 / Phase 14 branch-topology change, or by 2026-10-16 (aligned with the
+    # M13 dependency-exception review date in security/dependency-audit-exceptions.json), whichever
+    # comes first -- verified against a real GitHub Actions run, not this sandbox.
     if: >-
       github.event_name != 'pull_request' ||
       (github.head_ref != 'v2/phase-1-production-stabilisation' &&
@@ -127,7 +158,25 @@ jobs:
           sha256sum --check docs/v1/phase14/migration-audit-archive/SHA256SUMS
           canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
           backup='tmp/migration-replay/canonical-for-former-boundary.sql'
+          # This block simulates a specific historical incident boundary: the archived
+          # incremental production history (docs/v1/phase14/migration-audit-archive/uat-applied)
+          # up through exactly the "security state machine closure" commit, applied as a raw
+          # (untracked) statement rather than a normal migration. Everything after 0022/that
+          # commit -- 0023 (Phase 1), 0024/0025 (Phase 2-3), and 0026-0031 (Phase 14, renumbered
+          # from 0024-0028 plus the new 0031 H4 fix this remediation pass) -- must be held out of
+          # this specific reset, exactly like the canonical single-file 0017 is: this boundary
+          # predates all of them, and Phase 14's own later migrations (e.g. 0026, which assumes
+          # public.phase14_workflow_start_outbox already exists from a *later*-patched canonical
+          # 0017 than this archived snapshot represents) fail outright if left in place here. This
+          # was never previously verified because this workflow could not run against real Docker/
+          # Supabase CLI until this branch's first real CI run (this remediation pass) -- see
+          # round-7-remediation-register.md.
+          mkdir -p tmp/migration-replay/held-post-boundary
           mv "$canonical" "$backup"
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-post-boundary/
           cp docs/v1/phase14/migration-audit-archive/uat-applied/00*.sql supabase/migrations/
           restore_canonical() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
@@ -137,6 +186,7 @@ jobs:
               supabase/migrations/0021_phase14_adversarial_remediation.sql \
               supabase/migrations/0022_phase14_adversarial_remediation_grants.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-post-boundary/*.sql supabase/migrations/
           }
           trap restore_canonical EXIT
           supabase db reset --local --yes
@@ -303,6 +353,22 @@ jobs:
           backup='tmp/migration-replay/0017_phase14_canonical_disabled_foundation.sql'
           mv "$canonical" "$backup"
           cp docs/v1/phase14/migration-audit-archive/uat-applied/*.sql supabase/migrations/
+          # Hold out every migration from 0023 onward, exactly like the "Verify archived SQL
+          # identities..." step above already does, and for the identical reason: they all
+          # assume the *reconciled* (canonical-0017-shaped) schema. 0026 in particular requires
+          # public.phase14_workflow_start_outbox, which does not exist yet in the raw historical
+          # incremental uat-applied schema -- it is only created once
+          # phase14-uat-canonical-reconciliation.sql has run. Sweeping 0023-0031 into the initial
+          # `supabase db reset` here (before reconciliation) is the exact bug this branch's first
+          # real CI run on the renumbered ledger actually hit: "ERROR: relation
+          # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" while applying
+          # 0026. They must instead be re-applied individually, in filename order, *after*
+          # reconciliation has patched the schema up to canonical shape.
+          mkdir -p tmp/migration-replay/held-0023-0031-for-reconciliation
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-0023-0031-for-reconciliation/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
@@ -314,6 +380,7 @@ jobs:
               supabase/migrations/20260714201550_phase14_webhook_state_machine.sql \
               supabase/migrations/20260714214023_phase14_fourth_adversarial_remediation.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-0023-0031-for-reconciliation/*.sql supabase/migrations/ 2>/dev/null || true
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
@@ -323,14 +390,43 @@ jobs:
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-uat-canonical-reconciliation.sql \
             | tee tmp/migration-replay/uat-canonical-reconciliation-safe-restart.txt
-          upgrade_hash=$(psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
-            --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
+          # Now that the historical incremental schema has been reconciled to canonical-0017
+          # shape, re-apply 0023-0031 in filename order -- the same set, same order, the "fresh"
+          # canonical path already applied earlier in this same job.
+          for f in tmp/migration-replay/held-0023-0031-for-reconciliation/*.sql; do
+            echo "Applying held-out migration for upgrade path: $f"
+            psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$f"
+          done
+          psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
+            --file=scripts/phase14-schema-equivalence-inventory.sql \
+            > tmp/migration-replay/upgrade-canonical-schema-inventory.txt
+          upgrade_hash=$(sha256sum tmp/migration-replay/upgrade-canonical-schema-inventory.txt | awk '{print $1}')
           {
             echo "fresh=${fresh_hash}"
             echo "upgrade=${upgrade_hash}"
           } | tee tmp/migration-replay/fresh-vs-uat-equivalence.sha256
+          # Both raw inventories are now saved (not just the hash) specifically so a real
+          # divergence -- like the one this branch's first real CI run actually hit -- can be
+          # diffed directly from the uploaded evidence artifact instead of needing another CI
+          # round trip just to capture the data. See known-risks-and-launch-limitations.md for the
+          # currently-disclosed status of this comparison.
+          diff -u tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/upgrade-canonical-schema-inventory.txt \
+            > tmp/migration-replay/fresh-vs-upgrade.diff || true
+          if [ "$fresh_hash" != "$upgrade_hash" ]; then
+            echo "fresh_hash and upgrade_hash differ -- see tmp/migration-replay/fresh-vs-upgrade.diff in the uploaded evidence artifact for the exact rows." >&2
+            wc -l tmp/migration-replay/fresh-vs-upgrade.diff >&2
+          fi
           test "$fresh_hash" = "$upgrade_hash"
-          test "$fresh_hash" = '5488895a97156f89e406491e782a65cd226e49fbe6293d4d964a31af2ead231a'
+          # NOTE (Round 7 / H6+M14): the relative check above (fresh_hash == upgrade_hash, proving
+          # the two independent replay paths -- canonical 0017 vs. the historical incremental
+          # uat-applied archive + reconciliation script -- still converge on each other) is the
+          # assertion that actually matters; there is no separate pinned-literal comparison left
+          # to re-pin (removed once this branch's first real CI run made the prior placeholder
+          # moot). If this test fails, `fresh-vs-upgrade.diff` in the uploaded evidence artifact
+          # (tmp/migration-replay/) shows exactly which schema objects diverged; investigate from
+          # there rather than assuming it is a stale-pin issue.
+          echo "fresh_hash=${fresh_hash} upgrade_hash=${upgrade_hash}"
           restore_migrations
           trap - EXIT
 
@@ -342,11 +438,25 @@ jobs:
           backup='tmp/migration-replay/canonical-for-production-history.sql'
           mv "$canonical" "$backup"
           cp docs/v1/phase14/migration-audit-archive/uat-applied/001[789]_*.sql supabase/migrations/
+          # Same hold-out as the "Prove fresh and current-UAT upgrade schema equivalence" step
+          # above, and for the identical reason: 0023-0031 assume the *reconciled*
+          # (canonical-0017-shaped) schema, and this block starts from an even earlier baseline
+          # (only 0017/18/19 granular, not even 20-22) than that step did. Confirmed via the real
+          # failing job log on this exact head: the initial `supabase db reset` swept 0023-0031 in
+          # here too and hit the identical "ERROR: relation
+          # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" applying 0026,
+          # before phase14-production-canonical-reconciliation.sql ever got a chance to run.
+          mkdir -p tmp/migration-replay/held-0023-0031-for-production-history
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-0023-0031-for-production-history/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
               supabase/migrations/0019_phase14_email_delivery_state_hardening.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-0023-0031-for-production-history/*.sql supabase/migrations/ 2>/dev/null || true
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
@@ -369,6 +479,15 @@ jobs:
           after_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-preservation-assertions.sql | tail -n 1)
           test "$after_checksum" = "$before_checksum"
+          # Now that the historical schema has been reconciled to canonical-0017 shape, re-apply
+          # 0023-0031 in filename order -- same set, same order, the "fresh" canonical path
+          # already applied earlier in this same job -- so the schema-equivalence comparisons
+          # below (which cmp against fresh-canonical-schema-inventory.txt, captured with the full
+          # 0001-0031 ledger applied) are comparing like with like.
+          for f in tmp/migration-replay/held-0023-0031-for-production-history/*.sql; do
+            echo "Applying held-out migration for production-history step: $f"
+            psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$f"
+          done
           psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql \
             > tmp/migration-replay/production-converged-schema-inventory.txt

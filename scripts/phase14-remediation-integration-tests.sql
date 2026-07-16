@@ -398,12 +398,27 @@ begin
   end;
   v_attested_at_epoch := extract(epoch from now())::bigint;
   v_attestation_nonce := gen_random_uuid();
+  -- Canonical string must match public.record_phase14_provider_lookup_attestation's own
+  -- construction exactly (supabase/migrations/0028_phase14_attestation_canonicalisation_hardening.sql,
+  -- renumbered from 0026): a 'v1|provider_lookup|' prefix followed by each field run through
+  -- phase14_private.canonical_attestation_field (length-prefixed, delimiter-injection-safe
+  -- encoding), concatenated directly with no separator between fields -- not the older plain
+  -- concat_ws('|', ...) format this test previously used, which predates that hardening migration
+  -- and was never updated to match (caught by this branch's first real CI run against Docker/
+  -- Supabase CLI; see round-7-remediation-register.md's H4 concurrency-determinism entry for the
+  -- same "never actually run before" root cause pattern).
   v_attestation_hmac := encode(extensions.hmac(
-    convert_to(concat_ws('|','provider_lookup','resend',
-      v_reconciliation_auth->>'provider_request_key',
-      v_reconciliation_auth->>'authorization_id',
-      v_reconciliation_auth->>'email_event_id','',
-      'not_found',repeat('9',64),v_attested_at_epoch::text,v_attestation_nonce::text),'UTF8'),
+    convert_to('v1|provider_lookup|' ||
+      phase14_private.canonical_attestation_field('resend') ||
+      phase14_private.canonical_attestation_field(v_reconciliation_auth->>'provider_request_key') ||
+      phase14_private.canonical_attestation_field(v_reconciliation_auth->>'authorization_id') ||
+      phase14_private.canonical_attestation_field(v_reconciliation_auth->>'email_event_id') ||
+      phase14_private.canonical_attestation_field('') ||
+      phase14_private.canonical_attestation_field('not_found') ||
+      phase14_private.canonical_attestation_field(repeat('9',64)) ||
+      phase14_private.canonical_attestation_field(v_attested_at_epoch::text) ||
+      phase14_private.canonical_attestation_field(v_attestation_nonce::text),
+    'UTF8'),
     convert_to('phase14-integration-lookup-secret-000000000001','UTF8'),'sha256'
   ),'hex');
   perform set_config('request.jwt.claims','{"role":"service_role","exp":4102444800}',true);

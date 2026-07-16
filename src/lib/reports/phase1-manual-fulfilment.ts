@@ -337,14 +337,33 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
       : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
     if (uploaded && storageBucket && storagePath) {
+      // M9: this is the Phase 1 (manual, synchronous) generation path's cleanup of an
+      // orphaned upload after a downstream failure -- distinct from the Phase 14 premium
+      // report engine's durable phase14_storage_cleanup_queue (which already persists
+      // attempt_count, provider_result_class, deletion_requested/accepted and last_error
+      // for both its manual and automatic-worker paths). Phase 1 has no such table, so
+      // this logs a structured, symmetric outcome on every attempt (not just failures)
+      // with a stable, non-sensitive path reference -- a short hash, not the raw storage
+      // path -- so an operator can correlate repeated failures for the same object
+      // without the log itself exposing the path. Phase 1's generation flow is
+      // synchronous and single-attempt (there is no background retry of this cleanup
+      // step), so retryCount is always 0 here; that is accurately reported, not omitted.
+      const storagePathReference = crypto.createHash('sha256').update(`${storageBucket}:${storagePath}`).digest('hex').slice(0, 16);
       const { error: cleanupError } = await db.storage.from(storageBucket).remove([storagePath]);
+      const cleanupLog = {
+        technicalReference,
+        attemptId,
+        storagePathReference,
+        cleanupRequested: true,
+        cleanupResult: cleanupError ? 'failed' : 'deleted',
+        retryCount: 0,
+        errorCategory: cleanupError ? 'storage_cleanup_failed' : null,
+        safeMessage: cleanupError ? 'An unlinked private object may require operator cleanup.' : undefined
+      };
       if (cleanupError) {
-        console.error('phase1_generation_storage_cleanup', {
-          technicalReference,
-          attemptId,
-          errorCategory: 'storage_cleanup_failed',
-          safeMessage: 'An unlinked private object may require operator cleanup.'
-        });
+        console.error('phase1_generation_storage_cleanup', cleanupLog);
+      } else {
+        console.info('phase1_generation_storage_cleanup', cleanupLog);
       }
     }
     await recordFailure(db, attemptId, mapped.reason, mapped.message);

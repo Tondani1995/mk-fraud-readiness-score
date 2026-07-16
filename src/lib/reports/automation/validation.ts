@@ -12,7 +12,19 @@ const PROHIBITED_PATTERNS: Array<{ code: string; pattern: RegExp; message: strin
   { code: 'compliance_conclusion', pattern: /\b(fully compliant|legally compliant|regulatory compliance is confirmed|meets all regulatory requirements)\b/i, message: 'The report may not make a legal or regulatory compliance conclusion.' },
   { code: 'guarantee_claim', pattern: /\b(guarantee[sd]?|will eliminate|will prevent all|fraud[- ]proof|zero fraud)\b/i, message: 'Guarantees and absolute fraud-prevention claims are not allowed.' },
   { code: 'secret_leakage', pattern: /\b(service[_ -]?role|supabase[_ -]?(key|url)|api[_ -]?key|vercel[_ -]?(token|oidc)|bearer token|access token)\b/i, message: 'Internal credentials or infrastructure identifiers are not allowed.' },
-  { code: 'internal_reference', pattern: /\b(score_run_id|assessment_id|question_id|report_fulfilment|generation_run_id)\b/i, message: 'Internal database identifiers are not allowed.' }
+  { code: 'internal_reference', pattern: /\b(score_run_id|assessment_id|question_id|report_fulfilment|generation_run_id)\b/i, message: 'Internal database identifiers are not allowed.' },
+  // L1: the checks above are a literal-keyword denylist (infrastructure vocabulary like "api key"
+  // or "service role"). They do not catch an actual credential-shaped string, or an email address,
+  // if one somehow appeared in AI-generated text -- the evidence pack given to the AI already
+  // excludes contact details, EFT details, admin notes, access tokens and secrets (upstream data
+  // minimization), so nothing legitimate should ever match these, and any match is itself evidence
+  // of a problem worth blocking on.
+  { code: 'email_address_leakage', pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/, message: 'Email addresses are not permitted in report narrative; none are present in the deterministic evidence pack.' },
+  { code: 'jwt_like_token', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/, message: 'A JWT-shaped token was detected in narrative output.' },
+  { code: 'cloud_credential_pattern', pattern: /\bAKIA[0-9A-Z]{16}\b/, message: 'An AWS-style access key pattern was detected in narrative output.' },
+  { code: 'vendor_secret_pattern', pattern: /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b|\bsk-[A-Za-z0-9]{20,}\b/, message: 'A vendor API secret pattern was detected in narrative output.' },
+  { code: 'opaque_hex_token', pattern: /\b[0-9a-f]{32,}\b/i, message: 'An opaque hexadecimal token (possible credential, hash or internal identifier) was detected in narrative output.' },
+  { code: 'supabase_project_url', pattern: /https?:\/\/[a-z0-9-]+\.supabase\.co\b/i, message: 'A Supabase project URL was detected in narrative output.' }
 ];
 
 const MATURITY_BANDS = ['Reactive', 'Developing', 'Structured', 'Strategic'] as const;

@@ -1,5 +1,30 @@
 let browserPromise: Promise<any> | null = null;
 
+// Tracks consecutive render failures across renderer instances (i.e. across HTTP invocations
+// that share this module's warm state) so that a persistently broken Chromium runtime is
+// observable as a distinct operational signal, not just a string of individually-explained
+// per-report errors. Reset to 0 on any successful render.
+let consecutiveRenderFailures = 0;
+const REPEATED_FAILURE_ALERT_THRESHOLD = 3;
+
+// M6: page.pdf() previously had no explicit timeout, relying entirely on Puppeteer's own
+// internal default. A bounded, configured timeout is applied explicitly so a hung render
+// (a genuinely stuck renderer process, as opposed to one that has already crashed and would
+// fail newPage()/setContent() immediately) cannot hold a report generation open indefinitely.
+// Read fresh on every call (not cached at module load) so operational tuning via the
+// environment variable takes effect without a redeploy, and so tests can override it per case.
+export const DEFAULT_PDF_RENDER_TIMEOUT_MS = 30_000;
+function resolvePdfRenderTimeoutMs(): number {
+  const configured = Number(process.env.PDF_RENDER_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PDF_RENDER_TIMEOUT_MS;
+}
+
+/** Test-only hook: forces the next getBrowser() call to relaunch regardless of cached state. */
+export function __resetPdfRendererStateForTests(): void {
+  browserPromise = null;
+  consecutiveRenderFailures = 0;
+}
+
 type ChromiumRuntime = {
   args: string[];
   defaultViewport: { width: number; height: number } | null;
@@ -87,28 +112,95 @@ async function launchBrowser() {
   });
 }
 
-async function getBrowser() {
-  if (!browserPromise) {
-    browserPromise = launchBrowser().catch((error) => {
-      browserPromise = null;
-      throw error;
-    });
+/** Best-effort close that never lets a failure while tearing down a dead resource mask the real error. */
+async function closeSafely(closeable: { close: () => Promise<void> } | null | undefined): Promise<void> {
+  if (!closeable) return;
+  try {
+    await closeable.close();
+  } catch {
+    // The resource may already be gone (crashed process, already-closed page) -- nothing more
+    // we can safely do here, and this must never throw over a caller's real error.
   }
+}
+
+async function getBrowser() {
+  if (browserPromise) {
+    try {
+      const existing = await browserPromise;
+      if (existing.isConnected()) {
+        return existing;
+      }
+      console.warn('phase14_pdf_renderer_stale_browser_discarded', {
+        reason: 'cached_browser_disconnected'
+      });
+    } catch {
+      // The cached launch itself failed after being cached (shouldn't normally happen since
+      // launchBrowser()'s own .catch clears browserPromise, but guard against a stale reference
+      // from a prior tick anyway) -- fall through to relaunch.
+    }
+    browserPromise = null;
+  }
+  browserPromise = launchBrowser().catch((error) => {
+    browserPromise = null;
+    throw error;
+  });
   return browserPromise;
 }
 
+/**
+ * H1 fix: a cached browser handle must never be reused once it is known (or suspected) dead.
+ * Any failure while acquiring a page, setting content, or rendering the PDF clears the cached
+ * browser so the *next* call relaunches Chromium from scratch, rather than repeatedly retrying
+ * `newPage()`/`page.pdf()` against a browser process that has already crashed. Page and browser
+ * resources are always closed on the way out, and repeated failures are logged as a distinct,
+ * observable operational signal (`phase14_pdf_renderer_repeated_failures`) separate from the
+ * per-report error already recorded on the fulfilment row by the caller.
+ */
 export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
-  const browser = await getBrowser();
-  const page = await browser.newPage();
+  let browser: { newPage: () => Promise<unknown>; close: () => Promise<void>; isConnected: () => boolean } | null = null;
+  let page: { close: () => Promise<void>; setContent: (html: string, opts: unknown) => Promise<void>; pdf: (opts: unknown) => Promise<unknown> } | null = null;
+  const pdfRenderTimeoutMs = resolvePdfRenderTimeoutMs();
   try {
-    await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-    const pdf = await page.pdf({
+    browser = await getBrowser();
+    page = (await browser!.newPage()) as typeof page;
+    await page!.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+    // M6: bounded timeout on the render itself. Puppeteer throws a TimeoutError (recognised
+    // below by error.name) if the render has not completed within this many milliseconds.
+    const pdf = await page!.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      timeout: pdfRenderTimeoutMs
     });
-    return Buffer.from(pdf);
+    consecutiveRenderFailures = 0;
+    return Buffer.from(pdf as Parameters<typeof Buffer.from>[0]);
+  } catch (error) {
+    // Never reuse a browser that failed to launch, open a page, load content, or render -- any of
+    // these can indicate a crashed or hung renderer process. Discard the cached handle so the
+    // next caller relaunches Chromium rather than retrying against the same dead process. This
+    // also covers a launch failure inside getBrowser() itself (browser stays null in that case).
+    browserPromise = null;
+    consecutiveRenderFailures += 1;
+    // M6: a render timeout is logged as its own distinct, immediately-visible operational
+    // signal (every occurrence, not gated behind the consecutive-failure threshold below) --
+    // a single hang is worth surfacing on its own, since it means a real render was abandoned
+    // mid-flight after consuming the full timeout budget, not merely a fast, cheap failure.
+    const isRenderTimeout = error instanceof Error && error.name === 'TimeoutError';
+    if (isRenderTimeout) {
+      console.error('phase14_pdf_render_timeout', {
+        timeoutMs: pdfRenderTimeoutMs,
+        message: error.message
+      });
+    }
+    if (consecutiveRenderFailures >= REPEATED_FAILURE_ALERT_THRESHOLD) {
+      console.error('phase14_pdf_renderer_repeated_failures', {
+        consecutiveFailures: consecutiveRenderFailures,
+        lastError: error instanceof Error ? error.message : String(error)
+      });
+    }
+    await closeSafely(browser);
+    throw error;
   } finally {
-    await page.close();
+    await closeSafely(page);
   }
 }

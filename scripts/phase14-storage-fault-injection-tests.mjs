@@ -223,4 +223,29 @@ async function publish(storage, publication, extra = {}) {
     && args.p_category === 'report_download_object_missing'));
 }
 
+{
+  // L7: an exotic malformed error (a Proxy whose property access itself throws, rather than
+  // merely returning undefined) must not escape the classifier as an uncaught exception -- it
+  // must degrade to the same safe 'unknown_provider_error' default a merely-unrecognised error
+  // already receives.
+  const throwingError = new Proxy({}, {
+    get() { throw new Error('isolated malformed-error property access fault'); }
+  });
+  assert.equal(
+    classifier.classifySupabaseStorageResult(throwingError),
+    'unknown_provider_error',
+    'a throwing/malformed error value must resolve to unknown_provider_error, not throw'
+  );
+}
+
+{
+  // Sanity check: well-formed classification behaviour is unchanged by the L7 try/catch wrapper.
+  assert.equal(classifier.classifySupabaseStorageResult(null), 'object_present');
+  assert.equal(classifier.classifySupabaseStorageResult(missingObjectError()), 'object_not_found');
+  assert.equal(
+    classifier.classifySupabaseStorageResult(Object.assign(new Error('nope'), { statusCode: 500 })),
+    'provider_outage'
+  );
+}
+
 console.log('phase14_storage_fault_injection_tests_passed');

@@ -59,6 +59,28 @@ export function webhookPayloadFingerprint(payload: string) {
   return crypto.createHash('sha256').update(payload, 'utf8').digest('hex');
 }
 
+// M10: canonicalisation for HMAC-attested inputs previously joined raw fields with '|', which is
+// ambiguous -- a field value that itself contains '|' can shift the apparent boundary between two
+// logical fields, letting two different logical inputs canonicalise (and therefore HMAC) to the
+// same string. Length-prefixing each field ("<byteLength>:<value>", concatenated with no
+// separator) makes the encoding unambiguous regardless of what characters appear inside a field:
+// the byte length is read off before the value, so there is never a decoding choice to make.
+// Versioned via a fixed 'v1|<namespace>|' prefix so a future format change cannot silently
+// re-canonicalise old inputs to a matching string either. This MUST be changed in lockstep with
+// the matching SQL-side canonical-string construction (phase14_private.canonical_attestation_field,
+// added by migration 0028) -- the two sides independently compute the same string and compare
+// HMACs, so any divergence between them breaks all webhook/provider-lookup verification.
+const CANONICAL_ATTESTATION_ENCODING_VERSION = 'v1';
+
+function canonicalAttestationField(value: string | number | null | undefined): string {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `${Buffer.byteLength(text, 'utf8')}:${text}`;
+}
+
+export function buildCanonicalAttestationString(namespace: string, fields: Array<string | number | null | undefined>): string {
+  return `${CANONICAL_ATTESTATION_ENCODING_VERSION}|${namespace}|${fields.map(canonicalAttestationField).join('')}`;
+}
+
 export function createProviderWebhookDatabaseAttestation(input: {
   provider: string;
   providerEventId: string;
@@ -73,11 +95,11 @@ export function createProviderWebhookDatabaseAttestation(input: {
   if (!secret) throw new Error('The provider webhook database-attestation secret is not configured.');
   const attestedAtEpoch = input.attestedAtEpoch ?? Math.floor(Date.now() / 1000);
   const nonce = input.nonce ?? crypto.randomUUID();
-  const canonical = [
-    'webhook', input.provider.toLowerCase().trim(), input.providerEventId,
+  const canonical = buildCanonicalAttestationString('webhook', [
+    input.provider.toLowerCase().trim(), input.providerEventId,
     input.providerMessageId ?? '', input.eventType, input.eventCreatedAt,
-    input.payloadSha256, String(attestedAtEpoch), nonce
-  ].join('|');
+    input.payloadSha256, attestedAtEpoch, nonce
+  ]);
   return {
     attestedAtEpoch,
     nonce,
@@ -94,10 +116,12 @@ export function createProviderLookupDatabaseAttestation(input: {
   if (!secret) throw new Error('The provider lookup database-attestation secret is not configured.');
   const attestedAtEpoch = input.attestedAtEpoch ?? Math.floor(Date.now() / 1000);
   const nonce = input.nonce ?? crypto.randomUUID();
-  const canonical = ['provider_lookup', input.provider.toLowerCase().trim(),
+  const canonical = buildCanonicalAttestationString('provider_lookup', [
+    input.provider.toLowerCase().trim(),
     input.providerRequestKey, input.authorizationId, input.emailEventId,
     input.providerMessageId ?? '', input.providerState,
-    input.payloadSha256, String(attestedAtEpoch), nonce].join('|');
+    input.payloadSha256, attestedAtEpoch, nonce
+  ]);
   return { attestedAtEpoch, nonce,
     hmac: crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex') };
 }
