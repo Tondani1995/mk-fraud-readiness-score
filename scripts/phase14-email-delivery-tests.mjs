@@ -123,7 +123,6 @@ assert.match(webhookRoute, /ingest_phase14_provider_webhook/);
 assert.match(webhookRoute, /createProviderWebhookDatabaseAttestation/);
 assert.doesNotMatch(webhookRoute, /\.from\('email_events'\)/);
 
-const reportEntitlement = loadPureModule('src/lib/reports/report-entitlement.ts');
 const {
   stateAfterDispatchFailure,
   mayStartProviderSend,
@@ -138,40 +137,13 @@ assert.equal(mayStartProviderSend('provider_acceptance_uncertain', 'bounce_retry
 assert.equal(mayStartProviderSend('complained', 'bounce_retry'), false, 'Complaints are permanently non-retriable.');
 assert.equal(mayStartProviderSend('bounced', 'bounce_retry'), true, 'Only a bounced delivery may consume bounce-retry authority.');
 assert.equal(mayStartProviderSend('failed_before_provider', 'none'), true);
-const {
-  validatePremiumReportDeliveryEntitlement,
-  ReportDeliveryEntitlementError
-} = loadPureModule('src/lib/reports/email/delivery-entitlement.ts', {
-  '../report-entitlement': reportEntitlement
-});
-const deliveryContext = {
-  reportType: 'essential_self_assessment', reportStatus: 'generated', isCurrentReport: true,
-  storageBucket: 'generated-reports', storagePath: 'A/report.pdf', checksum: 'b'.repeat(64),
-  productCode: 'essential_self_assessment', productActive: true, productPriceCents: 500000,
-  productCurrency: 'ZAR', requiresPaymentVerification: true, deliveryMode: 'mk_controlled_pdf',
-  orderStatus: 'payment_received', orderAmountCents: 500000, orderCurrency: 'ZAR',
-  verifiedAt: '2026-07-14T00:00:00.000Z', verifiedBy: 'admin',
-  orderAssessmentId: 'assessment', reportAssessmentId: 'assessment', scoreAssessmentId: 'assessment',
-  currentScoreRunId: 'score', reportScoreRunId: 'score', scoreStatus: 'completed',
-  scoreLockedAt: '2026-07-14T00:00:00.000Z', scoreInputHash: 'a'.repeat(64),
-  customerRecipient: 'customer@example.com', recipient: 'customer@example.com',
-  allowNonProductionTestOverride: false
-};
-assert.equal(validatePremiumReportDeliveryEntitlement(deliveryContext), true);
-for (const [label, patch, reason] of [
-  ['superseded report', { reportStatus: 'superseded', isCurrentReport: false }, 'report_not_current'],
-  ['voided report', { reportStatus: 'voided' }, 'report_not_current'],
-  ['unverified order', { verifiedAt: null }, 'manual_verification_missing'],
-  ['unlocked score', { scoreLockedAt: null }, 'score_not_final'],
-  ['wrong recipient', { recipient: 'attacker@example.com' }, 'recipient_override_forbidden'],
-  ['bad checksum', { checksum: 'bad' }, 'storage_metadata_invalid']
-]) {
-  assert.throws(
-    () => validatePremiumReportDeliveryEntitlement({ ...deliveryContext, ...patch }),
-    (error) => error instanceof ReportDeliveryEntitlementError && error.reason === reason,
-    label
-  );
-}
+// H3: src/lib/reports/email/delivery-entitlement.ts (validatePremiumReportDeliveryEntitlement)
+// was removed -- it was a dead, never-called, strictly weaker duplicate of the authoritative
+// SQL entitlement check (public.phase14_delivery_entitlement, wired into both
+// authorize_premium_report_delivery and worker_authorize_premium_report_delivery before any
+// email_event/authorization row is created). See scripts/phase14-delivery-entitlement-wiring-
+// tests.mjs for the static proof that the dead file is gone and both delivery entry points call
+// the authoritative check, plus a real-Postgres behavioural proof of the check itself.
 
 const {
   verifyResendWebhook,
