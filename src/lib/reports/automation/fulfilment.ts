@@ -19,8 +19,6 @@ const ACTIVE_STATUSES: PremiumReportFulfilmentStatus[] = [
   'ready_for_delivery'
 ];
 
-const REUSE_READ_DELAYS_MS = [0, 75, 150, 300, 600];
-
 export type QueuePremiumReportFulfilmentResult =
   | {
       ok: true;
@@ -37,46 +35,6 @@ export type QueuePremiumReportFulfilmentResult =
 
 export function buildPremiumReportFulfilmentKey(orderId: string, scoreRunId: string) {
   return `premium-report:${orderId}:${scoreRunId}`;
-}
-
-function delay(milliseconds: number) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-async function findReusableFulfilment(input: {
-  db: any;
-  idempotencyKey: string;
-  orderId: string;
-}) {
-  let lastError: Error | null = null;
-
-  for (const waitMs of REUSE_READ_DELAYS_MS) {
-    if (waitMs > 0) await delay(waitMs);
-
-    const { data: keyed, error: keyedError } = await input.db
-      .from('report_fulfilments')
-      .select('*')
-      .eq('idempotency_key', input.idempotencyKey)
-      .maybeSingle();
-
-    if (keyed) return keyed;
-    if (keyedError) lastError = new Error(keyedError.message);
-
-    const { data: active, error: activeError } = await input.db
-      .from('report_fulfilments')
-      .select('*')
-      .eq('order_id', input.orderId)
-      .in('status', ACTIVE_STATUSES)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (active?.idempotency_key === input.idempotencyKey) return active;
-    if (activeError) lastError = new Error(activeError.message);
-  }
-
-  if (lastError) throw lastError;
-  return null;
 }
 
 export async function queuePremiumReportFulfilment(input: {
