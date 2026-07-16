@@ -158,7 +158,25 @@ jobs:
           sha256sum --check docs/v1/phase14/migration-audit-archive/SHA256SUMS
           canonical='supabase/migrations/0017_phase14_canonical_disabled_foundation.sql'
           backup='tmp/migration-replay/canonical-for-former-boundary.sql'
+          # This block simulates a specific historical incident boundary: the archived
+          # incremental production history (docs/v1/phase14/migration-audit-archive/uat-applied)
+          # up through exactly the "security state machine closure" commit, applied as a raw
+          # (untracked) statement rather than a normal migration. Everything after 0022/that
+          # commit -- 0023 (Phase 1), 0024/0025 (Phase 2-3), and 0026-0031 (Phase 14, renumbered
+          # from 0024-0028 plus the new 0031 H4 fix this remediation pass) -- must be held out of
+          # this specific reset, exactly like the canonical single-file 0017 is: this boundary
+          # predates all of them, and Phase 14's own later migrations (e.g. 0026, which assumes
+          # public.phase14_workflow_start_outbox already exists from a *later*-patched canonical
+          # 0017 than this archived snapshot represents) fail outright if left in place here. This
+          # was never previously verified because this workflow could not run against real Docker/
+          # Supabase CLI until this branch's first real CI run (this remediation pass) -- see
+          # round-7-remediation-register.md.
+          mkdir -p tmp/migration-replay/held-post-boundary
           mv "$canonical" "$backup"
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-post-boundary/
           cp docs/v1/phase14/migration-audit-archive/uat-applied/00*.sql supabase/migrations/
           restore_canonical() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
@@ -168,6 +186,7 @@ jobs:
               supabase/migrations/0021_phase14_adversarial_remediation.sql \
               supabase/migrations/0022_phase14_adversarial_remediation_grants.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-post-boundary/*.sql supabase/migrations/
           }
           trap restore_canonical EXIT
           supabase db reset --local --yes
