@@ -15,6 +15,7 @@ import {
 } from './resend-transport';
 import { executeClaimedReportDelivery, markReconciliationRequired } from './delivery-dispatch';
 import { createProviderLookupDatabaseAttestation } from './resend-webhook';
+import { assertReportAccessEligible, resolveCurrentReportId } from '../report-access-eligibility';
 
 export type ReportDeliveryActor = {
   actorType: 'system' | 'admin';
@@ -93,6 +94,7 @@ function messageCopy(reportReference: string, customerName: string | null, organ
 async function loadReport(db: any, reportId: string) {
   const { data, error } = await db.from('reports').select(`
     id,report_reference,storage_bucket,storage_path,checksum,
+    assessment_id,order_id,report_type,status,version_number,
     orders:order_id(customer_email,customer_name,organisation_name,order_reference)
   `).eq('id', reportId).maybeSingle();
   if (error || !data) throw error ?? new Error(`Report ${reportId} was not found.`);
@@ -134,6 +136,21 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     : await requirePhase14Action(action);
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
+  // H5: application-layer defense-in-depth, on top of (never instead of) the RPC call below to
+  // the authoritative public.phase14_delivery_entitlement (via authorize_premium_report_delivery).
+  // Fails fast, before any authorization/claim cycle is spent, if this report is
+  // draft/superseded/voided, is not the current version for its assessment and report type, or
+  // has no verified storage metadata.
+  const currentReportId = await resolveCurrentReportId(db, report.assessment_id, report.report_type);
+  assertReportAccessEligible({
+    report: {
+      id: report.id, order_id: report.order_id, report_type: report.report_type,
+      status: report.status, version_number: report.version_number,
+      storage_bucket: report.storage_bucket, storage_path: report.storage_path, checksum: report.checksum
+    },
+    currentReportId,
+    purpose: 'email_delivery'
+  });
   const order: any = one(report.orders);
   const customerRecipient = email(order?.customer_email);
   if (!customerRecipient) throw new Error('The customer delivery address is invalid.');
