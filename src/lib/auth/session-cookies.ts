@@ -47,6 +47,10 @@ export function getAdminAccessTokenFromCookies(): string | null {
   return cookies().get(ADMIN_ACCESS_COOKIE)?.value ?? null;
 }
 
+export function getAdminRefreshTokenFromCookies(): string | null {
+  return cookies().get(ADMIN_REFRESH_COOKIE)?.value ?? null;
+}
+
 export function getAdminAccessTokenFromRequest(request: NextRequest): string | null {
   return request.cookies.get(ADMIN_ACCESS_COOKIE)?.value ?? null;
 }
