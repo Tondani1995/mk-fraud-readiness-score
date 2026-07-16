@@ -12,14 +12,6 @@ function scorePath(path: string) {
   return `${SCORE_BASE_PATH}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-function keepEmbedded(url: string) {
-  if (typeof window === 'undefined') return url;
-  const embedded = new URLSearchParams(window.location.search).get('embed') === '1';
-  const nextUrl = new URL(url, window.location.origin);
-  if (embedded) nextUrl.searchParams.set('embed', '1');
-  return nextUrl.toString();
-}
-
 export function StartAssessmentForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -67,7 +59,7 @@ export function StartAssessmentForm() {
       return;
     }
 
-    setResult({ ...body.data, resumeUrl: keepEmbedded(body.data.resumeUrl) });
+    setResult(body.data);
   }
 
   if (result) {

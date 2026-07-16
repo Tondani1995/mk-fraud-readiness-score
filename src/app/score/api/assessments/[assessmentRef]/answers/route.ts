@@ -13,12 +13,13 @@ export async function POST(request: Request, { params }: { params: { assessmentR
     assessmentReference: params.assessmentRef,
     token: body?.token,
     answers: Array.isArray(body?.answers) ? body.answers : [],
-    exposureAnswers: Array.isArray(body?.exposureAnswers) ? body.exposureAnswers : []
+    exposureAnswers: Array.isArray(body?.exposureAnswers) ? body.exposureAnswers : [],
+    navigation: body?.navigation && typeof body.navigation === 'object' ? body.navigation : undefined
   });
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, errors: result.errors, progress: 'progress' in result ? result.progress : undefined }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true, progress: result.progress });
+  return NextResponse.json({ ok: true, progress: result.progress, savedAt: result.savedAt, resumeMode: result.resumeMode });
 }

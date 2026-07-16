@@ -7,6 +7,8 @@ import { AssessmentEngine } from '@/components/assessment/AssessmentEngine';
 import { validateResumeToken } from '@/lib/respondent/tokens';
 import { calculateAssessmentProgress, loadAssessmentAnswers, loadAssessmentMethodology } from '@/lib/respondent/assessment-methodology';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getAssessmentResumeCapability } from '@/lib/assessment-experience/resume-capability';
 
 function publicAssessmentProgress(progress: ReturnType<typeof calculateAssessmentProgress>) {
   return {
@@ -112,6 +114,30 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
     answers: saved.answers,
     exposureAnswers: saved.exposureAnswers
   });
+  const resumeCapability = await getAssessmentResumeCapability();
+  let resumeCursor: { activeDomainKey: string | null; activeQuestionId: string | null; savedAt: string | null } | null = null;
+  if (resumeCapability.status === 'available') {
+    const db = createSupabaseServiceClient() as any;
+    const { data: cursor } = await db.from('assessments')
+      .select('active_domain_key,active_question_id,last_answer_saved_at')
+      .eq('id', validation.assessment.id).maybeSingle();
+    if (cursor) resumeCursor = {
+      activeDomainKey: cursor.active_domain_key,
+      activeQuestionId: cursor.active_question_id,
+      savedAt: cursor.last_answer_saved_at
+    };
+    const { error: resumeEventError } = await db.rpc('save_assessment_resume_state', {
+      p_assessment_reference: validation.assessment.assessment_reference,
+      p_active_domain_key: resumeCursor?.activeDomainKey ?? null,
+      p_active_question_id: resumeCursor?.activeQuestionId ?? null,
+      p_completion_percentage: progress.overallPct,
+      p_event_type: 'assessment_resumed'
+    });
+    if (resumeEventError) {
+      console.error('assessment_resume_event', { assessmentReference: validation.assessment.assessment_reference, outcome: 'error', code: resumeEventError.code ?? null });
+    }
+  }
+  console.info('assessment_resumed', { assessmentReference: validation.assessment.assessment_reference, resumeMode: resumeCapability.status, progressPct: progress.overallPct });
 
   return (
     <SectionShell className="py-12">
@@ -133,6 +159,9 @@ export default async function AssessmentShellPage({ params, searchParams }: { pa
         savedAnswers={publicSavedAnswers(saved)}
         savedExposureAnswers={publicSavedExposureAnswers(saved)}
         initialProgress={publicAssessmentProgress(progress)}
+        initialActiveStep={resumeCursor?.activeDomainKey ?? null}
+        initialActiveQuestionId={resumeCursor?.activeQuestionId ?? null}
+        initialSavedAt={resumeCursor?.savedAt ?? null}
       />
     </SectionShell>
   );

@@ -55,9 +55,12 @@ defaults:
 jobs:
   clean-migration-replay:
     name: Clean Supabase migration replay
-    # Phase 1 has a dedicated replay that stops at 0016. Never apply the
-    # disabled Phase 14 foundation while validating its stabilization PR.
-    if: github.event_name != 'pull_request' || github.head_ref != 'v2/phase-1-production-stabilisation'
+    # Phase 1 and V2 Phases 2-3 have dedicated exact replays that stop before
+    # the disabled Phase 14 foundation. Never apply 0017 while validating them.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.head_ref != 'v2/phase-1-production-stabilisation' &&
+      github.head_ref != 'v2/phases-2-3-payment-and-assessment')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 const config = await readFile(new URL('../next.config.mjs', import.meta.url), 'utf8');
 const middleware = await readFile(new URL('../src/middleware.ts', import.meta.url), 'utf8');
 const scoreLanding = await readFile(new URL('../src/app/(website)/fraud-readiness-score/page.tsx', import.meta.url), 'utf8');
-const scoreFrame = await readFile(new URL('../src/components/website/assessment/AutoHeightAssessmentFrame.tsx', import.meta.url), 'utf8');
-const heightReporter = await readFile(new URL('../src/components/assessment/EmbeddedHeightReporter.tsx', import.meta.url), 'utf8');
+const scoreStart = await readFile(new URL('../src/app/score/start/page.tsx', import.meta.url), 'utf8');
+const assessmentEngine = await readFile(new URL('../src/components/assessment/AssessmentEngine.tsx', import.meta.url), 'utf8');
 const runtimeCheck = await readFile(new URL('../src/app/score/api/readiness-runtime-check/route.ts', import.meta.url), 'utf8');
 const uatStartCheck = await readFile(new URL('../src/app/score/api/internal/uat-start-check/route.ts', import.meta.url), 'utf8');
 const navbar = await readFile(new URL('../src/components/website/Navbar.tsx', import.meta.url), 'utf8');
@@ -15,18 +15,15 @@ assert.doesNotMatch(config, /basePath\s*:/, 'The consolidated app must not use a
 assert.doesNotMatch(config, /https?:\/\//, 'Next rewrites must not proxy to another deployment.');
 assert.match(config, /source:\s*['"]\/score\/\.well-known\/workflow\/:path\*['"]/);
 assert.match(config, /destination:\s*['"]\/\.well-known\/workflow\/:path\*['"]/);
-assert.match(scoreLanding, /AutoHeightAssessmentFrame/);
+assert.match(scoreLanding, /StartAssessmentForm/);
+assert.match(scoreLanding, /data-native-assessment-start/);
 assert.match(scoreLanding, /id=["']start-score["']/);
 assert.match(scoreLanding, /scroll-mt-24/);
 assert.match(scoreLanding, /md:scroll-mt-28/);
 assert.doesNotMatch(scoreLanding, /1900px|h-\[1900px\]/);
-assert.match(scoreFrame, /src="\/score\/start\?embed=1"/);
-assert.match(scoreFrame, /loading="eager"/);
-assert.match(scoreFrame, /event\.origin !== window\.location\.origin/);
-assert.match(scoreFrame, /event\.source !== iframeRef\.current\?\.contentWindow/);
-assert.match(scoreFrame, /style=\{\{ height \}\}/);
-assert.match(heightReporter, /ResizeObserver/);
-assert.match(heightReporter, /window\.parent\.postMessage/);
+assert.match(scoreStart, /redirect\('\/score\/start'\)/);
+assert.match(assessmentEngine, /data-assessment-native="true"/);
+assert.doesNotMatch(scoreLanding + scoreStart + assessmentEngine, /<iframe|postMessage|ResizeObserver/);
 assert.match(runtimeCheck, /dynamic = ['"]force-dynamic['"]/, 'Runtime check must never execute during build.');
 assert.match(uatStartCheck, /dynamic = ['"]force-dynamic['"]/, 'UAT start check must never execute during build.');
 assert.equal((navbar.match(/\/fraud-readiness-score#start-score/g) ?? []).length, 2, 'Desktop and mobile navigation CTAs must share the score anchor.');
@@ -71,7 +68,11 @@ if (baseUrl) {
   }
 
   const landing = await (await fetch(`${baseUrl}/fraud-readiness-score`)).text();
-  assert.match(landing, /src=["']\/score\/start\?embed=1["']/);
+  assert.doesNotMatch(landing, /<iframe/i);
+  assert.match(landing, /data-native-assessment-start="true"/);
+  const legacyEmbed = await fetch(`${baseUrl}/score/start?embed=1`, { redirect: 'manual' });
+  assert.ok([307, 308].includes(legacyEmbed.status));
+  assert.equal(new URL(legacyEmbed.headers.get('location'), baseUrl).pathname, '/score/start');
 }
 
 console.log(`Consolidation route checks passed${baseUrl ? ` against ${baseUrl}` : ' (static mode)'}.`);

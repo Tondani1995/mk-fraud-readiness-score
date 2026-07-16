@@ -52,8 +52,8 @@ assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
 
 assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/answers`)', 'Assessment autosave posts through score base path');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(scorePath(`/api/assessments/${assessmentReference}/submit`)', 'Assessment submit posts through score base path');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/answers`', 'Assessment autosave posts through score namespace');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/submit`', 'Assessment submit posts through score namespace');
 assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
 assertIncludes('src/app/score/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
@@ -62,8 +62,8 @@ assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicExpos
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicSavedAnswers(saved)', 'Assessment page must strip saved question codes before client props');
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicSavedExposureAnswers(saved)', 'Assessment page must strip saved exposure codes before client props');
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicAssessmentProgress(progress)', 'Assessment page must strip domain progress codes before client props');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicDomain', 'Assessment engine must use a public domain type');
-assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type PublicExposureFactor', 'Assessment engine must use a public exposure type');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type Domain', 'Assessment engine must use a public domain projection type');
+assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'type ExposureFactor', 'Assessment engine must use a public exposure projection type');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'publicLabel(', 'Assessment engine must strip any upstream code prefixes from display labels');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'factorCode', 'Public assessment engine must not receive exposure factor codes');
 assertNotIncludes('src/components/assessment/AssessmentEngine.tsx', 'domainCode', 'Public assessment engine must not receive domain codes');

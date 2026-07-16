@@ -1,5 +1,5 @@
 import Wrapper from "@/components/website/Wrapper";
-import AutoHeightAssessmentFrame from "@/components/website/assessment/AutoHeightAssessmentFrame";
+import { StartAssessmentForm } from "@/components/assessment/StartAssessmentForm";
 import { ArrowRight, BarChart3, CheckCircle2, FileText, Shield } from "lucide-react";
 import Link from "next/link";
 
@@ -92,8 +92,8 @@ export default function FraudReadinessScorePage() {
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-              <AutoHeightAssessmentFrame />
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl md:p-8" data-native-assessment-start="true">
+              <StartAssessmentForm />
             </div>
           </div>
         </section>

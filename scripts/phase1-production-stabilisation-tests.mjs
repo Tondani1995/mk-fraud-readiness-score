@@ -106,8 +106,9 @@ for (const label of ['Requires Immediate Attention', 'Paid but No Report', 'Repo
 }
 
 const statusRoute = read('src/app/score/admin/orders/[orderReference]/status/route.ts');
-assert.ok(!statusRoute.includes('queuePremiumReportFulfilment'), 'payment confirmation does not trigger automatic generation');
-assert.ok(!statusRoute.includes('startPremiumReportWorkflow'), 'payment confirmation does not start a workflow');
+assert.ok(statusRoute.includes('confirmManualPayment'), 'verified manual payment uses the shared payment service');
+assert.ok(statusRoute.includes('getPaymentAutomationCapability'), 'payment confirmation remains compatible before the payment migration');
+assert.ok(!statusRoute.includes('queuePremiumReportFulfilment') && !statusRoute.includes('startPremiumReportWorkflow'), 'payment confirmation does not start a Phase 14 workflow');
 
 const orderDetail = read('src/app/score/admin/orders/[orderReference]/page.tsx');
 const orderList = read('src/app/score/admin/orders/page.tsx');
