@@ -167,7 +167,7 @@ try {
     '0013_phase13_event_index_cleanup', '0014_phase13_customer_commercial_conversion',
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
-    '0026_phase14_workflow_start_admin_recovery'
+    '0026_phase14_workflow_start_admin_recovery', '0031_phase14_delivery_event_recency_precision_fix'
   ];
   console.log(`Applying ${files.length} real migration files verbatim...`);
   for (const f of files) {

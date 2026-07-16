@@ -160,8 +160,9 @@ ambiguous/lost) via `delivery_attempt_ref` tags Resend echoes back on the webhoo
 | `0028_phase14_attestation_canonicalisation_hardening` | H4 `delivery_attempt_ref` correlation. Renumbered from `0026`. |
 | `0029_phase14_ai_attempt_cross_kind_budget` | M2/M3. Renumbered from `0027`. |
 | `0030_phase14_ai_attempt_pre_dispatch_budget_exclusion` | M1 — excludes `failed_before_provider` attempts from the spend budget. Renumbered from `0028`. |
+| `0031_phase14_delivery_event_recency_precision_fix` | H4 concurrency-determinism fix (this session) — layers a corrected `apply_email_provider_event_atomic` on top of `0017`'s definition, truncating the recency-guard comparison to millisecond precision so a client-supplied, millisecond-truncated event timestamp can never be spuriously treated as stale against a microsecond-precision database timestamp. Not a renumbering — this is a new migration, added after the renumbering above. |
 
-None of `0017`, `0023`–`0030` have been applied to production as part of this remediation pass.
+None of `0017`, `0023`–`0031` have been applied to production as part of this remediation pass.
 See `production-activation-runbook.md` for the controlled application procedure.
 
 ### Migration renumbering (this branch, post-`main`-merge)

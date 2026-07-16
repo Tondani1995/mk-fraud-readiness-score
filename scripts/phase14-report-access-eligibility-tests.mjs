@@ -229,7 +229,7 @@ try {
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
     '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
-    '0028_phase14_attestation_canonicalisation_hardening'
+    '0028_phase14_attestation_canonicalisation_hardening', '0031_phase14_delivery_event_recency_precision_fix'
   ];
   for (const f of files) await migrator.query(fs.readFileSync(path.join(migrationsDir, `${f}.sql`), 'utf8'));
   console.log('All migrations applied.');

@@ -160,7 +160,7 @@ try {
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
     '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
-    '0028_phase14_attestation_canonicalisation_hardening'
+    '0028_phase14_attestation_canonicalisation_hardening', '0031_phase14_delivery_event_recency_precision_fix'
   ];
   console.log(`Applying ${files.length} real migration files verbatim...`);
   for (const f of files) {
@@ -397,12 +397,13 @@ try {
 
   // ---- 4. concurrent duplicate webhook ----
   await test('4. concurrent duplicate webhook never double-applies and never surfaces as an unhandled error', async () => {
-    const { authorizationId, leaseToken, emailEventId } = await authorizeAndClaim();
+    const { reportId, authorizationId, leaseToken, emailEventId } = await authorizeAndClaim();
     await dispatchStarted(authorizationId, leaseToken);
     await adminSession.query(`select public.mark_premium_report_delivery_reconciliation_required($1, null, 'lost')`, [authorizationId]);
+    const providerEventId = 'evt-concurrent-1';
     const providerMessageId = 'resend-msg-concurrent-1';
     const call = buildWebhookCall({
-      providerEventId: 'evt-concurrent-1', providerMessageId, eventType: 'email.sent',
+      providerEventId, providerMessageId, eventType: 'email.sent',
       tags: [{ name: 'delivery_attempt_ref', value: authorizationId.replace(/-/g, '') }]
     });
     const clientA = newClient(); await clientA.connect(); await asServiceRole(clientA);
@@ -419,6 +420,68 @@ try {
     const event = await eventStatus(emailEventId);
     assert.equal(event.status, 'sent');
     assert.equal(event.provider_message_id, providerMessageId);
+
+    // ---- Direct database-invariant proof (not just the RPC's self-reported counters) ----
+    // These queries bypass the RPC entirely and assert the underlying rows directly, so the
+    // invariant holds even if the RPC's own bookkeeping (state_updated/duplicate flags) were
+    // ever wrong. This is the "prove the underlying database invariant directly" requirement:
+    // one provider event row, one delivery-state transition, one provider message association,
+    // no duplicate send eligibility.
+
+    // (a) Exactly one provider_event_id row was ever durably recorded, despite two concurrent
+    // submissions of the identical event -- enforced by email_provider_events' own unique
+    // constraint (provider, provider_event_id), verified here by direct count rather than by
+    // trusting the constraint exists.
+    const providerEventRows = await migrator.query(
+      `select count(*)::int as n from public.email_provider_events where provider = 'resend' and provider_event_id = $1`,
+      [providerEventId]
+    );
+    assert.equal(providerEventRows.rows[0].n, 1, 'exactly one email_provider_events row must exist for the concurrently-submitted provider_event_id');
+
+    // (b) Exactly one webhook attestation was recorded for this provider_event_id -- the
+    // attestation layer (phase14_provider_attestations) is a second, independent place a race
+    // could have produced two rows; its own partial unique index
+    // (provider, provider_event_id) where attestation_source='webhook' is verified directly here.
+    const attestationRows = await migrator.query(
+      `select count(*)::int as n from public.phase14_provider_attestations
+       where attestation_source = 'webhook' and provider = 'resend' and provider_event_id = $1`,
+      [providerEventId]
+    );
+    assert.equal(attestationRows.rows[0].n, 1, 'exactly one webhook attestation must exist for the concurrently-submitted provider_event_id');
+
+    // (c) Exactly one email_events row is associated with the provider_message_id the webhook
+    // carried -- proves the provider-message association this race produced is singular, not
+    // just that the specific emailEventId we already checked happens to look right.
+    const messageAssociationRows = await migrator.query(
+      `select count(*)::int as n from public.email_events where provider = 'resend' and provider_message_id = $1`,
+      [providerMessageId]
+    );
+    assert.equal(messageAssociationRows.rows[0].n, 1, 'exactly one email_events row may be associated with the provider_message_id');
+
+    // (d) Exactly one delivery-state transition landed. apply_email_provider_event_atomic only
+    // ever mutates email_events -- report_delivery_authorizations.status is a separate lifecycle
+    // field (queued/claimed/dispatching/finalized/revoked/reconciliation_required) that the
+    // webhook path deliberately does not touch (confirmed by reading
+    // ingest_phase14_provider_webhook/apply_email_provider_event_atomic directly: neither
+    // statement ever names report_delivery_authorizations), so it correctly stays
+    // 'reconciliation_required' as a historical marker of how this send was recovered, while
+    // email_events.status (already asserted above as 'sent') is the authoritative outcome. What
+    // this assertion proves is the negative: no error/revocation path was taken as a side effect
+    // of the race.
+    const finalAuth = await authStatus(authorizationId);
+    assert.equal(finalAuth.status, 'reconciliation_required');
+    assert.equal(finalAuth.revoked_reason, null);
+
+    // (e) No duplicate send eligibility: a fresh, non-force-resend authorization attempt for the
+    // same report/recipient must now be recognised as already-sent and reuse the existing send
+    // rather than being permitted to dispatch a second, independent email.
+    const rereauth = (await adminSession.query(
+      `select public.authorize_premium_report_delivery($1, 'customer@test.local', 'initial', false, 'resend', null) as res`,
+      [reportId]
+    )).rows[0].res;
+    assert.equal(rereauth.reused_existing_send, true, 'a fresh authorization attempt after the race resolved must reuse the existing send, not create a duplicate');
+    assert.equal(rereauth.email_event_id, emailEventId);
+    assert.equal(rereauth.provider_message_id, providerMessageId);
   });
 
   // ---- 5. webhook with invalid signature ----

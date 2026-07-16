@@ -30,20 +30,48 @@ sandbox cannot mint a new correct pinned value (no Docker/Supabase CLI available
 required**: re-pin (or explicitly decide to leave as an observed value) from this PR's first real
 CI run. See `production-activation-runbook.md` Section 2.
 
-## Known residual risk (not a Round 7 finding — disclosed for completeness)
+## Resolved this pass (was a known residual risk)
 
-### Flaky test: `phase14-delivery-reconciliation-tests.mjs` test #4
+### H4 concurrency-determinism: `phase14-delivery-reconciliation-tests.mjs` test #4 — fixed, not a harness race
 
-"Concurrent duplicate webhook never double-applies" failed intermittently in this sandbox
-(observed 2 of 3 re-runs with zero code changes in the loop) — a timing-sensitive race in the test
-harness's two-real-concurrent-Postgres-client setup, not in the H4 idempotency logic itself. This
-predates this remediation pass and is unrelated to any change made in it. It requires separate
-investigation (likely a harness synchronization fix, not an application fix) before this specific
-test can be trusted as a reliable CI gate. Until resolved, a red run of this specific test in CI
-should be re-run once before treating it as a real regression, and should not be used as evidence
-that H4's actual database-level idempotency guarantee (the `provider_event_id` uniqueness
-constraint and dedup logic in `ingest_phase14_provider_webhook`) is broken — that guarantee is
-enforced at the database constraint level, not by the test's timing.
+Earlier disposition of this item (superseded by this section) claimed the intermittent failure of
+"concurrent duplicate webhook never double-applies" was a timing-sensitive race in the test
+harness itself, unrelated to application logic. That claim was investigated directly rather than
+accepted: PL/pgSQL `RAISE NOTICE` instrumentation of a real failing run (both concurrent
+transactions traced by `txid_current()`) proved the harness's synchronization was not the cause —
+the two-client race always serialised correctly through `apply_email_provider_event_atomic`'s
+`select ... for update` dedup path, and the "loser" of the race was never a data-integrity problem.
+
+The real, narrow root cause: `apply_email_provider_event_atomic`'s recency guard compared
+`p_event_created_at` (client-supplied, millisecond precision — both Resend's webhook payload and
+this application's own `new Date().toISOString()` calls truncate to milliseconds) against
+`v_email.delivery_updated_at` (database-set via Postgres `now()`, microsecond precision) with
+`>=`. A concrete traced example from a real failing run: `delivery_updated_at = 19:34:20.630181`
+vs. `p_event_created_at` (after truncation) `= 19:34:20.630000` — 181 microseconds "earlier" purely
+from truncation noise, causing a genuinely current, rank-increasing webhook event to be spuriously
+rejected as stale. This is a real correctness defect independent of concurrency (concurrent
+delivery merely made it reliably reproducible in testing, since it is the one place these two
+timestamp sources are captured close enough together for the precision gap to matter).
+
+**Fix**: migration `0031_phase14_delivery_event_recency_precision_fix.sql` truncates both sides of
+the comparison to millisecond precision via `date_trunc('milliseconds', ...)`, preserving the
+guard's event-ordering intent while removing the spurious sub-millisecond rejection. Verified via:
+
+- `node scripts/phase14-delivery-reconciliation-tests.mjs` run 20 consecutive times with zero
+  failures (previously ~2 of 3 runs failed with zero code changes in the loop).
+- Test #4 was also strengthened to assert the underlying database invariant directly (not just the
+  RPC's self-reported counters): exactly one `email_provider_events` row for the raced
+  `provider_event_id`, exactly one `phase14_provider_attestations` row for the same, exactly one
+  `email_events` row bound to the resulting `provider_message_id`, and — behaviourally — that a
+  fresh, non-force-resend authorization attempt after the race resolved reuses the existing send
+  (`reused_existing_send: true`) rather than being permitted to dispatch a duplicate.
+- No regression in the other four real-Postgres suites that also apply migration `0031`
+  (`phase14-ai-attempt-budget-tests.mjs`, `phase14-delivery-entitlement-wiring-tests.mjs`,
+  `phase14-report-access-eligibility-tests.mjs`, `phase14-workflow-start-reconciliation-tests.mjs`)
+  — all pass cleanly.
+- `npm run typecheck` and `npm run lint` clean after the change.
+
+See `round-7-remediation-register.md`'s H4 entry and `test-evidence.md` for the evidence citation.
 
 ## Disclosed environment constraints (not defects)
 

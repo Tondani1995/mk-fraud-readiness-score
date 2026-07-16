@@ -364,9 +364,12 @@ jobs:
           # NOTE (Round 7 / H6+M14, this PR): the absolute pinned literal below was captured
           # before migrations 0026-0030 (H4 admin delivery-ambiguity resolution, H4/M10
           # attestation-canonicalisation + webhook correlation hardening, M2/M3 cross-kind AI
-          # attempt budget, M1 pre-dispatch budget exclusion) existed. Those migrations add real
-          # new functions/columns to the public/phase14_private schema this inventory covers, so
-          # fresh_hash is now expected to differ from the old pin -- the relative check above
+          # attempt budget, M1 pre-dispatch budget exclusion) existed, and before 0031 (H4
+          # concurrency-determinism recency-guard precision fix, layered on top of 0017's
+          # apply_email_provider_event_atomic) was added later in the same remediation pass.
+          # Those migrations add real new functions/columns/redefinitions to the
+          # public/phase14_private schema this inventory covers, so fresh_hash is now expected to
+          # differ from the old pin -- the relative check above
           # (fresh_hash == upgrade_hash, proving the two independent replay paths still converge
           # on each other) is the assertion that actually matters and remains fully enforced.
           # This sandbox has no Supabase CLI/Docker, so the new correct value cannot be minted

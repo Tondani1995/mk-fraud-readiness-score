@@ -22,7 +22,7 @@ Set the relevant `app_settings` flag back to `false` via the admin path (or dire
 None of these require a database migration, a deployment, or a schema change, and none affects
 in-flight, already-`completed`, or historical fulfilments.
 
-## Schema-level rollback (Phase 14 migrations `0017`, `0026`–`0030`)
+## Schema-level rollback (Phase 14 migrations `0017`, `0026`–`0031`)
 
 Only needed if a flag-level rollback cannot contain the incident (e.g., a defect in the schema or
 RPC logic itself, not in application behaviour gated by a flag). Because every one of these
@@ -107,10 +107,14 @@ branch first, per `docs/v1/phase14/review-gates.md`.
    CI-only database, not a production impact; treat as a CI hygiene issue, not a production
    incident.
 
-## Known residual risk affecting incident response
+## Resolved: H4 concurrency-determinism (was a known residual risk affecting incident response)
 
-`scripts/phase14-delivery-reconciliation-tests.mjs` test #4 is intermittently flaky in this
-sandbox's test harness (a two-real-concurrent-Postgres-client timing race), unrelated to the H4
-logic under test. If a real production incident resembles "concurrent duplicate webhook applied
-twice," do not assume the test's flakiness explains it — investigate the real database rows first;
-see `known-risks-and-launch-limitations.md`.
+`scripts/phase14-delivery-reconciliation-tests.mjs` test #4 was previously intermittently flaky.
+This session proved (via direct `RAISE NOTICE` instrumentation, not assumption) that it was not a
+test-harness timing race but a real millisecond-vs-microsecond timestamp precision bug in
+`apply_email_provider_event_atomic`'s recency guard, fixed by migration
+`0031_phase14_delivery_event_recency_precision_fix.sql` and verified by 20 consecutive passing
+runs. If a real production incident resembles "concurrent duplicate webhook applied twice,"
+investigate the real database rows first as this playbook already directs — but this specific test
+is no longer a known-flaky signal to discount; a red run of it now indicates a real regression. See
+`known-risks-and-launch-limitations.md` and `round-7-remediation-register.md`'s H4 entry.

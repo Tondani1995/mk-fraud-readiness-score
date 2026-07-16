@@ -22,15 +22,17 @@ Per `docs/v1/phase14/production-history-read-only-evidence-2026-07-15.md` (captu
   `report_generation_runs=0`, `email_provider_events=0`) as a preservation baseline to compare
   against after any future migration.
 
-**None of migrations `0017`, `0023`–`0030` have been applied to production as part of this
+**None of migrations `0017`, `0023`–`0031` have been applied to production as part of this
 remediation pass.** (`0024`/`0025` are Phase 2-3's own payment-automation/assessment-resume
 migrations, landed separately via `main` and merged into this branch; `0026`–`0030` are this
 branch's Phase 14 migrations, renumbered from their original `0024`–`0028` to resolve a
 version-number collision with Phase 2-3's — see `architecture-and-state-machine.md`'s "Migration
-renumbering" note.) This runbook describes how to apply the Phase 14 migrations (`0017`, `0026`–
-`0030`) when the controller authorizes it — it does not itself apply them, and this engagement's
-standing boundaries prohibit doing so from this environment. Applying Phase 2-3's `0024`/`0025` is
-that team's own separate activation decision, out of scope for this runbook.
+renumbering" note; `0031` is a new, not-renumbered Phase 14 migration added later in this
+remediation pass to fix H4's concurrency-determinism issue.) This runbook describes how to apply
+the Phase 14 migrations (`0017`, `0026`–`0031`) when the controller authorizes it — it does not
+itself apply them, and this engagement's standing boundaries prohibit doing so from this
+environment. Applying Phase 2-3's `0024`/`0025` is that team's own separate activation decision,
+out of scope for this runbook.
 
 ## 2. M14: the migration-ledger reconciliation drill
 
@@ -68,7 +70,7 @@ above it is the assertion that actually matters).
 - [ ] The `live-uat` GitHub Environment has been configured in this repository's Settings →
       Environments with required reviewers (one-time setup; see Section 5 below).
 - [ ] The Vercel Preview deployment protection described in Section 5 below has been configured.
-- [ ] Controller has reviewed the migration diff (`0017`, `0023`–`0030`) against the schema
+- [ ] Controller has reviewed the migration diff (`0017`, `0023`–`0031`) against the schema
       currently in production (Section 1's evidence).
 - [ ] A fresh read-only production evidence capture (repeat of Section 1's method) has been taken
       immediately before activation, to detect any production drift since 2026-07-15.
@@ -80,7 +82,7 @@ above it is the assertion that actually matters).
 This is a staged commercial-launch operating model — each step is independently observable and
 reversible before proceeding to the next. Do not batch steps.
 
-1. **Apply migration `0017`, then `0026`–`0030` in order** (Phase 14's own migrations; `0023` is
+1. **Apply migration `0017`, then `0026`–`0031` in order** (Phase 14's own migrations; `0023` is
    Phase 1's, and `0024`/`0025` are Phase 2-3's own migrations subject to that team's separate
    activation decision) to production via the controller's
    normal Supabase migration path (outside this engagement's tooling — this engagement does not

@@ -27,7 +27,7 @@ assumed from an earlier review round's notes, per this engagement's standing ins
 | H1 | `render-pdf.ts` had no Chromium crash recovery — one crashed page could wedge every subsequent render | **Fixed** | Commit `e2ca0e5`. `scripts/phase14-pdf-renderer-crash-recovery-tests.mjs`. |
 | H2 | Workflow-start reconciliation gap | **Fixed** | Commit `803f905`. `scripts/phase14-workflow-start-reconciliation-tests.mjs`. |
 | H3 | Delivery entitlement was checked in more than one place with different logic | **Fixed** | Commit `fbf2b68`. One authoritative `assert_premium_report_download_entitlement`/`validatePremiumReportGenerationEntitlement` path; `scripts/phase14-delivery-entitlement-wiring-tests.mjs`. |
-| H4 | A lost/ambiguous Resend API response left delivery state permanently unresolved | **Fixed** | Commit `cecd828`. Reconciliation via `delivery_attempt_ref`-based correlation in migration `0028` (renumbered from `0026`); `npm run phase14:test-delivery-reconciliation` (16 cases, one of which — test #4 — required a follow-up determinism fix; see the H4 concurrency-determinism entry below). |
+| H4 | A lost/ambiguous Resend API response left delivery state permanently unresolved | **Fixed** | Commit `cecd828`. Reconciliation via `delivery_attempt_ref`-based correlation in migration `0028` (renumbered from `0026`); `npm run phase14:test-delivery-reconciliation` (17 cases after this session's strengthening — see the H4 concurrency-determinism entry immediately below, which was itself required to close this finding out fully). |
 | H5 | No application-layer defense-in-depth at delivery/download beyond the database RPC | **Fixed** | Commit `a74c02e`. TypeScript-layer checks in `src/lib/reports/download-verification.ts` and `src/lib/reports/phase1-report-access.ts`; `scripts/phase14-security-closure-tests.mjs`. |
 | H6 | No documented evidence of the production migration-0017 activation boundary, and no operator runbook | **Fixed** | This session. See `docs/v1/phase14/production-history-read-only-evidence-2026-07-15.md` (read-only production schema/migration-ledger capture, SHA-256 `417dfbf2fb...`) and `docs/v1/phase14/migration-0017-note.md` for the existing evidence; the operator runbook is `docs/v2/phase14-commercial-launch/production-activation-runbook.md` (new, this session). One real gap was found and fixed while assembling this evidence: `.github/workflows/supabase-migration-replay.yml`'s schema-equivalence-hash CI assertion was stale against migrations `0026`–`0030` (renumbered from `0024`–`0028`) added this session; corrected to a recorded/observed value pending the first real CI run against this branch's head (see commit `9855a81`, and the schema-equivalence pinning evidence recorded after the post-merge renumbering). |
 
@@ -63,11 +63,25 @@ assumed from an earlier review round's notes, per this engagement's standing ins
 | L6 | Stale "Node 20" claims in current-state documentation | **Fixed** | Commit `239150f`. Corrected in `docs/v1/phase14/review-gates.md` and `docs/v1/phase14/autonomous-premium-report-engine.md`; seven other files' legitimate historical Node-20 narrative deliberately left untouched. |
 | L7 | `storage-error-classifier.ts` had no defense against a malformed/throwing error input | **Proven already safe, with hardening added** | Commit `239150f`. The classification design was already fail-safe by construction (only the narrow `object_not_found` branch is trusted as "deletion confirmed"); added a try/catch so an exotic throwing input degrades to `unknown_provider_error` instead of propagating an uncaught exception. Tested in `scripts/phase14-storage-fault-injection-tests.mjs`. |
 
-## Known residual risk (not a Round 7 finding, disclosed for completeness)
+## H4 concurrency-determinism (this session)
 
 `scripts/phase14-delivery-reconciliation-tests.mjs` test #4 ("concurrent duplicate webhook never
-double-applies") fails intermittently (observed 2 of 3 re-runs with zero code changes in the loop)
-— a timing-sensitive race in the test harness's two-real-concurrent-Postgres-client setup, not in
-the H4 logic under test. This is unrelated to any change made in this remediation pass and does
-not indicate the underlying idempotency guarantee is wrong; it requires separate investigation
-before commercial launch. See `docs/v2/phase14-commercial-launch/known-risks-and-launch-limitations.md`.
+double-applies") was flagged by an earlier session as intermittently flaky and dismissed as "a
+timing-sensitive race in the test harness," carried forward without proof. That claim was
+investigated directly this session, not accepted: `RAISE NOTICE` instrumentation of a real failing
+run proved it was not a harness race, but a genuine, narrow correctness bug in
+`apply_email_provider_event_atomic`'s recency guard — a millisecond-vs-microsecond timestamp
+precision mismatch between the client-supplied `p_event_created_at` and the database-set
+`delivery_updated_at`, which could spuriously reject a genuinely current webhook event as stale.
+
+**Fixed** this session by migration `0031_phase14_delivery_event_recency_precision_fix.sql`
+(`date_trunc('milliseconds', ...)` on both sides of the comparison). Verified by 20 consecutive
+passing runs of the full suite (previously ~2 of 3 runs failed with zero code changes), a
+strengthened test #4 that now asserts the underlying database invariant directly (one
+`email_provider_events` row, one `phase14_provider_attestations` row, one `email_events` row bound
+to the resulting `provider_message_id`, and no duplicate-send eligibility via
+`authorize_premium_report_delivery`'s `reused_existing_send` reuse path), a clean `npm run
+typecheck`/`npm run lint`, and no regression in the four other real-Postgres suites that also apply
+migration `0031`. Full evidence in
+`docs/v2/phase14-commercial-launch/known-risks-and-launch-limitations.md` (now moved from "Known
+residual risk" to "Resolved this pass") and `test-evidence.md`.
