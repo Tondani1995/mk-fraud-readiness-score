@@ -15,6 +15,18 @@ begin
   select id into strict v_template from public.report_templates
     where report_type='essential_self_assessment' and status='active'
     order by version_number desc limit 1;
+  -- Migration 0023 (phase1_manual_fulfilment_recovery) adds
+  -- public.reports.organisation_id with a foreign key to public.organisations, and backfills it
+  -- from public.assessments.organisation_id for every existing report. This fixture referenced
+  -- organisation '...0010' via the assessments row below without ever inserting it, which was
+  -- never caught before because the "Prove exact production-history convergence without external
+  -- writes" step could not previously run to completion (blocked by an unrelated ordering bug
+  -- fixed earlier in this same remediation pass) -- confirmed via the real failing job log on
+  -- this exact head: "ERROR: insert or update on table reports violates foreign key constraint
+  -- reports_organisation_id_fkey" while 0023 backfilled this fixture's row. legal_name is the only
+  -- required column beyond id.
+  insert into public.organisations(id,legal_name)
+  values ('27000000-0000-0000-0000-000000000010','Synthetic Fixture Org');
   insert into public.assessments(id,assessment_reference,organisation_id,methodology_version_id,status,
     submitted_at,locked_at,current_score_run_id)
   values ('27000000-0000-0000-0000-000000000001','PH14-PRODUCTION-HISTORY',
