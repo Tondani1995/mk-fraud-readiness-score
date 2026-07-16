@@ -1,0 +1,25 @@
+# Phase 14 launch readiness -- M12: reviewed, confirmed-safe gitleaks findings.
+#
+# Every fingerprint below was manually reviewed against the actual file content at the
+# reported commit/line (not just the redacted match gitleaks prints) before being added here.
+# None of them is a real credential:
+#
+# - The six `generic-api-key` matches against `setting_key = 'phase14_delivery_policy'` are a
+#   plain, non-secret application settings key name (a string identifying a row in
+#   app_settings), coincidentally high-entropy enough to trip gitleaks' generic detector.
+# - The one match in .github/workflows/supabase-migration-replay.yml is
+#   RESEND_WEBHOOK_SECRET='whsec_cGhhc2UxNC1yb3V0ZS1zaWduaW5nLWtleS0wMDAwMDAwMDAwMDA=', a
+#   synthetic CI test fixture -- base64-decodes to the literal, self-describing string
+#   "phase14-route-signing-key-000000000000". It authenticates nothing outside the CI job's
+#   own local Supabase instance and rotating it is meaningless (there is nothing real behind it).
+#
+# This file suppresses these SPECIFIC, reviewed findings by their exact fingerprint only -- a
+# genuinely new secret anywhere else in the repository (past or future commits) still fails
+# the M12 secret-scan CI job.
+8b9046eb7c68e0324c77a7c9af1d89d2de84aead:.github/workflows/supabase-migration-replay.yml:generic-api-key:249
+8b9046eb7c68e0324c77a7c9af1d89d2de84aead:supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql:generic-api-key:1287
+a3c705418b6b9f60e61464b7eded7e18742bbd6b:supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql:generic-api-key:1387
+0f5383188fcdbaa546332f5e2f8a1017d328f4e2:scripts/phase14-migration-replay-assertions.sql:generic-api-key:306
+b89166ebdf5ad97cf9e4a9963558c0a27943c4e2:supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql:generic-api-key:1287
+28107e4325ce83be45ff596bdb035ad00cbf474b:scripts/phase14-production-canonical-reconciliation.sql:generic-api-key:1998
+fc4e07a25ba4cb8ec1171cadb3b66f337424991d:supabase/migrations/0017_phase14_canonical_disabled_foundation.sql:generic-api-key:2149
