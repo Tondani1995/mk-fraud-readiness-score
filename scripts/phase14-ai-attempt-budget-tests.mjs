@@ -91,7 +91,8 @@ try {
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery',
     '0024_phase14_workflow_start_admin_recovery', '0025_phase14_delivery_ambiguity_admin_resolution',
-    '0026_phase14_attestation_canonicalisation_hardening', '0027_phase14_ai_attempt_cross_kind_budget'
+    '0026_phase14_attestation_canonicalisation_hardening', '0027_phase14_ai_attempt_cross_kind_budget',
+    '0028_phase14_ai_attempt_pre_dispatch_budget_exclusion'
   ];
   for (const f of files) await migrator.query(fs.readFileSync(path.join(migrationsDir, `${f}.sql`), 'utf8'));
   console.log('All migrations applied.');
@@ -267,7 +268,74 @@ try {
     assert.equal(new Set(rows.map((r) => r.attempt_number)).size, rows.length, 'no two persisted attempts for this fulfilment may share an attempt_number');
   });
 
-  console.log(`\nPhase 14 M2/M3 AI attempt budget suite passed (${passed} cases).`);
+  // M1: a failed_before_provider attempt is proven to have made zero real provider
+  // calls, so it must not consume the combined generate+repair budget the same way a
+  // real attempt does. Two settled failed_before_provider attempts followed by a real
+  // (still-'started') attempt must all be allowed -- if the exclusion in migration 0028
+  // were missing, the third claim here would be wrongly rejected with
+  // phase14_ai_attempt_limit_reached even though no real provider call had ever
+  // succeeded or even been dispatched.
+  await test('M1: failed_before_provider attempts do not consume the real-provider-call budget', async () => {
+    const fulfilmentId = await makeFulfilment('pre-dispatch-budget-exclusion');
+    // Two failed_before_provider attempts, one of EACH kind (so neither kind's own
+    // attempt_number sequence is anywhere near its own independent cap of 2 -- this
+    // isolates the cross-kind BUDGET exclusion under test from the unrelated per-kind
+    // attempt_number ceiling, which is a distinct, pre-existing check).
+    const cap1 = await makeCapability(fulfilmentId);
+    const attempt1 = (await serviceRoleSession.query(
+      `select public.claim_phase14_ai_attempt($1, $2) as res`,
+      [cap1, JSON.stringify(attemptPayload({ fulfilmentId, kind: 'generate', key: 'pd1' }))]
+    )).rows[0].res;
+    await serviceRoleSession.query(`select public.settle_phase14_ai_attempt($1, $2, $3)`, [
+      cap1, attempt1.id,
+      JSON.stringify({ status: 'failed_before_provider', accounting_status: 'unverified', error_message: '[pre_dispatch] simulated' })
+    ]);
+    const cap2 = await makeCapability(fulfilmentId);
+    const attempt2 = (await serviceRoleSession.query(
+      `select public.claim_phase14_ai_attempt($1, $2) as res`,
+      [cap2, JSON.stringify(attemptPayload({ fulfilmentId, kind: 'repair', key: 'pd2' }))]
+    )).rows[0].res;
+    await serviceRoleSession.query(`select public.settle_phase14_ai_attempt($1, $2, $3)`, [
+      cap2, attempt2.id,
+      JSON.stringify({ status: 'failed_before_provider', accounting_status: 'unverified', error_message: '[pre_dispatch] simulated again' })
+    ]);
+    // Without the migration 0028 exclusion, v_total would already be 2 here (both prior
+    // rows counted), and this claim -- the first REAL attempt for this fingerprint --
+    // would be wrongly rejected with phase14_ai_attempt_limit_reached before a single
+    // real provider call was ever dispatched.
+    const cap3 = await makeCapability(fulfilmentId);
+    const attempt3 = (await serviceRoleSession.query(
+      `select public.claim_phase14_ai_attempt($1, $2) as res`,
+      [cap3, JSON.stringify(attemptPayload({ fulfilmentId, kind: 'generate', key: 'pd3' }))]
+    )).rows[0].res;
+    assert.equal(attempt3.status, 'started');
+    assert.equal(attempt3.attempt_number, 2, 'generate is its own per-kind sequence: 1 was the excluded pre-dispatch failure, this is number 2');
+    await serviceRoleSession.query(`select public.settle_phase14_ai_attempt($1, $2, $3)`, [
+      cap3, attempt3.id,
+      JSON.stringify({
+        status: 'succeeded', accounting_status: 'verified', resolved_provider: 'openai', resolved_model: 'gpt-test',
+        output_json: { output: {} }
+      })
+    ]);
+    // The combined real budget is 2; this is the second real (non-excluded) attempt for
+    // this fingerprint and must still be allowed.
+    const cap4 = await makeCapability(fulfilmentId);
+    const attempt4 = (await serviceRoleSession.query(
+      `select public.claim_phase14_ai_attempt($1, $2) as res`,
+      [cap4, JSON.stringify(attemptPayload({ fulfilmentId, kind: 'repair', key: 'pd4' }))]
+    )).rows[0].res;
+    assert.equal(attempt4.status, 'started');
+    const totals = (await migrator.query(
+      `select status, attempt_kind, attempt_number from public.report_ai_attempts
+         where generation_identity=$1 and fulfilment_id=$2 order by created_at`,
+      [`gen-identity-${fulfilmentId}`, fulfilmentId]
+    )).rows;
+    assert.equal(totals.length, 4, 'all four claims (2 excluded, 2 real) must be persisted as distinct rows');
+    assert.equal(totals.filter((r) => r.status !== 'failed_before_provider').length, 2,
+      'exactly two non-excluded (real) attempts exist, matching the combined budget of 2');
+  });
+
+  console.log(`\nPhase 14 M1/M2/M3 AI attempt budget suite passed (${passed} cases).`);
 } finally {
   for (const c of clients) { try { await c.end(); } catch { /* already closed */ } }
   await pgInstance.stop();

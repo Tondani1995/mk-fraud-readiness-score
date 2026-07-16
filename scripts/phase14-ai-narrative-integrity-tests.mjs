@@ -10,11 +10,13 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import ts from 'typescript';
 
 const root = process.cwd();
 const cache = new Map();
+const nodeRequire = createRequire(import.meta.url);
 
 function transpile(absPath) {
   const source = fs.readFileSync(absPath, 'utf8');
@@ -46,6 +48,11 @@ function loadReal(absPath, stubs) {
   const requireShim = (specifier) => {
     if (specifier in stubs) return stubs[specifier];
     if (specifier === 'node:crypto') return crypto;
+    // M1: ai-failure-classification.ts (a real, unstubbed module reached via
+    // durable-ai-attempts.ts's relative-import graph) depends on the real 'ai' package
+    // for its AI SDK error-class checks -- resolve it via Node's real module
+    // resolution, same as any other genuine third-party dependency.
+    if (specifier === 'ai') return nodeRequire('ai');
     if (specifier.startsWith('.')) return loadReal(resolveRelative(absPath, specifier), stubs);
     throw new Error(`Unexpected dependency "${specifier}" while loading ${absPath}`);
   };
@@ -63,12 +70,19 @@ const dbCalls = [];
 function fakeDb() {
   return {
     from() {
+      let isCountQuery = false;
       const builder = {
-        select() { return builder; },
+        select(_columns, options) { if (options && options.head) isCountQuery = true; return builder; },
         eq() { return builder; },
+        // M1: the cross-kind attempt-budget count query excludes failed_before_provider
+        // rows via .neq(); this suite never seeds any prior attempts (maybeSingle always
+        // returns null, so every generate/repair call is a "no prior history" case), so
+        // the count itself is always 0 here -- this stub only needs to accept the call.
+        neq() { return builder; },
         order() { return builder; },
         limit() { return builder; },
-        async maybeSingle() { return { data: null, error: null }; }
+        async maybeSingle() { return { data: null, error: null }; },
+        then(resolve) { resolve(isCountQuery ? { data: null, error: null, count: 0 } : { data: null, error: null }); }
       };
       return builder;
     }
