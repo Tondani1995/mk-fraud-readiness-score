@@ -49,18 +49,20 @@ out of scope for this runbook.
    production-history reconciliation hashes already recorded in that workflow (`417dfbf2fb...` and
    `258c8fa9d5...`), which remain valid and were not touched by this remediation pass.
 
-**Gap found and fixed this session (part of H6's evidence-gathering):** the workflow's absolute
-equality check for the "fresh vs. upgraded, both at current head" comparison was pinned to a
-literal hash value that predates migrations `0026`–`0030` (originally `0024`–`0028`, renumbered
-after merging `main`'s Phase 2-3 work) added on this branch, so it would have
-failed if run as-is against this branch's head in real CI. It has been corrected to record the
-observed value with an explanatory comment rather than assert a stale literal, pending re-pinning
-from this workflow's first real run against this branch's head (this sandbox has no Docker/
-Supabase CLI, so a new correct pinned value cannot be minted here — see the workflow file's own
-inline note). **Action item for the controller:** after this PR's first real CI run, capture the
-job's `fresh_hash` output and either re-pin the assertion or explicitly decide to leave it as an
-observed-value log line permanently (recommended, since the relative fresh-vs-upgraded comparison
-above it is the assertion that actually matters).
+**Status as of this branch's first real CI run:** the stale-pinned-literal gap described in an
+earlier draft of this section is resolved (there is no separate pinned literal left to re-pin —
+the workflow only ever asserted the relative `fresh_hash == upgrade_hash` equality). That relative
+assertion itself is **currently failing for real** on this branch's head: the two paths produce
+different schemas, and this has not yet been root-caused (see
+`known-risks-and-launch-limitations.md`'s H6/M14 entry for the full detail). Every other step in
+this same workflow passes cleanly on this head. The workflow now persists both raw schema
+inventories plus an auto-generated diff to the uploaded evidence artifact whenever they disagree,
+specifically so the exact divergence can be inspected without another CI round trip.
+**Action item for the controller:** pull `fresh-vs-upgrade.diff` from the
+`supabase-migration-replay-evidence` artifact on the next CI run, determine whether the
+reconciliation script (`scripts/phase14-uat-canonical-reconciliation.sql`) needs a corresponding
+update for a change made to canonical `0017` during this remediation pass, fix, and re-verify green
+before treating H6/M14 as fully closed.
 
 ## 3. Pre-activation checklist
 

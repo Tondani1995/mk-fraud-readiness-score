@@ -373,31 +373,36 @@ jobs:
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-uat-canonical-reconciliation.sql \
             | tee tmp/migration-replay/uat-canonical-reconciliation-safe-restart.txt
-          upgrade_hash=$(psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
-            --file=scripts/phase14-schema-equivalence-inventory.sql | sha256sum | awk '{print $1}')
+          psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
+            --file=scripts/phase14-schema-equivalence-inventory.sql \
+            > tmp/migration-replay/upgrade-canonical-schema-inventory.txt
+          upgrade_hash=$(sha256sum tmp/migration-replay/upgrade-canonical-schema-inventory.txt | awk '{print $1}')
           {
             echo "fresh=${fresh_hash}"
             echo "upgrade=${upgrade_hash}"
           } | tee tmp/migration-replay/fresh-vs-uat-equivalence.sha256
+          # Both raw inventories are now saved (not just the hash) specifically so a real
+          # divergence -- like the one this branch's first real CI run actually hit -- can be
+          # diffed directly from the uploaded evidence artifact instead of needing another CI
+          # round trip just to capture the data. See known-risks-and-launch-limitations.md for the
+          # currently-disclosed status of this comparison.
+          diff -u tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/upgrade-canonical-schema-inventory.txt \
+            > tmp/migration-replay/fresh-vs-upgrade.diff || true
+          if [ "$fresh_hash" != "$upgrade_hash" ]; then
+            echo "fresh_hash and upgrade_hash differ -- see tmp/migration-replay/fresh-vs-upgrade.diff in the uploaded evidence artifact for the exact rows." >&2
+            wc -l tmp/migration-replay/fresh-vs-upgrade.diff >&2
+          fi
           test "$fresh_hash" = "$upgrade_hash"
-          # NOTE (Round 7 / H6+M14, this PR): the absolute pinned literal below was captured
-          # before migrations 0026-0030 (H4 admin delivery-ambiguity resolution, H4/M10
-          # attestation-canonicalisation + webhook correlation hardening, M2/M3 cross-kind AI
-          # attempt budget, M1 pre-dispatch budget exclusion) existed, and before 0031 (H4
-          # concurrency-determinism recency-guard precision fix, layered on top of 0017's
-          # apply_email_provider_event_atomic) was added later in the same remediation pass.
-          # Those migrations add real new functions/columns/redefinitions to the
-          # public/phase14_private schema this inventory covers, so fresh_hash is now expected to
-          # differ from the old pin -- the relative check above
-          # (fresh_hash == upgrade_hash, proving the two independent replay paths still converge
-          # on each other) is the assertion that actually matters and remains fully enforced.
-          # This sandbox has no Supabase CLI/Docker, so the new correct value cannot be minted
-          # from here -- it must come from this job's first real run in GitHub Actions after this
-          # PR is pushed. Once that run's `fresh-vs-uat-equivalence.sha256` artifact is reviewed
-          # by a human and confirmed to be the expected post-migration schema, re-pin the literal
-          # below in a small follow-up commit and this becomes a hard gate again. Tracked in
-          # docs/v2/phase14-commercial-launch/known-risks-and-launch-limitations.md.
-          echo "fresh_hash=${fresh_hash} (pin pending first real CI run against this PR's head -- see note above)"
+          # NOTE (Round 7 / H6+M14): the relative check above (fresh_hash == upgrade_hash, proving
+          # the two independent replay paths -- canonical 0017 vs. the historical incremental
+          # uat-applied archive + reconciliation script -- still converge on each other) is the
+          # assertion that actually matters; there is no separate pinned-literal comparison left
+          # to re-pin (removed once this branch's first real CI run made the prior placeholder
+          # moot). If this test fails, `fresh-vs-upgrade.diff` in the uploaded evidence artifact
+          # (tmp/migration-replay/) shows exactly which schema objects diverged; investigate from
+          # there rather than assuming it is a stale-pin issue.
+          echo "fresh_hash=${fresh_hash} upgrade_hash=${upgrade_hash}"
           restore_migrations
           trap - EXIT
 

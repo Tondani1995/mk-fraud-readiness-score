@@ -20,15 +20,38 @@ is a wasted/likely-failing CI job against an ephemeral database, not a productio
 remediation pass, so the Next.js-major-version CVEs identified by `npm audit` are tracked as a
 time-boxed exception (expires 2026-10-16) rather than fixed. Owner: platform-engineering.
 
-### L4/L5 area — the `supabase-migration-replay.yml` schema-equivalence hash pin
+### H6/M14 — the `supabase-migration-replay.yml` "fresh vs. upgraded schema" equivalence check is currently red for real
 
-The workflow's absolute-equality assertion for "fresh vs. upgraded schema at current head" is
-currently a recorded/observed value rather than a pinned literal, because migrations `0026`–`0030`
-(renumbered from `0024`–`0028` after merging `main`'s Phase 2-3 work — see
-`architecture-and-state-machine.md`'s "Migration renumbering" note) changed the real hash and this
-sandbox cannot mint a new correct pinned value (no Docker/Supabase CLI available here). **Action
-required**: re-pin (or explicitly decide to leave as an observed value) from this PR's first real
-CI run. See `production-activation-runbook.md` Section 2.
+This branch's first real CI run against Docker/Supabase CLI (this sandbox has never had either
+available, so this specific check was never previously exercised) surfaced a genuine, currently
+unresolved divergence: `fresh_hash` (canonical migration `0017` + the full `0023`–`0031` ledger)
+does not equal `upgrade_hash` (the historical incremental `docs/v1/phase14/migration-audit-archive/
+uat-applied/` snapshot + `scripts/phase14-uat-canonical-reconciliation.sql`, applied twice for a
+safe-restart idempotency check, + the same `0023`–`0031` ledger). Every other step in this
+workflow -- the full 0001-0031 replay, every Phase 14 SQL test suite (transactional remediation,
+AAL2/security-gate, fourth/fifth/sixth adversarial remediation, multi-session concurrency, atomic
+capability completion, service-role mutation guards, signed webhook route-to-database, database
+lint, grant inventory) -- passes cleanly on this exact head. Only this specific relative-equality
+assertion (not a pinned literal -- there is no separate pin to re-pin; see the workflow file's own
+inline note) currently fails.
+
+**Not yet root-caused.** Local reproduction attempts (a disposable embedded-postgres harness
+replaying both paths) hit successive environment-fidelity gaps of their own (PL/pgSQL
+`check_function_bodies` forward-reference validation stricter than Supabase's real Postgres image;
+`phase14_private` schema ordering) that made local diagnosis unreliable -- real CI is the
+authoritative environment here and it genuinely disagrees between the two paths, not just this
+sandbox. The workflow has been updated (this session) to persist **both** raw schema inventories
+to disk (`tmp/migration-replay/fresh-canonical-schema-inventory.txt` and
+`upgrade-canonical-schema-inventory.txt`) and auto-generate a unified diff
+(`fresh-vs-upgrade.diff`) in the uploaded evidence artifact whenever they differ, specifically so
+the exact diverging schema objects can be inspected directly from the next real CI run's artifact
+without needing another round trip just to capture the data. **Action required**: pull that diff
+from the next CI run on this branch and determine whether the divergence is a real defect (the
+reconciliation script needs updating to match a change made to canonical `0017` during this
+remediation pass -- most likely candidate given the pattern of every other bug found this session)
+or an artifact of the historical archive path itself, then fix and re-verify. This is the one
+concrete, currently-open gap blocking `Supabase Migration Replay` from being fully green. See
+`production-activation-runbook.md` Section 2.
 
 ## Resolved this pass (was a known residual risk)
 
