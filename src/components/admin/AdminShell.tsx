@@ -39,7 +39,7 @@ export function AdminShell({ admin, children }: { admin: AdminSession; children:
               </div>
               <nav className="mt-5 grid gap-2">
                 {adminLinks.map((link) => (
-                  <Link key={link.href} href={link.href} className="rounded-2xl px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
+                  <Link key={link.href} href={scorePath(link.href)} className="rounded-2xl px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
                     {link.label}
                   </Link>
                 ))}
