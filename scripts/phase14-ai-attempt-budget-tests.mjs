@@ -1,7 +1,7 @@
 // Phase 14 -- M2/M3: the real, authoritative AI attempt budget enforcement lives in
-// public.claim_phase14_ai_attempt (migration 0027 fixes a cross-kind gap in it -- see that
+// public.claim_phase14_ai_attempt (migration 0029 fixes a cross-kind gap in it -- see that
 // migration's header comment). This suite drives the real function directly against real Postgres
-// with real migrations 0001-0027 applied verbatim, proving the exact "unusual histories" the task
+// with real migrations 0001-0030 applied verbatim, proving the exact "unusual histories" the task
 // spec calls for: no prior attempt; one prior attempt of a different kind; budget exhausted across
 // kinds; and a genuine concurrent race for the same next attempt.
 import assert from 'node:assert/strict';
@@ -89,10 +89,10 @@ try {
     '0011_phase10_pdf_report_engine_additions', '0012_phase13_commercial_event_foundation',
     '0013_phase13_event_index_cleanup', '0014_phase13_customer_commercial_conversion',
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
-    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery',
-    '0024_phase14_workflow_start_admin_recovery', '0025_phase14_delivery_ambiguity_admin_resolution',
-    '0026_phase14_attestation_canonicalisation_hardening', '0027_phase14_ai_attempt_cross_kind_budget',
-    '0028_phase14_ai_attempt_pre_dispatch_budget_exclusion'
+    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
+    '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
+    '0028_phase14_attestation_canonicalisation_hardening', '0029_phase14_ai_attempt_cross_kind_budget',
+    '0030_phase14_ai_attempt_pre_dispatch_budget_exclusion'
   ];
   for (const f of files) await migrator.query(fs.readFileSync(path.join(migrationsDir, `${f}.sql`), 'utf8'));
   console.log('All migrations applied.');
@@ -224,7 +224,7 @@ try {
     const cap3 = await makeCapability(fulfilmentId);
     // A third attempt of a DIFFERENT kind ('generate' again) previously would have been allowed
     // by the old per-kind-only check (its own generate-only count would show only 1 prior). This
-    // is exactly the gap migration 0027 closes.
+    // is exactly the gap migration 0029 closes.
     await assert.rejects(
       serviceRoleSession.query(`select public.claim_phase14_ai_attempt($1, $2)`,
         [cap3, JSON.stringify(attemptPayload({ fulfilmentId, kind: 'generate', key: 'e3' }))]),
@@ -271,7 +271,7 @@ try {
   // M1: a failed_before_provider attempt is proven to have made zero real provider
   // calls, so it must not consume the combined generate+repair budget the same way a
   // real attempt does. Two settled failed_before_provider attempts followed by a real
-  // (still-'started') attempt must all be allowed -- if the exclusion in migration 0028
+  // (still-'started') attempt must all be allowed -- if the exclusion in migration 0030
   // were missing, the third claim here would be wrongly rejected with
   // phase14_ai_attempt_limit_reached even though no real provider call had ever
   // succeeded or even been dispatched.
@@ -299,7 +299,7 @@ try {
       cap2, attempt2.id,
       JSON.stringify({ status: 'failed_before_provider', accounting_status: 'unverified', error_message: '[pre_dispatch] simulated again' })
     ]);
-    // Without the migration 0028 exclusion, v_total would already be 2 here (both prior
+    // Without the migration 0030 exclusion, v_total would already be 2 here (both prior
     // rows counted), and this claim -- the first REAL attempt for this fingerprint --
     // would be wrongly rejected with phase14_ai_attempt_limit_reached before a single
     // real provider call was ever dispatched.

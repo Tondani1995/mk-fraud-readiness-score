@@ -143,7 +143,7 @@ retried. Downloads are re-verified against the persisted checksum before being s
 body-size cap → HMAC-SHA256 svix signature verification with a ±300s timestamp replay window →
 `ingest_phase14_provider_webhook` RPC, which independently re-verifies an HMAC attestation minted
 by the route and deduplicates by `provider_event_id`. H4's reconciliation logic
-(migration `0026`) additionally correlates a "lost response" delivery attempt (one whose
+(migration `0028`) additionally correlates a "lost response" delivery attempt (one whose
 `provider_message_id` was never captured because the original send's HTTP response was itself
 ambiguous/lost) via `delivery_attempt_ref` tags Resend echoes back on the webhook event.
 
@@ -153,11 +153,24 @@ ambiguous/lost) via `delivery_attempt_ref` tags Resend echoes back on the webhoo
 |---|---|
 | `0017_phase14_canonical_disabled_foundation` | The complete, disabled-by-default Phase 14 foundation: fulfilment/generation-run/report-link tables, security gate, automation flags, RLS. |
 | `0023_phase1_manual_fulfilment_recovery` | Phase 1 stabilisation (unrelated branch topology; see L4). |
-| `0024_phase14_workflow_start_admin_recovery` | H2. |
-| `0025_phase14_delivery_ambiguity_admin_resolution` | H4 admin resolution path. |
-| `0026_phase14_attestation_canonicalisation_hardening` | H4 `delivery_attempt_ref` correlation. |
-| `0027_phase14_ai_attempt_cross_kind_budget` | M2/M3. |
-| `0028_phase14_ai_attempt_pre_dispatch_budget_exclusion` | M1 — excludes `failed_before_provider` attempts from the spend budget. |
+| `0024_phase23_payment_automation` | Not part of this remediation pass — landed on `main` via the separately-reviewed Phase 2-3 payment automation PR (#28), merged into this branch. Adds the Stitch payment adapter/webhook foundation; `provider_mode` defaults to `"disabled"` (see `known-risks-and-launch-limitations.md`). |
+| `0025_phase23_assessment_resume` | Not part of this remediation pass — same Phase 2-3 PR; native assessment resume capability. |
+| `0026_phase14_workflow_start_admin_recovery` | H2. Renumbered from `0024` during this remediation pass to resolve a migration-number collision with Phase 2-3's `0024`/`0025` after merging `main` — see "Migration renumbering" below. |
+| `0027_phase14_delivery_ambiguity_admin_resolution` | H4 admin resolution path. Renumbered from `0025`. |
+| `0028_phase14_attestation_canonicalisation_hardening` | H4 `delivery_attempt_ref` correlation. Renumbered from `0026`. |
+| `0029_phase14_ai_attempt_cross_kind_budget` | M2/M3. Renumbered from `0027`. |
+| `0030_phase14_ai_attempt_pre_dispatch_budget_exclusion` | M1 — excludes `failed_before_provider` attempts from the spend budget. Renumbered from `0028`. |
 
-None of `0017`, `0023`–`0028` have been applied to production as part of this remediation pass.
+None of `0017`, `0023`–`0030` have been applied to production as part of this remediation pass.
 See `production-activation-runbook.md` for the controlled application procedure.
+
+### Migration renumbering (this branch, post-`main`-merge)
+
+This branch was created before Phase 2-3's payment automation PR (#28) merged to `main`. Both
+branches independently added migrations at version numbers `0024` and `0025` — Phase 2-3's own
+payment/resume migrations on `main`, and this branch's H2/H4 admin-recovery migrations. After
+merging `main` into this branch, that collision was resolved by renumbering only this branch's
+Phase 14 migrations (originally `0024`–`0028`) to `0026`–`0030`, preserving Phase 2-3's `0024`/
+`0025` unchanged. Every internal cross-reference (SQL comments, TypeScript comments citing a
+migration number, test-harness migration-application lists, and this documentation set) was
+updated to match — see the merge and renumbering commits on this branch for the exact diff.

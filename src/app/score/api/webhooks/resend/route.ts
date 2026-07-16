@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   // H4: forward Resend's own send-time tags through to the ingest RPC so it can fall back to
   // delivery_attempt_ref-based correlation for a "lost response" attempt whose provider_message_id
   // was never captured (a plain provider_message_id match can never reach that row -- see the
-  // ingest_phase14_provider_webhook comment in migration 0026 for the full reasoning). Validated
+  // ingest_phase14_provider_webhook comment in migration 0028 for the full reasoning). Validated
   // and shape-limited defensively before forwarding; the RPC itself independently re-validates the
   // format and requires an exact, unambiguous match against an existing authorization row before
   // it ever acts on this, so a malformed or attacker-shaped tag here can only ever fail closed.

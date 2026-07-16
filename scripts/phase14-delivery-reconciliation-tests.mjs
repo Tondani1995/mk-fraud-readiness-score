@@ -6,7 +6,7 @@
 // should correlate to the correct delivery attempt where possible; if no webhook arrives, an
 // authorised admin must be able to resolve the case safely after checking Resend directly.
 //
-// This suite drives the REAL migration SQL (0001-0026, applied verbatim to a disposable local
+// This suite drives the REAL migration SQL (0001-0028, applied verbatim to a disposable local
 // Postgres, same harness as H2/H3) together with the REAL TS webhook-verification/attestation
 // functions from src/lib/reports/email/resend-webhook.ts (imported directly, not reimplemented).
 // It does not spin up a live Next.js server -- src/app/score/api/webhooks/resend/route.ts is a
@@ -15,14 +15,14 @@
 // ingest_phase14_provider_webhook), and phase14-webhook-route-db-test.mjs separately exercises
 // that wrapper end-to-end against a running app + real Supabase project. What is unique to this
 // suite is the full ambiguous-delivery state machine and the new admin-resolution/webhook-
-// correlation code added for H4 (migrations 0025, 0026).
+// correlation code added for H4 (migrations 0027, 0028).
 //
 // Two real architectural findings from reading the current code (not assumed) shaped this suite
 // and the migrations it exercises:
 //   1. public.apply_email_provider_event_atomic (0017) matches an incoming webhook to an
 //      email_events row strictly by (provider, provider_message_id). A "lost response" attempt
 //      never captured a provider_message_id, so a plain webhook could never reach it. Migration
-//      0026 adds a safe fallback in ingest_phase14_provider_webhook: correlate via the
+//      0028 adds a safe fallback in ingest_phase14_provider_webhook: correlate via the
 //      delivery_attempt_ref tag attached at send time (report-delivery-service-core.ts), which is
 //      a primary key and therefore never ambiguous, and only ever backfill a row that is currently
 //      'reconciliation_required' with no known message id yet. src/app/score/api/webhooks/resend/
@@ -31,7 +31,7 @@
 //      reconciliation RPC) requires a phase14_provider_attestations row with
 //      provider_state IN ('accepted','not_found'). reconcileReportEmailWithResend can only ever
 //      produce that when a provider_message_id is already known; with none captured it returns
-//      state:'unknown', which neither of that RPC's branches can resolve. Migration 0025 adds
+//      state:'unknown', which neither of that RPC's branches can resolve. Migration 0027 adds
 //      public.admin_resolve_premium_report_delivery_ambiguity as the human-driven escape hatch for
 //      exactly that case, reusing finalize_premium_report_delivery for the "confirmed delivered"
 //      path rather than duplicating its logic.
@@ -158,9 +158,9 @@ try {
     '0011_phase10_pdf_report_engine_additions', '0012_phase13_commercial_event_foundation',
     '0013_phase13_event_index_cleanup', '0014_phase13_customer_commercial_conversion',
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
-    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery',
-    '0024_phase14_workflow_start_admin_recovery', '0025_phase14_delivery_ambiguity_admin_resolution',
-    '0026_phase14_attestation_canonicalisation_hardening'
+    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
+    '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
+    '0028_phase14_attestation_canonicalisation_hardening'
   ];
   console.log(`Applying ${files.length} real migration files verbatim...`);
   for (const f of files) {
@@ -633,7 +633,7 @@ try {
     // only ever happens from src/lib/reports/email/resend-transport.ts's sendReportEmailWithResend,
     // which is invoked from exactly one place (executeClaimedReportDelivery in
     // delivery-dispatch.ts) -- confirmed by static grep below.
-    const migrationSource = fs.readFileSync(path.join(root, 'supabase/migrations/0025_phase14_delivery_ambiguity_admin_resolution.sql'), 'utf8');
+    const migrationSource = fs.readFileSync(path.join(root, 'supabase/migrations/0027_phase14_delivery_ambiguity_admin_resolution.sql'), 'utf8');
     assert.doesNotMatch(migrationSource, /resend\.com|sendReportEmailWithResend/i,
       'the admin resolution migration must never itself call out to a send transport');
     const deliveryDispatchSource = fs.readFileSync(path.join(root, 'src/lib/reports/email/delivery-dispatch.ts'), 'utf8');

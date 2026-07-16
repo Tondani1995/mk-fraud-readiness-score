@@ -1,7 +1,7 @@
 // Phase 14 -- H2: workflow-start concurrency-safety and admin-recovery behavioural test.
 //
 // This is not a mock or a reimplementation. It boots a real, disposable local Postgres, applies
-// the repo's actual migration files (0001 through 0017, 0023, 0024) verbatim and in order, seeds
+// the repo's actual migration files (0001 through 0017, 0023, 0024, 0025, 0026) verbatim and in order, seeds
 // a real order/assessment/score-run/fulfilment through the real entitlement checks, and then
 // drives the real SQL functions (authorize_phase14_worker_operation,
 // phase14_private.claim_workflow_start, phase14_private.mark_workflow_start_uncertain,
@@ -166,8 +166,8 @@ try {
     '0011_phase10_pdf_report_engine_additions', '0012_phase13_commercial_event_foundation',
     '0013_phase13_event_index_cleanup', '0014_phase13_customer_commercial_conversion',
     '0015_phase13_data_request_policy_cleanup', '0016_platform_database_hardening',
-    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery',
-    '0024_phase14_workflow_start_admin_recovery'
+    '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
+    '0026_phase14_workflow_start_admin_recovery'
   ];
   console.log(`Applying ${files.length} real migration files verbatim...`);
   for (const f of files) {

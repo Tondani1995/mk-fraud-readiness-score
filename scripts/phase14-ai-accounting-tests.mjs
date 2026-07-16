@@ -379,7 +379,7 @@ function generator(overrides = {}) {
 // must not consume the same combined generate+repair budget as one that did) -- proven
 // here by asserting the query builder actually received a
 // .neq('status', 'failed_before_provider') call, matching the SQL-side exclusion added
-// to public.claim_phase14_ai_attempt in migration 0028.
+// to public.claim_phase14_ai_attempt in migration 0030.
 {
   const database = databaseDouble(null, 0);
   const provider = generator({ usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, estimatedCostMicros: 1 } });

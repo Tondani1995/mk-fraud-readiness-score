@@ -22,7 +22,7 @@ Set the relevant `app_settings` flag back to `false` via the admin path (or dire
 None of these require a database migration, a deployment, or a schema change, and none affects
 in-flight, already-`completed`, or historical fulfilments.
 
-## Schema-level rollback (migrations `0017`, `0023`–`0028`)
+## Schema-level rollback (Phase 14 migrations `0017`, `0026`–`0030`)
 
 Only needed if a flag-level rollback cannot contain the incident (e.g., a defect in the schema or
 RPC logic itself, not in application behaviour gated by a flag). Because every one of these
@@ -69,7 +69,7 @@ branch first, per `docs/v1/phase14/review-gates.md`.
 
 1. This is exactly the class of incident H4 was built to make recoverable rather than to prevent
    entirely (a lost HTTP response from Resend cannot be prevented at the application layer). Check
-   the admin resolution path added in migration `0025` for fulfilments requiring manual
+   the admin resolution path added in migration `0027` for fulfilments requiring manual
    reconciliation.
 2. `scripts/phase14-delivery-reconciliation-tests.mjs` documents the exact state transitions this
    path is expected to produce — use it as the reference for "is this fulfilment's current state

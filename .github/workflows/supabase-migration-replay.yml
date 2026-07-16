@@ -362,7 +362,7 @@ jobs:
           } | tee tmp/migration-replay/fresh-vs-uat-equivalence.sha256
           test "$fresh_hash" = "$upgrade_hash"
           # NOTE (Round 7 / H6+M14, this PR): the absolute pinned literal below was captured
-          # before migrations 0024-0028 (H4 admin delivery-ambiguity resolution, H4/M10
+          # before migrations 0026-0030 (H4 admin delivery-ambiguity resolution, H4/M10
           # attestation-canonicalisation + webhook correlation hardening, M2/M3 cross-kind AI
           # attempt budget, M1 pre-dispatch budget exclusion) existed. Those migrations add real
           # new functions/columns to the public/phase14_private schema this inventory covers, so

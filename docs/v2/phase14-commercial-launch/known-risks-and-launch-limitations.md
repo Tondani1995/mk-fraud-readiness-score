@@ -23,11 +23,12 @@ time-boxed exception (expires 2026-10-16) rather than fixed. Owner: platform-eng
 ### L4/L5 area — the `supabase-migration-replay.yml` schema-equivalence hash pin
 
 The workflow's absolute-equality assertion for "fresh vs. upgraded schema at current head" is
-currently a recorded/observed value rather than a pinned literal, because migrations `0024`–`0028`
-added this session changed the real hash and this sandbox cannot mint a new correct pinned value
-(no Docker/Supabase CLI available here). **Action required**: re-pin (or explicitly decide to leave
-as an observed value) from this PR's first real CI run. See `production-activation-runbook.md`
-Section 2.
+currently a recorded/observed value rather than a pinned literal, because migrations `0026`–`0030`
+(renumbered from `0024`–`0028` after merging `main`'s Phase 2-3 work — see
+`architecture-and-state-machine.md`'s "Migration renumbering" note) changed the real hash and this
+sandbox cannot mint a new correct pinned value (no Docker/Supabase CLI available here). **Action
+required**: re-pin (or explicitly decide to leave as an observed value) from this PR's first real
+CI run. See `production-activation-runbook.md` Section 2.
 
 ## Known residual risk (not a Round 7 finding — disclosed for completeness)
 
@@ -82,5 +83,17 @@ consulted and this document updated before treating M7/M8/M10 as confidently clo
   `production-activation-runbook.md` for the explicit, staged, reversible activation sequence.
 - The R50,000 MK-validated engagement remains explicitly out of scope for automation, unchanged by
   this remediation pass.
-- No Stitch/payment webhook route exists in this repository; payments remain out of scope per
-  `docs/v1/phase13/customer-commercial-conversion-pr-b.md`.
+- **Corrected claim**: an earlier version of this document (before this branch merged `main`)
+  stated "no Stitch/payment webhook route exists in this repository." That was true only relative
+  to this branch's own work — it was never true of the repository as a whole once Phase 2-3's
+  payment automation PR (#28) merged to `main`. The real current state, after merging `main` into
+  this branch: `src/app/score/api/webhooks/stitch/route.ts` and `src/lib/payments/stitch-adapter.ts`
+  exist, added by Phase 2-3 and reviewed under its own, separate review process (see
+  `docs/v2/phases-2-3/payment-automation-implementation.md` and
+  `docs/v2/phases-2-3/payment-current-state-and-root-causes.md`). Per that implementation's own
+  documentation: "Runtime mode defaults to `disabled`; the only implemented active mode is an
+  in-process double. It makes no live request." (`payment-automation-implementation.md:17`). No
+  live Stitch credentials are configured or required for this state, and no production activation
+  of Stitch has occurred as part of either branch's work. This is Phase 2-3's own scope, not a
+  Round 7 finding and not fixed by this remediation pass — noted here only so this document does
+  not misstate the repository's actual current contents.

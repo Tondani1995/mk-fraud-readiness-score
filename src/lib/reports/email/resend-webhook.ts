@@ -68,7 +68,7 @@ export function webhookPayloadFingerprint(payload: string) {
 // Versioned via a fixed 'v1|<namespace>|' prefix so a future format change cannot silently
 // re-canonicalise old inputs to a matching string either. This MUST be changed in lockstep with
 // the matching SQL-side canonical-string construction (phase14_private.canonical_attestation_field,
-// added by migration 0026) -- the two sides independently compute the same string and compare
+// added by migration 0028) -- the two sides independently compute the same string and compare
 // HMACs, so any divergence between them breaks all webhook/provider-lookup verification.
 const CANONICAL_ATTESTATION_ENCODING_VERSION = 'v1';
 

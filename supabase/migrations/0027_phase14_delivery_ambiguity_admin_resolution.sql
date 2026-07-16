@@ -132,7 +132,7 @@ revoke all on function public.admin_resolve_premium_report_delivery_ambiguity(uu
 grant execute on function public.admin_resolve_premium_report_delivery_ambiguity(uuid, text, text, text)
   to authenticated;
 
--- Read-side companion, mirroring admin_list_premium_report_workflow_start_reconciliations (0024):
+-- Read-side companion, mirroring admin_list_premium_report_workflow_start_reconciliations (0026):
 -- a joined, readable view of delivery attempts currently awaiting reconciliation, for an admin
 -- dashboard. report_delivery_authorizations already has an admin-select RLS policy; this is a
 -- convenience projection, not a new grant of visibility.

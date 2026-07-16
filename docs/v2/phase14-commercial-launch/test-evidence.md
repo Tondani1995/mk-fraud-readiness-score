@@ -26,7 +26,7 @@ real Postgres or a running Next.js server are marked accordingly and are exercis
 
 | Script | Proves | Status |
 |---|---|---|
-| `scripts/phase14-ai-attempt-budget-tests.mjs` (`phase14:test-ai-attempt-budget`) | M1/M2/M3 cross-kind and pre-dispatch budget exclusion (real `claim_phase14_ai_attempt` RPC through migration `0028`) | Pass |
+| `scripts/phase14-ai-attempt-budget-tests.mjs` (`phase14:test-ai-attempt-budget`) | M1/M2/M3 cross-kind and pre-dispatch budget exclusion (real `claim_phase14_ai_attempt` RPC through migration `0030`, renumbered from `0028`) | Pass |
 | `scripts/phase14-delivery-reconciliation-tests.mjs` (`phase14:test-delivery-reconciliation`) | H4 (16 cases) | Pass, **except** test #4 is intermittently flaky — see known-risks doc |
 | `scripts/phase14-report-access-eligibility-tests.mjs` (`phase14:test-report-access-eligibility`) | H5 | Not re-run this session (no code touched it) |
 | `scripts/phase14-workflow-start-reconciliation-tests.mjs` | H2/M5 | Not re-run this session (no code touched it) |

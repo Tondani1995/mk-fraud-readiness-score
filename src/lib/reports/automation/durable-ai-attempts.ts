@@ -89,7 +89,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     // history with more than exactly one prior generate attempt (for example, a proven-not-
     // reached-provider generate retry followed by a repair). This is now an authoritative count of
     // every prior attempt for this exact fingerprint, any kind, matching the same cross-kind check
-    // enforced atomically in public.claim_phase14_ai_attempt (migration 0027) -- this TS check
+    // enforced atomically in public.claim_phase14_ai_attempt (migration 0029) -- this TS check
     // remains a cheap early exit; the SQL count is the real, authoritative boundary.
     const attemptNumber = Number(existing?.attempt_number ?? 0) + 1;
     // M1: a `failed_before_provider` attempt is PROVEN to have made zero real provider
@@ -99,7 +99,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     // meaningless in practice: two configuration/validation glitches in a row would
     // silently exhaust the entire real-provider-call budget before a single real
     // attempt was ever made. Excluded here and in the matching SQL-side count inside
-    // public.claim_phase14_ai_attempt (migration 0028).
+    // public.claim_phase14_ai_attempt (migration 0030).
     const { count: totalPriorAttempts, error: totalCountError } = await db
       .from('report_ai_attempts')
       .select('id', { count: 'exact', head: true })

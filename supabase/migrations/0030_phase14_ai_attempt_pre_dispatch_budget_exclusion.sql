@@ -10,7 +10,7 @@
 --
 -- That TS-side "safe to retry automatically" behaviour is only meaningful if a
 -- failed_before_provider attempt does not consume the same combined generate+repair
--- budget (migration 0027, PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2) as an attempt that
+-- budget (migration 0029, PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2) as an attempt that
 -- actually reached the provider. It made zero real provider calls -- nothing was sent,
 -- nothing could have been generated or charged. Without this exclusion, two
 -- configuration/validation glitches in a row would silently exhaust the entire real
@@ -21,7 +21,7 @@
 -- This migration adds the matching exclusion to the authoritative SQL-side v_total
 -- count in public.claim_phase14_ai_attempt (same function signature, same per-kind v_n
 -- computation and its unique constraint untouched -- only the cross-kind budget count
--- added in 0027 is narrowed).
+-- added in 0029 is narrowed).
 create or replace function public.claim_phase14_ai_attempt(p_capability_id uuid,p_attempt jsonb)
 returns jsonb language plpgsql security definer set search_path=''
 as $$
@@ -46,7 +46,7 @@ begin
      and prompt_version=p_attempt->>'prompt_version' and schema_version=p_attempt->>'schema_version'
      and attempt_kind=p_attempt->>'attempt_kind';
   if v_n>2 then raise exception 'phase14_ai_attempt_limit_reached'; end if;
-  -- Cross-kind combined budget (0027), now excluding attempts proven to have made zero
+  -- Cross-kind combined budget (0029), now excluding attempts proven to have made zero
   -- real provider calls (M1: 'failed_before_provider') -- see migration header.
   select count(*) into v_total from public.report_ai_attempts
    where generation_identity=p_attempt->>'generation_identity'
