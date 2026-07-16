@@ -92,6 +92,17 @@ dispositioned. Until then this is an open, unquantified gap in this branch's sec
 coverage and should be treated as such in any commercial-launch go/no-go decision -- not waved
 through as "previously handled." See `round-7-remediation-register.md`'s M7/M8/M10 entries.
 
+### Security Scans / L3 (CodeQL) currently red: repository setting, not a code defect
+
+GitHub Code Scanning is not yet enabled for this private repository (confirmed via the GitHub API:
+`code-scanning/alerts` returns 403 "Code scanning is not enabled for this repository"). The
+`sast` job's CodeQL analysis itself runs to completion successfully; only the final results-upload
+step fails, because there is nowhere in GitHub's UI for it to upload to yet. M11 (dependency audit)
+and M12 (secret scanning) -- the other two jobs in the same `Security Scans` workflow -- both pass.
+This requires the repository owner to enable Code Scanning once in
+**Settings → Code security and analysis** (see `production-activation-runbook.md` Section 5.3);
+it cannot be enabled from this development sandbox or fixed by any workflow YAML change.
+
 ## Disclosed environment constraints (not defects)
 
 ### Development sandbox Node version

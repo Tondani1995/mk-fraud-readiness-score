@@ -1,11 +1,28 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- 'reports' predates Phase 14 (migration 0001) and is a cross-phase shared table: migration
+-- 0023 (Phase 1's own manual-fulfilment-recovery migration, out of scope for this remediation
+-- pass) explicitly grants service_role direct `select, insert, update` on it for its own
+-- security-definer-gated RPCs (already locked down via `revoke all ... grant execute ... to
+-- service_role` in that same migration) -- a disclosed, intentional, pre-existing design
+-- independent of Phase 14's own tables below, which stay strictly RPC-only. It is checked
+-- separately, alongside this file's other shared tables further down (audit_logs,
+-- report_events, assessment_events, email_events, email_provider_events), where only the
+-- genuinely-never-acceptable TRUNCATE privilege is asserted absent.
+do $test$
+begin
+  if has_table_privilege('service_role','public.reports','TRUNCATE') then
+    raise exception 'service_role retains truncate privilege on reports';
+  end if;
+end;
+$test$;
+
 do $test$
 declare v_table text;
 begin
   foreach v_table in array array[
-    'reports','report_fulfilments','report_generation_runs','report_ai_attempts',
+    'report_fulfilments','report_generation_runs','report_ai_attempts',
     'report_generation_claims','report_delivery_authorizations',
     'report_delivery_finalizations','phase14_worker_capabilities',
     'phase14_feature_policies','phase14_security_gates','phase14_ai_route_policies',

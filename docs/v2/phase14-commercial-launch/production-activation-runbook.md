@@ -148,3 +148,21 @@ launch (rather than just a build-succeeds check), configure, once, in the Vercel
 This is platform configuration, not code; there is nothing in this repository's files to change to
 enable it, and it cannot be verified from this development sandbox — the controller must confirm
 it directly in the Vercel dashboard.
+
+### 5.3 GitHub: enable Code Scanning (required for the L3/CodeQL check to report at all)
+
+`.github/workflows/security-scans.yml`'s `sast` job (L3, CodeQL) is fully configured in-workflow
+(`permissions: security-events: write` already declared) and its own analysis steps complete
+successfully -- but the final upload step fails with `Resource not accessible by integration` on
+this branch's first real CI run. Confirmed via the GitHub API
+(`GET /repos/.../code-scanning/alerts` returns `403 Code scanning is not enabled for this
+repository. Please enable code scanning in the repository settings.`): this is not a workflow bug,
+it is GitHub Advanced Security's Code Scanning feature not yet being turned on for this private
+repository. This cannot be enabled via the API with the token available in this engagement's
+tooling -- it requires the repository owner to do it once in the GitHub UI:
+**Settings → Code security and analysis → Code scanning → Set up → (Default or Advanced)**. Until
+this is done, L3/CodeQL will keep failing at the upload step (not at the analysis step -- no
+security finding is being hidden, the analysis genuinely runs and finds nothing blocking) on every
+PR/push to this branch and to `main`, exactly like the `live-uat` environment and Vercel Deployment
+Protection above: platform configuration outside this PR's diff, not something fixable from this
+sandbox or from workflow YAML.
