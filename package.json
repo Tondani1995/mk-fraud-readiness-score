@@ -39,6 +39,7 @@
     "phase14:test-report-access-eligibility": "node scripts/phase14-report-access-eligibility-tests.mjs",
     "phase14:test-atomic-capability-completion": "psql \"$LOCAL_DB_URL\" --set=ON_ERROR_STOP=1 --file=scripts/phase14-atomic-capability-completion-tests.sql",
     "phase14:test-ai-accounting": "node scripts/phase14-ai-accounting-tests.mjs",
+    "phase14:test-ai-attempt-budget": "node scripts/phase14-ai-attempt-budget-tests.mjs",
     "phase1:test-stabilisation": "node scripts/phase1-production-stabilisation-tests.mjs",
     "phase1:test-schema-compatibility": "node scripts/phase1-schema-compatibility-integration.mjs",
     "phase1:test-exact-replay": "bash scripts/phase1-0023-replay-tests.sh",

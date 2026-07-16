@@ -35,7 +35,7 @@ new Function('require', 'module', 'exports', compiled)((specifier) => {
 
 const { createDurablePremiumReportNarrativeGenerator } = module.exports;
 
-function databaseDouble(existing = null) {
+function databaseDouble(existing = null, totalPriorAttempts = 0) {
   const calls = [];
   const result = {
     calls,
@@ -46,9 +46,17 @@ function databaseDouble(existing = null) {
         return { data: { id: 'attempt-1' }, error: null };
       },
       from(table) {
-        const state = { operation: 'lookup', selected: false };
+        const state = { operation: 'lookup', selected: false, isCountQuery: false };
         const builder = {
-          select() { state.selected = true; return builder; },
+          select(_columns, options) {
+            state.selected = true;
+            // M2/M3: distinguishes the cross-kind budget count query (head:true, no
+            // order/limit/maybeSingle in its chain) from the same-kind existing-attempt lookup
+            // (which always terminates via .maybeSingle()) -- mirrors how the real Supabase
+            // client differentiates a `{ count: 'exact', head: true }` request.
+            if (options && options.head) state.isCountQuery = true;
+            return builder;
+          },
           eq(column, value) { calls.push(['eq', table, column, value]); return builder; },
           order() { return builder; },
           limit() { return builder; },
@@ -59,7 +67,11 @@ function databaseDouble(existing = null) {
           insert(value) { state.operation = 'insert'; calls.push(['insert', table, value]); return builder; },
           async single() { return { data: { id: 'attempt-1' }, error: null }; },
           update(value) { state.operation = 'update'; calls.push(['update', table, value]); return builder; },
-          then(resolve) { resolve({ data: null, error: null }); }
+          then(resolve) {
+            resolve(state.isCountQuery
+              ? { data: null, error: null, count: totalPriorAttempts }
+              : { data: null, error: null });
+          }
         };
         return builder;
       }
@@ -201,6 +213,41 @@ function generator(overrides = {}) {
   await assert.rejects(durable.generate({ ...generationInput, evidence: { value: 'x'.repeat(200_000) } }), /byte limit/);
   assert.equal(provider.calls, 0, 'pre-dispatch size ceiling must block before provider invocation');
   assert.equal(database.calls.length, 0, 'pre-dispatch size ceiling must block before attempt lookup or insertion');
+}
+
+// M2/M3: the attempt budget is a COMBINED generate+repair total, not counted separately per kind.
+// This is a same-kind ('generate') lookup returning null (no prior 'generate' attempt) -- the old
+// hard-coded `kind === 'repair' ? 1 : 0` logic would have let this straight through regardless of
+// how many attempts of OTHER kinds already existed. The authoritative cross-kind count (2 here)
+// must still block it.
+{
+  const database = databaseDouble(null, 2);
+  const provider = generator({ usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, estimatedCostMicros: 1 } });
+  const durable = createDurablePremiumReportNarrativeGenerator({
+    generator: provider,
+    generationIdentity: 'generation-cross-kind-budget-exhausted',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
+    db: database.db,
+    authorizeAction: async () => true
+  });
+  await assert.rejects(durable.generate(generationInput), /maximum attempt limit reached/);
+  assert.equal(provider.calls, 0, 'the combined budget must block before any provider call, regardless of kind');
+}
+
+// One prior attempt of any kind (here simulating "one prior generate, now attempting repair") is
+// within the combined budget of 2 and must be allowed through to the provider call.
+{
+  const database = databaseDouble(null, 1);
+  const provider = generator({ usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, estimatedCostMicros: 1 } });
+  const durable = createDurablePremiumReportNarrativeGenerator({
+    generator: provider,
+    generationIdentity: 'generation-cross-kind-budget-ok',
+    fulfilmentId: 'fulfilment-1', workerCapabilityId: 'capability-1',
+    db: database.db,
+    authorizeAction: async () => true
+  });
+  await durable.repair(generationInput);
+  assert.equal(provider.calls, 1, 'the second of two combined attempts must be allowed through');
 }
 
 console.log('phase14_ai_accounting_tests_passed');

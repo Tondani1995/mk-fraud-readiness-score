@@ -83,9 +83,25 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       throw new Error(`AI ${kind} attempt ${existing.id} has unresolved provider state; automatic replay is blocked.`);
     }
 
+    // M2/M3: PREMIUM_REPORT_AI_MAX_ATTEMPTS is a COMBINED generate+repair budget, not a per-kind
+    // one -- a hard-coded `kind === 'repair' ? 1 : 0` assumption here previously mispriced any
+    // history with more than exactly one prior generate attempt (for example, a proven-not-
+    // reached-provider generate retry followed by a repair). This is now an authoritative count of
+    // every prior attempt for this exact fingerprint, any kind, matching the same cross-kind check
+    // enforced atomically in public.claim_phase14_ai_attempt (migration 0027) -- this TS check
+    // remains a cheap early exit; the SQL count is the real, authoritative boundary.
     const attemptNumber = Number(existing?.attempt_number ?? 0) + 1;
-    const totalPriorAttempts = kind === 'repair' ? 1 : 0;
-    if (attemptNumber + totalPriorAttempts > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
+    const { count: totalPriorAttempts, error: totalCountError } = await db
+      .from('report_ai_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('generation_identity', input.generationIdentity)
+      .eq('evidence_checksum', generationInput.evidenceChecksum)
+      .eq('requested_provider', input.generator.provider)
+      .eq('requested_model', input.generator.model)
+      .eq('prompt_version', generationInput.promptVersion)
+      .eq('schema_version', generationInput.schemaVersion);
+    if (totalCountError) throw totalCountError;
+    if ((totalPriorAttempts ?? 0) + 1 > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
       throw new Error('Premium report AI maximum attempt limit reached.');
     }
     const fingerprint = crypto.createHash('sha256').update(JSON.stringify({
