@@ -353,6 +353,22 @@ jobs:
           backup='tmp/migration-replay/0017_phase14_canonical_disabled_foundation.sql'
           mv "$canonical" "$backup"
           cp docs/v1/phase14/migration-audit-archive/uat-applied/*.sql supabase/migrations/
+          # Hold out every migration from 0023 onward, exactly like the "Verify archived SQL
+          # identities..." step above already does, and for the identical reason: they all
+          # assume the *reconciled* (canonical-0017-shaped) schema. 0026 in particular requires
+          # public.phase14_workflow_start_outbox, which does not exist yet in the raw historical
+          # incremental uat-applied schema -- it is only created once
+          # phase14-uat-canonical-reconciliation.sql has run. Sweeping 0023-0031 into the initial
+          # `supabase db reset` here (before reconciliation) is the exact bug this branch's first
+          # real CI run on the renumbered ledger actually hit: "ERROR: relation
+          # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" while applying
+          # 0026. They must instead be re-applied individually, in filename order, *after*
+          # reconciliation has patched the schema up to canonical shape.
+          mkdir -p tmp/migration-replay/held-0023-0031-for-reconciliation
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-0023-0031-for-reconciliation/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
@@ -364,6 +380,7 @@ jobs:
               supabase/migrations/20260714201550_phase14_webhook_state_machine.sql \
               supabase/migrations/20260714214023_phase14_fourth_adversarial_remediation.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-0023-0031-for-reconciliation/*.sql supabase/migrations/ 2>/dev/null || true
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
@@ -373,6 +390,13 @@ jobs:
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-uat-canonical-reconciliation.sql \
             | tee tmp/migration-replay/uat-canonical-reconciliation-safe-restart.txt
+          # Now that the historical incremental schema has been reconciled to canonical-0017
+          # shape, re-apply 0023-0031 in filename order -- the same set, same order, the "fresh"
+          # canonical path already applied earlier in this same job.
+          for f in tmp/migration-replay/held-0023-0031-for-reconciliation/*.sql; do
+            echo "Applying held-out migration for upgrade path: $f"
+            psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$f"
+          done
           psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql \
             > tmp/migration-replay/upgrade-canonical-schema-inventory.txt

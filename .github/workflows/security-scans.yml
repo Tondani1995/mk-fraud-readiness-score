@@ -129,6 +129,13 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # actions: read is required by github/codeql-action/analyze -- it calls the
+      # "Get a workflow run" REST endpoint (GET /repos/{owner}/{repo}/actions/runs/{run_id})
+      # to categorize the SARIF upload by run. Without it the analyze step fails with
+      # "Resource not accessible by integration" on that call and the job is marked
+      # "configuration error" even though the CodeQL analysis itself completed successfully.
+      # Confirmed via real CI job log (job run 29529328764) on this exact head.
+      actions: read
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
