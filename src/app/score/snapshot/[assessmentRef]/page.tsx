@@ -12,7 +12,7 @@ import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 
 type SnapshotPageProps = {
   params: { assessmentRef: string };
-  searchParams?: { token?: string; embed?: string };
+  searchParams?: { token?: string };
 };
 
 function requestOriginFor(requestHeaders: Pick<Headers, 'get'>) {
@@ -50,7 +50,6 @@ function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason:
 
 export default async function SnapshotShellPage({ params, searchParams }: SnapshotPageProps) {
   const token = searchParams?.token;
-  const embedded = searchParams?.embed === '1';
 
   if (!token) return <AccessError assessmentRef={params.assessmentRef} reason="missing_token" />;
 
@@ -84,25 +83,22 @@ export default async function SnapshotShellPage({ params, searchParams }: Snapsh
     organisationId: validation.assessment.organisation_id,
     respondentId: validation.assessment.primary_respondent_id,
     metadata: {
-      assessment_reference: validation.assessment.assessment_reference,
-      embedded
+      assessment_reference: validation.assessment.assessment_reference
     }
   });
 
-  const snapshotUrl = `/score/snapshot/${validation.assessment.assessment_reference}?token=${encodeURIComponent(token)}${embedded ? '&embed=1' : ''}`;
+  const snapshotUrl = `/score/snapshot/${validation.assessment.assessment_reference}?token=${encodeURIComponent(token)}`;
   const requestOrigin = requestOriginFor(requestHeaders);
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
 
   return (
-    <SectionShell className={embedded ? 'py-0' : 'py-12'}>
-      {!embedded ? (
-        <PageHeader
-          eyebrow="Free readiness snapshot"
-          title="Your Fraud Readiness Snapshot"
-          description="This view is loaded from the persisted score run and can be safely refreshed without recalculating or unlocking the assessment."
-        />
-      ) : null}
+    <SectionShell className="py-12">
+      <PageHeader
+        eyebrow="Free readiness snapshot"
+        title="Your Fraud Readiness Snapshot"
+        description="This view is loaded from the persisted score run and can be safely refreshed without recalculating or unlocking the assessment."
+      />
       <FreeSnapshotCard snapshot={snapshot} snapshotUrl={publicSnapshotUrl} commercialInsights={commercialInsights} />
     </SectionShell>
   );

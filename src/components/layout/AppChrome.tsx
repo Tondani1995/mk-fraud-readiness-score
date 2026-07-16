@@ -1,24 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
-  const [isEmbedded, setIsEmbedded] = useState<boolean | null>(null);
+  const pathname = usePathname();
+  const assessmentActive = pathname === '/score/start' || pathname.startsWith('/score/assessment/');
 
-  useEffect(() => {
-    setIsEmbedded(window.self !== window.top);
-  }, []);
-
-  // The public MK website already supplies the approved website navigation,
-  // logo and footer around the /score iframe. Do not render a second,
-  // conflicting product shell inside that embedded journey.
-  if (isEmbedded === true) return <main>{children}</main>;
-
-  // Avoid briefly flashing the standalone header/footer inside the iframe
-  // before the browser confirms whether this page is embedded.
-  if (isEmbedded === null) return <main>{children}</main>;
+  if (assessmentActive) {
+    return (
+      <div className="min-h-[100dvh] overflow-x-hidden bg-mk-cream pb-[env(safe-area-inset-bottom)]">
+        <header className="border-b border-mk-line bg-white pt-[env(safe-area-inset-top)]">
+          <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+            <Link href="/" className="font-semibold tracking-tight text-mk-ink">MK Fraud Insights</Link>
+            <Link href="/fraud-readiness-score" className="min-h-11 rounded-xl border border-mk-line px-4 py-3 text-sm font-semibold text-mk-ink">Exit assessment</Link>
+          </div>
+        </header>
+        <main>{children}</main>
+      </div>
+    );
+  }
 
   return (
     <>

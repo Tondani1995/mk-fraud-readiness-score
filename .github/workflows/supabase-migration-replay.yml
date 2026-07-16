@@ -55,8 +55,8 @@ defaults:
 jobs:
   clean-migration-replay:
     name: Clean Supabase migration replay
-    # Phase 1 has a dedicated replay that stops at 0016. Never apply the
-    # disabled Phase 14 foundation while validating its stabilization PR.
+    # Phase 1 and V2 Phases 2-3 each have a dedicated exact replay that stops before the disabled
+    # Phase 14 foundation. Never apply 0017 while validating either of their PRs.
     #
     # L4 (Round 7 review, deliberately DEFERRED -- not restructured this pass):
     # this is a plain string-equality guard on github.head_ref, a GitHub Actions runtime context
@@ -64,15 +64,18 @@ jobs:
     # this repo's development sandbox has no GitHub Actions runner and no Docker/Supabase CLI (see
     # the "why this file cannot run locally" note further down in this workflow). Any change to
     # this match logic (e.g. switching to a glob/prefix match, inverting the boolean, adding a
-    # second excluded branch) can only be confirmed correct by opening real PRs from both a
+    # further excluded branch) can only be confirmed correct by opening real PRs from both a
     # matching and a non-matching branch and observing actual job skip/run behaviour in GitHub's
     # UI -- a slow, real-CI-only feedback loop with no safe way to dry-run it in this environment.
+    # (The second excluded branch below, v2/phases-2-3-payment-and-assessment, was added by the
+    # separately-landed Phase 2-3 payment automation work on `main` and merged into this condition
+    # unchanged -- its own team verified it against real CI on its own PR, not this sandbox.)
     #
-    # Risk assessment: the current failure mode is not dangerous. If this literal branch name ever
-    # drifts from the real branch name (typo, rename), the condition fails toward "the job runs
-    # when it shouldn't" rather than "silently skips a job that should have run" -- and this job
-    # only ever touches an ephemeral CI-local Postgres instance, so the worst realistic outcome of
-    # a stale/incorrect match is a wasted or failing CI run, not any production impact. That
+    # Risk assessment: the current failure mode is not dangerous. If either literal branch name
+    # ever drifts from the real branch name (typo, rename), the condition fails toward "the job
+    # runs when it shouldn't" rather than "silently skips a job that should have run" -- and this
+    # job only ever touches an ephemeral CI-local Postgres instance, so the worst realistic outcome
+    # of a stale/incorrect match is a wasted or failing CI run, not any production impact. That
     # asymmetry (low-severity current failure mode vs. a verification path that can only be
     # exercised in real CI) is why this was deferred rather than restructured during this
     # remediation pass, consistent with this engagement's standing instruction not to make changes
@@ -85,7 +88,10 @@ jobs:
     # during the next Phase 1 / Phase 14 branch-topology change, or by 2026-10-16 (aligned with the
     # M13 dependency-exception review date in security/dependency-audit-exceptions.json), whichever
     # comes first -- verified against a real GitHub Actions run, not this sandbox.
-    if: github.event_name != 'pull_request' || github.head_ref != 'v2/phase-1-production-stabilisation'
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.head_ref != 'v2/phase-1-production-stabilisation' &&
+      github.head_ref != 'v2/phases-2-3-payment-and-assessment')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

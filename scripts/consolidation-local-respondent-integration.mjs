@@ -77,6 +77,8 @@ assert.ifError(questionsError);
 assert.ifError(factorsError);
 assert.ok(questions?.length, 'Active methodology has no questions.');
 assert.ok(factors?.length, 'Active methodology has no exposure factors.');
+assert.equal(questions.length, 68, 'The approved methodology must retain exactly 68 readiness questions.');
+assert.equal(factors.length, 8, 'The approved methodology must retain exactly 8 exposure factors.');
 
 const answers = questions.map((question) => ({
   questionId: question.id,

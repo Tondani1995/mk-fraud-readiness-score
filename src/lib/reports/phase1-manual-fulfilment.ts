@@ -9,11 +9,11 @@ import { renderHtmlToPdfBuffer } from './render-pdf';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 
-export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate';
+export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
 
 export type ManualGenerationInput = {
   orderReference: string;
-  requestedBy: string;
+  requestedBy: string | null;
   requestKey: string;
   action: ManualGenerationAction;
 };
@@ -186,13 +186,20 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     throw new Phase1GenerationError('template_missing', 'No active report template is configured for this product.', 409, technicalReference);
   }
 
-  const { data: claim, error: claimError } = await db.rpc('claim_manual_report_generation', {
-    p_order_reference: input.orderReference,
-    p_requested_by: input.requestedBy,
-    p_request_key: requestKey,
-    p_trigger_source: input.action,
-    p_technical_reference: technicalReference
-  });
+  const claimRequest = input.action === 'payment_confirmation'
+    ? db.rpc('claim_payment_report_generation', {
+      p_order_reference: input.orderReference,
+      p_request_key: requestKey,
+      p_technical_reference: technicalReference
+    })
+    : db.rpc('claim_manual_report_generation', {
+      p_order_reference: input.orderReference,
+      p_requested_by: input.requestedBy,
+      p_request_key: requestKey,
+      p_trigger_source: input.action,
+      p_technical_reference: technicalReference
+    });
+  const { data: claim, error: claimError } = await claimRequest;
   if (claimError || !claim) throw mapRpcFailure(claimError ?? new Error('Empty generation claim response.'), technicalReference);
 
   if (!claim.claimed) {
