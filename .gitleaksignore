@@ -13,6 +13,23 @@
 #   "phase14-route-signing-key-000000000000". It authenticates nothing outside the CI job's
 #   own local Supabase instance and rotating it is meaningless (there is nothing real behind it).
 #
+# Four additional findings surfaced by the first real CI run on
+# launch/phase14-commercial-readiness (this remediation pass) that predate this session and were
+# never triaged. Reviewed against the actual file content at the reported commit/line before
+# being added here; none is a real credential:
+#
+# - Two matches in scripts/phase14-security-closure-tests.mjs (commit 33b2158, the L1 fix) are
+#   the adversarial test poison strings the L1 test cases deliberately construct to prove
+#   validatePremiumReportNarrative's new jwt_like_token/cloud_credential_pattern rules actually
+#   fire on JWT-shaped and AWS-access-key-shaped text. They are hardcoded, well-known synthetic
+#   example values used purely as test input, never issued by any real provider, and never used
+#   to authenticate anything.
+# - Two matches inside this very .gitleaksignore file (commit 4c22f28, the M12 fix, lines 7 and
+#   11 above) are gitleaks re-matching this file's own explanatory prose, which quotes the two
+#   already-reviewed safe strings it documents. This is expected self-referential noise from a
+#   secret scanner reading its own ignore file's comments, not a new finding requiring separate
+#   review -- the underlying values were already reviewed above.
+#
 # This file suppresses these SPECIFIC, reviewed findings by their exact fingerprint only -- a
 # genuinely new secret anywhere else in the repository (past or future commits) still fails
 # the M12 secret-scan CI job.
@@ -23,3 +40,7 @@ a3c705418b6b9f60e61464b7eded7e18742bbd6b:supabase/migrations/20260714194317_phas
 b89166ebdf5ad97cf9e4a9963558c0a27943c4e2:supabase/migrations/20260714194317_phase14_security_state_machine_closure.sql:generic-api-key:1287
 28107e4325ce83be45ff596bdb035ad00cbf474b:scripts/phase14-production-canonical-reconciliation.sql:generic-api-key:1998
 fc4e07a25ba4cb8ec1171cadb3b66f337424991d:supabase/migrations/0017_phase14_canonical_disabled_foundation.sql:generic-api-key:2149
+33b21584b234b83606d7e0dfd92109ed5a5181a7:scripts/phase14-security-closure-tests.mjs:jwt:143
+33b21584b234b83606d7e0dfd92109ed5a5181a7:scripts/phase14-security-closure-tests.mjs:aws-access-token:144
+4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:7
+4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:11
