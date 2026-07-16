@@ -35,6 +35,7 @@
     "phase14:test-provider-faults": "node scripts/phase14-provider-fault-injection-tests.mjs",
     "phase14:test-webhook-adversarial": "node scripts/phase14-webhook-adversarial-tests.mjs",
     "phase14:test-webhook-route-db": "node scripts/phase14-webhook-route-db-test.mjs",
+    "phase14:test-delivery-reconciliation": "node scripts/phase14-delivery-reconciliation-tests.mjs",
     "phase14:test-atomic-capability-completion": "psql \"$LOCAL_DB_URL\" --set=ON_ERROR_STOP=1 --file=scripts/phase14-atomic-capability-completion-tests.sql",
     "phase14:test-ai-accounting": "node scripts/phase14-ai-accounting-tests.mjs",
     "phase1:test-stabilisation": "node scripts/phase1-production-stabilisation-tests.mjs",
