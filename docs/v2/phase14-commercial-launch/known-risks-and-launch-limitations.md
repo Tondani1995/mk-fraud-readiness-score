@@ -73,6 +73,25 @@ guard's event-ordering intent while removing the spurious sub-millisecond reject
 
 See `round-7-remediation-register.md`'s H4 entry and `test-evidence.md` for the evidence citation.
 
+## Unresolved -- not a deferred finding, a genuine gap
+
+### M7, M8, M10: original Round 7 finding text is unrecoverable
+
+The Round 7 remediation register lists M7, M8, and M10 as "carried forward" from a prior session
+in this engagement. Neither that session nor this one could locate the original finding text
+anywhere accessible: not in this repository's git history or docs, not in the imported MK Fraud
+knowledge project (its saved memory is unrelated, stale Phase 10-era content), and not anywhere
+else in available context -- despite an expectation that it would be available. The user was asked
+directly and confirmed: do not fabricate finding text or a disposition to close these out.
+
+**These three findings are not fixed, not proven safe, and not deliberately deferred with an owner
+and date -- they are simply unknown.** Whatever M7/M8/M10 originally identified has not been
+verified against the current codebase at all this remediation pass. A controller with access to
+the original Round 7 review document must supply the finding text before these can be genuinely
+dispositioned. Until then this is an open, unquantified gap in this branch's security review
+coverage and should be treated as such in any commercial-launch go/no-go decision -- not waved
+through as "previously handled." See `round-7-remediation-register.md`'s M7/M8/M10 entries.
+
 ## Disclosed environment constraints (not defects)
 
 ### Development sandbox Node version

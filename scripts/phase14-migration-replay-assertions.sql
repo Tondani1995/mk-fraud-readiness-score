@@ -172,13 +172,25 @@ begin
 end $$;
 
 -- Confirm the clean local migration ledger includes the full numeric chain.
+-- Extended this remediation pass: originally ended at '0017' (written when Phase 14's canonical
+-- migration was expected to be the final entry in the whole ledger). It now legitimately continues
+-- through Phase 1's 0023, Phase 2-3's own 0024/0025 (landed via main, merged into this branch),
+-- and Phase 14's own follow-up migrations 0026-0031 (renumbered from 0024-0028 to resolve a
+-- version-number collision with Phase 2-3's, plus the new 0031 H4 concurrency-determinism fix) --
+-- see architecture-and-state-machine.md's "Migration renumbering" note. The "no extras" check
+-- below was a hardcoded `version > '0017'` comparison that assumed 0017 was always the ledger's
+-- tail; it has been generalised to a real set-membership check against this expected list so it
+-- keeps meaning what it always meant (no stray/legacy/unpublished version sneaks into the
+-- canonical ledger) without needing another one-off numeric-literal fix the next time this branch
+-- legitimately grows its migration set.
 create temp table expected_migration_versions(version text primary key);
 insert into expected_migration_versions(version) values
   ('0001'),('0002'),('0003'),('0004'),('0005'),('0006'),('0007'),('0009'),
-  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017');
+  ('0010'),('0011'),('0012'),('0013'),('0014'),('0015'),('0016'),('0017'),
+  ('0023'),('0024'),('0025'),('0026'),('0027'),('0028'),('0029'),('0030'),('0031');
 
 do $$
-declare missing text;
+declare missing text; extra text;
 begin
   select string_agg(e.version, ', ' order by e.version)
     into missing
@@ -189,11 +201,14 @@ begin
   if missing is not null then
     raise exception 'Missing expected local migration versions: %', missing;
   end if;
-  if exists (
-    select 1 from supabase_migrations.schema_migrations
-    where version > '0017'
-  ) then
-    raise exception 'Legacy unpublished Phase 14 migration versions remain in the canonical ledger';
+  select string_agg(m.version, ', ' order by m.version)
+    into extra
+  from supabase_migrations.schema_migrations m
+  left join expected_migration_versions e on e.version = m.version
+  where e.version is null;
+
+  if extra is not null then
+    raise exception 'Legacy/unexpected migration versions remain in the canonical ledger: %', extra;
   end if;
   if not exists (
     select 1 from supabase_migrations.schema_migrations
@@ -286,11 +301,22 @@ begin
   if has_table_privilege('authenticated', 'public.report_generation_claims', 'select') then
     raise exception 'authenticated unexpectedly has SELECT on report_generation_claims';
   end if;
-  if has_table_privilege('service_role', 'public.reports', 'insert')
-     or has_table_privilege('service_role', 'public.reports', 'update')
-     or has_table_privilege('service_role', 'public.reports', 'delete')
+  -- public.reports predates Phase 14 (created in migration 0001) and migration 0023 (Phase 1's
+  -- own manual-fulfilment-recovery migration, out of scope for this remediation pass -- see
+  -- production-activation-runbook.md) explicitly grants service_role direct
+  -- `select, insert, update` on it for its own security-definer-gated manual fulfilment RPCs
+  -- (public.complete_manual_report_generation et al., all already locked down to
+  -- `revoke all ... grant execute ... to service_role` in that same migration). That grant is a
+  -- disclosed, intentional, pre-existing design independent of Phase 14's own stricter
+  -- RPC-only pattern for its own operational tables (report_fulfilments,
+  -- report_generation_runs, etc., checked above) -- it is not something this remediation pass
+  -- introduced or is in scope to revoke. What genuinely must never be true, and is still asserted
+  -- below, is that service_role never gains DELETE or TRUNCATE on reports -- those would allow
+  -- bypassing every audit trail this table's insert/update paths go through, and no legitimate
+  -- code path (Phase 1's included) needs either.
+  if has_table_privilege('service_role', 'public.reports', 'delete')
      or has_table_privilege('service_role', 'public.reports', 'truncate') then
-    raise exception 'service_role unexpectedly has direct report mutation privileges';
+    raise exception 'service_role unexpectedly has destructive (delete/truncate) report privileges';
   end if;
   if has_table_privilege('authenticated', 'public.reports', 'insert')
      or has_table_privilege('authenticated', 'public.reports', 'update')
