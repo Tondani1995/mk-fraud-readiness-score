@@ -438,11 +438,25 @@ jobs:
           backup='tmp/migration-replay/canonical-for-production-history.sql'
           mv "$canonical" "$backup"
           cp docs/v1/phase14/migration-audit-archive/uat-applied/001[789]_*.sql supabase/migrations/
+          # Same hold-out as the "Prove fresh and current-UAT upgrade schema equivalence" step
+          # above, and for the identical reason: 0023-0031 assume the *reconciled*
+          # (canonical-0017-shaped) schema, and this block starts from an even earlier baseline
+          # (only 0017/18/19 granular, not even 20-22) than that step did. Confirmed via the real
+          # failing job log on this exact head: the initial `supabase db reset` swept 0023-0031 in
+          # here too and hit the identical "ERROR: relation
+          # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" applying 0026,
+          # before phase14-production-canonical-reconciliation.sql ever got a chance to run.
+          mkdir -p tmp/migration-replay/held-0023-0031-for-production-history
+          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
+            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
+            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            tmp/migration-replay/held-0023-0031-for-production-history/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
               supabase/migrations/0019_phase14_email_delivery_state_hardening.sql
             mv "$backup" "$canonical"
+            mv tmp/migration-replay/held-0023-0031-for-production-history/*.sql supabase/migrations/ 2>/dev/null || true
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
@@ -465,6 +479,15 @@ jobs:
           after_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-preservation-assertions.sql | tail -n 1)
           test "$after_checksum" = "$before_checksum"
+          # Now that the historical schema has been reconciled to canonical-0017 shape, re-apply
+          # 0023-0031 in filename order -- same set, same order, the "fresh" canonical path
+          # already applied earlier in this same job -- so the schema-equivalence comparisons
+          # below (which cmp against fresh-canonical-schema-inventory.txt, captured with the full
+          # 0001-0031 ledger applied) are comparing like with like.
+          for f in tmp/migration-replay/held-0023-0031-for-production-history/*.sql; do
+            echo "Applying held-out migration for production-history step: $f"
+            psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$f"
+          done
           psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql \
             > tmp/migration-replay/production-converged-schema-inventory.txt
