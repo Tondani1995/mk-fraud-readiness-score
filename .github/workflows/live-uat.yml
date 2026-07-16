@@ -1,10 +1,133 @@
 name: Live UAT
 
+# Phase 14 launch readiness -- M15: this workflow previously did nothing but
+# `echo "Live UAT placeholder"` under a name that implied a real release gate. That is exactly
+# the finding: a workflow called "Live UAT" must either be a genuine gate or be clearly labelled
+# as a placeholder. This is now the former -- a real, manually-dispatched, protected workflow
+# that exercises the Phase 14 premium report engine's full generation -> AI -> PDF -> delivery ->
+# webhook -> storage -> access-control surface end to end, using ONLY test doubles and
+# designated fixtures. It never calls a real AI provider, never sends a real customer email via
+# Resend, never touches production data, and never performs a real payment. Every suite it runs
+# is one already used throughout Phase 14 development and verified directly against this
+# repository's actual source (not copies or descriptions of it).
+#
+# "Protected": this workflow requires the `live-uat` GitHub Environment, which must be configured
+# once in this repository's Settings -> Environments with required reviewers (and, optionally, a
+# restricted list of branches allowed to deploy to it). That repository-settings configuration is
+# outside what a workflow YAML file can declare on its own; see
+# docs/v2/phase14-commercial-launch/production-activation-runbook.md for the exact one-time setup
+# steps. Until that environment is configured, GitHub still runs this job (an unconfigured
+# environment has no protection rules), so the workflow itself is safe to merge immediately, but
+# the manual-approval gate only takes effect once the environment protection rule exists.
+
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type "doubles-only" to confirm this run uses only test doubles/fixtures, never real provider calls.'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
 
 jobs:
-  check:
+  live-uat:
+    name: Live UAT (doubles/fixtures only)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: live-uat
+    env:
+      # Explicit, obviously-fake values -- if any code path under test ever tried to reach a
+      # real provider with these, it would fail loudly (invalid credentials / unresolvable host)
+      # rather than silently succeed against something real. No real secret is read by this job.
+      RESEND_API_KEY: 'live-uat-doubles-only-not-a-real-key'
+      MK_RELEASE_CHANNEL: 'live-uat'
     steps:
-      - run: echo "Live UAT placeholder"
+      - name: Refuse to run without explicit doubles-only confirmation
+        if: github.event.inputs.confirmation != 'doubles-only'
+        run: |
+          echo '::error::This workflow only runs when manually dispatched with confirmation="doubles-only". Refusing to proceed.'
+          exit 1
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Report generation, entitlement, route isolation, durable workflow, deterministic validation
+        run: npm run phase14:test-report-engine
+
+      - name: AI accounting, retry classification (M1), attempt budget (M2/M3)
+        run: npm run phase14:test-ai-accounting
+
+      - name: AI attempt budget (real Postgres)
+        run: npm run phase14:test-ai-attempt-budget
+
+      - name: AI narrative integrity + prompt-injection adversarial suite (C1/M4)
+        run: node scripts/phase14-ai-narrative-integrity-tests.mjs
+
+      - name: PDF renderer Chromium crash recovery + bounded timeout (H1/M6)
+        run: node scripts/phase14-pdf-renderer-crash-recovery-tests.mjs
+
+      - name: Node 24 packaged Chromium real-render smoke test
+        run: npm run phase14:test-node24-pdf
+
+      - name: Email delivery, retry recovery, test-recipient isolation, replay-safe webhook
+        run: npm run phase14:test-email-delivery
+
+      - name: Delivery entitlement wiring (H3, real Postgres)
+        run: node scripts/phase14-delivery-entitlement-wiring-tests.mjs
+
+      - name: Resend delivery reconciliation (H4, real Postgres)
+        run: npm run phase14:test-delivery-reconciliation
+
+      - name: Report access eligibility (H5, real Postgres)
+        run: npm run phase14:test-report-access-eligibility
+
+      - name: Workflow-start reconciliation + double-fault observability (H2/M5, real Postgres)
+        run: node scripts/phase14-workflow-start-reconciliation-tests.mjs
+
+      - name: Webhook adversarial suite
+        run: npm run phase14:test-webhook-adversarial
+
+      - name: Provider fault injection
+        run: npm run phase14:test-provider-faults
+
+      - name: Storage fault injection
+        run: npm run phase14:test-storage-faults
+
+      - name: Security closure, evidence-only AI schema, Unicode normalization, verified-download
+        run: npm run phase14:test-security-closure
+
+      - name: Database security hardening static checks
+        run: node scripts/phase14-database-security-hardening-tests.mjs
+
+      - name: Dependency audit gate (M11)
+        run: |
+          mkdir -p tmp/live-uat
+          npm audit --omit=dev --json > tmp/live-uat/npm-audit-production.json || true
+          node scripts/phase14-dependency-audit-gate.mjs tmp/live-uat/npm-audit-production.json
+
+      - name: Upload Live UAT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-uat-evidence
+          path: tmp
+          if-no-files-found: warn
