@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
 import {
   ResendWebhookBodyTooLargeError,
   createProviderWebhookDatabaseAttestation,
@@ -14,6 +15,18 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const receiptTimeMs = Date.now();
+  // L5: global volumetric ceiling, checked before any request-body work. Deliberately not
+  // per-IP -- see RATE_LIMITS.resendWebhookGlobal's comment in src/lib/security/rate-limit.ts
+  // for why. This is a defense-in-depth backstop layered underneath (not instead of) the HMAC
+  // signature verification, timestamp replay window and body-size cap below, which remain the
+  // primary defenses.
+  const rateLimit = await checkRateLimits([
+    { key: 'resend_webhook:global', ...RATE_LIMITS.resendWebhookGlobal() }
+  ]);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+  }
+
   let payload: string;
   try {
     payload = await readLimitedWebhookBody(request);

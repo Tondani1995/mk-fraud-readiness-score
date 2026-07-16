@@ -106,6 +106,9 @@ jobs:
       - name: Webhook adversarial suite
         run: npm run phase14:test-webhook-adversarial
 
+      - name: Resend webhook global rate limit (L5)
+        run: npm run phase14:test-resend-webhook-rate-limit
+
       - name: Provider fault injection
         run: npm run phase14:test-provider-faults
 
