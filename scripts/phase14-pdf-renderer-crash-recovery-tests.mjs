@@ -55,9 +55,10 @@ fs.writeFileSync(controlPath, `
 module.exports = {
   launchCount: 0,
   instances: [],
-  failNextCallAt: null, // 'newPage' | 'setContent' | 'pdf' | null
+  failNextCallAt: null, // 'newPage' | 'setContent' | 'pdf' | 'pdf_timeout' | null
   pageCloseCount: 0,
-  browserCloseCount: 0
+  browserCloseCount: 0,
+  lastPdfOptsTimeout: null
 };
 `);
 
@@ -76,9 +77,22 @@ function makeFakePage() {
       }
     },
     async pdf(opts) {
+      control.lastPdfOptsTimeout = opts?.timeout ?? null;
       if (control.failNextCallAt === 'pdf') {
         control.failNextCallAt = null;
         throw new Error('simulated_pdf_render_failure');
+      }
+      if (control.failNextCallAt === 'pdf_timeout') {
+        control.failNextCallAt = null;
+        // Simulates a genuinely hung render: Puppeteer itself enforces opts.timeout and throws
+        // a TimeoutError once it elapses. This fake honours the SAME timeout value the module
+        // under test actually passed in, so the test both proves render-pdf.ts wires an
+        // explicit, bounded timeout through to page.pdf() and exercises the real recovery path
+        // once that timeout fires -- without the test suite waiting out a real 30s default.
+        await new Promise((resolve) => setTimeout(resolve, Math.min(opts?.timeout ?? 0, 50)));
+        const timeoutError = new Error(\`Waiting for PDF render failed: timeout \${opts?.timeout}ms exceeded\`);
+        timeoutError.name = 'TimeoutError';
+        throw timeoutError;
       }
       return Buffer.from('%PDF-FAKE-CONTENT');
     },
@@ -146,6 +160,7 @@ async function test(name, fn) {
   control.failNextCallAt = null;
   control.pageCloseCount = 0;
   control.browserCloseCount = 0;
+  control.lastPdfOptsTimeout = null;
   try {
     await fn();
     passed += 1;
@@ -254,6 +269,53 @@ await test('a successful render resets the consecutive-failure counter (no stale
   }
   const alertCalls = errorCalls.filter((args) => args[0] === 'phase14_pdf_renderer_repeated_failures');
   assert.equal(alertCalls.length, 0, 'a single isolated failure after a success must not trigger the repeated-failure alert');
+});
+
+// M6: a bounded, explicit timeout is passed to page.pdf() -- proven directly by asserting the
+// fake received the exact configured value -- and a forced hang (page.pdf() never resolving
+// within that timeout) recovers exactly like any other render failure: the cached browser is
+// discarded, the page is closed, and the very next call relaunches Chromium and succeeds. A
+// short timeout is configured via the same environment variable production tuning would use, so
+// this test proves the real timeout wiring without waiting out the 30s production default.
+await test('page.pdf() is called with the configured bounded timeout', async () => {
+  await renderHtmlToPdfBuffer('<p>timeout wiring</p>');
+  assert.equal(control.lastPdfOptsTimeout, 30_000, 'the default timeout must be passed through to page.pdf() when unconfigured');
+});
+
+await test('a forced hanging PDF render times out, is logged distinctly, and recovers on the next call', async () => {
+  const originalConsoleError = console.error;
+  const errorCalls = [];
+  console.error = (...args) => { errorCalls.push(args); };
+  process.env.PDF_RENDER_TIMEOUT_MS = '40';
+  try {
+    control.failNextCallAt = 'pdf_timeout';
+    await assert.rejects(renderHtmlToPdfBuffer('<p>will hang</p>'), /timeout 40ms exceeded/);
+    assert.equal(control.lastPdfOptsTimeout, 40, 'the configured (not default) timeout must reach page.pdf()');
+    assert.equal(control.browserCloseCount, 1, 'a browser that just hosted a hung render must be discarded, not reused');
+
+    const timeoutAlerts = errorCalls.filter((args) => args[0] === 'phase14_pdf_render_timeout');
+    assert.equal(timeoutAlerts.length, 1, 'a render timeout must be logged as its own distinct signal, on every occurrence');
+    assert.equal(timeoutAlerts[0][1].timeoutMs, 40);
+
+    // Controlled retry: the very next call must relaunch Chromium and succeed, exactly like
+    // recovery from any other render failure.
+    const recovered = await renderHtmlToPdfBuffer('<p>recovered after timeout</p>');
+    assert.equal(Buffer.isBuffer(recovered), true);
+    assert.equal(control.launchCount, 2, 'a timed-out render must force a relaunch on the next call');
+  } finally {
+    delete process.env.PDF_RENDER_TIMEOUT_MS;
+    console.error = originalConsoleError;
+  }
+});
+
+await test('PDF_RENDER_TIMEOUT_MS is env-overridable per the same operational-tuning pattern as the Resend timeouts (M7)', async () => {
+  process.env.PDF_RENDER_TIMEOUT_MS = '12345';
+  try {
+    await renderHtmlToPdfBuffer('<p>configured timeout</p>');
+    assert.equal(control.lastPdfOptsTimeout, 12345);
+  } finally {
+    delete process.env.PDF_RENDER_TIMEOUT_MS;
+  }
 });
 
 fs.rmSync(workDir, { recursive: true, force: true });

@@ -7,6 +7,18 @@ let browserPromise: Promise<any> | null = null;
 let consecutiveRenderFailures = 0;
 const REPEATED_FAILURE_ALERT_THRESHOLD = 3;
 
+// M6: page.pdf() previously had no explicit timeout, relying entirely on Puppeteer's own
+// internal default. A bounded, configured timeout is applied explicitly so a hung render
+// (a genuinely stuck renderer process, as opposed to one that has already crashed and would
+// fail newPage()/setContent() immediately) cannot hold a report generation open indefinitely.
+// Read fresh on every call (not cached at module load) so operational tuning via the
+// environment variable takes effect without a redeploy, and so tests can override it per case.
+export const DEFAULT_PDF_RENDER_TIMEOUT_MS = 30_000;
+function resolvePdfRenderTimeoutMs(): number {
+  const configured = Number(process.env.PDF_RENDER_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PDF_RENDER_TIMEOUT_MS;
+}
+
 /** Test-only hook: forces the next getBrowser() call to relaunch regardless of cached state. */
 export function __resetPdfRendererStateForTests(): void {
   browserPromise = null;
@@ -147,14 +159,18 @@ async function getBrowser() {
 export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
   let browser: { newPage: () => Promise<unknown>; close: () => Promise<void>; isConnected: () => boolean } | null = null;
   let page: { close: () => Promise<void>; setContent: (html: string, opts: unknown) => Promise<void>; pdf: (opts: unknown) => Promise<unknown> } | null = null;
+  const pdfRenderTimeoutMs = resolvePdfRenderTimeoutMs();
   try {
     browser = await getBrowser();
     page = (await browser!.newPage()) as typeof page;
     await page!.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+    // M6: bounded timeout on the render itself. Puppeteer throws a TimeoutError (recognised
+    // below by error.name) if the render has not completed within this many milliseconds.
     const pdf = await page!.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      timeout: pdfRenderTimeoutMs
     });
     consecutiveRenderFailures = 0;
     return Buffer.from(pdf as Parameters<typeof Buffer.from>[0]);
@@ -165,6 +181,17 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
     // also covers a launch failure inside getBrowser() itself (browser stays null in that case).
     browserPromise = null;
     consecutiveRenderFailures += 1;
+    // M6: a render timeout is logged as its own distinct, immediately-visible operational
+    // signal (every occurrence, not gated behind the consecutive-failure threshold below) --
+    // a single hang is worth surfacing on its own, since it means a real render was abandoned
+    // mid-flight after consuming the full timeout budget, not merely a fast, cheap failure.
+    const isRenderTimeout = error instanceof Error && error.name === 'TimeoutError';
+    if (isRenderTimeout) {
+      console.error('phase14_pdf_render_timeout', {
+        timeoutMs: pdfRenderTimeoutMs,
+        message: error.message
+      });
+    }
     if (consecutiveRenderFailures >= REPEATED_FAILURE_ALERT_THRESHOLD) {
       console.error('phase14_pdf_renderer_repeated_failures', {
         consecutiveFailures: consecutiveRenderFailures,
