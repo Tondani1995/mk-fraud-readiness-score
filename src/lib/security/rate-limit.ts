@@ -87,5 +87,9 @@ export const RATE_LIMITS = {
   // relative to realistic Phase 14 launch volume; intended to be tightened once real production
   // traffic patterns are observed post-launch (see docs/v2/phase14-commercial-launch/
   // known-risks-and-launch-limitations.md, L5).
-  resendWebhookGlobal: () => ({ maxHits: getNumberEnv('RATE_LIMIT_RESEND_WEBHOOK_GLOBAL_PER_MINUTE', 600), windowSeconds: 60 })
+  resendWebhookGlobal: () => ({ maxHits: getNumberEnv('RATE_LIMIT_RESEND_WEBHOOK_GLOBAL_PER_MINUTE', 600), windowSeconds: 60 }),
+  // Brute-force protection on 6-digit TOTP verification (both first-time enrollment verify and
+  // later step-up challenges). Keyed per admin user id, not per IP, since the thing being
+  // protected is a specific account's second factor regardless of source address.
+  adminMfaVerifyPerAdmin: () => ({ maxHits: getNumberEnv('RATE_LIMIT_ADMIN_MFA_VERIFY_PER_ADMIN', 10), windowSeconds: 15 * 60 })
 };

@@ -47,6 +47,58 @@ assertIncludes('src/components/admin/AdminShell.tsx', 'Report controls', 'Admin 
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 9', 'Admin navigation must not expose phase labels');
 assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 10', 'Admin navigation must not expose phase labels');
 
+// PR #31 regression: nav hrefs must resolve through scorePath(), not the raw /admin/* path
+// (the raw form resolves outside the /score namespace and can fall through to the legacy
+// /login page). Both assertions are needed together - the file could contain the correct
+// substring for one link while still having the bug on another.
+assertIncludes('src/components/admin/AdminShell.tsx', 'href={scorePath(link.href)}', 'Admin shell nav links must resolve href through scorePath(), not the raw /admin/* path (PR #31 regression)');
+assertNotIncludes('src/components/admin/AdminShell.tsx', 'href={link.href}', 'Admin shell nav links must not use the raw, un-namespaced href (the exact PR #31 bug: resolves outside /score, can fall through to the legacy /login)');
+{
+  const adminShellSource = read('src/components/admin/AdminShell.tsx');
+  const requiredAdminHrefs = [
+    '/admin', '/admin/orders', '/admin/reports', '/admin/assessments',
+    '/admin/config/questions', '/admin/config/products', '/admin/config/content',
+    '/admin/audit-log', '/admin/enquiries', '/admin/phase14-activation', '/admin/security'
+  ];
+  for (const href of requiredAdminHrefs) {
+    assert(adminShellSource.includes(`href: '${href}'`), `Admin shell must define a sidebar link for ${href} (resolves to /score${href} under the Fraud Readiness session)`);
+  }
+}
+assertNotIncludes('src/components/admin/AdminShell.tsx', 'Phase 14', 'Admin navigation must not expose internal phase codenames (use business-meaningful labels like the existing Order/Report controls pattern)');
+
+// Phase 14 activation + MFA: routes and pages must exist, and the mutation routes must not
+// skip the AAL2 pre-check (defense-in-depth alongside the authoritative Postgres-side check).
+const phase14ActivationRoutes = [
+  'src/app/score/admin/security/page.tsx',
+  'src/app/score/admin/phase14-activation/page.tsx',
+  'src/app/score/api/admin/mfa/enroll/route.ts',
+  'src/app/score/api/admin/mfa/verify/route.ts',
+  'src/app/score/api/admin/mfa/factors/route.ts',
+  'src/app/score/api/admin/mfa/unenroll/route.ts',
+  'src/app/score/api/admin/phase14-activation/gate/route.ts',
+  'src/app/score/api/admin/phase14-activation/feature-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/ai-route-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/settings/route.ts'
+];
+for (const route of phase14ActivationRoutes) {
+  assert(fs.existsSync(path.join(root, route)), `Missing Phase 14 activation/MFA route: ${route}`);
+}
+const phase14MutationRoutes = [
+  'src/app/score/api/admin/phase14-activation/gate/route.ts',
+  'src/app/score/api/admin/phase14-activation/feature-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/ai-route-policy/route.ts',
+  'src/app/score/api/admin/phase14-activation/settings/route.ts'
+];
+for (const route of phase14MutationRoutes) {
+  assertIncludes(route, 'decodeAalClaimForDisplayOnly', `${route} must pre-check AAL2 before calling its RPC (defense-in-depth; Postgres remains authoritative)`);
+  assertIncludes(route, "requireAdmin(['platform_admin'])", `${route} must require the platform_admin role`);
+  assertIncludes(route, 'createSupabaseAuthenticatedServerClient', `${route} must call its RPC with the real admin's own session (not a service-role client), or phase14_require_actor cannot resolve auth.uid()`);
+}
+// The MFA verify route must actually persist the fresh aal2 session back into cookies - a
+// success response that leaves the old aal1 cookie in place would silently strand the admin at
+// aal1 despite the app claiming MFA succeeded.
+assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCookies', 'MFA verify route must write the new aal2 session back into cookies after a successful verify');
+
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH = '/score'", 'Admin login form knows score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');
