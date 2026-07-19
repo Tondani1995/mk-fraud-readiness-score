@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { logCapabilityQueryFailure, type DiagnosticContext, type QueryFailureDiagnostic } from './capability-diagnostics';
 import {
   getPhase1SchemaCapability,
   PHASE1_SCHEMA_ERROR_MESSAGE,
@@ -40,17 +41,20 @@ function withoutPhase1State(orders: any[]) {
   }));
 }
 
-export async function getPhase1OrderOperations(orderId: string, checkedCapability?: Phase1SchemaCapability) {
+export async function getPhase1OrderOperations(
+  orderId: string,
+  checkedCapability?: Phase1SchemaCapability,
+  context?: DiagnosticContext
+) {
   const db = createSupabaseServiceClient() as any;
-  const capability = checkedCapability ?? await getPhase1SchemaCapability(db);
+  const capability = checkedCapability ?? await getPhase1SchemaCapability(db, context);
   if (capability.status !== 'available') {
     return {
       capability,
       schemaAvailable: false,
-      generationHistory: [],
-      latestGeneration: null,
-      deliveryHistory: [],
-      latestDelivery: null,
+      failedQueries: capability.failedQuery ? [capability.failedQuery] : [],
+      generationHistory: [], latestGeneration: null,
+      deliveryHistory: [], latestDelivery: null,
       notifications: []
     };
   }
@@ -65,17 +69,19 @@ export async function getPhase1OrderOperations(orderId: string, checkedCapabilit
       .select('id,notification_type,recipient_email,status,provider_mode,retry_count,error_message,created_at,updated_at')
       .eq('order_id', orderId).order('created_at', { ascending: false })
   ]);
-  if (generationResult.error || deliveryResult.error || notificationResult.error) {
-    console.error('phase1_order_operations', {
-      outcome: 'error',
-      generationCode: generationResult.error?.code ?? null,
-      deliveryCode: deliveryResult.error?.code ?? null,
-      notificationCode: notificationResult.error?.code ?? null
-    });
-  }
+
+  const failedQueries: QueryFailureDiagnostic[] = [];
+  const generationFailure = logCapabilityQueryFailure('manual_report_generation_attempts', generationResult.error, context);
+  if (generationFailure) failedQueries.push(generationFailure);
+  const deliveryFailure = logCapabilityQueryFailure('manual_report_delivery_attempts', deliveryResult.error, context);
+  if (deliveryFailure) failedQueries.push(deliveryFailure);
+  const notificationFailure = logCapabilityQueryFailure('email_events', notificationResult.error, context);
+  if (notificationFailure) failedQueries.push(notificationFailure);
+
   return {
     capability,
-    schemaAvailable: !generationResult.error && !deliveryResult.error && !notificationResult.error,
+    schemaAvailable: failedQueries.length === 0,
+    failedQueries,
     generationHistory: generationResult.data ?? [],
     latestGeneration: generationResult.data?.[0] ?? null,
     deliveryHistory: deliveryResult.data ?? [],
