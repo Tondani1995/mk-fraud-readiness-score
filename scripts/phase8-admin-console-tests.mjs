@@ -99,6 +99,46 @@ for (const route of phase14MutationRoutes) {
 // aal1 despite the app claiming MFA succeeded.
 assertIncludes('src/app/score/api/admin/mfa/verify/route.ts', 'setAdminSessionCookies', 'MFA verify route must write the new aal2 session back into cookies after a successful verify');
 
+// Hotfix regression (production incident: digest 3595257760): a client component exported as a
+// property of a compound object (e.g. `export const Phase14ActivationControls = { Gate: ... }`)
+// cannot be resolved by Next.js's production React Client Manifest when referenced as
+// `<Phase14ActivationControls.Gate />` from a server component. This must stay as four direct
+// named exports, imported and used directly, or the /score/admin/phase14-activation route will
+// 500 in production (it passed local dev and CI build before, since the manifest-resolution
+// failure only manifests under the production RSC build).
+assertNotIncludes(
+  'src/components/admin/Phase14ActivationControls.tsx',
+  'export const Phase14ActivationControls = {',
+  'Phase14ActivationControls.tsx must not re-introduce the compound-object client export pattern that broke the production React Client Manifest (digest 3595257760)'
+);
+{
+  const namedExports = ['Phase14GateControl', 'Phase14PoliciesControl', 'Phase14AiRoutesControl', 'Phase14SettingsControl'];
+  const controlsSource = read('src/components/admin/Phase14ActivationControls.tsx');
+  for (const exportName of namedExports) {
+    assert(
+      new RegExp(`function ${exportName}\\(`).test(controlsSource),
+      `Phase14ActivationControls.tsx must define ${exportName} as a standalone function component`
+    );
+  }
+  assert(
+    /export \{\s*Phase14GateControl,\s*Phase14PoliciesControl,\s*Phase14AiRoutesControl,\s*Phase14SettingsControl\s*\};?/.test(controlsSource),
+    'Phase14ActivationControls.tsx must export all four controls as direct named exports'
+  );
+
+  const pageSource = read('src/app/score/admin/phase14-activation/page.tsx');
+  assertNotIncludes(
+    'src/app/score/admin/phase14-activation/page.tsx',
+    'Phase14ActivationControls.',
+    'phase14-activation page must not use compound-object property access (e.g. Phase14ActivationControls.Gate) to render client components'
+  );
+  for (const exportName of namedExports) {
+    assert(
+      pageSource.includes(exportName),
+      `phase14-activation page must import and render ${exportName} directly`
+    );
+  }
+}
+
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "const SCORE_BASE_PATH = '/score'", 'Admin login form knows score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "fetch(scorePath('/api/admin/login')", 'Admin login posts through score base path');
 assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href = scorePath('/admin')", 'Admin login redirects through score base path');

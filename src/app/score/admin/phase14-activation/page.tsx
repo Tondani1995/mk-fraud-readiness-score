@@ -1,7 +1,12 @@
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Phase14ActivationControls } from '@/components/admin/Phase14ActivationControls';
+import {
+  Phase14GateControl,
+  Phase14PoliciesControl,
+  Phase14AiRoutesControl,
+  Phase14SettingsControl
+} from '@/components/admin/Phase14ActivationControls';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
@@ -66,28 +71,28 @@ export default async function Phase14ActivationPage() {
         <Card>
           <CardHeader><CardTitle>Security gate</CardTitle></CardHeader>
           <CardContent>
-            <Phase14ActivationControls.Gate gate={state.gate} />
+            <Phase14GateControl gate={state.gate} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle>Feature policies</CardTitle></CardHeader>
           <CardContent>
-            <Phase14ActivationControls.Policies policies={state.policies} labels={POLICY_LABELS} />
+            <Phase14PoliciesControl policies={state.policies} labels={POLICY_LABELS} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle>AI provider routes</CardTitle></CardHeader>
           <CardContent>
-            <Phase14ActivationControls.AiRoutes routes={state.aiRoutes} />
+            <Phase14AiRoutesControl routes={state.aiRoutes} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle>Automation settings</CardTitle></CardHeader>
           <CardContent>
-            <Phase14ActivationControls.Settings
+            <Phase14SettingsControl
               reportEngineSettings={state.reportEngineSettings}
               deliveryPolicySettings={state.deliveryPolicySettings}
             />
