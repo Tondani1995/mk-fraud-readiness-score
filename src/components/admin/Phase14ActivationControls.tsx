@@ -29,7 +29,7 @@ type Gate = {
   updated_at: string;
 } | null;
 
-function GateControl({ gate }: { gate: Gate }) {
+function Phase14GateControl({ gate }: { gate: Gate }) {
   const [reason, setReason] = useState('');
   const [targetVersion, setTargetVersion] = useState(String(gate?.required_version ?? 1));
   const [busy, setBusy] = useState(false);
@@ -117,7 +117,7 @@ type Policy = {
   reason: string | null;
 };
 
-function PoliciesControl({ policies, labels }: { policies: Policy[]; labels: Record<string, string> }) {
+function Phase14PoliciesControl({ policies, labels }: { policies: Policy[]; labels: Record<string, string> }) {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
@@ -190,7 +190,7 @@ function PoliciesControl({ policies, labels }: { policies: Policy[]; labels: Rec
 
 type AiRoute = { requested_provider: string; enabled: boolean; approved_gate_version: number | null };
 
-function AiRoutesControl({ routes }: { routes: AiRoute[] }) {
+function Phase14AiRoutesControl({ routes }: { routes: AiRoute[] }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -239,7 +239,7 @@ function AiRoutesControl({ routes }: { routes: AiRoute[] }) {
   );
 }
 
-function SettingsControl({
+function Phase14SettingsControl({
   reportEngineSettings,
   deliveryPolicySettings
 }: {
@@ -340,9 +340,4 @@ function SettingsControl({
   );
 }
 
-export const Phase14ActivationControls = {
-  Gate: GateControl,
-  Policies: PoliciesControl,
-  AiRoutes: AiRoutesControl,
-  Settings: SettingsControl
-};
+export { Phase14GateControl, Phase14PoliciesControl, Phase14AiRoutesControl, Phase14SettingsControl };
