@@ -363,11 +363,20 @@ jobs:
           # real CI run on the renumbered ledger actually hit: "ERROR: relation
           # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" while applying
           # 0026. They must instead be re-applied individually, in filename order, *after*
-          # reconciliation has patched the schema up to canonical shape.
+          # reconciliation has patched the schema up to canonical shape. Phase 1's 0032
+          # (service_role SELECT restore on app_settings) is held out here too, even though it
+          # has no schema dependency on reconciliation -- without this, 0032 would apply during
+          # the initial `supabase db reset` below (right after 0022, before this held-out block
+          # is reapplied), while the "fresh" canonical path earlier in this job applies 0032 last
+          # (after 0031). That ordering divergence broke fresh_hash == upgrade_hash even though
+          # the final grant state is identical either way -- holding 0032 out and reapplying it
+          # in this same filename-ordered loop (it naturally sorts after 0031) restores identical
+          # relative sequencing between the two paths.
           mkdir -p tmp/migration-replay/held-0023-0031-for-reconciliation
           mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
             supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
             supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            supabase/migrations/0032_*.sql \
             tmp/migration-replay/held-0023-0031-for-reconciliation/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
@@ -446,10 +455,16 @@ jobs:
           # here too and hit the identical "ERROR: relation
           # public.phase14_workflow_start_outbox does not exist (SQLSTATE 42P01)" applying 0026,
           # before phase14-production-canonical-reconciliation.sql ever got a chance to run.
+          # Phase 1's 0032 is held out here too, for the identical fresh/upgrade ordering
+          # reason documented above the equivalent hold-out in the "Prove fresh and current-UAT
+          # upgrade schema equivalence" step -- this step's later `cmp` against
+          # fresh-canonical-schema-inventory.txt is even stricter (byte-exact) and would trip on
+          # the same ordering divergence otherwise.
           mkdir -p tmp/migration-replay/held-0023-0031-for-production-history
           mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
             supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
             supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            supabase/migrations/0032_*.sql \
             tmp/migration-replay/held-0023-0031-for-production-history/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \

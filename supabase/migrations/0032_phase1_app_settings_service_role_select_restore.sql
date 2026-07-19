@@ -1,0 +1,34 @@
+-- Production hotfix: restore service_role SELECT on public.app_settings.
+--
+-- Root cause: migration 0017_phase14_canonical_disabled_foundation.sql revoked
+-- select/insert/update/delete on public.app_settings from anon, authenticated,
+-- AND service_role. The service_role revoke was overbroad: application code
+-- only ever reads app_settings via service_role (7 call sites -- all SELECT,
+-- confirmed by repo-wide grep of `from('app_settings')`), and every write goes
+-- through SECURITY DEFINER RPCs, never raw table access. Stripping
+-- service_role's SELECT broke every capability check that reads a marker row
+-- from app_settings, including:
+--   src/lib/reports/phase1-schema-capability.ts   (Generate Report button)
+--   src/lib/payments/payment-capability.ts
+--   src/lib/reports/automation/feature-flags.ts
+--   src/lib/admin/assessment-review.ts
+--   src/lib/assessment-experience/resume-capability.ts
+--   src/lib/orders/manual-eft-orders.ts
+--   src/app/score/admin/phase14-activation/page.tsx
+--
+-- Confirmed live in production via Vercel runtime error logs:
+--   phase1_schema_capability { stage: 'marker', outcome: 'error', code: '42501' }
+--   payment_capability      { stage: 'marker', outcome: 'error', code: '42501' }
+-- (42501 = Postgres insufficient_privilege), occurring since 2026-07-17.
+--
+-- This restores read-only access only. INSERT/UPDATE/DELETE remain revoked
+-- for service_role, anon, and authenticated -- the deliberate write lockdown
+-- from 0017 is untouched; all writes continue to go through SECURITY DEFINER
+-- RPCs as before.
+--
+-- Already applied directly to production (jvjxlphdyzerrhwcgkup) and recorded
+-- in the migration ledger as 20260719134816_phase1_app_settings_service_role_
+-- select_restore. This file exists so a clean replay of the migration history
+-- reproduces the same grant.
+
+grant select on table public.app_settings to service_role;

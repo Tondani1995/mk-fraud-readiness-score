@@ -10,6 +10,7 @@ import { requireAdmin } from '@/lib/auth/admin-route';
 import { formatOrderAmount, getAdminOrderDetail } from '@/lib/orders/manual-eft-orders';
 import { getPhase1OrderOperations } from '@/lib/reports/phase1-operations';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_ERROR_MESSAGE } from '@/lib/reports/phase1-schema-capability';
+import { logCapabilityQueryFailure, type QueryFailureDiagnostic } from '@/lib/reports/capability-diagnostics';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPaymentOrderOperations } from '@/lib/payments/payment-operations';
 
@@ -35,25 +36,27 @@ function SnapshotValue({ label, value }: { label: string; value: string | null |
   );
 }
 
+const ORDER_DETAIL_REQUEST_PATH = '/score/admin/orders/[orderReference]';
+
 async function getReportVersions(db: any, orderId: string, capabilityAvailable: boolean) {
   if (!capabilityAvailable) {
     const base = await db.from('reports')
       .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum')
       .eq('order_id', orderId).order('version_number', { ascending: false });
     if (base.error) {
-      console.error('phase1_order_reports_query', { orderId, reason: 'base_report_query_failed' });
-      return { reports: [], available: false };
+      const failedQuery = logCapabilityQueryFailure('reports:base', base.error, { requestPath: ORDER_DETAIL_REQUEST_PATH });
+      return { reports: [], available: false, failedQuery };
     }
-    return { reports: (base.data ?? []).map((report: any) => ({ ...report, storage_status: 'NOT_STORED' })), available: true };
+    return { reports: (base.data ?? []).map((report: any) => ({ ...report, storage_status: 'NOT_STORED' })), available: true, failedQuery: null as QueryFailureDiagnostic | null };
   }
   const detailed = await db.from('reports')
     .select('id,report_reference,version_number,status,generated_at,storage_bucket,storage_path,checksum,file_name,mime_type,file_size_bytes,storage_status,storage_verified_at')
     .eq('order_id', orderId).order('version_number', { ascending: false });
   if (detailed.error) {
-    console.error('phase1_order_reports_query', { orderId, reason: 'phase1_report_query_failed' });
-    return { reports: [], available: false };
+    const failedQuery = logCapabilityQueryFailure('reports:detailed', detailed.error, { requestPath: ORDER_DETAIL_REQUEST_PATH });
+    return { reports: [], available: false, failedQuery };
   }
-  return { reports: detailed.data ?? [], available: true };
+  return { reports: detailed.data ?? [], available: true, failedQuery: null as QueryFailureDiagnostic | null };
 }
 
 export default async function AdminOrderDetailPage({
@@ -68,15 +71,20 @@ export default async function AdminOrderDetailPage({
   const detail = await getAdminOrderDetail(params.orderReference);
   if (!detail) notFound();
   const { order, events, auditEvents } = detail;
-  const capability = await getPhase1SchemaCapability(db);
+  const capability = await getPhase1SchemaCapability(db, { requestPath: ORDER_DETAIL_REQUEST_PATH });
   const capabilityAvailable = capability.status === 'available';
   const [reportResult, operations, payment] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
-    getPhase1OrderOperations(order.id, capability),
+    getPhase1OrderOperations(order.id, capability, { requestPath: ORDER_DETAIL_REQUEST_PATH }),
     getPaymentOrderOperations(order.id, order.status)
   ]);
   const reportVersions = reportResult.reports;
   const operationalAvailable = capabilityAvailable && operations.schemaAvailable && reportResult.available;
+  const failedDependencies: QueryFailureDiagnostic[] = [
+    ...(capability.failedQuery ? [capability.failedQuery] : []),
+    ...((operations as any).failedQueries ?? []),
+    ...(reportResult.failedQuery ? [reportResult.failedQuery] : [])
+  ];
   const latestReport = reportVersions[0] ?? null;
   const storageCandidate = Boolean(latestReport?.storage_bucket && latestReport?.storage_path && latestReport?.checksum);
   const storageReady = Boolean(latestReport?.storage_status === 'VERIFIED' && latestReport.storage_bucket && latestReport.storage_path);
@@ -108,7 +116,18 @@ export default async function AdminOrderDetailPage({
 
         {!operationalAvailable ? (
           <div className="rounded-xl border border-mk-brass/40 bg-mk-cream p-4 text-sm text-mk-ink">
-            {capability.status === 'available' ? PHASE1_SCHEMA_ERROR_MESSAGE : capability.message}
+            <p>{capability.status === 'available' ? PHASE1_SCHEMA_ERROR_MESSAGE : capability.message}</p>
+            {failedDependencies.length ? (
+              <ul className="mt-2 space-y-1 text-xs text-mk-muted">
+                {failedDependencies.map((failure, index) => (
+                  <li key={`${failure.query}-${index}`}>
+                    <span className="font-semibold text-mk-ink">{failure.query}</span>
+                    {' — '}{failure.safeMessage}
+                    {failure.code ? ` (code ${failure.code})` : ''}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : null}
 
