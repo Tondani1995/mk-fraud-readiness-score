@@ -555,7 +555,3 @@ jobs:
           name: supabase-migration-replay-evidence
           path: tmp/migration-replay
           if-no-files-found: error
-
-          name: supabase-migration-replay-evidence
-          path: tmp/migration-replay
-          if-no-files-found: error
