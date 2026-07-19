@@ -4,13 +4,13 @@
 select pg_advisory_lock(hashtextextended('phase14-uat-canonical-reconciliation', 0));
 do $preflight$
 -- v_expected covers the pre-reconciliation ledger tail as it exists during this script's
-  -- own historical/UAT-shaped replay (canonical 0017 swapped for its UAT-applied archive
-  -- equivalent, 0023-0031 held out and reapplied separately by the calling workflow step).
-  -- Phase 1's 0032 (service_role SELECT restore on app_settings) is not part of the held-out
-  -- 0023-0031 range, so it remains present in this replay and must be listed here -- same
-  -- reasoning as the "no extras" ledger check in phase14-migration-replay-assertions.sql.
-  declare v_actual text[]; v_expected constant text[] := array[
-    '0017','0018','0019','0020','0021','0022','0032','20260714194317','20260714201550','20260714214023'];
+-- own historical/UAT-shaped replay (canonical 0017 swapped for its UAT-applied archive
+-- equivalent, 0023-0031 -- and, as of Phase 1's 0032 service_role SELECT restore on
+-- app_settings, 0032 too -- held out by the calling workflow step and reapplied only after
+-- this reconciliation runs). 0032 is deliberately *not* listed here: it is not yet present
+-- in the ledger at this point in either replay path, by construction of that hold-out.
+declare v_actual text[]; v_expected constant text[] := array[
+  '0017','0018','0019','0020','0021','0022','20260714194317','20260714201550','20260714214023'];
 begin
   if exists (select 1 from supabase_migrations.schema_migrations where version='0017' and name='phase14_canonical_disabled_foundation') then
     if to_regprocedure('public.terminal_phase14_generation_publication(jsonb,text,text)') is null
