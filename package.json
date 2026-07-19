@@ -23,6 +23,7 @@
     "phase7:test-snapshot": "node scripts/phase7-free-snapshot-tests.mjs",
     "phase7:smoke": "node scripts/phase7-free-snapshot-tests.mjs",
     "phase8:test-admin": "node scripts/phase8-admin-console-tests.mjs",
+    "phase1:test-capability-diagnostics": "node scripts/phase1-capability-diagnostics-tests.mjs",
     "phase9:test-orders": "node scripts/phase9-manual-eft-order-tests.mjs",
     "phase10:test-report": "node scripts/phase10-premium-report-tests.mjs",
     "phase11:test-security": "node scripts/phase11-security-qa-tests.mjs",
