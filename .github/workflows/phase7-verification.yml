@@ -48,6 +48,9 @@ jobs:
       - name: Run Phase 8 admin console tests
         run: npm run phase8:test-admin
 
+      - name: Run Phase 1 capability diagnostics tests
+        run: npm run phase1:test-capability-diagnostics
+
       - name: Run methodology copy polish tests
         run: npm run methodology:copy-test
 
