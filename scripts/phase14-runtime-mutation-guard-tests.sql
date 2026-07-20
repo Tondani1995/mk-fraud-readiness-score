@@ -263,6 +263,18 @@ select public.complete_manual_report_generation(
 -- empty/invalid id either way, so no separate null-check is needed here.
 select (:'phase1_complete'::jsonb -> 'report' ->> 'id')::uuid as phase1_report_id \gset
 
+-- TEMPORARY DIAGNOSTIC (to be removed once CI run #3's division-by-zero is
+-- root-caused): dump the intermediate values feeding the assertion below.
+select :'phase1_attempt_id' as diag_attempt_id;
+select :'phase1_report_id' as diag_report_id;
+select :'phase1_complete' as diag_complete_raw;
+select report_id, event_type, from_status, to_status
+  from public.report_events
+  where report_id = :'phase1_report_id'::uuid;
+select count(*) as diag_report_id_only_count
+  from public.report_events
+  where report_id = :'phase1_report_id'::uuid;
+
 select case when (
   select count(*) from public.report_events
   where report_id = :'phase1_report_id'::uuid and event_type = 'generated'
