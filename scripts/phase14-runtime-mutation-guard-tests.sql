@@ -275,6 +275,16 @@ select count(*) as diag_report_id_only_count
   from public.report_events
   where report_id = :'phase1_report_id'::uuid;
 
+-- TEMPORARY: non-aborting boolean probes (round 2) to pinpoint which of the
+-- two checks is actually false, without aborting the script via division.
+select
+  (select count(*) from public.report_events
+   where report_id = :'phase1_report_id'::uuid and event_type = 'generated') as diag2_event_count,
+  (select count(*) from public.report_events
+   where report_id = :'phase1_report_id'::uuid and event_type::text = 'generated') as diag2_event_count_texcast,
+  (select status from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) as diag2_attempt_status,
+  (select status::text from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) = 'REPORT_READY' as diag2_attempt_ready_bool;
+
 select case when (
   select count(*) from public.report_events
   where report_id = :'phase1_report_id'::uuid and event_type = 'generated'
