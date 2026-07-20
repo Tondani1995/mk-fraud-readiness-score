@@ -188,11 +188,32 @@ select id as phase1_template_id from public.report_templates where status = 'act
 -- NOTE: psql does not interpolate :'var' references inside dollar-quoted
 -- (do $$ ... $$) bodies -- that is deliberate psql behaviour, so that a
 -- PL/pgSQL function body's own use of ':=' and similar is never corrupted by
--- variable substitution. Every assertion below is therefore written as a
--- plain top-level statement (where substitution does apply), using a
--- division-by-zero as the "raise an error" mechanism in place of a plpgsql
--- raise exception -- ON_ERROR_STOP still aborts the script on the resulting
--- SQL error either way.
+-- variable substitution. Assertions below are therefore issued as plain
+-- top-level statements (where substitution does apply) that call a small
+-- pg_temp helper function rather than embedding control flow inline.
+--
+-- That helper exists because of a second, unrelated pitfall: a bare
+-- division-by-zero (e.g. "case when <cond> then 1 else 1/0 end") is NOT a
+-- safe way to fail a query on a false condition once <cond> itself is not a
+-- compile-time constant (e.g. it comes from a subquery). Postgres's constant
+-- expression folder still evaluates the literal "1/0" ELSE arm on its own,
+-- independently of which branch would be chosen at runtime, and raises
+-- division-by-zero unconditionally -- confirmed live against production:
+-- `select case when (select count(*) from pg_class where relname='orders')
+-- = 1 then 1 else 1/0 end` raises even though the condition is true. Using
+-- a real PL/pgSQL "raise exception" inside pg_temp.assert_true avoids this
+-- entirely, since the IF/RAISE only executes when genuinely reached.
+
+create or replace function pg_temp.assert_true(p_cond boolean, p_message text)
+returns void
+language plpgsql
+as $ptbody$
+begin
+  if not p_cond then
+    raise exception '%', p_message;
+  end if;
+end;
+$ptbody$;
 
 set local session_replication_role = replica;
 
@@ -238,8 +259,10 @@ select public.claim_manual_report_generation(
   'ph1-guard-regression-request', 'admin_generate', '27000000-0000-0000-0000-000000000006'
 ) as phase1_claim \gset
 
-select case when (:'phase1_claim'::jsonb ->> 'claimed')::boolean then 1 else 1/0 end
-  as phase1_claim_assertion;
+select pg_temp.assert_true(
+  (:'phase1_claim'::jsonb ->> 'claimed')::boolean,
+  'phase1_claim_assertion failed: claim_manual_report_generation did not report claimed=true'
+);
 
 select :'phase1_claim'::jsonb -> 'attempt' ->> 'id' as phase1_attempt_id \gset
 
@@ -263,36 +286,16 @@ select public.complete_manual_report_generation(
 -- empty/invalid id either way, so no separate null-check is needed here.
 select (:'phase1_complete'::jsonb -> 'report' ->> 'id')::uuid as phase1_report_id \gset
 
--- TEMPORARY DIAGNOSTIC (to be removed once CI run #3's division-by-zero is
--- root-caused): dump the intermediate values feeding the assertion below.
-select :'phase1_attempt_id' as diag_attempt_id;
-select :'phase1_report_id' as diag_report_id;
-select :'phase1_complete' as diag_complete_raw;
-select report_id, event_type, from_status, to_status
-  from public.report_events
-  where report_id = :'phase1_report_id'::uuid;
-select count(*) as diag_report_id_only_count
-  from public.report_events
-  where report_id = :'phase1_report_id'::uuid;
-
--- TEMPORARY: non-aborting boolean probes (round 2) to pinpoint which of the
--- two checks is actually false, without aborting the script via division.
-select
+select pg_temp.assert_true(
   (select count(*) from public.report_events
-   where report_id = :'phase1_report_id'::uuid and event_type = 'generated') as diag2_event_count,
-  (select count(*) from public.report_events
-   where report_id = :'phase1_report_id'::uuid and event_type::text = 'generated') as diag2_event_count_texcast,
-  (select status from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) as diag2_attempt_status,
-  (select status::text from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) = 'REPORT_READY' as diag2_attempt_ready_bool;
+   where report_id = :'phase1_report_id'::uuid and event_type = 'generated') = 1,
+  'phase1_report_event_assertion failed: expected exactly one generated report_events row for the new report'
+);
 
-select case when (
-  select count(*) from public.report_events
-  where report_id = :'phase1_report_id'::uuid and event_type = 'generated'
-) = 1 then 1 else 1/0 end as phase1_report_event_assertion;
-
-select case when (
-  select status from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid
-) = 'REPORT_READY' then 1 else 1/0 end as phase1_attempt_ready_assertion;
+select pg_temp.assert_true(
+  (select status from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) = 'REPORT_READY',
+  'phase1_attempt_ready_assertion failed: expected manual_report_generation_attempts.status = REPORT_READY'
+);
 
 reset role;
 
