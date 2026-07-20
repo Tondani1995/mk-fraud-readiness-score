@@ -176,6 +176,7 @@ jobs:
           mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
             supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
             supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
+            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
             tmp/migration-replay/held-post-boundary/
           cp docs/v1/phase14/migration-audit-archive/uat-applied/00*.sql supabase/migrations/
           restore_canonical() {
@@ -376,7 +377,7 @@ jobs:
           mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
             supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
             supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
-            supabase/migrations/0032_*.sql \
+            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
             tmp/migration-replay/held-0023-0031-for-reconciliation/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
@@ -464,7 +465,7 @@ jobs:
           mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
             supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
             supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
-            supabase/migrations/0032_*.sql \
+            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
             tmp/migration-replay/held-0023-0031-for-production-history/
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \

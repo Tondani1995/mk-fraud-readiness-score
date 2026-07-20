@@ -165,5 +165,139 @@ select public.phase14_test_expect_error(
 );
 reset role;
 
+-- ===========================================================================
+-- Positive-path regression (migration 0033): Phase 1's manual report
+-- generation RPC chain (claim -> start -> complete) must succeed end-to-end
+-- against the FULL migration set, including 0017's authoritative-mutation
+-- guard exercised above in phase14_test_service_role_mutations(). Before
+-- 0033, complete_manual_report_generation's insert into report_events was
+-- rejected with phase14_authoritative_rpc_required on every real production
+-- attempt (see 0033's migration header for the full incident). The isolated
+-- Phase 1 harness (scripts/phase1-0023-replay-tests.sh) never caught this:
+-- it resets to schema version 0016 and applies only 0023 in isolation, so
+-- 0017's guard trigger never exists in that database. This block runs in the
+-- ordinary full migration chain, so it is the first regression coverage that
+-- actually exercises 0017 and 0023/0033 together, the exact combination that
+-- broke in production.
+-- ===========================================================================
+
+select id as phase1_methodology_id from public.methodology_versions where status = 'active' limit 1 \gset
+select id as phase1_product_id from public.products where product_code = 'essential_self_assessment' limit 1 \gset
+select id as phase1_template_id from public.report_templates where status = 'active' and report_type = 'essential_self_assessment' order by version_number desc limit 1 \gset
+
+-- NOTE: psql does not interpolate :'var' references inside dollar-quoted
+-- (do $$ ... $$) bodies -- that is deliberate psql behaviour, so that a
+-- PL/pgSQL function body's own use of ':=' and similar is never corrupted by
+-- variable substitution. Assertions below are therefore issued as plain
+-- top-level statements (where substitution does apply) that call a small
+-- pg_temp helper function rather than embedding control flow inline.
+--
+-- That helper exists because of a second, unrelated pitfall: a bare
+-- division-by-zero (e.g. "case when <cond> then 1 else 1/0 end") is NOT a
+-- safe way to fail a query on a false condition once <cond> itself is not a
+-- compile-time constant (e.g. it comes from a subquery). Postgres's constant
+-- expression folder still evaluates the literal "1/0" ELSE arm on its own,
+-- independently of which branch would be chosen at runtime, and raises
+-- division-by-zero unconditionally -- confirmed live against production:
+-- `select case when (select count(*) from pg_class where relname='orders')
+-- = 1 then 1 else 1/0 end` raises even though the condition is true. Using
+-- a real PL/pgSQL "raise exception" inside pg_temp.assert_true avoids this
+-- entirely, since the IF/RAISE only executes when genuinely reached.
+
+create or replace function pg_temp.assert_true(p_cond boolean, p_message text)
+returns void
+language plpgsql
+as $ptbody$
+begin
+  if not p_cond then
+    raise exception '%', p_message;
+  end if;
+end;
+$ptbody$;
+
+set local session_replication_role = replica;
+
+insert into public.organisations(id, legal_name)
+values ('27000000-0000-0000-0000-000000000001', 'Phase 1 Guard Regression Org');
+
+insert into public.admin_profiles(id, email, full_name, role, status, mfa_required)
+values ('27000000-0000-0000-0000-000000000002', 'phase1-guard-regression@example.invalid',
+  'Phase1 Guard Regression Admin', 'platform_admin', 'active', false);
+
+insert into public.assessments(id, assessment_reference, organisation_id, methodology_version_id, status, submitted_at, locked_at, current_score_run_id)
+values ('27000000-0000-0000-0000-000000000003', 'PH1-GUARD-REGRESSION',
+  '27000000-0000-0000-0000-000000000001', :'phase1_methodology_id', 'scored', now(), now(),
+  '27000000-0000-0000-0000-000000000004');
+
+insert into public.score_runs(
+  id, assessment_id, methodology_version_id, run_number, run_type, status,
+  overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band,
+  coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, input_hash, locked_at
+) values (
+  '27000000-0000-0000-0000-000000000004', '27000000-0000-0000-0000-000000000003',
+  :'phase1_methodology_id', 1, 'test_fixture', 'completed', 60,
+  'Developing', 'Developing', 40, 'High', 100, 0, 0, 0, false, repeat('d',64), now()
+);
+
+insert into public.orders(
+  id, order_reference, assessment_id, product_id, status, amount_cents, currency,
+  product_name, customer_email, customer_name, organisation_name, verified_at, verified_by
+) values (
+  '27000000-0000-0000-0000-000000000005', 'ORDER-PH1-GUARD-REGRESSION',
+  '27000000-0000-0000-0000-000000000003', :'phase1_product_id', 'payment_received', 500000, 'ZAR',
+  'Essential Self-Assessment', 'phase1-guard-regression@example.invalid',
+  'Phase1 Guard Regression', 'Phase 1 Guard Regression Org', now(),
+  '27000000-0000-0000-0000-000000000002'
+);
+
+set local session_replication_role = origin;
+
+set local role service_role;
+
+select public.claim_manual_report_generation(
+  'ORDER-PH1-GUARD-REGRESSION', '27000000-0000-0000-0000-000000000002',
+  'ph1-guard-regression-request', 'admin_generate', '27000000-0000-0000-0000-000000000006'
+) as phase1_claim \gset
+
+select pg_temp.assert_true(
+  (:'phase1_claim'::jsonb ->> 'claimed')::boolean,
+  'phase1_claim_assertion failed: claim_manual_report_generation did not report claimed=true'
+);
+
+select :'phase1_claim'::jsonb -> 'attempt' ->> 'id' as phase1_attempt_id \gset
+
+select public.start_manual_report_generation(:'phase1_attempt_id'::uuid) as phase1_start \gset
+
+select public.complete_manual_report_generation(
+  :'phase1_attempt_id'::uuid,
+  :'phase1_template_id'::uuid,
+  'essential_self_assessment'::public.report_type,
+  'generated-reports',
+  'phase1-guard-regression-org/27000000-0000-0000-0000-000000000005/v1/report.pdf',
+  'report.pdf',
+  'application/pdf',
+  1024,
+  repeat('e',64)
+) as phase1_complete \gset
+
+-- If the report_events authoritative-context regression reappeared, the RPC
+-- either raised (aborting the script under ON_ERROR_STOP before this point)
+-- or returned no report; the ::uuid cast below fails loudly on an
+-- empty/invalid id either way, so no separate null-check is needed here.
+select (:'phase1_complete'::jsonb -> 'report' ->> 'id')::uuid as phase1_report_id \gset
+
+select pg_temp.assert_true(
+  (select count(*) from public.report_events
+   where report_id = :'phase1_report_id'::uuid and event_type = 'generated') = 1,
+  'phase1_report_event_assertion failed: expected exactly one generated report_events row for the new report'
+);
+
+select pg_temp.assert_true(
+  (select status from public.manual_report_generation_attempts where id = :'phase1_attempt_id'::uuid) = 'REPORT_READY',
+  'phase1_attempt_ready_assertion failed: expected manual_report_generation_attempts.status = REPORT_READY'
+);
+
+reset role;
+
 rollback;
 select 'phase14_runtime_mutation_guard_tests_passed' as result;
