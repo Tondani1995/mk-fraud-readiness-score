@@ -311,6 +311,7 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       p_file_size_bytes: pdf.length,
       p_checksum: checksum
     });
+    console.error('COMPLETE_ERROR_DIAG', { technicalReference, message: completeError?.message, details: completeError?.details, hint: completeError?.hint, code: completeError?.code, completedIsNull: completed === null, completedHasReport: !!completed?.report });
     if (completeError || !completed?.report) {
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
