@@ -248,6 +248,12 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
   }
 
   const attemptId = String(claim.attempt.id);
+  const versionNumber = Number(claim.attempt.report_version);
+  // Use the versioned reference (e.g. "...-V2") everywhere, including the
+  // rendered report itself, so the PDF's own footer/title page match the
+  // reports.report_reference value stored for this version instead of the
+  // bare assessment reference assembleReportData() defaults to.
+  assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
   let uploaded = false;
@@ -283,8 +289,7 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     assertValidPdf(pdf, technicalReference);
 
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
-    const versionNumber = Number(claim.attempt.report_version);
-    const reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+    const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
     storageBucket = 'generated-reports';
     storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
@@ -311,8 +316,20 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       p_file_size_bytes: pdf.length,
       p_checksum: checksum
     });
-    console.error('COMPLETE_ERROR_DIAG', { technicalReference, message: completeError?.message, details: completeError?.details, hint: completeError?.hint, code: completeError?.code, completedIsNull: completed === null, completedHasReport: !!completed?.report });
     if (completeError || !completed?.report) {
+      // Keep the underlying Postgres error out of the user-facing message
+      // (report_persistence_failed / "verified PDF could not be linked")
+      // but log it so an operator can diagnose the real cause instead of
+      // only seeing the generic category (this previously hid a real
+      // unique_violation on reports_one_current_assessment_type_uidx for
+      // several failed attempts before it was traced down).
+      console.error('phase1_manual_generation_persistence_error', {
+        technicalReference,
+        message: completeError?.message,
+        details: completeError?.details,
+        hint: completeError?.hint,
+        code: completeError?.code
+      });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
 
