@@ -37,7 +37,7 @@ function severityFor(domain: DomainResultRecord, isCapped: boolean, hasGap: bool
 
 function rationaleFor(domain: DomainResultRecord, isCapped: boolean, hasGap: boolean) {
   if (isCapped) {
-    return 'Sequenced first because this domain contains a control issue that changes how the whole readiness result should be interpreted.';
+    return `Sequenced first because ${domain.domainName} contains a control issue that changes how the whole readiness result should be interpreted.`;
   }
   if (hasGap) {
     return 'Prioritised because a specific control weakness in this domain was material enough to be flagged in the persisted score trace.';
