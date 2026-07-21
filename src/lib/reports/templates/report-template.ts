@@ -148,10 +148,19 @@ export function renderReportHtml(
 
   const criticalControlsList = data.maturityCapEvents.map((event) => {
     const gap = data.criticalMajorGaps.find((item) => item.domainCode === event.relatedDomainCode);
-    const domainName = gap?.domainName ?? data.domainResults.find((domain) => domain.domainCode === event.relatedDomainCode)?.domainName ?? 'A core control area';
-    const description = gap?.prompt ?? 'A control did not meet the required standard.';
+    // relatedDomainCode is now resolved server-side (assemble-report-data.ts) through the related
+    // question's domain when the cap event itself has no domain reference, so this should only be
+    // null for genuinely cross-domain rules (e.g. "three or more critical controls scored <=2"),
+    // which are named honestly below rather than rendered as a placeholder.
+    const domainName =
+      gap?.domainName ??
+      data.domainResults.find((domain) => domain.domainCode === event.relatedDomainCode)?.domainName ??
+      event.relatedDomainName ??
+      null;
+    const description = gap?.prompt ?? event.relatedQuestionPrompt ?? event.reason;
+    const label = domainName ?? 'A cross-domain pattern (not limited to one control)';
     return `<li>
-      <div class="critical-control-domain">${esc(domainName)}</div>
+      <div class="critical-control-domain">${esc(label)}</div>
       <div class="critical-control-desc">${esc(description)}</div>
       <div class="critical-control-effect">This limits the overall reading to <strong>${esc(event.capTo)}</strong>, regardless of performance elsewhere.</div>
     </li>`;
@@ -228,7 +237,7 @@ export function renderReportHtml(
   .cover-bottom .meta { font-size: 8.5pt; color: #b7c6e0; font-family: Arial, sans-serif; line-height: 1.8; }
   .cover-bottom .confidential { margin-top: 7mm; font-size: 8pt; color: #8fa3c9; font-style: italic; font-family: Arial, sans-serif; }
   .confidentiality-page { justify-content: center; }
-  .confidentiality-page .box { border: 1px solid #E6D8BF; border-radius: 2mm; padding: 12mm; background: #FCF9F2; }
+  .box, .confidentiality-box { border: 1px solid #E6D8BF; border-radius: 2mm; padding: 8mm 10mm; background: #FCF9F2; margin-bottom: 7mm; }
   .section-divider { align-self: flex-start; background: #001030; color: white; padding: 2.2mm 5.5mm; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 2px; font-size: 8pt; margin-bottom: 7mm; border-radius: 1mm; }
   h2 { font-size: 17pt; margin: 0 0 4mm 0; color: #001030; line-height: 1.25; font-weight: 700; }
   h3 { font-size: 11pt; color: #001030; margin: 0 0 3mm 0; }
@@ -286,6 +295,8 @@ export function renderReportHtml(
   .clean-note { background: #F0F7F2; border-left: 4px solid #15803d; padding: 5mm 6mm; font-size: 10pt; }
   .false-comfort-page { background: #FCF7ED; }
   .false-comfort-page h2 { color: #7C5F2A; }
+  .false-comfort-divider { background: #7C5F2A; }
+  .false-comfort-divider ~ h2 { color: #7C5F2A; }
   .domain-card-grid { display: flex; flex-direction: column; gap: 4mm; }
   .domain-card { border: 1px solid #E6D8BF; border-radius: 1.5mm; padding: 4.5mm 5.5mm; break-inside: avoid; }
   .domain-card-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2mm; }
@@ -342,14 +353,12 @@ export function renderReportHtml(
     </div>
   </div>
 </section>
-<section class="page confidentiality-page">
-  <div class="box">
+<section class="page">
+  <div class="confidentiality-box box">
     <h2>Confidentiality and use</h2>
     <p>This report is prepared exclusively for ${esc(data.organisationName)} based on a structured self-assessment. It is intended for internal leadership use and is not for external distribution without MK Fraud Insights' consent.</p>
     <p>Findings reflect the responses provided at the time of assessment and should be read as a diagnostic starting point, not a certification, audit opinion or guarantee.</p>
   </div>
-</section>
-<section class="page">
   <div class="section-divider">Executive Diagnosis</div>
   <div class="diagnosis-tile">
     <div class="diagnosis-score"><div class="big-number">${score(sr.overallScore)}</div><div class="out-of">out of 100</div><div class="band-chip" style="background:${bandColor};">${esc(sr.finalMaturity)}</div></div>
@@ -368,6 +377,9 @@ export function renderReportHtml(
     <div class="score-grid-cell"><div class="label">Flags</div><div class="value">${sr.criticalGapCount + sr.majorGapCount}</div></div>
   </div>
   <p>A ${esc(sr.finalMaturity)} reading means fraud controls are ${sr.finalMaturity === 'Strategic' ? 'mature and largely proven' : sr.finalMaturity === 'Structured' ? 'genuinely present and operating, with consistency the main remaining gap' : sr.finalMaturity === 'Developing' ? 'present in places but not yet reliable' : 'not yet structured'}. This number should be read together with the exposure profile and domain view that follow, not in isolation.</p>
+  <div class="section-divider" style="margin-top:6mm;">Domain Heatmap</div>
+  <h2>The score is made up of ten areas, not one average</h2>
+  <div class="heatmap">${domainHeatmap}</div>
 </section>
 <section class="page">
   <div class="section-divider">The Three Biggest Fraud-Readiness Risks</div>
@@ -385,11 +397,6 @@ export function renderReportHtml(
   <div class="exposure-driver-list">${exposureFactorRows}</div>
 </section>
 <section class="page">
-  <div class="section-divider">Domain Heatmap</div>
-  <h2>The score is made up of ten areas, not one average</h2>
-  <div class="heatmap">${domainHeatmap}</div>
-</section>
-<section class="page">
   <div class="section-divider">Priority Gap Dashboard</div>
   <h2>If leadership reads one page, it should be this one</h2>
   ${priorityGaps ? `<ul class="priority-list">${priorityGaps}</ul>` : '<div class="clean-note">No critical or major gaps were flagged in this assessment. See the False Comfort page next: a clean result is good news, but it is not the same claim as zero risk.</div>'}
@@ -399,9 +406,7 @@ export function renderReportHtml(
   <h2>Where a small number of issues can still mean high risk</h2>
   <p>A small number of controls in this methodology carry enough weight that a serious gap in one can limit the overall reading, regardless of how strong other areas are.</p>
   ${criticalControlsList ? `<ul class="critical-list">${criticalControlsList}</ul>` : '<div class="clean-note">No control issues of this kind were flagged in this assessment.</div>'}
-</section>
-<section class="page false-comfort-page">
-  <div class="section-divider">False Comfort</div>
+  <div class="section-divider false-comfort-divider" style="margin-top:6mm;">False Comfort</div>
   <h2>${esc(content.falseComfort.title)}</h2>
   <p>${esc(content.falseComfort.body)}</p>
 </section>
@@ -410,9 +415,7 @@ ${domainGroupPages}
   <div class="section-divider">Action Register</div>
   <h2>The specific actions behind the roadmap</h2>
   <table class="action-register"><tr><th>Domain</th><th>Priority</th><th>Immediate action</th><th>Suggested owner</th></tr>${actionRegisterRows}</table>
-</section>
-<section class="page">
-  <div class="section-divider">30/60/90-Day Roadmap</div>
+  <div class="section-divider" style="margin-top:6mm;">30/60/90-Day Roadmap</div>
   <h2>A sequenced plan, not a repeated checklist</h2>
   <div class="agenda-list">${agendaCards}</div>
 </section>
@@ -420,9 +423,7 @@ ${domainGroupPages}
   <div class="section-divider">Leadership Agenda</div>
   <h2>What each function should be asking</h2>
   ${leadershipAgendaRows}
-</section>
-<section class="page">
-  <div class="section-divider">Where MK Fraud Insights Can Help Next</div>
+  <div class="section-divider" style="margin-top:6mm;">Where MK Fraud Insights Can Help Next</div>
   <h2>Natural next steps, not a hard sell</h2>
   <div class="next-step-list">
     <div class="next-step-item"><div class="next-step-title">Targeted control review</div><p>A focused review of the specific domains flagged as highest priority in this report.</p></div>
@@ -436,9 +437,7 @@ ${domainGroupPages}
   <p>This report is generated from a structured self-assessment across ten areas of fraud risk management, each weighted by relative importance to overall fraud readiness. Certain control failures can limit the overall reading even where other areas score well.</p>
   <h3 style="margin-top:6mm;">Limitations</h3>
   <p>This is a structured self-assessment, not a forensic investigation, external audit or compliance certification. It reflects responses at a point in time and should be read as a diagnostic starting point, not assurance that fraud has not occurred or cannot occur.</p>
-</section>
-<section class="page">
-  <div class="section-divider">Appendix: Score Basis</div>
+  <div class="section-divider" style="margin-top:6mm;">Appendix: Score Basis</div>
   <h2>Coverage and completeness</h2>
   <table class="appendix-table"><tr><th>Domain</th><th>Coverage</th></tr>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td></tr>`).join('')}</table>
 </section>
