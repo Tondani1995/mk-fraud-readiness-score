@@ -22,7 +22,11 @@ export const FALLBACK_EXECUTIVE_DIAGNOSIS: Record<MaturityBand, FallbackText> = 
 };
 
 export const FALLBACK_CAPPED_DIAGNOSIS: FallbackText = {
-  headline: 'A single control gap is holding back a stronger underlying position',
+  // Deliberately count-neutral: this fallback has no visibility into how many maturity_cap_events
+  // fired for a given assessment (that context lives in AssembledReportData, not this static table),
+  // so it must not assert "a single" gap the way the old copy did -- confirmed wrong on the MK Assist
+  // reference assessment, which has 4 separate maturity_cap_events, not 1.
+  headline: 'One or more control gaps are holding back a stronger underlying position',
   body: 'Taken purely as a weighted average, this organisation scored {{overallScore}} out of 100, which would ordinarily place it in the {{calculatedMaturity}} readiness band. That average is not the full picture. One or more specific controls scored low enough to cap the final reading to {{finalMaturity}}, because some weaknesses change what the rest of the score is allowed to mean.'
 };
 
@@ -107,7 +111,7 @@ export const FALLBACK_DOMAIN_CONTENT: Record<string, Record<MaturityBand, Fallba
     Reactive: { headline: 'Controls are set once and not revisited', body: 'There is no habit of reviewing whether fraud controls still work or still matter. A control environment that has not been reviewed recently is not stable; it is untested against current risks.' },
     Developing: { headline: 'Reviews happen occasionally, not rhythmically', body: 'Some review of controls and incidents takes place, but without a defined rhythm it can slip during busy periods, which is often exactly when review matters most.' },
     Structured: { headline: 'The organisation reviews itself, but speed matters', body: 'Fraud risk and controls are periodically reviewed, and incidents feed improvement. As the organisation and threat landscape change, the speed of review matters as much as its existence.' },
-    Strategic: { headline: 'Fraud readiness is treated as a moving target', body: 'Reviews happen often enough to track how the organisation and threat landscape are changing, rather than assuming what worked last year still works now.' }
+    Strategic: { headline: 'Fraud readiness is treated as a moving target', body: 'Reviews happen often enough to track how the organisation and threat landscape are changing, rather than assuming what worked last year still works.' }
   }
 };
 
