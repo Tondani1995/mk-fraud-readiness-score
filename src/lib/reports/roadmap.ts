@@ -64,9 +64,13 @@ function defaultActions(domainName: string) {
 
 function matchingRule(data: AssembledReportData, domain: DomainResultRecord, isCapped: boolean) {
   if (isCapped) return data.recommendationRules.find((rule) => rule.severity === 'Maturity cap');
-  const score = domain.rawScore;
-  const bandNeedle = score === null ? '<=39' : score < 40 ? '<=39' : score < 65 ? '40-64' : score < 80 ? '65-79' : '80+';
-  return data.recommendationRules.find((rule) => rule.title.includes(bandNeedle) || rule.firedForDomainCodes.includes(domain.domainCode));
+  const score = domain.rawScore ?? 0;
+  // Match against the rule's parsed numeric band (see parseScoreBand in assemble-report-data.ts)
+  // instead of a hardcoded substring needle. The old needles ("40-64", "65-79", "80+") never matched
+  // the real stored titles ("40-59", "60-79", ">=80"), so only the <=39 band ever fired in practice.
+  return data.recommendationRules.find(
+    (rule) => rule.scoreBand !== null && score >= rule.scoreBand.min && score <= rule.scoreBand.max
+  );
 }
 
 export function selectRoadmap(data: AssembledReportData): { agenda: RoadmapItem[] } {
