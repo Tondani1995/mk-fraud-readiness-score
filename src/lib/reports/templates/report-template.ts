@@ -1,4 +1,5 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
+import { buildAdvisoryEvidenceModel } from '../evidence-model';
 import { gapKey } from '../select-content-blocks';
 
 const BAND_COLOR: Record<string, string> = {
@@ -90,6 +91,7 @@ export function renderReportHtml(
   const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#1d3658';
   const generatedDate = new Date(data.generatedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
+  const evidenceModel = buildAdvisoryEvidenceModel(data);
 
   const domainHeatmap = data.domainResults.map((domain) => {
     const band = domainBandLabel(domain.rawScore);
@@ -214,6 +216,67 @@ export function renderReportHtml(
     </div>`;
   }).join('');
 
+
+  const contradictionsHtml = evidenceModel.contradictions.map((c) => `
+    <div class="contradiction-card">
+      <div class="contradiction-title">${esc(c.title)}</div>
+      <div class="contradiction-row"><span class="contradiction-label">What the evidence shows</span><p>${esc(c.drivingResponses)}</p></div>
+      <div class="contradiction-row"><span class="contradiction-label">Why it matters</span><p>${esc(c.whyItMatters)}</p></div>
+      <div class="contradiction-row"><span class="contradiction-label">Risk of false comfort</span><p>${esc(c.falseComfortRisk)}</p></div>
+      <div class="contradiction-row"><span class="contradiction-label">What leadership should verify</span><p>${esc(c.whatLeadershipShouldVerify)}</p></div>
+    </div>`).join('');
+
+  const scenariosHtml = evidenceModel.scenarios.map((s) => `
+    <div class="scenario-card">
+      <div class="scenario-title">${esc(s.title)}</div>
+      <p class="scenario-disclaimer">${esc(s.disclaimer)}</p>
+      <div class="scenario-row"><span class="scenario-label">Confirmed operating context</span><ul>${s.confirmedOperatingContext.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div class="scenario-row"><span class="scenario-label">How it could unfold</span><p>${esc(s.fraudSequence)}</p></div>
+      <div class="scenario-row"><span class="scenario-label">Why it might not be caught</span><p>${esc(s.whyControlsMayNotCatchIt)}</p></div>
+      <div class="scenario-row"><span class="scenario-label">Early warning signs</span><ul>${s.earlyWarningIndicators.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div class="scenario-row"><span class="scenario-label">If it happened</span><p><strong>Immediate:</strong> ${esc(s.immediateContainment)}</p><p><strong>Longer term:</strong> ${esc(s.longerTermResponse)}</p></div>
+    </div>`).join('');
+
+  const riskRegisterRows = evidenceModel.riskRegister.map((r) => `<tr>
+    <td>${esc(r.id)}</td>
+    <td>${esc(r.title)}</td>
+    <td>${esc(r.affectedDomain)}</td>
+    <td>${esc(r.likelihood)}</td>
+    <td>${esc(r.impact)}</td>
+    <td><span class="priority-chip priority-${esc(r.priority.toLowerCase())}">${esc(r.priority)}</span></td>
+    <td>${esc(r.accountableOwner)}</td>
+    <td>${esc(r.targetDate)}</td>
+  </tr>`).join('');
+
+  const controlImprovementCards = evidenceModel.controlImprovements.map((c) => `
+    <div class="improvement-card">
+      <div class="improvement-top"><span class="improvement-id">${esc(c.id)}</span><span class="improvement-difficulty">${esc(c.implementationDifficulty)} difficulty &middot; ${esc(c.targetPeriod)}</span></div>
+      <div class="improvement-objective">${esc(c.controlObjective)}</div>
+      <div class="improvement-row"><span class="improvement-label">Current state</span><p>${esc(c.currentState)}</p></div>
+      <div class="improvement-row"><span class="improvement-label">Target state</span><p>${esc(c.targetState)}</p></div>
+      <div class="improvement-row"><span class="improvement-label">Control design</span><p>${esc(c.controlDesign)}</p></div>
+      <div class="improvement-meta">Owner: ${esc(c.accountableOwner)} &middot; Oversight: ${esc(c.oversightOwner)} &middot; Frequency: ${esc(c.operatingFrequency)}</div>
+      <div class="improvement-row"><span class="improvement-label">Effectiveness test</span><p>${esc(c.effectivenessTest)}</p></div>
+    </div>`).join('');
+
+  const evidenceChecklistRows = evidenceModel.evidenceChecklist.map((e) => `<tr>
+    <td>${esc(e.artefact)}</td>
+    <td>${esc(e.provesWhat)}</td>
+    <td>${esc(e.likelyOwner)}</td>
+    <td>${esc(e.expectedRecency)}</td>
+  </tr>`).join('');
+
+  const leadershipDecisionCards = evidenceModel.leadershipDecisions.map((d) => `
+    <div class="decision-card">
+      <div class="decision-required">${esc(d.decisionRequired)}</div>
+      <div class="decision-row"><span class="decision-label">Evidence driving this</span><p>${esc(d.evidenceDrivingIt)}</p></div>
+      <div class="decision-row"><span class="decision-label">Why now</span><p>${esc(d.whyNow)}</p></div>
+      <div class="decision-meta">Accountable: ${esc(d.accountableExecutive)} &middot; Deadline: ${esc(d.deadline)}</div>
+      <div class="decision-row"><span class="decision-label">Consequence of delay</span><p>${esc(d.consequenceOfDelay)}</p></div>
+      <div class="decision-row"><span class="decision-label">Immediate next deliverable</span><p>${esc(d.immediateNextDeliverable)}</p></div>
+    </div>`).join('');
+
+
   return `<!DOCTYPE html>
 <html lang="en-ZA">
 <head>
@@ -333,6 +396,45 @@ export function renderReportHtml(
   table.appendix-table th, table.appendix-table td { border: 1px solid #E6D8BF; padding: 2mm 3mm; font-size: 8.5pt; }
   table.appendix-table th { background: #F7F1E6; font-family: Arial, sans-serif; }
   .footer-note { font-family: Arial, sans-serif; font-size: 7pt; color: #746B5C; margin-top: auto; padding-top: 5mm; border-top: 1px solid #E6D8BF; }
+  .contradiction-card { border: 1px solid #E6D8BF; border-left: 3px solid #7C5F2A; border-radius: 1.5mm; padding: 4.5mm 5.5mm; margin-bottom: 4mm; break-inside: avoid; background: #FCF9F2; }
+  .contradiction-title { font-family: Arial, sans-serif; font-weight: 700; font-size: 10.5pt; color: #001030; margin-bottom: 2mm; }
+  .contradiction-row { margin-top: 2.5mm; }
+  .contradiction-label { display: block; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #7C5F2A; font-weight: 700; margin-bottom: 0.8mm; }
+  .contradiction-row p { margin: 0; font-size: 9pt; }
+  .scenario-list { display: flex; flex-direction: column; gap: 4mm; }
+  .scenario-card { border: 1px solid #E6D8BF; border-left: 3px solid #b91c1c; border-radius: 1.5mm; padding: 4.5mm 5.5mm; break-inside: avoid; }
+  .scenario-title { font-family: Arial, sans-serif; font-weight: 700; font-size: 10.5pt; color: #001030; margin-bottom: 1.5mm; }
+  .scenario-disclaimer { font-size: 7.5pt; font-style: italic; color: #746B5C; margin-bottom: 3mm; }
+  .scenario-row { margin-top: 2.5mm; }
+  .scenario-label { display: block; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #b91c1c; font-weight: 700; margin-bottom: 0.8mm; }
+  .scenario-row p, .scenario-row ul { margin: 0; font-size: 9pt; }
+  .scenario-row ul { padding-left: 4mm; }
+  table.risk-register-table { width: 100%; border-collapse: collapse; margin: 4mm 0; }
+  table.risk-register-table th, table.risk-register-table td { border: 1px solid #E6D8BF; padding: 2.2mm 2.8mm; text-align: left; font-size: 8pt; }
+  table.risk-register-table th { background: #F7F1E6; font-family: Arial, sans-serif; font-size: 7.5pt; text-transform: uppercase; }
+  .priority-chip { display: inline-block; padding: 0.6mm 2.2mm; border-radius: 20px; color: white; font-family: Arial, sans-serif; font-size: 7pt; font-weight: 700; }
+  .priority-critical { background: #b91c1c; }
+  .priority-high { background: #b45309; }
+  .priority-medium { background: #1d3658; }
+  .priority-low { background: #15803d; }
+  .table-note { font-size: 8pt; color: #746B5C; font-style: italic; margin-top: 2mm; }
+  .improvement-list { display: flex; flex-direction: column; gap: 4mm; }
+  .improvement-card { border: 1px solid #E6D8BF; border-left: 3px solid #1d3658; border-radius: 1.5mm; padding: 4.5mm 5.5mm; break-inside: avoid; }
+  .improvement-top { display: flex; justify-content: space-between; margin-bottom: 1.5mm; font-family: Arial, sans-serif; }
+  .improvement-id { font-weight: 700; color: #001030; font-size: 9pt; }
+  .improvement-difficulty { font-size: 7.5pt; color: #746B5C; }
+  .improvement-objective { font-size: 9.5pt; font-weight: 700; color: #1d3658; margin-bottom: 2.5mm; }
+  .improvement-row { margin-top: 2mm; }
+  .improvement-label { display: block; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #1d3658; font-weight: 700; margin-bottom: 0.8mm; }
+  .improvement-row p { margin: 0; font-size: 8.8pt; }
+  .improvement-meta { font-size: 7.8pt; color: #7C5F2A; font-family: Arial, sans-serif; margin-top: 2mm; }
+  .decision-list { display: flex; flex-direction: column; gap: 4mm; }
+  .decision-card { border: 1px solid #E6D8BF; border-left: 3px solid #001030; border-radius: 1.5mm; padding: 4.5mm 5.5mm; break-inside: avoid; background: #F7F1E6; }
+  .decision-required { font-family: Arial, sans-serif; font-weight: 700; font-size: 10.5pt; color: #001030; margin-bottom: 2mm; }
+  .decision-row { margin-top: 2.2mm; }
+  .decision-label { display: block; font-family: Arial, sans-serif; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #7C5F2A; font-weight: 700; margin-bottom: 0.8mm; }
+  .decision-row p { margin: 0; font-size: 9pt; }
+  .decision-meta { font-size: 8pt; color: #7C5F2A; font-family: Arial, sans-serif; margin-top: 2mm; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -412,12 +514,39 @@ export function renderReportHtml(
 </section>
 ${domainGroupPages}
 <section class="page">
+  <div class="section-divider">Evidence-Based Contradictions</div>
+  <h2>Where two true answers do not add up to a safe picture</h2>
+  <p>These patterns are drawn directly from this assessment's own responses, not inferred from outside data. Each one describes a combination that looks reassuring in isolation but is not, once read together.</p>
+  ${contradictionsHtml || '<div class="clean-note">No contradictory patterns were detected between this assessment&#39;s responses.</div>'}
+</section>
+<section class="page">
+  <div class="section-divider">Plausible Scenarios</div>
+  <h2>How the gaps identified above could actually be exploited</h2>
+  <div class="scenario-list">${scenariosHtml}</div>
+</section>
+<section class="page">
+  <div class="section-divider">Risk Register</div>
+  <h2>Findings translated into a register leadership can track</h2>
+  <table class="risk-register-table"><tr><th>ID</th><th>Risk</th><th>Domain</th><th>Likelihood</th><th>Impact</th><th>Priority</th><th>Owner</th><th>Target date</th></tr>${riskRegisterRows}</table>
+  <p class="table-note">Likelihood, impact and priority are derived mechanically from this assessment's own hard-gate and critical-control flags; this is not an independent risk assessment.</p>
+</section>
+<section class="page">
+  <div class="section-divider">Control Improvement Plan</div>
+  <h2>What closing each gap actually requires</h2>
+  <div class="improvement-list">${controlImprovementCards}</div>
+</section>
+<section class="page">
   <div class="section-divider">Action Register</div>
   <h2>The specific actions behind the roadmap</h2>
   <table class="action-register"><tr><th>Domain</th><th>Priority</th><th>Immediate action</th><th>Suggested owner</th></tr>${actionRegisterRows}</table>
   <div class="section-divider" style="margin-top:6mm;">30/60/90-Day Roadmap</div>
   <h2>A sequenced plan, not a repeated checklist</h2>
   <div class="agenda-list">${agendaCards}</div>
+</section>
+<section class="page">
+  <div class="section-divider">Leadership Decisions Required</div>
+  <h2>What leadership needs to actually decide, and by when</h2>
+  <div class="decision-list">${leadershipDecisionCards}</div>
 </section>
 <section class="page">
   <div class="section-divider">Leadership Agenda</div>
@@ -440,6 +569,9 @@ ${domainGroupPages}
   <div class="section-divider" style="margin-top:6mm;">Appendix: Score Basis</div>
   <h2>Coverage and completeness</h2>
   <table class="appendix-table"><tr><th>Domain</th><th>Coverage</th></tr>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td></tr>`).join('')}</table>
+  <div class="section-divider" style="margin-top:6mm;">Appendix: Evidence to Request</div>
+  <h2>What to ask for before treating any finding as resolved</h2>
+  <table class="appendix-table"><tr><th>Artefact</th><th>Proves</th><th>Likely owner</th><th>Expected recency</th></tr>${evidenceChecklistRows}</table>
 </section>
 <section class="page">
   <div class="section-divider">Version Record</div>
