@@ -81,11 +81,15 @@ export function buildControlImprovementRegister(findings: MaterialFinding[], ris
 
 export function buildEvidenceChecklist(findings: MaterialFinding[], riskRegister: RiskRegisterEntry[]): EvidenceChecklistItem[] {
   const items: EvidenceChecklistItem[] = [];
+  const seenArtefacts = new Set<string>();
   let seq = 0;
   for (const finding of findings) {
     const playbook = getDomainPlaybook(finding.domainCode);
     const risk = riskRegister.find((r) => r.linkedFindingIds.includes(finding.id));
     for (const evidenceItem of playbook.evidenceItems) {
+      const dedupeKey = evidenceItem.artefact.trim().toLowerCase();
+      if (seenArtefacts.has(dedupeKey)) continue;
+      seenArtefacts.add(dedupeKey);
       items.push({
         id: `EV-${String(++seq).padStart(2, '0')}`,
         artefact: evidenceItem.artefact,
