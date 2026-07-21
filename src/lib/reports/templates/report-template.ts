@@ -124,7 +124,7 @@ export function renderReportHtml(
       }
     }));
   } catch (diagErr) {
-    console.error('QUALITY_GATE_DIAG_ERROR', diagErr && diagErr.message);
+    console.error('QUALITY_GATE_DIAG_ERROR', diagErr instanceof Error ? diagErr.message : String(diagErr));
   }
 
 
