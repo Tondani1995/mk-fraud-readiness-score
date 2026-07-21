@@ -55,17 +55,35 @@ export interface MaturityCapEventRecord {
   capTo: MaturityBand;
   reason: string;
   relatedQuestionCode: string | null;
+  relatedQuestionPrompt: string | null;
+  /**
+   * Domain code for this cap event. Resolved from the event's own related_domain_id when present,
+   * falling back to the related question's domain when the event only recorded a question-level
+   * reference. Null only for rules that are inherently cross-domain (e.g. "three or more critical
+   * controls scored <=2"), which have neither a single question nor a single domain to point to.
+   */
   relatedDomainCode: string | null;
+  relatedDomainName: string | null;
+}
+
+export interface ScoreBand {
+  min: number;
+  max: number;
 }
 
 export interface RecommendationRuleRecord {
   ruleCode: string;
   title: string;
   severity: string;
+  /**
+   * Parsed numeric score band this rule applies to (e.g. {min:-Infinity,max:39}), derived from the
+   * rule's condition_json/title at read time. Null for rules that aren't score-band rules (e.g. the
+   * maturity-cap rule, matched on severity instead).
+   */
+  scoreBand: ScoreBand | null;
   action30: string | null;
   action60: string | null;
   action90: string | null;
-  firedForDomainCodes: string[];
 }
 
 export interface AssembledReportData {
