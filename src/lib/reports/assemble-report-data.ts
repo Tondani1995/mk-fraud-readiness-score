@@ -108,7 +108,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: domainRows, error: domainError } = await supabase
     .from('score_domain_results')
-    .select('raw_score, weighted_contribution, coverage_pct, critical_gap_count, domains:domain_id(domain_code, name, weight_pct, sort_order))')
+    .select('raw_score, weighted_contribution, coverage_pct, critical_gap_count, domains:domain_id(domain_code, name, weight_pct, sort_order)')
     .eq('score_run_id', scoreRunRow.id);
 
   if (domainError || !domainRows || domainRows.length === 0) {
