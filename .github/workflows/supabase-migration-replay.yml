@@ -171,13 +171,106 @@ jobs:
           # was never previously verified because this workflow could not run against real Docker/
           # Supabase CLI until this branch's first real CI run (this remediation pass) -- see
           # round-7-remediation-register.md.
-          mkdir -p tmp/migration-replay/held-post-boundary
+          # Boundary-driven hold-out: instead of enumerating migration filenames (which
+          # goes stale the moment a new migration is added -- exactly what broke this step when
+          # 0034 and two timestamped migrations were added without updating the old mv list),
+          # classify every file in supabase/migrations by its version prefix. A 4-digit numeric
+          # prefix greater than the boundary is post-boundary; any non-4-digit prefix (a
+          # timestamped migration, e.g. 20260721150808_...) is always treated as post-boundary
+          # for this historical simulation, since timestamped migrations are by construction
+          # commits made after the numbered migration sequence and can never predate a numeric
+          # boundary. This makes the hold-out correct for 0034, both current timestamped
+          # migrations, and any future migration without editing this workflow again.
+          holdout_boundary_is_post() {
+            local base="$1" boundary="$2" prefix
+            prefix="${base%%_*}"
+            case "$prefix" in
+              ''|*[!0-9]*)
+                echo "::error::Unrecognised migration filename prefix (not purely numeric): $base" >&2
+                exit 1
+                ;;
+            esac
+            if [ "${#prefix}" -eq 4 ]; then
+              [ "$((10#$prefix))" -gt "$((10#$boundary))" ]
+            else
+              true
+            fi
+          }
+          holdout_boundary_sweep() {
+            local boundary="$1" holdout_dir="$2" manifest="$2/held-manifest.txt" base f held=0
+            mkdir -p "$holdout_dir"
+            : > "$manifest"
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                mv "$f" "$holdout_dir/"
+                echo "$base" >> "$manifest"
+                held=$((held + 1))
+              fi
+            done
+            echo "Held out $held post-$boundary migration(s) into $holdout_dir:"
+            cat "$manifest"
+            if [ "$held" -eq 0 ]; then
+              echo "::error::Expected at least one post-$boundary migration to hold out; found none. Investigate before trusting this boundary." >&2
+              exit 1
+            fi
+            local has_numeric=0 has_timestamped=0 name p
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              p="${name%%_*}"
+              if [ "${#p}" -eq 4 ]; then has_numeric=1; else has_timestamped=1; fi
+            done < "$manifest"
+            if [ "$has_numeric" -ne 1 ]; then
+              echo "::error::Expected at least one 4-digit numeric post-$boundary migration in $manifest; found none." >&2
+              exit 1
+            fi
+            if [ "$has_timestamped" -ne 1 ]; then
+              echo "::error::Expected at least one timestamped migration in $manifest; found none." >&2
+              exit 1
+            fi
+            grep -qx '0034_phase_v2_content_library_activation.sql' "$manifest" \
+              || echo "::warning::0034_phase_v2_content_library_activation.sql not present in this repository state; skipping that specific check."
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                echo "::error::Post-boundary migration still present in supabase/migrations after sweep: $base" >&2
+                exit 1
+              fi
+            done
+          }
+          holdout_boundary_restore() {
+            local holdout_dir="$1" manifest="$1/held-manifest.txt" name restored=0 left
+            if [ ! -f "$manifest" ]; then
+              echo "::error::No hold-out manifest found at $manifest -- cannot verify restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "$holdout_dir/$name" ]; then
+                echo "::error::Expected held-out migration missing from $holdout_dir: $name" >&2
+                exit 1
+              fi
+              mv "$holdout_dir/$name" "supabase/migrations/$name"
+              restored=$((restored + 1))
+            done < "$manifest"
+            left=$(find "$holdout_dir" -maxdepth 1 -name '*.sql' | wc -l)
+            if [ "$left" -ne 0 ]; then
+              echo "::error::$left migration(s) still present in $holdout_dir after restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "supabase/migrations/$name" ]; then
+                echo "::error::Restoration verification failed -- $name not found back in supabase/migrations." >&2
+                exit 1
+              fi
+            done < "$manifest"
+            echo "Restored $restored held-out migration(s) from $holdout_dir; verified all present back in supabase/migrations."
+          }
           mv "$canonical" "$backup"
-          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
-            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
-            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
-            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
-            tmp/migration-replay/held-post-boundary/
+          holdout_boundary_sweep 0022 tmp/migration-replay/held-post-boundary
           cp docs/v1/phase14/migration-audit-archive/uat-applied/00*.sql supabase/migrations/
           restore_canonical() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
@@ -187,7 +280,7 @@ jobs:
               supabase/migrations/0021_phase14_adversarial_remediation.sql \
               supabase/migrations/0022_phase14_adversarial_remediation_grants.sql
             mv "$backup" "$canonical"
-            mv tmp/migration-replay/held-post-boundary/*.sql supabase/migrations/
+            holdout_boundary_restore tmp/migration-replay/held-post-boundary
           }
           trap restore_canonical EXIT
           supabase db reset --local --yes
@@ -373,12 +466,105 @@ jobs:
           # the final grant state is identical either way -- holding 0032 out and reapplying it
           # in this same filename-ordered loop (it naturally sorts after 0031) restores identical
           # relative sequencing between the two paths.
-          mkdir -p tmp/migration-replay/held-0023-0031-for-reconciliation
-          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
-            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
-            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
-            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
-            tmp/migration-replay/held-0023-0031-for-reconciliation/
+          # Boundary-driven hold-out: instead of enumerating migration filenames (which
+          # goes stale the moment a new migration is added -- exactly what broke this step when
+          # 0034 and two timestamped migrations were added without updating the old mv list),
+          # classify every file in supabase/migrations by its version prefix. A 4-digit numeric
+          # prefix greater than the boundary is post-boundary; any non-4-digit prefix (a
+          # timestamped migration, e.g. 20260721150808_...) is always treated as post-boundary
+          # for this historical simulation, since timestamped migrations are by construction
+          # commits made after the numbered migration sequence and can never predate a numeric
+          # boundary. This makes the hold-out correct for 0034, both current timestamped
+          # migrations, and any future migration without editing this workflow again.
+          holdout_boundary_is_post() {
+            local base="$1" boundary="$2" prefix
+            prefix="${base%%_*}"
+            case "$prefix" in
+              ''|*[!0-9]*)
+                echo "::error::Unrecognised migration filename prefix (not purely numeric): $base" >&2
+                exit 1
+                ;;
+            esac
+            if [ "${#prefix}" -eq 4 ]; then
+              [ "$((10#$prefix))" -gt "$((10#$boundary))" ]
+            else
+              true
+            fi
+          }
+          holdout_boundary_sweep() {
+            local boundary="$1" holdout_dir="$2" manifest="$2/held-manifest.txt" base f held=0
+            mkdir -p "$holdout_dir"
+            : > "$manifest"
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                mv "$f" "$holdout_dir/"
+                echo "$base" >> "$manifest"
+                held=$((held + 1))
+              fi
+            done
+            echo "Held out $held post-$boundary migration(s) into $holdout_dir:"
+            cat "$manifest"
+            if [ "$held" -eq 0 ]; then
+              echo "::error::Expected at least one post-$boundary migration to hold out; found none. Investigate before trusting this boundary." >&2
+              exit 1
+            fi
+            local has_numeric=0 has_timestamped=0 name p
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              p="${name%%_*}"
+              if [ "${#p}" -eq 4 ]; then has_numeric=1; else has_timestamped=1; fi
+            done < "$manifest"
+            if [ "$has_numeric" -ne 1 ]; then
+              echo "::error::Expected at least one 4-digit numeric post-$boundary migration in $manifest; found none." >&2
+              exit 1
+            fi
+            if [ "$has_timestamped" -ne 1 ]; then
+              echo "::error::Expected at least one timestamped migration in $manifest; found none." >&2
+              exit 1
+            fi
+            grep -qx '0034_phase_v2_content_library_activation.sql' "$manifest" \
+              || echo "::warning::0034_phase_v2_content_library_activation.sql not present in this repository state; skipping that specific check."
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                echo "::error::Post-boundary migration still present in supabase/migrations after sweep: $base" >&2
+                exit 1
+              fi
+            done
+          }
+          holdout_boundary_restore() {
+            local holdout_dir="$1" manifest="$1/held-manifest.txt" name restored=0 left
+            if [ ! -f "$manifest" ]; then
+              echo "::error::No hold-out manifest found at $manifest -- cannot verify restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "$holdout_dir/$name" ]; then
+                echo "::error::Expected held-out migration missing from $holdout_dir: $name" >&2
+                exit 1
+              fi
+              mv "$holdout_dir/$name" "supabase/migrations/$name"
+              restored=$((restored + 1))
+            done < "$manifest"
+            left=$(find "$holdout_dir" -maxdepth 1 -name '*.sql' | wc -l)
+            if [ "$left" -ne 0 ]; then
+              echo "::error::$left migration(s) still present in $holdout_dir after restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "supabase/migrations/$name" ]; then
+                echo "::error::Restoration verification failed -- $name not found back in supabase/migrations." >&2
+                exit 1
+              fi
+            done < "$manifest"
+            echo "Restored $restored held-out migration(s) from $holdout_dir; verified all present back in supabase/migrations."
+          }
+          holdout_boundary_sweep 0022 tmp/migration-replay/held-0023-0031-for-reconciliation
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
@@ -390,7 +576,7 @@ jobs:
               supabase/migrations/20260714201550_phase14_webhook_state_machine.sql \
               supabase/migrations/20260714214023_phase14_fourth_adversarial_remediation.sql
             mv "$backup" "$canonical"
-            mv tmp/migration-replay/held-0023-0031-for-reconciliation/*.sql supabase/migrations/ 2>/dev/null || true
+            holdout_boundary_restore tmp/migration-replay/held-0023-0031-for-reconciliation
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
@@ -461,18 +647,111 @@ jobs:
           # upgrade schema equivalence" step -- this step's later `cmp` against
           # fresh-canonical-schema-inventory.txt is even stricter (byte-exact) and would trip on
           # the same ordering divergence otherwise.
-          mkdir -p tmp/migration-replay/held-0023-0031-for-production-history
-          mv supabase/migrations/0023_*.sql supabase/migrations/0024_*.sql supabase/migrations/0025_*.sql \
-            supabase/migrations/0026_*.sql supabase/migrations/0027_*.sql supabase/migrations/0028_*.sql \
-            supabase/migrations/0029_*.sql supabase/migrations/0030_*.sql supabase/migrations/0031_*.sql \
-            supabase/migrations/0032_*.sql supabase/migrations/0033_*.sql \
-            tmp/migration-replay/held-0023-0031-for-production-history/
+          # Boundary-driven hold-out: instead of enumerating migration filenames (which
+          # goes stale the moment a new migration is added -- exactly what broke this step when
+          # 0034 and two timestamped migrations were added without updating the old mv list),
+          # classify every file in supabase/migrations by its version prefix. A 4-digit numeric
+          # prefix greater than the boundary is post-boundary; any non-4-digit prefix (a
+          # timestamped migration, e.g. 20260721150808_...) is always treated as post-boundary
+          # for this historical simulation, since timestamped migrations are by construction
+          # commits made after the numbered migration sequence and can never predate a numeric
+          # boundary. This makes the hold-out correct for 0034, both current timestamped
+          # migrations, and any future migration without editing this workflow again.
+          holdout_boundary_is_post() {
+            local base="$1" boundary="$2" prefix
+            prefix="${base%%_*}"
+            case "$prefix" in
+              ''|*[!0-9]*)
+                echo "::error::Unrecognised migration filename prefix (not purely numeric): $base" >&2
+                exit 1
+                ;;
+            esac
+            if [ "${#prefix}" -eq 4 ]; then
+              [ "$((10#$prefix))" -gt "$((10#$boundary))" ]
+            else
+              true
+            fi
+          }
+          holdout_boundary_sweep() {
+            local boundary="$1" holdout_dir="$2" manifest="$2/held-manifest.txt" base f held=0
+            mkdir -p "$holdout_dir"
+            : > "$manifest"
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                mv "$f" "$holdout_dir/"
+                echo "$base" >> "$manifest"
+                held=$((held + 1))
+              fi
+            done
+            echo "Held out $held post-$boundary migration(s) into $holdout_dir:"
+            cat "$manifest"
+            if [ "$held" -eq 0 ]; then
+              echo "::error::Expected at least one post-$boundary migration to hold out; found none. Investigate before trusting this boundary." >&2
+              exit 1
+            fi
+            local has_numeric=0 has_timestamped=0 name p
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              p="${name%%_*}"
+              if [ "${#p}" -eq 4 ]; then has_numeric=1; else has_timestamped=1; fi
+            done < "$manifest"
+            if [ "$has_numeric" -ne 1 ]; then
+              echo "::error::Expected at least one 4-digit numeric post-$boundary migration in $manifest; found none." >&2
+              exit 1
+            fi
+            if [ "$has_timestamped" -ne 1 ]; then
+              echo "::error::Expected at least one timestamped migration in $manifest; found none." >&2
+              exit 1
+            fi
+            grep -qx '0034_phase_v2_content_library_activation.sql' "$manifest" \
+              || echo "::warning::0034_phase_v2_content_library_activation.sql not present in this repository state; skipping that specific check."
+            for f in supabase/migrations/*.sql; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              if holdout_boundary_is_post "$base" "$boundary"; then
+                echo "::error::Post-boundary migration still present in supabase/migrations after sweep: $base" >&2
+                exit 1
+              fi
+            done
+          }
+          holdout_boundary_restore() {
+            local holdout_dir="$1" manifest="$1/held-manifest.txt" name restored=0 left
+            if [ ! -f "$manifest" ]; then
+              echo "::error::No hold-out manifest found at $manifest -- cannot verify restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "$holdout_dir/$name" ]; then
+                echo "::error::Expected held-out migration missing from $holdout_dir: $name" >&2
+                exit 1
+              fi
+              mv "$holdout_dir/$name" "supabase/migrations/$name"
+              restored=$((restored + 1))
+            done < "$manifest"
+            left=$(find "$holdout_dir" -maxdepth 1 -name '*.sql' | wc -l)
+            if [ "$left" -ne 0 ]; then
+              echo "::error::$left migration(s) still present in $holdout_dir after restoration." >&2
+              exit 1
+            fi
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if [ ! -f "supabase/migrations/$name" ]; then
+                echo "::error::Restoration verification failed -- $name not found back in supabase/migrations." >&2
+                exit 1
+              fi
+            done < "$manifest"
+            echo "Restored $restored held-out migration(s) from $holdout_dir; verified all present back in supabase/migrations."
+          }
+          holdout_boundary_sweep 0022 tmp/migration-replay/held-0023-0031-for-production-history
           restore_migrations() {
             rm -f supabase/migrations/0017_phase14_autonomous_report_engine.sql \
               supabase/migrations/0018_phase14_pdf_email_delivery.sql \
               supabase/migrations/0019_phase14_email_delivery_state_hardening.sql
             mv "$backup" "$canonical"
-            mv tmp/migration-replay/held-0023-0031-for-production-history/*.sql supabase/migrations/ 2>/dev/null || true
+            holdout_boundary_restore tmp/migration-replay/held-0023-0031-for-production-history
           }
           trap restore_migrations EXIT
           supabase db reset --local --yes
