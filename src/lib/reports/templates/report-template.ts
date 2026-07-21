@@ -94,37 +94,14 @@ export function renderReportHtml(
   const evidenceModel = buildAdvisoryEvidenceModel(data);
   try {
     const _gates = checkQualityGates(evidenceModel, data);
-    const _fallbackFlags = [
-      content.executiveSummary.usedFallback,
-      content.falseComfort.usedFallback,
-      content.leadershipAttention.usedFallback,
-      ...Object.values(content.domainNarratives).map((d) => d.usedFallback),
-      ...Object.values(content.gapCommentary).map((g) => g.usedFallback)
-    ];
-    const _fbCount = _fallbackFlags.filter(Boolean).length;
-    console.info('QUALITY_GATE_DIAG_' + data.assessmentReference, JSON.stringify({
-      org: data.organisationName,
-      assessmentReference: data.assessmentReference,
-      passed: _gates.passed,
-      violations: _gates.violations,
-      warnings: _gates.warnings,
-      counts: {
-        materialFindings: evidenceModel.materialFindings.length,
-        contradictions: evidenceModel.contradictions.length,
-        scenarios: evidenceModel.scenarios.length,
-        riskRegister: evidenceModel.riskRegister.length,
-        controlImprovements: evidenceModel.controlImprovements.length,
-        evidenceChecklist: evidenceModel.evidenceChecklist.length,
-        roadmapActions: evidenceModel.roadmapActions.length
-      },
-      fallback: {
-        total: _fallbackFlags.length,
-        usedFallback: _fbCount,
-        pct: Math.round((_fbCount / _fallbackFlags.length) * 1000) / 10
-      }
-    }));
+    if (!_gates.passed) {
+      console.error('QUALITY_GATE_VIOLATION', JSON.stringify({
+        assessmentReference: data.assessmentReference,
+        violations: _gates.violations
+      }));
+    }
   } catch (diagErr) {
-    console.error('QUALITY_GATE_DIAG_ERROR', diagErr instanceof Error ? diagErr.message : String(diagErr));
+    console.error('QUALITY_GATE_CHECK_ERROR', diagErr instanceof Error ? diagErr.message : String(diagErr));
   }
 
 
