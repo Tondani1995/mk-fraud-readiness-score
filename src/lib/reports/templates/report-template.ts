@@ -92,7 +92,6 @@ export function renderReportHtml(
   const generatedDate = new Date(data.generatedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
   const evidenceModel = buildAdvisoryEvidenceModel(data);
-  console.info('EVIDENCE_MODEL_DIAG', { materialFindings: evidenceModel.materialFindings.length, contradictions: evidenceModel.contradictions.length, scenarios: evidenceModel.scenarios.length, riskRegister: evidenceModel.riskRegister.length, controlImprovements: evidenceModel.controlImprovements.length, evidenceChecklist: evidenceModel.evidenceChecklist.length, leadershipDecisions: evidenceModel.leadershipDecisions.length, roadmapActions: evidenceModel.roadmapActions.length, functionalAgenda: evidenceModel.functionalAgenda.length });
 
   const domainHeatmap = data.domainResults.map((domain) => {
     const band = domainBandLabel(domain.rawScore);
