@@ -56,7 +56,7 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
       item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && item.severity === severity
     );
     gapCommentary[gapKey(gap.domainCode, gap.questionCode)] = {
-      body: applyTokens(block?.body ?? fallbackGapCommentary(gap.domainName, severity, gap.isHardGate), data),
+      body: applyTokens(block?.body ?? fallbackGapCommentary(gap.domainName, severity, gap.isHardGate, gap.prompt), data),
       usedFallback: !block
     };
   });
@@ -127,9 +127,19 @@ function selectFalseComfort(
   };
 }
 
-function fallbackGapCommentary(domainName: string, severity: string, isHardGate: boolean) {
+function fallbackGapCommentary(domainName: string, severity: string, isHardGate: boolean, questionPrompt: string) {
   const impact = isHardGate
     ? 'This is one of the controls that can limit the overall maturity interpretation because strength elsewhere cannot fully compensate for it.'
     : 'This is a specific, addressable control weakness rather than a general judgement on the whole domain.';
-  return `A control in ${domainName} scored low enough to be flagged as a ${severity} gap. ${impact}`;
+  // Two different findings in the same domain and severity previously produced
+  // an identical, uninformative sentence ("A control in <domain> scored low
+  // enough..."), making genuinely distinct gaps look like duplicate content.
+  // Naming the actual assessed control (from the question prompt) keeps each
+  // gap's commentary specific to what was actually asked, even when the
+  // domain/severity combination repeats.
+  const trimmedPrompt = questionPrompt?.trim().replace(/\.$/, '');
+  const controlReference = trimmedPrompt
+    ? `the specific control on whether ${trimmedPrompt.charAt(0).toLowerCase()}${trimmedPrompt.slice(1)}`
+    : `a control in ${domainName}`;
+  return `Within ${domainName}, ${controlReference} scored low enough to be flagged as a ${severity} gap. ${impact}`;
 }
