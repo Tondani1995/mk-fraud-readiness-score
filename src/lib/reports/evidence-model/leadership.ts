@@ -1,5 +1,4 @@
 import type { AssembledReportData } from '../types';
-import { getDomainPlaybook } from './domain-playbooks';
 import type { FunctionalAgendaItem, LeadershipDecision, MaterialFinding, RiskRegisterEntry, RoadmapAction } from './types';
 
 const FUNCTION_BY_DOMAIN: Record<string, string[]> = {
@@ -23,11 +22,10 @@ function daysFromNow(days: number): string {
 
 export function buildLeadershipDecisions(findings: MaterialFinding[], riskRegister: RiskRegisterEntry[]): LeadershipDecision[] {
   const priorityFindings = findings
-    .filter((f) => f.isHardGate || f.maturityCapStatus === 'capping' || f.isCriticalControl)
+    .filter((f) => f.materialityClass !== 'assurance_priority' && (f.isHardGate || f.maturityCapStatus === 'capping' || f.isCriticalControl))
     .slice(0, 6);
 
   return priorityFindings.map((finding, index) => {
-    const playbook = getDomainPlaybook(finding.domainCode);
     const risk = riskRegister.find((r) => r.linkedFindingIds.includes(finding.id));
     return {
       id: `LD-${String(index + 1).padStart(2, '0')}`,
@@ -36,11 +34,11 @@ export function buildLeadershipDecisions(findings: MaterialFinding[], riskRegist
       whyNow: finding.isHardGate
         ? 'This is a hard-gate critical control: it is actively limiting how the overall readiness result can be interpreted until resolved.'
         : 'This is a critical control weighted heavily enough in this methodology to warrant early leadership attention.',
-      recommendedDecision: playbook.recommendedControl,
-      accountableExecutive: playbook.oversightFunction,
+      recommendedDecision: finding.recommendedControl,
+      accountableExecutive: finding.accountableOwner,
       deadline: daysFromNow(finding.targetPeriod === '30 days' ? 30 : finding.targetPeriod === '60 days' ? 60 : 90),
       consequenceOfDelay: `${finding.likelyFinancialImpact} ${finding.likelyOperationalImpact}`.trim(),
-      immediateNextDeliverable: `Assign ${playbook.accountableOwner} to produce: ${playbook.evidenceItems[0]?.artefact ?? 'the first piece of required evidence'}.`
+      immediateNextDeliverable: `Assign ${finding.processOwner || finding.accountableOwner} to produce: ${finding.evidenceToRequest[0] ?? 'the first piece of required evidence'}.`
     } satisfies LeadershipDecision;
   }).concat(
     riskRegister.length > 0
@@ -82,19 +80,18 @@ export function buildFunctionalAgenda(findings: MaterialFinding[], riskRegister:
 
 export function buildRoadmapActions(findings: MaterialFinding[], riskRegister: RiskRegisterEntry[]): RoadmapAction[] {
   return findings.map((finding, index) => {
-    const playbook = getDomainPlaybook(finding.domainCode);
     const risk = riskRegister.find((r) => r.linkedFindingIds.includes(finding.id));
     return {
       id: `RA-${String(index + 1).padStart(2, '0')}`,
       period: finding.targetPeriod,
-      deliverable: playbook.recommendedControl,
-      accountableOwner: playbook.accountableOwner,
+      deliverable: finding.recommendedControl,
+      accountableOwner: finding.processOwner || finding.accountableOwner,
       linkedFindingId: finding.id,
       linkedRiskId: risk?.id ?? '',
       dependency: finding.isHardGate ? 'None blocking -- should be sequenced first given its effect on the maturity reading.' : 'May depend on completion of higher-priority hard-gate actions in the same period.',
-      implementationDifficulty: playbook.implementationDifficulty,
-      successMeasure: playbook.effectivenessMeasure,
-      evidenceOfCompletion: playbook.evidenceItems.map((item) => item.artefact).join('; ')
+      implementationDifficulty: finding.implementationDifficulty,
+      successMeasure: finding.effectivenessMeasure,
+      evidenceOfCompletion: finding.evidenceToRequest.join('; ')
     } satisfies RoadmapAction;
   });
 }

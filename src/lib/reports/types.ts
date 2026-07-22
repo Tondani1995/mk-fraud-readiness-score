@@ -50,6 +50,13 @@ export interface GapQuestionRecord {
   isMajorGap: boolean;
 }
 
+/** Complete persisted question-level evidence from score_question_traces. */
+export interface QuestionTraceRecord extends GapQuestionRecord {
+  normalisedScore: number | null;
+  applicable: boolean;
+  triggeredRules: unknown[];
+}
+
 export interface ExposureAnswerRecord {
   factorCode: string;
   name: string;
@@ -122,7 +129,11 @@ export interface AssembledReportData {
   scoreRun: ScoreRunRecord;
   domainResults: DomainResultRecord[];
   exposureAnswers: ExposureAnswerRecord[];
+  /** All persisted traces for the locked score run, not only critical/major gaps. */
+  questionTraces: QuestionTraceRecord[];
   criticalMajorGaps: GapQuestionRecord[];
+  /** Validated response_scale rows for scoreRun.methodologyVersionId, loaded once per report. */
+  officialResponseLabels: import('./response-labels').OfficialResponseLabel[];
   maturityCapEvents: MaturityCapEventRecord[];
   recommendationRules: RecommendationRuleRecord[];
   expectedDomainResultCount: number;

@@ -12,9 +12,9 @@
  * Node's ESM resolver requires explicit extensions -- Next.js/webpack does not need that, so the
  * committed version here uses normal extensionless imports.)
  */
-import { buildAdvisoryEvidenceModel, checkQualityGates } from '..';
-import { mkAssistFixture } from './mk-assist.fixture';
-import { syntheticOrgFixture } from './synthetic-org.fixture';
+import { buildAdvisoryEvidenceModel, checkQualityGates } from '../index';
+import { mkAssistFixture } from './mk-assist-fixture';
+import { syntheticOrgFixture } from './synthetic-org-fixture';
 import type { EvidenceModelInput } from '../types';
 
 function run(label: string, fixture: EvidenceModelInput) {

@@ -24,7 +24,8 @@ import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validate
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
 import { gapKey } from '../src/lib/reports/select-content-blocks.ts';
 import { generateManualPhase1Report, Phase1GenerationError } from '../src/lib/reports/phase1-manual-fulfilment.ts';
-import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org.fixture.ts';
+import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org-fixture.ts';
+import { officialResponseLabelsFixture } from '../src/lib/reports/evidence-model/__fixtures__/official-response-labels.ts';
 
 let passed = 0;
 let failed = 0;
@@ -87,11 +88,17 @@ function buildCommerciallyViolatingFixture() {
       criticalGapCount: 1, majorGapCount: 0, capApplied: false, capReason: null
     },
     domainResults,
+    officialResponseLabels: officialResponseLabelsFixture,
     exposureAnswers: [],
     criticalMajorGaps: [{
       questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
       prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1,
       isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+    }],
+    questionTraces: [{
+      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: DOMAIN_NAMES.D1,
+      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1, normalisedScore: 20,
+      applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
     }],
     maturityCapEvents: [],
     recommendationRules: [],
@@ -120,7 +127,7 @@ function emptySelectedContentFor(data) {
 
 /**
  * Full, genuinely commercially-passing fixture, built on top of the repo's existing
- * syntheticOrgFixture (evidence-model/__fixtures__/synthetic-org.fixture.ts) -- already confirmed
+ * syntheticOrgFixture (evidence-model/__fixtures__/synthetic-org-fixture.ts) -- already confirmed
  * by run-differentiation-check.ts (executed 2026-07-20) to pass checkQualityGates(). This wraps
  * that EvidenceModelInput-shaped data with the remaining AssembledReportData fields, plus a full,
  * real SelectedContent and roadmap.agenda that independently satisfy the new Checkpoint B
@@ -154,8 +161,10 @@ function buildCommerciallyPassingFixture() {
       capApplied: true, capReason: 'One or more hard-gate critical controls scored 0 or 1.'
     },
     domainResults,
+    officialResponseLabels: src.officialResponseLabels,
     exposureAnswers: src.exposureAnswers,
     criticalMajorGaps: src.criticalMajorGaps,
+    questionTraces: src.questionTraces,
     maturityCapEvents: src.maturityCapEvents,
     recommendationRules: [],
     expectedDomainResultCount: 10, actualDomainResultCount: 10,

@@ -8,12 +8,13 @@ import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult }
 
 export * from './types';
 export { getDomainPlaybook, hasDomainPlaybook } from './domain-playbooks';
+export { getQuestionPlaybook, hasQuestionPlaybook, listQuestionPlaybooks, AUTHORITATIVE_QUESTION_MAPPINGS } from './question-playbooks';
 
 /**
  * Assembles the full deterministic advisory evidence model from real, persisted assessment data.
  * This is the object the V2 report template should render from -- it does not invent facts, and it
  * is not an LLM call. Every field traces back to AssembledReportData (itself sourced from the
- * persisted score run) or to the static, finite domain-playbooks.ts content.
+ * persisted score run) or to the static, finite exact-question playbook registry.
  */
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
@@ -66,6 +67,15 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
 
   // 1/2. Critical or maturity-limiting findings must name a control/domain.
   for (const finding of model.materialFindings) {
+    if (finding.fallbackStatus !== 'exact_question_playbook' || !finding.playbookSource) {
+      violations.push({
+        code: 'QG_MATERIAL_PLAYBOOK_MISSING',
+        severity: 'violation',
+        message: `Material finding ${finding.id} has no exact question-level playbook for ${finding.questionCode}.`,
+        entityId: finding.id,
+        source: 'evidence-model'
+      });
+    }
     if ((finding.isCriticalControl || finding.maturityCapStatus === 'capping') && !finding.domainName) {
       violations.push({
         code: 'QG_FINDING_DOMAIN_MISSING',

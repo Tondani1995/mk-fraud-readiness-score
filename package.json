@@ -59,7 +59,8 @@
     "v7:test-checkpoint-a-unit": "npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-unit",
     "v7:test-checkpoint-a-db": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs",
     "v7:test-checkpoint-b": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs",
-    "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b"
+    "v7:test-checkpoint-c": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-c-materiality-playbook-tests.mjs",
+    "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

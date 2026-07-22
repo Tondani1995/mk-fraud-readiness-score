@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { ReportCommercialQualityError } from '../src/lib/reports/commercial-quality.ts';
+import { officialResponseLabelsFixture } from '../src/lib/reports/evidence-model/__fixtures__/official-response-labels.ts';
 
 let passed = 0;
 function test(name, fn) {
@@ -65,11 +66,17 @@ function buildViolatingFixture() {
       criticalGapCount: 1, majorGapCount: 0, capApplied: false, capReason: null
     },
     domainResults,
+    officialResponseLabels: officialResponseLabelsFixture,
     exposureAnswers: [],
     criticalMajorGaps: [{
       questionCode: 'Q-D1-01', domainCode: 'D1', domainName: domainNames.D1,
       prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1,
       isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
+    }],
+    questionTraces: [{
+      questionCode: 'Q-D1-01', domainCode: 'D1', domainName: domainNames.D1,
+      prompt: 'Is fraud risk formally owned at executive level?', responseValue: 1, normalisedScore: 20,
+      applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false
     }],
     maturityCapEvents: [],
     recommendationRules: [],

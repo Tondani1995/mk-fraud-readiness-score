@@ -13,10 +13,9 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
  * and 5 were being silently collapsed into a single "Fully in place" label, when they are in fact
  * two distinct official bands ("Consistently operating" vs "Embedded and improved").
  *
- * This adapter is additive only. It is not yet wired into material-findings.ts or any rendering
- * path -- that replacement is explicitly out of scope for Checkpoint A (see "no rendering redesign,
- * no new report prose, no broad template changes") and belongs to a later checkpoint once this
- * adapter itself has been reviewed and approved.
+ * Checkpoint C wires this adapter into report assembly and the materiality engine: the complete
+ * scale is loaded once for scoreRun.methodologyVersionId and passed with the evidence model. The
+ * former inferred responseMeaning() mapping is no longer reachable from material findings.
  *
  * Split into two layers per the Checkpoint A correction:
  *   - validateOfficialResponseLabels(): a pure function with no I/O, so it can be exercised by

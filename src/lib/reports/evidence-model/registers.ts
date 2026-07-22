@@ -1,13 +1,14 @@
-import { getDomainPlaybook } from './domain-playbooks';
 import type { ControlImprovementEntry, EvidenceChecklistItem, Impact, Likelihood, MaterialFinding, RiskRegisterEntry } from './types';
 
 function likelihoodFor(finding: MaterialFinding): Likelihood {
+  if (finding.materialityClass === 'assurance_priority') return 'Low';
   if (finding.isHardGate) return 'High';
   if (finding.isCriticalControl) return 'Moderate';
   return 'Low';
 }
 
 function impactFor(finding: MaterialFinding): Impact {
+  if (finding.materialityClass === 'assurance_priority') return 'Low';
   if (finding.isHardGate && finding.maturityCapStatus === 'capping') return 'Severe';
   if (finding.isCriticalControl) return 'High';
   return 'Moderate';
@@ -55,26 +56,27 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
 
 export function buildControlImprovementRegister(findings: MaterialFinding[], riskRegister: RiskRegisterEntry[]): ControlImprovementEntry[] {
   return findings.map((finding, index) => {
-    const playbook = getDomainPlaybook(finding.domainCode);
     const risk = riskRegister.find((r) => r.linkedFindingIds.includes(finding.id));
     return {
       id: `CI-${String(index + 1).padStart(2, '0')}`,
       linkedFindingId: finding.id,
       linkedRiskId: risk?.id ?? '',
       currentState: `${finding.questionPrompt} -- ${finding.responseMeaning}`,
-      targetState: playbook.expectedControlStandard,
-      controlObjective: `Bring ${finding.domainName} up to the expected control standard for this specific control, closing the gap that produced a "${finding.gapClassification}" finding.`,
-      controlDesign: playbook.recommendedControl,
-      accountableOwner: playbook.accountableOwner,
-      oversightOwner: playbook.oversightFunction,
-      supportingFunctions: playbook.supportingFunctions,
-      operatingFrequency: playbook.operatingFrequency,
-      requiredEvidence: playbook.evidenceItems.map((item) => item.artefact),
-      implementationDependency: finding.isHardGate ? 'Should be sequenced ahead of lower-priority improvements given its effect on the overall maturity reading.' : 'No blocking dependency identified from the assessment alone.',
-      implementationDifficulty: playbook.implementationDifficulty,
+      targetState: finding.expectedControlStandard,
+      controlObjective: finding.materialityClass === 'assurance_priority'
+        ? `Validate that the self-reported control state for ${finding.questionCode} is supported by current operating evidence.`
+        : `Close the recorded ${finding.gapClassification} control position for ${finding.questionCode}.`,
+      controlDesign: finding.recommendedControl,
+      accountableOwner: finding.processOwner || finding.accountableOwner,
+      oversightOwner: finding.oversightFunction,
+      supportingFunctions: finding.supportingFunctions,
+      operatingFrequency: finding.operatingFrequency,
+      requiredEvidence: finding.evidenceToRequest,
+      implementationDependency: finding.dependencies.join('; ') || 'No blocking dependency identified from the assessment alone.',
+      implementationDifficulty: finding.implementationDifficulty,
       targetPeriod: finding.targetPeriod,
-      effectivenessTest: playbook.effectivenessMeasure,
-      escalationThreshold: playbook.escalationThreshold
+      effectivenessTest: finding.effectivenessMeasure,
+      escalationThreshold: finding.escalationThreshold
     } satisfies ControlImprovementEntry;
   });
 }
@@ -84,21 +86,21 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], riskRegister
   const seenArtefacts = new Set<string>();
   let seq = 0;
   for (const finding of findings) {
-    const playbook = getDomainPlaybook(finding.domainCode);
     const risk = riskRegister.find((r) => r.linkedFindingIds.includes(finding.id));
-    for (const evidenceItem of playbook.evidenceItems) {
-      const dedupeKey = evidenceItem.artefact.trim().toLowerCase();
+    for (let index = 0; index < finding.evidenceToRequest.length; index += 1) {
+      const artefact = finding.evidenceToRequest[index];
+      const dedupeKey = artefact.trim().toLowerCase();
       if (seenArtefacts.has(dedupeKey)) continue;
       seenArtefacts.add(dedupeKey);
       items.push({
         id: `EV-${String(++seq).padStart(2, '0')}`,
-        artefact: evidenceItem.artefact,
+        artefact,
         linkedFindingId: finding.id,
         linkedRiskId: risk?.id ?? '',
-        likelyOwner: playbook.accountableOwner,
-        provesWhat: evidenceItem.provesWhat,
-        expectedRecency: evidenceItem.expectedRecency,
-        minimumAcceptableCharacteristics: evidenceItem.minimumCharacteristics,
+        likelyOwner: finding.processOwner || finding.accountableOwner,
+        provesWhat: `Whether ${finding.questionCode} operates to the stated control standard.`,
+        expectedRecency: finding.operatingFrequency,
+        minimumAcceptableCharacteristics: finding.minimumEvidenceCharacteristics[index] ?? finding.minimumEvidenceCharacteristics.join('; '),
         reviewStatus: 'Not yet requested'
       });
     }

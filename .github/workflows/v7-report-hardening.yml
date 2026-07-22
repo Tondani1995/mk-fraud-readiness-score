@@ -24,7 +24,12 @@ name: V7 Report Hardening
 # validatePremiumReportGenerationEntitlement/getPhase1SchemaCapability/renderValidatedCommercialPdf
 # (phase1-manual-fulfilment.ts's ManualPhase1Dependencies), and the render-stage tests use a fake
 # PDF-render function (renderHtmlToPdfBuffer/Puppeteer/Chromium is never invoked in CI by this
-# suite). `npm run v7:test-report-hardening` now runs both Checkpoint A and Checkpoint B.
+# suite).
+#
+# V7 Checkpoint C adds the credential-free materiality/playbook suite. It executes the production
+# evidence-model functions against production-shaped persisted-evidence fixtures, including strong
+# assessment safety, deterministic shuffle/deduplication, authoritative-label consumption and the
+# fail-closed exact-playbook boundary. The aggregate command now runs Checkpoints A, B and C.
 
 on:
   pull_request:
@@ -64,5 +69,5 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
-      - name: Run V7 report-hardening suite (Checkpoint A + Checkpoint B, credential-free)
+      - name: Run V7 report-hardening suite (Checkpoints A + B + C, credential-free)
         run: npm run v7:test-report-hardening
