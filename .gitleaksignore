@@ -44,3 +44,7 @@ fc4e07a25ba4cb8ec1171cadb3b66f337424991d:supabase/migrations/0017_phase14_canoni
 33b21584b234b83606d7e0dfd92109ed5a5181a7:scripts/phase14-security-closure-tests.mjs:aws-access-token:144
 4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:7
 4c22f2833a2c27bd1effe1b9d5d491b30a591a71:.gitleaksignore:generic-api-key:11
+
+# PR #39: reviewed historical false positive from a credential-free recording-fake test. It
+# authenticated nothing and is already replaced at HEAD; this suppression is fingerprint-specific.
+9819b04f67eed38175ae68dbe4befa8bcad1df01:scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs:generic-api-key:609
