@@ -9,6 +9,12 @@ name: V7 Report Hardening
 # `npm run v7:test-checkpoint-a-db`) requires a real database and is deliberately NOT run here --
 # see the Checkpoint A correction report for why, and how that source claim was independently
 # verified instead (a read-only production query, not a credentialed CI job).
+#
+# V7 Checkpoint A FINAL correction: dependency installation is now unconditionally `npm ci`, which
+# requires and validates package-lock.json against package.json -- it fails the workflow outright
+# if the lockfile is missing or out of sync, rather than silently falling back to a floating
+# `npm install`. package-lock.json is also now in the path filters below, so a lockfile change
+# alone (e.g. a dependency bump) triggers this workflow, not just source/script/package.json edits.
 
 on:
   pull_request:
@@ -16,12 +22,14 @@ on:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/v7-report-hardening.yml'
   push:
     paths:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/v7-report-hardening.yml'
 
 jobs:
@@ -38,13 +46,10 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Install dependencies
+      - name: Install dependencies (mandatory npm ci -- fails if package-lock.json is missing or out of sync)
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          test -f package-lock.json
+          npm ci
 
       - name: Run TypeScript check
         run: npm run typecheck
