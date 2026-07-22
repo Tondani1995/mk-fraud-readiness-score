@@ -4,11 +4,13 @@ import { buildLeadershipDecisions, buildFunctionalAgenda, buildRoadmapActions } 
 import { buildMaterialFindings } from './material-findings';
 import { buildControlImprovementRegister, buildEvidenceChecklist, buildRiskRegister } from './registers';
 import { buildPlausibleScenarios } from './scenarios';
+import { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './types';
 
 export * from './types';
 export { getDomainPlaybook, hasDomainPlaybook } from './domain-playbooks';
 export { getQuestionPlaybook, hasQuestionPlaybook, listQuestionPlaybooks, AUTHORITATIVE_QUESTION_MAPPINGS } from './question-playbooks';
+export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
 
 /**
  * Assembles the full deterministic advisory evidence model from real, persisted assessment data.
@@ -257,10 +259,17 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
     if (!action.successMeasure) {
       violations.push({ code: 'QG_ROADMAP_MEASURE_MISSING', severity: 'violation', message: `Roadmap action ${action.id} has no effectiveness measure.`, entityId: action.id, source: 'evidence-model' });
     }
-    const knownActionIds = new Set(model.roadmapActions.map((item) => item.id));
-    if (action.dependencyIds.some((id) => !knownActionIds.has(id) || id === action.id)) {
-      violations.push({ code: 'QG_ROADMAP_DEPENDENCY_INVALID', severity: 'violation', message: `Roadmap action ${action.id} contains an unknown or self dependency.`, entityId: action.id, source: 'evidence-model' });
-    }
+  }
+  try {
+    orderRoadmapActions(model.roadmapActions);
+  } catch (error) {
+    if (!(error instanceof RoadmapDependencyError)) throw error;
+    violations.push({
+      code: 'QG_ROADMAP_DEPENDENCY_INVALID',
+      severity: 'violation',
+      message: error.message,
+      source: 'evidence-model'
+    });
   }
 
   // 23. Placeholder text must never appear in normal output.

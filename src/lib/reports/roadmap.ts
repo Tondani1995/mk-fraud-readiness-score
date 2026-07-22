@@ -1,12 +1,17 @@
 import type { AssembledReportData, RoadmapItem } from './types';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import type { RoadmapAction } from './evidence-model';
+import { orderRoadmapActions } from './evidence-model/roadmap-dependencies';
 
 /**
  * The sole V7 legacy compatibility adapter. Every rendered row is derived from one authoritative
  * AdvisoryEvidenceModel.roadmapActions entry; no domain rescoring or second ranking occurs here.
  */
 export function adaptAdvisoryRoadmapToLegacyAgenda(actions: RoadmapAction[]): { agenda: RoadmapItem[] } {
+  // Validate the dependency graph before deriving anything customer-facing. The authoritative
+  // builder already supplies topological order; this call is deliberately used as a fail-closed
+  // validator so adapter identity/order remain unchanged for every valid source.
+  orderRoadmapActions(actions);
   return {
     agenda: actions.map((action, index) => ({
       ruleCode: action.id,

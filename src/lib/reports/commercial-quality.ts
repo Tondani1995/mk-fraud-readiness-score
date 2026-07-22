@@ -7,6 +7,7 @@ import {
 } from './evidence-model';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './evidence-model';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
+import { RoadmapDependencyError } from './evidence-model/roadmap-dependencies';
 import { buildPremiumReportEvidencePack, validatePremiumReportEvidencePack } from './automation/evidence';
 
 /**
@@ -219,7 +220,22 @@ export function validateRenderedRoadmap(agenda: RoadmapItem[]): QualityGateResul
 
 /** Ensures the rendered compatibility shape is a pure projection of the authoritative roadmap. */
 export function validateRoadmapSource(agenda: RoadmapItem[], model: AdvisoryEvidenceModel): QualityGateResult {
-  const expected = adaptAdvisoryRoadmapToLegacyAgenda(model.roadmapActions).agenda;
+  let expected: RoadmapItem[];
+  try {
+    expected = adaptAdvisoryRoadmapToLegacyAgenda(model.roadmapActions).agenda;
+  } catch (error) {
+    if (!(error instanceof RoadmapDependencyError)) throw error;
+    return {
+      passed: false,
+      violations: [{
+        code: 'QG_ROADMAP_DEPENDENCY_INVALID',
+        severity: 'violation',
+        message: error.message,
+        source: 'commercial-quality'
+      }],
+      warnings: []
+    };
+  }
   const normalise = (items: RoadmapItem[]) => items.map((item) => ({
     ruleCode: item.ruleCode,
     domainCode: item.domainCode,

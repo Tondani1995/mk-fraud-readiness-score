@@ -11,6 +11,8 @@ const PRIORITY_MATRIX: Record<Likelihood, Record<Impact, RiskRegisterEntry['prio
 /** Qualitative self-assessment rules only; these labels are not statistical probabilities. */
 export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact) {
   const isAssuranceOnly = findings.every((finding) => finding.materialityClass === 'assurance_priority');
+  const linkedHighSevereExposureCodes = stableUnique(findings.flatMap((finding) => finding.linkedExposureFactorCodes));
+  const assuranceExposurePressure = isAssuranceOnly && linkedHighSevereExposureCodes.length > 0;
   const hasHighPressure = findings.some((finding) =>
     (finding.isHardGate || finding.maturityCapStatus === 'capping') &&
     ((finding.responseValue ?? 5) <= 1 || finding.linkedExposureFactorCodes.length >= 2)
@@ -20,9 +22,13 @@ export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impa
     finding.selectionReasons.includes('PRIORITY_SCENARIO_ENABLER') ||
     finding.selectionReasons.includes('CROSS_DOMAIN_DEPENDENCY')
   );
-  const likelihood: Likelihood = isAssuranceOnly ? 'Low' : hasHighPressure ? 'High' : hasMaterialPressure ? 'Moderate' : 'Low';
+  const likelihood: Likelihood = isAssuranceOnly
+    ? assuranceExposurePressure ? 'Moderate' : 'Low'
+    : hasHighPressure ? 'High' : hasMaterialPressure ? 'Moderate' : 'Low';
   const likelihoodRationale = isAssuranceOnly
-    ? 'The control is self-reported as operating; likelihood remains Low pending independent operating-evidence validation.'
+    ? assuranceExposurePressure
+      ? `The control is self-reported as operating and no control failure is asserted. Linked high/severe exposure (${linkedHighSevereExposureCodes.join(', ')}) increases the need for independent operating-evidence validation; this supports a Moderate qualitative likelihood, not a statistical probability.`
+      : 'The control is self-reported as operating and no control failure is asserted. No linked high/severe exposure was identified; likelihood remains Low pending independent operating-evidence validation. This is a qualitative rating, not a statistical probability.'
     : hasHighPressure
       ? 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response or multiple linked exposure factors; this supports a High qualitative likelihood, not a statistical probability.'
       : hasMaterialPressure

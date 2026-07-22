@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   buildAdvisoryEvidenceModel,
-  checkQualityGates
+  checkQualityGates,
+  orderRoadmapActions,
+  RoadmapDependencyError
 } from '../src/lib/reports/evidence-model/index.ts';
 import {
   buildMateriallyWeakDecisionFixture,
@@ -96,6 +98,38 @@ test('R6. every likelihood-impact pair uses the documented deterministic priorit
     assert.equal(risk.priority, matrix[risk.likelihood][risk.impact]);
     assert.ok(risk.likelihoodRationale.length > 30 && risk.impactRationale.length > 30);
     assert.doesNotMatch(risk.likelihoodRationale, /\b\d+(?:\.\d+)?%\b/);
+  }
+});
+
+test('R6b. assurance likelihood reflects linked high/severe exposure without asserting failure', () => {
+  const lowData = buildCleanAssuranceFixture();
+  const low = buildAdvisoryEvidenceModel(lowData);
+  assert.ok(low.materialFindings.every((finding) => finding.materialityClass === 'assurance_priority'));
+  assert.ok(low.riskRegister.every((risk) => risk.likelihood === 'Low'));
+
+  const highData = clone(lowData);
+  highData.scoreRun.exposureScore = 78;
+  highData.scoreRun.exposureBand = 'High';
+  highData.exposureAnswers = highData.exposureAnswers.map((answer) => ({
+    ...answer,
+    selectedLabel: 'High exposure',
+    pointsAwarded: answer.maxPoints * 0.8
+  }));
+  const high = buildAdvisoryEvidenceModel(highData);
+  assert.ok(high.materialFindings.every((finding) => finding.materialityClass === 'assurance_priority'));
+  const exposedRisks = high.riskRegister.filter((risk) => risk.linkedFindingIds.some((findingId) =>
+    high.materialFindings.find((finding) => finding.id === findingId)?.linkedExposureFactorCodes.length > 0
+  ));
+  assert.ok(exposedRisks.length > 0);
+  assert.ok(exposedRisks.every((risk) => risk.likelihood === 'Moderate'));
+  assert.ok(high.riskRegister.every((risk) => risk.likelihood !== 'High'));
+  for (const risk of exposedRisks) {
+    assert.match(risk.likelihoodRationale, /self-reported as operating/i);
+    assert.match(risk.likelihoodRationale, /no control failure is asserted/i);
+    assert.match(risk.likelihoodRationale, /linked high\/severe exposure/i);
+    assert.match(risk.likelihoodRationale, /independent operating-evidence validation/i);
+    assert.match(risk.likelihoodRationale, /qualitative likelihood, not a statistical probability/i);
+    assert.doesNotMatch(risk.likelihoodRationale, /control (?:has|is) failed|failed control/i);
   }
 });
 
@@ -219,6 +253,47 @@ test('M1-M5. one roadmap source preserves owners, dependencies, measures and ada
   const mismatched = clone(legacy.agenda);
   mismatched[0].ownerRole = 'Wrong owner';
   assert.ok(validateRoadmapSource(mismatched, weak).violations.some((issue) => issue.code === 'QG_ROADMAP_SOURCE_MISMATCH'));
+});
+
+test('M6-M10. roadmap orderer rejects unknown, self and cyclic dependencies without rendering', () => {
+  const { weak, weakData } = models();
+  const base = weak.roadmapActions[0];
+  const action = (id, dependencyIds, period = '30 days') => ({
+    ...clone(base), id, dependencyIds, period, authoritativeActionIds: undefined
+  });
+  const prerequisite = action('RA-PREREQUISITE', [], '60 days');
+  const dependent = action('RA-DEPENDENT', ['RA-PREREQUISITE'], '30 days');
+  const independent = action('RA-INDEPENDENT', [], '30 days');
+  const valid = [dependent, prerequisite, independent];
+  const ordered = orderRoadmapActions(valid);
+  assert.ok(ordered.findIndex((item) => item.id === prerequisite.id) < ordered.findIndex((item) => item.id === dependent.id));
+  assert.deepEqual(orderRoadmapActions([...valid].reverse()).map((item) => item.id), ordered.map((item) => item.id));
+
+  const invalidGraphs = [
+    [action('RA-UNKNOWN', ['RA-NOT-REAL'])],
+    [action('RA-SELF', ['RA-SELF'])],
+    [action('RA-A', ['RA-B']), action('RA-B', ['RA-A'])],
+    [action('RA-A', ['RA-C']), action('RA-B', ['RA-A']), action('RA-C', ['RA-B'])]
+  ];
+  for (const graph of invalidGraphs) {
+    assert.throws(
+      () => orderRoadmapActions(graph),
+      (error) => error instanceof RoadmapDependencyError && error.code === 'roadmap_dependency_invalid'
+    );
+  }
+
+  const cyclicModel = clone(weak);
+  cyclicModel.roadmapActions[0].dependencyIds = [cyclicModel.roadmapActions[1].id];
+  cyclicModel.roadmapActions[1].dependencyIds = [cyclicModel.roadmapActions[0].id];
+  assert.ok(checkQualityGates(cyclicModel, weakData).violations.some((issue) => issue.code === 'QG_ROADMAP_DEPENDENCY_INVALID'));
+  assert.ok(validateRoadmapSource([], cyclicModel).violations.some((issue) => issue.code === 'QG_ROADMAP_DEPENDENCY_INVALID'));
+  assert.throws(
+    () => adaptAdvisoryRoadmapToLegacyAgenda(cyclicModel.roadmapActions),
+    (error) => error instanceof RoadmapDependencyError
+  );
+
+  const legacy = adaptAdvisoryRoadmapToLegacyAgenda(weak.roadmapActions);
+  assert.deepEqual(legacy.agenda.flatMap((item) => item.authoritativeActionIds), weak.roadmapActions.map((item) => item.id));
 });
 
 test('Q1. missing risk fields, decision linkage, evidence criteria and roadmap dependencies block', () => {

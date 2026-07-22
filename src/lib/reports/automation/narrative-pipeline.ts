@@ -1,5 +1,9 @@
 import { aiPlanToNarrative, buildDeterministicNarrative, narrativeToSelectedContent } from './content';
-import { buildPremiumReportEvidencePack, evidenceChecksum, scanForPromptInjection } from './evidence';
+import { buildPremiumReportEvidencePack, evidenceChecksum, scanForPromptInjection, validatePremiumReportEvidencePack } from './evidence';
+import {
+  COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE,
+  ReportCommercialQualityError
+} from '../commercial-quality';
 import { validatePremiumReportNarrative } from './validation';
 import { createDurablePremiumReportNarrativeGenerator } from './durable-ai-attempts';
 import { validatePremiumReportAiEditorialPlan } from './ai-plan-validation';
@@ -131,16 +135,27 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
 export async function preparePremiumReportNarrative(
   input: BuildPremiumReportNarrativeInput
 ): Promise<PreparedPremiumReportNarrative> {
-  if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled');
-  if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable');
-  if (!input.generationIdentity) return fallbackResult(input, 'ai_generation_identity_missing');
-
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
     input.advisoryModel ?? input.roadmap,
     input.flags.schemaVersion
   );
+  const evidenceIssues = validatePremiumReportEvidencePack(
+    evidence,
+    [input.assembled.customerEmail, input.assembled.respondentName]
+  );
+  if (evidenceIssues.length > 0) {
+    throw new ReportCommercialQualityError(
+      evidenceIssues,
+      [],
+      COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
+    );
+  }
   const checksum = evidenceChecksum(evidence);
+
+  if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled', evidence, checksum);
+  if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable', evidence, checksum);
+  if (!input.generationIdentity) return fallbackResult(input, 'ai_generation_identity_missing', evidence, checksum);
 
   // M4 defense-in-depth: organisationName is the one field in the evidence pack that traces back
   // to customer-entered free text. If it looks like a prompt-injection attempt, skip the AI call

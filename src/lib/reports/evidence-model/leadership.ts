@@ -1,4 +1,5 @@
 import { earliestPeriod, periodDays, stableUnique } from './deterministic';
+import { orderRoadmapActions } from './roadmap-dependencies';
 import type {
   FunctionalAgendaItem,
   LeadershipDecision,
@@ -218,16 +219,8 @@ export function buildRoadmapActions(findings: MaterialFinding[], risks: RiskRegi
     const finding = findings.find((item) => item.id === action.linkedFindingId);
     return (finding?.isHardGate ? 10000 : 0) + (finding?.maturityCapStatus === 'capping' ? 5000 : 0) + (100 - periodDays(action.period)) + (finding?.materialityScore ?? 0);
   };
-  const remaining = [...actions];
-  const ordered: RoadmapAction[] = [];
-  while (remaining.length > 0) {
-    const completed = new Set(ordered.map((action) => action.id));
-    const ready = remaining.filter((action) => action.dependencyIds.every((id) => completed.has(id)));
-    const pool = ready.length > 0 ? ready : remaining;
-    pool.sort((a, b) => urgency(b) - urgency(a) || a.id.localeCompare(b.id));
-    const next = pool[0];
-    ordered.push(next);
-    remaining.splice(remaining.findIndex((action) => action.id === next.id), 1);
-  }
-  return ordered;
+  return orderRoadmapActions(
+    actions,
+    (left, right) => urgency(right) - urgency(left) || left.id.localeCompare(right.id)
+  );
 }
