@@ -4,7 +4,7 @@ import { buildLeadershipDecisions, buildFunctionalAgenda, buildRoadmapActions } 
 import { buildMaterialFindings } from './material-findings';
 import { buildControlImprovementRegister, buildEvidenceChecklist, buildRiskRegister } from './registers';
 import { buildPlausibleScenarios } from './scenarios';
-import type { AdvisoryEvidenceModel } from './types';
+import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './types';
 
 export * from './types';
 export { getDomainPlaybook, hasDomainPlaybook } from './domain-playbooks';
@@ -45,84 +45,170 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
   };
 }
 
-export interface QualityGateResult {
-  passed: boolean;
-  violations: string[];
-  warnings: string[];
-}
-
-const PROHIBITED_PLACEHOLDER_STRINGS = ['A core control area', 'A control did not meet the required standard'];
-const PROHIBITED_GENERIC_ROADMAP_PHRASE = 'Implement or tighten the minimum repeatable control rhythm for';
+export const PROHIBITED_PLACEHOLDER_STRINGS = ['A core control area', 'A control did not meet the required standard'];
+export const PROHIBITED_GENERIC_ROADMAP_PHRASE = 'Implement or tighten the minimum repeatable control rhythm for';
 
 /**
  * Mechanical checks against the evidence model, corresponding to the checkable subset of the
  * commercial quality gates in the brief (section 32). Gates that require comparing against a second
  * assessment (item 28) or against rendered PDF output (25, 26, 27) are NOT checked here -- see the
- * second-fixture differentiation test and manual PDF review respectively.
+ * second-fixture differentiation test, the manual PDF review, and (as of V7 Checkpoint B)
+ * ../../commercial-quality.ts's validateRenderedContent()/validateRenderedRoadmap(), which check the
+ * exact rendered SelectedContent/roadmap.agenda objects instead of this pre-render evidence model.
+ *
+ * V7 Checkpoint B: violations/warnings are now typed CommercialQualityIssue objects with stable
+ * QG_* codes (see ./types.ts), not free-text strings -- so callers (assertCommercialReportQuality)
+ * can make blocking decisions and log structured, machine-readable codes instead of parsing prose.
  */
 export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledReportData): QualityGateResult {
-  const violations: string[] = [];
-  const warnings: string[] = [];
+  const violations: CommercialQualityIssue[] = [];
+  const warnings: CommercialQualityIssue[] = [];
 
   // 1/2. Critical or maturity-limiting findings must name a control/domain.
   for (const finding of model.materialFindings) {
     if ((finding.isCriticalControl || finding.maturityCapStatus === 'capping') && !finding.domainName) {
-      violations.push(`Finding ${finding.id} is critical/maturity-limiting but has no domain name.`);
+      violations.push({
+        code: 'QG_FINDING_DOMAIN_MISSING',
+        severity: 'violation',
+        message: `Finding ${finding.id} is critical/maturity-limiting but has no domain name.`,
+        entityId: finding.id,
+        source: 'evidence-model'
+      });
     }
     if (!finding.recommendedControl) {
-      violations.push(`Finding ${finding.id} has no recommended control.`);
+      violations.push({
+        code: 'QG_RECOMMENDED_CONTROL_MISSING',
+        severity: 'violation',
+        message: `Finding ${finding.id} has no recommended control.`,
+        entityId: finding.id,
+        source: 'evidence-model'
+      });
     }
   }
 
   // 3/4. Every finding needs a source question and a recorded response.
   for (const finding of model.materialFindings) {
-    if (!finding.questionCode) violations.push(`Finding ${finding.id} has no source question code.`);
-    if (finding.responseValue === null) violations.push(`Finding ${finding.id} has no recorded response value.`);
+    if (!finding.questionCode) {
+      violations.push({
+        code: 'QG_SOURCE_QUESTION_MISSING',
+        severity: 'violation',
+        message: `Finding ${finding.id} has no source question code.`,
+        entityId: finding.id,
+        source: 'evidence-model'
+      });
+    }
+    if (finding.responseValue === null) {
+      violations.push({
+        code: 'QG_RESPONSE_VALUE_MISSING',
+        severity: 'violation',
+        message: `Finding ${finding.id} has no recorded response value.`,
+        entityId: finding.id,
+        source: 'evidence-model'
+      });
+    }
   }
 
   // 5/6. No duplicate finding IDs; no question rendered as more than one finding.
   const findingIds = model.materialFindings.map((f) => f.id);
-  if (new Set(findingIds).size !== findingIds.length) violations.push('Duplicate finding IDs detected.');
+  if (new Set(findingIds).size !== findingIds.length) {
+    violations.push({
+      code: 'QG_DUPLICATE_FINDING_ID',
+      severity: 'violation',
+      message: 'Duplicate finding IDs detected.',
+      source: 'evidence-model'
+    });
+  }
   const questionCodes = model.materialFindings.map((f) => f.questionCode);
   const dupeQuestions = questionCodes.filter((code, i) => questionCodes.indexOf(code) !== i);
-  if (dupeQuestions.length > 0) violations.push(`Same source question rendered more than once: ${[...new Set(dupeQuestions)].join(', ')}.`);
+  if (dupeQuestions.length > 0) {
+    violations.push({
+      code: 'QG_DUPLICATE_SOURCE_QUESTION',
+      severity: 'violation',
+      message: `Same source question rendered more than once: ${[...new Set(dupeQuestions)].join(', ')}.`,
+      source: 'evidence-model'
+    });
+  }
 
   // 7. Executive diagnosis must state the correct number of maturity-limiting controls. Checked
   // here at the data level: the count the template should render must equal the actual cap-event
-  // count with a related question, not a hardcoded "single control" assumption.
+  // count with a related question, not a hardcoded "single control" assumption. This is a
+  // project-specific warning beyond the Checkpoint B minimum code set (non-blocking either way).
   const questionLevelCapCount = data.maturityCapEvents.filter((e) => e.relatedQuestionCode).length;
   if (questionLevelCapCount > 1) {
-    warnings.push(`${questionLevelCapCount} question-level maturity-cap events exist -- executive diagnosis copy must not describe this as "a single control gap".`);
+    warnings.push({
+      code: 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK',
+      severity: 'warning',
+      message: `${questionLevelCapCount} question-level maturity-cap events exist -- executive diagnosis copy must not describe this as "a single control gap".`,
+      source: 'evidence-model'
+    });
   }
 
   // 9/10/11. Scenario requirements.
-  if (model.scenarios.length < 3) violations.push(`Only ${model.scenarios.length} plausible scenarios generated; at least 3 are required.`);
+  if (model.scenarios.length < 3) {
+    violations.push({
+      code: 'QG_SCENARIO_MINIMUM_NOT_MET',
+      severity: 'violation',
+      message: `Only ${model.scenarios.length} plausible scenarios generated; at least 3 are required.`,
+      source: 'evidence-model'
+    });
+  }
   for (const scenario of model.scenarios) {
-    if (scenario.linkedFindingIds.length === 0) violations.push(`Scenario ${scenario.id} has no linked assessment evidence.`);
+    if (scenario.linkedFindingIds.length === 0) {
+      violations.push({
+        code: 'QG_SCENARIO_EVIDENCE_MISSING',
+        severity: 'violation',
+        message: `Scenario ${scenario.id} has no linked assessment evidence.`,
+        entityId: scenario.id,
+        source: 'evidence-model'
+      });
+    }
     if (!scenario.disclaimer || !scenario.disclaimer.toLowerCase().includes('plausible scenario')) {
-      violations.push(`Scenario ${scenario.id} is missing the "plausible scenario, not an allegation" disclaimer.`);
+      violations.push({
+        code: 'QG_SCENARIO_DISCLAIMER_MISSING',
+        severity: 'violation',
+        message: `Scenario ${scenario.id} is missing the "plausible scenario, not an allegation" disclaimer.`,
+        entityId: scenario.id,
+        source: 'evidence-model'
+      });
     }
   }
 
   // 12/13/14. Registers must be present whenever there are findings to populate them.
   if (model.materialFindings.length > 0) {
-    if (model.riskRegister.length === 0) violations.push('Risk register is absent despite material findings.');
-    if (model.controlImprovements.length === 0) violations.push('Control improvement register is absent despite material findings.');
-    if (model.evidenceChecklist.length === 0) violations.push('Evidence checklist is absent despite material findings.');
+    if (model.riskRegister.length === 0) {
+      violations.push({ code: 'QG_RISK_REGISTER_MISSING', severity: 'violation', message: 'Risk register is absent despite material findings.', source: 'evidence-model' });
+    }
+    if (model.controlImprovements.length === 0) {
+      violations.push({ code: 'QG_CONTROL_REGISTER_MISSING', severity: 'violation', message: 'Control improvement register is absent despite material findings.', source: 'evidence-model' });
+    }
+    if (model.evidenceChecklist.length === 0) {
+      violations.push({ code: 'QG_EVIDENCE_CHECKLIST_MISSING', severity: 'violation', message: 'Evidence checklist is absent despite material findings.', source: 'evidence-model' });
+    }
   }
 
-  // 15/16/17/18. Roadmap quality.
+  // 15/16/17/18. Roadmap quality (evidence-model's own pre-render roadmapActions -- see
+  // ../../commercial-quality.ts for the separate check against the exact rendered roadmap.agenda).
   for (const action of model.roadmapActions) {
-    if (!action.deliverable || action.deliverable.length < 15) violations.push(`Roadmap action ${action.id} lacks a measurable deliverable.`);
-    if (action.deliverable.includes(PROHIBITED_GENERIC_ROADMAP_PHRASE)) violations.push(`Roadmap action ${action.id} uses the prohibited generic template sentence.`);
-    if (!action.accountableOwner) violations.push(`Roadmap action ${action.id} has no owner.`);
-    if (!action.successMeasure) violations.push(`Roadmap action ${action.id} has no effectiveness measure.`);
+    if (!action.deliverable || action.deliverable.length < 15) {
+      violations.push({ code: 'QG_ROADMAP_DELIVERABLE_MISSING', severity: 'violation', message: `Roadmap action ${action.id} lacks a measurable deliverable.`, entityId: action.id, source: 'evidence-model' });
+    }
+    if (action.deliverable.includes(PROHIBITED_GENERIC_ROADMAP_PHRASE)) {
+      violations.push({ code: 'QG_ROADMAP_GENERIC_LANGUAGE', severity: 'violation', message: `Roadmap action ${action.id} uses the prohibited generic template sentence.`, entityId: action.id, source: 'evidence-model' });
+    }
+    if (!action.accountableOwner) {
+      violations.push({ code: 'QG_ROADMAP_OWNER_MISSING', severity: 'violation', message: `Roadmap action ${action.id} has no owner.`, entityId: action.id, source: 'evidence-model' });
+    }
+    if (!action.successMeasure) {
+      violations.push({ code: 'QG_ROADMAP_MEASURE_MISSING', severity: 'violation', message: `Roadmap action ${action.id} has no effectiveness measure.`, entityId: action.id, source: 'evidence-model' });
+    }
   }
 
   // 23. Placeholder text must never appear in normal output.
   const haystack = JSON.stringify(model);
   for (const placeholder of PROHIBITED_PLACEHOLDER_STRINGS) {
-    if (haystack.includes(placeholder)) violations.push(`Prohibited placeholder text "${placeholder}" found in evidence model output.`);
+    if (haystack.includes(placeholder)) {
+      violations.push({ code: 'QG_PLACEHOLDER_TEXT_PRESENT', severity: 'violation', message: `Prohibited placeholder text "${placeholder}" found in evidence model output.`, source: 'evidence-model' });
+    }
   }
 
   // 24. Paid content must materially exceed the free snapshot -- proxy check: some minimum volume
@@ -130,7 +216,12 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
   // assessment-specific statements").
   const substantiveStatementCount = model.materialFindings.length + model.contradictions.length + model.riskRegister.length;
   if (substantiveStatementCount < 10) {
-    warnings.push(`Only ${substantiveStatementCount} assessment-specific findings/contradictions/risks generated; section 33 expects at least 10 substantive statements. This assessment may be too clean/small for the Essential tier to feel commercially substantial -- review manually.`);
+    warnings.push({
+      code: 'QG_COMMERCIAL_VOLUME_WARNING',
+      severity: 'warning',
+      message: `Only ${substantiveStatementCount} assessment-specific findings/contradictions/risks generated; section 33 expects at least 10 substantive statements. This assessment may be too clean/small for the Essential tier to feel commercially substantial -- review manually.`,
+      source: 'evidence-model'
+    });
   }
 
   return { passed: violations.length === 0, violations, warnings };
