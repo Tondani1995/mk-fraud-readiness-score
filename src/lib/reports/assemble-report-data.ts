@@ -256,6 +256,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     scoreRun: {
       id: scoreRunRow.id,
       assessmentId: scoreRunRow.assessment_id,
+      methodologyVersionId: scoreRunRow.methodology_version_id,
       status: scoreRunRow.status,
       lockedAt: scoreRunRow.locked_at ?? null,
       inputHash: scoreRunRow.input_hash ?? null,
