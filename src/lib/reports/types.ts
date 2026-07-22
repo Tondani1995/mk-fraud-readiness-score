@@ -4,6 +4,14 @@ export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
 export interface ScoreRunRecord {
   id: string;
   assessmentId: string;
+  /**
+   * The methodology version this score run was actually calculated against, sourced directly
+   * from score_runs.methodology_version_id. The report must use this value, not the currently
+   * active methodology, not the first active methodology, not a date-based inference, and not a
+   * hardcoded version -- a score run locked against an older methodology version must still be
+   * reported against that same version.
+   */
+  methodologyVersionId: string;
   status: string;
   lockedAt: string | null;
   inputHash: string | null;
