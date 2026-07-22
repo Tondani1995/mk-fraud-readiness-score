@@ -209,4 +209,16 @@ test('C1-C4. strong assessment creates no false weakness and any selected item i
   assert.deepEqual(buildMaterialFindings(data).map((finding) => [finding.id, finding.selectionReasons]), first.map((finding) => [finding.id, finding.selectionReasons]));
 });
 
+test('C5. official value 3 (Implemented and in use) is not reclassified as partial or an exposure mismatch', () => {
+  const implemented = trace('D8-Q05', 3, { isCriticalGap: false, isMajorGap: false });
+  const data = assembledData([implemented], {
+    domainResults: Object.entries(DOMAIN_NAMES).map(([domainCode, domainName], index) => ({ domainCode, domainName, weightPct: 10, rawScore: domainCode === 'D8' ? 55 : 80 + index, weightedContribution: 8, coveragePct: 100, criticalGapCount: 0 })),
+    criticalMajorGaps: [], maturityCapEvents: []
+  });
+  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D8-Q05');
+  assert.ok(finding, 'Weakest-domain assurance priority should remain available for an exact playbook.');
+  assert.equal(finding.materialityClass, 'assurance_priority');
+  assert.deepEqual(finding.selectionReasons, ['WEAKEST_DOMAIN']);
+});
+
 console.log(`\n${passed} passed`);

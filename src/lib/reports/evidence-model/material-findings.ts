@@ -102,20 +102,28 @@ function weakestRepresentatives(data: AssembledReportData, traces: QuestionTrace
     .map((domain) => domain.domainCode);
   const selected = new Set<string>();
   for (const domainCode of weakestDomains) {
-    const representative = traces
+    const candidates = traces
       .filter((trace) => trace.domainCode === domainCode && trace.applicable && trace.responseValue !== null)
       .sort((a, b) =>
         (a.responseValue as number) - (b.responseValue as number) ||
         Number(b.isCritical) - Number(a.isCritical) ||
         a.questionCode.localeCompare(b.questionCode)
-      )[0];
+      );
+    const weakest = candidates[0];
+    // A response of 3 is officially "Implemented and in use", so weakest-domain status alone is
+    // an assurance prompt, not evidence of a gap. Only emit that optional assurance priority when
+    // exact question advice exists. A genuinely weak 0-2 response remains selectable regardless
+    // of coverage and will fail closed later if its playbook is missing.
+    const representative = weakest && (weakest.responseValue as number) <= 2
+      ? weakest
+      : candidates.find((trace) => getQuestionPlaybook(trace.questionCode));
     if (representative) selected.add(representative.questionCode);
   }
   return selected;
 }
 
 function weakDomains(traces: QuestionTraceRecord[]): Set<string> {
-  return new Set(traces.filter((trace) => trace.applicable && trace.responseValue !== null && trace.responseValue <= 3).map((trace) => trace.domainCode));
+  return new Set(traces.filter((trace) => trace.applicable && trace.responseValue !== null && trace.responseValue <= 2).map((trace) => trace.domainCode));
 }
 
 function stableReasons(reasons: Set<MaterialFindingSelectionReason>): MaterialFindingSelectionReason[] {
@@ -184,15 +192,15 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
     if (trace.isCriticalGap) reasons.add('CRITICAL_GAP');
     if (trace.isMajorGap) reasons.add('MAJOR_GAP');
     if (responseValue === 0) reasons.add('ABSENT_CONTROL');
-    if (trace.isCritical && responseValue > 0 && responseValue <= 3 && exposureLinks.length > 0) reasons.add('PARTIAL_KEY_CONTROL_HIGH_EXPOSURE');
+    if (trace.isCritical && responseValue > 0 && responseValue <= 2 && exposureLinks.length > 0) reasons.add('PARTIAL_KEY_CONTROL_HIGH_EXPOSURE');
     if (weakest.has(trace.questionCode)) reasons.add('WEAKEST_DOMAIN');
-    if (responseValue <= 3 && exposureLinks.length > 0) reasons.add('EXPOSURE_CONTROL_MISMATCH');
+    if (responseValue <= 2 && exposureLinks.length > 0) reasons.add('EXPOSURE_CONTROL_MISMATCH');
     if (trace.isCritical && responseValue <= 2 && data.scoreRun.overallScore >= 60) reasons.add('STRONG_AGGREGATE_MASKING_CRITICAL_WEAKNESS');
-    if (responseValue <= 3 && (SCENARIO_TYPES_BY_QUESTION[trace.questionCode]?.length ?? 0) > 0) reasons.add('PRIORITY_SCENARIO_ENABLER');
+    if (responseValue <= 2 && (SCENARIO_TYPES_BY_QUESTION[trace.questionCode]?.length ?? 0) > 0) reasons.add('PRIORITY_SCENARIO_ENABLER');
 
     const partners = CROSS_DOMAIN_PARTNERS[trace.domainCode] ?? [];
-    if (responseValue <= 3 && partners.some((domainCode) => weakDomainSet.has(domainCode))) reasons.add('CROSS_DOMAIN_DEPENDENCY');
-    if (responseValue <= 3 && ((trace.domainCode === 'D4' && weakDomainSet.has('D5')) || (trace.domainCode === 'D5' && (weakDomainSet.has('D4') || weakDomainSet.has('D6'))) || (trace.domainCode === 'D6' && weakDomainSet.has('D5')))) reasons.add('MATERIAL_CONTRADICTION');
+    if (responseValue <= 2 && partners.some((domainCode) => weakDomainSet.has(domainCode))) reasons.add('CROSS_DOMAIN_DEPENDENCY');
+    if (responseValue <= 2 && ((trace.domainCode === 'D4' && weakDomainSet.has('D5')) || (trace.domainCode === 'D5' && (weakDomainSet.has('D4') || weakDomainSet.has('D6'))) || (trace.domainCode === 'D6' && weakDomainSet.has('D5')))) reasons.add('MATERIAL_CONTRADICTION');
 
     const selectionReasons = stableReasons(reasons);
     if (selectionReasons.length === 0) continue;
