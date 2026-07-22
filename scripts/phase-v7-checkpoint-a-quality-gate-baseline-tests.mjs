@@ -1,20 +1,22 @@
-// V7 Checkpoint A -- baseline test proving today's non-blocking quality-gate behaviour.
+// V7 Checkpoint A/B -- regression test proving the fail-closed quality-gate behaviour.
 //
-// checkQualityGates() (evidence-model/index.ts) already correctly DETECTS commercial-quality
-// violations (that half of the spec's section 10.1 requirement already exists and is exercised
-// here). The defect is entirely in the caller: report-template.ts's renderReportHtml() calls
-// checkQualityGates(), logs a violation via console.error, and then renders and RETURNS the HTML
-// anyway (spec 8.1). This test documents that current, defective behaviour concretely -- with a
-// real violation, on a real call to the real render function -- so that Checkpoint B's fix
-// (throwing a blocking ReportCommercialQualityError instead) has a test that must be *flipped*,
-// not newly invented, proving the fix actually changes real behaviour rather than testing a straw
-// man.
+// checkQualityGates() (evidence-model/index.ts) correctly DETECTS commercial-quality violations
+// (that half of the spec's section 10.1 requirement already existed pre-Checkpoint-B and is
+// exercised here). Before Checkpoint B, the defect was entirely in the caller: report-template.ts's
+// renderReportHtml() called checkQualityGates(), logged a violation via console.error, and then
+// rendered and RETURNED the HTML anyway (spec 8.1) -- this test used to document that defective
+// behaviour with assert.doesNotThrow(). Checkpoint B fixed the caller (renderReportHtml() now calls
+// assertCommercialReportQuality(), which throws ReportCommercialQualityError on any violation, see
+// ../src/lib/reports/commercial-quality.ts), so this test is now INVERTED to assert.throws(...) and
+// kept in the regression suite to prove the fix actually changed real behaviour, on the same real
+// violating fixture and the same real render function, rather than testing a straw man.
 //
 // Imported directly from the real, compiled source (not reimplemented), per this repo's existing
 // test convention (see scripts/phase14-report-access-eligibility-tests.mjs and similar).
 import assert from 'node:assert/strict';
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
+import { ReportCommercialQualityError } from '../src/lib/reports/commercial-quality.ts';
 
 let passed = 0;
 function test(name, fn) {
@@ -105,14 +107,16 @@ test('control: checkQualityGates() correctly detects a real violation on the min
   console.log(`    (violations on this fixture: ${JSON.stringify(gate.violations)})`);
 });
 
-test('BASELINE (documents current defect, spec 8.1): renderReportHtml() still returns full HTML despite a real quality-gate violation -- it must not, once Checkpoint B lands', () => {
+test('REGRESSION (V7 Checkpoint B, formerly the documented spec-8.1 defect): renderReportHtml() throws ReportCommercialQualityError instead of returning HTML for a real quality-gate violation', () => {
   const fixture = buildViolatingFixture();
   const content = emptySelectedContent(fixture);
-  let html;
-  assert.doesNotThrow(() => {
-    html = renderReportHtml(fixture, content, { agenda: [] });
-  }, 'This assert.doesNotThrow documents TODAY\'S defective behaviour. Checkpoint B must invert this test to assert.throws(ReportCommercialQualityError) once the blocking gate is implemented.');
-  assert.ok(typeof html === 'string' && html.length > 0, 'Expected non-empty HTML to be returned despite the violation (this is the bug).');
+  assert.throws(
+    () => {
+      renderReportHtml(fixture, content, { agenda: [] });
+    },
+    ReportCommercialQualityError,
+    'renderReportHtml() must throw ReportCommercialQualityError (not return HTML) once the fixture trips a real evidence-model quality-gate violation.'
+  );
 });
 
 console.log(`\n${passed} passed`);
