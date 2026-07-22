@@ -32,6 +32,7 @@ import {
 import { generateManualPhase1Report } from '../src/lib/reports/phase1-manual-fulfilment.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
+import { persistManualNarrativeProvenance } from '../src/lib/reports/automation/manual-narrative-provenance.ts';
 
 let passed = 0;
 let failed = 0;
@@ -522,6 +523,23 @@ await test('E20: migration extends the existing ledger, enforces one parent and 
   assert.match(sql, /settle_manual_report_ai_attempt/);
   assert.match(sql, /record_manual_report_narrative_provenance/);
   assert.doesNotMatch(sql, /set_phase14_ai_route_policy|premium_report_ai_narrative_enabled[^\n]*true|automatic_fulfilment[^\n]*true/i);
+});
+
+await test('E21: the exact pre-Checkpoint E Phase 1 schema remains deterministic-compatible only while AI is disabled', async () => {
+  const prepared = await preparePremiumReportNarrative({
+    assembled: clean.data,
+    deterministicContent: clean.deterministicContent,
+    roadmap: clean.roadmap,
+    advisoryModel: clean.advisoryModel,
+    flags: DISABLED_FLAGS,
+    generationIdentity: 'pre-checkpoint-e-compatibility'
+  });
+  const db = { rpc: async () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find record_manual_report_narrative_provenance in the schema cache.' } }) };
+  assert.equal(await persistManualNarrativeProvenance({ db, manualGenerationAttemptId: 'attempt-old-schema', prepared, flags: DISABLED_FLAGS }), null);
+  await assert.rejects(
+    persistManualNarrativeProvenance({ db, manualGenerationAttemptId: 'attempt-old-schema', prepared, flags: ENABLED_FLAGS }),
+    (error) => error?.code === 'PGRST202'
+  );
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -3,6 +3,13 @@ import type {
   PremiumReportAutomationFlags
 } from './types';
 
+function isMissingCheckpointESchema(error: any) {
+  const code = String(error?.code ?? '');
+  const message = String(error?.message ?? '');
+  return ['42883', 'PGRST202'].includes(code)
+    || /record_manual_report_narrative_provenance.*(?:does not exist|could not find|schema cache)/i.test(message);
+}
+
 /** Persists the final Phase 1 narrative decision without storing customer contact details. */
 export async function persistManualNarrativeProvenance(input: {
   db: any;
@@ -44,6 +51,11 @@ export async function persistManualNarrativeProvenance(input: {
       fallback_reason: input.prepared.fallbackReason ?? null
     }
   });
+  // Phase 1's exact 0023 compatibility boundary predates this additive Checkpoint E RPC. When AI
+  // is disabled and that exact older schema is detected, preserve the established deterministic
+  // generation path. Never use this compatibility branch for an enabled AI path or for any other
+  // persistence failure.
+  if (error && !input.flags.aiNarrativeEnabled && isMissingCheckpointESchema(error)) return null;
   if (error || !data) throw error ?? new Error('Manual report narrative provenance could not be persisted.');
   return data;
 }
