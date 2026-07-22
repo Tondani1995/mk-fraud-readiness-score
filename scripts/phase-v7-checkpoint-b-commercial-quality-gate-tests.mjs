@@ -606,7 +606,7 @@ await asyncTest('C10. output_report_id is never observed as set on a quality fai
   let sawSuccessfulResult = false;
   try {
     const result = await generateManualPhase1Report(
-      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'req-key-violating-2', action: 'admin_generate' },
+      { orderReference: violatingData.orderReference, requestedBy: 'admin-1', requestKey: 'c10', action: 'admin_generate' },
       {
         db,
         assembleReportData: fakeAssembleReportData(violatingData),
