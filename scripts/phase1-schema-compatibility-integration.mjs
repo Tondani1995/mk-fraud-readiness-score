@@ -64,7 +64,16 @@ async function createCompletedAssessment() {
     ]);
     assert.ifError(questionError);
     assert.ifError(factorError);
-    const answers = questions.map((question) => ({ questionId: question.id, responseValue: 4, isNotApplicable: false, nAReason: '' }));
+    // Response values span the full real 0-4 scale (0 = not in place, 4 = fully in place --
+    // see evidence-model/material-findings.ts responseMeaning()), cycling across each question in
+    // sort_order. Questions are seeded grouped by domain (0003_phase5_methodology_seed.sql), so
+    // this spread gives every domain a genuine mix of low and high responses instead of the prior
+    // uniform "4 for everything", which produced zero critical/major gaps and therefore zero
+    // report content -- Checkpoint B's fail-closed commercial-quality gate correctly refused to
+    // publish a report with nothing in it (422 commercial_quality_failed). This does not touch the
+    // scoring engine; it only varies this test's synthetic input answers so the resulting
+    // assessment has real, evidence-model-buildable findings across multiple domains.
+    const answers = questions.map((question, index) => ({ questionId: question.id, responseValue: index % 5, isNotApplicable: false, nAReason: '' }));
     const exposureAnswers = factors.map((factor) => {
       const option = factor.options_json.options[0];
       return { exposureFactorId: factor.id, selectedValue: option.value, selectedLabel: option.label, pointsAwarded: Number(option.points) };
