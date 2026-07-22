@@ -55,8 +55,9 @@
     "platform:test-hardening": "node scripts/platform-hardening-tests.mjs && node scripts/phase14-database-security-hardening-tests.mjs",
     "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs",
     "v7:test-checkpoint-a-quality-gate-baseline": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs",
-    "v7:test-checkpoint-a-response-label-baseline": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-baseline-tests.mjs",
-    "v7:test-checkpoint-a-baselines": "npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-baseline"
+    "v7:test-checkpoint-a-response-label-unit": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs",
+    "v7:test-checkpoint-a-unit": "npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-unit",
+    "v7:test-checkpoint-a-db": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
