@@ -50,30 +50,59 @@ where block_type = 'executive_summary' and severity = 'capped'
 --    Developing-band domain_narrative block (only Structured/Strategic authored), so any domain
 --    scoring 40-64 silently fell back to generic content. MK Assist alone has 5 domains in this
 --    exact situation (D5, D6, D7, D9, D10). Author the missing Developing-band narratives.
-insert into public.report_content_blocks
-  (methodology_version_id, block_key, block_type, domain_code, maturity_band, severity, title, body, status, version_number)
-values
-  ('df96e242-9625-4b2a-bc62-615ae402483a', 'domain_fraud_incident_response_developing', 'domain_narrative', 'D5', 'Developing', null,
-   'A response would happen, but it has not been rehearsed',
-   'The organisation has some sense of what it would do if fraud were suspected, but that knowledge lives mostly in individual judgement rather than a documented, evidence-preserving process. An untested response plan tends to reveal its gaps in the middle of a live incident, which is the most expensive place to discover them.',
-   'active', 1),
-  ('df96e242-9625-4b2a-bc62-615ae402483a', 'domain_whistleblowing_and_reporting_culture_developing', 'domain_narrative', 'D6', 'Developing', null,
-   'A way to report exists, but trust in it is still unproven',
-   'A reporting channel is technically available, but it is not yet clear whether people would actually use it or trust that raising a concern is safe and would be taken seriously. A channel nobody trusts enough to use is functionally close to having no channel at all.',
-   'active', 1),
-  ('df96e242-9625-4b2a-bc62-615ae402483a', 'domain_third_party_and_supply_chain_fraud_risk_developing', 'domain_narrative', 'D7', 'Developing', null,
-   'Some supplier checks happen, but not consistently',
-   'Elements of supplier due diligence exist, but they are not applied consistently across every supplier relationship, and rarely continue once a relationship is established. Fraud risk in this domain tends to concentrate precisely in the gap between onboarding checks and ongoing monitoring.',
-   'active', 1),
-  ('df96e242-9625-4b2a-bc62-615ae402483a', 'domain_fraud_culture_and_awareness_developing', 'domain_narrative', 'D9', 'Developing', null,
-   'Awareness exists, but it has not been reinforced recently',
-   'People have likely heard about fraud risk at some point, but that awareness has not been refreshed with current examples or built into how the organisation talks about risk day to day. Awareness that fades between refreshers tends to be lowest exactly when pressure or temptation is highest.',
-   'active', 1),
-  ('df96e242-9625-4b2a-bc62-615ae402483a', 'domain_continuous_improvement_and_fraud_risk_monitoring_developing', 'domain_narrative', 'D10', 'Developing', null,
-   'Fraud risk is reviewed, but not on a fixed rhythm',
-   'Some review of fraud controls happens, but it is not yet built into a predictable cycle leadership can rely on. Without a fixed rhythm, review tends to happen only after something prompts it, rather than catching a new risk before it becomes a loss.',
-   'active', 1)
-on conflict (methodology_version_id, block_key, version_number) do nothing;
+--
+-- Resolve methodology_version_id deterministically by its stable version_code rather than embedding
+-- a production-specific UUID literal. A hardcoded literal only "works" against an environment whose
+-- methodology_versions table happens to already contain that exact row (e.g. production, where it
+-- was applied first) -- a fresh/clean local Supabase replay seeds methodology_versions with its own
+-- UUIDs, so a literal fails report_content_blocks_methodology_version_id_fkey on every environment
+-- that isn't production. This is what was breaking Supabase Migration Replay and Phase 1 Release
+-- Safety on this branch. The guard below fails loudly and specifically if the expected methodology
+-- version is missing or ambiguous, rather than silently inserting against the wrong (or no) row.
+do $$
+declare
+  v_methodology_id uuid;
+  v_match_count integer;
+begin
+  select count(*) into v_match_count
+  from public.methodology_versions
+  where version_code = 'MFRS-V1.1';
+
+  if v_match_count = 0 then
+    raise exception 'migration 0034: no methodology_versions row found with version_code = MFRS-V1.1';
+  elsif v_match_count > 1 then
+    raise exception 'migration 0034: % methodology_versions rows found with version_code = MFRS-V1.1 (expected exactly 1)', v_match_count;
+  end if;
+
+  select id into v_methodology_id
+  from public.methodology_versions
+  where version_code = 'MFRS-V1.1';
+
+  insert into public.report_content_blocks
+    (methodology_version_id, block_key, block_type, domain_code, maturity_band, severity, title, body, status, version_number)
+  values
+    (v_methodology_id, 'domain_fraud_incident_response_developing', 'domain_narrative', 'D5', 'Developing', null,
+     'A response would happen, but it has not been rehearsed',
+     'The organisation has some sense of what it would do if fraud were suspected, but that knowledge lives mostly in individual judgement rather than a documented, evidence-preserving process. An untested response plan tends to reveal its gaps in the middle of a live incident, which is the most expensive place to discover them.',
+     'active', 1),
+    (v_methodology_id, 'domain_whistleblowing_and_reporting_culture_developing', 'domain_narrative', 'D6', 'Developing', null,
+     'A way to report exists, but trust in it is still unproven',
+     'A reporting channel is technically available, but it is not yet clear whether people would actually use it or trust that raising a concern is safe and would be taken seriously. A channel nobody trusts enough to use is functionally close to having no channel at all.',
+     'active', 1),
+    (v_methodology_id, 'domain_third_party_and_supply_chain_fraud_risk_developing', 'domain_narrative', 'D7', 'Developing', null,
+     'Some supplier checks happen, but not consistently',
+     'Elements of supplier due diligence exist, but they are not applied consistently across every supplier relationship, and rarely continue once a relationship is established. Fraud risk in this domain tends to concentrate precisely in the gap between onboarding checks and ongoing monitoring.',
+     'active', 1),
+    (v_methodology_id, 'domain_fraud_culture_and_awareness_developing', 'domain_narrative', 'D9', 'Developing', null,
+     'Awareness exists, but it has not been reinforced recently',
+     'People have likely heard about fraud risk at some point, but that awareness has not been refreshed with current examples or built into how the organisation talks about risk day to day. Awareness that fades between refreshers tends to be lowest exactly when pressure or temptation is highest.',
+     'active', 1),
+    (v_methodology_id, 'domain_continuous_improvement_and_fraud_risk_monitoring_developing', 'domain_narrative', 'D10', 'Developing', null,
+     'Fraud risk is reviewed, but not on a fixed rhythm',
+     'Some review of fraud controls happens, but it is not yet built into a predictable cycle leadership can rely on. Without a fixed rhythm, review tends to happen only after something prompts it, rather than catching a new risk before it becomes a loss.',
+     'active', 1)
+  on conflict (methodology_version_id, block_key, version_number) do nothing;
+end $$;
 
 -- 6) Activate the reviewed content library. All 36 original draft blocks were read and assessed for
 --    accuracy, tone, and tier-fit; the wording defects above were the only corrections required.
