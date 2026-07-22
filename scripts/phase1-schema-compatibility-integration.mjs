@@ -62,7 +62,7 @@ async function createCompletedAssessment(fixture = 'unavailable') {
 
   if (expected === 'available') {
     const [{ data: questions, error: questionError }, { data: factors, error: factorError }] = await Promise.all([
-      service.from('questions').select('id').eq('methodology_version_id', assessment.methodology_version_id).eq('active', true).order('sort_order'),
+      service.from('questions').select('id,question_code').eq('methodology_version_id', assessment.methodology_version_id).eq('active', true).order('sort_order'),
       service.from('exposure_factors').select('id,options_json').eq('methodology_version_id', assessment.methodology_version_id).order('sort_order')
     ]);
     assert.ifError(questionError);
@@ -71,9 +71,20 @@ async function createCompletedAssessment(fixture = 'unavailable') {
     // fully-in-place response for every question and no exposure, so it has no material evidence
     // to link to the mandatory scenarios and must fail closed. The passing fixture records genuine
     // control gaps and the highest disposable-test exposure option so the real scenario builders,
-    // rendered content and rendered roadmap all have assessment evidence to work from.
-    const responseValue = fixture === 'passing' ? 0 : 4;
-    const answers = questions.map((question) => ({ questionId: question.id, responseValue, isNotApplicable: false, nAReason: '' }));
+    // rendered content and rendered roadmap all have assessment evidence to work from. Checkpoint C
+    // makes exact question playbooks mandatory for every material finding, so this fixture fails
+    // the eight specifically covered controls and records all other controls as consistently
+    // operating. It must not fabricate 50+ unsupported absent-control findings merely to make the
+    // old broad fixture pass.
+    const checkpointCPlaybookQuestions = new Set([
+      'D1-Q04', 'D3-Q04', 'D5-Q01', 'D5-Q05', 'D6-Q01', 'D7-Q01', 'D7-Q04', 'D8-Q04'
+    ]);
+    const answers = questions.map((question) => ({
+      questionId: question.id,
+      responseValue: fixture === 'passing' && checkpointCPlaybookQuestions.has(question.question_code) ? 0 : 4,
+      isNotApplicable: false,
+      nAReason: ''
+    }));
     const exposureAnswers = factors.map((factor) => {
       const options = factor.options_json.options;
       const option = fixture === 'passing' ? options[options.length - 1] : options[0];
