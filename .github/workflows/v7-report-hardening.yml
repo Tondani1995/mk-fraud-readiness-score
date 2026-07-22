@@ -15,6 +15,16 @@ name: V7 Report Hardening
 # if the lockfile is missing or out of sync, rather than silently falling back to a floating
 # `npm install`. package-lock.json is also now in the path filters below, so a lockfile change
 # alone (e.g. a dependency bump) triggers this workflow, not just source/script/package.json edits.
+#
+# V7 Checkpoint B: adds the fail-closed commercial quality gate suite
+# (scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs, run via `npm run
+# v7:test-checkpoint-b`) to the mandatory, credential-free CI gate. Like the Checkpoint A suite, it
+# never touches a real Supabase instance or a real PDF renderer -- generateManualPhase1Report()'s
+# lifecycle tests use a recording fake `db` and injected assembleReportData/
+# validatePremiumReportGenerationEntitlement/getPhase1SchemaCapability/renderValidatedCommercialPdf
+# (phase1-manual-fulfilment.ts's ManualPhase1Dependencies), and the render-stage tests use a fake
+# PDF-render function (renderHtmlToPdfBuffer/Puppeteer/Chromium is never invoked in CI by this
+# suite). `npm run v7:test-report-hardening` now runs both Checkpoint A and Checkpoint B.
 
 on:
   pull_request:
@@ -54,5 +64,5 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
-      - name: Run V7 Checkpoint A unit suite (credential-free)
-        run: npm run v7:test-checkpoint-a-unit
+      - name: Run V7 report-hardening suite (Checkpoint A + Checkpoint B, credential-free)
+        run: npm run v7:test-report-hardening
