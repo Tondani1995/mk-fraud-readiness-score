@@ -4,10 +4,27 @@ import { assembleReportData, ReportAssemblyError } from './assemble-report-data'
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
 import { selectRoadmap } from './roadmap';
-import { renderReportHtml } from './templates/report-template';
-import { renderHtmlToPdfBuffer } from './render-pdf';
+import { renderValidatedCommercialPdf } from './render-validated-commercial-pdf';
+import { ReportCommercialQualityError } from './commercial-quality';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
+
+/**
+ * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
+ * framework or service container). Production callers pass nothing and get the real Supabase
+ * client and real report-assembly/entitlement/schema-capability/PDF-render functions, exactly as
+ * before. Tests inject a recording fake `db` (and, where useful, fake versions of the other
+ * functions) so the real orchestration code below -- claim, start, quality gate, storage upload,
+ * verification, completion RPC, failure RPC -- can be exercised end-to-end without production
+ * Supabase credentials.
+ */
+export interface ManualPhase1Dependencies {
+  db?: any;
+  assembleReportData?: typeof assembleReportData;
+  validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
+  getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
+  renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
+}
 
 export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
 
@@ -43,17 +60,29 @@ export type Phase1GenerationReason =
   | 'storage_integrity_failed'
   | 'report_persistence_failed'
   | 'phase1_schema_unavailable'
+  | 'commercial_quality_failed'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
+  readonly reason: Phase1GenerationReason;
+  readonly status: number;
+  readonly technicalReference?: string;
+
+  // Explicit fields + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why: this repo's committed
+  // credential-free test scripts run real source directly via `node --experimental-strip-types`,
+  // which cannot codegen parameter properties. Behaviourally identical to the prior version.
   constructor(
-    public readonly reason: Phase1GenerationReason,
+    reason: Phase1GenerationReason,
     message: string,
-    public readonly status = 500,
-    public readonly technicalReference?: string
+    status = 500,
+    technicalReference?: string
   ) {
     super(message);
     this.name = 'Phase1GenerationError';
+    this.reason = reason;
+    this.status = status;
+    this.technicalReference = technicalReference;
   }
 }
 
@@ -152,15 +181,23 @@ function assertValidPdf(bytes: Buffer, technicalReference: string) {
   }
 }
 
-export async function generateManualPhase1Report(input: ManualGenerationInput): Promise<ManualGenerationResult> {
+export async function generateManualPhase1Report(
+  input: ManualGenerationInput,
+  dependencies: ManualPhase1Dependencies = {}
+): Promise<ManualGenerationResult> {
   const technicalReference = crypto.randomUUID();
   const requestKey = input.requestKey.trim().slice(0, 200);
   if (!requestKey) {
     throw new Phase1GenerationError('generation_failed', 'A request key is required for safe report generation.', 400, technicalReference);
   }
 
-  const db = createSupabaseServiceClient() as any;
-  const capability = await getPhase1SchemaCapability(db);
+  const db = dependencies.db ?? (createSupabaseServiceClient() as any);
+  const doAssembleReportData = dependencies.assembleReportData ?? assembleReportData;
+  const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
+  const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
+  const doRenderValidatedCommercialPdf = dependencies.renderValidatedCommercialPdf ?? renderValidatedCommercialPdf;
+
+  const capability = await doGetSchemaCapability(db);
   if (capability.status !== 'available') {
     throw new Phase1GenerationError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
   }
@@ -168,8 +205,8 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
   let assembled;
   let reportType;
   try {
-    assembled = await assembleReportData(input.orderReference);
-    reportType = validatePremiumReportGenerationEntitlement(assembled);
+    assembled = await doAssembleReportData(input.orderReference);
+    reportType = doValidateEntitlement(assembled);
   } catch (error) {
     throw mapPreflightFailure(error, technicalReference);
   }
@@ -278,14 +315,36 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     }));
     const content = selectContent(assembled, contentBlocks);
     const roadmap = selectRoadmap(assembled);
-    const html = renderReportHtml(assembled, content, roadmap);
+
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
       throw new Phase1GenerationError('pdf_render_failed', 'The local PDF failure double was activated.', 500, technicalReference);
     }
-    const pdf = await renderHtmlToPdfBuffer(html).catch((error) => {
+
+    // V7 Checkpoint B: HTML preparation and PDF rendering now happen behind the single
+    // renderValidatedCommercialPdf() seam, which internally runs the fail-closed commercial
+    // quality gate (see ../commercial-quality.ts) before any HTML is returned or the PDF renderer
+    // is invoked. A ReportCommercialQualityError here is distinguished from an ordinary renderer
+    // failure below -- it is mapped to its own reason (commercial_quality_failed, HTTP 422) and
+    // logged with only safe structured fields (technical reference, order reference, issue codes,
+    // counts), never full report content, HTML, or customer data.
+    let pdf: Buffer;
+    try {
+      pdf = await doRenderValidatedCommercialPdf({ data: assembled, content, roadmap });
+    } catch (error) {
+      if (error instanceof ReportCommercialQualityError) {
+        console.error('commercial_report_quality_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          violationCodes: error.violations.map((issue) => issue.code),
+          warningCodes: error.warnings.map((issue) => issue.code),
+          violationCount: error.violations.length
+        });
+        throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      if (error instanceof Phase1GenerationError) throw error;
       console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'render', error: messageOf(error) });
       throw new Phase1GenerationError('pdf_render_failed', 'The PDF renderer failed. Retry generation or inspect the technical reference.', 500, technicalReference);
-    });
+    }
     assertValidPdf(pdf, technicalReference);
 
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
