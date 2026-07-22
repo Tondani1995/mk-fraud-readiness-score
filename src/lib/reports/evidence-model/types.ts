@@ -176,6 +176,70 @@ export interface AdvisoryEvidenceModel {
   functionalAgenda: FunctionalAgendaItem[];
 }
 
+// --- Commercial quality gate (V7 Checkpoint B) -----------------------------------------------
+//
+// Replaces the old unstructured `violations: string[]` / `warnings: string[]` shape with stable,
+// machine-readable issue objects. Every quality-gate consumer (checkQualityGates() below, and the
+// rendered-content/rendered-roadmap checks in ../../commercial-quality.ts) must emit these.
+
+export type CommercialQualitySeverity = 'violation' | 'warning';
+
+/**
+ * Stable, machine-readable commercial-quality issue codes. This is the minimum required set from
+ * the Checkpoint B brief. Do not collapse unrelated defects onto one generic code -- each of these
+ * corresponds to exactly one identifiable defect class.
+ */
+export type CommercialQualityIssueCode =
+  | 'QG_FINDING_DOMAIN_MISSING'
+  | 'QG_RECOMMENDED_CONTROL_MISSING'
+  | 'QG_SOURCE_QUESTION_MISSING'
+  | 'QG_RESPONSE_VALUE_MISSING'
+  | 'QG_DUPLICATE_FINDING_ID'
+  | 'QG_DUPLICATE_SOURCE_QUESTION'
+  | 'QG_SCENARIO_MINIMUM_NOT_MET'
+  | 'QG_SCENARIO_EVIDENCE_MISSING'
+  | 'QG_SCENARIO_DISCLAIMER_MISSING'
+  | 'QG_RISK_REGISTER_MISSING'
+  | 'QG_CONTROL_REGISTER_MISSING'
+  | 'QG_EVIDENCE_CHECKLIST_MISSING'
+  | 'QG_ROADMAP_DELIVERABLE_MISSING'
+  | 'QG_ROADMAP_GENERIC_LANGUAGE'
+  | 'QG_ROADMAP_OWNER_MISSING'
+  | 'QG_ROADMAP_MEASURE_MISSING'
+  | 'QG_RENDERED_ROADMAP_DOMAIN_MISSING'
+  | 'QG_RENDERED_ROADMAP_RATIONALE_MISSING'
+  | 'QG_RENDERED_ROADMAP_ACTION_MISSING'
+  | 'QG_RENDERED_ROADMAP_ACTION_TOO_SHORT'
+  | 'QG_RENDERED_ROADMAP_GENERIC_LANGUAGE'
+  | 'QG_RENDERED_CONTENT_MISSING'
+  | 'QG_RENDERED_CONTENT_TITLE_MISSING'
+  | 'QG_RENDERED_CONTENT_BODY_MISSING'
+  | 'QG_PLACEHOLDER_TEXT_PRESENT'
+  | 'QG_COMMERCIAL_VOLUME_WARNING'
+  | 'QG_QUALITY_EVALUATION_FAILED'
+  | 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK'
+  | 'QG_RENDERED_ROADMAP_OWNER_MISSING';
+
+/**
+ * A single typed commercial-quality issue. `message` may include safe internal identifiers
+ * (finding ID, question code, scenario ID, roadmap item ID, domain code, content block key) but
+ * must never include customer email addresses, respondent names, raw assessment answers, report
+ * prose, or generated HTML.
+ */
+export interface CommercialQualityIssue {
+  code: CommercialQualityIssueCode;
+  severity: CommercialQualitySeverity;
+  message: string;
+  entityId?: string;
+  source?: string;
+}
+
+export interface QualityGateResult {
+  passed: boolean;
+  violations: CommercialQualityIssue[];
+  warnings: CommercialQualityIssue[];
+}
+
 /** Inputs the evidence-model builder actually consumes, re-exported here for convenience. */
 export interface EvidenceModelInput {
   organisationName: string;
