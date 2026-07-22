@@ -8,17 +8,39 @@
 // (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) and is run via the separate
 // v7:test-checkpoint-a-db npm script -- it is NOT run by v7:test-checkpoint-a-unit and is NOT part
 // of the mandatory V7 Report Hardening CI workflow, because that workflow must never depend on
-// production service-role credentials. Run it against a disposable local/staging Supabase database,
-// or independently (as was done for Checkpoint A itself, via the Supabase MCP tool's read-only
-// production query -- see the Checkpoint A report). Module resolution for this script (imports of
-// the real report-engine source and @supabase/supabase-js) has been verified working end-to-end in
-// this environment as of the Checkpoint A correction; it currently stops only at the credential
-// boundary below, which is the expected, correct behaviour for an integration test with no
-// credentials configured -- this is disclosed honestly, not silently skipped.
+// production service-role credentials.
+//
+// HONEST STATUS as of the Checkpoint A FINAL correction (do not overstate this beyond what is
+// listed below -- in particular, do not describe this script as "passed" or "executed against
+// Supabase"):
+//   1. Module loading: VERIFIED. This script's full import graph (the real report-engine source,
+//      @supabase/supabase-js, and its transitive dependencies) resolves and executes correctly in
+//      this sandbox as of the Checkpoint A correction -- an improvement over the original
+//      Checkpoint A delivery, where module resolution itself was unproven.
+//   2. Execution against Supabase: NOT PERFORMED in this checkpoint. No Supabase credentials are
+//      configured in this sandbox (by design -- see above), so this script currently stops at the
+//      credential boundary below (a thrown "Missing required server environment variable" error)
+//      before it reaches any live database call. That stop is expected, correct behaviour for an
+//      integration test with no credentials, and is disclosed here rather than silently skipped or
+//      misreported as a pass.
+//   3. Production table shape: INDEPENDENTLY VERIFIED, READ-ONLY. The response_scale row shape and
+//      values asserted below (EXPECTED_LABELS) were confirmed via a read-only production query
+//      against response_scale joined to methodology_versions on 2026-07-22 (Checkpoint A
+//      verification), not via this script actually running. No production write occurred.
+//   4. Database serialization compatibility (e.g. Postgres numeric/decimal columns arriving as
+//      JSON strings, per the Checkpoint A FINAL correction): covered WITHOUT credentials, via
+//      realistic pure-unit rows in phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs,
+//      which exercises numeric-string normalised_score values ("80", "80.00", "0.00") directly
+//      against parseFiniteDatabaseNumeric() and validateOfficialResponseLabels(). That coverage
+//      does not require this script to run against a real database.
+//
+// Run this script itself against a disposable local/staging Supabase database to additionally
+// prove end-to-end behaviour with live credentials; that has not been done in this checkpoint.
 //
 // The unit-level behaviour of the response-scale validator itself (rejection rules, the two
-// distinct 4/5 labels, null/unsupported-value handling) is covered without any credentials by
-// phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs, which IS part of the mandatory
+// distinct 4/5 labels, null/unsupported-value handling, and the numeric-string/structural-
+// consistency rules added in the Checkpoint A FINAL correction) is covered without any credentials
+// by phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs, which IS part of the mandatory
 // CI gate.
 import assert from 'node:assert/strict';
 import { createSupabaseServiceClient } from '../src/lib/supabase/server.ts';
