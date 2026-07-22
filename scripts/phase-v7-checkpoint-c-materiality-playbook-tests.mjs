@@ -89,6 +89,26 @@ function assembledData(questionTraces, overrides = {}) {
   };
 }
 
+function withDomainScores(data, scoreOverrides) {
+  return {
+    ...data,
+    domainResults: data.domainResults.map((domain) => ({
+      ...domain,
+      rawScore: scoreOverrides[domain.domainCode] ?? domain.rawScore
+    }))
+  };
+}
+
+function unregisteredTrace(questionCode, domainCode, responseValue, overrides = {}) {
+  return {
+    questionCode, domainCode, domainName: DOMAIN_NAMES[domainCode],
+    prompt: `Persisted authoritative fixture prompt for ${questionCode}.`,
+    responseValue, normalisedScore: responseValue * 20, applicable: true, triggeredRules: [],
+    isCritical: false, isHardGate: false, isCriticalGap: false, isMajorGap: false,
+    ...overrides
+  };
+}
+
 function materialFixture() {
   return assembledData([
     trace('D1-Q01', 5), trace('D1-Q04', 2), trace('D3-Q03', 2), trace('D3-Q04', 1),
@@ -150,6 +170,64 @@ test('S12. ranking, IDs and reason order are stable across repeated runs and shu
   assert.deepEqual(buildMaterialFindings(data).map(({ id, questionCode, selectionReasons, materialityScore }) => ({ id, questionCode, selectionReasons, materialityScore })), first);
 });
 
+test('S13. paired weak D4 and D5 controls are dependencies, not contradictions', () => {
+  const traces = [trace('D4-Q02', 1), trace('D5-Q01', 1)];
+  const data = withDomainScores(assembledData(traces, { maturityCapEvents: [] }), { D4: 40, D5: 42 });
+  const findings = buildMaterialFindings(data).filter((finding) => ['D4-Q02', 'D5-Q01'].includes(finding.questionCode));
+  assert.equal(findings.length, 2);
+  assert.ok(findings.every((finding) => finding.selectionReasons.includes('CROSS_DOMAIN_DEPENDENCY')));
+  assert.ok(findings.every((finding) => !finding.selectionReasons.includes('MATERIAL_CONTRADICTION')));
+});
+
+test('S14. strong D4 detection with weak D5 response creates a contradiction on D5 only', () => {
+  const traces = [trace('D4-Q02', 4), trace('D5-Q01', 1)];
+  const data = withDomainScores(assembledData(traces, { maturityCapEvents: [] }), { D4: 65, D5: 40 });
+  const findings = buildMaterialFindings(data);
+  const response = findings.find((finding) => finding.questionCode === 'D5-Q01');
+  assert.ok(response.selectionReasons.includes('MATERIAL_CONTRADICTION'));
+  assert.equal(findings.some((finding) => finding.questionCode === 'D4-Q02' && finding.selectionReasons.includes('MATERIAL_CONTRADICTION')), false);
+});
+
+test('S15. strong D2 identification with weak D10 improvement creates a contradiction on D10', () => {
+  const improvement = unregisteredTrace('D10-Q99', 'D10', 2);
+  const data = withDomainScores(assembledData([improvement], { maturityCapEvents: [] }), { D2: 70, D10: 35 });
+  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D10-Q99');
+  assert.ok(finding.selectionReasons.includes('MATERIAL_CONTRADICTION'));
+});
+
+test('S16. strong domain with a failed critical question creates a contradiction on that exact question', () => {
+  const failedCritical = trace('D3-Q04', 2);
+  const neighbouringControl = trace('D3-Q03', 4, { isCriticalGap: false });
+  const data = withDomainScores(assembledData([failedCritical, neighbouringControl], { maturityCapEvents: [] }), { D3: 72 });
+  const findings = buildMaterialFindings(data);
+  assert.ok(findings.find((finding) => finding.questionCode === 'D3-Q04').selectionReasons.includes('MATERIAL_CONTRADICTION'));
+  assert.equal(findings.some((finding) => finding.questionCode === 'D3-Q03' && finding.selectionReasons.includes('MATERIAL_CONTRADICTION')), false);
+});
+
+test('S17-S18. duplicate cap rules are retained in sorted order and reversed input is byte-equivalent', () => {
+  const data = materialFixture();
+  const capTemplate = data.maturityCapEvents[0];
+  data.maturityCapEvents = [
+    { ...capTemplate, ruleCode: 'zeta_cap_rule', relatedQuestionCode: 'D7-Q04' },
+    { ...capTemplate, ruleCode: 'alpha_cap_rule', relatedQuestionCode: 'D7-Q04' },
+    { ...capTemplate, ruleCode: 'zeta_cap_rule', relatedQuestionCode: 'D7-Q04' }
+  ];
+  const capView = (input) => buildMaterialFindings(input).map((finding) => ({
+    id: finding.id,
+    selectionReasons: finding.selectionReasons,
+    materialityScore: finding.materialityScore,
+    relatedCapRuleCode: finding.relatedCapRuleCode,
+    relatedCapRuleCodes: finding.relatedCapRuleCodes
+  }));
+  const forward = capView(data);
+  const reversed = capView({ ...data, maturityCapEvents: [...data.maturityCapEvents].reverse() });
+  assert.equal(JSON.stringify(reversed), JSON.stringify(forward));
+  const capped = buildMaterialFindings(data).find((finding) => finding.questionCode === 'D7-Q04');
+  assert.equal(capped.maturityCapStatus, 'capping');
+  assert.equal(capped.relatedCapRuleCode, 'alpha_cap_rule');
+  assert.deepEqual(capped.relatedCapRuleCodes, ['alpha_cap_rule', 'zeta_cap_rule']);
+});
+
 test('P1-P6. required related controls receive genuinely different, question-specific designs', () => {
   const design = (code) => getQuestionPlaybook(code).recommendedControlDesign;
   assert.notEqual(design('D5-Q01'), design('D5-Q05'));
@@ -164,15 +242,29 @@ test('P1-P6. required related controls receive genuinely different, question-spe
 });
 
 test('P7. every required playbook maps to an authoritative code, domain and critical/hard-gate status', () => {
-  const required = ['D1-Q04', 'D3-Q04', 'D5-Q01', 'D5-Q05', 'D6-Q01', 'D7-Q01', 'D7-Q04', 'D8-Q04'];
-  const registered = new Set(listQuestionPlaybooks().map((playbook) => playbook.questionCode));
-  for (const code of required) {
+  const required = {
+    'D1-Q04': { domainCode: 'D1', isCritical: true, isHardGate: true },
+    'D3-Q04': { domainCode: 'D3', isCritical: true, isHardGate: true },
+    'D5-Q01': { domainCode: 'D5', isCritical: true, isHardGate: true },
+    'D5-Q05': { domainCode: 'D5', isCritical: true, isHardGate: true },
+    'D6-Q01': { domainCode: 'D6', isCritical: true, isHardGate: false },
+    'D7-Q01': { domainCode: 'D7', isCritical: true, isHardGate: false },
+    'D7-Q04': { domainCode: 'D7', isCritical: true, isHardGate: true },
+    'D8-Q04': { domainCode: 'D8', isCritical: true, isHardGate: true }
+  };
+  const registered = new Map(listQuestionPlaybooks().map((playbook) => [playbook.questionCode, playbook]));
+  for (const [code, expected] of Object.entries(required)) {
     const mapping = AUTHORITATIVE_QUESTION_MAPPINGS[code];
     const playbook = getQuestionPlaybook(code);
-    assert.ok(mapping?.prompt.length > 20);
-    assert.equal(playbook.domainCode, mapping.domainCode);
-    assert.equal(mapping.isCritical, true);
-    assert.ok(registered.has(code));
+    assert.equal(mapping.questionCode, code);
+    assert.equal(mapping.domainCode, expected.domainCode);
+    assert.equal(mapping.isCritical, expected.isCritical);
+    assert.equal(mapping.isHardGate, expected.isHardGate);
+    assert.ok(mapping.prompt.length > 20 && /[a-z]{4}/i.test(mapping.prompt), `${code} must retain a substantive authoritative prompt.`);
+    assert.strictEqual(playbook, registered.get(code), `${code} must resolve through the exact playbook lookup.`);
+    assert.equal(playbook.questionCode, code);
+    assert.equal(playbook.domainCode, expected.domainCode);
+    assert.equal(typeof playbook.currentStateDiagnosis, 'function');
     for (const field of ['controlObjective', 'expectedStandard', 'fraudMechanism', 'recommendedControlDesign', 'effectivenessMeasure', 'escalationThreshold']) {
       assert.ok(typeof playbook[field] === 'string' && playbook[field].length > 10, `${code}.${field} must be substantive.`);
     }

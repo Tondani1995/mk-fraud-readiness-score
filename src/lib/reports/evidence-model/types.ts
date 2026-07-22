@@ -52,6 +52,9 @@ export interface MaterialFinding {
   isHardGate: boolean;
   gapClassification: 'critical' | 'major' | 'none';
   maturityCapStatus: 'capping' | 'not_capping';
+  /** Every distinct cap rule linked to this question, sorted lexically for stable output. */
+  relatedCapRuleCodes: string[];
+  /** First lexically sorted cap rule, retained for backward compatibility. */
   relatedCapRuleCode: string | null;
   linkedExposureFactorCodes: string[];
   linkedScenarioTypes: string[];

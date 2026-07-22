@@ -126,6 +126,57 @@ function weakDomains(traces: QuestionTraceRecord[]): Set<string> {
   return new Set(traces.filter((trace) => trace.applicable && trace.responseValue !== null && trace.responseValue <= 2).map((trace) => trace.domainCode));
 }
 
+/**
+ * Select genuine evidence contradictions without depending on the downstream contradiction model.
+ * Weak domain pairings are dependencies, not contradictions, and are handled separately below.
+ */
+function contradictionQuestionCodes(data: AssembledReportData, traces: QuestionTraceRecord[]): Set<string> {
+  const domainScores = new Map(
+    data.domainResults
+      .filter((domain) => domain.rawScore !== null)
+      .map((domain) => [domain.domainCode, domain.rawScore as number])
+  );
+  const contradictions = new Set<string>();
+  const weakTraces = traces.filter((trace) => trace.responseValue !== null && trace.responseValue <= 2);
+
+  if ((domainScores.get('D4') ?? Number.NEGATIVE_INFINITY) >= 65) {
+    for (const trace of weakTraces.filter((item) => item.domainCode === 'D5')) contradictions.add(trace.questionCode);
+  }
+  if ((domainScores.get('D2') ?? Number.NEGATIVE_INFINITY) >= 65) {
+    for (const trace of weakTraces.filter((item) => item.domainCode === 'D10')) contradictions.add(trace.questionCode);
+  }
+  for (const trace of weakTraces) {
+    if ((trace.isCritical || trace.isHardGate) && (domainScores.get(trace.domainCode) ?? Number.NEGATIVE_INFINITY) >= 65) {
+      contradictions.add(trace.questionCode);
+    }
+  }
+
+  return contradictions;
+}
+
+function capRuleCodesByQuestion(data: AssembledReportData): Map<string, string[]> {
+  const grouped = new Map<string, Set<string>>();
+  const linkedEvents = data.maturityCapEvents
+    .filter((event) => event.relatedQuestionCode)
+    .sort((a, b) =>
+      (a.relatedQuestionCode as string).localeCompare(b.relatedQuestionCode as string) ||
+      a.ruleCode.localeCompare(b.ruleCode)
+    );
+
+  for (const event of linkedEvents) {
+    const questionCode = event.relatedQuestionCode as string;
+    const ruleCodes = grouped.get(questionCode) ?? new Set<string>();
+    ruleCodes.add(event.ruleCode);
+    grouped.set(questionCode, ruleCodes);
+  }
+
+  return new Map(
+    [...grouped.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([questionCode, ruleCodes]) => [questionCode, [...ruleCodes].sort((a, b) => a.localeCompare(b))])
+  );
+}
+
 function stableReasons(reasons: Set<MaterialFindingSelectionReason>): MaterialFindingSelectionReason[] {
   return MATERIAL_FINDING_REASON_ORDER.filter((reason) => reasons.has(reason));
 }
@@ -175,7 +226,8 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
   const traces = canonicalTraces(data).filter((trace) => trace.applicable && trace.responseValue !== null);
   const weakest = weakestRepresentatives(data, traces);
   const weakDomainSet = weakDomains(traces);
-  const capRules = new Map(data.maturityCapEvents.filter((event) => event.relatedQuestionCode).map((event) => [event.relatedQuestionCode as string, event.ruleCode]));
+  const contradictionCodes = contradictionQuestionCodes(data, traces);
+  const capRules = capRuleCodesByQuestion(data);
 
   const findings: MaterialFinding[] = [];
   for (const trace of traces) {
@@ -200,7 +252,7 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
 
     const partners = CROSS_DOMAIN_PARTNERS[trace.domainCode] ?? [];
     if (responseValue <= 2 && partners.some((domainCode) => weakDomainSet.has(domainCode))) reasons.add('CROSS_DOMAIN_DEPENDENCY');
-    if (responseValue <= 2 && ((trace.domainCode === 'D4' && weakDomainSet.has('D5')) || (trace.domainCode === 'D5' && (weakDomainSet.has('D4') || weakDomainSet.has('D6'))) || (trace.domainCode === 'D6' && weakDomainSet.has('D5')))) reasons.add('MATERIAL_CONTRADICTION');
+    if (contradictionCodes.has(trace.questionCode)) reasons.add('MATERIAL_CONTRADICTION');
 
     const selectionReasons = stableReasons(reasons);
     if (selectionReasons.length === 0) continue;
@@ -240,7 +292,8 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
       isHardGate: trace.isHardGate,
       gapClassification: trace.isCriticalGap ? 'critical' : trace.isMajorGap ? 'major' : 'none',
       maturityCapStatus: capRules.has(trace.questionCode) ? 'capping' : 'not_capping',
-      relatedCapRuleCode: capRules.get(trace.questionCode) ?? null,
+      relatedCapRuleCodes: capRules.get(trace.questionCode) ?? [],
+      relatedCapRuleCode: capRules.get(trace.questionCode)?.[0] ?? null,
       linkedExposureFactorCodes: exposureLinks,
       linkedScenarioTypes: playbook?.relatedScenarioTypes ?? SCENARIO_TYPES_BY_QUESTION[trace.questionCode] ?? [],
       diagnosis: diagnosisText,
