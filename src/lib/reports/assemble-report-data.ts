@@ -37,19 +37,27 @@ export function parseScoreBand(conditionJson: unknown, title: string | null): Sc
   return null;
 }
 
+export type ReportAssemblyErrorReason =
+  | 'order_not_found'
+  | 'order_not_eligible'
+  | 'assessment_not_scored'
+  | 'entitlement_snapshot_failed'
+  | 'score_run_missing_domain_results'
+  | 'score_run_missing_question_traces';
+
 export class ReportAssemblyError extends Error {
-  constructor(
-    public readonly reason:
-      | 'order_not_found'
-      | 'order_not_eligible'
-      | 'assessment_not_scored'
-      | 'entitlement_snapshot_failed'
-      | 'score_run_missing_domain_results'
-      | 'score_run_missing_question_traces',
-    message: string
-  ) {
+  readonly reason: ReportAssemblyErrorReason;
+
+  // Explicit field + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why (node --experimental-
+  // strip-types cannot codegen parameter properties, and this file is in the Checkpoint B lifecycle
+  // test's real-orchestration import chain via phase1-manual-fulfilment.ts). Behaviourally
+  // identical to the prior version; the reason union is unchanged, just named and hoisted so it can
+  // be referenced without repeating it.
+  constructor(reason: ReportAssemblyErrorReason, message: string) {
     super(message);
     this.name = 'ReportAssemblyError';
+    this.reason = reason;
   }
 }
 
@@ -108,7 +116,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: domainRows, error: domainError } = await supabase
     .from('score_domain_results')
-    .select('raw_score, weighted_contribution, coverage_pct, critical_gap_count, domains:domain_id(domain_code, name, weight_pct, sort_order)')
+    .select('raw_score, weighted_contribution, coverage_pct, critical_gap_count, domains:domain_id(domain_code, name, weight_pct, sort_order)Â )
     .eq('score_run_id', scoreRunRow.id);
 
   if (domainError || !domainRows || domainRows.length === 0) {
