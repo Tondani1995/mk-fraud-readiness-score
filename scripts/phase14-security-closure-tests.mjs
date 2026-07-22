@@ -12,6 +12,12 @@ function loadPureModule(relativePath) {
   }).outputText;
   const module = { exports: {} };
   new Function('require', 'module', 'exports', output)((specifier) => {
+    if (specifier === './narrative-brief') {
+      return loadPureModule('src/lib/reports/automation/narrative-brief.ts');
+    }
+    if (specifier === './types') {
+      return { PREMIUM_REPORT_AI_BODY_MAX_CHARS: 2500 };
+    }
     throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
@@ -39,14 +45,15 @@ const evidence = {
 const validPlan = {
   executiveEvidenceRefs: ['score:final_maturity'],
   executiveBody: 'The organisation shows a Developing maturity position based on the cited evidence.',
-  falseComfortEvidenceRefs: ['gap:Q1'],
+  falseComfortEvidenceRefs: ['gap:Q1', 'score:final_maturity'],
   falseComfortBody: 'A single strong control does not offset the cited gap.',
-  leadershipEvidenceRefs: ['domain:D1'],
+  leadershipEvidenceRefs: ['domain:D1', 'gap:Q1', 'score:final_maturity'],
   leadershipBody: 'Leadership should prioritise the D1 domain given the cited evidence.',
   domainEvidence: [{ domainCode: 'D1', evidenceRefs: ['domain:D1'], body: 'Domain D1 requires attention based on its cited evidence.' }],
   gapEvidence: [{ questionCode: 'Q1', evidenceRefs: ['gap:Q1'], body: 'This gap remains open based on the cited evidence.' }]
 };
-assert.equal(validatePremiumReportAiEditorialPlan(validPlan, evidence).ok, true);
+const validPlanResult = validatePremiumReportAiEditorialPlan(validPlan, evidence);
+assert.equal(validPlanResult.ok, true, JSON.stringify(validPlanResult.issues));
 assert.equal(validatePremiumReportAiEditorialPlan({
   ...validPlan,
   domainEvidence: [{ domainCode: 'Ｄ１', evidenceRefs: ['domain：Ｄ１'], body: validPlan.domainEvidence[0].body }],
