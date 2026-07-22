@@ -1,5 +1,6 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
-import { buildAdvisoryEvidenceModel, checkQualityGates } from '../evidence-model';
+import { buildAdvisoryEvidenceModel } from '../evidence-model';
+import { assertCommercialReportQuality } from '../commercial-quality';
 import { gapKey } from '../select-content-blocks';
 
 const BAND_COLOR: Record<string, string> = {
@@ -91,17 +92,21 @@ export function renderReportHtml(
   const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#1d3658';
   const generatedDate = new Date(data.generatedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
+  // V7 Checkpoint B: fail-closed commercial quality gate. Previously this called
+  // checkQualityGates(), logged a violation via console.error, and continued rendering and
+  // returning HTML regardless (see the now-inverted scripts/phase-v7-checkpoint-a-quality-gate-
+  // baseline-tests.mjs, which documented that exact defect). assertCommercialReportQuality() below
+  // throws ReportCommercialQualityError on any blocking violation -- there is no catch/continue
+  // here. The same evidenceModel instance built here is used both for quality evaluation and for
+  // rendering below; a separate validation-only model is never built.
   const evidenceModel = buildAdvisoryEvidenceModel(data);
-  try {
-    const _gates = checkQualityGates(evidenceModel, data);
-    if (!_gates.passed) {
-      console.error('QUALITY_GATE_VIOLATION', JSON.stringify({
-        assessmentReference: data.assessmentReference,
-        violations: _gates.violations
-      }));
-    }
-  } catch (diagErr) {
-    console.error('QUALITY_GATE_CHECK_ERROR', diagErr instanceof Error ? diagErr.message : String(diagErr));
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
+  if (quality.warnings.length > 0) {
+    console.warn('COMMERCIAL_QUALITY_WARNING', {
+      assessmentReference: data.assessmentReference,
+      warningCodes: quality.warnings.map((issue) => issue.code),
+      warningCount: quality.warnings.length
+    });
   }
 
 
