@@ -1,0 +1,53 @@
+name: V7 Report Hardening
+
+# V7 Checkpoint A correction: this workflow is the mandatory CI gate for the Essential Report V7
+# commercial-hardening work. It intentionally does NOT require or reference any production Supabase
+# credentials -- v7:test-checkpoint-a-unit is a pure, credential-free unit suite (see
+# scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs and
+# scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs). The separate DB-backed integration
+# script (scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs, run via
+# `npm run v7:test-checkpoint-a-db`) requires a real database and is deliberately NOT run here --
+# see the Checkpoint A correction report for why, and how that source claim was independently
+# verified instead (a read-only production query, not a credentialed CI job).
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/reports/**'
+      - 'scripts/phase-v7-**'
+      - 'package.json'
+      - '.github/workflows/v7-report-hardening.yml'
+  push:
+    paths:
+      - 'src/lib/reports/**'
+      - 'scripts/phase-v7-**'
+      - 'package.json'
+      - '.github/workflows/v7-report-hardening.yml'
+
+jobs:
+  v7-report-hardening:
+    name: V7 Report Hardening checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run TypeScript check
+        run: npm run typecheck
+
+      - name: Run V7 Checkpoint A unit suite (credential-free)
+        run: npm run v7:test-checkpoint-a-unit
