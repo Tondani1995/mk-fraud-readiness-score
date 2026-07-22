@@ -22,6 +22,7 @@ import {
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
+import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
 import { gapKey } from '../src/lib/reports/select-content-blocks.ts';
 import { generateManualPhase1Report, Phase1GenerationError } from '../src/lib/reports/phase1-manual-fulfilment.ts';
 import { syntheticOrgFixture } from '../src/lib/reports/evidence-model/__fixtures__/synthetic-org-fixture.ts';
@@ -207,30 +208,7 @@ function buildCommerciallyPassingFixture() {
     gapCommentary
   };
 
-  const roadmap = {
-    agenda: [
-      {
-        ruleCode: 'CPB-RULE-D8', domainCode: 'D8', domainName: 'Digital and Identity Fraud Risk',
-        ownerRole: 'Head of Technology / IT Security',
-        rationale: 'Sequenced first because identity verification for new digital customers relies on a single static data point, which is the specific control gap driving the maturity cap on this result.',
-        severity: 'critical',
-        action30: 'Document the current single-factor identity verification flow and confirm which customer journeys rely on it exclusively.',
-        action60: 'Introduce a second independent verification signal (device or behavioural) for new digital customer onboarding.',
-        action90: 'Test the strengthened verification flow against a sample of real onboarding attempts and confirm the false-accept rate has measurably dropped.',
-        priorityScore: 95
-      },
-      {
-        ruleCode: 'CPB-RULE-D4', domainCode: 'D4', domainName: 'Fraud Detection Capability',
-        ownerRole: 'COO',
-        rationale: 'Detection rules are not reviewed on a fixed cycle, so the organisation cannot demonstrate its monitoring keeps pace with changing fraud patterns.',
-        severity: 'major',
-        action30: 'Establish and document a fixed quarterly review cycle for existing detection rule thresholds.',
-        action60: 'Run the first scheduled review and record which thresholds were changed and why.',
-        action90: 'Publish a short before/after comparison of detection rates to prove the review cycle is having a measurable effect.',
-        priorityScore: 70
-      }
-    ]
-  };
+  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(data).roadmapActions);
 
   return { data, content, roadmap };
 }
@@ -248,7 +226,7 @@ function buildCommerciallyPassingFixture() {
  * new violation, since content/roadmap/all other data are already known-passing.
  */
 function buildWarningsOnlyPayload() {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data, content } = buildCommerciallyPassingFixture();
   const extraCapEvent = {
     ruleCode: 'question_level_detection_review_cadence',
     capTo: 'Developing',
@@ -258,10 +236,11 @@ function buildWarningsOnlyPayload() {
     relatedDomainCode: 'D4',
     relatedDomainName: DOMAIN_NAMES.D4
   };
+  const warningData = { ...data, maturityCapEvents: [...data.maturityCapEvents, extraCapEvent] };
   return {
-    data: { ...data, maturityCapEvents: [...data.maturityCapEvents, extraCapEvent] },
+    data: warningData,
     content,
-    roadmap
+    roadmap: adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(warningData).roadmapActions)
   };
 }
 

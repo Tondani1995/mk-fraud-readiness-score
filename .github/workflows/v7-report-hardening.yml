@@ -30,6 +30,11 @@ name: V7 Report Hardening
 # evidence-model functions against production-shaped persisted-evidence fixtures, including strong
 # assessment safety, deterministic shuffle/deduplication, authoritative-label consumption and the
 # fail-closed exact-playbook boundary. The aggregate command now runs Checkpoints A, B and C.
+#
+# V7 Checkpoint D adds the credential-free decision-model and AI evidence-contract suite. It proves
+# deterministic risk, contradiction, scenario, control, decision and roadmap structures; validates
+# canonical evidence references and checksums; and verifies the evidence builder never activates an
+# AI provider. The aggregate command now runs Checkpoints A, B, C and D.
 
 on:
   pull_request:
@@ -69,5 +74,5 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
-      - name: Run V7 report-hardening suite (Checkpoints A + B + C, credential-free)
+      - name: Run V7 report-hardening suite (Checkpoints A + B + C + D, credential-free)
         run: npm run v7:test-report-hardening

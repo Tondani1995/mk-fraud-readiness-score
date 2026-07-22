@@ -101,23 +101,35 @@ export interface Contradiction {
   fraudPathwayEnabled: string;
   linkedFindingIds: string[];
   linkedRiskId: string | null;
+  evidenceRefs: string[];
+  materialityScore: number;
 }
+
+export type ScenarioBasis = 'control_gap' | 'assurance_validation';
 
 export interface PlausibleScenario {
   id: string;
+  scenarioType: string;
+  scenarioBasis: ScenarioBasis;
   title: string;
   confirmedOperatingContext: string[];
   entryPoint: string;
   linkedControlWeaknesses: string[];
   fraudSequence: string;
+  controlsExpected: string[];
   concealmentMechanism: string;
   whyControlsMayNotCatchIt: string;
   earlyWarningIndicators: string[];
   likelyImpact: string[];
+  financialImpact: string;
+  operationalImpact: string;
   immediateContainment: string;
   longerTermResponse: string;
   linkedFindingIds: string[];
+  linkedQuestionCodes: string[];
+  linkedRiskIds: string[];
   linkedRiskId: string;
+  evidenceRefs: string[];
   disclaimer: string;
 }
 
@@ -127,17 +139,35 @@ export type Impact = 'Low' | 'Moderate' | 'High' | 'Severe';
 export interface RiskRegisterEntry {
   id: string;
   title: string;
+  cause: string;
+  riskEvent: string;
+  financialImpact: string;
+  operationalImpact: string;
+  legalRegulatoryImpact?: string;
+  reputationalImpact?: string;
   riskStatement: string;
   linkedFindingIds: string[];
+  linkedQuestionCodes: string[];
+  linkedScenarioIds: string[];
+  affectedDomains: string[];
+  /** Legacy rendering alias derived from affectedDomains. */
   affectedDomain: string;
   likelihood: Likelihood;
+  likelihoodRationale: string;
   impact: Impact;
+  impactRationale: string;
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   currentControlPosition: string;
   requiredTreatment: string;
+  accountableExecutive: string;
+  processOwner: string;
+  oversightFunction: string;
+  targetPeriod: TargetPeriod;
+  /** Legacy rendering alias; contains the deterministic target period, never wall-clock output. */
   accountableOwner: string;
   targetDate: string;
   effectivenessMeasure: string;
+  evidenceRefs: string[];
   assessmentConfidence: 'Self-assessment only, not independently verified';
   remainingLimitation: string;
 }
@@ -146,50 +176,97 @@ export interface ControlImprovementEntry {
   id: string;
   linkedFindingId: string;
   linkedRiskId: string;
+  linkedRiskIds: string[];
+  linkedQuestionCode: string;
   currentState: string;
   targetState: string;
   controlObjective: string;
   controlDesign: string;
+  accountableExecutive: string;
+  processOwner: string;
+  oversightFunction: string;
+  /** Legacy aliases retained for the current renderer. */
   accountableOwner: string;
   oversightOwner: string;
   supportingFunctions: string[];
   operatingFrequency: string;
+  completePopulationCoverage: string;
+  evidenceRetained: string[];
   requiredEvidence: string[];
+  minimumEvidenceCharacteristics: string[];
+  dependencies: string[];
   implementationDependency: string;
   implementationDifficulty: ImplementationDifficulty;
   targetPeriod: TargetPeriod;
   effectivenessTest: string;
   escalationThreshold: string;
+  evidenceRefs: string[];
 }
 
 export interface EvidenceChecklistItem {
   id: string;
   artefact: string;
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
+  linkedQuestionCodes: string[];
+  /** Legacy aliases derived from the canonical arrays. */
   linkedFindingId: string;
   linkedRiskId: string;
   likelyOwner: string;
   provesWhat: string;
   expectedRecency: string;
-  minimumAcceptableCharacteristics: string;
-  reviewStatus: 'Not yet requested';
+  requiredPopulation: string;
+  samplingExpectation: string;
+  minimumAcceptableCharacteristics: string[];
+  reviewStatus: 'Not yet requested' | 'Requested' | 'Received' | 'Insufficient' | 'Validated';
+  evidenceRef: string;
 }
+
+export type LeadershipDecisionCategory =
+  | 'accountable_executive_mandate'
+  | 'funding_resource_allocation'
+  | 'control_design_standard'
+  | 'risk_acceptance_or_remediation'
+  | 'independent_validation'
+  | 'sequencing_dependency'
+  | 'external_specialist_support'
+  | 'governance_reporting_cadence';
 
 export interface LeadershipDecision {
   id: string;
+  decisionCategory: LeadershipDecisionCategory;
   decisionRequired: string;
   evidenceDrivingIt: string;
   whyNow: string;
   recommendedDecision: string;
   accountableExecutive: string;
+  implementationOwner: string;
+  oversightFunction: string;
+  targetPeriod: TargetPeriod;
   deadline: string;
   consequenceOfDelay: string;
   immediateNextDeliverable: string;
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
+  evidenceRefs: string[];
 }
 
 export interface RoadmapAction {
   id: string;
   period: TargetPeriod;
+  domainCode: string;
+  domainName: string;
   deliverable: string;
+  accountableExecutive: string;
+  processOwner: string;
+  oversightFunction: string;
+  supportingFunctions: string[];
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
+  dependencyIds: string[];
+  escalationThreshold: string;
+  evidenceRefs: string[];
+  /** Legacy aliases derived from the canonical fields. */
   accountableOwner: string;
   linkedFindingId: string;
   linkedRiskId: string;
@@ -200,10 +277,12 @@ export interface RoadmapAction {
 }
 
 export interface FunctionalAgendaItem {
+  id: string;
   function: string;
   question: string;
   linkedFindingId: string | null;
   linkedRiskId: string | null;
+  evidenceRefs: string[];
 }
 
 export interface AdvisoryEvidenceModel {
@@ -261,7 +340,23 @@ export type CommercialQualityIssueCode =
   | 'QG_QUALITY_EVALUATION_FAILED'
   | 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK'
   | 'QG_RENDERED_ROADMAP_OWNER_MISSING'
-  | 'QG_MATERIAL_PLAYBOOK_MISSING';
+  | 'QG_MATERIAL_PLAYBOOK_MISSING'
+  | 'QG_RISK_CAUSE_MISSING'
+  | 'QG_RISK_EVENT_MISSING'
+  | 'QG_RISK_IMPACT_MISSING'
+  | 'QG_RISK_EVIDENCE_MISSING'
+  | 'QG_DUPLICATE_RISK'
+  | 'QG_CONTRADICTION_EVIDENCE_MISSING'
+  | 'QG_DUPLICATE_CONTRADICTION'
+  | 'QG_SCENARIO_BASIS_INVALID'
+  | 'QG_DECISION_DUPLICATE'
+  | 'QG_DECISION_LINKAGE_MISSING'
+  | 'QG_EVIDENCE_CRITERIA_MISSING'
+  | 'QG_ROADMAP_SOURCE_MISMATCH'
+  | 'QG_ROADMAP_DEPENDENCY_INVALID'
+  | 'QG_AI_EVIDENCE_REF_DUPLICATE'
+  | 'QG_AI_EVIDENCE_REF_UNRESOLVED'
+  | 'QG_AI_EVIDENCE_CONTAINS_PII';
 
 /**
  * A single typed commercial-quality issue. `message` may include safe internal identifiers

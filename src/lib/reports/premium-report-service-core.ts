@@ -3,7 +3,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
-import { selectRoadmap } from './roadmap';
+import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
+import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { renderReportHtml } from './templates/report-template';
 import { renderHtmlToPdfBuffer } from './render-pdf';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -471,7 +472,8 @@ export async function generatePremiumReport(
       body: block.body,
       status: block.status
     })));
-    const roadmap = selectRoadmap(assembled);
+    const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
     const generationIdentity = fulfilmentId
       ? `fulfilment:${fulfilmentId}:score:${assembled.scoreRun.id}`
       : `generation-claim:${claimToken}`;
@@ -485,6 +487,7 @@ export async function generatePremiumReport(
       assembled,
       deterministicContent,
       roadmap,
+      advisoryModel,
       flags,
       generator: input.generator,
       generationIdentity,

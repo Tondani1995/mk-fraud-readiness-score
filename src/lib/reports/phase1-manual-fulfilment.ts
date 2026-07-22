@@ -3,7 +3,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
-import { selectRoadmap } from './roadmap';
+import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
+import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { renderValidatedCommercialPdf } from './render-validated-commercial-pdf';
 import { ReportCommercialQualityError } from './commercial-quality';
 import type { ContentBlock } from './types';
@@ -314,7 +315,7 @@ export async function generateManualPhase1Report(
       status: block.status
     }));
     const content = selectContent(assembled, contentBlocks);
-    const roadmap = selectRoadmap(assembled);
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(assembled).roadmapActions);
 
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
       throw new Phase1GenerationError('pdf_render_failed', 'The local PDF failure double was activated.', 500, technicalReference);

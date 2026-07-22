@@ -18,17 +18,15 @@ export { getQuestionPlaybook, hasQuestionPlaybook, listQuestionPlaybooks, AUTHOR
  */
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
-  const riskRegister = buildRiskRegister(materialFindings);
+  let riskRegister = buildRiskRegister(materialFindings);
+  const scenarios = buildPlausibleScenarios(data, materialFindings, riskRegister);
+  riskRegister = riskRegister.map((risk) => ({
+    ...risk,
+    linkedScenarioIds: scenarios.filter((scenario) => scenario.linkedRiskIds.includes(risk.id)).map((scenario) => scenario.id).sort()
+  }));
+  const contradictions = buildContradictions(data, materialFindings, riskRegister);
   const controlImprovements = buildControlImprovementRegister(materialFindings, riskRegister);
   const evidenceChecklist = buildEvidenceChecklist(materialFindings, riskRegister);
-  const scenarios = buildPlausibleScenarios(data, materialFindings).map((scenario) => ({
-    ...scenario,
-    linkedRiskId: riskRegister.find((r) => scenario.linkedFindingIds.some((id) => r.linkedFindingIds.includes(id)))?.id ?? ''
-  }));
-  const contradictions = buildContradictions(data, materialFindings).map((contradiction) => ({
-    ...contradiction,
-    linkedRiskId: riskRegister.find((r) => contradiction.linkedFindingIds.some((id) => r.linkedFindingIds.includes(id)))?.id ?? null
-  }));
   const leadershipDecisions = buildLeadershipDecisions(materialFindings, riskRegister);
   const functionalAgenda = buildFunctionalAgenda(materialFindings, riskRegister);
   const roadmapActions = buildRoadmapActions(materialFindings, riskRegister);
@@ -153,17 +151,25 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
     });
   }
 
-  // 9/10/11. Scenario requirements.
-  if (model.scenarios.length < 3) {
+  // Checkpoint D: scenario volume follows the evidence context instead of fabricating failures.
+  const assuranceOnly = model.materialFindings.length > 0 && model.materialFindings.every((finding) => finding.materialityClass === 'assurance_priority');
+  const scenarioMinimum = assuranceOnly ? 2 : 3;
+  if (model.scenarios.length < scenarioMinimum) {
     violations.push({
       code: 'QG_SCENARIO_MINIMUM_NOT_MET',
       severity: 'violation',
-      message: `Only ${model.scenarios.length} plausible scenarios generated; at least 3 are required.`,
+      message: `Only ${model.scenarios.length} plausible scenarios generated; ${scenarioMinimum} are required for this assessment context.`,
       source: 'evidence-model'
     });
   }
   for (const scenario of model.scenarios) {
-    if (scenario.linkedFindingIds.length === 0) {
+    if (!['control_gap', 'assurance_validation'].includes(scenario.scenarioBasis)) {
+      violations.push({ code: 'QG_SCENARIO_BASIS_INVALID', severity: 'violation', message: `Scenario ${scenario.id} has invalid basis ${scenario.scenarioBasis}.`, entityId: scenario.id, source: 'evidence-model' });
+    }
+    if (
+      scenario.linkedFindingIds.length === 0 || scenario.linkedQuestionCodes.length === 0 ||
+      scenario.linkedRiskIds.length === 0 || scenario.evidenceRefs.length === 0
+    ) {
       violations.push({
         code: 'QG_SCENARIO_EVIDENCE_MISSING',
         severity: 'violation',
@@ -172,7 +178,7 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
         source: 'evidence-model'
       });
     }
-    if (!scenario.disclaimer || !scenario.disclaimer.toLowerCase().includes('plausible scenario')) {
+    if (!scenario.disclaimer || !scenario.disclaimer.toLowerCase().includes('plausible') || !scenario.disclaimer.toLowerCase().includes('not an allegation')) {
       violations.push({
         code: 'QG_SCENARIO_DISCLAIMER_MISSING',
         severity: 'violation',
@@ -180,6 +186,27 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
         entityId: scenario.id,
         source: 'evidence-model'
       });
+    }
+  }
+
+  // Checkpoint D: consolidated cause-event-impact risks and contradiction quality.
+  const riskIds = model.riskRegister.map((risk) => risk.id);
+  if (new Set(riskIds).size !== riskIds.length) {
+    violations.push({ code: 'QG_DUPLICATE_RISK', severity: 'violation', message: 'Duplicate consolidated risk IDs detected.', source: 'evidence-model' });
+  }
+  for (const risk of model.riskRegister) {
+    if (!risk.cause.trim()) violations.push({ code: 'QG_RISK_CAUSE_MISSING', severity: 'violation', message: `Risk ${risk.id} has no cause.`, entityId: risk.id, source: 'evidence-model' });
+    if (!risk.riskEvent.trim()) violations.push({ code: 'QG_RISK_EVENT_MISSING', severity: 'violation', message: `Risk ${risk.id} has no risk event.`, entityId: risk.id, source: 'evidence-model' });
+    if (!risk.financialImpact.trim() || !risk.operationalImpact.trim()) violations.push({ code: 'QG_RISK_IMPACT_MISSING', severity: 'violation', message: `Risk ${risk.id} has incomplete financial/operational impact.`, entityId: risk.id, source: 'evidence-model' });
+    if (risk.linkedFindingIds.length === 0 || risk.linkedQuestionCodes.length === 0 || risk.evidenceRefs.length === 0) violations.push({ code: 'QG_RISK_EVIDENCE_MISSING', severity: 'violation', message: `Risk ${risk.id} has incomplete evidence linkage.`, entityId: risk.id, source: 'evidence-model' });
+  }
+  const contradictionKeys = model.contradictions.map((item) => `${item.pattern}|${[...item.linkedFindingIds].sort().join('|')}`);
+  if (new Set(contradictionKeys).size !== contradictionKeys.length) {
+    violations.push({ code: 'QG_DUPLICATE_CONTRADICTION', severity: 'violation', message: 'Equivalent contradiction evidence was rendered more than once.', source: 'evidence-model' });
+  }
+  for (const contradiction of model.contradictions) {
+    if (contradiction.linkedFindingIds.length === 0 || !contradiction.linkedRiskId || contradiction.evidenceRefs.length === 0) {
+      violations.push({ code: 'QG_CONTRADICTION_EVIDENCE_MISSING', severity: 'violation', message: `Contradiction ${contradiction.id} lacks finding, risk or evidence linkage.`, entityId: contradiction.id, source: 'evidence-model' });
     }
   }
 
@@ -193,6 +220,25 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
     }
     if (model.evidenceChecklist.length === 0) {
       violations.push({ code: 'QG_EVIDENCE_CHECKLIST_MISSING', severity: 'violation', message: 'Evidence checklist is absent despite material findings.', source: 'evidence-model' });
+    }
+  }
+
+  for (const item of model.evidenceChecklist) {
+    if (
+      item.linkedFindingIds.length === 0 || item.linkedRiskIds.length === 0 || item.linkedQuestionCodes.length === 0 ||
+      !item.requiredPopulation.trim() || !item.samplingExpectation.trim() || item.minimumAcceptableCharacteristics.length === 0 ||
+      item.reviewStatus !== 'Not yet requested'
+    ) {
+      violations.push({ code: 'QG_EVIDENCE_CRITERIA_MISSING', severity: 'violation', message: `Evidence checklist item ${item.id} lacks review criteria or starts in an invalid status.`, entityId: item.id, source: 'evidence-model' });
+    }
+  }
+  const decisionKeys = model.leadershipDecisions.map((decision) => `${decision.decisionCategory}|${decision.evidenceRefs.join('|')}`);
+  if (new Set(decisionKeys).size !== decisionKeys.length) {
+    violations.push({ code: 'QG_DECISION_DUPLICATE', severity: 'violation', message: 'Duplicate decision category/evidence combinations detected.', source: 'evidence-model' });
+  }
+  for (const decision of model.leadershipDecisions) {
+    if (decision.linkedFindingIds.length === 0 || decision.linkedRiskIds.length === 0 || decision.evidenceRefs.length === 0) {
+      violations.push({ code: 'QG_DECISION_LINKAGE_MISSING', severity: 'violation', message: `Leadership decision ${decision.id} lacks finding, risk or evidence linkage.`, entityId: decision.id, source: 'evidence-model' });
     }
   }
 
@@ -210,6 +256,10 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
     }
     if (!action.successMeasure) {
       violations.push({ code: 'QG_ROADMAP_MEASURE_MISSING', severity: 'violation', message: `Roadmap action ${action.id} has no effectiveness measure.`, entityId: action.id, source: 'evidence-model' });
+    }
+    const knownActionIds = new Set(model.roadmapActions.map((item) => item.id));
+    if (action.dependencyIds.some((id) => !knownActionIds.has(id) || id === action.id)) {
+      violations.push({ code: 'QG_ROADMAP_DEPENDENCY_INVALID', severity: 'violation', message: `Roadmap action ${action.id} contains an unknown or self dependency.`, entityId: action.id, source: 'evidence-model' });
     }
   }
 

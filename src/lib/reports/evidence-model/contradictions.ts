@@ -1,165 +1,153 @@
 import type { AssembledReportData } from '../types';
-import type { Contradiction, ContradictionPattern, MaterialFinding } from './types';
+import { stableToken, stableUnique } from './deterministic';
+import type { Contradiction, ContradictionPattern, MaterialFinding, RiskRegisterEntry } from './types';
 
-function domainScore(data: AssembledReportData, code: string): number | null {
-  return data.domainResults.find((d) => d.domainCode === code)?.rawScore ?? null;
+const STRONG_THRESHOLD = 65;
+
+interface Candidate {
+  pattern: ContradictionPattern;
+  title: string;
+  drivingResponses: string;
+  whyItMatters: string;
+  falseComfortRisk: string;
+  whatLeadershipShouldVerify: string;
+  fraudPathwayEnabled: string;
+  linkedFindingIds: string[];
 }
 
-function domainName(data: AssembledReportData, code: string): string {
-  return data.domainResults.find((d) => d.domainCode === code)?.domainName ?? code;
+function score(data: AssembledReportData, code: string): number | null {
+  return data.domainResults.find((domain) => domain.domainCode === code)?.rawScore ?? null;
 }
 
-function findingsForDomain(findings: MaterialFinding[], code: string): MaterialFinding[] {
-  return findings.filter((f) => f.domainCode === code);
+function name(data: AssembledReportData, code: string): string {
+  return data.domainResults.find((domain) => domain.domainCode === code)?.domainName ?? code;
 }
 
-const STRUCTURED_THRESHOLD = 65;
-const STRONG_EXPOSURE_RATIO = 0.5;
+function family(pattern: ContradictionPattern): string {
+  return pattern === 'exposure_outpaces_control' ? 'exposure_control_mismatch' : pattern;
+}
 
-/**
- * Deterministic contradiction rules, evaluated against real domain scores / findings / exposure
- * answers -- not against any single organisation's data specifically, so a materially different
- * assessment (different scores, different exposure answers, different failed controls) produces a
- * materially different contradiction set. See evidence-model/index.ts for how this is wired up, and
- * the second-fixture smoke test for a concrete proof of differentiation.
- */
-export function buildContradictions(data: AssembledReportData, findings: MaterialFinding[]): Contradiction[] {
-  const contradictions: Contradiction[] = [];
-  let seq = 0;
-  const nextId = () => `CX-${String(++seq).padStart(2, '0')}`;
+function bestRisk(findingIds: string[], risks: RiskRegisterEntry[]): RiskRegisterEntry | null {
+  return [...risks].map((risk) => ({ risk, overlap: risk.linkedFindingIds.filter((id) => findingIds.includes(id)).length }))
+    .filter((item) => item.overlap > 0)
+    .sort((a, b) => b.overlap - a.overlap || a.risk.id.localeCompare(b.risk.id))[0]?.risk ?? null;
+}
 
-  const add = (
-    pattern: ContradictionPattern,
-    title: string,
-    drivingResponses: string,
-    whyItMatters: string,
-    falseComfortRisk: string,
-    whatLeadershipShouldVerify: string,
-    fraudPathwayEnabled: string,
-    linkedFindingIds: string[]
-  ) => {
-    contradictions.push({
-      id: nextId(),
-      pattern,
-      title,
-      drivingResponses,
-      whyItMatters,
-      falseComfortRisk,
-      whatLeadershipShouldVerify,
-      fraudPathwayEnabled,
-      linkedFindingIds,
-      linkedRiskId: null // linked by index.ts once risk register IDs exist
+/** Consolidates equivalent evidence patterns before applying a context-sensitive presentation cap. */
+export function buildContradictions(
+  data: AssembledReportData,
+  findings: MaterialFinding[],
+  risks: RiskRegisterEntry[] = []
+): Contradiction[] {
+  const weak = findings.filter((finding) => finding.materialityClass !== 'assurance_priority' && (finding.responseValue ?? 5) <= 2);
+  if (weak.length === 0) return [];
+  const candidates: Candidate[] = [];
+  const inDomain = (code: string) => weak.filter((finding) => finding.domainCode === code);
+  const add = (candidate: Candidate) => {
+    const linkedFindingIds = stableUnique(candidate.linkedFindingIds);
+    if (linkedFindingIds.length > 0) candidates.push({ ...candidate, linkedFindingIds });
+  };
+
+  if ((score(data, 'D4') ?? -1) >= STRONG_THRESHOLD && inDomain('D5').length > 0) {
+    add({
+      pattern: 'strong_detection_weak_response',
+      title: 'Strong detection sits alongside weak incident response',
+      drivingResponses: `${name(data, 'D4')} scored ${Math.round(score(data, 'D4') as number)}/100 while weak D5 responses remain selected.`,
+      whyItMatters: 'Detection and response are separate capabilities; finding an incident does not ensure it is contained, investigated or escalated correctly.',
+      falseComfortRisk: 'The detection score may be read as proof that a detected fraud would also be handled effectively.',
+      whatLeadershipShouldVerify: 'Has the incident plan been rehearsed, and can named decision-makers demonstrate containment and evidence-preservation decisions?',
+      fraudPathwayEnabled: 'A detected incident expands because containment, command or escalation is delayed.',
+      linkedFindingIds: inDomain('D5').map((finding) => finding.id)
     });
-  };
-
-  // 1. Strong detection, weak incident response.
-  const d4 = domainScore(data, 'D4');
-  const d5 = domainScore(data, 'D5');
-  if (d4 !== null && d5 !== null && d4 >= STRUCTURED_THRESHOLD && d5 < STRUCTURED_THRESHOLD) {
-    add(
-      'strong_detection_weak_response',
-      `Strong detection (${domainName(data, 'D4')}, ${Math.round(d4)}/100) sits alongside a weak incident response capability (${domainName(data, 'D5')}, ${Math.round(d5)}/100)`,
-      `${domainName(data, 'D4')} scored ${Math.round(d4)} while ${domainName(data, 'D5')} scored ${Math.round(d5)}.`,
-      'Detecting a problem and being able to respond to it well are different capabilities. Strong detection with a weak response process means issues are more likely to be found than to be handled well once found.',
-      'Leadership may assume that because fraud would be detected, it would also be handled correctly -- these are separate claims.',
-      'Whether the incident response plan has actually been rehearsed, and who is accountable for running it.',
-      'A detected incident is mishandled -- evidence lost, escalation delayed, or containment botched -- turning a contained issue into a larger one.',
-      findingsForDomain(findings, 'D5').map((f) => f.id)
-    );
   }
 
-  // 2. Strong risk identification, weak continuous improvement.
-  const d2 = domainScore(data, 'D2');
-  const d10 = domainScore(data, 'D10');
-  if (d2 !== null && d10 !== null && d2 >= STRUCTURED_THRESHOLD && d10 < STRUCTURED_THRESHOLD) {
-    add(
-      'strong_identification_weak_improvement',
-      `Risks are well identified (${domainName(data, 'D2')}, ${Math.round(d2)}/100) but rarely acted on over time (${domainName(data, 'D10')}, ${Math.round(d10)}/100)`,
-      `${domainName(data, 'D2')} scored ${Math.round(d2)} while ${domainName(data, 'D10')} scored ${Math.round(d10)}.`,
-      'Identifying a risk without a fixed review cycle to act on it means the risk register can become a list of known-but-unaddressed problems.',
-      'A strong risk register can create the appearance of being on top of fraud risk even when little changes as a result of it.',
-      'Whether any risk identified in the last cycle actually resulted in a control change.',
-      'A known risk sits unaddressed long enough for it to be exploited, with the organisation unable to say it was unaware.',
-      findingsForDomain(findings, 'D10').map((f) => f.id)
-    );
+  if ((score(data, 'D2') ?? -1) >= STRONG_THRESHOLD && inDomain('D10').length > 0) {
+    add({
+      pattern: 'strong_identification_weak_improvement',
+      title: 'Strong risk identification sits alongside weak continuous improvement',
+      drivingResponses: `${name(data, 'D2')} scored ${Math.round(score(data, 'D2') as number)}/100 while weak D10 responses remain selected.`,
+      whyItMatters: 'Known risks can remain unaddressed when review, learning and control-change cycles do not operate reliably.',
+      falseComfortRisk: 'A complete risk register may be mistaken for evidence that identified risks are being treated.',
+      whatLeadershipShouldVerify: 'Which identified risk produced a completed and evidenced control change in the last review cycle?',
+      fraudPathwayEnabled: 'A known risk remains untreated long enough to be exploited.',
+      linkedFindingIds: inDomain('D10').map((finding) => finding.id)
+    });
   }
 
-  // 3. Strong domain average masking a failed critical control, generalised across all domains.
-  for (const domain of data.domainResults) {
-    if (domain.rawScore === null || domain.rawScore < STRUCTURED_THRESHOLD) continue;
-    const domainFindings = findingsForDomain(findings, domain.domainCode).filter((f) => f.isHardGate || f.isCriticalControl);
-    if (domainFindings.length === 0) continue;
-    add(
-      'strong_domain_failed_critical_control',
-      `${domain.domainName} scores well overall (${Math.round(domain.rawScore)}/100) but contains a failed critical control`,
-      `Domain average of ${Math.round(domain.rawScore)} includes: ${domainFindings.map((f) => `"${f.questionPrompt}" (${f.responseMeaning})`).join('; ')}.`,
-      'A domain average is a blend. A strong average can sit on top of one control that this methodology treats as non-negotiable, which strength elsewhere cannot offset.',
-      'Leadership reading the domain score alone would reasonably conclude this domain is in good shape.',
-      'The specific control(s) named here, independent of the domain score.',
-      'The specific weak control is exploited precisely because the domain\'s overall strength creates confidence that nothing there needs a second look.',
-      domainFindings.map((f) => f.id)
-    );
+  for (const domain of [...data.domainResults].sort((a, b) => a.domainCode.localeCompare(b.domainCode))) {
+    if ((domain.rawScore ?? -1) < STRONG_THRESHOLD) continue;
+    const failed = inDomain(domain.domainCode).filter((finding) => finding.isCriticalControl || finding.isHardGate);
+    if (failed.length === 0) continue;
+    add({
+      pattern: 'strong_domain_failed_critical_control',
+      title: `${domain.domainName} scores strongly but contains a failed critical control`,
+      drivingResponses: `Domain score ${Math.round(domain.rawScore as number)}/100; failed critical evidence: ${failed.map((finding) => `${finding.questionCode} ${finding.responseMeaning}`).join('; ')}.`,
+      whyItMatters: 'A blended domain average can mask a control the methodology treats as non-negotiable.',
+      falseComfortRisk: 'Leadership may rely on the aggregate domain score and miss the exact failed control.',
+      whatLeadershipShouldVerify: `Can current operating evidence independently demonstrate the control(s) ${failed.map((finding) => finding.questionCode).join(', ')}?`,
+      fraudPathwayEnabled: 'The specific failed control is exploited while the aggregate score discourages deeper review.',
+      linkedFindingIds: failed.map((finding) => finding.id)
+    });
   }
 
-  // 4. High/severe exposure combined with a material control gap in the linked domain(s).
-  const exposureDomainMap: Record<string, string[]> = {
-    'EXP-01': ['D3', 'D4'],
-    'EXP-02': ['D7'],
-    'EXP-03': ['D8'],
-    'EXP-04': ['D8', 'D9'],
-    'EXP-05': ['D3'],
-    'EXP-07': ['D3', 'D4'],
-    'EXP-08': ['D5', 'D6']
-  };
-  for (const answer of data.exposureAnswers) {
-    const ratio = answer.maxPoints > 0 ? answer.pointsAwarded / answer.maxPoints : 0;
-    if (ratio < STRONG_EXPOSURE_RATIO) continue;
-    const linkedDomains = exposureDomainMap[answer.factorCode] ?? [];
-    const weakLinked = linkedDomains.filter((code) => findingsForDomain(findings, code).length > 0);
-    if (weakLinked.length === 0) continue;
-    const linkedIds = weakLinked.flatMap((code) => findingsForDomain(findings, code).map((f) => f.id));
-    add(
-      'exposure_outpaces_control',
-      `${answer.name} is rated "${answer.selectedLabel}" while the control area(s) meant to manage it show material gaps`,
-      `Exposure factor "${answer.name}" selected as "${answer.selectedLabel}"; linked domain(s) ${weakLinked.map((c) => domainName(data, c)).join(', ')} have flagged findings.`,
-      'High inherent exposure needs correspondingly strong controls. Exposure and control strength are being read as if independent when they are not.',
-      'That controls "exist" in the linked domain may be read as sufficient regardless of how exposed the organisation actually is to this specific risk.',
-      'Whether the control(s) in the linked domain(s) are proportionate to this specific exposure, not just present in general.',
-      'The organisation\'s own operating characteristics (not a hypothetical) create the opportunity; the control gap is what fails to stop it.',
-      linkedIds
-    );
+  const exposureNames = new Map(data.exposureAnswers.map((answer) => [answer.factorCode, answer.name]));
+  const exposureFindings = weak.filter((finding) => finding.linkedExposureFactorCodes.length > 0);
+  const exposureGroups = new Map<string, MaterialFinding[]>();
+  for (const finding of exposureFindings) {
+    const key = stableUnique(finding.linkedExposureFactorCodes).join('|');
+    exposureGroups.set(key, [...(exposureGroups.get(key) ?? []), finding]);
+  }
+  for (const [factorKey, linked] of [...exposureGroups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const factorCodes = factorKey.split('|');
+    add({
+      pattern: 'exposure_outpaces_control',
+      title: 'Recorded operating exposure outpaces linked control strength',
+      drivingResponses: `High/severe exposure evidence (${factorCodes.map((code) => exposureNames.get(code) ?? code).join(', ')}) is linked to weak responses ${linked.map((finding) => finding.questionCode).sort().join(', ')}.`,
+      whyItMatters: 'Higher inherent exposure requires stronger and more reliably evidenced preventive, detective and response controls.',
+      falseComfortRisk: 'The existence of a control may be read as sufficient without testing whether it is proportionate to the recorded exposure.',
+      whatLeadershipShouldVerify: 'Are the linked controls complete, current and tested against the specific exposure recorded in this assessment?',
+      fraudPathwayEnabled: 'The organisation’s operating characteristics create an opportunity that the linked control weakness does not reliably interrupt.',
+      linkedFindingIds: linked.map((finding) => finding.id)
+    });
   }
 
-  // 5. Whistleblowing channel present per methodology, but scoring weak per assessment.
-  const d6 = domainScore(data, 'D6');
-  if (d6 !== null && d6 < STRUCTURED_THRESHOLD) {
-    add(
-      'whistleblowing_present_but_weak',
-      `A whistleblowing channel exists but is not yet a reliable route for concerns to surface (${domainName(data, 'D6')}, ${Math.round(d6)}/100)`,
-      `${domainName(data, 'D6')} scored ${Math.round(d6)}, below the level this methodology treats as a reliable reporting culture.`,
-      'A channel that exists on paper is not the same as one people will actually use. Low awareness or low trust makes the channel a formality rather than a working control.',
-      'Having a whistleblowing policy can be mistaken for having a working whistleblowing culture.',
-      'Whether staff know the channel exists, trust it, and have used it -- not just whether it is documented.',
-      'Fraud that a colleague notices goes unreported because the reporting route is not trusted or not known.',
-      findingsForDomain(findings, 'D6').map((f) => f.id)
-    );
+  const access = weak.filter((finding) => ['D3-Q04', 'D8-Q04'].includes(finding.questionCode));
+  if (new Set(access.map((finding) => finding.domainCode)).size === 2) {
+    add({
+      pattern: 'access_control_gap_operational_and_digital',
+      title: 'Operational and privileged-access weaknesses indicate one systemic access-governance issue',
+      drivingResponses: access.map((finding) => `${finding.questionCode}: ${finding.responseMeaning}`).sort().join('; '),
+      whyItMatters: 'Excess access across ordinary and privileged environments can create an end-to-end manipulation and concealment route.',
+      falseComfortRisk: 'Treating the findings as unrelated domain issues understates the common identity and recertification dependency.',
+      whatLeadershipShouldVerify: 'Is one complete identity, role and recertification population used across ordinary and privileged access reviews?',
+      fraudPathwayEnabled: 'Excess access in one system is used to reach, execute or conceal activity in another.',
+      linkedFindingIds: access.map((finding) => finding.id)
+    });
   }
 
-  // 6. Parallel access-control weakness across operational and digital domains.
-  const d3Findings = findingsForDomain(findings, 'D3').filter((f) => f.isHardGate || f.isCriticalControl);
-  const d8Findings = findingsForDomain(findings, 'D8').filter((f) => f.isHardGate || f.isCriticalControl);
-  if (d3Findings.length > 0 && d8Findings.length > 0) {
-    add(
-      'access_control_gap_operational_and_digital',
-      `Access-control weaknesses appear in both operational systems (${domainName(data, 'D3')}) and digital systems (${domainName(data, 'D8')})`,
-      `${domainName(data, 'D3')}: "${d3Findings[0].questionPrompt}" (${d3Findings[0].responseMeaning}). ${domainName(data, 'D8')}: "${d8Findings[0].questionPrompt}" (${d8Findings[0].responseMeaning}).`,
-      'The same underlying discipline -- granting and reviewing access on a least-privilege basis -- is failing in two places at once, which suggests a systemic gap rather than two unrelated issues.',
-      'Treating these as two separate, domain-specific findings may understate the risk of a single person or credential having excess reach across both operational and digital systems.',
-      'Whether the same access-review process (or lack of one) is the common root cause across both domains.',
-      'Excess access in one system is used as a stepping stone to excess access or manipulation in the other, with neither domain\'s review catching the combination.',
-      [...d3Findings, ...d8Findings].map((f) => f.id)
-    );
+  const consolidated = new Map<string, Candidate>();
+  for (const candidate of candidates) {
+    const key = `${family(candidate.pattern)}|${candidate.linkedFindingIds.join('|')}`;
+    if (!consolidated.has(key)) consolidated.set(key, candidate);
   }
 
-  return contradictions;
+  const materiality = (candidate: Candidate) => candidate.linkedFindingIds.reduce((total, id) => total + (findings.find((finding) => finding.id === id)?.materialityScore ?? 0), 0);
+  const cap = weak.length >= 3 ? 5 : 3;
+  return [...consolidated.values()]
+    .sort((a, b) => materiality(b) - materiality(a) || family(a.pattern).localeCompare(family(b.pattern)) || a.linkedFindingIds.join('|').localeCompare(b.linkedFindingIds.join('|')))
+    .slice(0, cap)
+    .map((candidate) => {
+      const risk = bestRisk(candidate.linkedFindingIds, risks);
+      const evidenceRefs = stableUnique([
+        ...candidate.linkedFindingIds.map((id) => `finding:${id}`),
+        ...(risk ? [`risk:${risk.id}`] : [])
+      ]);
+      return {
+        id: `CX-${stableToken(`${family(candidate.pattern)}|${candidate.linkedFindingIds.join('|')}`)}`,
+        ...candidate,
+        linkedRiskId: risk?.id ?? null,
+        evidenceRefs,
+        materialityScore: materiality(candidate)
+      } satisfies Contradiction;
+    });
 }

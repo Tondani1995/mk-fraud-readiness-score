@@ -6,6 +6,8 @@ import {
   PROHIBITED_PLACEHOLDER_STRINGS
 } from './evidence-model';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './evidence-model';
+import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
+import { buildPremiumReportEvidencePack, validatePremiumReportEvidencePack } from './automation/evidence';
 
 /**
  * V7 Checkpoint B -- fail-closed commercial quality gate.
@@ -215,6 +217,32 @@ export function validateRenderedRoadmap(agenda: RoadmapItem[]): QualityGateResul
   return { passed: violations.length === 0, violations, warnings };
 }
 
+/** Ensures the rendered compatibility shape is a pure projection of the authoritative roadmap. */
+export function validateRoadmapSource(agenda: RoadmapItem[], model: AdvisoryEvidenceModel): QualityGateResult {
+  const expected = adaptAdvisoryRoadmapToLegacyAgenda(model.roadmapActions).agenda;
+  const normalise = (items: RoadmapItem[]) => items.map((item) => ({
+    ruleCode: item.ruleCode,
+    domainCode: item.domainCode,
+    domainName: item.domainName,
+    ownerRole: item.ownerRole,
+    rationale: item.rationale,
+    severity: item.severity,
+    action30: item.action30,
+    action60: item.action60,
+    action90: item.action90,
+    priorityScore: item.priorityScore,
+    authoritativeActionIds: item.authoritativeActionIds ?? []
+  }));
+  const matches = JSON.stringify(normalise(agenda)) === JSON.stringify(normalise(expected));
+  const violations: CommercialQualityIssue[] = matches ? [] : [{
+    code: 'QG_ROADMAP_SOURCE_MISMATCH',
+    severity: 'violation',
+    message: 'Rendered legacy roadmap does not match the authoritative AdvisoryEvidenceModel roadmap actions.',
+    source: 'commercial-quality'
+  }];
+  return { passed: matches, violations, warnings: [] };
+}
+
 /**
  * The single fail-closed assertion Checkpoint B requires. Builds/consumes the same evidence-model
  * instance used for rendering (never a second, validation-only model), evaluates all three checks
@@ -232,8 +260,13 @@ export function assertCommercialReportQuality(payload: CommercialReportPayload):
     const evidenceGate = checkQualityGates(payload.evidenceModel, payload.data);
     const contentGate = validateRenderedContent(payload.content, payload.data);
     const roadmapGate = validateRenderedRoadmap(payload.roadmap.agenda);
+    const roadmapSourceGate = validateRoadmapSource(payload.roadmap.agenda, payload.evidenceModel);
+    const aiEvidenceIssues = validatePremiumReportEvidencePack(
+      buildPremiumReportEvidencePack(payload.data, payload.evidenceModel),
+      [payload.data.customerEmail, payload.data.respondentName]
+    );
 
-    violations = [...evidenceGate.violations, ...contentGate.violations, ...roadmapGate.violations];
+    violations = [...evidenceGate.violations, ...contentGate.violations, ...roadmapGate.violations, ...roadmapSourceGate.violations, ...aiEvidenceIssues];
     warnings = [...evidenceGate.warnings, ...contentGate.warnings, ...roadmapGate.warnings];
   } catch (error) {
     const evaluationFailure: CommercialQualityIssue = {

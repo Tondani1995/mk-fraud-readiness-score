@@ -1,4 +1,5 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
+import type { AdvisoryEvidenceModel } from '../evidence-model';
 
 export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v3-grounded-narrative';
 export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-grounded-narrative-v3';
@@ -51,17 +52,28 @@ export type ReportEvidenceKind =
   | 'gap_count'
   | 'domain'
   | 'gap'
+  | 'question_response'
+  | 'material_finding'
   | 'maturity_cap'
+  | 'contradiction'
+  | 'plausible_scenario'
+  | 'risk'
+  | 'control_improvement'
+  | 'evidence_checklist'
+  | 'leadership_decision'
+  | 'roadmap_action'
+  | 'assessment_limitation'
   | 'roadmap';
 
 export interface ReportEvidenceItem {
   id: string;
   kind: ReportEvidenceKind;
   label: string;
-  value: string | number | boolean | null | Record<string, unknown>;
+  value: unknown;
   domainCode?: string;
   questionCode?: string;
   ruleCode?: string;
+  evidenceRefs?: string[];
 }
 
 export interface PremiumReportEvidencePack {
@@ -70,7 +82,12 @@ export interface PremiumReportEvidencePack {
   organisationName: string;
   packageName: string;
   scoreRunId: string;
+  methodologyVersionId?: string;
+  generatedAt?: string;
+  selfAssessmentLimitation?: string;
   methodologyAuthority: 'deterministic';
+  narrativeAuthority?: 'ai_optional_validated';
+  advisoryModel?: AdvisoryEvidenceModel;
   items: ReportEvidenceItem[];
 }
 
@@ -159,6 +176,7 @@ export interface NarrativeGenerationInput {
   evidenceChecksum: string;
   deterministicContent: SelectedContent;
   roadmap: { agenda: RoadmapItem[] };
+  advisoryModel?: AdvisoryEvidenceModel;
   promptVersion: string;
   schemaVersion: string;
   previousOutput?: PremiumReportAiEditorialPlan;
@@ -190,6 +208,7 @@ export interface BuildPremiumReportNarrativeInput {
   assembled: AssembledReportData;
   deterministicContent: SelectedContent;
   roadmap: { agenda: RoadmapItem[] };
+  advisoryModel?: AdvisoryEvidenceModel;
   flags: PremiumReportAutomationFlags;
   generator?: PremiumReportNarrativeGenerator;
   generationIdentity?: string;

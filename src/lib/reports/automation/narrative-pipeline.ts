@@ -17,7 +17,7 @@ function fallbackResult(
 ): PreparedPremiumReportNarrative {
   const evidence = evidenceOverride ?? buildPremiumReportEvidencePack(
     input.assembled,
-    input.roadmap,
+    input.advisoryModel ?? input.roadmap,
     input.flags.schemaVersion
   );
   const checksum = checksumOverride ?? evidenceChecksum(evidence);
@@ -137,7 +137,7 @@ export async function preparePremiumReportNarrative(
 
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
-    input.roadmap,
+    input.advisoryModel ?? input.roadmap,
     input.flags.schemaVersion
   );
   const checksum = evidenceChecksum(evidence);

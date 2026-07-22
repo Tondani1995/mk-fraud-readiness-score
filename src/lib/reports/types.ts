@@ -172,4 +172,6 @@ export interface RoadmapItem {
   action60: string | null;
   action90: string | null;
   priorityScore: number;
+  /** Checkpoint D: exact authoritative action IDs from which this compatibility row was derived. */
+  authoritativeActionIds?: string[];
 }
