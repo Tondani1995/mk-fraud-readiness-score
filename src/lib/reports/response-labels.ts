@@ -23,6 +23,17 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
  *     deterministic, credential-free unit tests. It never repairs malformed input -- it rejects it.
  *   - getOfficialResponseLabels(): the database-loading layer, which queries response_scale and
  *     then hands the raw rows to the validator. It never returns partial or unvalidated data.
+ *
+ * V7 Checkpoint A FINAL correction: this repository's existing methodology loader
+ * (src/lib/respondent/assessment-methodology.ts) types response_scale.normalised_score as
+ * `number | string` and converts it with a permissive toNumber() helper (`Number(value)`, which
+ * silently turns "" and null into 0). That is real repository evidence that PostgREST can and does
+ * serialize this Postgres numeric/decimal column as a JSON string. This adapter must therefore
+ * accept numeric strings for normalised_score too, but WITHOUT that permissive fallback --
+ * parseFiniteDatabaseNumeric() below rejects blank, malformed, or non-numeric input outright rather
+ * than coercing it into a fabricated 0. response_value and display_order are left integer-only:
+ * the same loader types both of those as plain `number` (RawResponseScale), so there is no
+ * repository evidence they ever arrive as strings.
  */
 
 export interface OfficialResponseLabel {
@@ -46,6 +57,13 @@ export class ResponseLabelSourceError extends Error {
 // constant (and the validator built around it) is the single place that needs to change.
 const SUPPORTED_RESPONSE_VALUES = [0, 1, 2, 3, 4, 5] as const;
 
+// The scale's display_order values must be exactly these, in this order, once sorted -- and the
+// response_value found at each of those positions must be exactly this sequence. Together these
+// two constants encode "response_value N is always displayed at position N+1" -- i.e. the scale is
+// not just a valid *set* of six rows, it is a valid, correctly *ordered* sequence.
+const REQUIRED_DISPLAY_ORDERS = [1, 2, 3, 4, 5, 6] as const;
+const REQUIRED_RESPONSE_VALUES_IN_DISPLAY_ORDER = [0, 1, 2, 3, 4, 5] as const;
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -58,6 +76,101 @@ function isNonBlankString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+// Canonical numeric string: an optional leading '-', one or more digits, and an optional '.'
+// followed by one or more digits. Deliberately excludes exponential notation ("1e5"), leading '+',
+// thousands separators, and the literal strings "NaN"/"Infinity" (none of which match the digit
+// pattern), so those are rejected as malformed rather than silently parsed.
+const CANONICAL_NUMERIC_STRING_PATTERN = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Strict parser for database numeric columns that PostgREST may serialize as either a JS number or
+ * a numeric string (see the file-level comment above for the repository evidence). Accepts finite
+ * JS numbers and canonical numeric strings representing a finite value. Rejects blank or
+ * whitespace-only strings, malformed strings ("80abc"), the literal strings "NaN"/"Infinity",
+ * null/undefined, booleans, arrays, and objects.
+ *
+ * This is intentionally NOT the same as this repo's existing toNumber() helper
+ * (src/lib/respondent/assessment-methodology.ts), which uses a bare `Number(value)` and so turns
+ * an empty string or null into a fabricated 0. A malformed or missing response-scale score must
+ * fail loudly, not resolve to a plausible-looking zero.
+ */
+export function parseFiniteDatabaseNumeric(value: unknown, fieldName: string): number {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new ResponseLabelSourceError(`${fieldName} is not a finite number: ${JSON.stringify(value)}.`);
+    }
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      throw new ResponseLabelSourceError(`${fieldName} is a blank string.`);
+    }
+    if (!CANONICAL_NUMERIC_STRING_PATTERN.test(trimmed)) {
+      throw new ResponseLabelSourceError(`${fieldName} is not a canonical numeric string: ${JSON.stringify(value)}.`);
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      throw new ResponseLabelSourceError(`${fieldName} did not parse to a finite number: ${JSON.stringify(value)}.`);
+    }
+    return parsed;
+  }
+
+  throw new ResponseLabelSourceError(
+    `${fieldName} must be a finite number or a numeric string, got ${JSON.stringify(value)}.`
+  );
+}
+
+function arraysEqual(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/**
+ * Structural scale-consistency check, run after per-row validation, duplicate/missing-value
+ * checks, and sorting by display_order. Individually-valid rows can still assemble into an
+ * inconsistent sequence (e.g. response_value and display_order both individually valid, but
+ * paired up wrong) -- this catches that class of defect. Never hard-codes labels or operational
+ * meanings; those remain database-authoritative and are not inspected here.
+ */
+function validateStructuralConsistency(sorted: OfficialResponseLabel[]): void {
+  const displayOrders = sorted.map((entry) => entry.displayOrder);
+  if (!arraysEqual(displayOrders, REQUIRED_DISPLAY_ORDERS)) {
+    throw new ResponseLabelSourceError(
+      `Response-scale display_order values must be exactly 1-6 in sequence; got [${displayOrders.join(', ')}].`
+    );
+  }
+
+  const responseValuesInDisplayOrder = sorted.map((entry) => entry.responseValue);
+  if (!arraysEqual(responseValuesInDisplayOrder, REQUIRED_RESPONSE_VALUES_IN_DISPLAY_ORDER)) {
+    throw new ResponseLabelSourceError(
+      `Response-scale response_value values, ordered by display_order, must be exactly 0-5 in sequence; got [${responseValuesInDisplayOrder.join(', ')}].`
+    );
+  }
+
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (sorted[i].normalisedScore <= sorted[i - 1].normalisedScore) {
+      throw new ResponseLabelSourceError(
+        `Response-scale normalised_score values must be strictly increasing by display_order; row at display_order=${sorted[i].displayOrder} (normalised_score=${sorted[i].normalisedScore}) is not greater than the previous row (normalised_score=${sorted[i - 1].normalisedScore}).`
+      );
+    }
+  }
+
+  const first = sorted[0];
+  if (first.normalisedScore !== 0) {
+    throw new ResponseLabelSourceError(
+      `Response-scale must start at normalised_score 0; first row (display_order=${first.displayOrder}, response_value=${first.responseValue}) has normalised_score ${first.normalisedScore}.`
+    );
+  }
+
+  const last = sorted[sorted.length - 1];
+  if (last.normalisedScore !== 100) {
+    throw new ResponseLabelSourceError(
+      `Response-scale must end at normalised_score 100; last row (display_order=${last.displayOrder}, response_value=${last.responseValue}) has normalised_score ${last.normalisedScore}.`
+    );
+  }
+}
+
 /**
  * Pure validator for raw response_scale rows. Takes `unknown[]` (never `any`) so it can be
  * exercised directly by credential-free unit tests, independent of the database layer.
@@ -67,11 +180,17 @@ function isNonBlankString(value: unknown): value is string {
  *   - a missing response value in the required 0-5 set;
  *   - a duplicate response value;
  *   - a duplicate display order;
- *   - a non-numeric or out-of-range (not 0-5) response value;
+ *   - a non-numeric or out-of-range (not 0-5) response value (numbers only -- see file header);
  *   - a blank label;
  *   - a null or blank operational meaning;
- *   - a non-numeric or out-of-range (not 0-100) normalised score;
- *   - a non-integer or non-positive display order.
+ *   - a normalised score that is not a finite number or canonical numeric string, or that is
+ *     blank/malformed/out-of-range (not 0-100);
+ *   - a non-integer or non-positive display order (numbers only -- see file header);
+ *   - display_order values that, once sorted, are not exactly 1-6 in sequence;
+ *   - response_value values that, ordered by display_order, are not exactly 0-5 in sequence
+ *     (individually-valid rows assembled into an inconsistent pairing);
+ *   - normalised_score values that are not strictly increasing by display_order, that do not
+ *     start at 0, or that do not end at 100.
  *
  * Rows may arrive in any order; the validator does not assume the caller pre-sorted them (a
  * database query happens to ORDER BY display_order today, but this function must hold even if a
@@ -94,7 +213,7 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
     const responseValue = row.response_value;
     const label = row.label;
     const operationalMeaning = row.operational_meaning;
-    const normalisedScore = row.normalised_score;
+    const rawNormalisedScore = row.normalised_score;
     const displayOrder = row.display_order;
 
     if (!isFiniteNumber(responseValue)) {
@@ -117,9 +236,14 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
         `Response-scale row ${index} (response_value=${responseValue}) has a null or blank operational_meaning.`
       );
     }
-    if (!isFiniteNumber(normalisedScore)) {
+
+    let normalisedScore: number;
+    try {
+      normalisedScore = parseFiniteDatabaseNumeric(rawNormalisedScore, 'normalised_score');
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
       throw new ResponseLabelSourceError(
-        `Response-scale row ${index} (response_value=${responseValue}) has a non-numeric normalised_score: ${JSON.stringify(normalisedScore)}.`
+        `Response-scale row ${index} (response_value=${responseValue}) has an invalid normalised_score: ${detail}`
       );
     }
     if (normalisedScore < 0 || normalisedScore > 100) {
@@ -127,6 +251,7 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
         `Response-scale row ${index} (response_value=${responseValue}) has normalised_score ${normalisedScore} outside the 0-100 range.`
       );
     }
+
     if (!isFiniteNumber(displayOrder) || !Number.isInteger(displayOrder) || displayOrder <= 0) {
       throw new ResponseLabelSourceError(
         `Response-scale row ${index} (response_value=${responseValue}) has a non-integer or non-positive display_order: ${JSON.stringify(displayOrder)}.`
@@ -169,7 +294,11 @@ export function validateOfficialResponseLabels(rows: unknown[]): OfficialRespons
     );
   }
 
-  return [...parsed].sort((a, b) => a.displayOrder - b.displayOrder);
+  const sorted = [...parsed].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  validateStructuralConsistency(sorted);
+
+  return sorted;
 }
 
 /**
