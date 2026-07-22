@@ -5,7 +5,7 @@ import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } fr
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
-import { ReportCommercialQualityError } from './commercial-quality';
+import { isReportCommercialQualityError } from './commercial-quality';
 import { renderReportHtml } from './templates/report-template';
 import { renderHtmlToPdfBuffer } from './render-pdf';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -98,7 +98,7 @@ function errorMessage(error: unknown) {
 
 function reportFailureCode(error: unknown) {
   if (error instanceof ReportAssemblyError || error instanceof ReportEntitlementError) return error.reason;
-  if (error instanceof ReportCommercialQualityError) return 'commercial_quality_failed';
+  if (isReportCommercialQualityError(error)) return 'commercial_quality_failed';
   return 'generation_failed';
 }
 

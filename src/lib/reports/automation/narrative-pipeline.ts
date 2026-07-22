@@ -30,8 +30,17 @@ function fallbackResult(
   const validation = validatePremiumReportNarrative(narrative, evidence);
 
   if (!validation.ok) {
-    const detail = validation.issues.map((item) => `${item.path}:${item.code}`).join(', ');
-    throw new Error(`Approved deterministic report content failed Phase 14 validation: ${detail}`);
+    throw new ReportCommercialQualityError(
+      validation.issues.map((item) => ({
+        code: 'QG_QUALITY_EVALUATION_FAILED',
+        severity: 'violation',
+        message: `Approved deterministic narrative failed grounding validation (${item.code}).`,
+        entityId: item.path,
+        source: 'commercial-quality'
+      })),
+      [],
+      COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
+    );
   }
 
   return {

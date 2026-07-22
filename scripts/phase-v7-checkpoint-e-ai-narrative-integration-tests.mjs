@@ -33,6 +33,7 @@ import { generateManualPhase1Report } from '../src/lib/reports/phase1-manual-ful
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { persistManualNarrativeProvenance } from '../src/lib/reports/automation/manual-narrative-provenance.ts';
+import { isReportCommercialQualityError } from '../src/lib/reports/commercial-quality.ts';
 
 let passed = 0;
 let failed = 0;
@@ -539,6 +540,40 @@ await test('E21: the exact pre-Checkpoint E Phase 1 schema remains deterministic
   await assert.rejects(
     persistManualNarrativeProvenance({ db, manualGenerationAttemptId: 'attempt-old-schema', prepared, flags: ENABLED_FLAGS }),
     (error) => error?.code === 'PGRST202'
+  );
+});
+
+await test('E22: the stable quality-error contract survives production chunk boundaries', async () => {
+  const crossChunkError = {
+    code: 'commercial_quality_failed',
+    violations: [{ code: 'QG_SCENARIO_MINIMUM_NOT_MET', severity: 'violation', message: 'Safe fixture violation.' }],
+    warnings: [],
+    safeMessage: 'Safe fixture message.'
+  };
+  assert.equal(isReportCommercialQualityError(crossChunkError), true);
+  assert.equal(isReportCommercialQualityError({ ...crossChunkError, violations: null }), false);
+  assert.equal(isReportCommercialQualityError(new Error('commercial_quality_failed')), false);
+});
+
+await test('E23: deterministic narrative grounding defects fail through the commercial-quality lifecycle', async () => {
+  const invalidDeterministicContent = {
+    ...clean.deterministicContent,
+    executiveSummary: {
+      ...clean.deterministicContent.executiveSummary,
+      body: `${clean.deterministicContent.executiveSummary.body} Unsupported fixture number 999999.`
+    }
+  };
+  await assert.rejects(
+    preparePremiumReportNarrative({
+      assembled: clean.data,
+      deterministicContent: invalidDeterministicContent,
+      roadmap: clean.roadmap,
+      advisoryModel: clean.advisoryModel,
+      flags: DISABLED_FLAGS,
+      generationIdentity: 'deterministic-grounding-defect'
+    }),
+    (error) => isReportCommercialQualityError(error)
+      && error.violations.every((issue) => issue.code === 'QG_QUALITY_EVALUATION_FAILED')
   );
 });
 

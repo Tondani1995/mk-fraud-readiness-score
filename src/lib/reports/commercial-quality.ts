@@ -76,6 +76,21 @@ export class ReportCommercialQualityError extends Error {
   }
 }
 
+/**
+ * Recognises the stable commercial-quality error contract even when a production bundler places
+ * the throwing module and the catching module in separate chunks. In that case two copies of the
+ * class can exist and `instanceof` is not reliable, while the closed code/shape contract remains
+ * deterministic and does not expose report content.
+ */
+export function isReportCommercialQualityError(error: unknown): error is ReportCommercialQualityError {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as Partial<ReportCommercialQualityError>;
+  return candidate.code === 'commercial_quality_failed'
+    && Array.isArray(candidate.violations)
+    && Array.isArray(candidate.warnings)
+    && typeof candidate.safeMessage === 'string';
+}
+
 export interface CommercialReportPayload {
   data: AssembledReportData;
   content: SelectedContent;

@@ -6,7 +6,7 @@ import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { renderValidatedCommercialPdf } from './render-validated-commercial-pdf';
-import { ReportCommercialQualityError } from './commercial-quality';
+import { isReportCommercialQualityError } from './commercial-quality';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -293,10 +293,12 @@ export async function generateManualPhase1Report(
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
   let uploaded = false;
+  let generationStage = 'start_generation';
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
     if (startError) throw mapRpcFailure(startError, technicalReference);
 
+    generationStage = 'assemble_report';
     let reportType;
     try {
       assembled = await doAssembleReportData(input.orderReference);
@@ -337,9 +339,11 @@ export async function generateManualPhase1Report(
       body: block.body,
       status: block.status
     }));
+    generationStage = 'build_deterministic_advisory';
     const deterministicContent = selectContent(assembled, contentBlocks);
     const advisoryModel = buildAdvisoryEvidenceModel(assembled);
     const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
+    generationStage = 'load_automation_flags';
     const flags = await doGetAutomationFlags(db);
     const generator = dependencies.narrativeGenerator
       ?? (flags.aiNarrativeEnabled
@@ -357,6 +361,7 @@ export async function generateManualPhase1Report(
     const attemptStore = flags.aiNarrativeEnabled && generator
       ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
       : undefined;
+    generationStage = 'prepare_narrative';
     let prepared: PreparedPremiumReportNarrative;
     try {
       const doPrepareNarrative = dependencies.preparePremiumReportNarrative
@@ -373,7 +378,7 @@ export async function generateManualPhase1Report(
         attemptStore
       });
     } catch (error) {
-      if (error instanceof ReportCommercialQualityError) {
+      if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,
           orderReference: input.orderReference,
@@ -385,6 +390,7 @@ export async function generateManualPhase1Report(
       }
       throw error;
     }
+    generationStage = 'persist_narrative_provenance';
     await doPersistNarrativeProvenance({
       db,
       manualGenerationAttemptId: attemptId,
@@ -403,6 +409,7 @@ export async function generateManualPhase1Report(
     // failure below -- it is mapped to its own reason (commercial_quality_failed, HTTP 422) and
     // logged with only safe structured fields (technical reference, order reference, issue codes,
     // counts), never full report content, HTML, or customer data.
+    generationStage = 'render_pdf';
     let pdf: Buffer;
     try {
       pdf = await doRenderValidatedCommercialPdf({
@@ -412,7 +419,7 @@ export async function generateManualPhase1Report(
         evidenceModel: advisoryModel
       });
     } catch (error) {
-      if (error instanceof ReportCommercialQualityError) {
+      if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,
           orderReference: input.orderReference,
@@ -428,6 +435,7 @@ export async function generateManualPhase1Report(
     }
     assertValidPdf(pdf, technicalReference);
 
+    generationStage = 'store_pdf';
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
     const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
@@ -445,6 +453,7 @@ export async function generateManualPhase1Report(
     uploaded = true;
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
 
+    generationStage = 'complete_generation';
     const { data: completed, error: completeError } = await db.rpc('complete_manual_report_generation', {
       p_attempt_id: attemptId,
       p_template_id: template.id,
@@ -534,6 +543,7 @@ export async function generateManualPhase1Report(
       attemptId,
       status: 'GENERATION_FAILED',
       retryCount: claim.attempt.retry_count,
+      generationStage,
       errorCategory: mapped.reason,
       safeMessage: mapped.message
     });
