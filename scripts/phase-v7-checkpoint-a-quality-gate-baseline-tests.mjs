@@ -57,7 +57,7 @@ function buildViolatingFixture() {
     productPriceCents: null, productCurrency: null, requiresPaymentVerification: null,
     deliveryMode: null, productActive: null,
     scoreRun: {
-      id: 'test-run', assessmentId: 'test-assessment', status: 'completed', lockedAt: null,
+      id: 'test-run', assessmentId: 'test-assessment', methodologyVersionId: 'test-methodology-version', status: 'completed', lockedAt: null,
       inputHash: null, overallScore: 55, calculatedMaturity: 'Developing', finalMaturity: 'Developing',
       exposureScore: 50, exposureBand: 'Moderate', coveragePct: 100, nARatePct: 0,
       criticalGapCount: 1, majorGapCount: 0, capApplied: false, capReason: null
