@@ -5,12 +5,13 @@ import {
   ReportCommercialQualityError
 } from '../commercial-quality';
 import { validatePremiumReportNarrative } from './validation';
-import { createDurablePremiumReportNarrativeGenerator } from './durable-ai-attempts';
 import { validatePremiumReportAiEditorialPlan } from './ai-plan-validation';
+import { buildPremiumReportNarrativeBrief } from './narrative-brief';
 import type {
   BuildPremiumReportNarrativeInput,
   NarrativeGenerationResult,
-  PreparedPremiumReportNarrative
+  PreparedPremiumReportNarrative,
+  PremiumReportNarrativeGenerator
 } from './types';
 
 function fallbackResult(
@@ -63,7 +64,7 @@ function buildAndValidateAiNarrative(
   return { narrative, validation };
 }
 
-type GeneratorHandle = ReturnType<typeof createDurablePremiumReportNarrativeGenerator>;
+type GeneratorHandle = PremiumReportNarrativeGenerator;
 
 /**
  * The one-and-only repair attempt (Phase 14 policy: at most one repair per generation, enforced
@@ -84,12 +85,16 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
 }): Promise<PreparedPremiumReportNarrative> {
   const { evidence, checksum, generator, baseGenerationInput, generation, planValidation } = params;
   try {
-    const repairGeneration = await generator.repair({
+  const repairGeneration = await generator.repair({
       ...baseGenerationInput,
       previousOutput: generation.output,
       validationIssues: params.priorValidationIssues
     });
-    const repairPlanValidation = validatePremiumReportAiEditorialPlan(repairGeneration.output, evidence);
+    const repairPlanValidation = validatePremiumReportAiEditorialPlan(
+      repairGeneration.output,
+      evidence,
+      baseGenerationInput.narrativeBrief
+    );
     if (!repairPlanValidation.ok) {
       return {
         ...fallbackResult(input, 'ai_repair_plan_validation_failed', evidence, checksum),
@@ -152,6 +157,7 @@ export async function preparePremiumReportNarrative(
     );
   }
   const checksum = evidenceChecksum(evidence);
+  const narrativeBrief = buildPremiumReportNarrativeBrief(evidence);
 
   if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled', evidence, checksum);
   if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable', evidence, checksum);
@@ -166,26 +172,27 @@ export async function preparePremiumReportNarrative(
     return fallbackResult(input, `organisation_name_injection_suspected:${injectionScan.matchedPattern}`, evidence, checksum);
   }
 
+  const { createDurablePremiumReportNarrativeGenerator } = await import('./durable-ai-attempts');
   const generator = createDurablePremiumReportNarrativeGenerator({
     generator: input.generator,
     generationIdentity: input.generationIdentity,
     fulfilmentId: input.fulfilmentId,
     workerCapabilityId: input.workerCapabilityId,
-    authorizeAction: input.authorizeAiAction
+    authorizeAction: input.authorizeAiAction,
+    attemptStore: input.attemptStore
   });
 
   const baseGenerationInput = {
     evidence,
     evidenceChecksum: checksum,
-    deterministicContent: input.deterministicContent,
-    roadmap: input.roadmap,
+    narrativeBrief,
     promptVersion: input.flags.promptVersion,
     schemaVersion: input.flags.schemaVersion
   };
 
   try {
     const generation = await generator.generate(baseGenerationInput);
-    const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence);
+    const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence, narrativeBrief);
 
     if (!planValidation.ok) {
       return attemptRepair(input, {

@@ -1,6 +1,7 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from './types';
 import { renderReportHtml } from './templates/report-template';
 import { renderHtmlToPdfBuffer } from './render-pdf';
+import type { AdvisoryEvidenceModel } from './evidence-model';
 
 /**
  * V7 Checkpoint B -- narrow PDF-render orchestration seam.
@@ -31,12 +32,13 @@ export async function renderValidatedCommercialPdf(
     data: AssembledReportData;
     content: SelectedContent;
     roadmap: { agenda: RoadmapItem[] };
+    evidenceModel?: AdvisoryEvidenceModel;
   },
   dependencies: CommercialPdfRenderDependencies = {
     renderHtml: renderReportHtml,
     renderPdf: renderHtmlToPdfBuffer
   }
 ): Promise<Buffer> {
-  const html = dependencies.renderHtml(input.data, input.content, input.roadmap);
+  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel);
   return dependencies.renderPdf(html);
 }

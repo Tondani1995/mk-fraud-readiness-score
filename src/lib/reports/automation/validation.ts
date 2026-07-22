@@ -11,6 +11,8 @@ const PROHIBITED_PATTERNS: Array<{ code: string; pattern: RegExp; message: strin
   { code: 'certification_claim', pattern: /\b(certified|certification|accredited|accreditation)\b/i, message: 'Certification or accreditation claims are not allowed.' },
   { code: 'compliance_conclusion', pattern: /\b(fully compliant|legally compliant|regulatory compliance is confirmed|meets all regulatory requirements)\b/i, message: 'The report may not make a legal or regulatory compliance conclusion.' },
   { code: 'guarantee_claim', pattern: /\b(guarantee[sd]?|will eliminate|will prevent all|fraud[- ]proof|zero fraud)\b/i, message: 'Guarantees and absolute fraud-prevention claims are not allowed.' },
+  { code: 'unsupported_assurance_claim', pattern: /\b(?:the\s+)?(?:controls?|organisation|organization)(?:\s+environment)?\s+(?:is|are|has been)\s+(?:effective|well protected|proven|verified|independently validated)\b|\b(?:a defensible position|genuine readiness)\b/i, message: 'Unqualified assurance or independent-validation claims are not supported by self-assessment evidence.' },
+  { code: 'allegation_language', pattern: /\b(?:fraud (?:occurred|has occurred|was committed)|(?:an?\s+)?employee committed fraud|(?:the\s+)?supplier is fraudulent|this (?:incident|event|scenario) (?:occurred|happened|is confirmed))\b/i, message: 'The self-assessment does not support allegations that fraud or a scenario actually occurred.' },
   { code: 'secret_leakage', pattern: /\b(service[_ -]?role|supabase[_ -]?(key|url)|api[_ -]?key|vercel[_ -]?(token|oidc)|bearer token|access token)\b/i, message: 'Internal credentials or infrastructure identifiers are not allowed.' },
   { code: 'internal_reference', pattern: /\b(score_run_id|assessment_id|question_id|report_fulfilment|generation_run_id)\b/i, message: 'Internal database identifiers are not allowed.' },
   // L1: the checks above are a literal-keyword denylist (infrastructure vocabulary like "api key"
@@ -179,6 +181,21 @@ function validateText(
     }
   }
   validateMetricClaims(path, value, evidence, issues, prohibitMetricRestatement);
+
+  const cited = citedItems(value.evidenceRefs, evidence);
+  const responseItems = cited.filter((item) => item.kind === 'question_response' || item.kind === 'gap');
+  const contradictsOperatingResponse = /\b(?:control|process|measure|practice)\b[^.\n]{0,50}\b(?:is absent|does not exist|is not implemented|is merely planned|has not been implemented)\b/i;
+  if (contradictsOperatingResponse.test(text) && responseItems.some((item) => {
+    const responseValue = record(item.value) ? Number(item.value.responseValue) : Number.NaN;
+    return responseValue >= 3;
+  })) {
+    issues.push(issue('response_label_misstatement', path, 'Narrative contradicts an official response value of 3, 4 or 5, which records an operating control state.'));
+  }
+
+  const citesDecision = cited.some((item) => item.kind === 'leadership_decision');
+  if (citesDecision && /\b(?:the\s+)?decision\b[^.\n]{0,50}\b(?:is|was|has been)\s+(?:implemented|completed|delivered|operational)\b/i.test(text)) {
+    issues.push(issue('decision_action_confusion', path, 'A required leadership decision may not be described as an implemented or completed action.'));
+  }
 }
 
 function validateEvidenceRefs(path: string, refs: unknown, knownRefs: Set<string>, requiredRef: string | null, issues: NarrativeValidationIssue[]) {

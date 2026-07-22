@@ -1,8 +1,9 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
 
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v3-grounded-narrative';
-export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-grounded-narrative-v3';
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v4-advisory-editor';
+export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v4';
+export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v1';
 
 /** Maximum characters the AI may write for any single narrative body field. Mirrors the
  * deterministic-validator body length ceiling in automation/validation.ts (2500). */
@@ -142,6 +143,25 @@ export interface PremiumReportAiEditorialPlan {
   }>;
 }
 
+export interface NarrativeSectionBrief {
+  sectionId: string;
+  purpose: string;
+  requiredEvidenceRefs: string[];
+  allowedEvidenceRefs: string[];
+  requiredThemes: string[];
+  prohibitedThemes: string[];
+  maxCharacters: number;
+}
+
+export interface PremiumReportNarrativeBrief {
+  version: 'mk-essential-narrative-brief-v1';
+  executive: NarrativeSectionBrief;
+  falseComfort: NarrativeSectionBrief;
+  leadership: NarrativeSectionBrief;
+  domains: Record<string, NarrativeSectionBrief>;
+  gaps: Record<string, NarrativeSectionBrief>;
+}
+
 export interface NarrativeValidationIssue {
   code: string;
   path: string;
@@ -174,9 +194,7 @@ export interface NarrativeGenerationResult {
 export interface NarrativeGenerationInput {
   evidence: PremiumReportEvidencePack;
   evidenceChecksum: string;
-  deterministicContent: SelectedContent;
-  roadmap: { agenda: RoadmapItem[] };
-  advisoryModel?: AdvisoryEvidenceModel;
+  narrativeBrief: PremiumReportNarrativeBrief;
   promptVersion: string;
   schemaVersion: string;
   previousOutput?: PremiumReportAiEditorialPlan;
@@ -213,6 +231,8 @@ export interface BuildPremiumReportNarrativeInput {
   generator?: PremiumReportNarrativeGenerator;
   generationIdentity?: string;
   fulfilmentId?: string | null;
+  manualGenerationAttemptId?: string | null;
   workerCapabilityId?: string | null;
   authorizeAiAction?: () => Promise<unknown>;
+  attemptStore?: import('./durable-ai-attempts').DurableNarrativeAttemptStore;
 }

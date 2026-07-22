@@ -1,5 +1,5 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
-import { buildAdvisoryEvidenceModel } from '../evidence-model';
+import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
 import { gapKey } from '../select-content-blocks';
 
@@ -86,7 +86,8 @@ function roadmapCard(item: RoadmapItem) {
 export function renderReportHtml(
   data: AssembledReportData,
   content: SelectedContent,
-  roadmap: { agenda: RoadmapItem[] }
+  roadmap: { agenda: RoadmapItem[] },
+  preparedEvidenceModel?: AdvisoryEvidenceModel
 ) {
   const sr = data.scoreRun;
   const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#1d3658';
@@ -99,7 +100,7 @@ export function renderReportHtml(
   // throws ReportCommercialQualityError on any blocking violation -- there is no catch/continue
   // here. The same evidenceModel instance built here is used both for quality evaluation and for
   // rendering below; a separate validation-only model is never built.
-  const evidenceModel = buildAdvisoryEvidenceModel(data);
+  const evidenceModel = preparedEvidenceModel ?? buildAdvisoryEvidenceModel(data);
   const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
   if (quality.warnings.length > 0) {
     console.warn('COMMERCIAL_QUALITY_WARNING', {

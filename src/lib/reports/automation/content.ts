@@ -10,29 +10,35 @@ export function buildDeterministicNarrative(
   data: AssembledReportData,
   content: SelectedContent
 ): PremiumReportNarrative {
-  const capRefs = data.maturityCapEvents.map((event) => `cap:${event.ruleCode}`);
+  const capRefs = data.maturityCapEvents.map((event) =>
+    `cap:${event.ruleCode}:${event.relatedQuestionCode ?? event.relatedDomainCode ?? 'global'}`
+  );
   const gapRefs = data.criticalMajorGaps.map((gap) => `gap:${gap.questionCode}`);
   const domainRefs = data.domainResults.map((domain) => `domain:${domain.domainCode}`);
+  const coreRefs = [
+    'score:overall', 'score:calculated_maturity', 'score:final_maturity', 'score:exposure',
+    'score:exposure_band', 'score:coverage', 'gaps:critical_count', 'gaps:major_count'
+  ];
 
   return {
     executiveDiagnosis: {
       title: content.executiveSummary.title,
       body: content.executiveSummary.body,
       evidenceRefs: nonEmpty([
-        'score:overall',
-        'score:final_maturity',
-        'score:exposure_band',
+        ...coreRefs,
+        ...gapRefs,
+        ...domainRefs,
         ...capRefs
       ])
     },
     falseComfort: {
       title: content.falseComfort.title,
       body: content.falseComfort.body,
-      evidenceRefs: gapRefs.length ? gapRefs : nonEmpty(['score:final_maturity', ...domainRefs.slice(0, 3)])
+      evidenceRefs: nonEmpty([...coreRefs, ...gapRefs, ...domainRefs, ...capRefs])
     },
     leadershipAttention: {
       body: content.leadershipAttention.body,
-      evidenceRefs: nonEmpty(['score:final_maturity', ...domainRefs.slice(0, 4)])
+      evidenceRefs: nonEmpty([...coreRefs, ...gapRefs, ...domainRefs, ...capRefs])
     },
     domainNarratives: data.domainResults.map((domain) => {
       const selected = content.domainNarratives[domain.domainName];
@@ -40,13 +46,22 @@ export function buildDeterministicNarrative(
         domainCode: domain.domainCode,
         title: selected?.title ?? domain.domainName,
         body: selected?.body ?? '',
-        evidenceRefs: [`domain:${domain.domainCode}`]
+        evidenceRefs: nonEmpty([
+          `domain:${domain.domainCode}`,
+          ...coreRefs,
+          ...capRefs
+        ])
       };
     }),
     gapCommentary: data.criticalMajorGaps.map((gap) => ({
       questionCode: gap.questionCode,
       body: content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)]?.body ?? gap.prompt,
-      evidenceRefs: [`gap:${gap.questionCode}`, `domain:${gap.domainCode}`]
+      evidenceRefs: nonEmpty([
+        `gap:${gap.questionCode}`,
+        `domain:${gap.domainCode}`,
+        ...coreRefs,
+        ...capRefs
+      ])
     }))
   };
 }

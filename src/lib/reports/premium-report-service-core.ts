@@ -140,24 +140,27 @@ async function persistGenerationProvenance(input: {
     generation_mode: input.prepared.mode,
     provider: generation?.provider ?? null,
     model: generation?.model ?? null,
-    requested_provider: input.prepared.mode === 'deterministic_fallback'
-      ? null
-      : input.flags.model.split('/')[0] || 'vercel-ai-gateway',
-    requested_model: input.prepared.mode === 'deterministic_fallback' ? null : input.flags.model,
+    requested_provider: input.flags.aiNarrativeEnabled
+      ? input.flags.model.split('/')[0] || 'vercel-ai-gateway'
+      : null,
+    requested_model: input.flags.aiNarrativeEnabled ? input.flags.model : null,
     resolved_provider: generation?.provider ?? null,
     resolved_model: generation?.model ?? null,
     prompt_version: input.flags.promptVersion,
     schema_version: input.prepared.evidence.schemaVersion,
     evidence_checksum: input.prepared.evidenceChecksum,
     evidence_snapshot_json: input.prepared.evidence,
-    structured_output_json: input.prepared.narrative,
+    structured_output_json: generation?.output ?? null,
+    final_narrative_json: input.prepared.narrative,
     validation_result_json: input.prepared.validation,
     validation_errors_json: input.prepared.validation.issues,
+    initial_validation_json: input.prepared.initialValidation ?? null,
+    repair_validation_json: input.prepared.repairValidation ?? null,
     input_token_count: usage?.inputTokens ?? null,
     output_token_count: usage?.outputTokens ?? null,
     total_token_count: usage?.totalTokens ?? null,
     estimated_cost_micros: usage?.estimatedCostMicros ?? null,
-    accounting_status: input.prepared.mode === 'deterministic_fallback' ? 'not_applicable' : 'verified',
+    accounting_status: generation ? 'verified' : 'not_applicable',
     latency_ms: generation?.latencyMs ?? null,
     status: 'used',
     error_code: input.prepared.fallbackReason ?? null,
@@ -520,7 +523,7 @@ export async function generatePremiumReport(
       generationMode: prepared.mode,
       workerLease: input.workerLease
     });
-    const pdfBuffer = await renderHtmlToPdfBuffer(renderReportHtml(assembled, prepared.selectedContent, roadmap));
+    const pdfBuffer = await renderHtmlToPdfBuffer(renderReportHtml(assembled, prepared.selectedContent, roadmap, advisoryModel));
     const checksum = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
     storageBucket = process.env.SUPABASE_BUCKET_REPORTS ?? 'generated-reports';
     temporaryPath = `tmp/${assembled.assessmentReference}/${claimToken}/${crypto.randomUUID()}.pdf`;

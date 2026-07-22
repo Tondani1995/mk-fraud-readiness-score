@@ -281,6 +281,7 @@ function createRecordingDb(overrides = {}) {
       error: null
     },
     fail_manual_report_generation: { data: { ok: true }, error: null },
+    record_manual_report_narrative_provenance: { data: { ok: true }, error: null },
     complete_manual_report_generation: {
       data: {
         report: { id: 'report-1', report_reference: 'RPT-TEST-2026-CPB-PASSING', version_number: 1 },
@@ -337,6 +338,25 @@ function fakeValidateEntitlement(reportType = 'essential_self_assessment') {
 }
 function fakeSchemaCapability() {
   return async () => ({ status: 'available', schemaVersion: '0023', message: null, checks: {} });
+}
+function fakeAutomationFlags() {
+  return async () => ({
+    securityGateSatisfied: false, securityGateVersion: null, autoFulfilmentEnabled: false,
+    aiNarrativeEnabled: false, autoEmailEnabled: false, manualDeliveryEnabled: false,
+    testRecipientOverrideEnabled: false, testRecipientOverride: null,
+    model: 'openai/test-model', promptVersion: 'test-prompt', schemaVersion: 'test-schema'
+  });
+}
+async function fakePrepareNarrative(input) {
+  return {
+    narrative: { executiveDiagnosis: { title: 'Test', body: 'Test', evidenceRefs: [] }, falseComfort: { title: 'Test', body: 'Test', evidenceRefs: [] }, leadershipAttention: { body: 'Test', evidenceRefs: [] }, domainNarratives: [], gapCommentary: [] },
+    selectedContent: input.deterministicContent,
+    mode: 'deterministic_fallback',
+    evidence: { schemaVersion: input.flags.schemaVersion, items: [] },
+    evidenceChecksum: 'a'.repeat(64),
+    validation: { ok: true, issues: [], checkedAt: new Date(0).toISOString(), schemaVersion: input.flags.schemaVersion },
+    fallbackReason: 'ai_feature_disabled'
+  };
 }
 
 console.log('V7 Checkpoint B -- commercial quality gate suite');
@@ -558,6 +578,8 @@ await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/comp
         assembleReportData: fakeAssembleReportData(violatingData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
+        getPremiumReportAutomationFlags: fakeAutomationFlags(),
+        preparePremiumReportNarrative: fakePrepareNarrative,
         renderValidatedCommercialPdf: async ({ data }) => {
           // Exercise the REAL seam/quality-gate logic (not a stub that just throws) so this proves
           // the actual orchestration, not a contrived rejection. Deliberately ignores the real
@@ -600,6 +622,8 @@ await asyncTest('C10. output_report_id is never observed as set on a quality fai
         assembleReportData: fakeAssembleReportData(violatingData),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
+        getPremiumReportAutomationFlags: fakeAutomationFlags(),
+        preparePremiumReportNarrative: fakePrepareNarrative,
         renderValidatedCommercialPdf: async ({ data }) => renderValidatedCommercialPdf({ data, content: violatingContent, roadmap: { agenda: [] } })
       }
     );
@@ -623,6 +647,8 @@ await asyncTest('C12. A genuine renderer exception (not a quality failure) maps 
         assembleReportData: fakeAssembleReportData(data),
         validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
         getPhase1SchemaCapability: fakeSchemaCapability(),
+        getPremiumReportAutomationFlags: fakeAutomationFlags(),
+        preparePremiumReportNarrative: fakePrepareNarrative,
         renderValidatedCommercialPdf: async () => { throw new Error('Simulated real PDF renderer crash.'); }
       }
     ),
@@ -650,6 +676,8 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
       assembleReportData: fakeAssembleReportData(data),
       validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
       getPhase1SchemaCapability: fakeSchemaCapability(),
+      getPremiumReportAutomationFlags: fakeAutomationFlags(),
+      preparePremiumReportNarrative: fakePrepareNarrative,
       // Deliberately substitutes the known-passing content/roadmap from buildCommerciallyPassingFixture()
       // rather than the real selectContent()/selectRoadmap() output computed inside
       // generateManualPhase1Report() from this synthetic fixture (which has no matching

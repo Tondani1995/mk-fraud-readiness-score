@@ -9,6 +9,17 @@ import { renderValidatedCommercialPdf } from './render-validated-commercial-pdf'
 import { ReportCommercialQualityError } from './commercial-quality';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
+import { getPremiumReportAutomationFlags } from './automation/feature-flags';
+import { createManualNarrativeAttemptStore } from './automation/manual-ai-attempt-store';
+import { persistManualNarrativeProvenance } from './automation/manual-narrative-provenance';
+import type {
+  DurableNarrativeAttemptStore
+} from './automation/durable-ai-attempts';
+import type {
+  PremiumReportAutomationFlags,
+  PremiumReportNarrativeGenerator,
+  PreparedPremiumReportNarrative
+} from './automation/types';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -25,6 +36,13 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
+  getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
+  createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
+  narrativeGenerator?: PremiumReportNarrativeGenerator;
+  preparePremiumReportNarrative?: typeof import('./automation/narrative-pipeline').preparePremiumReportNarrative;
+  createManualNarrativeAttemptStore?: (input: { db: any; manualGenerationAttemptId: string }) => DurableNarrativeAttemptStore;
+  attemptStore?: DurableNarrativeAttemptStore;
+  persistManualNarrativeProvenance?: typeof persistManualNarrativeProvenance;
 }
 
 export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
@@ -43,6 +61,8 @@ export type ManualGenerationResult = {
   versionNumber: number;
   supersededReportId?: string | null;
   reusedExistingReport?: boolean;
+  generationMode?: 'ai' | 'ai_repair' | 'deterministic_fallback';
+  evidenceChecksum?: string;
   message: string;
 };
 
@@ -197,31 +217,13 @@ export async function generateManualPhase1Report(
   const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
   const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
   const doRenderValidatedCommercialPdf = dependencies.renderValidatedCommercialPdf ?? renderValidatedCommercialPdf;
+  const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
+  const doCreateAttemptStore = dependencies.createManualNarrativeAttemptStore ?? createManualNarrativeAttemptStore;
+  const doPersistNarrativeProvenance = dependencies.persistManualNarrativeProvenance ?? persistManualNarrativeProvenance;
 
   const capability = await doGetSchemaCapability(db);
   if (capability.status !== 'available') {
     throw new Phase1GenerationError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
-  }
-
-  let assembled;
-  let reportType;
-  try {
-    assembled = await doAssembleReportData(input.orderReference);
-    reportType = doValidateEntitlement(assembled);
-  } catch (error) {
-    throw mapPreflightFailure(error, technicalReference);
-  }
-
-  const { data: template, error: templateError } = await db
-    .from('report_templates')
-    .select('id,template_code,version_number')
-    .eq('report_type', reportType)
-    .eq('status', 'active')
-    .order('version_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (templateError || !template) {
-    throw new Phase1GenerationError('template_missing', 'No active report template is configured for this product.', 409, technicalReference);
   }
 
   const claimRequest = input.action === 'payment_confirmation'
@@ -287,17 +289,38 @@ export async function generateManualPhase1Report(
 
   const attemptId = String(claim.attempt.id);
   const versionNumber = Number(claim.attempt.report_version);
-  // Use the versioned reference (e.g. "...-V2") everywhere, including the
-  // rendered report itself, so the PDF's own footer/title page match the
-  // reports.report_reference value stored for this version instead of the
-  // bare assessment reference assembleReportData() defaults to.
-  assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+  let assembled: Awaited<ReturnType<typeof assembleReportData>> | undefined;
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
   let uploaded = false;
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
     if (startError) throw mapRpcFailure(startError, technicalReference);
+
+    let reportType;
+    try {
+      assembled = await doAssembleReportData(input.orderReference);
+      reportType = doValidateEntitlement(assembled);
+    } catch (error) {
+      throw mapPreflightFailure(error, technicalReference);
+    }
+    // Use the versioned reference (e.g. "...-V2") everywhere, including the
+    // rendered report itself, so the PDF's own footer/title page match the
+    // reports.report_reference value stored for this version instead of the
+    // bare assessment reference assembleReportData() defaults to.
+    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+
+    const { data: template, error: templateError } = await db
+      .from('report_templates')
+      .select('id,template_code,version_number')
+      .eq('report_type', reportType)
+      .eq('status', 'active')
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (templateError || !template) {
+      throw new Phase1GenerationError('template_missing', 'No active report template is configured for this product.', 409, technicalReference);
+    }
 
     const { data: blockRows, error: blockError } = await db
       .from('report_content_blocks')
@@ -314,8 +337,60 @@ export async function generateManualPhase1Report(
       body: block.body,
       status: block.status
     }));
-    const content = selectContent(assembled, contentBlocks);
-    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(buildAdvisoryEvidenceModel(assembled).roadmapActions);
+    const deterministicContent = selectContent(assembled, contentBlocks);
+    const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
+    const flags = await doGetAutomationFlags(db);
+    const generator = dependencies.narrativeGenerator
+      ?? (flags.aiNarrativeEnabled
+        ? dependencies.createNarrativeGenerator
+          ? dependencies.createNarrativeGenerator(flags.model)
+          : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
+        : undefined);
+    const generationIdentity = [
+      'manual-report',
+      assembled.orderId,
+      assembled.assessmentId,
+      assembled.scoreRun.id,
+      `v${versionNumber}`
+    ].join(':');
+    const attemptStore = flags.aiNarrativeEnabled && generator
+      ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
+      : undefined;
+    let prepared: PreparedPremiumReportNarrative;
+    try {
+      const doPrepareNarrative = dependencies.preparePremiumReportNarrative
+        ?? (await import('./automation/narrative-pipeline')).preparePremiumReportNarrative;
+      prepared = await doPrepareNarrative({
+        assembled,
+        deterministicContent,
+        roadmap,
+        advisoryModel,
+        flags,
+        generator,
+        generationIdentity,
+        manualGenerationAttemptId: attemptId,
+        attemptStore
+      });
+    } catch (error) {
+      if (error instanceof ReportCommercialQualityError) {
+        console.error('commercial_report_quality_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          violationCodes: error.violations.map((issue) => issue.code),
+          warningCodes: error.warnings.map((issue) => issue.code),
+          violationCount: error.violations.length
+        });
+        throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      throw error;
+    }
+    await doPersistNarrativeProvenance({
+      db,
+      manualGenerationAttemptId: attemptId,
+      prepared,
+      flags
+    });
 
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
       throw new Phase1GenerationError('pdf_render_failed', 'The local PDF failure double was activated.', 500, technicalReference);
@@ -330,7 +405,12 @@ export async function generateManualPhase1Report(
     // counts), never full report content, HTML, or customer data.
     let pdf: Buffer;
     try {
-      pdf = await doRenderValidatedCommercialPdf({ data: assembled, content, roadmap });
+      pdf = await doRenderValidatedCommercialPdf({
+        data: assembled,
+        content: prepared.selectedContent,
+        roadmap,
+        evidenceModel: advisoryModel
+      });
     } catch (error) {
       if (error instanceof ReportCommercialQualityError) {
         console.error('commercial_report_quality_failure', {
@@ -396,7 +476,7 @@ export async function generateManualPhase1Report(
     console.info('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,
-      orderId: assembled.orderId,
+      orderId: assembled?.orderId ?? claim.attempt.order_id,
       attemptId,
       reportId: completed.report.id,
       status: 'REPORT_READY',
@@ -408,6 +488,8 @@ export async function generateManualPhase1Report(
       reportReference: completed.report.report_reference,
       versionNumber: Number(completed.report.version_number),
       supersededReportId: completed.superseded_report_id ?? null,
+      generationMode: prepared.mode,
+      evidenceChecksum: prepared.evidenceChecksum,
       message: `Report version ${completed.report.version_number} generated and verified successfully.`
     };
   } catch (error) {
@@ -448,7 +530,7 @@ export async function generateManualPhase1Report(
     console.error('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,
-      orderId: assembled.orderId,
+      orderId: assembled?.orderId ?? claim.attempt.order_id,
       attemptId,
       status: 'GENERATION_FAILED',
       retryCount: claim.attempt.retry_count,

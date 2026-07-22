@@ -61,7 +61,9 @@
     "v7:test-checkpoint-b": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs",
     "v7:test-checkpoint-c": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-c-materiality-playbook-tests.mjs",
     "v7:test-checkpoint-d": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs",
-    "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c && npm run v7:test-checkpoint-d"
+    "v7:test-checkpoint-e": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-e-ai-narrative-integration-tests.mjs",
+    "v7:test-checkpoint-e-migration": "node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs",
+    "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c && npm run v7:test-checkpoint-d && npm run v7:test-checkpoint-e"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

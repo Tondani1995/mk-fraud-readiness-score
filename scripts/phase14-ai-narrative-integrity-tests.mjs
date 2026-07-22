@@ -206,11 +206,11 @@ const flags = {
 
 function validGrounded(orgOverride) {
   return {
-    executiveEvidenceRefs: ['score:final_maturity'],
+    executiveEvidenceRefs: ['score:overall', 'score:final_maturity', 'score:exposure_band'],
     executiveBody: 'The organisation shows a Developing overall position with one critical governance gap requiring attention.',
-    falseComfortEvidenceRefs: ['gap:Q-GOV-01'],
+    falseComfortEvidenceRefs: ['score:final_maturity', 'score:exposure_band', 'gap:Q-GOV-01'],
     falseComfortBody: 'Existing activity does not offset the open ownership gap identified in governance.',
-    leadershipEvidenceRefs: ['score:final_maturity', 'domain:GOV'],
+    leadershipEvidenceRefs: ['score:final_maturity', 'domain:GOV', 'gap:Q-GOV-01'],
     leadershipBody: 'Leadership should assign named ownership for the governance gap and track it to resolution.',
     domainEvidence: [
       { domainCode: 'GOV', evidenceRefs: ['domain:GOV'], body: 'Governance requires consistent ownership and follow-through on the identified gap.' }
