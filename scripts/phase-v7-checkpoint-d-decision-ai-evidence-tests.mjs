@@ -191,6 +191,79 @@ test('S7. invalid basis and unsupported scenario evidence fail closed', () => {
   assert.ok(codes.includes('QG_SCENARIO_EVIDENCE_MISSING'));
 });
 
+test('CF1. clean-assurance risk/scenario/control/decision/roadmap never assert failure as fact (Checkpoint F controller review blocker 1)', () => {
+  const { clean, weak } = models();
+  const FAILURE_ASSERTION = [
+    /are not clearly separated/i, /are not documented and rehearsed/i, /is not completely restricted, logged/i,
+    /\bhave failed\b/i, /\bhas failed\b/i, /is delayed or uncoordinated/i, /remain unresolved or accepted/i,
+    /remain ownerless/i, /cannot be relied upon/i, /may be unable to demonstrate/i, /provide false comfort/i
+  ];
+  const TITLE_FAILURE_WORDS = /\b(failure|breakdown|delayed|uncoordinated|redirected|redirection|suppressed|suppression|compromised?|exploited)\b/i;
+
+  // 1/2. No risk title asserts failure; no cause/riskEvent/statement/treatment asserts absence as fact.
+  for (const risk of clean.riskRegister) {
+    assert.doesNotMatch(risk.title, TITLE_FAILURE_WORDS, `risk ${risk.id} title: ${risk.title}`);
+    for (const field of [risk.cause, risk.riskEvent, risk.riskStatement, risk.requiredTreatment]) {
+      for (const pattern of FAILURE_ASSERTION) assert.doesNotMatch(field, pattern, `risk ${risk.id}: ${field}`);
+    }
+    // 4/5. Treatment begins with independent validation; redesign is conditional on a validated defect.
+    assert.match(risk.requiredTreatment, /^Independently validate/);
+    assert.match(risk.requiredTreatment, /If validation identifies a defect/);
+  }
+  for (const scenario of clean.scenarios) {
+    assert.doesNotMatch(scenario.title, TITLE_FAILURE_WORDS, `scenario ${scenario.id} title: ${scenario.title}`);
+  }
+  for (const item of clean.controlImprovements) {
+    assert.match(item.controlDesign, /^Independently validate/);
+    for (const pattern of FAILURE_ASSERTION) assert.doesNotMatch(item.controlDesign, pattern);
+  }
+  // 6. Decisions for a clean assessment are validation/governance decisions, not remediation mandates.
+  assert.ok(clean.leadershipDecisions.every((decision) =>
+    decision.decisionCategory === 'independent_validation' || decision.decisionCategory === 'governance_reporting_cadence'));
+  // 3. The official operating response remains visible (current control position preserves the reported label).
+  for (const risk of clean.riskRegister) {
+    assert.match(risk.currentControlPosition, /Consistently operating|Mostly implemented/i);
+  }
+  // 7. No contradictory failure assertion anywhere across the unconditioned risk/scenario/control/
+  // decision/roadmap text fields. (The financial/operational/legal/reputational impact fields are
+  // individually prefixed "If independent validation identifies a defect: ..." -- see registers.ts
+  // -- so they may legitimately name a hypothetical consequence and are checked separately below.)
+  const haystack = JSON.stringify({
+    risks: clean.riskRegister.map((r) => ({ title: r.title, cause: r.cause, riskEvent: r.riskEvent, riskStatement: r.riskStatement, requiredTreatment: r.requiredTreatment })),
+    scenarios: clean.scenarios.map((s) => ({ title: s.title, concealmentMechanism: s.concealmentMechanism })),
+    controls: clean.controlImprovements.map((c) => ({ controlObjective: c.controlObjective, controlDesign: c.controlDesign, currentState: c.currentState })),
+    decisions: clean.leadershipDecisions.map((d) => ({ decisionRequired: d.decisionRequired, whyNow: d.whyNow, recommendedDecision: d.recommendedDecision, consequenceOfDelay: d.consequenceOfDelay })),
+    roadmap: clean.roadmapActions.map((a) => a.deliverable)
+  });
+  for (const pattern of FAILURE_ASSERTION) assert.doesNotMatch(haystack, pattern);
+  // Impact fields must still be explicitly conditional, never bare present-tense assertions.
+  for (const risk of clean.riskRegister) {
+    for (const value of [risk.financialImpact, risk.operationalImpact, risk.legalRegulatoryImpact, risk.reputationalImpact]) {
+      if (value) assert.match(value, /^If independent validation identifies a defect:/);
+    }
+  }
+
+  // Sanity: the weak fixture (real control gaps) is untouched -- it must NOT use the hedged
+  // "has not yet validated" assurance phrasing, confirming the two code paths stay distinct.
+  assert.ok(weak.riskRegister.every((risk) => !/has not yet validated/i.test(risk.cause)));
+});
+
+test('CF2. customer-facing text never exposes internal question codes (Checkpoint F controller review blocker 6)', () => {
+  const { weak } = models();
+  const QUESTION_CODE = /\bD\d{1,2}-Q\d{2}\b/;
+  const renderedText = (risk) => [risk.title, risk.cause, risk.riskEvent, risk.riskStatement, risk.requiredTreatment, risk.currentControlPosition].join(' \n ');
+  for (const risk of weak.riskRegister) assert.doesNotMatch(renderedText(risk), QUESTION_CODE, `risk ${risk.id}`);
+  for (const scenario of weak.scenarios) {
+    const text = [scenario.title, scenario.entryPoint, scenario.fraudSequence, scenario.whyControlsMayNotCatchIt, scenario.immediateContainment, ...scenario.confirmedOperatingContext].join(' \n ');
+    assert.doesNotMatch(text, QUESTION_CODE, `scenario ${scenario.id}`);
+  }
+  for (const item of weak.controlImprovements) assert.doesNotMatch(`${item.controlObjective} ${item.controlDesign}`, QUESTION_CODE, `control ${item.id}`);
+  for (const item of weak.evidenceChecklist) assert.doesNotMatch(item.provesWhat, QUESTION_CODE, `evidence ${item.id}`);
+  for (const item of weak.functionalAgenda) assert.doesNotMatch(item.question, QUESTION_CODE, `agenda item for ${item.function}`);
+  for (const action of weak.roadmapActions) assert.doesNotMatch(`${action.deliverable} ${action.dependency}`, QUESTION_CODE, `roadmap ${action.id}`);
+  for (const contradiction of weak.contradictions) assert.doesNotMatch(`${contradiction.drivingResponses} ${contradiction.whatLeadershipShouldVerify}`, QUESTION_CODE, `contradiction ${contradiction.id}`);
+});
+
 test('G1-G2. control register has one exact-playbook-derived entry per finding', () => {
   const { weak } = models();
   assert.equal(weak.controlImprovements.length, weak.materialFindings.length);
