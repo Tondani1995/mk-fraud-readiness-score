@@ -50,6 +50,38 @@ export const PROHIBITED_PLACEHOLDER_STRINGS = ['A core control area', 'A control
 export const PROHIBITED_GENERIC_ROADMAP_PHRASE = 'Implement or tighten the minimum repeatable control rhythm for';
 
 /**
+ * Checkpoint F controller review, blocker 1: literal absolute-assertion fragments taken from the
+ * raw (non-resilience) RiskPathway cause/riskEvent text (see risk-pathways.ts). None of these
+ * appear in the resilience-safe variants, so their presence on an entry derived entirely from
+ * assurance_priority findings can only mean the raw failure-toned pathway text leaked through
+ * instead of the resilience variant -- i.e. a regression back to the original defect.
+ */
+const ASSURANCE_BODY_ASSERTION_PATTERNS: RegExp[] = [
+  /are not clearly separated/i,
+  /are not documented and rehearsed/i,
+  /is not completely restricted, logged/i,
+  /\bhave failed\b/i,
+  /\bhas failed\b/i,
+  /is delayed or uncoordinated/i,
+  /remain unresolved or accepted/i,
+  /remain ownerless/i,
+  /cannot be relied upon/i,
+  /may be unable to demonstrate/i,
+  /provide false comfort/i,
+  /is not trusted, independently routed/i,
+  /not completely monitored and triaged/i,
+  /not joined and monitored/i,
+  /fail to recognise/i,
+  /is not current, role-specific/i,
+  /incomplete or not evidenced/i,
+  /not independently verified through/i,
+  /not completely reviewed and removed/i
+];
+
+/** Bare failure/breakdown words are never acceptable in a *title*, even hedged. */
+const ASSURANCE_TITLE_FAILURE_WORDS = /\b(failure|breakdown|delayed|uncoordinated|redirected|redirection|suppressed|suppression|compromised?|exploited)\b/i;
+
+/**
  * Mechanical checks against the evidence model, corresponding to the checkable subset of the
  * commercial quality gates in the brief (section 32). Gates that require comparing against a second
  * assessment (item 28) or against rendered PDF output (25, 26, 27) are NOT checked here -- see the
@@ -277,6 +309,63 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
   for (const placeholder of PROHIBITED_PLACEHOLDER_STRINGS) {
     if (haystack.includes(placeholder)) {
       violations.push({ code: 'QG_PLACEHOLDER_TEXT_PRESENT', severity: 'violation', message: `Prohibited placeholder text "${placeholder}" found in evidence model output.`, source: 'evidence-model' });
+    }
+  }
+
+  // Checkpoint F controller review, blocker 1: entries derived entirely from assurance_priority
+  // findings must never assert failure/absence as a present fact -- see ASSURANCE_BODY_ASSERTION_
+  // PATTERNS / ASSURANCE_TITLE_FAILURE_WORDS above.
+  const findingClassById = new Map(model.materialFindings.map((finding) => [finding.id, finding.materialityClass]));
+  const isAssuranceOnlyLinkage = (ids: string[]) => ids.length > 0 && ids.every((id) => findingClassById.get(id) === 'assurance_priority');
+
+  function checkAssuranceSemantics(entityId: string, title: string | null, bodyFields: (string | null | undefined)[]) {
+    if (title && ASSURANCE_TITLE_FAILURE_WORDS.test(title)) {
+      violations.push({
+        code: 'QG_CLEAN_ASSURANCE_SEMANTIC_FAILURE',
+        severity: 'violation',
+        message: `Entry ${entityId} is derived entirely from assurance-priority findings but its title asserts failure: "${title}".`,
+        entityId,
+        source: 'evidence-model'
+      });
+    }
+    const body = bodyFields.filter((value): value is string => Boolean(value)).join(' \n ');
+    for (const pattern of ASSURANCE_BODY_ASSERTION_PATTERNS) {
+      if (pattern.test(body)) {
+        violations.push({
+          code: 'QG_CLEAN_ASSURANCE_SEMANTIC_FAILURE',
+          severity: 'violation',
+          message: `Entry ${entityId} is derived entirely from assurance-priority findings but asserts failure/absence as fact (matched ${pattern}).`,
+          entityId,
+          source: 'evidence-model'
+        });
+        break;
+      }
+    }
+  }
+
+  for (const risk of model.riskRegister) {
+    if (isAssuranceOnlyLinkage(risk.linkedFindingIds)) {
+      checkAssuranceSemantics(risk.id, risk.title, [risk.cause, risk.riskEvent, risk.riskStatement, risk.requiredTreatment]);
+    }
+  }
+  for (const scenario of model.scenarios) {
+    if (scenario.scenarioBasis === 'assurance_validation' && isAssuranceOnlyLinkage(scenario.linkedFindingIds)) {
+      checkAssuranceSemantics(scenario.id, scenario.title, [scenario.concealmentMechanism]);
+    }
+  }
+  for (const item of model.controlImprovements) {
+    if (isAssuranceOnlyLinkage([item.linkedFindingId])) {
+      checkAssuranceSemantics(item.id, null, [item.controlObjective, item.controlDesign, item.currentState]);
+    }
+  }
+  for (const decision of model.leadershipDecisions) {
+    if (isAssuranceOnlyLinkage(decision.linkedFindingIds)) {
+      checkAssuranceSemantics(decision.id, null, [decision.decisionRequired, decision.whyNow, decision.recommendedDecision, decision.consequenceOfDelay]);
+    }
+  }
+  for (const action of model.roadmapActions) {
+    if (isAssuranceOnlyLinkage(action.linkedFindingIds)) {
+      checkAssuranceSemantics(action.id, null, [action.deliverable]);
     }
   }
 

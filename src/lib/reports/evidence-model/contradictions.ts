@@ -81,10 +81,10 @@ export function buildContradictions(
     add({
       pattern: 'strong_domain_failed_critical_control',
       title: `${domain.domainName} scores strongly but contains a failed critical control`,
-      drivingResponses: `Domain score ${Math.round(domain.rawScore as number)}/100; failed critical evidence: ${failed.map((finding) => `${finding.questionCode} ${finding.responseMeaning}`).join('; ')}.`,
+      drivingResponses: `Domain score ${Math.round(domain.rawScore as number)}/100; failed critical evidence: ${failed.map((finding) => `${finding.domainName} — ${finding.responseMeaning}`).join('; ')}.`,
       whyItMatters: 'A blended domain average can mask a control the methodology treats as non-negotiable.',
       falseComfortRisk: 'Leadership may rely on the aggregate domain score and miss the exact failed control.',
-      whatLeadershipShouldVerify: `Can current operating evidence independently demonstrate the control(s) ${failed.map((finding) => finding.questionCode).join(', ')}?`,
+      whatLeadershipShouldVerify: `Can current operating evidence independently demonstrate the control(s) covering ${stableUnique(failed.map((finding) => finding.domainName)).join('; ')}?`,
       fraudPathwayEnabled: 'The specific failed control is exploited while the aggregate score discourages deeper review.',
       linkedFindingIds: failed.map((finding) => finding.id)
     });
@@ -102,7 +102,7 @@ export function buildContradictions(
     add({
       pattern: 'exposure_outpaces_control',
       title: 'Recorded operating exposure outpaces linked control strength',
-      drivingResponses: `High/severe exposure evidence (${factorCodes.map((code) => exposureNames.get(code) ?? code).join(', ')}) is linked to weak responses ${linked.map((finding) => finding.questionCode).sort().join(', ')}.`,
+      drivingResponses: `High/severe exposure evidence (${factorCodes.map((code) => exposureNames.get(code) ?? code).join(', ')}) is linked to weak responses in ${stableUnique(linked.map((finding) => finding.domainName)).join(', ')}.`,
       whyItMatters: 'Higher inherent exposure requires stronger and more reliably evidenced preventive, detective and response controls.',
       falseComfortRisk: 'The existence of a control may be read as sufficient without testing whether it is proportionate to the recorded exposure.',
       whatLeadershipShouldVerify: 'Are the linked controls complete, current and tested against the specific exposure recorded in this assessment?',
@@ -116,7 +116,7 @@ export function buildContradictions(
     add({
       pattern: 'access_control_gap_operational_and_digital',
       title: 'Operational and privileged-access weaknesses indicate one systemic access-governance issue',
-      drivingResponses: access.map((finding) => `${finding.questionCode}: ${finding.responseMeaning}`).sort().join('; '),
+      drivingResponses: access.map((finding) => `${finding.domainName} — ${finding.responseMeaning}`).sort().join('; '),
       whyItMatters: 'Excess access across ordinary and privileged environments can create an end-to-end manipulation and concealment route.',
       falseComfortRisk: 'Treating the findings as unrelated domain issues understates the common identity and recertification dependency.',
       whatLeadershipShouldVerify: 'Is one complete identity, role and recertification population used across ordinary and privileged access reviews?',

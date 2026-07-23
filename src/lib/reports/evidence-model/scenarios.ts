@@ -25,9 +25,12 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
     id: `SC-${stableToken(`${risk.id}|${suffix || 'primary'}`)}`,
     scenarioType,
     scenarioBasis: basis,
-    title: resilience ? `Resilience validation: ${risk.title}` : risk.title,
-    confirmedOperatingContext: ordered.map((finding) => `${finding.questionCode}: ${finding.responseMeaning}; self-assessed, not independently verified.`),
-    entryPoint: `An ordinary process, system, person or third-party interaction relevant to ${risk.affectedDomains.join(', ')}.`,
+    // risk.title is already the resilience-safe variant when basis === 'assurance_validation' (see
+    // registers.ts buildRiskRegister), so no separate "Resilience validation:" prefix is added here
+    // -- that would just duplicate the framing already carried in the title text itself.
+    title: risk.title,
+    confirmedOperatingContext: ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}; self-assessed, not independently verified.`),
+    entryPoint: `An ordinary process, system, person or third-party interaction relevant to ${stableUnique(ordered.map((finding) => finding.domainName)).join(', ')}.`,
     linkedControlWeaknesses: resilience ? [] : ordered.map((finding) => finding.title),
     fraudSequence: resilience
       ? `Test whether the self-reported controls would prevent, detect and respond if ${risk.riskEvent}. This is a resilience exercise, not a claim that the control failed.`
@@ -38,7 +41,7 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
       : 'The activity may appear routine until complete population review, independent approval or exception monitoring exposes it.',
     whyControlsMayNotCatchIt: resilience
       ? 'The controls are self-reported as operating but have not been independently validated with the required population and evidence.'
-      : ordered.map((finding) => `${finding.questionCode}: ${finding.responseMeaning}`).join('; '),
+      : ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}`).join('; '),
     earlyWarningIndicators: stableUnique([
       ...ordered.map((finding) => finding.escalationThreshold),
       'An exception, access, approval or incident record that cannot be reconciled to the complete in-scope population.'
@@ -47,7 +50,7 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
     financialImpact: risk.financialImpact,
     operationalImpact: risk.operationalImpact,
     immediateContainment: resilience
-      ? `Select a current complete population and independently test ${lead.questionCode} against its minimum evidence characteristics.`
+      ? `Select a current complete population and independently test whether "${lead.questionPrompt.replace(/\.$/, '')}" holds against its minimum evidence characteristics.`
       : `Escalate to ${lead.accountableOwner}, preserve relevant records and apply the control's escalation threshold: ${lead.escalationThreshold}`,
     longerTermResponse: lead.recommendedControl,
     linkedFindingIds: stableUnique(ordered.map((finding) => finding.id)),

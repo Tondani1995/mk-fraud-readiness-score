@@ -151,10 +151,11 @@ export function buildFunctionalAgenda(findings: MaterialFinding[], risks: RiskRe
   for (const finding of ordered) {
     const risk = risks.find((item) => item.linkedFindingIds.includes(finding.id));
     const assurance = finding.materialityClass === 'assurance_priority';
+    const controlLabel = finding.questionPrompt.replace(/\.$/, '');
     const roles = [
-      { kind: 'ACCOUNTABILITY', fn: finding.accountableOwner, question: assurance ? 'What complete operating evidence will you accept to validate ' + finding.questionCode + ' without treating self-assessment as assurance?' : 'Will you mandate and resource remediation of ' + finding.questionCode + ' by ' + finding.targetPeriod + ', and what delay threshold will you escalate?' },
-      { kind: 'OPERATION', fn: finding.processOwner || finding.accountableOwner, question: assurance ? 'Can you reconcile the complete population and demonstrate that ' + finding.questionCode + ' operated at the stated frequency?' : 'Who will deliver the exact design for ' + finding.questionCode + ', retain the evidence and prove effectiveness?' },
-      { kind: 'OVERSIGHT', fn: finding.oversightFunction, question: assurance ? 'How will you independently test ' + finding.questionCode + ' rather than rely on management self-report?' : 'How will you challenge remediation evidence for ' + finding.questionCode + ' and report exceptions independently?' }
+      { kind: 'ACCOUNTABILITY', fn: finding.accountableOwner, question: assurance ? 'What complete operating evidence will you accept to validate that ' + controlLabel.charAt(0).toLowerCase() + controlLabel.slice(1) + ', without treating self-assessment as assurance?' : 'Will you mandate and resource remediation of "' + controlLabel + '" by ' + finding.targetPeriod + ', and what delay threshold will you escalate?' },
+      { kind: 'OPERATION', fn: finding.processOwner || finding.accountableOwner, question: assurance ? 'Can you reconcile the complete population and demonstrate that ' + controlLabel.charAt(0).toLowerCase() + controlLabel.slice(1) + ' at the stated frequency?' : 'Who will deliver the exact design for "' + controlLabel + '", retain the evidence and prove effectiveness?' },
+      { kind: 'OVERSIGHT', fn: finding.oversightFunction, question: assurance ? 'How will you independently test that ' + controlLabel.charAt(0).toLowerCase() + controlLabel.slice(1) + ', rather than rely on management self-report?' : 'How will you challenge remediation evidence for "' + controlLabel + '" and report exceptions independently?' }
     ];
     for (const role of roles) {
       if (!role.fn) continue;
@@ -186,9 +187,17 @@ export function buildRoadmapActions(findings: MaterialFinding[], risks: RiskRegi
     const linkedRisks = risks.filter((risk) => risk.linkedFindingIds.includes(finding.id));
     const linkedRiskIds = stableUnique(linkedRisks.map((risk) => risk.id));
     const dependencyIds = stableUnique((QUESTION_DEPENDENCIES[finding.questionCode] ?? []).map((code) => actionByQuestion.get(code) ?? '').filter(Boolean));
+    // Customer-facing label for the same prerequisites -- dependencyIds above stay as internal
+    // RA-<question-code> identifiers because orderRoadmapActions() needs them for cycle detection;
+    // the *rendered* "Dependency" field (see report-template.ts roadmapCards) must never show that
+    // internal ID format, which is exactly the question-code leak Checkpoint F controller review
+    // blocker 6 flagged.
+    const dependencyLabels = stableUnique((QUESTION_DEPENDENCIES[finding.questionCode] ?? [])
+      .map((code) => findings.find((item) => item.questionCode === code)?.questionPrompt?.replace(/\.$/, ''))
+      .filter((value): value is string => Boolean(value)));
     const assurance = finding.materialityClass === 'assurance_priority';
     const deliverable = assurance
-      ? 'Independently validate ' + finding.questionCode + ' across the complete population and record whether every minimum evidence characteristic is met.'
+      ? 'Independently validate that "' + finding.questionPrompt.replace(/\.$/, '') + '" holds across the complete population and record whether every minimum evidence characteristic is met.'
       : 'Apply immediate escalation at "' + finding.escalationThreshold + '" and deliver the exact control design: ' + finding.recommendedControl;
     return {
       id: 'RA-' + finding.questionCode,
@@ -211,7 +220,7 @@ export function buildRoadmapActions(findings: MaterialFinding[], risks: RiskRegi
       accountableOwner: finding.processOwner || finding.accountableOwner,
       linkedFindingId: finding.id,
       linkedRiskId: linkedRiskIds[0] ?? '',
-      dependency: dependencyIds.join('; ') || 'None'
+      dependency: dependencyLabels.join('; ') || 'None'
     } satisfies RoadmapAction;
   });
 

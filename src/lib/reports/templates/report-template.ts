@@ -113,13 +113,13 @@ export function renderReportHtml(
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
   const plotX = 5 + exposurePct * 0.62;
   const plotY = 5 + (100 - readinessPct) * 0.62;
-  const exposurePosition = exposurePct >= 50 && readinessPct < 50
-    ? 'High exposure with limited reported readiness'
-    : exposurePct >= 50 && readinessPct >= 50
-      ? 'High exposure with stronger reported readiness'
-      : exposurePct < 50 && readinessPct < 50
-        ? 'Lower exposure with developing reported readiness'
-        : 'Lower exposure with stronger reported readiness';
+  // The exposure headline must always be derived from the authoritative sr.exposureBand
+  // (never re-derived from raw exposurePct/readinessPct thresholds), so it can never diverge
+  // from the exposure band shown elsewhere in the report. See Checkpoint F controller review
+  // blocker 2: a Moderate-banded report previously rendered a "High exposure" headline because
+  // this used an independent 50%-threshold heuristic instead of sr.exposureBand.
+  const readinessDescriptor = readinessPct >= 50 ? 'stronger reported readiness' : 'developing reported readiness';
+  const exposurePosition = `${sr.exposureBand} exposure with ${readinessDescriptor}`;
 
   const heatmap = data.domainResults.map((domain) => {
     const band = bandFor(domain.rawScore);
@@ -404,7 +404,7 @@ export function renderReportHtml(
     section('Control improvement plan', 'Specific control conditions, designs and effectiveness tests', controlCards, 'long-section'),
     section('Evidence checklist', 'Operating artefacts required before findings can be treated as resolved', `<p class="section-note">Every item begins with the status “Not yet requested”. Status changes require an evidence-review process outside this report.</p><div class="evidence-list">${evidenceRows}</div>`, 'long-section'),
     section('Leadership decisions required', 'Decisions, owners, deadlines and consequences', decisions, 'long-section'),
-    section('30/60/90-Day Roadmap', 'The authoritative sequenced implementation plan', `<p class="section-note">This is the report’s only action roadmap. Dependencies and measures are carried directly from the deterministic advisory model.</p>${roadmapCards}`, 'long-section'),
+    section('30/60/90-Day Roadmap', 'The authoritative sequenced implementation plan', `<p class="section-note">This is the report’s only action roadmap. Dependencies and measures are carried directly from the material findings, risks and controls set out earlier in this report.</p>${roadmapCards}`, 'long-section'),
     section('Leadership Agenda', 'Questions each accountable function should take into the review', `<table class="continuing-table agenda-table"><thead><tr><th>Function</th><th>Question for the review</th></tr></thead><tbody>${agendaRows}</tbody></table>`, 'long-section'),
     section('Methodology and limitations', 'How to interpret this report', methodology),
     section('Where MK Fraud Insights can help next', 'Optional support after leadership has reviewed the evidence', `
@@ -499,6 +499,14 @@ export function renderReportHtml(
   .record-grid { display:grid; gap:0 5mm; margin-top:3mm; }
   .record-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .field { display:grid; grid-template-columns:38mm 1fr; gap:3mm; border-top:.2mm solid #e7dfd2; padding:2mm 0; break-inside:avoid; page-break-inside:avoid; }
+  /* Checkpoint F controller review blocker 5: .long-record intentionally allows a record to split
+     across a page (break-inside:auto above) because these records legitimately run to several
+     pages, but that let a single trailing .field (e.g. "Remaining limitation") strand itself alone
+     at the top of a near-empty page. break-before:avoid on the last field tells the renderer not to
+     start a page break immediately before it, which pulls it back onto the previous page (or, if it
+     still doesn't fit, brings enough of the record with it that the new page is not near-empty). */
+  .field:nth-last-child(-n+3) { break-before: avoid; page-break-before: avoid; }
+  tr:last-child { break-before: avoid; page-break-before: avoid; }
   .record-grid .field { display:block; }
   .field-label { color:#765b2d;font-size:6.5pt;font-weight:700;letter-spacing:.45px;text-transform:uppercase;margin-bottom:.7mm; }
   .field-value { font-size:8.4pt; }

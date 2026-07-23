@@ -49,35 +49,53 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
     const ordered = [...groupedFindings].sort((a, b) => b.materialityScore - a.materialityScore || a.questionCode.localeCompare(b.questionCode));
     const lead = ordered[0];
     const pathway = riskPathwayForFinding(lead);
+    // Blocker 1 (Checkpoint F controller review): a risk grouped entirely from assurance_priority
+    // findings must never assert failure/absence as a present fact. Preserve the reported strong
+    // state, make the cause the absence of independent validation, and make the risk event
+    // conditional -- never reuse the raw failure-toned pathway text and append a disclaimer.
+    const isAssurance = ordered.every((finding) => finding.materialityClass === 'assurance_priority');
+    const title = isAssurance ? pathway.resilienceTitle : pathway.title;
+    const cause = isAssurance ? pathway.resilienceCause : pathway.cause;
+    const riskEvent = isAssurance ? pathway.resilienceRiskEvent : pathway.riskEvent;
     const ratings = deriveRiskRatings(ordered, pathway.consequence);
-    const impacts = stableUnique([
-      pathway.financialImpact, pathway.operationalImpact,
-      pathway.legalRegulatoryImpact ?? '', pathway.reputationalImpact ?? ''
-    ]).join('; ');
+    // The financial/operational/legal/reputational impact fields are rendered directly as their own
+    // labelled fields in the PDF (see report-template.ts riskCards), not only inside riskStatement --
+    // so an assurance-only risk must condition these individually too, not just the cause/riskEvent/
+    // riskStatement fields, or the raw failure-toned pathway impact text still leaks into the report.
+    const conditionalImpact = (value: string) => isAssurance ? `If independent validation identifies a defect: ${value}` : value;
+    const financialImpact = conditionalImpact(pathway.financialImpact);
+    const operationalImpact = conditionalImpact(pathway.operationalImpact);
+    const legalRegulatoryImpact = pathway.legalRegulatoryImpact ? conditionalImpact(pathway.legalRegulatoryImpact) : pathway.legalRegulatoryImpact;
+    const reputationalImpact = pathway.reputationalImpact ? conditionalImpact(pathway.reputationalImpact) : pathway.reputationalImpact;
     const evidenceRefs = stableUnique(ordered.flatMap((finding) => [`finding:${finding.id}`, `question:${finding.questionCode}`]));
     const affectedDomains = stableUnique(ordered.map((finding) => finding.domainCode));
     const accountableExecutive = lead.accountableOwner;
     const processOwner = lead.processOwner || lead.accountableOwner;
     const oversightFunction = lead.oversightFunction;
     const targetPeriod = earliestPeriod(ordered.map((finding) => finding.targetPeriod));
+    const redesignClause = stableUnique(ordered.map((finding) => finding.recommendedControl)).join(' ');
     return {
       id: `RISK-${pathwayKey}`,
-      title: pathway.title,
-      cause: pathway.cause,
-      riskEvent: pathway.riskEvent,
-      financialImpact: pathway.financialImpact,
-      operationalImpact: pathway.operationalImpact,
-      legalRegulatoryImpact: pathway.legalRegulatoryImpact,
-      reputationalImpact: pathway.reputationalImpact,
-      riskStatement: `Because ${pathway.cause}, there is a risk that ${pathway.riskEvent}, resulting in ${impacts}.`,
+      title,
+      cause,
+      riskEvent,
+      financialImpact,
+      operationalImpact,
+      legalRegulatoryImpact,
+      reputationalImpact,
+      riskStatement: isAssurance
+        ? `Because ${cause}, there is a risk that ${riskEvent}. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.`
+        : `Because ${cause}, there is a risk that ${riskEvent}, resulting in ${stableUnique([pathway.financialImpact, pathway.operationalImpact, pathway.legalRegulatoryImpact ?? '', pathway.reputationalImpact ?? '']).join('; ')}.`,
       linkedFindingIds: stableUnique(ordered.map((finding) => finding.id)),
       linkedQuestionCodes: stableUnique(ordered.map((finding) => finding.questionCode)),
       linkedScenarioIds: [],
       affectedDomains,
       affectedDomain: affectedDomains.join(', '),
       ...ratings,
-      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.questionCode}: ${finding.responseMeaning}`)).join('; '),
-      requiredTreatment: stableUnique(ordered.map((finding) => finding.recommendedControl)).join(' '),
+      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}`)).join('; '),
+      requiredTreatment: isAssurance
+        ? `Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: ${redesignClause}`
+        : redesignClause,
       accountableExecutive,
       processOwner,
       oversightFunction,
@@ -108,9 +126,11 @@ export function buildControlImprovementRegister(findings: MaterialFinding[], ris
       currentState: `${finding.responseMeaning}; self-assessed and not independently verified.`,
       targetState: finding.expectedControlStandard,
       controlObjective: finding.materialityClass === 'assurance_priority'
-        ? `Validate that ${finding.questionCode} operates to its exact expected standard.`
-        : `Close the material control weakness recorded for ${finding.questionCode}.`,
-      controlDesign: finding.recommendedControl,
+        ? `Validate that "${finding.questionPrompt.replace(/\.$/, '')}" operates to its exact expected standard.`
+        : `Close the material control weakness recorded for "${finding.questionPrompt.replace(/\.$/, '')}".`,
+      controlDesign: finding.materialityClass === 'assurance_priority'
+        ? `Independently validate that "${finding.questionPrompt.replace(/\.$/, '')}" operates to the expected standard (${finding.expectedControlStandard}) across the complete population, required frequency and under pressure. This does not assert a control defect; if validation identifies one, apply the recommended control design: ${finding.recommendedControl}`
+        : finding.recommendedControl,
       accountableExecutive: finding.accountableOwner,
       processOwner: finding.processOwner || finding.accountableOwner,
       oversightFunction: finding.oversightFunction,
@@ -158,7 +178,13 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
       linkedFindingId: linkedFindingIds[0] ?? '',
       linkedRiskId: linkedRiskIds[0] ?? '',
       likelyOwner: stableUnique(linked.map((finding) => finding.processOwner || finding.accountableOwner)).join(' / '),
-      provesWhat: `Whether ${linkedQuestionCodes.join(', ')} operates to the exact expected control standard across the complete in-scope population.`,
+      provesWhat: (() => {
+        const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
+        const shown = prompts.slice(0, 2);
+        const remainder = prompts.length - shown.length;
+        const tail = remainder > 0 ? `, and ${remainder} further linked control${remainder === 1 ? '' : 's'},` : '';
+        return `Whether ${shown.join('; ')}${tail} operate${prompts.length === 1 ? 's' : ''} to the exact expected control standard across the complete in-scope population.`;
+      })(),
       expectedRecency: stableUnique(linked.map((finding) => finding.operatingFrequency)).join('; '),
       requiredPopulation: 'Complete in-scope population for the stated operating period, reconciled to the source system or register.',
       samplingExpectation: 'Review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items.',
