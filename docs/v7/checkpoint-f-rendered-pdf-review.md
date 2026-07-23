@@ -5,7 +5,7 @@
 - Pull request: **#39**
 - Expected branch: `feat/essential-report-v7-commercial-product-hardening`
 - Pre-edit head confirmed locally, remotely and on PR #39: `2d2195b75d88ffb9dbb328e67651f6ab7c3afe2d`
-- Checkpoint F implementation commit: recorded in the follow-up artifact-publication commit
+- Checkpoint F implementation commit: `745e17b3b3309e277f64f25535af528d3f57829a`
 - Review date: 23 July 2026
 - Production AI: **off**
 - Production data or credentials used: **none**
