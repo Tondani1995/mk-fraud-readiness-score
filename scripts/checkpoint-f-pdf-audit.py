@@ -19,7 +19,7 @@ REQUIRED_SECTIONS = [
     "Readiness score",
     "Exposure profile",
     "Priority gap dashboard",
-    "Critical flags and false comfort",
+    "Critical Flags and False Comfort",
     "Domain advisory",
     "Material findings",
     "Evidence-based contradictions",
@@ -29,7 +29,7 @@ REQUIRED_SECTIONS = [
     "Evidence checklist",
     "Leadership decisions required",
     "30/60/90-Day Roadmap",
-    "Leadership agenda",
+    "Leadership Agenda",
     "Methodology and limitations",
 ]
 

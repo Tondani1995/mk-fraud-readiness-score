@@ -19,10 +19,10 @@ The candidate set was produced through the real `renderValidatedCommercialPdf()`
 
 | Candidate | Fixture and narrative mode | Pages | Bytes |
 |---|---|---:|---:|
-| `mk-essential-v7-materially-weak-ai.pdf` | Materially weak; injected, structurally and factually validated AI editorial plan | 69 | 1,806,203 |
-| `mk-essential-v7-materially-weak-fallback.pdf` | Same materially weak assessment authority; AI disabled; deterministic fallback narrative | 69 | 1,803,283 |
-| `mk-essential-v7-moderate-ai.pdf` | Moderate control gaps; injected, structurally and factually validated AI editorial plan | 34 | 1,004,972 |
-| `mk-essential-v7-clean-assurance-ai.pdf` | Strong clean self-assessment; assurance-validation framing; injected, validated AI editorial plan | 30 | 928,873 |
+| `mk-essential-v7-materially-weak-ai.pdf` | Materially weak; injected, structurally and factually validated AI editorial plan | 69 | 1,806,445 |
+| `mk-essential-v7-materially-weak-fallback.pdf` | Same materially weak assessment authority; AI disabled; deterministic fallback narrative | 69 | 1,803,525 |
+| `mk-essential-v7-moderate-ai.pdf` | Moderate control gaps; injected, structurally and factually validated AI editorial plan | 34 | 1,005,226 |
+| `mk-essential-v7-clean-assurance-ai.pdf` | Strong clean self-assessment; assurance-validation framing; injected, validated AI editorial plan | 30 | 929,149 |
 
 Every fixture uses a fixed synthetic organisation name, assessment reference, report reference and UTC generation timestamp. Private fixture fields were deliberately populated but verified absent from customer-visible output.
 

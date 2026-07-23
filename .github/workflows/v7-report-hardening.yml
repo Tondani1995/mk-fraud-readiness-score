@@ -77,6 +77,12 @@ jobs:
           test -f package-lock.json
           npm ci
 
+      - name: Install Checkpoint F PDF inspection dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes poppler-utils
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow==11.3.0 pypdf==5.9.0
+
       - name: Run TypeScript check
         run: npm run typecheck
 

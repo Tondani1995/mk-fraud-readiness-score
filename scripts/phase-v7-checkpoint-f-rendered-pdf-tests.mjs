@@ -25,11 +25,19 @@ const TMP = path.join(ROOT, 'tmp', 'pdfs');
 const ARTIFACT = path.join(TMP, 'checkpoint-f-artifact');
 const REPEAT = path.join(TMP, 'repeat-renders');
 const METADATA = path.join(TMP, 'checkpoint-f-candidates.json');
-const POPPLER = process.env.CODEX_PDF_BIN ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override';
-const PDFTOPPM = path.join(POPPLER, 'pdftoppm');
-const PYTHON = process.env.CODEX_PYTHON ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3';
-const CHROME = process.env.PUPPETEER_EXECUTABLE_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-process.env.PUPPETEER_EXECUTABLE_PATH = CHROME;
+const PDFTOPPM = process.env.PDFTOPPM_EXECUTABLE
+  ?? (process.env.CODEX_PDF_BIN
+    ? path.join(process.env.CODEX_PDF_BIN, 'pdftoppm')
+    : process.platform === 'darwin'
+      ? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdftoppm'
+      : 'pdftoppm');
+const PYTHON = process.env.CODEX_PYTHON
+  ?? (process.platform === 'darwin'
+    ? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3'
+    : 'python3');
+const CHROME = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
+  || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '');
+if (CHROME) process.env.PUPPETEER_EXECUTABLE_PATH = CHROME;
 
 const DOMAIN_FOCUS = {
   D1: 'executive mandate, role separation and governance challenge',

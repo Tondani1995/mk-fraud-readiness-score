@@ -330,13 +330,13 @@ export function renderReportHtml(
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
     ? [
         section('Priority gap dashboard', 'The recorded conditions requiring first attention', priorityGaps),
-        section('Critical flags and false comfort', content.falseComfort.title, `${capCards}<div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`)
+        section('Critical Flags and False Comfort', content.falseComfort.title, `${capCards}<div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`)
       ].join('\n')
     : section(
         'Priority gap dashboard',
         data.criticalMajorGaps.length > 0 ? 'The recorded conditions requiring first attention' : 'No critical or major gap was recorded',
         `${priorityGaps || '<div class="clean-note"><strong>No critical or major gaps were recorded.</strong><p>The strong self-reported result remains subject to evidence-based assurance.</p></div>'}
-        <div class="subsection-heading"><div class="section-kicker">Critical flags and false comfort</div><h2>${esc(content.falseComfort.title)}</h2></div>
+        <div class="subsection-heading"><div class="section-kicker">Critical Flags and False Comfort</div><h2>${esc(content.falseComfort.title)}</h2></div>
         <div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`
       );
 
@@ -367,7 +367,7 @@ export function renderReportHtml(
       <div class="cover-meta">Report reference ${esc(data.reportReference)}<br/>Generated ${esc(generatedDate)}<br/>${esc(data.packageName)} package</div>
       <div class="cover-confidential">Confidential · Internal leadership use</div>
     </section>`,
-    section('Report governance', 'Confidentiality, use and version record', `
+    section('Report governance', 'Confidentiality, use and Version Record', `
       <div class="governance-grid">
         <div class="compact-card"><h3>Confidentiality and use</h3><p>Prepared exclusively for ${esc(data.organisationName)}. This document is for internal leadership use and should not be distributed externally without MK Fraud Insights’ consent.</p><p>The assessment is a diagnostic starting point, not an audit opinion, certification or guarantee.</p></div>
         <div class="compact-card version-card">
@@ -405,7 +405,7 @@ export function renderReportHtml(
     section('Evidence checklist', 'Operating artefacts required before findings can be treated as resolved', `<p class="section-note">Every item begins with the status “Not yet requested”. Status changes require an evidence-review process outside this report.</p><div class="evidence-list">${evidenceRows}</div>`, 'long-section'),
     section('Leadership decisions required', 'Decisions, owners, deadlines and consequences', decisions, 'long-section'),
     section('30/60/90-Day Roadmap', 'The authoritative sequenced implementation plan', `<p class="section-note">This is the report’s only action roadmap. Dependencies and measures are carried directly from the deterministic advisory model.</p>${roadmapCards}`, 'long-section'),
-    section('Leadership agenda', 'Questions each accountable function should take into the review', `<table class="continuing-table agenda-table"><thead><tr><th>Function</th><th>Question for the review</th></tr></thead><tbody>${agendaRows}</tbody></table>`, 'long-section'),
+    section('Leadership Agenda', 'Questions each accountable function should take into the review', `<table class="continuing-table agenda-table"><thead><tr><th>Function</th><th>Question for the review</th></tr></thead><tbody>${agendaRows}</tbody></table>`, 'long-section'),
     section('Methodology and limitations', 'How to interpret this report', methodology),
     section('Where MK Fraud Insights can help next', 'Optional support after leadership has reviewed the evidence', `
       <div class="support-grid">
