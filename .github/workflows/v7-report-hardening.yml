@@ -35,6 +35,12 @@ name: V7 Report Hardening
 # deterministic risk, contradiction, scenario, control, decision and roadmap structures; validates
 # canonical evidence references and checksums; and verifies the evidence builder never activates an
 # AI provider. The aggregate command now runs Checkpoints A, B, C and D.
+#
+# V7 Checkpoints E and F extend the same credential-free gate through active-path AI narrative
+# integration and the real Chromium PDF renderer. Checkpoint F renders four fixed synthetic
+# candidates twice, rasterises every page at 200 DPI, runs the commercial PDF audit and publishes
+# controller-review artifacts. No production data, database credential or external AI provider is
+# used.
 
 on:
   pull_request:
@@ -74,5 +80,14 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
-      - name: Run V7 report-hardening suite (Checkpoints A + B + C + D, credential-free)
+      - name: Run V7 report-hardening suite (Checkpoints A through F, credential-free)
         run: npm run v7:test-report-hardening
+
+      - name: Publish Checkpoint F rendered PDF review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-report-checkpoint-f-${{ github.event.pull_request.head.sha || github.sha }}
+          path: tmp/pdfs/checkpoint-f-artifact/
+          if-no-files-found: error
+          retention-days: 14
