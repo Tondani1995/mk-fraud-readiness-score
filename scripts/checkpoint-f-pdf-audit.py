@@ -24,24 +24,28 @@ def git_head_sha() -> str:
         return "unknown"
 
 
+# Checkpoint F controller review blocker 4: executive-core section headings, in rendered order.
+# Kept in sync with REPORT_TOC_ENTRIES in src/lib/reports/templates/report-template.ts -- every
+# core (non-appendix) key there must appear here, plus "Contents" and the appendix divider/A1-A7
+# headings that TOC entry list also tracks.
 REQUIRED_SECTIONS = [
-    "Report governance",
-    "Executive diagnosis",
-    "Readiness score",
-    "Exposure profile",
-    "Priority gap dashboard",
-    "Critical Flags and False Comfort",
-    "Domain advisory",
-    "Material findings",
-    "Evidence-based contradictions",
-    "Plausible scenarios and assurance tests",
-    "Risk register",
-    "Control improvement plan",
-    "Evidence checklist",
-    "Leadership decisions required",
-    "30/60/90-Day Roadmap",
-    "Leadership Agenda",
-    "Methodology and limitations",
+    "Contents",
+    "Executive summary",
+    "What the result means",
+    "Domain overview",
+    "Priority findings, contradictions and scenarios",
+    "Priority risks",
+    "Leadership decisions and roadmap",
+    "Evidence validation priorities",
+    "Methodology, limitations and next steps",
+    "Appendix",
+    "A1. Complete material findings register",
+    "A2. Complete risk register",
+    "A3. Complete control improvement register",
+    "A4. Complete evidence checklist",
+    "A5. Functional agenda",
+    "A6. Methodology question-code mapping",
+    "A7. Definitions and score basis",
 ]
 
 FORBIDDEN = {
@@ -70,6 +74,7 @@ EXPOSURE_BANDS = ["Low", "Moderate", "High", "Severe"]
 # Blocker 4: page-count budget by fixture (executive core, or core+appendix combined for now --
 # see the "outstanding" note in inspection/commercial-review.md if compression work is incomplete).
 PAGE_BUDGET = {"materially-weak": 42, "moderate": 28, "clean": 22}
+WORD_BUDGET = {"materially-weak": 15000, "moderate": 8500, "clean": 7500}
 
 # Blocker 3: no checkpoint/fixture/test/pipeline/provider jargon in customer-facing prose.
 # Deliberately does NOT ban the bare phrase "evidence pack" -- question-playbooks.ts legitimately
@@ -306,6 +311,7 @@ def main() -> int:
     checks: list[dict] = []
     candidate_results: dict[str, dict] = {}
     section_map: dict[str, dict[str, list[int]]] = {}
+    toc_bookmark_map: dict[str, dict] = {}
     review_lines = [
         "# Checkpoint F page-by-page rendered review",
         "",
@@ -363,7 +369,11 @@ def main() -> int:
         record(checks, "PDF_META_TEST_COPY", not meta_matches, name, f"matches={meta_matches[:8]}")
 
         # Blocker 6: internal question codes (e.g. D1-Q04) must not appear in the core report.
-        method_code_matches = METHOD_CODE.findall(full_text)
+        # The appendix's "A6. Methodology question-code mapping" table is the one place codes are
+        # intentionally shown (see APPENDIX_START_MARKER in report-template.ts), so this only scans
+        # the text before the appendix divider, matching "core report" in the brief's own wording.
+        core_text = full_text.split("A1. Complete material findings register", 1)[0]
+        method_code_matches = METHOD_CODE.findall(core_text)
         record(checks, "PDF_INTERNAL_METHOD_CODE_OVERUSE", len(method_code_matches) <= METHOD_CODE_LIMIT, name, f"count={len(method_code_matches)} limit={METHOD_CODE_LIMIT}")
 
         # Blocker 1 (rendered-PDF proof): a clean-assurance candidate must never assert failure or
@@ -376,7 +386,14 @@ def main() -> int:
 
         current_section_map: dict[str, list[int]] = {}
         for heading in REQUIRED_SECTIONS:
-            pages = [index + 1 for index, text in enumerate(page_texts) if heading.lower() in text.lower()]
+            # The bare word "Appendix" also appears in core cross-references ("...is in Appendix
+            # A1"), so it needs the same distinctive-marker search as REPORT_TOC_ENTRIES' "Appendix"
+            # key in report-template.ts, not a literal substring match.
+            search_text = "The complete, authoritative registers behind the executive summary" if heading == "Appendix" else heading.lower()
+            # Page 2 (Contents) legitimately lists every heading as a TOC row -- exclude it here
+            # (except for "Contents" itself, whose real body is page 2) so the map reflects where
+            # each section's real body actually is, matching the PDF outline.
+            pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]
             current_section_map[heading] = pages
             record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)
         section_map[name] = current_section_map
@@ -430,13 +447,73 @@ def main() -> int:
         for page_number, image_path in enumerate(images, start=1):
             if page_number in NEAR_EMPTY_EXEMPT_PAGES or page_number == len(images):
                 continue
-            body_chars = len(normalise_page(page_texts[page_number - 1])) if page_number <= len(page_texts) else 0
+            page_text = page_texts[page_number - 1] if page_number <= len(page_texts) else ""
+            # Allowed exception: an intentional section divider (the appendix opening page), which
+            # deliberately carries only a short orienting sentence -- identified by its fixed
+            # content signature, not by hard-coding a specific page number.
+            if "APPENDIX" in page_text and page_text.strip().startswith("APPENDIX\nAppendix\n"):
+                continue
+            body_chars = len(normalise_page(page_text))
             if body_chars >= NEAR_EMPTY_CHAR_THRESHOLD:
                 continue
             ink_ratio = body_region_ink_ratio(image_path)
             if ink_ratio < NEAR_EMPTY_INK_RATIO_THRESHOLD:
                 near_empty_pages.append(page_number)
         record(checks, "PDF_NEAR_EMPTY_PAGE", not near_empty_pages, name, f"pages={near_empty_pages}")
+
+        # Blocker 4: word-count budget, reported alongside the page-count budget.
+        word_count = len(full_text.split())
+        word_budget = WORD_BUDGET.get(item["fixture"])
+        if word_budget:
+            record(checks, "PDF_EXCESSIVE_WORD_COUNT", word_count <= word_budget, name, f"words={word_count} budget={word_budget}")
+
+        # Blocker 7: every PDF over 20 pages needs a customer-facing contents page with accurate
+        # page numbers and a matching PDF bookmark/outline tree.
+        toc_entry: dict = {"pages": len(reader.pages), "tocPrinted": {}, "bookmarks": [], "mismatches": []}
+        if len(reader.pages) > 20:
+            contents_text = page_texts[1] if len(page_texts) > 1 else ""
+            record(checks, "PDF_TOC_MISSING", "Contents" in contents_text, name, "customer-facing contents page required for PDFs over 20 pages")
+
+            toc_printed: dict[str, int] = {}
+            for line in (l.strip() for l in contents_text.splitlines()):
+                match = re.match(r"^(.*\S)\s+(\d{1,4})$", line)
+                if match and match.group(1) not in ("CONTENTS", "Contents") and "MK Essential Report" not in match.group(1):
+                    toc_printed[match.group(1)] = int(match.group(2))
+            toc_entry["tocPrinted"] = toc_printed
+
+            outline_entries: list[dict] = []
+
+            def flatten_outline(items, depth: int = 0) -> None:
+                for outline_item in items:
+                    if isinstance(outline_item, list):
+                        flatten_outline(outline_item, depth + 1)
+                        continue
+                    try:
+                        page_num = reader.get_destination_page_number(outline_item) + 1
+                    except Exception:
+                        page_num = None
+                    outline_entries.append({"title": outline_item.title, "page": page_num, "depth": depth})
+
+            flatten_outline(reader.outline or [])
+            toc_entry["bookmarks"] = outline_entries
+            record(checks, "PDF_BOOKMARKS_MISSING", len(outline_entries) > 0, name, f"bookmark_count={len(outline_entries)}")
+
+            bookmark_page_by_title = {entry["title"]: entry["page"] for entry in outline_entries}
+            mismatches = []
+            for heading in REQUIRED_SECTIONS:
+                if heading == "Contents":
+                    continue
+                actual_pages = current_section_map.get(heading, [])
+                actual = actual_pages[0] if actual_pages else None
+                printed = toc_printed.get(heading)
+                bookmarked = bookmark_page_by_title.get(heading)
+                if printed != actual:
+                    mismatches.append(f"{heading}: toc_printed={printed} actual={actual}")
+                if bookmarked != actual:
+                    mismatches.append(f"{heading}: bookmark={bookmarked} actual={actual}")
+            toc_entry["mismatches"] = mismatches
+            record(checks, "PDF_TOC_PAGE_MISMATCH", not mismatches, name, f"mismatches={mismatches[:6]}")
+        toc_bookmark_map[name] = toc_entry
 
         sheets = create_contact_sheets(name, images, artifact / "contact-sheets")
         review_lines.extend(
@@ -474,17 +551,27 @@ def main() -> int:
         return (artifact / "extracted-text" / f"{name}.txt").read_text()
 
     def section(text: str, heading: str, next_heading: str) -> str:
-        start = text.lower().find(heading.lower())
-        end = text.lower().find(next_heading.lower(), start + len(heading))
-        return re.sub(r"\s+", " ", text[start:end]).strip()
+        # The contents page lists every tracked heading as a plain-text TOC row, so the *first*
+        # occurrence of `heading` is always that row, not the real section body -- skip it and use
+        # the second occurrence (mirrors the startPage=3 skip in pdf-navigation.ts's page-map scan).
+        lower = text.lower()
+        first = lower.find(heading.lower())
+        start = lower.find(heading.lower(), first + len(heading))
+        end = lower.find(next_heading.lower(), start + len(heading))
+        # Strip the page-number footer before comparing -- AI and fallback candidates can have
+        # slightly different total page counts (AI prose is longer), so "Confidential 17 / 34" vs
+        # "Confidential 16 / 33" would otherwise register as a content difference even when the
+        # actual deterministic authority (risk/control/decision/roadmap text) is identical.
+        footer_free = re.sub(r"MK Essential Report\s*·\s*Confidential\s*\d+\s*/\s*\d+", "", text[start:end])
+        return re.sub(r"\s+", " ", footer_free).strip()
 
     weak_ai = extract_text("mk-essential-v7-materially-weak-ai")
     weak_fallback = extract_text("mk-essential-v7-materially-weak-fallback")
     for heading, next_heading in [
-        ("Risk register", "Control improvement plan"),
-        ("Control improvement plan", "Evidence checklist"),
-        ("Leadership decisions required", "30/60/90-Day Roadmap"),
-        ("30/60/90-Day Roadmap", "Leadership agenda"),
+        ("A2. Complete risk register", "A3. Complete control improvement register"),
+        ("A3. Complete control improvement register", "A4. Complete evidence checklist"),
+        ("Leadership decisions required", "30/60/90-day roadmap"),
+        ("30/60/90-day roadmap", "Evidence validation priorities"),
     ]:
         record(
             checks,
@@ -498,15 +585,23 @@ def main() -> int:
     # template sentence with only the organisation name swapped in -- normalise each candidate's
     # own organisation name to a shared placeholder before comparing, so real org-name differences
     # (which are expected and fine) cannot mask an otherwise-identical body.
+    # Anchored on fixed marker text (see AI_SYNTHESIS_MARKER in the checkpoint-F candidate script
+    # and "leadership should sequence its decisions..." in report-template.ts's decisionsBlock)
+    # rather than section headings, which now span a merged, multi-subsection core page and no
+    # longer bound the executive/leadership prose precisely on their own.
+    AI_MARKER = "This diagnosis draws together the complete set of recorded assessment evidence"
+    LEADERSHIP_MARKER = "leadership should sequence its decisions rather than approve all of them at once"
     ai_items = {i["name"]: i for i in metadata["candidates"] if i["mode"] == "ai"}
     ai_texts = {name: extract_text(name) for name in ai_items}
     normalised_leadership = {}
     normalised_executive = {}
     for name, text in ai_texts.items():
         org = ai_items[name]["organisation"]
-        normalised = text.replace(org, "{{ORG}}")
-        normalised_executive[name] = section(normalised, "Executive diagnosis", "Leadership attention")
-        normalised_leadership[name] = section(normalised, "Leadership attention", "Exposure profile")
+        normalised = re.sub(r"\s+", " ", text.replace(org, "{{ORG}}"))
+        exec_start = normalised.find(AI_MARKER)
+        normalised_executive[name] = normalised[exec_start:exec_start + 700] if exec_start >= 0 else ""
+        leadership_start = normalised.find(LEADERSHIP_MARKER)
+        normalised_leadership[name] = normalised[leadership_start:leadership_start + 400] if leadership_start >= 0 else ""
 
     ai_names = sorted(ai_texts)
     for left, right in [(a, b) for i, a in enumerate(ai_names) for b in ai_names[i + 1 :]]:
@@ -561,6 +656,7 @@ def main() -> int:
     (artifact / "inspection" / "pdf-audit.json").write_text(json.dumps(report, indent=2) + "\n")
     (artifact / "inspection" / "page-by-page-review.md").write_text("\n".join(review_lines) + "\n")
     (artifact / "inspection" / "section-map.json").write_text(json.dumps(section_map, indent=2) + "\n")
+    (artifact / "inspection" / "toc-bookmark-map.json").write_text(json.dumps(toc_bookmark_map, indent=2) + "\n")
     write_manifest(artifact, candidate_results, report)
 
     print(json.dumps({"passed": report["passed"], "failureCount": report["failureCount"], "candidates": candidate_results}))

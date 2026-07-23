@@ -17,7 +17,7 @@ import { validatePremiumReportAiEditorialPlan } from '../src/lib/reports/automat
 import { validatePremiumReportNarrative } from '../src/lib/reports/automation/validation.ts';
 import { aiPlanToNarrative, narrativeToSelectedContent } from '../src/lib/reports/automation/content.ts';
 import { PREMIUM_REPORT_SCHEMA_VERSION } from '../src/lib/reports/automation/types.ts';
-import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
+import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 
 const ROOT = process.cwd();
@@ -232,8 +232,8 @@ async function renderCandidate(candidate) {
     ? validatedPlan(current)
     : current.deterministicContent;
   const input = { data, content, roadmap: current.roadmap, evidenceModel: current.advisoryModel };
-  const first = await renderValidatedCommercialPdf(input);
-  const second = await renderValidatedCommercialPdf(input);
+  const first = await renderValidatedCommercialPdfWithNavigation(input);
+  const second = await renderValidatedCommercialPdfWithNavigation(input);
   const firstPath = path.join(ARTIFACT, 'pdf', `${candidate.name}.pdf`);
   const outputPath = path.join(OUTPUT, `${candidate.name}.pdf`);
   const repeatPdf = path.join(TMP, `${candidate.name}-repeat.pdf`);
@@ -307,7 +307,7 @@ const tests = [
   ['F11 AI and fallback use identical deterministic authority', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_AI_FALLBACK_AUTHORITY_MISMATCH').every((x) => x.passed))],
   ['F12 clean assurance avoids false failure language', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_CLEAN_FALSE_FAILURE_LANGUAGE').every((x) => x.passed))],
   ['F13 risk, decision and roadmap authority contains no semantic duplicates', () => { for (const model of models) for (const key of ['riskRegister', 'leadershipDecisions', 'roadmapActions']) { const values = model[key].map((item) => sha(JSON.stringify(item))); assert.equal(new Set(values).size, values.length); } }],
-  ['F14 every evidence checklist item renders its required status', () => { for (const [index, candidate] of candidates.entries()) assert.ok((text[candidate.name].match(/Not yet requested/g) ?? []).length >= models[index].evidenceChecklist.length); }],
+  ['F14 every evidence checklist item renders its required status', () => { for (const [index, candidate] of candidates.entries()) assert.ok((text[candidate.name].match(/Not yet\s+requested/g) ?? []).length >= models[index].evidenceChecklist.length); }],
   ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }]
 ];
 
