@@ -18,6 +18,12 @@ function loadPureModule(relativePath) {
     if (specifier === './types') {
       return { PREMIUM_REPORT_AI_BODY_MAX_CHARS: 2500 };
     }
+    if (specifier === '../commercial-quality') {
+      return {
+        COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE: 'Safe test-only commercial-quality message.',
+        ReportCommercialQualityError: class ReportCommercialQualityError extends Error {}
+      };
+    }
     throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
