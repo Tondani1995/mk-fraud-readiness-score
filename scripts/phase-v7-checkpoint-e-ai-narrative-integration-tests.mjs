@@ -8,8 +8,14 @@ import {
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
 import { selectContent } from '../src/lib/reports/select-content-blocks.ts';
-import { buildPremiumReportEvidencePack } from '../src/lib/reports/automation/evidence.ts';
-import { buildPremiumReportNarrativeBrief } from '../src/lib/reports/automation/narrative-brief.ts';
+import {
+  buildPremiumReportEvidencePack,
+  evidenceChecksum
+} from '../src/lib/reports/automation/evidence.ts';
+import {
+  assertPremiumReportNarrativeBrief,
+  buildPremiumReportNarrativeBrief
+} from '../src/lib/reports/automation/narrative-brief.ts';
 import {
   buildPremiumReportGenerationPrompt,
   buildPremiumReportRepairPrompt,
@@ -137,13 +143,15 @@ function generationResult(output) {
 
 function recordingGenerator(first, repair = first) {
   const calls = { generate: 0, repair: 0 };
+  const inputs = { generate: [], repair: [] };
   return {
     calls,
+    inputs,
     generator: {
       provider: 'openai',
       model: 'checkpoint-e-test-model',
-      async generate() { calls.generate += 1; return generationResult(first); },
-      async repair() { calls.repair += 1; return generationResult(repair); }
+      async generate(input) { calls.generate += 1; inputs.generate.push(input); return generationResult(first); },
+      async repair(input) { calls.repair += 1; inputs.repair.push(input); return generationResult(repair); }
     }
   };
 }
@@ -275,6 +283,29 @@ async function runManual(context, { flags = ENABLED_FLAGS, plan, repairPlan = pl
     action
   }, wired.dependencies);
   return { result, html: wired.html, dbState, generatorState, storeState };
+}
+
+function pipelineInput(context, generatorState, storeState, generationIdentity) {
+  return {
+    assembled: context.data,
+    deterministicContent: context.deterministicContent,
+    roadmap: context.roadmap,
+    advisoryModel: context.advisoryModel,
+    flags: ENABLED_FLAGS,
+    generator: generatorState.generator,
+    generationIdentity,
+    attemptStore: storeState.store
+  };
+}
+
+function renameAuthoritativeEvidenceId(evidence, collection, index, prefix, replacementId) {
+  const entry = evidence.advisoryModel[collection][index];
+  const oldEvidenceId = `${prefix}:${entry.id}`;
+  const item = evidence.items.find((candidate) => candidate.id === oldEvidenceId);
+  assert.ok(item, `${oldEvidenceId} fixture evidence was not found`);
+  entry.id = replacementId;
+  item.id = `${prefix}:${replacementId}`;
+  if (item.value && typeof item.value === 'object') item.value.id = replacementId;
 }
 
 console.log('V7 Checkpoint E -- active-path AI narrative integration suite');
@@ -574,6 +605,257 @@ await test('E23: deterministic narrative grounding defects fail through the comm
     }),
     (error) => isReportCommercialQualityError(error)
       && error.violations.every((issue) => issue.code === 'QG_QUALITY_EVALUATION_FAILED')
+  );
+});
+
+await test('E24: advisory ordering, evidence shuffle invariance and checksum stability are explicit', () => {
+  const evidence = structuredClone(weak.evidence);
+  renameAuthoritativeEvidenceId(evidence, 'riskRegister', 0, 'risk', 'ZZZ-CRITICAL-RISK');
+  renameAuthoritativeEvidenceId(evidence, 'riskRegister', evidence.advisoryModel.riskRegister.length - 1, 'risk', 'AAA-LOWER-RISK');
+  renameAuthoritativeEvidenceId(evidence, 'contradictions', 0, 'contradiction', 'ZZZ-MOST-MATERIAL-CONTRADICTION');
+  renameAuthoritativeEvidenceId(evidence, 'contradictions', 1, 'contradiction', 'AAA-LESS-MATERIAL-CONTRADICTION');
+  renameAuthoritativeEvidenceId(evidence, 'leadershipDecisions', 0, 'decision', 'ZZZ-FIRST-DECISION');
+  renameAuthoritativeEvidenceId(evidence, 'leadershipDecisions', 1, 'decision', 'AAA-SECOND-DECISION');
+  renameAuthoritativeEvidenceId(evidence, 'roadmapActions', 0, 'roadmap', 'ZZZ-FIRST-ROADMAP-ACTION');
+  renameAuthoritativeEvidenceId(evidence, 'roadmapActions', 1, 'roadmap', 'AAA-SECOND-ROADMAP-ACTION');
+
+  const checksumBefore = evidenceChecksum(evidence);
+  const brief = buildPremiumReportNarrativeBrief(evidence);
+  assert.equal(evidenceChecksum(evidence), checksumBefore);
+
+  const executiveRisks = brief.executive.requiredEvidenceRefs.filter((ref) => ref.startsWith('risk:'));
+  assert.equal(executiveRisks[0], 'risk:ZZZ-CRITICAL-RISK');
+  assert.ok(!executiveRisks.includes('risk:AAA-LOWER-RISK'));
+  assert.equal(
+    brief.falseComfort.requiredEvidenceRefs.find((ref) => ref.startsWith('contradiction:')),
+    'contradiction:ZZZ-MOST-MATERIAL-CONTRADICTION'
+  );
+  assert.deepEqual(
+    brief.leadership.requiredEvidenceRefs.filter((ref) => ref.startsWith('decision:')),
+    evidence.advisoryModel.leadershipDecisions.slice(0, 3).map((entry) => `decision:${entry.id}`)
+  );
+  assert.deepEqual(
+    brief.leadership.requiredEvidenceRefs.filter((ref) => ref.startsWith('roadmap:')),
+    evidence.advisoryModel.roadmapActions.slice(0, 3).map((entry) => `roadmap:${entry.id}`)
+  );
+
+  const shuffled = { ...evidence, items: [...evidence.items].reverse() };
+  assert.deepEqual(buildPremiumReportNarrativeBrief(shuffled), brief);
+
+  const unresolved = structuredClone(evidence);
+  unresolved.items = unresolved.items.filter((item) => item.id !== 'risk:ZZZ-CRITICAL-RISK');
+  assert.throws(
+    () => buildPremiumReportNarrativeBrief(unresolved),
+    (error) => isReportCommercialQualityError(error)
+      && error.violations.some((issue) => issue.code === 'QG_AI_NARRATIVE_BRIEF_INVALID')
+  );
+});
+
+await test('E25: invalid narrative briefs fail commercially before every AI and provenance side effect', async () => {
+  const invalidBrief = structuredClone(weak.brief);
+  invalidBrief.executive.requiredEvidenceRefs = ['risk:does-not-exist'];
+  assert.throws(
+    () => assertPremiumReportNarrativeBrief(weak.evidence, invalidBrief),
+    (error) => isReportCommercialQualityError(error)
+      && error.violations.every((issue) => issue.code === 'QG_AI_NARRATIVE_BRIEF_INVALID')
+  );
+
+  const dbState = recordingManualDb();
+  const generatorState = recordingGenerator(weakPlan);
+  const storeState = recordingAttemptStore();
+  const wired = manualDependencies(weak, {
+    db: dbState.db,
+    flags: ENABLED_FLAGS,
+    generator: generatorState.generator,
+    attemptStore: storeState.store
+  });
+  let provenanceCalls = 0;
+  wired.dependencies.preparePremiumReportNarrative = (input) => preparePremiumReportNarrative(input, {
+    buildNarrativeBrief: () => invalidBrief
+  });
+  wired.dependencies.persistManualNarrativeProvenance = async () => {
+    provenanceCalls += 1;
+    throw new Error('Invalid briefs must never reach provenance persistence.');
+  };
+
+  await assert.rejects(
+    generateManualPhase1Report({
+      orderReference: weak.data.orderReference,
+      requestedBy: 'admin-1',
+      requestKey: 'invalid-brief-no-side-effects',
+      action: 'admin_generate'
+    }, wired.dependencies),
+    (error) => error?.reason === 'commercial_quality_failed'
+  );
+  assert.deepEqual(generatorState.calls, { generate: 0, repair: 0 });
+  assert.deepEqual(storeState.calls, { authorize: 0, find: 0, count: 0, claim: 0, settle: 0 });
+  assert.equal(provenanceCalls, 0);
+});
+
+await test('E26: executive, domain and gap bodies obey their exact section limits', () => {
+  const cases = [
+    {
+      label: 'executive',
+      brief: (() => {
+        const value = structuredClone(weak.brief);
+        value.executive.maxCharacters = 100;
+        return value;
+      })(),
+      plan: { ...weakPlan, executiveBody: 'x'.repeat(101) },
+      path: 'executiveBody'
+    },
+    {
+      label: 'domain',
+      brief: (() => {
+        const value = structuredClone(weak.brief);
+        value.domains[weakPlan.domainEvidence[0].domainCode].maxCharacters = 100;
+        return value;
+      })(),
+      plan: (() => {
+        const value = structuredClone(weakPlan);
+        value.domainEvidence[0].body = 'x'.repeat(101);
+        return value;
+      })(),
+      path: 'domainEvidence[0].body'
+    },
+    {
+      label: 'gap',
+      brief: weak.brief,
+      plan: (() => {
+        const value = structuredClone(weakPlan);
+        value.gapEvidence[0].body = 'x'.repeat(1201);
+        return value;
+      })(),
+      path: 'gapEvidence[0].body'
+    }
+  ];
+  for (const fixture of cases) {
+    const issue = validatePremiumReportAiEditorialPlan(fixture.plan, weak.evidence, fixture.brief).issues
+      .find((candidate) => candidate.code === 'ai_section_body_too_long' && candidate.path === fixture.path);
+    assert.ok(issue, `${fixture.label} section limit was not enforced at ${fixture.path}`);
+  }
+});
+
+await test('E27: repair scope preserves every compliant byte and rejects ref, object or order drift after two calls', async () => {
+  const invalid = { ...weakPlan, executiveBody: 'The organisation is Strategic overall.' };
+  const successfulGenerator = recordingGenerator(invalid, weakPlan);
+  const successfulStore = recordingAttemptStore();
+  const successful = await preparePremiumReportNarrative(
+    pipelineInput(weak, successfulGenerator, successfulStore, 'repair-scope-success')
+  );
+  assert.equal(successful.mode, 'ai_repair');
+  assert.deepEqual(successfulGenerator.calls, { generate: 1, repair: 1 });
+  assert.deepEqual(successfulGenerator.inputs.repair[0].repairScope.failedSectionIds, ['executive']);
+  assert.deepEqual(successful.generation.output.domainEvidence, successful.repairGeneration.output.domainEvidence);
+  assert.deepEqual(successful.generation.output.gapEvidence, successful.repairGeneration.output.gapEvidence);
+  assert.equal(successful.generation.output.falseComfortBody, successful.repairGeneration.output.falseComfortBody);
+  assert.deepEqual(successful.generation.output.falseComfortEvidenceRefs, successful.repairGeneration.output.falseComfortEvidenceRefs);
+  assert.equal(successful.generation.output.leadershipBody, successful.repairGeneration.output.leadershipBody);
+  assert.deepEqual(successful.generation.output.leadershipEvidenceRefs, successful.repairGeneration.output.leadershipEvidenceRefs);
+
+  const repairPrompt = buildPremiumReportRepairPrompt(successfulGenerator.inputs.repair[0]);
+  assert.match(repairPrompt, /EXACT FAILED SECTION IDS\n\["executive"\]/);
+  assert.ok(repairPrompt.includes(JSON.stringify(invalid)));
+  assert.match(repairPrompt, /byte-for-byte/);
+
+  const changedDomain = structuredClone(weakPlan);
+  changedDomain.domainEvidence[0].body = `${changedDomain.domainEvidence[0].body} Its existing evidence remains subject to executive review.`;
+
+  const changedRefs = structuredClone(weakPlan);
+  const changedDomainCode = changedRefs.domainEvidence[0].domainCode;
+  const allowedNewRef = weak.brief.domains[changedDomainCode].allowedEvidenceRefs
+    .find((ref) => !changedRefs.domainEvidence[0].evidenceRefs.includes(ref));
+  assert.ok(allowedNewRef);
+  changedRefs.domainEvidence[0].evidenceRefs.push(allowedNewRef);
+
+  const reorderedDomains = structuredClone(weakPlan);
+  [reorderedDomains.domainEvidence[0], reorderedDomains.domainEvidence[1]] =
+    [reorderedDomains.domainEvidence[1], reorderedDomains.domainEvidence[0]];
+
+  const reorderedGaps = structuredClone(weakPlan);
+  [reorderedGaps.gapEvidence[0], reorderedGaps.gapEvidence[1]] =
+    [reorderedGaps.gapEvidence[1], reorderedGaps.gapEvidence[0]];
+
+  const failedSectionRefOnCompliantDomain = structuredClone(weakPlan);
+  const executiveOnlyRef = weak.brief.executive.requiredEvidenceRefs.find(
+    (ref) => !weak.brief.domains[changedDomainCode].allowedEvidenceRefs.includes(ref)
+  );
+  assert.ok(executiveOnlyRef);
+  failedSectionRefOnCompliantDomain.domainEvidence[0].evidenceRefs.push(executiveOnlyRef);
+
+  for (const [label, repairedPlan] of [
+    ['domain body', changedDomain],
+    ['compliant refs', changedRefs],
+    ['domain order', reorderedDomains],
+    ['gap order', reorderedGaps],
+    ['failed-section evidence on a compliant section', failedSectionRefOnCompliantDomain]
+  ]) {
+    const generatorState = recordingGenerator(invalid, repairedPlan);
+    const storeState = recordingAttemptStore();
+    const prepared = await preparePremiumReportNarrative(
+      pipelineInput(weak, generatorState, storeState, `repair-preservation-${label}`)
+    );
+    assert.equal(prepared.mode, 'deterministic_fallback', `${label} was accepted`);
+    assert.equal(prepared.fallbackReason, 'ai_repair_preservation_failed');
+    assert.ok(prepared.repairValidation.issues.some((issue) => issue.code === 'repair_modified_compliant_section'));
+    assert.deepEqual(generatorState.calls, { generate: 1, repair: 1 });
+    assert.equal(storeState.calls.claim, 2);
+  }
+});
+
+await test('E28: official response-state validation distinguishes values 0 through 5', () => {
+  const questionCode = weakPlan.gapEvidence[0].questionCode;
+  function responseIssues(responseValue, body) {
+    const evidence = structuredClone(weak.evidence);
+    evidence.items
+      .filter((item) => item.questionCode === questionCode && (item.kind === 'gap' || item.kind === 'question_response'))
+      .forEach((item) => { item.value.responseValue = responseValue; });
+    const plan = structuredClone(weakPlan);
+    plan.gapEvidence[0].body = body;
+    const narrative = aiPlanToNarrative(weak.data, weak.deterministicContent, plan);
+    return validatePremiumReportNarrative(narrative, evidence).issues
+      .filter((issue) => issue.code === 'response_label_misstatement');
+  }
+
+  const matrix = [
+    [0, 'The control is implemented and in use.', true],
+    [2, 'The process is operating.', true],
+    [3, 'The control is consistently operating.', true],
+    [4, 'The control is embedded and continuously improved.', true],
+    [5, 'The control is embedded and improved.', false],
+    [3, 'The control is implemented and in use.', false],
+    [4, 'The control is consistently operating.', false]
+  ];
+  for (const [responseValue, body, shouldFail] of matrix) {
+    assert.equal(responseIssues(responseValue, body).length > 0, shouldFail, `response ${responseValue}: ${body}`);
+  }
+  for (const responseValue of [3, 4, 5]) {
+    assert.ok(
+      responseIssues(responseValue, 'The control is absent, not implemented and merely planned.').length > 0,
+      `response ${responseValue} was allowed to be described as absent`
+    );
+  }
+
+  const mixedEvidence = structuredClone(weak.evidence);
+  const domainEntry = weakPlan.domainEvidence.find((entry) => {
+    const citedResponses = mixedEvidence.items.filter(
+      (item) => entry.evidenceRefs.includes(item.id) && item.kind === 'question_response'
+    );
+    return citedResponses.length > 1;
+  });
+  assert.ok(domainEntry);
+  const citedDomainResponses = mixedEvidence.items.filter(
+    (item) => domainEntry.evidenceRefs.includes(item.id) && item.kind === 'question_response'
+  );
+  citedDomainResponses.forEach((item, index) => { item.value.responseValue = index % 2 === 0 ? 3 : 5; });
+  const mixedPlan = structuredClone(weakPlan);
+  mixedPlan.domainEvidence.find((entry) => entry.domainCode === domainEntry.domainCode).body =
+    'The controls in this domain are embedded and improved.';
+  const mixedNarrative = aiPlanToNarrative(weak.data, weak.deterministicContent, mixedPlan);
+  assert.ok(
+    validatePremiumReportNarrative(mixedNarrative, mixedEvidence).issues
+      .some((issue) => issue.code === 'response_label_misstatement'),
+    'A mixed-state domain was allowed to claim one blanket operating state.'
   );
 });
 

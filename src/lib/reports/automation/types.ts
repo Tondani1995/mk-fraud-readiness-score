@@ -191,6 +191,10 @@ export interface NarrativeGenerationResult {
   usage?: NarrativeGenerationUsage;
 }
 
+export interface NarrativeRepairScope {
+  failedSectionIds: string[];
+}
+
 export interface NarrativeGenerationInput {
   evidence: PremiumReportEvidencePack;
   evidenceChecksum: string;
@@ -199,6 +203,7 @@ export interface NarrativeGenerationInput {
   schemaVersion: string;
   previousOutput?: PremiumReportAiEditorialPlan;
   validationIssues?: NarrativeValidationIssue[];
+  repairScope?: NarrativeRepairScope;
 }
 
 export interface PremiumReportNarrativeGenerator {

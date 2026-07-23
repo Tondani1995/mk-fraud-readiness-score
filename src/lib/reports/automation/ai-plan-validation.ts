@@ -26,10 +26,22 @@ const GENERIC_BODY_PATTERN = /\b(?:robust framework|holistic approach|best[- ]in
 /** Jaccard similarity at or above 0.88 is treated as materially duplicated prose. */
 export const NARRATIVE_DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
 
-function body(value: unknown, path: string, issues: NarrativeValidationIssue[]): string {
+function body(
+  value: unknown,
+  path: string,
+  brief: NarrativeSectionBrief,
+  issues: NarrativeValidationIssue[]
+): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     issues.push(issue('invalid_ai_body', path, 'A non-empty narrative body is required.'));
     return '';
+  }
+  if (value.length > brief.maxCharacters) {
+    issues.push(issue(
+      'ai_section_body_too_long',
+      path,
+      `Narrative body for ${brief.sectionId} exceeds its ${brief.maxCharacters}-character limit.`
+    ));
   }
   if (value.length > MAX_BODY_CHARS) {
     issues.push(issue('ai_body_too_long', path, `Narrative body exceeds ${MAX_BODY_CHARS} characters.`));
@@ -123,11 +135,11 @@ export function validatePremiumReportAiEditorialPlan(
   }
   validateKeys(value, ROOT_KEYS, '$', issues);
   refs(value.executiveEvidenceRefs, 'executiveEvidenceRefs', known, brief.executive, issues);
-  body(value.executiveBody, 'executiveBody', issues);
+  body(value.executiveBody, 'executiveBody', brief.executive, issues);
   refs(value.falseComfortEvidenceRefs, 'falseComfortEvidenceRefs', known, brief.falseComfort, issues);
-  body(value.falseComfortBody, 'falseComfortBody', issues);
+  body(value.falseComfortBody, 'falseComfortBody', brief.falseComfort, issues);
   refs(value.leadershipEvidenceRefs, 'leadershipEvidenceRefs', known, brief.leadership, issues);
-  body(value.leadershipBody, 'leadershipBody', issues);
+  body(value.leadershipBody, 'leadershipBody', brief.leadership, issues);
 
   const expectedDomains = new Set(evidence.items.filter((item) => item.kind === 'domain' && item.domainCode).map((item) => normaliseAiIdentifier(item.domainCode!)));
   const seenDomains = new Set<string>();
@@ -152,7 +164,7 @@ export function validatePremiumReportAiEditorialPlan(
       }
       const evidenceRefs = refs(entry.evidenceRefs, `${path}.evidenceRefs`, known, sectionBrief, issues);
       if (!evidenceRefs.includes(`domain:${code}`)) issues.push(issue('missing_own_evidence', `${path}.evidenceRefs`, `Domain ${code} must cite its deterministic domain evidence.`));
-      body(entry.body, `${path}.body`, issues);
+      body(entry.body, `${path}.body`, sectionBrief, issues);
     });
   }
   expectedDomains.forEach((code) => {
@@ -182,7 +194,7 @@ export function validatePremiumReportAiEditorialPlan(
       }
       const evidenceRefs = refs(entry.evidenceRefs, `${path}.evidenceRefs`, known, sectionBrief, issues);
       if (!evidenceRefs.includes(`gap:${code}`)) issues.push(issue('missing_own_evidence', `${path}.evidenceRefs`, `Gap ${code} must cite its deterministic gap evidence.`));
-      body(entry.body, `${path}.body`, issues);
+      body(entry.body, `${path}.body`, sectionBrief, issues);
     });
   }
   expectedGaps.forEach((code) => {

@@ -6,13 +6,24 @@ import {
 } from '../commercial-quality';
 import { validatePremiumReportNarrative } from './validation';
 import { validatePremiumReportAiEditorialPlan } from './ai-plan-validation';
-import { buildPremiumReportNarrativeBrief } from './narrative-brief';
+import {
+  assertPremiumReportNarrativeBrief,
+  buildPremiumReportNarrativeBrief
+} from './narrative-brief';
+import {
+  buildPremiumReportRepairScope,
+  validatePremiumReportRepairPreservation
+} from './repair-scope';
 import type {
   BuildPremiumReportNarrativeInput,
   NarrativeGenerationResult,
   PreparedPremiumReportNarrative,
   PremiumReportNarrativeGenerator
 } from './types';
+
+export interface NarrativePipelineDependencies {
+  buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
+}
 
 function fallbackResult(
   input: BuildPremiumReportNarrativeInput,
@@ -94,21 +105,43 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
 }): Promise<PreparedPremiumReportNarrative> {
   const { evidence, checksum, generator, baseGenerationInput, generation, planValidation } = params;
   try {
-  const repairGeneration = await generator.repair({
-      ...baseGenerationInput,
+    const repairScope = buildPremiumReportRepairScope({
+      narrativeBrief: baseGenerationInput.narrativeBrief,
       previousOutput: generation.output,
       validationIssues: params.priorValidationIssues
+    });
+    const repairGeneration = await generator.repair({
+      ...baseGenerationInput,
+      previousOutput: generation.output,
+      validationIssues: params.priorValidationIssues,
+      repairScope
     });
     const repairPlanValidation = validatePremiumReportAiEditorialPlan(
       repairGeneration.output,
       evidence,
       baseGenerationInput.narrativeBrief
     );
-    if (!repairPlanValidation.ok) {
+    const preservationValidation = validatePremiumReportRepairPreservation(
+      generation.output,
+      repairGeneration.output,
+      repairScope,
+      evidence.schemaVersion
+    );
+    const repairContractValidation = {
+      ...repairPlanValidation,
+      ok: repairPlanValidation.ok && preservationValidation.ok,
+      issues: [...preservationValidation.issues, ...repairPlanValidation.issues]
+    };
+    if (!repairContractValidation.ok) {
       return {
-        ...fallbackResult(input, 'ai_repair_plan_validation_failed', evidence, checksum),
+        ...fallbackResult(
+          input,
+          preservationValidation.ok ? 'ai_repair_plan_validation_failed' : 'ai_repair_preservation_failed',
+          evidence,
+          checksum
+        ),
         initialValidation: planValidation,
-        repairValidation: repairPlanValidation,
+        repairValidation: repairContractValidation,
         generation,
         repairGeneration
       };
@@ -124,7 +157,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
         evidenceChecksum: checksum,
         validation: repaired.validation,
         initialValidation: planValidation,
-        repairValidation: repairPlanValidation,
+        repairValidation: repairContractValidation,
         generation,
         repairGeneration
       };
@@ -147,7 +180,8 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
 }
 
 export async function preparePremiumReportNarrative(
-  input: BuildPremiumReportNarrativeInput
+  input: BuildPremiumReportNarrativeInput,
+  dependencies: NarrativePipelineDependencies = {}
 ): Promise<PreparedPremiumReportNarrative> {
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
@@ -166,7 +200,10 @@ export async function preparePremiumReportNarrative(
     );
   }
   const checksum = evidenceChecksum(evidence);
-  const narrativeBrief = buildPremiumReportNarrativeBrief(evidence);
+  const narrativeBrief = assertPremiumReportNarrativeBrief(
+    evidence,
+    (dependencies.buildNarrativeBrief ?? buildPremiumReportNarrativeBrief)(evidence)
+  );
 
   if (!input.flags.aiNarrativeEnabled) return fallbackResult(input, 'ai_feature_disabled', evidence, checksum);
   if (!input.generator) return fallbackResult(input, 'ai_generator_unavailable', evidence, checksum);

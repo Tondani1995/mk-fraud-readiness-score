@@ -356,7 +356,8 @@ export type CommercialQualityIssueCode =
   | 'QG_ROADMAP_DEPENDENCY_INVALID'
   | 'QG_AI_EVIDENCE_REF_DUPLICATE'
   | 'QG_AI_EVIDENCE_REF_UNRESOLVED'
-  | 'QG_AI_EVIDENCE_CONTAINS_PII';
+  | 'QG_AI_EVIDENCE_CONTAINS_PII'
+  | 'QG_AI_NARRATIVE_BRIEF_INVALID';
 
 /**
  * A single typed commercial-quality issue. `message` may include safe internal identifiers

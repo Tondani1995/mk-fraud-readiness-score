@@ -3,6 +3,7 @@ import {
   PREMIUM_REPORT_AI_BODY_MAX_CHARS,
   PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION
 } from './types';
+import { buildPremiumReportRepairScope } from './repair-scope';
 
 
 export const PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS = `You are the controlled advisory editor for the MK Fraud Readiness Essential Report. You write only the requested customer-facing narrative bodies. You do not calculate, select, rate, prioritise or decide anything.
@@ -122,29 +123,6 @@ function evidenceProjection(
   };
 }
 
-function repairSections(input: NarrativeGenerationInput) {
-  const sections = allSections(input);
-  const wanted = new Set<string>();
-  for (const issue of input.validationIssues ?? []) {
-    const path = issue.path ?? '';
-    if (/executive/i.test(path)) wanted.add('executive');
-    if (/falseComfort|false_comfort/i.test(path)) wanted.add('false_comfort');
-    if (/leadership/i.test(path)) wanted.add('leadership');
-    const domainIndex = path.match(/domain(?:Evidence|Narratives)\[(\d+)\]/i)?.[1];
-    const domainCode = domainIndex === undefined
-      ? null
-      : input.previousOutput?.domainEvidence?.[Number(domainIndex)]?.domainCode;
-    if (domainCode) wanted.add(`domain:${domainCode}`);
-    const gapIndex = path.match(/gap(?:Evidence|Commentary)\[(\d+)\]/i)?.[1];
-    const questionCode = gapIndex === undefined
-      ? null
-      : input.previousOutput?.gapEvidence?.[Number(gapIndex)]?.questionCode;
-    if (questionCode) wanted.add(`gap:${questionCode}`);
-  }
-  const selected = sections.filter((section) => wanted.has(section.sectionId));
-  return selected.length > 0 ? selected : sections;
-}
-
 function sectionBriefProjection(section: NarrativeGenerationInput['narrativeBrief']['executive']) {
   return {
     sectionId: section.sectionId,
@@ -198,18 +176,25 @@ export function buildPremiumReportGenerationPrompt(input: NarrativeGenerationInp
 }
 
 export function buildPremiumReportRepairPrompt(input: NarrativeGenerationInput) {
-  const failedSections = repairSections(input);
+  const scope = input.repairScope ?? buildPremiumReportRepairScope(input);
+  const wanted = new Set(scope.failedSectionIds);
+  const failedSections = allSections(input).filter((section) => wanted.has(section.sectionId));
   return [
     `Prompt version: ${input.promptVersion}`,
     `Schema version: ${input.schemaVersion}`,
     `Evidence checksum: ${input.evidenceChecksum}`,
     '',
     'The previous structured output failed deterministic validation.',
-    'Correct only the failed sections identified below, but return the complete schema. Preserve compliant sections unchanged.',
-    'For each failed section, cite every requiredEvidenceRef and only evidence identifiers supplied in the scoped projection. Do not introduce new facts or references. Any number, maturity band, exposure band or response meaning must exactly match cited evidence.',
+    'Correct only the exact failed sections identified below, but return the complete schema.',
+    'Copy every non-failed body, evidenceRefs array, domain object and gap object byte-for-byte from PREVIOUS OUTPUT. Preserve the relative order of every compliant domain and gap entry; do not reorder, insert or delete compliant entries.',
+    'Existing references in preserved sections may be copied only as preserved data; they are not evidence available to failed sections.',
+    'For each failed section, cite every requiredEvidenceRef and only evidence identifiers supplied in the failed-section projection. Do not introduce new facts or references. Any number, maturity band, exposure band or response meaning must exactly match cited evidence.',
     '',
     'VALIDATION FAILURES',
     JSON.stringify(input.validationIssues ?? []),
+    '',
+    'EXACT FAILED SECTION IDS',
+    JSON.stringify(scope.failedSectionIds),
     '',
     'FAILED SECTION BRIEFS',
     JSON.stringify(failedSections.map(sectionBriefProjection)),
