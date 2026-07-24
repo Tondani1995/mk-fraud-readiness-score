@@ -181,6 +181,7 @@ in a parallel session against this same branch and covered by its own evidence, 
 | Doc updates | `14-release-c-existing-delivery-audit.md` (addendum), `15-email-and-secure-delivery-design.md` (closure cycle addendum), `16-email-and-secure-delivery-runbook.md` (recipient correction, bounce, complaint, legacy-vs-Release-C, no-direct-SQL sections) | `(this commit)` | Manual review | `PASS` | — | — |
 | Resource cleanup | Same local Docker/Supabase project `mk-repo`, ports 55321-55329, one additional `supabase start`/`supabase stop` cycle for this closure work | — | `docker volume ls`/`docker ps` after teardown | `PASS — containers stopped, volumes removed, pre-existing unrelated repo project untouched` | — | This work cycle |
 | Item 1 (unified admin delivery-state display) | — | — | — | `IN PROGRESS — implemented in a parallel session against this same branch, not yet landed/reviewed as of this report. Re-check this evidence pack once merged.` | — | — |
+| Controlled live Resend verification (real API auth, real domain acceptance, real webhook round-trip against a Preview deployment) | — | — | Investigated: confirmed via `list_teams`/`list_projects`/`get_project`/`list_deployments` that the linked Vercel project (`mk-fraud-platform`, team `Tondani's projects`) exists, `mkfraud.co.za`/`www.mkfraud.co.za` are attached domains, and every push to this branch already auto-deploys a live Preview via Vercel's GitHub integration (discovered as a side effect of this investigation, not something separately triggered) | `BLOCKED — not a false pass or fail. Three concrete, confirmed gaps, not caution: (1) no available tool reads or writes Vercel environment variables, so MK_EMAIL_PROVIDER_MODE cannot be set to test for Preview; (2) which Supabase project backs Preview is unverifiable without that same access, and this programme's standing production-read-only rule cannot be honoured on a guess; (3) no authenticated admin session exists against the live Preview app to trigger the order/payment/quality-review flow. None of these are worked around by improvising — doing so risked either touching production data or an uncontrolled action on a real paid account. Deferred to the MK owner via a written, step-by-step runbook instead.` | — | `docs/safe-launch/18-controlled-resend-preview-verification.md`, `scripts/release-c-live-webhook-probe.mjs` |
 
 ### Current testing conclusion (Release C, this cycle)
 
@@ -198,6 +199,7 @@ in a parallel session against this same branch and covered by its own evidence, 
 | GitHub CI (Supabase Migration Replay, Phase 1/2-3 Release Safety, V1 Verification, V7 Report Hardening) | `PASS` on the checks this cycle's changes affect |
 | GitHub CI (Security Scans / dependency-audit gate) | `FAIL` — unrelated new `postcss` advisory, confirmed not caused by this cycle (see table above), flagged separately |
 | Admin dashboard delivery-state display (item 1) | `IN PROGRESS` — parallel session, not yet landed |
+| Controlled live Resend verification (real send against Preview) | `BLOCKED` — tooling/access gap (Vercel env vars, Preview's DB identity, admin session), not a false pass. Owner-executed runbook written instead: `18-controlled-resend-preview-verification.md` |
 | Cloud migration execution | `NOT TESTED` — no Supabase Cloud environment has applied this migration |
 | Domain authentication (SPF/DKIM/DMARC) | `NOT CONFIGURED` — documented this cycle, DNS access required |
 | External provider connection | `BLOCKED` — owner decision gate, not attempted |
@@ -225,3 +227,4 @@ authentication not configured; no external provider connected — none of these 
 - Release C design: `15-email-and-secure-delivery-design.md`
 - Release C runbook: `16-email-and-secure-delivery-runbook.md`
 - Release C domain-authentication requirements: `17-domain-authentication.md`
+- Release C controlled Resend Preview verification (owner-executed): `18-controlled-resend-preview-verification.md`

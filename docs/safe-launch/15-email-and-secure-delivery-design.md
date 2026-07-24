@@ -287,3 +287,18 @@ design. Fixed by adding the four Release C statuses to the existing rank ladder 
 matching their real meaning, rather than leaving the coincidence in place or attempting a broader
 vocabulary unification that would also touch the still-dormant Phase14 chain's own use of the same
 function — out of scope for this release.
+
+## Controlled Resend Preview verification — investigation outcome
+
+The MK owner confirmed Resend prerequisites (domain verification, sender authorisation, webhook
+configuration, API credentials) were already in place and asked for a live, real send against a
+Preview deployment as part of this closure cycle. The investigation confirmed the linked Vercel
+project and that every push to this branch already auto-deploys a Preview (via the existing
+GitHub integration — not something separately triggered), but could not proceed to an actual send:
+no available tool reads or writes Vercel environment variables (so `MK_EMAIL_PROVIDER_MODE=test`
+cannot be set for Preview), which Supabase project backs Preview is unverifiable the same way (and
+this programme's production-read-only rule cannot be honoured on a guess), and there is no
+authenticated admin session against the live Preview app to trigger the send flows. These are
+tooling/access gaps, not judgement calls — resolved by writing
+`docs/safe-launch/18-controlled-resend-preview-verification.md`, an owner-executed procedure,
+rather than improvising a workaround against a real paid external account.

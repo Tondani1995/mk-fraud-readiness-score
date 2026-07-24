@@ -196,3 +196,9 @@ instruction from every prior release cycle in this programme (no new paid/metere
 resource without approval each time, not a one-time approval). When that approval is given: `test`
 mode still calls the real Resend API, so only ever use it with a designated MK test mailbox as the
 recipient — the code has no way to enforce that restriction itself, it is an operator discipline.
+
+For the first controlled verification against a real Preview deployment, follow
+`docs/safe-launch/18-controlled-resend-preview-verification.md` exactly — it's an owner-executed
+procedure (Vercel/Resend dashboard access and a Preview admin session are all things only someone
+with real account access can supply; an assistant working this codebase deliberately does not
+attempt to improvise around not having them).
