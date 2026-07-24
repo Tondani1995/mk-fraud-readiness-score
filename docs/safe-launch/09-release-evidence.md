@@ -82,7 +82,11 @@ it.
 | RLS and worker-RPC privilege restriction | Same migration | `0474b0a` | Live SQL: `anon` role cannot read `manual_report_generation_attempts` directly; `authenticated` role has no execute privilege on `claim_next_fulfilment_job` (service_role only) | `PASS — verified by direct psql execution for both cases` | — | Same live test run |
 | Worker route (Bearer-token auth, reuses existing generation function, no PII in logs) | `src/app/score/api/internal/fulfilment-worker/route.ts` | `0474b0a` | `npm run typecheck`; static source assertions (`scripts/release-b-durable-fulfilment-tests.mjs`) confirming the auth check, the call to the existing unmodified `generateManualPhase1Report()`, and the absence of `customer_email`/`customer_name` references | `PASS — typecheck exit 0; node scripts/release-b-durable-fulfilment-tests.mjs exit 0, all assertions ok` | PR #42 | Script output, this work cycle |
 | Admin recovery/quality-review routes and UI | `src/lib/fulfilment/fulfilment-service.ts`, `src/app/score/api/admin/orders/[orderReference]/fulfilment/{approve,reject,retry,recover}/route.ts`, `src/components/admin/FulfilmentReviewPanel.tsx`, extends `src/app/score/admin/orders/[orderReference]/page.tsx` | `0474b0a` | `npm run typecheck`; static source assertions confirming each route's role check runs before its service-layer call | `PASS — see script output` | PR #42 | Script output |
-| `vercel.json` cron entry for the worker route | `vercel.json` | `0474b0a` (schedule corrected in a follow-up commit) | Static assertion + real Vercel deployment attempt on PR #42 | `PASS (file exists, path correct) — but the initial `*/5 * * * *` schedule FAILED real Vercel deployment: "Hobby accounts are limited to daily cron jobs." Confirms this project's Vercel plan is Hobby tier. Schedule corrected to `0 3 * * *` (once daily), the only shape Hobby allows. This is now a confirmed, evidence-backed production blocker (see 12-durable-fulfilment-design.md) — a paid customer's report could wait up to ~24h for cron pickup on this plan, not a hypothetical risk.` | PR #42 | Vercel deployment failure comment on PR #42, this work cycle |
+| `vercel.json` cron entry — deployment compatibility | `vercel.json` | `0474b0a`, schedule corrected `a4c5b2f` | Real Vercel deployment attempt on PR #42 | `PASS — preview deployment builds successfully using a temporary once-daily Hobby-compatible cron expression.` | PR #42 | Vercel deployment failure comment on the `*/5 * * * *` attempt, then success on `0 3 * * *`, both this work cycle |
+| Production worker frequency vs. current plan | `docs/safe-launch/12-durable-fulfilment-design.md` ("Vercel plan launch gate") | — | Real deployment failure evidence + Vercel plan-tier confirmation | `BLOCKED — the current Vercel plan cannot run the certified production worker frequency (one-to-two-minute interval). Confirmed Hobby tier by a real deployment rejection of */5 * * * *, not inferred from code.` | — | Same deployment failure evidence |
+| Cron execution in preview | — | — | — | `NOT VERIFIED — Vercel cron execution does not occur in preview deployments and therefore has not been exercised by the preview. A successful preview build is not evidence the worker has ever been invoked by cron.` | — | — |
+| Production readiness of the worker-trigger path as a whole | — | — | — | `REQUIRED BEFORE PRODUCTION — authorised upgrade to a commercially suitable Vercel plan, a production schedule update to the certified interval, an authenticated cron invocation test against a real production deployment, and measured worker runtime (docs/safe-launch/12-durable-fulfilment-design.md, "Measuring worker runtime") against the selected function's duration limit.` | — | — |
+| Worker-schedule certification script | `scripts/release-b-worker-schedule-gate.mjs`, `npm run release-b:certify-worker-schedule` | (this commit) | Ran manually against both the temporary schedule (must fail) and a synthetic certified schedule in an isolated directory (must pass) | `PASS — correctly fails with a clear message against 0 3 * * * (temporary schedule), correctly passes against a */2 * * * * synthetic example. Deliberately NOT wired into CI/preview builds while the project remains on Hobby — intended for manual use during the integrated release-candidate/production-certification cycle, per its own header comment. Does not and cannot infer the Vercel account plan from code.` | — | This work cycle |
 | Runbook | `docs/safe-launch/13-durable-fulfilment-runbook.md` | `0474b0a` | Manual review | `PASS` | — | — |
 | Regression: Release A tests still pass | `scripts/release-a-backlog-reconciliation-tests.mjs` | — | Re-run after Release B changes | `PASS — all assertions ok, unaffected by Release B` | — | This work cycle |
 | Regression: `phase23-payment-assessment-tests.mjs` updated for the intentional architectural change | Same test file | `0474b0a` | Re-run after updating one assertion (payment-service.ts no longer calls the synchronous fulfilment trigger, by design) | `PASS — narrowly-scoped, justified update; all other assertions in the file unchanged and passing` | — | This work cycle |
@@ -91,6 +95,22 @@ it.
 | AI narrative generation activation | — | — | — | `NOT IN SCOPE for Release B — report_ai_attempts/ai_narrative feature-flag activation is untouched; Release B's worker calls the same generateManualPhase1Report() the live path already calls, which independently checks that flag (still off).` | — | — |
 
 **Note on an in-session incident, not a resource:** during this work cycle, a background implementation agent was terminated by the account's monthly spend limit partway through drafting the migration file. This is not itself a created/cleaned-up resource, so it has no row above — recorded here for completeness. The partial work it left on disk (uncommitted) was independently reviewed, verified against production schema, and completed directly rather than re-delegated, after the user raised the account's spend limit.
+
+### Current testing conclusion (Release B, this cycle)
+
+| Item | Status |
+|---|---|
+| Branch relationship (PR #42 base/head, GitHub mergeability) | `PASS` |
+| GitHub mergeability | `PASS` |
+| `npm run typecheck` | `PASS` |
+| Migration replay | `PASS` — locally (Docker) and in GitHub CI |
+| Release B SQL behaviour (24 live checks) | `PASS` — locally |
+| Preview deployment | `PASS` |
+| Scheduled cloud invocation (cron actually firing) | `NOT TESTED` — impossible in preview, requires production |
+| Cloud migration execution | `NOT TESTED` — no Supabase Cloud environment has applied this migration |
+| Production worker frequency | `BLOCKED` — by current Vercel plan (Hobby) |
+| Production runtime duration | `NOT CERTIFIED` — deferred to the integrated release-candidate cycle |
+| Paid customer journey | `NOT READY` |
 
 ---
 

@@ -121,19 +121,65 @@ existing storage-cleanup route), invoked by a Vercel Cron entry. On each invocat
    records `error_category`/`safe_operational_error`/`technical_reference`, and releases the
    lease.
 
-**Confirmed constraint (was an open dependency, now resolved by evidence):** the Vercel deployment
-build for PR #42 failed the cron entry at `*/5 * * * *` with `Hobby accounts are limited to daily
-cron jobs. This cron expression would run more than once per day.` — this project's current
-Vercel plan is confirmed Hobby tier. `vercel.json` now uses `0 3 * * *` (once daily), the only
-schedule shape Hobby allows. This is a real, material limitation for production readiness: a
-paid customer's report generation would wait up to ~24 hours for the cron-triggered worker to
-pick up their queued job on this plan. The worker route itself does not depend on cron for
-correctness — it is also safely callable on demand (used directly by the integration tests in
-this cycle, and available as an admin-triggered "process queue now" fallback) — but relying on
-that as the *normal* path for a paid product is not acceptable. **Upgrading to a Vercel plan
-that supports sub-daily cron (or invoking the worker route via an external scheduler/webhook
-instead of `vercel.json` cron) is now a concrete, evidence-backed blocker to raise with the
-authorised MK operator before production, not a hypothetical one.**
+## Worker trigger model
+
+Three distinct trigger tiers, not interchangeable, not to be conflated in any status report:
+
+1. **Production normal path.** A sub-daily Vercel Cron entry on an approved commercial Vercel
+   plan invokes the authenticated worker route automatically at the certified pickup interval.
+   This is the only tier that is acceptable as the *principal* mechanism for a paid customer's
+   report to begin generating. **Not yet available** — see "Vercel plan launch gate" below.
+2. **Operational recovery.** An authorised admin clicks "Process queue now" (or equivalent) to
+   invoke the worker route on demand for a specific stuck situation. This exists today and works
+   (used directly by this cycle's live SQL/integration testing), but it is a human-triggered
+   exception-handling action, not a substitute for tier 1. It must never be described as the
+   intended normal fulfilment path for paid orders.
+3. **Reconciliation fallback.** A scheduled recovery sweep (`recover_expired_fulfilment_leases()`,
+   already implemented and live-tested this cycle) identifies queued or stuck work that tier 1
+   did not process in time, and requeues it. This is a safety net for missed/failed automatic
+   pickups, not a delivery-speed mechanism in its own right.
+
+## Cron schedule status — three separate claims, not one
+
+These are three different questions with three different, independently-verified answers. Do
+not collapse them into a single "it works" statement anywhere this design is referenced.
+
+**Deployment compatibility (verified this cycle).** `vercel.json`'s cron entry currently reads
+`0 3 * * *` (once daily). This is the only schedule shape the project's current Vercel plan
+(confirmed Hobby tier, by a real deployment failure on `*/5 * * * *`: *"Hobby accounts are
+limited to daily cron jobs"*) accepts without rejecting the deployment. **This schedule is a
+temporary, development-compatible recovery schedule chosen only to keep PR #42 deployable — it
+is explicitly not the approved production schedule.** The certified production interval is
+every one to two minutes, subject to final performance testing (see "Measuring worker runtime"
+below) — do not switch to that schedule before the Vercel plan is upgraded, since it would
+immediately fail deployment again on the current plan.
+
+**Operational readiness (not met on the current plan).** A once-daily worker is not acceptable
+as the principal trigger for a paid report journey: a newly verified payment could sit queued
+for up to ~24 hours before automatic processing begins. This is unrelated to whether the code
+is correct — the durable fulfilment mechanism itself (claim, lease, retry, recovery) is fully
+implemented and live-tested; only the *frequency* at which production would invoke it is
+inadequate on Hobby.
+
+**Preview limitations (a scope boundary on today's evidence, not a pass).** Vercel Cron Jobs
+execute only against **production** deployments, never preview deployments. PR #42's preview
+build succeeding proves the application deploys and the route compiles/exists — it does **not**
+prove the cron actually invokes the worker on any schedule, daily or otherwise. That remains
+genuinely untested and is recorded as `NOT VERIFIED`, not folded into the deployment-success
+result.
+
+## Vercel plan launch gate
+
+**New formal launch gate, not yet satisfied:** the production MK Vercel project must be on a
+plan approved for commercial operation, capable of running the fulfilment worker at the
+certified sub-daily interval (one to two minutes, pending performance testing). The current
+Hobby plan blocks unrestricted production launch on this basis alone, independent of any code
+readiness. This is an **operating-cost decision**, not a Release B development resource:
+- not upgraded this cycle, and not to be upgraded without explicit authorisation;
+- requires the authorised MK owner to approve the recurring cost;
+- must happen immediately before the integrated release-candidate production-certification
+  cycle, not during ordinary Release B/C/D development;
+- tracked here and in the release evidence pack (`09-release-evidence.md`), not silently assumed.
 
 ## Idempotency strategy
 
@@ -205,4 +251,33 @@ mechanism.
 ## Expected Vercel execution path
 
 `payment confirmation (admin browser) → POST /score/admin/orders/[ref]/status → record_payment_transition (extended) → HTTP response returns immediately`, fully decoupled from:
-`Vercel Cron (frequency TBD by plan) → GET /score/api/internal/fulfilment-worker (Bearer CRON_SECRET) → claim_next_fulfilment_job() → generateManualPhase1Report() → complete_manual_report_generation() → submit_for_quality_review() → (admin) approve/reject → DELIVERY_QUEUED`.
+`Vercel Cron (production-only, sub-daily once the plan gate is satisfied) → GET /score/api/internal/fulfilment-worker (Bearer CRON_SECRET) → claim_next_fulfilment_job() → generateManualPhase1Report() → complete_manual_report_generation() → submit_for_quality_review() → (admin) approve/reject → DELIVERY_QUEUED`.
+
+## Measuring worker runtime (integrated release-candidate cycle, not this cycle)
+
+Not performed in Release B — recorded here as a required, scoped follow-up for the integrated
+release-candidate cycle, before any production function-limit or cron-interval decision is
+finalised. The RC cycle must measure real worker execution time for: a normal report, a
+materially weak report, a regeneration, a quality-gate failure, and a storage failure — each
+broken down into total invocation duration, PDF rendering duration, storage duration,
+verification duration, memory use where available, and timeout outcome. Do not assume that
+upgrading the cron frequency alone solves function-runtime limits — if report generation cannot
+reliably complete within the selected production function's duration limit, that boundary must
+be redesigned before production, not worked around. Do not add a paid background/queue service
+pre-emptively to avoid this measurement — see "Why this does not need an external paid queue"
+above; that reasoning does not change based on runtime numbers not yet collected.
+
+## Why no other scheduler or orchestration platform is added here
+
+Explicitly out of scope for Release B, and not implicitly reopened by the cron-plan finding
+above: an external cron provider, Redis, Upstash, QStash, a new queue service, Vercel Queues,
+Vercel Workflow (the existing dormant DevKit integration, per the Release B0 audit) as a new
+primary orchestrator, another hosted worker, or a second Vercel project. The Hobby-plan cron
+limitation is a *scheduling frequency* problem, not evidence that the Postgres-backed claim/
+lease/retry design itself is insufficient — that design already supplies durable database
+state, atomic payment-and-job creation, exclusive claims, leases, retries, expired-lease
+recovery, a manual-review state, admin recovery, quality review, and the delivery-queue
+handoff. Adding a second orchestration system to work around a plan-tier limit would duplicate
+that already-working design and introduce a new dependency, credential set, cost surface, and
+recovery model for no corresponding benefit. The correct fix for the frequency problem is the
+Vercel plan launch gate above, not a new system.

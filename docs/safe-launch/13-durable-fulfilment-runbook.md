@@ -5,6 +5,16 @@ For an authorised MK operator (`platform_admin`/`finance_admin` for recovery act
 payment-to-fulfilment workflow on an order's admin detail page
 (`/score/admin/orders/{orderReference}`). No step below requires direct SQL editing.
 
+**Current operational status — read before relying on automatic pickup.** The production cron
+trigger is not yet operating at a commercially acceptable frequency: `vercel.json` currently
+runs the worker once daily (`0 3 * * *`), a temporary schedule chosen only because this
+project's Vercel plan (confirmed Hobby tier) rejects anything more frequent. A newly verified
+payment can sit queued for up to ~24 hours before the automatic worker picks it up. Until the
+Vercel plan launch gate (`docs/safe-launch/12-durable-fulfilment-design.md`) is satisfied,
+**"Process queue now" is not just a convenience — it is the practical way paid orders get
+processed promptly**, and operators should expect to use it, not treat automatic cron as
+sufficient on its own.
+
 ## Identify the workflow for an order
 
 Open the order's admin page. The "Fulfilment status" card shows the current
@@ -83,16 +93,22 @@ cannot approve or reject (it can, however, retry/recover, per the role split abo
 
 ## Stop the worker safely
 
-The worker is invoked by the `vercel.json` cron entry, currently `0 3 * * *` (once daily) —
-this project's Vercel plan is confirmed Hobby tier, which rejects any cron schedule more
-frequent than daily (a `*/5 * * * *` schedule failed deployment with exactly this error). See
-`docs/safe-launch/12-durable-fulfilment-design.md` for why this is a real production blocker,
-not just a slow default: a paid customer's report would wait up to ~24 hours for the
-cron-triggered worker on this plan. Use the admin "process queue now" fallback or upgrade the
-Vercel plan before relying on cron alone in production. To stop it without a deploy: remove or
-comment out the `crons` entry in `vercel.json` and redeploy, or disable the cron from the Vercel
-project dashboard. Jobs already `REPORT_QUEUED`/`RETRY_SCHEDULED` simply wait — nothing is lost,
-and no in-flight generation is interrupted mid-render by stopping future cron triggers (an
+The worker is invoked by the `vercel.json` cron entry, currently `0 3 * * *` (once daily). This
+is a **temporary, development-compatible recovery schedule, not the approved production
+schedule** — it exists only because this project's Vercel plan (confirmed Hobby tier) rejects
+anything more frequent (a `*/5 * * * *` schedule failed deployment with exactly this error). The
+certified production interval is one to two minutes, subject to final performance testing; do
+not change to it before the Vercel plan is upgraded, or deployments will fail again. Note also
+that Vercel Cron only executes against production deployments — a passing PR preview build
+proves the route compiles and deploys, not that cron has ever actually invoked it. See
+`docs/safe-launch/12-durable-fulfilment-design.md` ("Vercel plan launch gate", "Worker trigger
+model") for the full picture: automatic cron is the intended *normal* path once the plan gate is
+satisfied, but until then, the admin "Process queue now" action is the practical way paid orders
+get processed promptly — treat it as such, not as an occasional convenience. To stop the worker
+without a deploy: remove or comment out the `crons` entry in `vercel.json` and redeploy, or
+disable the cron from the Vercel project dashboard. Jobs already `REPORT_QUEUED`/
+`RETRY_SCHEDULED` simply wait — nothing is lost, and no in-flight generation is interrupted
+mid-render by stopping future cron triggers (an
 already-claimed job keeps running to completion within its own request).
 
 ## Resume the worker safely
