@@ -336,6 +336,11 @@ const tests = [
     ).trim();
     assert.equal(withOverride, simulatedPrHead, 'V7_ARTIFACT_HEAD_SHA (the PR branch head) must win over whatever git rev-parse HEAD (the merge-ref commit) would independently resolve to');
     assert.notEqual(withOverride, simulatedMergeRefHead, 'the resolved head SHA must not silently fall back to the merge-ref commit once a PR-head override is present');
+  }],
+  ['F17 near-empty-page rule regression fixtures (occupancy-led, no page-number exception)', () => {
+    const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    const output = execFileSync(PYTHON, [auditScript, '--self-test-near-empty-rule'], { cwd: ROOT, encoding: 'utf8' });
+    assert.match(output, /all 5 near-empty-rule regression fixtures passed/);
   }]
 ];
 
