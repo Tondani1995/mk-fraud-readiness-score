@@ -50,9 +50,9 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
   };
 }
 
-export async function getPremiumReportAutomationFlags(): Promise<PremiumReportAutomationFlags> {
+export async function getPremiumReportAutomationFlags(dbOverride?: any): Promise<PremiumReportAutomationFlags> {
   try {
-    const db = createSupabaseServiceClient() as any;
+    const db = dbOverride ?? createSupabaseServiceClient() as any;
     const [
       { data, error },
       { data: gate, error: gateError },

@@ -1,0 +1,106 @@
+name: V7 Report Hardening
+
+# V7 Checkpoint A correction: this workflow is the mandatory CI gate for the Essential Report V7
+# commercial-hardening work. It intentionally does NOT require or reference any production Supabase
+# credentials -- v7:test-checkpoint-a-unit is a pure, credential-free unit suite (see
+# scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs and
+# scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs). The separate DB-backed integration
+# script (scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs, run via
+# `npm run v7:test-checkpoint-a-db`) requires a real database and is deliberately NOT run here --
+# see the Checkpoint A correction report for why, and how that source claim was independently
+# verified instead (a read-only production query, not a credentialed CI job).
+#
+# V7 Checkpoint A FINAL correction: dependency installation is now unconditionally `npm ci`, which
+# requires and validates package-lock.json against package.json -- it fails the workflow outright
+# if the lockfile is missing or out of sync, rather than silently falling back to a floating
+# `npm install`. package-lock.json is also now in the path filters below, so a lockfile change
+# alone (e.g. a dependency bump) triggers this workflow, not just source/script/package.json edits.
+#
+# V7 Checkpoint B: adds the fail-closed commercial quality gate suite
+# (scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs, run via `npm run
+# v7:test-checkpoint-b`) to the mandatory, credential-free CI gate. Like the Checkpoint A suite, it
+# never touches a real Supabase instance or a real PDF renderer -- generateManualPhase1Report()'s
+# lifecycle tests use a recording fake `db` and injected assembleReportData/
+# validatePremiumReportGenerationEntitlement/getPhase1SchemaCapability/renderValidatedCommercialPdf
+# (phase1-manual-fulfilment.ts's ManualPhase1Dependencies), and the render-stage tests use a fake
+# PDF-render function (renderHtmlToPdfBuffer/Puppeteer/Chromium is never invoked in CI by this
+# suite).
+#
+# V7 Checkpoint C adds the credential-free materiality/playbook suite. It executes the production
+# evidence-model functions against production-shaped persisted-evidence fixtures, including strong
+# assessment safety, deterministic shuffle/deduplication, authoritative-label consumption and the
+# fail-closed exact-playbook boundary. The aggregate command now runs Checkpoints A, B and C.
+#
+# V7 Checkpoint D adds the credential-free decision-model and AI evidence-contract suite. It proves
+# deterministic risk, contradiction, scenario, control, decision and roadmap structures; validates
+# canonical evidence references and checksums; and verifies the evidence builder never activates an
+# AI provider. The aggregate command now runs Checkpoints A, B, C and D.
+#
+# V7 Checkpoints E and F extend the same credential-free gate through active-path AI narrative
+# integration and the real Chromium PDF renderer. Checkpoint F renders four fixed synthetic
+# candidates twice, rasterises every page at 200 DPI, runs the commercial PDF audit and publishes
+# controller-review artifacts. No production data, database credential or external AI provider is
+# used.
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/reports/**'
+      - 'scripts/phase-v7-**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/v7-report-hardening.yml'
+  push:
+    paths:
+      - 'src/lib/reports/**'
+      - 'scripts/phase-v7-**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/v7-report-hardening.yml'
+
+jobs:
+  v7-report-hardening:
+    name: V7 Report Hardening checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies (mandatory npm ci -- fails if package-lock.json is missing or out of sync)
+        run: |
+          test -f package-lock.json
+          npm ci
+
+      - name: Install Checkpoint F PDF inspection dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes poppler-utils
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow==11.3.0 pypdf==5.9.0
+
+      - name: Run TypeScript check
+        run: npm run typecheck
+
+      - name: Run V7 report-hardening suite (Checkpoints A through F, credential-free)
+        # actions/checkout@v4 on a pull_request event checks out the synthetic merge-ref commit
+        # (refs/pull/<PR>/merge), not the PR branch tip -- so `git rev-parse HEAD` inside this job
+        # returns a commit GitHub never ties the artifact to. V7_ARTIFACT_HEAD_SHA carries the real
+        # PR head (falling back to github.sha only for non-PR triggers, e.g. push) so every
+        # generated review file records the same SHA reviewers actually see on the PR.
+        env:
+          V7_ARTIFACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run v7:test-report-hardening
+
+      - name: Publish Checkpoint F rendered PDF review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-report-checkpoint-f-${{ github.event.pull_request.head.sha || github.sha }}
+          path: tmp/pdfs/checkpoint-f-artifact/
+          if-no-files-found: error
+          retention-days: 14

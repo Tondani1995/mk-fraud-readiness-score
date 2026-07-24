@@ -1,7 +1,9 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
+import type { AdvisoryEvidenceModel } from '../evidence-model';
 
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-premium-report-v3-grounded-narrative';
-export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-premium-ai-grounded-narrative-v3';
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v4-advisory-editor';
+export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v4';
+export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v1';
 
 /** Maximum characters the AI may write for any single narrative body field. Mirrors the
  * deterministic-validator body length ceiling in automation/validation.ts (2500). */
@@ -51,17 +53,28 @@ export type ReportEvidenceKind =
   | 'gap_count'
   | 'domain'
   | 'gap'
+  | 'question_response'
+  | 'material_finding'
   | 'maturity_cap'
+  | 'contradiction'
+  | 'plausible_scenario'
+  | 'risk'
+  | 'control_improvement'
+  | 'evidence_checklist'
+  | 'leadership_decision'
+  | 'roadmap_action'
+  | 'assessment_limitation'
   | 'roadmap';
 
 export interface ReportEvidenceItem {
   id: string;
   kind: ReportEvidenceKind;
   label: string;
-  value: string | number | boolean | null | Record<string, unknown>;
+  value: unknown;
   domainCode?: string;
   questionCode?: string;
   ruleCode?: string;
+  evidenceRefs?: string[];
 }
 
 export interface PremiumReportEvidencePack {
@@ -70,7 +83,12 @@ export interface PremiumReportEvidencePack {
   organisationName: string;
   packageName: string;
   scoreRunId: string;
+  methodologyVersionId?: string;
+  generatedAt?: string;
+  selfAssessmentLimitation?: string;
   methodologyAuthority: 'deterministic';
+  narrativeAuthority?: 'ai_optional_validated';
+  advisoryModel?: AdvisoryEvidenceModel;
   items: ReportEvidenceItem[];
 }
 
@@ -125,6 +143,25 @@ export interface PremiumReportAiEditorialPlan {
   }>;
 }
 
+export interface NarrativeSectionBrief {
+  sectionId: string;
+  purpose: string;
+  requiredEvidenceRefs: string[];
+  allowedEvidenceRefs: string[];
+  requiredThemes: string[];
+  prohibitedThemes: string[];
+  maxCharacters: number;
+}
+
+export interface PremiumReportNarrativeBrief {
+  version: 'mk-essential-narrative-brief-v1';
+  executive: NarrativeSectionBrief;
+  falseComfort: NarrativeSectionBrief;
+  leadership: NarrativeSectionBrief;
+  domains: Record<string, NarrativeSectionBrief>;
+  gaps: Record<string, NarrativeSectionBrief>;
+}
+
 export interface NarrativeValidationIssue {
   code: string;
   path: string;
@@ -154,15 +191,19 @@ export interface NarrativeGenerationResult {
   usage?: NarrativeGenerationUsage;
 }
 
+export interface NarrativeRepairScope {
+  failedSectionIds: string[];
+}
+
 export interface NarrativeGenerationInput {
   evidence: PremiumReportEvidencePack;
   evidenceChecksum: string;
-  deterministicContent: SelectedContent;
-  roadmap: { agenda: RoadmapItem[] };
+  narrativeBrief: PremiumReportNarrativeBrief;
   promptVersion: string;
   schemaVersion: string;
   previousOutput?: PremiumReportAiEditorialPlan;
   validationIssues?: NarrativeValidationIssue[];
+  repairScope?: NarrativeRepairScope;
 }
 
 export interface PremiumReportNarrativeGenerator {
@@ -190,10 +231,13 @@ export interface BuildPremiumReportNarrativeInput {
   assembled: AssembledReportData;
   deterministicContent: SelectedContent;
   roadmap: { agenda: RoadmapItem[] };
+  advisoryModel?: AdvisoryEvidenceModel;
   flags: PremiumReportAutomationFlags;
   generator?: PremiumReportNarrativeGenerator;
   generationIdentity?: string;
   fulfilmentId?: string | null;
+  manualGenerationAttemptId?: string | null;
   workerCapabilityId?: string | null;
   authorizeAiAction?: () => Promise<unknown>;
+  attemptStore?: import('./durable-ai-attempts').DurableNarrativeAttemptStore;
 }

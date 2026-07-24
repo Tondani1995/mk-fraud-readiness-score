@@ -53,7 +53,18 @@
     "phase14:test-sixth-remediation": "psql \"$LOCAL_DB_URL\" --set=ON_ERROR_STOP=1 --file=scripts/phase14-sixth-remediation-tests.sql",
     "phase14:test-node24-pdf": "node scripts/phase14-node24-chromium-smoke.mjs",
     "platform:test-hardening": "node scripts/platform-hardening-tests.mjs && node scripts/phase14-database-security-hardening-tests.mjs",
-    "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs"
+    "methodology:copy-test": "node scripts/methodology-copy-polish-tests.mjs",
+    "v7:test-checkpoint-a-quality-gate-baseline": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs",
+    "v7:test-checkpoint-a-response-label-unit": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs",
+    "v7:test-checkpoint-a-unit": "npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-unit",
+    "v7:test-checkpoint-a-db": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs",
+    "v7:test-checkpoint-b": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs",
+    "v7:test-checkpoint-c": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-c-materiality-playbook-tests.mjs",
+    "v7:test-checkpoint-d": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs",
+    "v7:test-checkpoint-e": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-e-ai-narrative-integration-tests.mjs",
+    "v7:test-checkpoint-e-migration": "node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs",
+    "v7:test-checkpoint-f": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-f-rendered-pdf-tests.mjs",
+    "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c && npm run v7:test-checkpoint-d && npm run v7:test-checkpoint-e && npm run v7:test-checkpoint-f"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
@@ -76,6 +87,8 @@
     "lucide-react": "0.562.0",
     "mongoose": "9.7.4",
     "next": "^14.2.13",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.1.200",
     "puppeteer-core": "24.34.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

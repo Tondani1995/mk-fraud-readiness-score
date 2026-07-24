@@ -55,8 +55,8 @@ async function runStructuredGeneration(input: {
     prompt: input.prompt,
     output: Output.object({
       schema: premiumReportNarrativeSchema,
-      name: 'mk_premium_report_narrative',
-      description: 'Evidence-reference editorial plan. It contains no scores, control assertions, roadmap claims, or free-form prose.'
+      name: 'mk_essential_report_v4_advisory_editor',
+      description: 'Controlled customer-facing narrative bodies with section-scoped deterministic evidence references. Titles, scores, findings, controls, decisions, owners and roadmap actions are excluded.'
     }),
     maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
     maxRetries: 0,
@@ -96,8 +96,10 @@ async function runStructuredGeneration(input: {
 
 export class AiSdkPremiumReportNarrativeGenerator implements PremiumReportNarrativeGenerator {
   readonly provider: string;
+  readonly model: string;
 
-  constructor(public readonly model: string) {
+  constructor(model: string) {
+    this.model = model;
     this.provider = providerFromModel(model);
   }
 

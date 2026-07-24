@@ -5,22 +5,61 @@ import type {
   ExposureAnswerRecord,
   GapQuestionRecord,
   MaturityCapEventRecord,
-  RecommendationRuleRecord
+  QuestionTraceRecord,
+  RecommendationRuleRecord,
+  ScoreBand
 } from './types';
+import { getOfficialResponseLabels } from './response-labels';
+
+/**
+ * Parses a recommendation rule's numeric score band from its structured condition_json where
+ * possible, falling back to the human-readable title. Both fields are immutable production data
+ * (recommendation_rules cannot be UPDATEd once its methodology version is in use -- see the
+ * immutability trigger), so this has to tolerate the two live phrasings without requiring a data
+ * change: "<=39" / "40-59" / "60-79" / ">=80" (phase1_trigger family) and the same text duplicated
+ * under trigger_text (workbook_trigger family). Replaces the old approach of hardcoding needles like
+ * "40-64" that never matched the real "40-59" title text.
+ */
+export function parseScoreBand(conditionJson: unknown, title: string | null): ScoreBand | null {
+  const raw =
+    (conditionJson && typeof conditionJson === 'object'
+      ? (conditionJson as Record<string, unknown>).trigger_text ?? (conditionJson as Record<string, unknown>).trigger
+      : null) ?? title ?? '';
+  const text = String(raw);
+
+  const lte = text.match(/<=\s*(\d+)/);
+  if (lte) return { min: -Infinity, max: Number(lte[1]) };
+
+  const gte = text.match(/>=\s*(\d+)/);
+  if (gte) return { min: Number(gte[1]), max: Infinity };
+
+  const range = text.match(/(\d+)\s*-\s*(\d+)/);
+  if (range) return { min: Number(range[1]), max: Number(range[2]) };
+
+  return null;
+}
+
+export type ReportAssemblyErrorReason =
+  | 'order_not_found'
+  | 'order_not_eligible'
+  | 'assessment_not_scored'
+  | 'entitlement_snapshot_failed'
+  | 'score_run_missing_domain_results'
+  | 'score_run_missing_question_traces';
 
 export class ReportAssemblyError extends Error {
-  constructor(
-    public readonly reason:
-      | 'order_not_found'
-      | 'order_not_eligible'
-      | 'assessment_not_scored'
-      | 'entitlement_snapshot_failed'
-      | 'score_run_missing_domain_results'
-      | 'score_run_missing_question_traces',
-    message: string
-  ) {
+  readonly reason: ReportAssemblyErrorReason;
+
+  // Explicit field + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why (node --experimental-
+  // strip-types cannot codegen parameter properties, and this file is in the Checkpoint B lifecycle
+  // test's real-orchestration import chain via phase1-manual-fulfilment.ts). Behaviourally
+  // identical to the prior version; the reason union is unchanged, just named and hoisted so it can
+  // be referenced without repeating it.
+  constructor(reason: ReportAssemblyErrorReason, message: string) {
     super(message);
     this.name = 'ReportAssemblyError';
+    this.reason = reason;
   }
 }
 
@@ -102,36 +141,61 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: traceRows, error: traceError } = await supabase
     .from('score_question_traces')
-    .select('response_value, is_critical_gap, is_major_gap, questions:question_id(question_code, prompt, is_critical, is_hard_gate, domains:domain_id(domain_code, name))')
-    .eq('score_run_id', scoreRunRow.id)
-    .or('is_critical_gap.eq.true,is_major_gap.eq.true');
+    .select('response_value, normalised_score, applicable, triggered_rules, is_critical_gap, is_major_gap, questions:question_id(question_code, prompt, is_critical, is_hard_gate, domains:domain_id(domain_code, name))')
+    .eq('score_run_id', scoreRunRow.id);
 
   if (traceError) throw new ReportAssemblyError('score_run_missing_question_traces', `Failed to load question traces for score run ${scoreRunRow.id}.`);
 
-  const criticalMajorGaps: GapQuestionRecord[] = (traceRows ?? []).map((row: any) => ({
+  const questionTraces: QuestionTraceRecord[] = (traceRows ?? []).map((row: any) => ({
     questionCode: row.questions.question_code,
     domainCode: row.questions.domains.domain_code,
     domainName: row.questions.domains.name,
     prompt: row.questions.prompt,
     responseValue: row.response_value,
+    normalisedScore: row.normalised_score === null ? null : Number(row.normalised_score),
+    applicable: Boolean(row.applicable),
+    triggeredRules: Array.isArray(row.triggered_rules) ? row.triggered_rules : [],
     isCritical: row.questions.is_critical,
     isHardGate: row.questions.is_hard_gate,
     isCriticalGap: row.is_critical_gap,
     isMajorGap: row.is_major_gap
-  }));
+  })).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
 
+  const criticalMajorGaps: GapQuestionRecord[] = questionTraces
+    .filter((trace) => trace.isCriticalGap || trace.isMajorGap)
+    .map(({ normalisedScore: _normalisedScore, applicable: _applicable, triggeredRules: _triggeredRules, ...gap }) => gap);
+
+  // The official scale is loaded once for the score run's persisted methodology version. This is
+  // deliberately not an active-methodology lookup and not a per-finding query.
+  const officialResponseLabels = await getOfficialResponseLabels(scoreRunRow.methodology_version_id);
+
+  // related_domain_id can be null on question-level cap events (every question belongs to a
+  // domain, but the cap-writing path only ever persisted the question reference for those rules).
+  // Resolve the domain through the question as a fallback rather than mutating locked score-run
+  // history: maturity_cap_events rows are guarded by guard_score_trace_write once the parent score
+  // run is completed/locked, so a data backfill is not possible (and would be the wrong fix anyway
+  // -- resolving at read time is resilient to any future rule that has the same gap).
   const { data: capRows } = await supabase
     .from('maturity_cap_events')
-    .select('rule_code, cap_to, reason, questions:related_question_id(question_code), domains:related_domain_id(domain_code)')
+    .select(
+      'rule_code, cap_to, reason, question:related_question_id(question_code, prompt, question_domain:domain_id(domain_code, name)), domain:related_domain_id(domain_code, name)'
+    )
     .eq('score_run_id', scoreRunRow.id);
 
-  const maturityCapEvents: MaturityCapEventRecord[] = (capRows ?? []).map((row: any) => ({
-    ruleCode: row.rule_code,
-    capTo: row.cap_to,
-    reason: row.reason,
-    relatedQuestionCode: row.questions?.question_code ?? null,
-    relatedDomainCode: row.domains?.domain_code ?? null
-  }));
+  const maturityCapEvents: MaturityCapEventRecord[] = (capRows ?? []).map((row: any) => {
+    const directDomain = row.domain ?? null;
+    const questionDomain = row.question?.question_domain ?? null;
+    const resolvedDomain = directDomain ?? questionDomain;
+    return {
+      ruleCode: row.rule_code,
+      capTo: row.cap_to,
+      reason: row.reason,
+      relatedQuestionCode: row.question?.question_code ?? null,
+      relatedQuestionPrompt: row.question?.prompt ?? null,
+      relatedDomainCode: resolvedDomain?.domain_code ?? null,
+      relatedDomainName: resolvedDomain?.name ?? null
+    };
+  });
 
   const { data: exposureRows } = await supabase
     .from('exposure_answers')
@@ -150,25 +214,35 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
     .map(({ sortOrder: _sortOrder, ...rest }: any) => rest);
 
+  // recommendation_rules is immutable once its methodology_version_id is used by any assessment
+  // (trg_recommendation_rules_immutability / prevent_methodology_mutation_after_use) -- both
+  // methodology versions in production are already in use, so this data cannot be edited or
+  // deduplicated in place. The fix has to live in how we parse the existing, unmutated rows.
   const { data: ruleRows } = await supabase
     .from('recommendation_rules')
-    .select('rule_code, title, severity, action_30, action_60, action_90')
+    .select('rule_code, title, severity, condition_json, action_30, action_60, action_90')
     .eq('active', true)
     .not('action_30', 'is', null);
 
+  // Duplicate rows exist (two seeding generations -- "REC-xx"/workbook_trigger and
+  // "domain_score_xx"/phase1_trigger -- plus exact re-seeds within each). They are content-identical
+  // per rule, so first-match dedup by a content key is safe: it doesn't hide distinct rules, only
+  // repeated copies of the same one. True cleanup would require a new methodology version and is
+  // out of scope here; documented as a known limitation.
   const seen = new Set<string>();
   const recommendationRules: RecommendationRuleRecord[] = [];
   for (const row of ruleRows ?? []) {
-    if (seen.has(row.rule_code)) continue;
-    seen.add(row.rule_code);
+    const dedupeKey = `${row.title}::${row.severity}::${row.action_30}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
     recommendationRules.push({
       ruleCode: row.rule_code,
       title: row.title,
       severity: row.severity,
+      scoreBand: parseScoreBand(row.condition_json, row.title),
       action30: row.action_30,
       action60: row.action_60,
-      action90: row.action_90,
-      firedForDomainCodes: []
+      action90: row.action_90
     });
   }
 
@@ -202,6 +276,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     scoreRun: {
       id: scoreRunRow.id,
       assessmentId: scoreRunRow.assessment_id,
+      methodologyVersionId: scoreRunRow.methodology_version_id,
       status: scoreRunRow.status,
       lockedAt: scoreRunRow.locked_at ?? null,
       inputHash: scoreRunRow.input_hash ?? null,
@@ -219,7 +294,9 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     },
     domainResults,
     exposureAnswers,
+    questionTraces,
     criticalMajorGaps,
+    officialResponseLabels,
     maturityCapEvents,
     recommendationRules,
     expectedDomainResultCount: Number(expectedDomainCount ?? 0),

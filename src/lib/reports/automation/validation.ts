@@ -11,6 +11,8 @@ const PROHIBITED_PATTERNS: Array<{ code: string; pattern: RegExp; message: strin
   { code: 'certification_claim', pattern: /\b(certified|certification|accredited|accreditation)\b/i, message: 'Certification or accreditation claims are not allowed.' },
   { code: 'compliance_conclusion', pattern: /\b(fully compliant|legally compliant|regulatory compliance is confirmed|meets all regulatory requirements)\b/i, message: 'The report may not make a legal or regulatory compliance conclusion.' },
   { code: 'guarantee_claim', pattern: /\b(guarantee[sd]?|will eliminate|will prevent all|fraud[- ]proof|zero fraud)\b/i, message: 'Guarantees and absolute fraud-prevention claims are not allowed.' },
+  { code: 'unsupported_assurance_claim', pattern: /\b(?:the\s+)?(?:controls?|organisation|organization)(?:\s+environment)?\s+(?:is|are|has been)\s+(?:effective|well protected|proven|verified|independently validated)\b|\b(?:a defensible position|genuine readiness)\b/i, message: 'Unqualified assurance or independent-validation claims are not supported by self-assessment evidence.' },
+  { code: 'allegation_language', pattern: /\b(?:fraud (?:occurred|has occurred|was committed)|(?:an?\s+)?employee committed fraud|(?:the\s+)?supplier is fraudulent|this (?:incident|event|scenario) (?:occurred|happened|is confirmed))\b/i, message: 'The self-assessment does not support allegations that fraud or a scenario actually occurred.' },
   { code: 'secret_leakage', pattern: /\b(service[_ -]?role|supabase[_ -]?(key|url)|api[_ -]?key|vercel[_ -]?(token|oidc)|bearer token|access token)\b/i, message: 'Internal credentials or infrastructure identifiers are not allowed.' },
   { code: 'internal_reference', pattern: /\b(score_run_id|assessment_id|question_id|report_fulfilment|generation_run_id)\b/i, message: 'Internal database identifiers are not allowed.' },
   // L1: the checks above are a literal-keyword denylist (infrastructure vocabulary like "api key"
@@ -155,7 +157,8 @@ function validateText(
   allowedNumbers: Set<string>,
   evidence: PremiumReportEvidencePack,
   issues: NarrativeValidationIssue[],
-  prohibitMetricRestatement: boolean
+  prohibitMetricRestatement: boolean,
+  responseScope: 'general' | 'domain' | 'gap' = 'general'
 ) {
   if (value.title !== undefined && value.title.length > 140) issues.push(issue('title_too_long', `${path}.title`, 'Title exceeds 140 characters.'));
   if (value.body.length > 2500) issues.push(issue('body_too_long', `${path}.body`, 'Body exceeds 2,500 characters.'));
@@ -179,6 +182,55 @@ function validateText(
     }
   }
   validateMetricClaims(path, value, evidence, issues, prohibitMetricRestatement);
+
+  const cited = citedItems(value.evidenceRefs, evidence);
+  const responseItems = cited.filter((item) => item.kind === 'question_response' || item.kind === 'gap');
+  const stateSubject = String.raw`\b(?:controls?(?:\s+in\s+(?:this|the)\s+domain)?|process(?:es)?|measures?|practices?|capabilit(?:y|ies)|arrangements?|responses?|the\s+domain)\b[^.\n]{0,50}\b(?:is|are|was|were|has\s+been|have\s+been|remains?|operate(?:s)?)\s+`;
+  const contradictsOperatingResponse = new RegExp(
+    `${stateSubject}(?:absent|not implemented|merely planned)|\\b(?:control|process|measure|practice)\\b[^.\\n]{0,50}\\b(?:does not exist|has not been implemented)\\b`,
+    'i'
+  );
+  const implementedOrOperatingClaim = new RegExp(
+    `${stateSubject}(?:implemented(?:\\s+and\\s+in\\s+use)?|in\\s+use|operating|operational|consistently\\s+operating|embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved)`,
+    'i'
+  );
+  const consistentlyOperatingClaim = new RegExp(
+    `${stateSubject}(?:consistently\\s+operating|operating\\s+consistently|consistently\\s+in\\s+use)`,
+    'i'
+  );
+  const embeddedImprovedClaim = new RegExp(
+    `${stateSubject}(?:embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved|subject\\s+to\\s+continuous\\s+improvement)`,
+    'i'
+  );
+  const responseValues = responseItems
+    .map((item) => record(item.value) ? Number(item.value.responseValue) : Number.NaN)
+    .filter((responseValue) => Number.isInteger(responseValue) && responseValue >= 0 && responseValue <= 5);
+  const strictestResponseValue = responseValues.length > 0 ? Math.min(...responseValues) : null;
+  if (contradictsOperatingResponse.test(text) && responseItems.some((item) => {
+    const responseValue = record(item.value) ? Number(item.value.responseValue) : Number.NaN;
+    return responseValue >= 3;
+  })) {
+    issues.push(issue('response_label_misstatement', path, 'Narrative contradicts an official response value of 3, 4 or 5, which records an operating control state.'));
+  }
+  if (strictestResponseValue !== null && implementedOrOperatingClaim.test(text) && strictestResponseValue <= 2) {
+    issues.push(issue('response_label_misstatement', path, `Narrative overstates an official response value of ${strictestResponseValue} as implemented or operating.`));
+  }
+  if (strictestResponseValue === 3 && (consistentlyOperatingClaim.test(text) || embeddedImprovedClaim.test(text))) {
+    issues.push(issue('response_label_misstatement', path, 'Narrative overstates response value 3 (implemented and in use) as a stronger operating state.'));
+  }
+  if (strictestResponseValue === 4 && embeddedImprovedClaim.test(text)) {
+    issues.push(issue('response_label_misstatement', path, 'Narrative overstates response value 4 (consistently operating) as embedded or improved.'));
+  }
+  if (responseScope === 'domain' && new Set(responseValues).size > 1
+    && (contradictsOperatingResponse.test(text) || implementedOrOperatingClaim.test(text)
+      || consistentlyOperatingClaim.test(text) || embeddedImprovedClaim.test(text))) {
+    issues.push(issue('response_label_misstatement', path, 'Domain narrative makes a blanket response-state claim across mixed official response values.'));
+  }
+
+  const citesDecision = cited.some((item) => item.kind === 'leadership_decision');
+  if (citesDecision && /\b(?:the\s+)?decision\b[^.\n]{0,50}\b(?:is|was|has been)\s+(?:implemented|completed|delivered|operational)\b/i.test(text)) {
+    issues.push(issue('decision_action_confusion', path, 'A required leadership decision may not be described as an implemented or completed action.'));
+  }
 }
 
 function validateEvidenceRefs(path: string, refs: unknown, knownRefs: Set<string>, requiredRef: string | null, issues: NarrativeValidationIssue[]) {
@@ -290,7 +342,7 @@ export function validatePremiumReportNarrative(
       if (seen.has(section.domainCode)) issues.push(issue('duplicate_domain_narrative', `${path}.domainCode`, `Domain ${section.domainCode} is duplicated.`));
       seen.add(section.domainCode);
       if (!expectedDomainCodes.has(section.domainCode)) issues.push(issue('unknown_domain', `${path}.domainCode`, `Domain ${section.domainCode} is not in the evidence pack.`));
-      validateText(path, section, allowedNumbers, evidence, issues, options.prohibitMetricRestatement === true);
+      validateText(path, section, allowedNumbers, evidence, issues, options.prohibitMetricRestatement === true, 'domain');
       validateEvidenceRefs(path, section.evidenceRefs, knownRefs, `domain:${section.domainCode}`, issues);
 
       const domainEvidence = expectedDomains.find((item) => item.domainCode === section.domainCode);
@@ -323,7 +375,7 @@ export function validatePremiumReportNarrative(
       if (seen.has(section.questionCode)) issues.push(issue('duplicate_gap_commentary', `${path}.questionCode`, `Gap ${section.questionCode} is duplicated.`));
       seen.add(section.questionCode);
       if (!expectedGapCodes.has(section.questionCode)) issues.push(issue('unknown_gap', `${path}.questionCode`, `Gap ${section.questionCode} is not in the evidence pack.`));
-      validateText(path, section, allowedNumbers, evidence, issues, options.prohibitMetricRestatement === true);
+      validateText(path, section, allowedNumbers, evidence, issues, options.prohibitMetricRestatement === true, 'gap');
       validateEvidenceRefs(path, section.evidenceRefs, knownRefs, `gap:${section.questionCode}`, issues);
     });
 

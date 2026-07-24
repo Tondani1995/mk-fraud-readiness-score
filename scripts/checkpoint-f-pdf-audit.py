@@ -1,0 +1,1003 @@
+#!/usr/bin/env python3
+"""Credential-free rendered-PDF audit and review-artifact builder for V7 Checkpoint F."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+from PIL import Image, ImageChops, ImageDraw
+from pypdf import PdfReader
+
+
+def resolve_head_sha() -> str:
+    """Checkpoint F controller review blocker 8: review metadata must be computed from the final
+    artifact, not hard-coded -- including the head SHA the candidates were built from.
+
+    Final controller review round: on a pull_request CI run, the checked-out working tree is the
+    synthetic merge-ref commit (refs/pull/<PR>/merge), not the PR branch head GitHub ties the
+    artifact to -- so `git rev-parse HEAD` alone would silently record the wrong SHA. The workflow
+    exports V7_ARTIFACT_HEAD_SHA (github.event.pull_request.head.sha, falling back to github.sha for
+    non-PR runs); that always wins when present. `git rev-parse HEAD` remains a local-dev fallback
+    for running this script directly, outside CI, where no such env var exists."""
+    env_sha = os.environ.get("V7_ARTIFACT_HEAD_SHA", "").strip()
+    if env_sha:
+        return env_sha
+    try:
+        repo_root = Path(__file__).resolve().parent.parent
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(repo_root), stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        return "unknown"
+
+
+# Checkpoint F controller review blocker 4: executive-core section headings, in rendered order.
+# Kept in sync with REPORT_TOC_ENTRIES in src/lib/reports/templates/report-template.ts -- every
+# core (non-appendix) key there must appear here, plus "Contents" and the appendix divider/A1-A7
+# headings that TOC entry list also tracks.
+REQUIRED_SECTIONS = [
+    "Contents",
+    "Executive summary",
+    "What the result means",
+    "Domain overview",
+    "Priority findings, contradictions and scenarios",
+    "Priority risks",
+    "Leadership decisions and roadmap",
+    "Evidence validation priorities",
+    "Methodology, limitations and next steps",
+    "Appendix",
+    "A1. Complete material findings register",
+    "A2. Complete risk register",
+    "A3. Complete control improvement register",
+    "A4. Complete evidence checklist",
+    "A5. Functional agenda",
+    "A6. Methodology question-code mapping",
+    "A7. Definitions and score basis",
+]
+
+FORBIDDEN = {
+    "PDF_FORBIDDEN_CORE_CONTROL_COPY": re.compile(r"\bA core control area\b", re.I),
+    "PDF_FORBIDDEN_CREDIBLE_POSITION": re.compile(r"\bThis is a credible position\b", re.I),
+    "PDF_FORBIDDEN_DEFENSIBLE_POSITION": re.compile(r"\ba defensible position\b", re.I),
+    "PDF_FORBIDDEN_GENUINE_READINESS": re.compile(r"\bgenuine readiness\b", re.I),
+    "PDF_FORBIDDEN_INTERNAL_IDENTIFIER": re.compile(
+        r"\b(?:QG_[A-Z0-9_]+|(?:MF|RISK|SC|CI|DEC|RA)-[A-Z0-9]*\d[A-Z0-9]*|[0-9a-f]{8}-[0-9a-f-]{27,})\b",
+        re.I,
+    ),
+    "PDF_FORBIDDEN_EMAIL": re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I),
+    "PDF_FORBIDDEN_SECRET": re.compile(
+        r"\b(?:sk-[A-Za-z0-9_-]{12,}|service_role|SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY)\b", re.I
+    ),
+    "PDF_FORBIDDEN_URL": re.compile(r"https?://|www\.", re.I),
+    "PDF_FORBIDDEN_MARKDOWN": re.compile(r"(?:^|\n)\s{0,3}(?:#{1,6}\s|```|\*\s)", re.M),
+    "PDF_FORBIDDEN_AI_PROVENANCE": re.compile(
+        r"\b(?:AI provider|generation mode|prompt version|schema version|model identifier)\b", re.I
+    ),
+}
+
+# Checkpoint F controller review corrections -- additional stable-code gates.
+EXPOSURE_BANDS = ["Low", "Moderate", "High", "Severe"]
+
+# Blocker 4: page-count budget by fixture (executive core, or core+appendix combined for now --
+# see the "outstanding" note in inspection/commercial-review.md if compression work is incomplete).
+PAGE_BUDGET = {"materially-weak": 42, "moderate": 28, "clean": 22}
+WORD_BUDGET = {"materially-weak": 15000, "moderate": 8500, "clean": 7500}
+
+# Blocker 3: no checkpoint/fixture/test/pipeline/provider jargon in customer-facing prose.
+# Deliberately does NOT ban the bare phrase "evidence pack" -- question-playbooks.ts legitimately
+# uses it to mean a physical/document compliance folder (e.g. a supplier's pre-activation evidence
+# pack), which is ordinary business English, not internal AI-pipeline jargon.
+META_TEST_COPY = re.compile(
+    r"\bcheckpoint [a-z]\b|\bdeterministic (?:advisory )?model\b|\bdeterministic evidence pack\b|"
+    r"\bprompt version\b|\bschema version\b|\bvalidator\b|\beditorial plan\b|\bfixture\b|"
+    r"\btest candidate\b|\bQA artefact\b|\bpipeline\b",
+    re.I,
+)
+
+# Blocker 6: internal question codes (e.g. D1-Q04) must not appear in the core customer-facing report.
+METHOD_CODE = re.compile(r"\bD\d{1,2}-Q\d{2}\b")
+METHOD_CODE_LIMIT = 0
+
+# Third controller review round: internal development/release-governance language (controller
+# approval status, PR/checkpoint/merge/deployment references) must never appear in a customer's
+# purchased PDF -- that copy belongs only in non-customer records (the PR description, this script's
+# own inspection/commercial-review.md, CI logs). Every pattern here is a specific, multi-word phrase
+# (or, for "PR #"/"checkpoint <letter>", an unambiguous internal-reference shape) precisely so
+# ordinary fraud-control language is never falsely flagged -- e.g. a bare "controller" (a legitimate
+# job title, "domain controller", etc.) never matches on its own; only the exact internal-status
+# phrasing does.
+INTERNAL_RELEASE_WORKFLOW_COPY = re.compile(
+    r"\bcontroller review remains required\b|"
+    r"\bawaiting controller review\b|"
+    r"\bcommercial release candidate\b|"
+    r"\brelease approval is not implied\b|"
+    r"\bdraft and unmerged\b|"
+    r"\bpull request\b|"
+    r"\bPR\s*#\d*\b|"
+    r"\bcheckpoint [a-z]\b|"
+    r"\bproduction deployment\b|"
+    r"\bmerge approval\b|"
+    r"\bnot yet approved for (?:merge|commercial release)\b",
+    re.I,
+)
+
+# Fourth controller review round: the customer-facing "Recommended next step" callout (the
+# replacement for the internal release-workflow copy above) must never leak the raw, internal
+# artefact/proof-sentence concatenation it is built from -- see buildEvidenceRecommendation() in
+# report-template.ts. This is deliberately anchored on the literal "--" concatenation marker, not a
+# bare, unconditional match on "Whether The organisation" / "Whether Management" / "operates to the
+# exact expected control standard" -- those three sub-phrases are also the tail of the raw
+# provesWhat sentence rendered legitimately, and outside this round's scope, in the pre-existing
+# Evidence validation priorities table and the A4 appendix's "What it proves" column (a checklist's
+# proof-statement column reads fine as "Whether X operates..."; it is only the callout's narrative
+# prose that reads as a database-field join once an artefact title is glued onto it with "--"). The
+# anchor makes this correctly fire on the exact malformed shape from the controller's report
+# (artefact "--" Whether ... operates to the exact expected control standard) while leaving that
+# unrelated, un-flagged table content untouched, matching "when used in the malformed concatenated
+# form" in the correction brief precisely instead of over-broadly.
+CUSTOMER_COPY_GRAMMAR_DEFECT = re.compile(
+    r"--\s*Whether\b.{0,500}?\boperates? to the exact expected control standard\b",
+    re.I | re.S,
+)
+
+# Blocker 1 (rendered-PDF proof): literal absolute-assertion fragments that can only appear if the
+# raw (non-resilience) pathway text leaked into a clean-assurance candidate -- mirrors
+# ASSURANCE_BODY_ASSERTION_PATTERNS in src/lib/reports/evidence-model/index.ts.
+ASSURANCE_SEMANTIC_FAILURE = re.compile(
+    r"are not clearly separated|are not documented and rehearsed|is not completely restricted, logged|"
+    r"\bhave failed\b|\bhas failed\b|is delayed or uncoordinated|remain unresolved or accepted|"
+    r"remain ownerless|cannot be relied upon|may be unable to demonstrate|provide false comfort",
+    re.I,
+)
+
+# Blocker 5: near-empty/tail-page detection. Cover (1) and the governance/version page (2) are
+# allowed exceptions; a final page is no longer exempted merely for being last (see the per-page
+# loop below) -- only an intentional page identified by its own content signature is exempt.
+NEAR_EMPTY_EXEMPT_PAGES = {1, 2}
+NEAR_EMPTY_CHAR_THRESHOLD = 600
+# Final controller review round: raw dark-pixel *density* (the previous 0.02 ink-ratio threshold)
+# is a poor proxy for how much of the page is actually used -- a short paragraph or a small partial
+# chart has similar pixel-level darkness to a denser page, since both are mostly whitespace between
+# strokes, so a real continuation page (a chart fragment clinging to the top of an otherwise blank
+# page) could clear a 2% density bar while leaving most of the page unused. Occupied *area* --
+# specifically, how far down the body region the content's bounding box actually extends -- is what
+# distinguishes that case. 0.34 means content must span at least roughly a third of the body height;
+# below that, more than roughly two-thirds of the body area is unused.
+NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD = 0.34
+# Second controller review round: gating the occupied-area check behind `body_chars < 600` let a
+# page with two large table rows (well over 600 characters of cell text, but occupying only ~20% of
+# the body height, e.g. a 2-row continuation of an otherwise-finished register) pass unexamined --
+# the exact "page 24 / page 26" defect class. Occupied area must therefore also be checked as an
+# independent, text-count-agnostic signal: any non-exempt page whose content spans less than ~26%
+# of the body height fails regardless of how much text is packed into that small area. 0.26 is
+# deliberately looser than the 0.34 paired threshold above (which only fires alongside genuinely
+# low text) so a legitimate full-height table with few but large cells -- content reaching close to
+# the bottom of the page even if it isn't textually dense -- still passes on area alone.
+NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR = 0.26
+
+
+def body_region_occupied_ratio(image_path: Path) -> float:
+    """Fraction of the page body's vertical extent (excluding a thin header/footer band) actually
+    spanned by non-white content, measured from the topmost to the bottommost non-white row of the
+    body region. Unlike raw dark-pixel density, this catches a page whose only content is a small
+    chart fragment or a couple of trailing rows clinging to the top of the page while the remaining
+    two-thirds-plus of the body is blank."""
+    with Image.open(image_path).convert("L") as image:
+        width, height = image.size
+        top = int(height * 0.05)
+        bottom = int(height * 0.95)
+        region = image.crop((0, top, width, bottom))
+        mask = region.point(lambda p: 255 if p < 235 else 0)
+        bbox = mask.getbbox()
+        if bbox is None:
+            return 0.0
+        _, content_top, _, content_bottom = bbox
+        return (content_bottom - content_top) / region.height if region.height else 0.0
+
+
+def is_appendix_divider_page(page_text: str) -> bool:
+    """The one allowed content-signature exemption beyond the fixed cover/governance pages: the
+    appendix's own intentional, deliberately short divider page. Matched on its fixed opening text,
+    never on a page number."""
+    return "APPENDIX" in page_text and page_text.strip().startswith("APPENDIX\nAppendix\n")
+
+
+def page_is_near_empty(page_text: str, occupied_ratio: float) -> bool:
+    """Pure, standalone near-empty decision for a single page given its already-computed body-text
+    and occupied-area signals -- deliberately factored out of the per-candidate loop (which is only
+    responsible for resolving page_text/occupied_ratio and applying the fixed page/content-signature
+    exemptions) so the rule itself is directly unit-testable; see self_test_near_empty_rule() below.
+
+    A page fails when EITHER:
+      1. occupied area alone is materially below NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR, regardless
+         of how much text is packed into that small area (catches a page carrying two or more large
+         table rows -- well over NEAR_EMPTY_CHAR_THRESHOLD characters -- that still leaves most of
+         the body blank); or
+      2. text is low (< NEAR_EMPTY_CHAR_THRESHOLD) AND occupied area is below the looser
+         NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD (the paired low-text/low-area rule, for genuinely sparse
+         pages that don't trip the tighter absolute floor).
+
+    A legitimate full-height table with few but large cells reaches a high occupied ratio on area
+    alone (its last row is near the bottom of the page), so it passes under both rules regardless of
+    its character count -- this function never treats low text alone as disqualifying.
+    """
+    if occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR:
+        return True
+    body_chars = len(normalise_page(page_text))
+    return body_chars < NEAR_EMPTY_CHAR_THRESHOLD and occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD
+
+
+def self_test_near_empty_rule() -> None:
+    """Regression fixtures for the near-empty-page rule correction (second controller review round).
+    Runs in-process against synthetic PIL images and fabricated page text -- no rendered PDF or
+    candidate fixture required -- so the rule itself stays covered even if the real report content
+    changes enough that none of the four live candidates happen to exercise every branch."""
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+    width, height = 1240, 1754  # A4 @ ~150dpi, matches the audit's own raster proportions closely enough
+
+    def make_image(dark_top_frac: float, dark_bottom_frac: float) -> Path:
+        image = _Image.new("L", (width, height), color=255)
+        if dark_bottom_frac > dark_top_frac:
+            draw = _ImageDraw.Draw(image)
+            top = int(height * dark_top_frac)
+            bottom = int(height * dark_bottom_frac)
+            draw.rectangle([40, top, width - 40, bottom], fill=0)
+        path = Path(tempfile.mkstemp(suffix=".png")[1])
+        image.save(path)
+        return path
+
+    large_row_text = ("A " * 40 + "\n") * 10  # >600 chars, simulating two large table-cell rows
+    assert len(large_row_text) > NEAR_EMPTY_CHAR_THRESHOLD
+
+    # 1. Two large table rows confined to the top ~20% of the body, ~80% blank below, must fail --
+    #    proves occupied area is checked independently of text count (the "page 24 / page 26" defect).
+    top_heavy = make_image(0.06, 0.24)
+    ratio = body_region_occupied_ratio(top_heavy)
+    assert ratio < NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR, f"fixture did not simulate a top-heavy page: ratio={ratio}"
+    assert page_is_near_empty(large_row_text, ratio), "a page with >600 chars confined to ~20% of the body must still fail"
+    top_heavy.unlink()
+
+    # 2. A legitimate full-height table with few characters -- content spans close to the full body
+    #    height even though the extracted text is short -- must pass.
+    sparse_full_height_text = "Domain  Coverage  Score\nA  100%  90\nB  100%  91"
+    assert len(sparse_full_height_text) < NEAR_EMPTY_CHAR_THRESHOLD
+    full_height = make_image(0.04, 0.93)
+    ratio = body_region_occupied_ratio(full_height)
+    assert ratio >= NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD, f"fixture did not simulate a full-height page: ratio={ratio}"
+    assert not page_is_near_empty(sparse_full_height_text, ratio), "a full-height table must pass even with few characters"
+    full_height.unlink()
+
+    # 3. The intentional appendix divider passes by content signature, independent of its own (low)
+    #    occupied ratio -- it is recognised and skipped by the caller before page_is_near_empty() is
+    #    ever consulted, not by the occupied-area rule itself.
+    divider_text = "APPENDIX\nAppendix\nThe complete, authoritative registers behind the executive summary above."
+    assert is_appendix_divider_page(divider_text), "the divider's fixed opening text must be recognised"
+    assert not is_appendix_divider_page("A6. Methodology question-code mapping\nNO. DOMAIN ...  more than six hundred characters of real table content here to be safe " * 3), \
+        "an ordinary appendix page must not be misidentified as the divider"
+
+    # 4. A sparse final continuation page (e.g. a two-row definitions-table tail) fails exactly like
+    #    any other page -- there is no longer a blanket "last page" exemption in page_is_near_empty()
+    #    or its caller; only the fixed cover/governance pages and the content-signature divider are
+    #    ever skipped, and neither applies here.
+    tail_text = "Domain  Coverage  Score\nI  100%  93\nJ  100%  93"
+    tail = make_image(0.05, 0.22)
+    ratio = body_region_occupied_ratio(tail)
+    assert page_is_near_empty(tail_text, ratio), "a sparse final continuation page must fail; no blanket last-page exemption may save it"
+    assert not is_appendix_divider_page(tail_text), "a definitions-table tail must not match the divider's content signature"
+    tail.unlink()
+
+    # 5. No page-number-specific exception exists: the same content/occupied-ratio pair must be
+    #    judged identically no matter which page number it is nominally attached to -- page_is_near_
+    #    empty() and is_appendix_divider_page() take no page-number argument at all, so this is
+    #    true by construction, but assert it explicitly against a few representative page numbers
+    #    (including ones far outside any real report's length) as a regression guard against a
+    #    future change reintroducing a page-number check.
+    stranded = make_image(0.06, 0.24)
+    ratio = body_region_occupied_ratio(stranded)
+    for page_number in (3, 24, 26, 33, 999):
+        assert page_number not in NEAR_EMPTY_EXEMPT_PAGES, f"page {page_number} must not be specifically exempted"
+        assert page_is_near_empty(large_row_text, ratio), f"the rule must fail this content regardless of page number ({page_number})"
+    stranded.unlink()
+
+    print("self_test_near_empty_rule: all 5 near-empty-rule regression fixtures passed")
+
+
+def self_test_internal_release_workflow_copy() -> None:
+    """Regression fixtures for PDF_INTERNAL_RELEASE_WORKFLOW_COPY (third controller review round).
+    Runs in-process against fabricated text -- no rendered PDF required -- proving both that every
+    phrase from the controller's minimum list is caught (a deliberately injected release-candidate
+    callout must fail) and that ordinary fraud-control prose using the bare words involved
+    ("controller", "release", "merge", "draft") in an unrelated sense is never falsely flagged."""
+    removed_callout = (
+        "Controller review remains required. This report is a commercial release candidate. "
+        "Final visual and release approval is not implied by generation."
+    )
+    assert INTERNAL_RELEASE_WORKFLOW_COPY.search(removed_callout), \
+        "the exact callout removed from the customer template must still be detected if reintroduced"
+
+    for phrase in [
+        "Controller review remains required",
+        "awaiting controller review",
+        "commercial release candidate",
+        "release approval is not implied",
+        "draft and unmerged",
+        "pull request",
+        "PR #39",
+        "Checkpoint F",
+        "production deployment",
+        "merge approval",
+    ]:
+        assert INTERNAL_RELEASE_WORKFLOW_COPY.search(phrase), f"required phrase not detected: {phrase!r}"
+
+    # Bounded patterns: ordinary fraud-control / business prose using these bare words in an
+    # unrelated sense must never be falsely flagged.
+    for benign in [
+        "The Financial Controller approved the payment run outside the documented delegation of authority.",
+        "Access to the domain controller is restricted to two named administrators.",
+        "The organisation should commission independent validation of the evidence listed above.",
+        "A new release of the payment platform introduced an unreviewed configuration change.",
+        "Suppliers are merged into a single vendor master file without independent review.",
+        "The control owner drafted a remediation plan for the reporting quarter.",
+    ]:
+        assert not INTERNAL_RELEASE_WORKFLOW_COPY.search(benign), f"benign fraud-control text was falsely flagged: {benign!r}"
+
+    # The review file's own controller-status language (inspection/commercial-review.md) is exactly
+    # the same phrase this check exists to keep OUT of the customer PDF -- proving the regex working
+    # correctly on that phrase is not itself a bug; what matters is which document it is applied to
+    # (full_text extracted from the rendered candidate PDF, never commercial-review.md).
+    review_state_line = "- Decision state: **awaiting controller review**."
+    assert INTERNAL_RELEASE_WORKFLOW_COPY.search(review_state_line), \
+        "sanity check: the review file's own decision-state phrase is recognised by the pattern (it is simply never scanned, by construction)"
+
+    print("self_test_internal_release_workflow_copy: all fixtures passed")
+
+
+def self_test_customer_copy_grammar_defect() -> None:
+    """Regression fixtures for PDF_CUSTOMER_COPY_GRAMMAR_DEFECT (fourth controller review round):
+    proves the exact malformed "artefact -- Whether clause operates..." concatenation removed from
+    report-template.ts's Recommended next step callout is caught if ever reintroduced, and that
+    ordinary English uses of "whether" (which any advisory report legitimately uses) are not
+    falsely flagged."""
+    malformed_examples = [
+        "Commission independent validation of Bank-detail-change request -- Whether Supplier payment "
+        "processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or "
+        "vendor impersonation operates to the exact expected control standard across the complete "
+        "in-scope population.",
+        "Commission independent validation of Annual tabletop record -- Whether The organisation has a "
+        "documented process for responding to suspected fraud incidents operates to the exact expected "
+        "control standard across the complete in-scope population.",
+        "Commission independent validation of Approved fraud-risk RACI -- Whether Management owns fraud "
+        "risk, while internal audit or assurance functions provide independent review where they exist "
+        "operates to the exact expected control standard across the complete in-scope population.",
+    ]
+    for example in malformed_examples:
+        assert CUSTOMER_COPY_GRAMMAR_DEFECT.search(example), f"malformed concatenation not detected: {example!r}"
+        # Each malformed example is built from all four fragments the correction brief lists as the
+        # required minimum ("-- Whether", "Whether The organisation" or "Whether Management",
+        # "operates to the exact expected control standard") occurring together as one concatenated
+        # unit -- proving the compiled pattern covers that combined shape, not just isolated
+        # fragments (which, in isolation, are also legitimate table-cell content -- see the
+        # corrected_examples/table-cell fixtures below).
+        assert "--" in example and "Whether" in example and "operates" in example.lower(), \
+            f"fixture does not actually exercise the combined defect shape: {example!r}"
+
+    # The corrected, grammatical two-sentence form (buildEvidenceRecommendation() in
+    # report-template.ts) must never trip this check.
+    corrected_examples = [
+        "Commission independent validation of the bank-detail-change request. Confirm across the "
+        "complete in-scope population that supplier payment processes include checks to reduce invoice "
+        "manipulation, fake vendors, bank-detail changes or vendor impersonation.",
+        "Commission an independently observed fraud-incident tabletop exercise. Confirm across the "
+        "complete in-scope population that the organisation has a documented process for responding to "
+        "suspected fraud incidents.",
+        "Commission independent validation of the approved fraud-risk RACI. Confirm across the complete "
+        "in-scope population that management owns fraud risk, while internal audit or assurance "
+        "functions provide independent review where they exist.",
+        # Ordinary, unrelated use of "whether" in advisory prose must never be flagged.
+        "Confirm whether access to sensitive digital systems is restricted and reviewed as designed.",
+        "Leadership should determine whether the control operates consistently across the full population.",
+        # The pre-existing, un-flagged, out-of-scope Evidence validation priorities table and A4
+        # appendix "What it proves" column render the same raw provesWhat sentence verbatim in a
+        # table cell -- legitimate there (a proof-statement column), and outside this round's scope,
+        # so it must not be flagged just because it lacks the "--" concatenation the actual defect
+        # requires.
+        "Whether The organisation has a documented process for responding to suspected fraud incidents "
+        "operates to the exact expected control standard across the complete in-scope population.",
+        "Whether Management owns fraud risk, while internal audit or assurance functions provide "
+        "independent review where they exist operates to the exact expected control standard across "
+        "the complete in-scope population.",
+    ]
+    for example in corrected_examples:
+        assert not CUSTOMER_COPY_GRAMMAR_DEFECT.search(example), f"corrected/benign text was falsely flagged: {example!r}"
+
+    print("self_test_customer_copy_grammar_defect: all fixtures passed")
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def record(checks: list[dict], code: str, passed: bool, candidate: str, detail: str) -> None:
+    checks.append(
+        {
+            "code": code,
+            "passed": bool(passed),
+            "candidate": candidate,
+            "detail": detail,
+        }
+    )
+
+
+def normalise_page(text: str) -> str:
+    text = re.sub(r"MK Essential Report\s*·\s*Confidential\s*\d+\s*/\s*\d+", "", text, flags=re.I)
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def create_contact_sheets(candidate: str, images: list[Path], output_dir: Path) -> list[str]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    emitted: list[str] = []
+    per_sheet = 12
+    thumb_width = 330
+    thumb_height = 467
+    columns = 3
+    rows = 4
+    gutter = 30
+    header = 55
+    for sheet_index in range(0, len(images), per_sheet):
+        batch = images[sheet_index : sheet_index + per_sheet]
+        canvas = Image.new(
+            "RGB",
+            (
+                columns * thumb_width + (columns + 1) * gutter,
+                rows * thumb_height + (rows + 1) * gutter + header,
+            ),
+            "white",
+        )
+        draw = ImageDraw.Draw(canvas)
+        draw.text((gutter, 18), f"{candidate} — pages {sheet_index + 1}–{sheet_index + len(batch)}", fill="#071b3d")
+        for offset, path in enumerate(batch):
+            image = Image.open(path).convert("RGB")
+            image.thumbnail((thumb_width, thumb_height))
+            x = gutter + (offset % columns) * (thumb_width + gutter)
+            y = header + gutter + (offset // columns) * (thumb_height + gutter)
+            canvas.paste(image, (x, y))
+            draw.rectangle((x - 1, y - 1, x + image.width, y + image.height), outline="#b8b1a5")
+            draw.text((x + 5, y + 5), str(sheet_index + offset + 1), fill="#a61b1b")
+        out = output_dir / f"{candidate}-{sheet_index // per_sheet + 1:02d}.png"
+        canvas.save(out, optimize=True)
+        emitted.append(str(out.relative_to(output_dir.parent)))
+    return emitted
+
+
+def render_commercial_review(candidate_results: dict[str, dict], head_sha: str) -> str:
+    """Checkpoint F controller review blocker 8: every number here is read straight out of
+    candidate_results / head_sha, computed earlier in this same run from the final artifact -- never
+    hard-coded from a previous run. Also drops the prior "9.75/10" self-score rubric: an
+    implementation agent cannot award controller approval, so this document states findings and
+    defers the release decision explicitly instead of grading itself."""
+    lines = [
+        "# Checkpoint F -- rendered PDF commercial review (generated)",
+        "",
+        "This file is generated by scripts/checkpoint-f-pdf-audit.py from the final candidate PDFs "
+        "produced in this run. It is a factual summary of what was checked, not a controller approval "
+        "and not a self-awarded score -- Claude cannot approve Checkpoint F.",
+        "",
+        "## Review state",
+        "",
+        f"- Head SHA at generation time: `{head_sha}`",
+        "- Production AI: **off**; production data/credentials used: **none**; production migration, "
+        "write, merge or deployment: **none**.",
+        "- Decision state: **awaiting controller review**.",
+        "",
+        "## Candidate artifact metadata (computed from the final PDFs)",
+        "",
+        "| Candidate | Mode | Fixture | Pages | Bytes | SHA-256 |",
+        "|---|---|---|---:|---:|---|",
+    ]
+    for name in sorted(candidate_results):
+        result = candidate_results[name]
+        lines.append(
+            f"| `{name}.pdf` | {result['mode']} | {result['fixture']} | {result['pages']} | "
+            f"{result['bytes']:,} | `{result['sha256']}` |"
+        )
+    lines.extend([
+        "",
+        "## What was checked",
+        "",
+        "See `inspection/pdf-audit.json` for the complete, stable-coded check list (structural "
+        "validity, A4 dimensions, required sections, forbidden legacy/internal-identifier/PII/secret/"
+        "URL patterns, blank/near-empty/duplicate pages, pixel determinism, AI-vs-fallback "
+        "deterministic authority, clean-assurance semantics, exposure-heading accuracy, internal "
+        "question-code exposure, page-count budget and AI-narrative differentiation).",
+        "",
+        "See `inspection/ai-vs-fallback-review.md` and `inspection/clean-assurance-semantic-review.md` "
+        "for the two review-specific defect classes this correction round targeted.",
+        "",
+        "## Outstanding",
+        "",
+        "Controller review of the published PDFs and artifacts, followed by an explicit release "
+        "decision, remains required. PR #39 must remain draft and unmerged until that decision.",
+        "",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def verify_review_metadata(review_markdown: str, candidate_results: dict[str, dict], head_sha: str) -> bool:
+    # Final controller review round: when the workflow has exported a PR-head override (the only
+    # situation where the checked-out git commit can be a merge-ref rather than the real PR head --
+    # see resolve_head_sha()), the generated head_sha must be exactly that override. This is the
+    # guard that actually stops a merge-ref SHA from silently passing: if some future change
+    # reintroduces an unconditional `git rev-parse HEAD` anywhere in the head-SHA path, head_sha
+    # would again diverge from the override and this check fails the build.
+    expected_override = os.environ.get("V7_ARTIFACT_HEAD_SHA", "").strip()
+    if expected_override and head_sha != expected_override:
+        return False
+    if f"`{head_sha}`" not in review_markdown:
+        return False
+    for name, result in candidate_results.items():
+        row = (
+            f"| `{name}.pdf` | {result['mode']} | {result['fixture']} | {result['pages']} | "
+            f"{result['bytes']:,} | `{result['sha256']}` |"
+        )
+        if row not in review_markdown:
+            return False
+    return True
+
+
+def write_ai_vs_fallback_review(artifact: Path, checks: list[dict]) -> None:
+    relevant = [c for c in checks if c["code"] in ("PDF_AI_FALLBACK_AUTHORITY_MISMATCH", "PDF_AI_BODY_NOT_RENDERED", "PDF_FALLBACK_RENDERED_AS_AI", "PDF_AI_NOT_MATERIALLY_DIFFERENT", "PDF_AI_GENERIC_REPETITION", "PDF_META_TEST_COPY")]
+    lines = [
+        "# AI vs fallback narrative review",
+        "",
+        "Checks that the AI editorial narrative and the deterministic fallback narrative render "
+        "identical authoritative material findings, risks, controls, evidence, decisions and roadmap "
+        "actions for the same assessment, that the AI narrative differs materially across fixtures "
+        "(not just by organisation name), and that no checkpoint/test/pipeline jargon reached "
+        "customer-facing prose.",
+        "",
+        "| Code | Candidate | Passed | Detail |",
+        "|---|---|---|---|",
+    ]
+    for item in relevant:
+        lines.append(f"| {item['code']} | {item['candidate']} | {'yes' if item['passed'] else 'NO'} | {item['detail']} |")
+    (artifact / "inspection" / "ai-vs-fallback-review.md").write_text("\n".join(lines) + "\n")
+
+
+def write_clean_assurance_semantic_review(artifact: Path, checks: list[dict], candidate_results: dict[str, dict]) -> None:
+    relevant = [c for c in checks if c["code"] in ("PDF_CLEAN_ASSURANCE_SEMANTIC_FAILURE", "PDF_CLEAN_FALSE_FAILURE_LANGUAGE")]
+    clean_candidates = [name for name, result in candidate_results.items() if result["fixture"] == "clean"]
+    lines = [
+        "# Clean-assurance semantic review",
+        "",
+        "Checkpoint F controller review blocker 1: a clean/assurance-priority candidate must preserve "
+        "the reported strong/operating control state and never assert failure, absence, non-"
+        "documentation, non-separation, unrestricted access or incomplete operation as a present fact. "
+        "Treatment must begin with independent validation, with redesign conditional on a validated "
+        "defect.",
+        "",
+        f"Clean candidates checked: {', '.join(clean_candidates) or 'none'}.",
+        "",
+        "| Code | Candidate | Passed | Detail |",
+        "|---|---|---|---|",
+    ]
+    for item in relevant:
+        lines.append(f"| {item['code']} | {item['candidate']} | {'yes' if item['passed'] else 'NO'} | {item['detail']} |")
+    (artifact / "inspection" / "clean-assurance-semantic-review.md").write_text("\n".join(lines) + "\n")
+
+
+def write_manifest(artifact: Path, candidate_results: dict[str, dict], report: dict) -> None:
+    files = sorted(str(p.relative_to(artifact)) for p in artifact.rglob("*") if p.is_file())
+    manifest = {
+        "schemaVersion": "checkpoint-f-manifest-v1",
+        "headSha": report["headSha"],
+        "fileCount": len(files),
+        "files": files,
+        "candidateCount": len(candidate_results),
+        "auditPassed": report["passed"],
+    }
+    (artifact / "inspection" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def main() -> int:
+    # Isolated, fast debug entry point used by the PR-head-vs-merge-ref regression test (F16 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- prints only the SHA resolve_head_sha() would
+    # use, without rendering or auditing any candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--print-resolved-head-sha":
+        print(resolve_head_sha())
+        return 0
+    # Isolated, fast debug entry point used by the near-empty-page-rule regression test (F17 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_near_empty_rule() in isolation,
+    # without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-near-empty-rule":
+        self_test_near_empty_rule()
+        return 0
+    # Isolated, fast debug entry point used by the internal-release-copy regression test (F18 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_internal_release_workflow_copy()
+    # in isolation, without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-internal-release-copy":
+        self_test_internal_release_workflow_copy()
+        return 0
+    # Isolated, fast debug entry point used by the customer-copy-grammar regression test (F19 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_customer_copy_grammar_defect()
+    # in isolation, without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-customer-copy-grammar":
+        self_test_customer_copy_grammar_defect()
+        return 0
+    if len(sys.argv) != 3:
+        raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
+    artifact = Path(sys.argv[1]).resolve()
+    metadata = json.loads(Path(sys.argv[2]).read_text())
+    checks: list[dict] = []
+    candidate_results: dict[str, dict] = {}
+    section_map: dict[str, dict[str, list[int]]] = {}
+    toc_bookmark_map: dict[str, dict] = {}
+    review_lines = [
+        "# Checkpoint F page-by-page rendered review",
+        "",
+        "All candidate pages were rasterised at 200 DPI. Automated image, structure and text checks "
+        "were run on every page. Contact sheets are provided for the required controller visual review; "
+        "generation of this file is not controller approval.",
+        "",
+    ]
+
+    for item in metadata["candidates"]:
+        name = item["name"]
+        pdf_path = artifact / "pdf" / f"{name}.pdf"
+        render_dir = artifact / "renders" / name
+        repeat_dir = artifact.parent / "repeat-renders" / name
+        images = sorted(render_dir.glob("page-*.png"))
+        repeats = sorted(repeat_dir.glob("page-*.png"))
+
+        signature = pdf_path.read_bytes()[:5]
+        record(checks, "PDF_INVALID_SIGNATURE", signature == b"%PDF-", name, f"signature={signature!r}")
+        size = pdf_path.stat().st_size
+        record(checks, "PDF_FILE_TOO_SMALL", size >= 20_000, name, f"bytes={size}")
+
+        reader = PdfReader(str(pdf_path))
+        page_texts = [(page.extract_text() or "") for page in reader.pages]
+        full_text = "\n".join(page_texts)
+        extracted_path = artifact / "extracted-text" / f"{name}.txt"
+        extracted_path.parent.mkdir(parents=True, exist_ok=True)
+        extracted_path.write_text(full_text, encoding="utf-8")
+
+        record(checks, "PDF_PAGE_COUNT_INVALID", len(reader.pages) >= 10, name, f"pages={len(reader.pages)}")
+        a4_ok = True
+        for page in reader.pages:
+            width = float(page.mediabox.width)
+            height = float(page.mediabox.height)
+            if abs(width - 595.28) > 1.5 or abs(height - 841.89) > 1.5:
+                a4_ok = False
+        record(checks, "PDF_PAGE_SIZE_NOT_A4", a4_ok, name, "all pages must be A4 portrait")
+        record(checks, "PDF_ORGANISATION_MISSING", item["organisation"] in full_text, name, item["organisation"])
+        record(checks, "PDF_REPORT_REFERENCE_MISSING", item["reportReference"] in full_text, name, item["reportReference"])
+
+        # Blocker 2: the exposure headline must name the authoritative band and no other band.
+        exposure_band = item.get("exposureBand")
+        if exposure_band:
+            other_bands = [b for b in EXPOSURE_BANDS if b != exposure_band]
+            heading_ok = f"{exposure_band} exposure with" in full_text and not any(f"{b} exposure with" in full_text for b in other_bands)
+            record(checks, "PDF_EXPOSURE_HEADING_MISMATCH", heading_ok, name, f"expected band={exposure_band}")
+
+        # Blocker 4: page-count budget by fixture (executive core + implementation appendix).
+        budget = PAGE_BUDGET.get(item["fixture"])
+        if budget:
+            record(checks, "PDF_EXCESSIVE_PAGE_COUNT", len(reader.pages) <= budget, name, f"pages={len(reader.pages)} budget={budget}")
+
+        # Blocker 3: no checkpoint/fixture/test/pipeline jargon in customer-facing prose.
+        meta_matches = sorted(set(match.group(0) for match in META_TEST_COPY.finditer(full_text)))
+        record(checks, "PDF_META_TEST_COPY", not meta_matches, name, f"matches={meta_matches[:8]}")
+
+        # Third controller review round: no internal development/release-governance language
+        # (controller approval status, PR/checkpoint/merge/deployment references) in the customer
+        # PDF -- full_text is the extracted text of the actual rendered candidate, never
+        # inspection/commercial-review.md, which is a separate file this scan never reads.
+        release_workflow_matches = sorted(set(match.group(0) for match in INTERNAL_RELEASE_WORKFLOW_COPY.finditer(full_text)))
+        record(checks, "PDF_INTERNAL_RELEASE_WORKFLOW_COPY", not release_workflow_matches, name, f"matches={release_workflow_matches[:8]}")
+
+        # Fourth controller review round: the customer-facing "Recommended next step" callout must
+        # never leak the raw artefact/proof-sentence concatenation it is built from.
+        grammar_defect_matches = sorted(set(match.group(0) for match in CUSTOMER_COPY_GRAMMAR_DEFECT.finditer(full_text)))
+        record(checks, "PDF_CUSTOMER_COPY_GRAMMAR_DEFECT", not grammar_defect_matches, name, f"matches={grammar_defect_matches[:8]}")
+
+        # Blocker 6: internal question codes (e.g. D1-Q04) must not appear in the core report.
+        # The appendix's "A6. Methodology question-code mapping" table is the one place codes are
+        # intentionally shown (see APPENDIX_START_MARKER in report-template.ts), so this only scans
+        # the text before the appendix divider, matching "core report" in the brief's own wording.
+        core_text = full_text.split("A1. Complete material findings register", 1)[0]
+        method_code_matches = METHOD_CODE.findall(core_text)
+        record(checks, "PDF_INTERNAL_METHOD_CODE_OVERUSE", len(method_code_matches) <= METHOD_CODE_LIMIT, name, f"count={len(method_code_matches)} limit={METHOD_CODE_LIMIT}")
+
+        # Blocker 1 (rendered-PDF proof): a clean-assurance candidate must never assert failure or
+        # absence as fact -- same literal-phrase regression guard as the evidence-model-level
+        # QG_CLEAN_ASSURANCE_SEMANTIC_FAILURE gate (see evidence-model/index.ts), applied here to the
+        # actual rendered text so a template-level regression is caught too.
+        if item["fixture"] == "clean":
+            assurance_matches = sorted(set(match.group(0) for match in ASSURANCE_SEMANTIC_FAILURE.finditer(full_text)))
+            record(checks, "PDF_CLEAN_ASSURANCE_SEMANTIC_FAILURE", not assurance_matches, name, f"matches={assurance_matches[:8]}")
+
+        current_section_map: dict[str, list[int]] = {}
+        for heading in REQUIRED_SECTIONS:
+            # The bare word "Appendix" also appears in core cross-references ("...is in Appendix
+            # A1"), so it needs the same distinctive-marker search as REPORT_TOC_ENTRIES' "Appendix"
+            # key in report-template.ts, not a literal substring match.
+            search_text = "The complete, authoritative registers behind the executive summary" if heading == "Appendix" else heading.lower()
+            # Page 2 (Contents) legitimately lists every heading as a TOC row -- exclude it here
+            # (except for "Contents" itself, whose real body is page 2) so the map reflects where
+            # each section's real body actually is, matching the PDF outline.
+            pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]
+            current_section_map[heading] = pages
+            record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)
+        section_map[name] = current_section_map
+
+        for code, pattern in FORBIDDEN.items():
+            matches = sorted(set(match.group(0) for match in pattern.finditer(full_text)))
+            record(checks, code, not matches, name, f"matches={matches[:8]}")
+
+        blank_pages = [index + 1 for index, text in enumerate(page_texts) if len(normalise_page(text)) < 35]
+        record(checks, "PDF_BLANK_OR_FOOTER_ONLY_PAGE", not blank_pages, name, f"pages={blank_pages}")
+        normalised = [normalise_page(text) for text in page_texts]
+        duplicate_pages: list[tuple[int, int]] = []
+        for left in range(len(normalised)):
+            if len(normalised[left]) < 80:
+                continue
+            for right in range(left + 1, len(normalised)):
+                if normalised[left] == normalised[right]:
+                    duplicate_pages.append((left + 1, right + 1))
+        record(checks, "PDF_DUPLICATE_PAGE", not duplicate_pages, name, f"pairs={duplicate_pages}")
+
+        record(checks, "PDF_RENDER_PAGE_COUNT_MISMATCH", len(images) == len(reader.pages), name, f"renders={len(images)} pdf={len(reader.pages)}")
+        deterministic = len(images) == len(repeats) and all(
+            sha256(first) == sha256(second) for first, second in zip(images, repeats)
+        )
+        record(checks, "PDF_VISUAL_NONDETERMINISM", deterministic, name, f"first={len(images)} repeat={len(repeats)}")
+
+        image_failures = []
+        for page_number, image_path in enumerate(images, start=1):
+            with Image.open(image_path).convert("RGB") as image:
+                bbox = ImageChops.difference(image, Image.new("RGB", image.size, "white")).getbbox()
+                if bbox is None:
+                    image_failures.append(page_number)
+        record(checks, "PDF_RENDERED_PAGE_VISUALLY_BLANK", not image_failures, name, f"pages={image_failures}")
+
+        marker_present = item["aiMarker"] in full_text
+        if item["mode"] == "ai":
+            record(checks, "PDF_AI_BODY_NOT_RENDERED", marker_present, name, item["aiMarker"])
+        else:
+            record(checks, "PDF_FALLBACK_RENDERED_AS_AI", not marker_present, name, item["aiMarker"])
+
+        if item["fixture"] == "clean":
+            false_failure = bool(re.search(r"\b(?:critical|major) control condition\b", full_text, re.I))
+            record(checks, "PDF_CLEAN_FALSE_FAILURE_LANGUAGE", not false_failure, name, "clean assurance must not be described as a failed control")
+
+        # Blocker 5: near-empty/tail-page detection using body-area analysis, not just "any text".
+        # The decision itself lives in page_is_near_empty()/is_appendix_divider_page() (see their
+        # docstrings for the rule) so it is directly unit-tested by self_test_near_empty_rule() --
+        # this loop is only responsible for resolving each page's text/occupied-ratio inputs and the
+        # fixed exemptions (cover, governance, the appendix divider). There is no "last page"
+        # exemption: an unintentional sparse final page (e.g. a definitions-table continuation) is
+        # audited exactly like any other page.
+        near_empty_pages: list[int] = []
+        for page_number, image_path in enumerate(images, start=1):
+            if page_number in NEAR_EMPTY_EXEMPT_PAGES:
+                continue
+            page_text = page_texts[page_number - 1] if page_number <= len(page_texts) else ""
+            if is_appendix_divider_page(page_text):
+                continue
+            if page_is_near_empty(page_text, body_region_occupied_ratio(image_path)):
+                near_empty_pages.append(page_number)
+        record(checks, "PDF_NEAR_EMPTY_PAGE", not near_empty_pages, name, f"pages={near_empty_pages}")
+
+        # Blocker 4: word-count budget, reported alongside the page-count budget.
+        word_count = len(full_text.split())
+        word_budget = WORD_BUDGET.get(item["fixture"])
+        if word_budget:
+            record(checks, "PDF_EXCESSIVE_WORD_COUNT", word_count <= word_budget, name, f"words={word_count} budget={word_budget}")
+
+        # Blocker 7: every PDF over 20 pages needs a customer-facing contents page with accurate
+        # page numbers and a matching PDF bookmark/outline tree.
+        toc_entry: dict = {"pages": len(reader.pages), "tocPrinted": {}, "bookmarks": [], "mismatches": []}
+        if len(reader.pages) > 20:
+            contents_text = page_texts[1] if len(page_texts) > 1 else ""
+            record(checks, "PDF_TOC_MISSING", "Contents" in contents_text, name, "customer-facing contents page required for PDFs over 20 pages")
+
+            toc_printed: dict[str, int] = {}
+            for line in (l.strip() for l in contents_text.splitlines()):
+                match = re.match(r"^(.*\S)\s+(\d{1,4})$", line)
+                if match and match.group(1) not in ("CONTENTS", "Contents") and "MK Essential Report" not in match.group(1):
+                    toc_printed[match.group(1)] = int(match.group(2))
+            toc_entry["tocPrinted"] = toc_printed
+
+            outline_entries: list[dict] = []
+
+            def flatten_outline(items, depth: int = 0) -> None:
+                for outline_item in items:
+                    if isinstance(outline_item, list):
+                        flatten_outline(outline_item, depth + 1)
+                        continue
+                    try:
+                        page_num = reader.get_destination_page_number(outline_item) + 1
+                    except Exception:
+                        page_num = None
+                    outline_entries.append({"title": outline_item.title, "page": page_num, "depth": depth})
+
+            flatten_outline(reader.outline or [])
+            toc_entry["bookmarks"] = outline_entries
+            record(checks, "PDF_BOOKMARKS_MISSING", len(outline_entries) > 0, name, f"bookmark_count={len(outline_entries)}")
+
+            bookmark_page_by_title = {entry["title"]: entry["page"] for entry in outline_entries}
+            mismatches = []
+            for heading in REQUIRED_SECTIONS:
+                if heading == "Contents":
+                    continue
+                actual_pages = current_section_map.get(heading, [])
+                actual = actual_pages[0] if actual_pages else None
+                printed = toc_printed.get(heading)
+                bookmarked = bookmark_page_by_title.get(heading)
+                if printed != actual:
+                    mismatches.append(f"{heading}: toc_printed={printed} actual={actual}")
+                if bookmarked != actual:
+                    mismatches.append(f"{heading}: bookmark={bookmarked} actual={actual}")
+            toc_entry["mismatches"] = mismatches
+            record(checks, "PDF_TOC_PAGE_MISMATCH", not mismatches, name, f"mismatches={mismatches[:6]}")
+        toc_bookmark_map[name] = toc_entry
+
+        sheets = create_contact_sheets(name, images, artifact / "contact-sheets")
+        review_lines.extend(
+            [
+                f"## {name}",
+                "",
+                f"- Mode: {item['mode']}",
+                f"- Fixture: {item['fixture']}",
+                f"- PDF: {len(reader.pages)} pages, {size:,} bytes",
+                f"- Contact sheets: {', '.join(sheets)}",
+                "",
+                "| Page | Text | Raster | Duplicate | Visual preflight |",
+                "|---:|---|---|---|---|",
+            ]
+        )
+        for index, text in enumerate(page_texts, start=1):
+            raster = images[index - 1].name if index <= len(images) else "missing"
+            duplicate = "clear" if not any(index in pair for pair in duplicate_pages) else "review"
+            visual = "non-blank; controller review pending" if index not in image_failures else "blank defect"
+            review_lines.append(
+                f"| {index} | {len(normalise_page(text))} chars | {raster} | {duplicate} | {visual} |"
+            )
+        review_lines.append("")
+        candidate_results[name] = {
+            "mode": item["mode"],
+            "fixture": item["fixture"],
+            "pages": len(reader.pages),
+            "bytes": size,
+            "sha256": sha256(pdf_path),
+            "renderCount": len(images),
+            "contactSheets": sheets,
+        }
+
+    def extract_text(name: str) -> str:
+        return (artifact / "extracted-text" / f"{name}.txt").read_text()
+
+    def section(text: str, heading: str, next_heading: str) -> str:
+        # The contents page lists every tracked heading as a plain-text TOC row, so the *first*
+        # occurrence of `heading` is always that row, not the real section body -- skip it and use
+        # the second occurrence (mirrors the startPage=3 skip in pdf-navigation.ts's page-map scan).
+        lower = text.lower()
+        first = lower.find(heading.lower())
+        start = lower.find(heading.lower(), first + len(heading))
+        end = lower.find(next_heading.lower(), start + len(heading))
+        # Strip the page-number footer before comparing -- AI and fallback candidates can have
+        # slightly different total page counts (AI prose is longer), so "Confidential 17 / 34" vs
+        # "Confidential 16 / 33" would otherwise register as a content difference even when the
+        # actual deterministic authority (risk/control/decision/roadmap text) is identical.
+        footer_free = re.sub(r"MK Essential Report\s*·\s*Confidential\s*\d+\s*/\s*\d+", "", text[start:end])
+        return re.sub(r"\s+", " ", footer_free).strip()
+
+    weak_ai = extract_text("mk-essential-v7-materially-weak-ai")
+    weak_fallback = extract_text("mk-essential-v7-materially-weak-fallback")
+    for heading, next_heading in [
+        ("A2. Complete risk register", "A3. Complete control improvement register"),
+        ("A3. Complete control improvement register", "A4. Complete evidence checklist"),
+        ("Leadership decisions required", "30/60/90-day roadmap"),
+        ("30/60/90-day roadmap", "Evidence validation priorities"),
+    ]:
+        record(
+            checks,
+            "PDF_AI_FALLBACK_AUTHORITY_MISMATCH",
+            section(weak_ai, heading, next_heading) == section(weak_fallback, heading, next_heading),
+            "weak-pair",
+            heading,
+        )
+
+    # Blocker 3: an AI narrative must be materially different across fixtures, not the same
+    # template sentence with only the organisation name swapped in -- normalise each candidate's
+    # own organisation name to a shared placeholder before comparing, so real org-name differences
+    # (which are expected and fine) cannot mask an otherwise-identical body.
+    # Anchored on fixed marker text (see AI_SYNTHESIS_MARKER in the checkpoint-F candidate script
+    # and "leadership should sequence its decisions..." in report-template.ts's decisionsBlock)
+    # rather than section headings, which now span a merged, multi-subsection core page and no
+    # longer bound the executive/leadership prose precisely on their own.
+    AI_MARKER = "This diagnosis draws together the complete set of recorded assessment evidence"
+    LEADERSHIP_MARKER = "leadership should sequence its decisions rather than approve all of them at once"
+    ai_items = {i["name"]: i for i in metadata["candidates"] if i["mode"] == "ai"}
+    ai_texts = {name: extract_text(name) for name in ai_items}
+    normalised_leadership = {}
+    normalised_executive = {}
+    for name, text in ai_texts.items():
+        org = ai_items[name]["organisation"]
+        normalised = re.sub(r"\s+", " ", text.replace(org, "{{ORG}}"))
+        exec_start = normalised.find(AI_MARKER)
+        normalised_executive[name] = normalised[exec_start:exec_start + 700] if exec_start >= 0 else ""
+        leadership_start = normalised.find(LEADERSHIP_MARKER)
+        normalised_leadership[name] = normalised[leadership_start:leadership_start + 400] if leadership_start >= 0 else ""
+
+    ai_names = sorted(ai_texts)
+    for left, right in [(a, b) for i, a in enumerate(ai_names) for b in ai_names[i + 1 :]]:
+        record(
+            checks, "PDF_AI_NOT_MATERIALLY_DIFFERENT",
+            normalised_executive[left] != normalised_executive[right] or normalised_leadership[left] != normalised_leadership[right],
+            f"{left}-vs-{right}", "executive/leadership narrative must differ once organisation names are normalised",
+        )
+
+    # Blocker 3: domain commentary must vary by domain/response pattern within one report, not
+    # repeat one formula sentence for all ten domains (see BAND_OPENER differentiation upstream).
+    NO_GAP_CLOSER_TEMPLATES = [
+        "is whether that position holds under a complete-population test",
+        "is independent testing across the complete population",
+        "is to prove that position under a full-population review",
+        "would hold up under independent, complete-population scrutiny",
+    ]
+    for name, text in ai_texts.items():
+        template_counts = [text.count(template) for template in NO_GAP_CLOSER_TEMPLATES]
+        total_occurrences = sum(template_counts)
+        distinct_templates_used = sum(1 for count in template_counts if count > 0)
+        record(
+            checks, "PDF_AI_GENERIC_REPETITION",
+            total_occurrences <= 1 or distinct_templates_used > 1,
+            name, f"closer-sentence-occurrences={total_occurrences} distinct-templates={distinct_templates_used}",
+        )
+
+    head_sha = resolve_head_sha()
+    (artifact / "inspection").mkdir(parents=True, exist_ok=True)
+
+    # Blocker 8: generate the commercial review from the final candidate_results/head_sha computed
+    # above, then re-parse what was actually written and require an exact match -- so a future
+    # regression back to a hand-edited/stale review document fails closed instead of silently
+    # publishing numbers that disagree with the real artifact.
+    review_markdown = render_commercial_review(candidate_results, head_sha)
+    (artifact / "inspection" / "commercial-review.md").write_text(review_markdown)
+    metadata_ok = verify_review_metadata(review_markdown, candidate_results, head_sha)
+    record(checks, "PDF_REVIEW_METADATA_MISMATCH", metadata_ok, "commercial-review.md", "generated review must match final candidate_results and head SHA exactly")
+
+    write_ai_vs_fallback_review(artifact, checks)
+    write_clean_assurance_semantic_review(artifact, checks, candidate_results)
+
+    report = {
+        "schemaVersion": "checkpoint-f-pdf-audit-v1",
+        "renderDpi": 200,
+        "headSha": head_sha,
+        "candidateResults": candidate_results,
+        "checks": checks,
+        "passed": all(item["passed"] for item in checks),
+        "failureCount": sum(1 for item in checks if not item["passed"]),
+    }
+    (artifact / "inspection" / "pdf-audit.json").write_text(json.dumps(report, indent=2) + "\n")
+    (artifact / "inspection" / "page-by-page-review.md").write_text("\n".join(review_lines) + "\n")
+    (artifact / "inspection" / "section-map.json").write_text(json.dumps(section_map, indent=2) + "\n")
+    (artifact / "inspection" / "toc-bookmark-map.json").write_text(json.dumps(toc_bookmark_map, indent=2) + "\n")
+    write_manifest(artifact, candidate_results, report)
+
+    print(json.dumps({"passed": report["passed"], "failureCount": report["failureCount"], "candidates": candidate_results}))
+    return 0 if report["passed"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -3,11 +3,47 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
 import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
-import { selectRoadmap } from './roadmap';
-import { renderReportHtml } from './templates/report-template';
-import { renderHtmlToPdfBuffer } from './render-pdf';
+import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
+import { buildAdvisoryEvidenceModel } from './evidence-model';
+import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
+import { isReportCommercialQualityError } from './commercial-quality';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
+import { getPremiumReportAutomationFlags } from './automation/feature-flags';
+import { createManualNarrativeAttemptStore } from './automation/manual-ai-attempt-store';
+import { persistManualNarrativeProvenance } from './automation/manual-narrative-provenance';
+import type {
+  DurableNarrativeAttemptStore
+} from './automation/durable-ai-attempts';
+import type {
+  PremiumReportAutomationFlags,
+  PremiumReportNarrativeGenerator,
+  PreparedPremiumReportNarrative
+} from './automation/types';
+
+/**
+ * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
+ * framework or service container). Production callers pass nothing and get the real Supabase
+ * client and real report-assembly/entitlement/schema-capability/PDF-render functions, exactly as
+ * before. Tests inject a recording fake `db` (and, where useful, fake versions of the other
+ * functions) so the real orchestration code below -- claim, start, quality gate, storage upload,
+ * verification, completion RPC, failure RPC -- can be exercised end-to-end without production
+ * Supabase credentials.
+ */
+export interface ManualPhase1Dependencies {
+  db?: any;
+  assembleReportData?: typeof assembleReportData;
+  validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
+  getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
+  renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
+  getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
+  createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
+  narrativeGenerator?: PremiumReportNarrativeGenerator;
+  preparePremiumReportNarrative?: typeof import('./automation/narrative-pipeline').preparePremiumReportNarrative;
+  createManualNarrativeAttemptStore?: (input: { db: any; manualGenerationAttemptId: string }) => DurableNarrativeAttemptStore;
+  attemptStore?: DurableNarrativeAttemptStore;
+  persistManualNarrativeProvenance?: typeof persistManualNarrativeProvenance;
+}
 
 export type ManualGenerationAction = 'admin_generate' | 'admin_retry' | 'admin_regenerate' | 'payment_confirmation';
 
@@ -25,6 +61,8 @@ export type ManualGenerationResult = {
   versionNumber: number;
   supersededReportId?: string | null;
   reusedExistingReport?: boolean;
+  generationMode?: 'ai' | 'ai_repair' | 'deterministic_fallback';
+  evidenceChecksum?: string;
   message: string;
 };
 
@@ -43,17 +81,29 @@ export type Phase1GenerationReason =
   | 'storage_integrity_failed'
   | 'report_persistence_failed'
   | 'phase1_schema_unavailable'
+  | 'commercial_quality_failed'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
+  readonly reason: Phase1GenerationReason;
+  readonly status: number;
+  readonly technicalReference?: string;
+
+  // Explicit fields + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why: this repo's committed
+  // credential-free test scripts run real source directly via `node --experimental-strip-types`,
+  // which cannot codegen parameter properties. Behaviourally identical to the prior version.
   constructor(
-    public readonly reason: Phase1GenerationReason,
+    reason: Phase1GenerationReason,
     message: string,
-    public readonly status = 500,
-    public readonly technicalReference?: string
+    status = 500,
+    technicalReference?: string
   ) {
     super(message);
     this.name = 'Phase1GenerationError';
+    this.reason = reason;
+    this.status = status;
+    this.technicalReference = technicalReference;
   }
 }
 
@@ -152,38 +202,28 @@ function assertValidPdf(bytes: Buffer, technicalReference: string) {
   }
 }
 
-export async function generateManualPhase1Report(input: ManualGenerationInput): Promise<ManualGenerationResult> {
+export async function generateManualPhase1Report(
+  input: ManualGenerationInput,
+  dependencies: ManualPhase1Dependencies = {}
+): Promise<ManualGenerationResult> {
   const technicalReference = crypto.randomUUID();
   const requestKey = input.requestKey.trim().slice(0, 200);
   if (!requestKey) {
     throw new Phase1GenerationError('generation_failed', 'A request key is required for safe report generation.', 400, technicalReference);
   }
 
-  const db = createSupabaseServiceClient() as any;
-  const capability = await getPhase1SchemaCapability(db);
+  const db = dependencies.db ?? (createSupabaseServiceClient() as any);
+  const doAssembleReportData = dependencies.assembleReportData ?? assembleReportData;
+  const doValidateEntitlement = dependencies.validatePremiumReportGenerationEntitlement ?? validatePremiumReportGenerationEntitlement;
+  const doGetSchemaCapability = dependencies.getPhase1SchemaCapability ?? getPhase1SchemaCapability;
+  const doRenderValidatedCommercialPdf = dependencies.renderValidatedCommercialPdf ?? renderValidatedCommercialPdfWithNavigation;
+  const doGetAutomationFlags = dependencies.getPremiumReportAutomationFlags ?? getPremiumReportAutomationFlags;
+  const doCreateAttemptStore = dependencies.createManualNarrativeAttemptStore ?? createManualNarrativeAttemptStore;
+  const doPersistNarrativeProvenance = dependencies.persistManualNarrativeProvenance ?? persistManualNarrativeProvenance;
+
+  const capability = await doGetSchemaCapability(db);
   if (capability.status !== 'available') {
     throw new Phase1GenerationError('phase1_schema_unavailable', capability.message!, 503, technicalReference);
-  }
-
-  let assembled;
-  let reportType;
-  try {
-    assembled = await assembleReportData(input.orderReference);
-    reportType = validatePremiumReportGenerationEntitlement(assembled);
-  } catch (error) {
-    throw mapPreflightFailure(error, technicalReference);
-  }
-
-  const { data: template, error: templateError } = await db
-    .from('report_templates')
-    .select('id,template_code,version_number')
-    .eq('report_type', reportType)
-    .eq('status', 'active')
-    .order('version_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (templateError || !template) {
-    throw new Phase1GenerationError('template_missing', 'No active report template is configured for this product.', 409, technicalReference);
   }
 
   const claimRequest = input.action === 'payment_confirmation'
@@ -248,12 +288,41 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
   }
 
   const attemptId = String(claim.attempt.id);
+  const versionNumber = Number(claim.attempt.report_version);
+  let assembled: Awaited<ReturnType<typeof assembleReportData>> | undefined;
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
   let uploaded = false;
+  let generationStage = 'start_generation';
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
     if (startError) throw mapRpcFailure(startError, technicalReference);
+
+    generationStage = 'assemble_report';
+    let reportType;
+    try {
+      assembled = await doAssembleReportData(input.orderReference);
+      reportType = doValidateEntitlement(assembled);
+    } catch (error) {
+      throw mapPreflightFailure(error, technicalReference);
+    }
+    // Use the versioned reference (e.g. "...-V2") everywhere, including the
+    // rendered report itself, so the PDF's own footer/title page match the
+    // reports.report_reference value stored for this version instead of the
+    // bare assessment reference assembleReportData() defaults to.
+    assembled.reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+
+    const { data: template, error: templateError } = await db
+      .from('report_templates')
+      .select('id,template_code,version_number')
+      .eq('report_type', reportType)
+      .eq('status', 'active')
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (templateError || !template) {
+      throw new Phase1GenerationError('template_missing', 'No active report template is configured for this product.', 409, technicalReference);
+    }
 
     const { data: blockRows, error: blockError } = await db
       .from('report_content_blocks')
@@ -270,21 +339,105 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       body: block.body,
       status: block.status
     }));
-    const content = selectContent(assembled, contentBlocks);
-    const roadmap = selectRoadmap(assembled);
-    const html = renderReportHtml(assembled, content, roadmap);
+    generationStage = 'build_deterministic_advisory';
+    const deterministicContent = selectContent(assembled, contentBlocks);
+    const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
+    generationStage = 'load_automation_flags';
+    const flags = await doGetAutomationFlags(db);
+    const generator = dependencies.narrativeGenerator
+      ?? (flags.aiNarrativeEnabled
+        ? dependencies.createNarrativeGenerator
+          ? dependencies.createNarrativeGenerator(flags.model)
+          : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
+        : undefined);
+    const generationIdentity = [
+      'manual-report',
+      assembled.orderId,
+      assembled.assessmentId,
+      assembled.scoreRun.id,
+      `v${versionNumber}`
+    ].join(':');
+    const attemptStore = flags.aiNarrativeEnabled && generator
+      ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
+      : undefined;
+    generationStage = 'prepare_narrative';
+    let prepared: PreparedPremiumReportNarrative;
+    try {
+      const doPrepareNarrative = dependencies.preparePremiumReportNarrative
+        ?? (await import('./automation/narrative-pipeline')).preparePremiumReportNarrative;
+      prepared = await doPrepareNarrative({
+        assembled,
+        deterministicContent,
+        roadmap,
+        advisoryModel,
+        flags,
+        generator,
+        generationIdentity,
+        manualGenerationAttemptId: attemptId,
+        attemptStore
+      });
+    } catch (error) {
+      if (isReportCommercialQualityError(error)) {
+        console.error('commercial_report_quality_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          violationCodes: error.violations.map((issue) => issue.code),
+          warningCodes: error.warnings.map((issue) => issue.code),
+          violationCount: error.violations.length
+        });
+        throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      throw error;
+    }
+    generationStage = 'persist_narrative_provenance';
+    await doPersistNarrativeProvenance({
+      db,
+      manualGenerationAttemptId: attemptId,
+      prepared,
+      flags
+    });
+
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
       throw new Phase1GenerationError('pdf_render_failed', 'The local PDF failure double was activated.', 500, technicalReference);
     }
-    const pdf = await renderHtmlToPdfBuffer(html).catch((error) => {
+
+    // V7 Checkpoint B: HTML preparation and PDF rendering now happen behind the single
+    // renderValidatedCommercialPdf() seam, which internally runs the fail-closed commercial
+    // quality gate (see ../commercial-quality.ts) before any HTML is returned or the PDF renderer
+    // is invoked. A ReportCommercialQualityError here is distinguished from an ordinary renderer
+    // failure below -- it is mapped to its own reason (commercial_quality_failed, HTTP 422) and
+    // logged with only safe structured fields (technical reference, order reference, issue codes,
+    // counts), never full report content, HTML, or customer data.
+    generationStage = 'render_pdf';
+    let pdf: Buffer;
+    try {
+      pdf = await doRenderValidatedCommercialPdf({
+        data: assembled,
+        content: prepared.selectedContent,
+        roadmap,
+        evidenceModel: advisoryModel
+      });
+    } catch (error) {
+      if (isReportCommercialQualityError(error)) {
+        console.error('commercial_report_quality_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          violationCodes: error.violations.map((issue) => issue.code),
+          warningCodes: error.warnings.map((issue) => issue.code),
+          violationCount: error.violations.length
+        });
+        throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      if (error instanceof Phase1GenerationError) throw error;
       console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'render', error: messageOf(error) });
       throw new Phase1GenerationError('pdf_render_failed', 'The PDF renderer failed. Retry generation or inspect the technical reference.', 500, technicalReference);
-    });
+    }
     assertValidPdf(pdf, technicalReference);
 
+    generationStage = 'store_pdf';
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
-    const versionNumber = Number(claim.attempt.report_version);
-    const reportReference = `RPT-${assembled.assessmentReference}-V${versionNumber}`;
+    const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
     storageBucket = 'generated-reports';
     storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
@@ -300,6 +453,7 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     uploaded = true;
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
 
+    generationStage = 'complete_generation';
     const { data: completed, error: completeError } = await db.rpc('complete_manual_report_generation', {
       p_attempt_id: attemptId,
       p_template_id: template.id,
@@ -312,13 +466,26 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       p_checksum: checksum
     });
     if (completeError || !completed?.report) {
+      // Keep the underlying Postgres error out of the user-facing message
+      // (report_persistence_failed / "verified PDF could not be linked")
+      // but log it so an operator can diagnose the real cause instead of
+      // only seeing the generic category (this previously hid a real
+      // unique_violation on reports_one_current_assessment_type_uidx for
+      // several failed attempts before it was traced down).
+      console.error('phase1_manual_generation_persistence_error', {
+        technicalReference,
+        message: completeError?.message,
+        details: completeError?.details,
+        hint: completeError?.hint,
+        code: completeError?.code
+      });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
 
     console.info('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,
-      orderId: assembled.orderId,
+      orderId: assembled?.orderId ?? claim.attempt.order_id,
       attemptId,
       reportId: completed.report.id,
       status: 'REPORT_READY',
@@ -330,6 +497,8 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
       reportReference: completed.report.report_reference,
       versionNumber: Number(completed.report.version_number),
       supersededReportId: completed.superseded_report_id ?? null,
+      generationMode: prepared.mode,
+      evidenceChecksum: prepared.evidenceChecksum,
       message: `Report version ${completed.report.version_number} generated and verified successfully.`
     };
   } catch (error) {
@@ -370,10 +539,11 @@ export async function generateManualPhase1Report(input: ManualGenerationInput): 
     console.error('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,
-      orderId: assembled.orderId,
+      orderId: assembled?.orderId ?? claim.attempt.order_id,
       attemptId,
       status: 'GENERATION_FAILED',
       retryCount: claim.attempt.retry_count,
+      generationStage,
       errorCategory: mapped.reason,
       safeMessage: mapped.message
     });
