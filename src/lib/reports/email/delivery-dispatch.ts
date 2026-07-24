@@ -77,7 +77,7 @@ export async function executeClaimedReportDelivery(input: {
     const provider = await input.transport({
       ...input.transportInput,
       attachment: {
-        ...input.transportInput.attachment,
+        filename: input.transportInput.attachment?.filename ?? 'report.pdf',
         contentBase64: pdfBuffer.toString('base64')
       }
     });

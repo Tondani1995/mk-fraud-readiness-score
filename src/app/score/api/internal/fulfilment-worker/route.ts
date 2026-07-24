@@ -2,6 +2,9 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { generateManualPhase1Report, Phase1GenerationError } from '@/lib/reports/phase1-manual-fulfilment';
+import { sendEmail } from '@/lib/notifications/email-provider';
+import { buildReportReadyMessage } from '@/lib/notifications/message-templates';
+import { getNumberEnv } from '@/lib/env/server';
 
 // Release B durable fulfilment worker (docs/safe-launch/12-durable-fulfilment-design.md,
 // "Worker execution model"). Bearer-token authenticated exactly like the existing (currently
@@ -57,6 +60,110 @@ function categoriseError(error: unknown): { category: string; safeMessage: strin
   };
 }
 
+// Release C: second claim phase on the SAME worker route, per docs/safe-launch/
+// 15-email-and-secure-delivery-design.md ("Delivery-worker integration") -- one worker, one
+// route, two claim kinds, not a second worker platform. Runs only when the generation-claim
+// phase found nothing to do.
+async function tryProcessOneDelivery(db: any): Promise<NextResponse | null> {
+  const leaseOwner = `delivery-worker:${crypto.randomUUID()}`;
+  const { data: claimed, error: claimError } = await db.rpc('claim_next_delivery', {
+    p_lease_owner: leaseOwner,
+    p_lease_seconds: DEFAULT_LEASE_SECONDS
+  });
+  if (claimError) {
+    console.error('delivery_worker', { outcome: 'claim_failed', code: claimError.code ?? null });
+    return NextResponse.json({ ok: false, error: 'delivery_claim_failed' }, { status: 500 });
+  }
+  const authorization = claimed as {
+    id: string; report_id: string; order_id: string; recipient_email: string; email_event_id: string; lease_token: string;
+  } | null;
+  if (!authorization) return null;
+  const leaseToken = authorization.lease_token;
+
+  const technicalReference = crypto.randomUUID();
+  try {
+    const { data: report, error: reportError } = await db
+      .from('reports').select('id,report_reference,order_id').eq('id', authorization.report_id).maybeSingle();
+    const { data: order, error: orderError } = await db
+      .from('orders').select('order_reference,customer_name').eq('id', authorization.order_id).maybeSingle();
+    if (reportError || !report || orderError || !order) {
+      throw new Error('delivery_report_or_order_lookup_failed');
+    }
+
+    const ttlSeconds = getNumberEnv('CUSTOMER_REPORT_ACCESS_TOKEN_TTL_SECONDS', 7 * 24 * 60 * 60);
+    const { data: tokenResult, error: tokenError } = await db.rpc('issue_customer_report_access_token', {
+      p_order_id: authorization.order_id,
+      p_report_id: authorization.report_id,
+      p_recipient_email: authorization.recipient_email,
+      p_ttl_seconds: ttlSeconds
+    });
+    if (tokenError || !tokenResult?.token) {
+      throw new Error('delivery_access_token_issuance_failed');
+    }
+
+    const { error: dispatchError } = await db.rpc('mark_delivery_dispatch_started', {
+      p_authorization_id: authorization.id,
+      p_lease_token: leaseToken
+    });
+    if (dispatchError) {
+      throw new Error(`delivery_dispatch_mark_failed: ${dispatchError.message ?? dispatchError.code ?? 'unknown'}`);
+    }
+
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://mkfraud.co.za').replace(/\/$/, '');
+    const accessUrl = `${appUrl}/score/report/access/${encodeURIComponent(tokenResult.token)}`;
+    const message = buildReportReadyMessage({
+      customerName: order.customer_name ?? null,
+      orderReference: order.order_reference,
+      accessUrl,
+      expiresAtIso: tokenResult.expires_at
+    });
+
+    const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
+    const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
+    const sendResult = await sendEmail({
+      from: fromAddress,
+      to: authorization.recipient_email,
+      replyTo,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+      idempotencyKey: authorization.email_event_id
+    });
+
+    if (!sendResult.ok) {
+      throw new Error(`delivery_send_failed: ${sendResult.error}`);
+    }
+
+    const { error: finalizeError } = await db.rpc('finalize_delivery', {
+      p_authorization_id: authorization.id,
+      p_lease_token: leaseToken,
+      p_provider_message_id: sendResult.providerMessageId ?? `disabled:${technicalReference}`
+    });
+    if (finalizeError) {
+      console.error('delivery_worker', { outcome: 'finalize_persistence_failed', authorizationId: authorization.id, code: finalizeError.code ?? null });
+    }
+
+    console.info('delivery_worker', { outcome: 'delivered', authorizationId: authorization.id, mode: sendResult.mode });
+    return NextResponse.json({ ok: true, claimed: true, authorizationId: authorization.id, outcome: 'delivered', mode: sendResult.mode });
+  } catch (error) {
+    console.error('delivery_worker', {
+      outcome: 'delivery_failed', authorizationId: authorization.id, technicalReference,
+      errorCategory: error instanceof Error ? error.message : 'unknown_error'
+    });
+    const { error: failError } = await db.rpc('fail_delivery', {
+      p_authorization_id: authorization.id,
+      p_lease_token: leaseToken,
+      p_error_category: 'delivery_failed',
+      p_safe_operational_error: 'Report delivery failed. The delivery worker will retry automatically.',
+      p_technical_reference: technicalReference
+    });
+    if (failError) {
+      console.error('delivery_worker', { outcome: 'fail_persistence_failed', authorizationId: authorization.id, code: failError.code ?? null });
+    }
+    return NextResponse.json({ ok: true, claimed: true, authorizationId: authorization.id, outcome: 'failed' });
+  }
+}
+
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET?.trim();
   if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
@@ -76,7 +183,8 @@ export async function GET(request: Request) {
   }
   const job = claimed as ClaimedJob | null;
   if (!job) {
-    return NextResponse.json({ ok: true, claimed: false });
+    const deliveryResult = await tryProcessOneDelivery(db);
+    return deliveryResult ?? NextResponse.json({ ok: true, claimed: false });
   }
 
   const { data: order, error: orderError } = await db
