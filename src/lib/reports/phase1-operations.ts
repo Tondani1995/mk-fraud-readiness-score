@@ -22,6 +22,15 @@ export const PHASE1_QUEUE_LABELS = {
 
 export type Phase1QueueKey = keyof typeof PHASE1_QUEUE_LABELS;
 
+// Real (Release C) delivery status vocabulary, from report_delivery_authorizations_status_check
+// (supabase/migrations/20260724170000_release_c_email_secure_delivery.sql). Distinct from
+// manual_report_delivery_attempts' DELIVERY_PENDING/DELIVERING/DELIVERY_FAILED/DELIVERED, which
+// getPhase1OrderOperations below still reads unchanged -- that table drives the separate,
+// still-live legacy/provider-double admin delivery action (FulfilmentActions' "Initiate/Retry
+// Delivery" button, via src/lib/reports/phase1-manual-delivery.ts), not real customer delivery.
+const DELIVERY_IN_FLIGHT_STATUSES = ['queued', 'claimed', 'dispatching', 'retry_scheduled'];
+const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked'];
+
 function latestBy<T extends { order_id: string; created_at: string }>(rows: T[]) {
   const map = new Map<string, T>();
   for (const row of rows) if (!map.has(row.order_id)) map.set(row.order_id, row);
@@ -103,8 +112,8 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
       .in('order_id', ids).order('version_number', { ascending: false }),
     db.from('manual_report_generation_attempts').select('order_id,status,safe_operational_error,created_at')
       .in('order_id', ids).order('created_at', { ascending: false }),
-    db.from('manual_report_delivery_attempts').select('order_id,status,safe_operational_error,created_at')
-      .in('order_id', ids).order('created_at', { ascending: false })
+    db.from('report_delivery_authorizations').select('order_id,status,authorised_at')
+      .in('order_id', ids).order('authorised_at', { ascending: false })
   ])));
   const queryError = results.flatMap((result) => result).find((result) => result.error)?.error;
   if (queryError) {
@@ -119,7 +128,7 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
   const deliveryRows = results.flatMap((result) => result[2].data ?? []);
   const reportByOrder = latestBy(reportRows.map((row: any) => ({ ...row, created_at: row.generated_at ?? '' })));
   const generationByOrder = latestBy(generationRows);
-  const deliveryByOrder = latestBy(deliveryRows);
+  const deliveryByOrder = latestBy(deliveryRows.map((row: any) => ({ ...row, created_at: row.authorised_at ?? '' })));
 
   const annotated = orders.map((order) => {
     const report: any = reportByOrder.get(order.id) ?? null;
@@ -127,10 +136,10 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     const delivery: any = deliveryByOrder.get(order.id) ?? null;
     const ready = Boolean(report?.storage_status === 'VERIFIED' && report?.storage_bucket && report?.storage_path && !['voided'].includes(report?.status));
     const generationState = generation?.status ?? (ready ? 'REPORT_READY' : 'NOT_REQUESTED');
-    const deliveryState = delivery?.status ?? (ready ? 'NOT_READY' : 'NOT_READY');
+    const deliveryState = delivery?.status ?? 'NOT_READY';
     const generationStuck = ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(generationState)
       && Date.now() - new Date(generation?.created_at ?? 0).getTime() > 15 * 60 * 1_000;
-    const deliveryStuck = ['DELIVERY_PENDING', 'DELIVERING'].includes(deliveryState)
+    const deliveryStuck = DELIVERY_IN_FLIGHT_STATUSES.includes(deliveryState)
       && Date.now() - new Date(delivery?.created_at ?? 0).getTime() > 60 * 60 * 1_000;
     const queues = new Set<Phase1QueueKey>();
     if (order.status === 'awaiting_payment' || order.status === 'draft') queues.add('new_orders');
@@ -139,10 +148,10 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     if (generationState === 'REPORT_GENERATING') queues.add('generation_in_progress');
     if (generationState === 'GENERATION_FAILED') queues.add('generation_failed');
     if (ready) queues.add('report_ready');
-    if (ready && deliveryState !== 'DELIVERED') queues.add('ready_not_delivered');
-    if (['DELIVERY_PENDING', 'DELIVERING'].includes(deliveryState)) queues.add('delivery_pending');
-    if (deliveryState === 'DELIVERY_FAILED') queues.add('delivery_failed');
-    if (deliveryState === 'DELIVERED') queues.add('delivered');
+    if (ready && deliveryState !== 'finalized') queues.add('ready_not_delivered');
+    if (DELIVERY_IN_FLIGHT_STATUSES.includes(deliveryState)) queues.add('delivery_pending');
+    if (DELIVERY_ATTENTION_STATUSES.includes(deliveryState)) queues.add('delivery_failed');
+    if (deliveryState === 'finalized') queues.add('delivered');
     if (queues.has('paid_no_report') || queues.has('generation_failed') || queues.has('ready_not_delivered') || queues.has('delivery_failed') || generationStuck || deliveryStuck) {
       queues.add('immediate_attention');
     }
@@ -153,7 +162,7 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
       delivery,
       generationState,
       deliveryState,
-      stuckReason: generationStuck ? 'Generation attempt is older than 15 minutes.' : deliveryStuck ? 'Delivery attempt is older than 60 minutes.' : null,
+      stuckReason: generationStuck ? 'Generation attempt is older than 15 minutes.' : deliveryStuck ? 'Delivery authorisation is older than 60 minutes.' : null,
       queues: [...queues]
     };
   });
