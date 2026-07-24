@@ -222,8 +222,8 @@ export default async function AdminOrderDetailPage({
           <CardHeader>
             <CardTitle>Real delivery &amp; customer access</CardTitle>
             <p className="mt-1 text-xs font-normal text-mk-muted">
-              Authoritative Release C customer-delivery record — the source of the "Customer delivery status" shown above
-              and of the admin orders list's delivery queues. Sourced from report_delivery_authorizations and, for a
+              Authoritative Release C customer-delivery record — the source of the &ldquo;Customer delivery status&rdquo; shown above
+              and of the admin orders list&rsquo;s delivery queues. Sourced from report_delivery_authorizations and, for a
               bounce or spam complaint after a successful send, email_events.
             </p>
           </CardHeader>
@@ -345,8 +345,8 @@ export default async function AdminOrderDetailPage({
             <CardHeader>
               <CardTitle>Legacy manual delivery history</CardTitle>
               <p className="mt-1 text-xs font-normal text-mk-muted">
-                Provider-double attempts only (manual_report_delivery_attempts) — not real customer email. See "Real
-                delivery &amp; customer access" above for actual delivery history.
+                Provider-double attempts only (manual_report_delivery_attempts) — not real customer email. See &ldquo;Real
+                delivery &amp; customer access&rdquo; above for actual delivery history.
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
