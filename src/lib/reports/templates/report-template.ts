@@ -335,7 +335,7 @@ export function renderReportHtml(
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
     ? [
         subsection('The recorded conditions requiring first attention', priorityGaps),
-        subsection(content.falseComfort.title, `${capCards}<div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`)
+        subsection(content.falseComfort.title, `<div class="cap-card-list">${capCards}</div><div class="false-comfort"><p>${esc(content.falseComfort.body)}</p></div>`)
       ].join('\n')
     : subsection(
         data.criticalMajorGaps.length > 0 ? 'The recorded conditions requiring first attention' : 'No critical or major gap was recorded',
@@ -388,17 +388,30 @@ export function renderReportHtml(
     <td>${esc(finding.questionPrompt)}</td>
     <td>${esc(finding.questionCode)}</td>
   </tr>`);
-  const definitionsBlock = `<table class="continuing-table compact-register"><thead><tr><th>Domain</th><th>Coverage</th><th>Reported score</th></tr></thead><tbody>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td><td>${score(domain.rawScore)}/100</td></tr>`).join('')}</tbody></table>
+  const definitionsBlock = `<table class="continuing-table compact-register score-basis-table"><thead><tr><th>Domain</th><th>Coverage</th><th>Reported score</th></tr></thead><tbody>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td><td>${score(domain.rawScore)}/100</td></tr>`).join('')}</tbody></table>
     <p class="section-note">Priority (risk register) and materiality (findings) are derived from the assessment evidence and the deterministic methodology; neither is an independent risk assessment. Likelihood/impact ratings are qualitative, not statistical probabilities.</p>`;
 
+  // Final controller review round: A1-A7 previously each forced their own fresh page
+  // (section() = break-before:page), so whenever one register's own table ended with a short
+  // continuation (e.g. two trailing rows on an otherwise-empty page), the next register was still
+  // pushed to a brand-new page instead of starting in that remaining space -- producing near-empty
+  // ordinary continuation pages the audit's text-count-gated check didn't reliably catch. A2-A7 are
+  // now subsections flowing inside A1's single section() (one forced break, right after the
+  // appendix divider); each subsequent register's heading and first row begin wherever the previous
+  // one's content actually ends. `.subsection-heading { break-after: avoid }`, `thead { display:
+  // table-header-group }` and `tr { break-inside: avoid }` (all pre-existing) keep each heading
+  // attached to its first row, repeat table headers across the resulting page breaks, and keep
+  // individual rows intact -- so this only removes wasted whitespace, it never splits content.
   const appendixSections = [
     `<section class="report-section appendix-divider"><div class="section-kicker">Appendix</div><h2>Appendix</h2><p class="lede">The complete, authoritative registers behind the executive summary above. Every material finding, risk, control, evidence item and functional-agenda item is listed here in full, whether or not it was highlighted earlier in this report.</p></section>`,
-    section('A1', 'A1. Complete material findings register', table(['No.', 'Domain', 'Recorded condition', 'Diagnosis', 'Recommended control', 'Owner / Target'], findingsAppendixRows), 'long-section'),
-    section('A2', 'A2. Complete risk register', table(['No.', 'Priority', 'Risk', 'Cause', 'Risk event', 'Required treatment'], risksAppendixRows), 'long-section'),
-    section('A3', 'A3. Complete control improvement register', table(['No.', 'Objective', 'Current state', 'Control design', 'Owner / Target'], controlsAppendixRows), 'long-section'),
-    section('A4', 'A4. Complete evidence checklist', table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], evidenceAppendixRows), 'long-section'),
-    section('A5', 'A5. Functional agenda', table(['No.', 'Function', 'Question for the review'], agendaAppendixRows), 'long-section'),
-    section('A6', 'A6. Methodology question-code mapping', `<p class="section-note">Internal methodology reference codes are shown here only, for auditability -- they do not appear in the executive summary above.</p>${table(['No.', 'Domain', 'Recorded condition', 'Methodology reference'], methodologyMappingRows)}${subsection('A7. Definitions and score basis', definitionsBlock)}`)
+    section('A1', 'A1. Complete material findings register', `
+      ${table(['No.', 'Domain', 'Recorded condition', 'Diagnosis', 'Recommended control', 'Owner / Target'], findingsAppendixRows)}
+      ${subsection('A2. Complete risk register', table(['No.', 'Priority', 'Risk', 'Cause', 'Risk event', 'Required treatment'], risksAppendixRows))}
+      ${subsection('A3. Complete control improvement register', table(['No.', 'Objective', 'Current state', 'Control design', 'Owner / Target'], controlsAppendixRows))}
+      ${subsection('A4. Complete evidence checklist', table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], evidenceAppendixRows))}
+      ${subsection('A5. Functional agenda', table(['No.', 'Function', 'Question for the review'], agendaAppendixRows))}
+      ${subsection('A6. Methodology question-code mapping', `<p class="section-note">Internal methodology reference codes are shown here only, for auditability -- they do not appear in the executive summary above.</p>${table(['No.', 'Domain', 'Recorded condition', 'Methodology reference'], methodologyMappingRows)}`)}
+      ${subsection('A7. Definitions and score basis', definitionsBlock)}`, 'long-section')
   ].join('\n');
 
   const tocRows = REPORT_TOC_ENTRIES.map((entry) => {
@@ -529,6 +542,17 @@ export function renderReportHtml(
      near-empty page -- the list is small enough that "avoid" here costs at most a few millimetres
      of earlier pushed content, never a forced blank page. */
   .bar-row-list { break-inside: avoid; page-break-inside: avoid; }
+  /* Second controller review round: a lone trailing maturity-constraint card, pushed alone onto a
+     fresh page when it doesn't fit the remaining space, left that page mostly blank (each card is
+     individually break-inside:avoid, but nothing kept the *group* together). Bounded and short
+     (one card per maturity-capping condition, typically one to a handful), so keeping the whole
+     list together costs at most a partially-filled previous page, never a stranded near-empty one. */
+  .cap-card-list { break-inside: avoid; page-break-inside: avoid; }
+  /* A7's domain-coverage table is the last content in the document, so nothing follows it to fill
+     leftover space when only its final couple of rows spill onto a fresh page (the "page 33" /
+     clean-fixture "page 20" defect). It is short and fixed-length (one row per assessed domain),
+     so keeping it whole is safe -- worst case it starts a page later, never mid-table. */
+  .score-basis-table { break-inside: avoid; page-break-inside: avoid; }
   .bar-row { margin-bottom:2mm; break-inside:avoid; }
   .bar-row div:first-child { display:flex;justify-content:space-between;font:7.5pt Arial,sans-serif;gap:3mm; }
   .bar-row span { color:#6c665b; }

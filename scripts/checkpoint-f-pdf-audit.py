@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
@@ -113,7 +114,8 @@ ASSURANCE_SEMANTIC_FAILURE = re.compile(
 )
 
 # Blocker 5: near-empty/tail-page detection. Cover (1) and the governance/version page (2) are
-# allowed exceptions; the final page of each candidate is also exempted in the per-candidate loop.
+# allowed exceptions; a final page is no longer exempted merely for being last (see the per-page
+# loop below) -- only an intentional page identified by its own content signature is exempt.
 NEAR_EMPTY_EXEMPT_PAGES = {1, 2}
 NEAR_EMPTY_CHAR_THRESHOLD = 600
 # Final controller review round: raw dark-pixel *density* (the previous 0.02 ink-ratio threshold)
@@ -125,6 +127,16 @@ NEAR_EMPTY_CHAR_THRESHOLD = 600
 # distinguishes that case. 0.34 means content must span at least roughly a third of the body height;
 # below that, more than roughly two-thirds of the body area is unused.
 NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD = 0.34
+# Second controller review round: gating the occupied-area check behind `body_chars < 600` let a
+# page with two large table rows (well over 600 characters of cell text, but occupying only ~20% of
+# the body height, e.g. a 2-row continuation of an otherwise-finished register) pass unexamined --
+# the exact "page 24 / page 26" defect class. Occupied area must therefore also be checked as an
+# independent, text-count-agnostic signal: any non-exempt page whose content spans less than ~26%
+# of the body height fails regardless of how much text is packed into that small area. 0.26 is
+# deliberately looser than the 0.34 paired threshold above (which only fires alongside genuinely
+# low text) so a legitimate full-height table with few but large cells -- content reaching close to
+# the bottom of the page even if it isn't textually dense -- still passes on area alone.
+NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR = 0.26
 
 
 def body_region_occupied_ratio(image_path: Path) -> float:
@@ -144,6 +156,114 @@ def body_region_occupied_ratio(image_path: Path) -> float:
             return 0.0
         _, content_top, _, content_bottom = bbox
         return (content_bottom - content_top) / region.height if region.height else 0.0
+
+
+def is_appendix_divider_page(page_text: str) -> bool:
+    """The one allowed content-signature exemption beyond the fixed cover/governance pages: the
+    appendix's own intentional, deliberately short divider page. Matched on its fixed opening text,
+    never on a page number."""
+    return "APPENDIX" in page_text and page_text.strip().startswith("APPENDIX\nAppendix\n")
+
+
+def page_is_near_empty(page_text: str, occupied_ratio: float) -> bool:
+    """Pure, standalone near-empty decision for a single page given its already-computed body-text
+    and occupied-area signals -- deliberately factored out of the per-candidate loop (which is only
+    responsible for resolving page_text/occupied_ratio and applying the fixed page/content-signature
+    exemptions) so the rule itself is directly unit-testable; see self_test_near_empty_rule() below.
+
+    A page fails when EITHER:
+      1. occupied area alone is materially below NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR, regardless
+         of how much text is packed into that small area (catches a page carrying two or more large
+         table rows -- well over NEAR_EMPTY_CHAR_THRESHOLD characters -- that still leaves most of
+         the body blank); or
+      2. text is low (< NEAR_EMPTY_CHAR_THRESHOLD) AND occupied area is below the looser
+         NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD (the paired low-text/low-area rule, for genuinely sparse
+         pages that don't trip the tighter absolute floor).
+
+    A legitimate full-height table with few but large cells reaches a high occupied ratio on area
+    alone (its last row is near the bottom of the page), so it passes under both rules regardless of
+    its character count -- this function never treats low text alone as disqualifying.
+    """
+    if occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR:
+        return True
+    body_chars = len(normalise_page(page_text))
+    return body_chars < NEAR_EMPTY_CHAR_THRESHOLD and occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD
+
+
+def self_test_near_empty_rule() -> None:
+    """Regression fixtures for the near-empty-page rule correction (second controller review round).
+    Runs in-process against synthetic PIL images and fabricated page text -- no rendered PDF or
+    candidate fixture required -- so the rule itself stays covered even if the real report content
+    changes enough that none of the four live candidates happen to exercise every branch."""
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+    width, height = 1240, 1754  # A4 @ ~150dpi, matches the audit's own raster proportions closely enough
+
+    def make_image(dark_top_frac: float, dark_bottom_frac: float) -> Path:
+        image = _Image.new("L", (width, height), color=255)
+        if dark_bottom_frac > dark_top_frac:
+            draw = _ImageDraw.Draw(image)
+            top = int(height * dark_top_frac)
+            bottom = int(height * dark_bottom_frac)
+            draw.rectangle([40, top, width - 40, bottom], fill=0)
+        path = Path(tempfile.mkstemp(suffix=".png")[1])
+        image.save(path)
+        return path
+
+    large_row_text = ("A " * 40 + "\n") * 10  # >600 chars, simulating two large table-cell rows
+    assert len(large_row_text) > NEAR_EMPTY_CHAR_THRESHOLD
+
+    # 1. Two large table rows confined to the top ~20% of the body, ~80% blank below, must fail --
+    #    proves occupied area is checked independently of text count (the "page 24 / page 26" defect).
+    top_heavy = make_image(0.06, 0.24)
+    ratio = body_region_occupied_ratio(top_heavy)
+    assert ratio < NEAR_EMPTY_OCCUPIED_RATIO_ABSOLUTE_FLOOR, f"fixture did not simulate a top-heavy page: ratio={ratio}"
+    assert page_is_near_empty(large_row_text, ratio), "a page with >600 chars confined to ~20% of the body must still fail"
+    top_heavy.unlink()
+
+    # 2. A legitimate full-height table with few characters -- content spans close to the full body
+    #    height even though the extracted text is short -- must pass.
+    sparse_full_height_text = "Domain  Coverage  Score\nA  100%  90\nB  100%  91"
+    assert len(sparse_full_height_text) < NEAR_EMPTY_CHAR_THRESHOLD
+    full_height = make_image(0.04, 0.93)
+    ratio = body_region_occupied_ratio(full_height)
+    assert ratio >= NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD, f"fixture did not simulate a full-height page: ratio={ratio}"
+    assert not page_is_near_empty(sparse_full_height_text, ratio), "a full-height table must pass even with few characters"
+    full_height.unlink()
+
+    # 3. The intentional appendix divider passes by content signature, independent of its own (low)
+    #    occupied ratio -- it is recognised and skipped by the caller before page_is_near_empty() is
+    #    ever consulted, not by the occupied-area rule itself.
+    divider_text = "APPENDIX\nAppendix\nThe complete, authoritative registers behind the executive summary above."
+    assert is_appendix_divider_page(divider_text), "the divider's fixed opening text must be recognised"
+    assert not is_appendix_divider_page("A6. Methodology question-code mapping\nNO. DOMAIN ...  more than six hundred characters of real table content here to be safe " * 3), \
+        "an ordinary appendix page must not be misidentified as the divider"
+
+    # 4. A sparse final continuation page (e.g. a two-row definitions-table tail) fails exactly like
+    #    any other page -- there is no longer a blanket "last page" exemption in page_is_near_empty()
+    #    or its caller; only the fixed cover/governance pages and the content-signature divider are
+    #    ever skipped, and neither applies here.
+    tail_text = "Domain  Coverage  Score\nI  100%  93\nJ  100%  93"
+    tail = make_image(0.05, 0.22)
+    ratio = body_region_occupied_ratio(tail)
+    assert page_is_near_empty(tail_text, ratio), "a sparse final continuation page must fail; no blanket last-page exemption may save it"
+    assert not is_appendix_divider_page(tail_text), "a definitions-table tail must not match the divider's content signature"
+    tail.unlink()
+
+    # 5. No page-number-specific exception exists: the same content/occupied-ratio pair must be
+    #    judged identically no matter which page number it is nominally attached to -- page_is_near_
+    #    empty() and is_appendix_divider_page() take no page-number argument at all, so this is
+    #    true by construction, but assert it explicitly against a few representative page numbers
+    #    (including ones far outside any real report's length) as a regression guard against a
+    #    future change reintroducing a page-number check.
+    stranded = make_image(0.06, 0.24)
+    ratio = body_region_occupied_ratio(stranded)
+    for page_number in (3, 24, 26, 33, 999):
+        assert page_number not in NEAR_EMPTY_EXEMPT_PAGES, f"page {page_number} must not be specifically exempted"
+        assert page_is_near_empty(large_row_text, ratio), f"the rule must fail this content regardless of page number ({page_number})"
+    stranded.unlink()
+
+    print("self_test_near_empty_rule: all 5 near-empty-rule regression fixtures passed")
 
 
 def sha256(path: Path) -> str:
@@ -342,6 +462,12 @@ def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] == "--print-resolved-head-sha":
         print(resolve_head_sha())
         return 0
+    # Isolated, fast debug entry point used by the near-empty-page-rule regression test (F17 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_near_empty_rule() in isolation,
+    # without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-near-empty-rule":
+        self_test_near_empty_rule()
+        return 0
     if len(sys.argv) != 3:
         raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
     artifact = Path(sys.argv[1]).resolve()
@@ -477,28 +603,20 @@ def main() -> int:
             record(checks, "PDF_CLEAN_FALSE_FAILURE_LANGUAGE", not false_failure, name, "clean assurance must not be described as a failed control")
 
         # Blocker 5: near-empty/tail-page detection using body-area analysis, not just "any text".
-        # A page counts as near-empty when BOTH the extracted body-text count is low AND the
-        # rendered body region (excluding header/footer bands) leaves more than roughly two-thirds
-        # of its vertical extent unoccupied by content -- requiring both signals avoids flagging
-        # legitimately sparse-but-intentional pages (a table with few but large cells, for instance)
-        # on text count alone, while still catching a page whose only content is a small chart
-        # fragment or a couple of trailing rows (low text, low occupied area, but not literally
-        # blank, so a pixel-difference-from-white check alone would miss it).
+        # The decision itself lives in page_is_near_empty()/is_appendix_divider_page() (see their
+        # docstrings for the rule) so it is directly unit-tested by self_test_near_empty_rule() --
+        # this loop is only responsible for resolving each page's text/occupied-ratio inputs and the
+        # fixed exemptions (cover, governance, the appendix divider). There is no "last page"
+        # exemption: an unintentional sparse final page (e.g. a definitions-table continuation) is
+        # audited exactly like any other page.
         near_empty_pages: list[int] = []
         for page_number, image_path in enumerate(images, start=1):
-            if page_number in NEAR_EMPTY_EXEMPT_PAGES or page_number == len(images):
+            if page_number in NEAR_EMPTY_EXEMPT_PAGES:
                 continue
             page_text = page_texts[page_number - 1] if page_number <= len(page_texts) else ""
-            # Allowed exception: an intentional section divider (the appendix opening page), which
-            # deliberately carries only a short orienting sentence -- identified by its fixed
-            # content signature, not by hard-coding a specific page number.
-            if "APPENDIX" in page_text and page_text.strip().startswith("APPENDIX\nAppendix\n"):
+            if is_appendix_divider_page(page_text):
                 continue
-            body_chars = len(normalise_page(page_text))
-            if body_chars >= NEAR_EMPTY_CHAR_THRESHOLD:
-                continue
-            occupied_ratio = body_region_occupied_ratio(image_path)
-            if occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD:
+            if page_is_near_empty(page_text, body_region_occupied_ratio(image_path)):
                 near_empty_pages.append(page_number)
         record(checks, "PDF_NEAR_EMPTY_PAGE", not near_empty_pages, name, f"pages={near_empty_pages}")
 
