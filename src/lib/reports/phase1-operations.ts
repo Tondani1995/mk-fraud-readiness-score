@@ -28,12 +28,29 @@ export type Phase1QueueKey = keyof typeof PHASE1_QUEUE_LABELS;
 // getPhase1OrderOperations below still reads unchanged -- that table drives the separate,
 // still-live legacy/provider-double admin delivery action (FulfilmentActions' "Initiate/Retry
 // Delivery" button, via src/lib/reports/phase1-manual-delivery.ts), not real customer delivery.
-const DELIVERY_IN_FLIGHT_STATUSES = ['queued', 'claimed', 'dispatching', 'retry_scheduled'];
+// Exported (not just used locally) so delivery-recovery-service.ts's getOrderDeliveryState can
+// classify the order-detail page's authoritative delivery status with the exact same rules this
+// function uses for the admin orders list -- one shared classification, not two that could drift.
+export const DELIVERY_IN_FLIGHT_STATUSES = ['queued', 'claimed', 'dispatching', 'retry_scheduled'];
 // 'bounced'/'complained' are added here even though they're not values of
 // report_delivery_authorizations.status itself (they live on the linked email_events row --
 // see the deliveryState override below) -- a bounce/complaint always means "needs attention",
 // the same bucket a terminal authorization failure already means.
-const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked', 'bounced', 'complained'];
+export const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked', 'bounced', 'complained'];
+
+// Maps an already bounce/complaint-resolved delivery status (see the deliveryState override in
+// annotateOrdersWithPhase1State below, and mapAuthorization in delivery-recovery-service.ts,
+// which apply the identical override) onto the same four buckets the admin orders list queues
+// use. Shared by both the list (this file) and the order-detail page's primary summary
+// (delivery-recovery-service.ts's getOrderDeliveryState), so the two views can't disagree about
+// what a given status means.
+export function classifyDeliveryBucket(status: string | null | undefined): 'not_ready' | 'delivery_pending' | 'delivered' | 'delivery_failed' {
+  if (!status) return 'not_ready';
+  if (DELIVERY_IN_FLIGHT_STATUSES.includes(status)) return 'delivery_pending';
+  if (status === 'finalized') return 'delivered';
+  if (DELIVERY_ATTENTION_STATUSES.includes(status)) return 'delivery_failed';
+  return 'not_ready';
+}
 
 function latestBy<T extends { order_id: string; created_at: string }>(rows: T[]) {
   const map = new Map<string, T>();

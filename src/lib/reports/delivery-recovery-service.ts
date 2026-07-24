@@ -4,6 +4,7 @@ import { getNumberEnv } from '@/lib/env/server';
 import { sendEmail } from '@/lib/notifications/email-provider';
 import { buildReportReadyMessage } from '@/lib/notifications/message-templates';
 import type { AdminRole } from '@/lib/types/domain';
+import { classifyDeliveryBucket } from './phase1-operations';
 
 // Release C admin recovery for the real delivery/access-token layer (docs/safe-launch/
 // 15-email-and-secure-delivery-design.md, "Admin recovery"). Mirrors
@@ -148,6 +149,14 @@ export async function getOrderDeliveryState(orderId: string): Promise<{
   authorizations: DeliveryAuthorization[];
   accessTokens: CustomerAccessToken[];
   recipientException: RecipientRequiredException | null;
+  // The authoritative current Release C customer-delivery status/bucket for this order -- the
+  // most recent authorization's already bounce/complaint-resolved status (mapAuthorization
+  // above), classified via the exact same classifyDeliveryBucket() the admin orders list uses
+  // (phase1-operations.ts). This, not manual_report_delivery_attempts, is what the order-detail
+  // page's primary fulfilment summary must display, so it can never show "delivered" here while
+  // the summary above it says otherwise.
+  currentDeliveryStatus: string;
+  currentDeliveryBucket: ReturnType<typeof classifyDeliveryBucket>;
 }> {
   const db = createSupabaseServiceClient() as any;
   const [authorizationsResult, tokensResult, latestExceptionEventResult] = await Promise.all([
@@ -178,10 +187,16 @@ export async function getOrderDeliveryState(orderId: string): Promise<{
     }
   }
 
+  const authorizations = (authorizationsResult.data ?? []).map(mapAuthorization);
+  const currentDeliveryStatus = authorizations[0]?.status ?? 'NOT_READY';
+  const currentDeliveryBucket = classifyDeliveryBucket(currentDeliveryStatus);
+
   return {
-    authorizations: (authorizationsResult.data ?? []).map(mapAuthorization),
+    authorizations,
     accessTokens: (tokensResult.data ?? []).map(mapToken),
-    recipientException
+    recipientException,
+    currentDeliveryStatus,
+    currentDeliveryBucket
   };
 }
 
