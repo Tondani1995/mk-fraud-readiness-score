@@ -19,6 +19,7 @@ export async function POST(request: Request, { params }: { params: { orderRefere
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const reportId = String(body.reportId ?? '');
   const reason = String(body.reason ?? '');
+  const overrideSuppression = body.overrideSuppression === true;
   if (!reportId) {
     return NextResponse.json({ ok: false, reason: 'report_required', message: 'A report id is required.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -40,7 +41,8 @@ export async function POST(request: Request, { params }: { params: { orderRefere
     orderReference: order.order_reference,
     recipientEmail: order.customer_email,
     customerName: order.customer_name ?? null,
-    reason
+    reason,
+    overrideSuppression
   });
   if (!result.ok) {
     return NextResponse.json({ ok: false, reason: result.reason, message: result.message }, { status: 400, headers: { 'Cache-Control': 'no-store' } });

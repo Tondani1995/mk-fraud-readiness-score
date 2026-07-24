@@ -7,6 +7,7 @@ import {
 import { sendEmail } from '@/lib/notifications/email-provider';
 import {
   buildAdminNewOrderAlertMessage,
+  buildInternalExceptionAlertMessage,
   buildOrderConfirmationMessage,
   buildPaymentConfirmedMessage
 } from '@/lib/notifications/message-templates';
@@ -65,7 +66,7 @@ function formatEftAccountSummary(eftSnapshot: any): string {
 // email before either claimed the dedupe slot.
 async function recordNotification(db: any, input: {
   context: NotificationContext;
-  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed';
+  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert';
   recipient: string | null;
   payload: Record<string, unknown>;
   message: { subject: string; text: string; html: string };
@@ -272,6 +273,51 @@ export async function recordPaymentConfirmedNotification(input: PaymentConfirmed
       amountCents: input.amountCents,
       currency: input.currency,
       verifiedAtIso: input.verifiedAtIso
+    })
+  });
+}
+
+// Release C closure: fires exactly once per order (dedupe_key is phase1:delivery_recipient_
+// required_alert:<order_id>, same mechanism as every other notification in this file) when
+// approve_quality_review() reports delivery_exception='recipient_required' -- reuses the
+// existing, previously-dormant buildInternalExceptionAlertMessage() builder rather than adding a
+// new one.
+export async function recordDeliveryRecipientRequiredAlert(input: { orderId: string; reportId: string | null }) {
+  const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    return { skipped: true, reason: capability.status, message: capability.message };
+  }
+  const { data: order } = await db.from('orders').select('id,order_reference,created_at').eq('id', input.orderId).maybeSingle();
+  if (!order) return { skipped: true, reason: 'order_not_found', message: 'Order not found.' };
+  const adminRecipient = process.env.MK_INTERNAL_LEADS_EMAIL?.trim()
+    || process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim()
+    || null;
+  const ageMs = Date.now() - new Date(order.created_at ?? Date.now()).getTime();
+  const ageHours = Math.max(0, Math.round(ageMs / (60 * 60 * 1000)));
+
+  return recordNotification(db, {
+    context: {
+      assessment: { id: null },
+      organisation: null,
+      respondent: null,
+      dataRequest: null,
+      order: { id: order.id },
+      product: null,
+      eftSnapshot: null
+    },
+    notificationType: 'delivery_recipient_required_alert',
+    recipient: adminRecipient,
+    payload: {
+      order_reference: order.order_reference,
+      report_id: input.reportId
+    },
+    message: buildInternalExceptionAlertMessage({
+      orderReference: order.order_reference,
+      failedStage: 'Report ready for delivery, but no customer email on file',
+      ageDescription: `${ageHours} hour(s) since order creation`,
+      technicalReference: input.reportId ?? order.id,
+      recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
     })
   });
 }

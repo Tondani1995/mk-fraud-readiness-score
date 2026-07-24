@@ -13,13 +13,19 @@
 // failing gracefully with no RESEND_API_KEY configured) plus 22 checks on the admin delivery/
 // token recovery layer (a real authenticated platform_admin session: role gating via auth.uid(),
 // invalid-state rejection, revoke-then-revoke-again rejection, revoke-on-reissue leaving exactly
-// one active token, and the reissue send-then-persist glue) -- was independently verified in this
-// work cycle by applying every migration to a local Postgres via `supabase start` and running
-// direct SQL/RPC checks with synthetic fixture data, then tearing the stack down. See
-// docs/safe-launch/09-release-evidence.md and PR #43 for that evidence. It was manual
-// verification, not wired into this repeatable script, for the same reason Release A/B's live
-// checks weren't: it requires bringing up a local Supabase/Docker stack this script cannot
-// assume is running.
+// one active token, and the reissue send-then-persist glue) plus 12 checks on the provider
+// webhook re-verification (real HMAC signature + database attestation, correlation against
+// Release-C-created rows, unknown-message/duplicate handling) plus 40 checks + 3 supplementary
+// checks on the closure cycle (missing-recipient handling end to end including no report
+// regeneration, permanent bounce, transient/temporary bounce staying retry-eligible, complaint
+// suppression with an explicit-override escape hatch, event-ordering/status-vocabulary-rank
+// correctness, and the internal MK alert's dedupe-based no-alert-loop guarantee) -- was
+// independently verified in this and the prior work cycle by applying every migration to a local
+// Postgres via `supabase start` and running direct SQL/RPC checks with synthetic fixture data,
+// then tearing the stack down. See docs/safe-launch/09-release-evidence.md and PR #43 for that
+// evidence. It was manual verification, not wired into this repeatable script, for the same
+// reason Release A/B's live checks weren't: it requires bringing up a local Supabase/Docker stack
+// this script cannot assume is running.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -154,4 +160,61 @@ assert(!/@(gmail|yahoo|outlook|hotmail)\.com/i.test(allNewSources), 'No example 
 console.log('--- 12. package.json wiring ---');
 assertIncludes('package.json', '"release-c:test-email-secure-delivery": "node scripts/release-c-email-secure-delivery-tests.mjs"', 'package.json registers the Release C test script');
 
-console.log('\nRelease C email/secure-delivery static checks passed: additive-only migration, sendEmail() as the sole real-transport call site, all 4 message types actually dispatching (not hardcoded disabled), message-content privacy discipline, secure customer-access token-possession control, the shared worker route\'s second claim phase, and admin recovery role gating matching each RPC\'s own internal check are all present in source. This script does not connect to a live Supabase project -- see the header comment for the live-database checks performed manually this work cycle.');
+// ---------------------------------------------------------------------------
+// Closure cycle (docs/safe-launch/09-release-evidence.md, "Release C closure cycle"):
+// missing-recipient handling, bounce/complaint owned exceptions + resend suppression, and the
+// status-vocabulary rank fix. Item 1 from that cycle (unified admin delivery-state display) is
+// implemented independently and covered by its own evidence, not by this script.
+// ---------------------------------------------------------------------------
+
+const closureMigrationCandidates = fs.existsSync(path.join(root, 'supabase/migrations'))
+  ? fs.readdirSync(path.join(root, 'supabase/migrations')).filter((name) => name.includes('release_c_closure_delivery_exceptions'))
+  : [];
+assert(closureMigrationCandidates.length === 1, 'Exactly one Release C closure migration file exists');
+const closureMigration = `supabase/migrations/${closureMigrationCandidates[0]}`;
+const correctRecipientRoute = 'src/app/score/api/admin/orders/[orderReference]/delivery/correct-recipient/route.ts';
+const webhookRoute = 'src/app/score/api/webhooks/resend/route.ts';
+const fulfilmentService = 'src/lib/fulfilment/fulfilment-service.ts';
+
+console.log('--- 13. Closure migration is additive: extends existing RPCs/tables, drops only the one function signature it deliberately replaces ---');
+assert(exists(closureMigration), `${closureMigration} exists`);
+assertNotIncludes(closureMigration, 'drop table', 'Migration never drops a table');
+assertNotIncludes(closureMigration, 'drop column', 'Migration never drops a column');
+assertIncludes(closureMigration, 'drop function if exists public.reissue_customer_report_access_token(uuid, uuid, text, text, integer);', 'The only drop is the deliberate, documented 5-parameter reissue_customer_report_access_token overload replacement');
+assertIncludes(closureMigration, 'create or replace function public.correct_delivery_recipient_and_queue', 'New RPC correct_delivery_recipient_and_queue() is defined');
+assertIncludes(closureMigration, "p_override_suppression boolean default false", 'reissue_customer_report_access_token() gains a defaulted trailing override parameter, not a breaking signature change for existing callers that already pass all 5 original args');
+
+console.log('--- 14. Missing-recipient handling: visible exception, not just a log line; no report regeneration; no placeholder address ---');
+assertIncludes(closureMigration, "v_delivery_exception := 'recipient_required'", 'approve_quality_review() flags the exception on its own return value');
+assertIncludes(closureMigration, "'delivery_recipient_required'", 'A visible order_events row is created for the missing-recipient case');
+assertIncludes(closureMigration, 'correct_delivery_recipient_and_queue', 'The correction path is a new, auditable RPC, not a direct table mutation');
+assertIncludes(closureMigration, "not exists (select 1 from public.report_delivery_authorizations a where a.report_id = r.id)", 'Correction only targets a report with no existing delivery authorization -- cannot create a second, competing one');
+assertNotIncludes(closureMigration, "'no-reply@", 'No placeholder/fake email address is ever inserted');
+assertIncludes(phase1Notifications, 'recordDeliveryRecipientRequiredAlert', 'A dedicated, deduped internal-alert function exists');
+assertIncludes(fulfilmentService, "delivery_exception === 'recipient_required'", 'approveQualityReview() checks the RPC-reported exception flag');
+assertIncludes(fulfilmentService, 'recordDeliveryRecipientRequiredAlert', 'approveQualityReview() fires the internal alert on that flag');
+assertIncludes(fulfilmentService, '.catch(', 'The alert call cannot fail the approval itself (fire-and-forget, matching every other notification call site in this codebase)');
+assertIncludes(correctRecipientRoute, 'ACCESS_TOKEN_ROLES', 'The correction admin route is role-gated');
+assertIncludes(deliveryAccessPanel, 'recipientException', 'The admin panel surfaces the recipient-required exception');
+assertIncludes(deliveryAccessPanel, 'correct-recipient', 'The admin panel calls the correction route');
+
+console.log('--- 15. Bounce/complaint owned exceptions and resend suppression ---');
+assertIncludes(closureMigration, "v_status in ('bounced', 'complained')", 'Owned exceptions are created for both bounce and complaint outcomes');
+assertIncludes(closureMigration, "insert into public.order_events(order_id, event_type, note, metadata_json)\n      values (\n        v_email.order_id,", 'A visible order_events row is written for bounce/complaint, in the order activity timeline every other order event already appears in');
+assertIncludes(closureMigration, "'delivery-' || v_status || ':' || v_email.id::text", 'The phase14_operational_alerts alert_key is deterministic per (email, outcome) -- a replayed identical event cannot create a duplicate alert (no alert loop)');
+assertIncludes(closureMigration, "raise exception 'access_token_reissue_blocked_prior_%', v_suppressing_status;", 'reissue_customer_report_access_token() blocks by default on a prior bounce or complaint for the same report+recipient');
+assertIncludes(closureMigration, 'p_override_suppression', 'An explicit override parameter is required to bypass the suppression -- not a silent default-allow');
+assertIncludes(webhookRoute, "bounceData?.type", 'The webhook route inspects the provider bounce-type field');
+assertIncludes(webhookRoute, "'email.bounced.transient'", 'A transient/soft bounce is classified separately from a permanent one before reaching the RPC');
+assertNotIncludes(webhookRoute, 'RESEND_WEBHOOK_SECRET =', 'The webhook secret check itself is untouched -- signature/replay protection was not weakened to add this classification');
+
+console.log('--- 16. Status-vocabulary rank fix: Release C\'s own statuses are recognised, not left at an unrecognised rank-0 default ---');
+for (const status of ['PROVIDER_REQUEST_STARTED', 'RETRY_SCHEDULED', 'PROVIDER_ACCEPTED', 'FAILED_TERMINAL']) {
+  assertIncludes(closureMigration, `when '${status}' then`, `apply_email_provider_event_atomic()'s rank ladder recognises the Release C status ${status}`);
+}
+assertIncludes(closureMigration, "when 'queued' then 10 when 'sending' then 20", 'The pre-existing lowercase Phase14 rank ladder is preserved unchanged, not replaced');
+
+console.log('--- 17. package.json wiring (unchanged -- same script, extended in place) ---');
+assertIncludes('package.json', '"release-c:test-email-secure-delivery": "node scripts/release-c-email-secure-delivery-tests.mjs"', 'package.json still registers this same test script');
+
+console.log('\nRelease C email/secure-delivery static checks passed: additive-only migration, sendEmail() as the sole real-transport call site, all 4 message types actually dispatching (not hardcoded disabled), message-content privacy discipline, secure customer-access token-possession control, the shared worker route\'s second claim phase, admin recovery role gating matching each RPC\'s own internal check, missing-recipient exception handling with no report regeneration and no placeholder address, bounce/complaint owned exceptions with resend suppression, and the status-vocabulary rank fix are all present in source. This script does not connect to a live Supabase project -- see the header comment for the live-database checks performed manually across this and the prior work cycle.');

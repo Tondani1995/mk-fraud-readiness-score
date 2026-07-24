@@ -86,19 +86,19 @@ function mapToken(row: Record<string, unknown>): CustomerAccessToken {
 
 function mapError(error: { message?: string } | null): { reason: string; message: string } {
   const text = String(error?.message ?? '');
-  if (text.includes('delivery_retry_no_session') || text.includes('access_token_no_session')) {
+  if (text.includes('delivery_retry_no_session') || text.includes('access_token_no_session') || text.includes('delivery_recipient_correction_no_session')) {
     return { reason: 'no_session', message: 'Your admin session has expired. Sign in again.' };
   }
   if (text.includes('delivery_retry_role_forbidden')) {
     return { reason: 'forbidden', message: 'You are not authorised to retry report delivery.' };
   }
-  if (text.includes('access_token_role_forbidden')) {
+  if (text.includes('access_token_role_forbidden') || text.includes('delivery_recipient_correction_role_forbidden')) {
     return { reason: 'forbidden', message: 'You are not authorised to manage customer report access links.' };
   }
   if (text.includes('delivery_retry_invalid_state')) {
     return { reason: 'invalid_state', message: 'This delivery is not in a state that can be retried.' };
   }
-  if (text.includes('access_token_reason_too_short')) {
+  if (text.includes('access_token_reason_too_short') || text.includes('delivery_recipient_correction_reason_too_short')) {
     return { reason: 'reason_too_short', message: 'A reason of at least 5 characters is required.' };
   }
   if (text.includes('access_token_already_revoked')) {
@@ -110,26 +110,89 @@ function mapError(error: { message?: string } | null): { reason: string; message
   if (text.includes('access_token_report_order_mismatch')) {
     return { reason: 'report_order_mismatch', message: 'This report does not belong to this order.' };
   }
+  if (text.includes('access_token_reissue_blocked_prior_bounced')) {
+    return { reason: 'blocked_prior_bounced', message: 'This address previously bounced permanently. Confirm the address is correct, then override to resend.' };
+  }
+  if (text.includes('access_token_reissue_blocked_prior_complained')) {
+    return { reason: 'blocked_prior_complained', message: 'This recipient previously marked a report-ready email as spam. An explicit override is required before resending.' };
+  }
+  if (text.includes('delivery_recipient_correction_invalid_email')) {
+    return { reason: 'invalid_email', message: 'Enter a valid email address.' };
+  }
+  if (text.includes('delivery_recipient_correction_order_not_found')) {
+    return { reason: 'order_not_found', message: 'Order not found.' };
+  }
+  if (text.includes('delivery_recipient_correction_no_pending_delivery')) {
+    return { reason: 'no_pending_delivery', message: 'There is no released report waiting on a delivery recipient for this order.' };
+  }
+  if (text.includes('delivery_recipient_correction_already_queued')) {
+    return { reason: 'already_queued', message: 'A delivery has already been queued for this report and recipient.' };
+  }
   return { reason: 'query_failed', message: 'The action could not be completed. Try again.' };
 }
+
+export type RecipientRequiredException = {
+  pendingReportId: string;
+  pendingReportReference: string;
+};
 
 export async function getOrderDeliveryState(orderId: string): Promise<{
   authorizations: DeliveryAuthorization[];
   accessTokens: CustomerAccessToken[];
+  recipientException: RecipientRequiredException | null;
 }> {
   const db = createSupabaseServiceClient() as any;
-  const [authorizationsResult, tokensResult] = await Promise.all([
+  const [authorizationsResult, tokensResult, latestExceptionEventResult] = await Promise.all([
     db.from('report_delivery_authorizations')
       .select('id,report_id,recipient_email,status,retry_count,max_attempts,next_attempt_at,provider_message_id,revoked_reason,authorised_at,finalized_at')
       .eq('order_id', orderId).order('authorised_at', { ascending: false }),
     db.from('customer_report_access_tokens')
       .select('id,report_id,recipient_email,issued_at,expires_at,revoked_at,revoked_reason,last_accessed_at,access_count')
-      .eq('order_id', orderId).order('issued_at', { ascending: false })
+      .eq('order_id', orderId).order('issued_at', { ascending: false }),
+    // The most recent of the two events determines whether the exception is still open --
+    // delivery_recipient_corrected always fires strictly after the delivery_recipient_required
+    // it resolves (correct_delivery_recipient_and_queue() only succeeds when a pending report
+    // actually exists), so "most recent of either type" is an unambiguous resolved/unresolved
+    // signal without needing a separate status column.
+    db.from('order_events').select('event_type,created_at')
+      .eq('order_id', orderId).in('event_type', ['delivery_recipient_required', 'delivery_recipient_corrected'])
+      .order('created_at', { ascending: false }).limit(1)
   ]);
+
+  let recipientException: RecipientRequiredException | null = null;
+  if (latestExceptionEventResult.data?.[0]?.event_type === 'delivery_recipient_required') {
+    const { data: pendingReport } = await db.from('reports')
+      .select('id,report_reference')
+      .eq('order_id', orderId).eq('status', 'released')
+      .order('version_number', { ascending: false }).limit(1).maybeSingle();
+    if (pendingReport) {
+      recipientException = { pendingReportId: pendingReport.id, pendingReportReference: pendingReport.report_reference };
+    }
+  }
+
   return {
     authorizations: (authorizationsResult.data ?? []).map(mapAuthorization),
-    accessTokens: (tokensResult.data ?? []).map(mapToken)
+    accessTokens: (tokensResult.data ?? []).map(mapToken),
+    recipientException
   };
+}
+
+export async function correctDeliveryRecipientAndQueue(input: {
+  orderId: string;
+  newRecipientEmail: string;
+  reason: string;
+}): Promise<DeliveryRecoveryServiceResult<DeliveryAuthorization>> {
+  const note = input.reason?.trim() ?? '';
+  if (note.length < 5) return { ok: false, reason: 'reason_too_short', message: 'A reason of at least 5 characters is required.' };
+  const client = privilegedClient();
+  if (!client) return { ok: false, reason: 'no_session', message: 'Your admin session has expired. Sign in again.' };
+  const { data, error } = await client.rpc('correct_delivery_recipient_and_queue', {
+    p_order_id: input.orderId,
+    p_new_recipient_email: input.newRecipientEmail,
+    p_reason: note
+  });
+  if (error || !data) { const mapped = mapError(error); return { ok: false, ...mapped }; }
+  return { ok: true, data: mapAuthorization(data as Record<string, unknown>) };
 }
 
 export async function retryDelivery(authorizationId: string): Promise<DeliveryRecoveryServiceResult<DeliveryAuthorization>> {
@@ -164,6 +227,7 @@ export async function reissueAccessToken(input: {
   recipientEmail: string;
   customerName: string | null;
   reason: string;
+  overrideSuppression?: boolean;
 }): Promise<DeliveryRecoveryServiceResult<{ token: CustomerAccessToken; emailSent: boolean; emailError: string | null }>> {
   const note = input.reason?.trim() ?? '';
   if (note.length < 5) return { ok: false, reason: 'reason_too_short', message: 'A reason of at least 5 characters is required.' };
@@ -176,7 +240,8 @@ export async function reissueAccessToken(input: {
     p_report_id: input.reportId,
     p_recipient_email: input.recipientEmail,
     p_reason: note,
-    p_ttl_seconds: ttlSeconds
+    p_ttl_seconds: ttlSeconds,
+    p_override_suppression: input.overrideSuppression === true
   });
   if (error || !data) { const mapped = mapError(error); return { ok: false, ...mapped }; }
 

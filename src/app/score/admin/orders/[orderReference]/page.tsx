@@ -195,6 +195,7 @@ export default async function AdminOrderDetailPage({
               reportId={latestReport?.id ?? null}
               authorizations={realDeliveryState.authorizations}
               accessTokens={realDeliveryState.accessTokens}
+              recipientException={realDeliveryState.recipientException}
               canRetryDelivery={DELIVERY_RETRY_ROLES.includes(admin.role)}
               canManageAccessTokens={ACCESS_TOKEN_ROLES.includes(admin.role)}
             />

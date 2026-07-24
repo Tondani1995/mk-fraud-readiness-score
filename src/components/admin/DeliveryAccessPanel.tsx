@@ -30,11 +30,17 @@ export type CustomerAccessTokenProps = {
   accessCount: number;
 };
 
+type RecipientExceptionProps = {
+  pendingReportId: string;
+  pendingReportReference: string;
+} | null;
+
 type Props = {
   orderReference: string;
   reportId: string | null;
   authorizations: DeliveryAuthorizationProps[];
   accessTokens: CustomerAccessTokenProps[];
+  recipientException: RecipientExceptionProps;
   canRetryDelivery: boolean;
   canManageAccessTokens: boolean;
 };
@@ -53,9 +59,12 @@ export function DeliveryAccessPanel(props: Props) {
   const [running, setRunning] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [notice, setNotice] = useState<Notice>(null);
+  const [blockedReissueReason, setBlockedReissueReason] = useState<string | null>(null);
+  const [correctionEmail, setCorrectionEmail] = useState('');
+  const [correctionReason, setCorrectionReason] = useState('');
 
-  async function post(path: string, actionKey: string, body: Record<string, unknown>) {
-    if (running) return;
+  async function post(path: string, actionKey: string, body: Record<string, unknown>): Promise<{ ok: boolean; reason?: string; message?: string; data?: any }> {
+    if (running) return { ok: false };
     setRunning(actionKey);
     setNotice({ tone: 'info', text: 'Submitting…' });
     try {
@@ -65,12 +74,15 @@ export function DeliveryAccessPanel(props: Props) {
         body: JSON.stringify(body)
       });
       const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message ?? 'The action could not be completed.');
+      if (!response.ok || !result.ok) return result;
       const emailWarning = result.data?.emailSent === false ? ` A new link was issued, but the resend email failed: ${result.data.emailError ?? 'unknown error'}.` : '';
       setNotice({ tone: emailWarning ? 'error' : 'success', text: `Done.${emailWarning} Refreshing…` });
       window.setTimeout(() => window.location.reload(), 900);
+      return result;
     } catch (error) {
-      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'The action could not be completed.' });
+      const message = error instanceof Error ? error.message : 'The action could not be completed.';
+      setNotice({ tone: 'error', text: message });
+      return { ok: false, message };
     } finally {
       setRunning(null);
     }
@@ -88,7 +100,7 @@ export function DeliveryAccessPanel(props: Props) {
     post('revoke-token', `revoke:${tokenId}`, { tokenId, reason });
   }
 
-  function reissueToken() {
+  async function reissueToken(override: boolean) {
     if (!props.reportId) {
       setNotice({ tone: 'error', text: 'No generated report is available to link yet.' });
       return;
@@ -97,11 +109,55 @@ export function DeliveryAccessPanel(props: Props) {
       setNotice({ tone: 'error', text: 'A reason of at least 5 characters is required.' });
       return;
     }
-    post('reissue-token', 'reissue', { reportId: props.reportId, reason });
+    setBlockedReissueReason(null);
+    const result = await post('reissue-token', 'reissue', { reportId: props.reportId, reason, overrideSuppression: override });
+    if (!result.ok && (result.reason === 'blocked_prior_bounced' || result.reason === 'blocked_prior_complained')) {
+      setBlockedReissueReason(result.message ?? 'This recipient has a prior bounce or complaint on record.');
+      setNotice(null);
+    } else if (!result.ok && result.message) {
+      setNotice({ tone: 'error', text: result.message });
+    }
+  }
+
+  async function correctRecipient() {
+    if (!props.recipientException) return;
+    if (correctionReason.trim().length < 5) {
+      setNotice({ tone: 'error', text: 'A reason of at least 5 characters is required.' });
+      return;
+    }
+    await post('correct-recipient', 'correct-recipient', { newRecipientEmail: correctionEmail, reason: correctionReason });
   }
 
   return (
     <div className="space-y-5">
+      {props.recipientException ? (
+        <div className="space-y-3 rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4">
+          <p className="text-sm font-semibold text-mk-danger">Delivery blocked: no customer email on file</p>
+          <p className="text-sm text-mk-ink">
+            Report {props.recipientException.pendingReportReference} was approved and released, but no delivery could
+            be queued because this order has no customer email. Enter the correct address to queue delivery for this
+            report — it will not be regenerated.
+          </p>
+          <input
+            type="email"
+            className="w-full rounded-lg border border-mk-line p-2 text-sm"
+            placeholder="Corrected customer email"
+            value={correctionEmail}
+            onChange={(event) => setCorrectionEmail(event.target.value)}
+          />
+          <textarea
+            className="w-full rounded-lg border border-mk-line p-2 text-sm"
+            placeholder="Reason (minimum 5 characters)"
+            value={correctionReason}
+            onChange={(event) => setCorrectionReason(event.target.value)}
+            rows={2}
+          />
+          <Button type="button" disabled={Boolean(running) || !correctionEmail} onClick={correctRecipient}>
+            {running === 'correct-recipient' ? 'Correcting…' : 'Correct Recipient & Queue Delivery'}
+          </Button>
+        </div>
+      ) : null}
+
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-mk-muted">Delivery attempts</p>
         <div className="mt-2 space-y-3">
@@ -161,9 +217,17 @@ export function DeliveryAccessPanel(props: Props) {
             onChange={(event) => setReason(event.target.value)}
             rows={2}
           />
-          <Button type="button" disabled={Boolean(running) || !props.reportId} onClick={reissueToken}>
+          <Button type="button" disabled={Boolean(running) || !props.reportId} onClick={() => reissueToken(false)}>
             {running === 'reissue' ? 'Reissuing…' : 'Reissue & Resend'}
           </Button>
+          {blockedReissueReason ? (
+            <div className="space-y-2 rounded-lg border border-mk-danger/30 bg-mk-danger/10 p-3">
+              <p className="text-sm text-mk-danger">{blockedReissueReason}</p>
+              <Button type="button" variant="secondary" disabled={Boolean(running)} onClick={() => reissueToken(true)}>
+                {running === 'reissue' ? 'Reissuing…' : 'Override and Resend Anyway'}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

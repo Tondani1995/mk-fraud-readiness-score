@@ -131,8 +131,24 @@ console.log('--- 10. Worker route: Bearer-token authenticated, no PII in logs, r
 assertIncludes(workerRoute, "request.headers.get('authorization') !== `Bearer ${cronSecret}`", 'Worker route uses the same CRON_SECRET Bearer-token pattern as the existing storage-cleanup route');
 assertIncludes(workerRoute, 'forbidden', 'Worker route returns 403 for a missing/invalid secret');
 assertIncludes(workerRoute, 'generateManualPhase1Report', 'Worker route calls the existing, unmodified report-generation function');
-assertNotIncludes(workerRoute, 'customer_email', 'Worker route never references customer email');
-assertNotIncludes(workerRoute, 'customer_name', 'Worker route never references customer name');
+// Release C closure cycle correction: this route's own generation phase still never touches
+// customer PII (checked below, unchanged). Its DELIVERY phase, added by Release C
+// (20260724170000_release_c_email_secure_delivery.sql), legitimately reads order.customer_name
+// to personalise the report-ready email body ("Hi {name}") -- that's the message the customer
+// receives, not a log line or an HTTP response, so a blanket string-absence check across the
+// whole file was always the wrong test for what Release B's own "no PII in logs" principle
+// actually meant. Narrowed to check what the principle is actually about: no customer_name/
+// customer_email inside any console.*(...) or NextResponse.json(...) call in this file.
+{
+  const sql = read(workerRoute);
+  const loggingCallPattern = /(console\.(?:log|info|warn|error)|NextResponse\.json)\(([\s\S]*?)\);/g;
+  const piiInLoggingCalls = [];
+  let match;
+  while ((match = loggingCallPattern.exec(sql)) !== null) {
+    if (/customer_email|customer_name/.test(match[2])) piiInLoggingCalls.push(match[0]);
+  }
+  assert(piiInLoggingCalls.length === 0, `No console.*()/NextResponse.json() call in the worker route references customer_email/customer_name (found: ${JSON.stringify(piiInLoggingCalls)})`);
+}
 
 console.log('--- 11. Admin routes are role-gated before calling the service layer ---');
 assertIncludes(approveRoute, 'FULFILMENT_QUALITY_REVIEW_ROLES', 'Approve route uses the shared quality-review role list');
