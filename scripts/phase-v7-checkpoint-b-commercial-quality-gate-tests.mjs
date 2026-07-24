@@ -15,8 +15,6 @@ import assert from 'node:assert/strict';
 import {
   ReportCommercialQualityError,
   assertCommercialReportQuality,
-  validateRenderedContent,
-  validateRenderedRoadmap,
   COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
 } from '../src/lib/reports/commercial-quality.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
@@ -636,7 +634,7 @@ await asyncTest('C10. output_report_id is never observed as set on a quality fai
 });
 
 await asyncTest('C12. A genuine renderer exception (not a quality failure) maps to pdf_render_failed, distinct from commercial_quality_failed', async () => {
-  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { data } = buildCommerciallyPassingFixture();
   const { db, calls } = createRecordingDb();
 
   await assert.rejects(
