@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
 import { FulfilmentReviewPanel } from '@/components/admin/FulfilmentReviewPanel';
+import { DeliveryAccessPanel } from '@/components/admin/DeliveryAccessPanel';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +15,7 @@ import { getPhase1SchemaCapability, PHASE1_SCHEMA_ERROR_MESSAGE } from '@/lib/re
 import { logCapabilityQueryFailure, type QueryFailureDiagnostic } from '@/lib/reports/capability-diagnostics';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPaymentOrderOperations } from '@/lib/payments/payment-operations';
+import { ACCESS_TOKEN_ROLES, DELIVERY_RETRY_ROLES, getOrderDeliveryState } from '@/lib/reports/delivery-recovery-service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -74,10 +76,11 @@ export default async function AdminOrderDetailPage({
   const { order, events, auditEvents } = detail;
   const capability = await getPhase1SchemaCapability(db, { requestPath: ORDER_DETAIL_REQUEST_PATH });
   const capabilityAvailable = capability.status === 'available';
-  const [reportResult, operations, payment] = await Promise.all([
+  const [reportResult, operations, payment, realDeliveryState] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
     getPhase1OrderOperations(order.id, capability, { requestPath: ORDER_DETAIL_REQUEST_PATH }),
-    getPaymentOrderOperations(order.id, order.status)
+    getPaymentOrderOperations(order.id, order.status),
+    getOrderDeliveryState(order.id)
   ]);
   const reportVersions = reportResult.reports;
   const operationalAvailable = capabilityAvailable && operations.schemaAvailable && reportResult.available;
@@ -185,6 +188,20 @@ export default async function AdminOrderDetailPage({
         </Card>
 
         <Card>
+          <CardHeader><CardTitle>Real delivery &amp; customer access</CardTitle></CardHeader>
+          <CardContent>
+            <DeliveryAccessPanel
+              orderReference={order.order_reference}
+              reportId={latestReport?.id ?? null}
+              authorizations={realDeliveryState.authorizations}
+              accessTokens={realDeliveryState.accessTokens}
+              canRetryDelivery={DELIVERY_RETRY_ROLES.includes(admin.role)}
+              canManageAccessTokens={ACCESS_TOKEN_ROLES.includes(admin.role)}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
@@ -246,7 +263,7 @@ export default async function AdminOrderDetailPage({
               </div>
             ))}
             {!operations.notifications.length ? <p className="text-sm text-mk-muted">No notification records found.</p> : null}
-            <p className="text-xs text-mk-muted">Provider mode is disabled unless an approved local provider double is configured. This page does not send real email.</p>
+            <p className="text-xs text-mk-muted">Provider mode is disabled unless MK_EMAIL_PROVIDER_MODE is set to test or live. When enabled, these notifications and the Reissue &amp; Resend action below send real email.</p>
           </CardContent>
         </Card>
 
