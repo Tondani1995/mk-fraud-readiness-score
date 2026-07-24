@@ -160,7 +160,8 @@ future session doesn't waste time re-diagnosing the same local-only symptom.
 Controller-directed closure cycle: three operational gaps found in Release C's own end-of-cycle
 review (missing-recipient handling, bounce/complaint handling, a status-vocabulary inconsistency),
 plus a fourth item — unifying the admin delivery-state/queue display — implemented independently
-in a parallel session against this same branch and covered by its own evidence, not this table.
+in a parallel session against this same branch, then reviewed and integrated here (see the "Item
+1" rows below, including a follow-on bounce/complaint-visibility fix found during that review).
 
 | Requirement | Implementation | Commit(s) | Test | Result | Preview | Evidence |
 |---|---|---|---|---|---|---|
@@ -176,7 +177,7 @@ in a parallel session against this same branch and covered by its own evidence, 
 | Regression: Release B tests — one assertion corrected, not silently left failing | `scripts/release-b-durable-fulfilment-tests.mjs` | `fd96a8c` | Its blanket "worker route never references customer_name/customer_email" assertion predated Release C's own delivery phase in that same file (added in `f9898e4`, before this closure cycle), which legitimately reads `customer_name` to personalise the report-ready email body — not a log line or HTTP response, the actual PII-leak surface the assertion was meant to protect. Narrowed to check specifically inside `console.*()`/`NextResponse.json()` calls | `PASS — the narrowed assertion is a more accurate test of the same underlying principle, not a weakened one; re-ran clean` | — | This work cycle |
 | Regression: Release C's own test script | `scripts/release-c-email-secure-delivery-tests.mjs` | `fd96a8c` | Re-run after the closure changes | `PASS — all assertions ok` | — | This work cycle |
 | Full local migration replay (35 migrations) | — | — | `supabase db reset` | `PASS — clean replay, only benign idempotency NOTICEs` | — | This work cycle |
-| GitHub CI on the final integrated head (this closure commit + the postcss fix + item 1 + the bounce-visibility follow-on fix, all rebased/merged together) | — | `(this commit)` | `gh run list --branch release-c/email-secure-delivery`, polled to completion | See "Current testing conclusion" below for the final result | — | This work cycle |
+| GitHub CI on the final integrated head (`8f309f2` = closure cycle + postcss fix + item 1 + the list/detail bounce-visibility follow-on fix, all rebased/merged together, one linear history) | — | `8f309f2` | `gh run list --branch release-c/email-secure-delivery`, polled to completion | `PASS — all 6 required workflows green: Supabase Migration Replay, Phase 1 Release Safety, Phase 2-3 Release Safety, V1 Verification, V7 Report Hardening, Security Scans` | — | This work cycle |
 | **Found, flagged, then fixed:** "Security Scans" / dependency-audit gate failed on a new `postcss` advisory (`GHSA-r28c-9q8g-f849`, high severity, no documented exception) | — | — | Confirmed unrelated to this cycle's changes: the identical workflow passed on this same branch 2.5 hours earlier (run `30110696252`), and `git diff` between that commit and this one touches zero dependency files (`package.json`/`package-lock.json` unchanged) — the npm advisory database itself changed between runs, not this repo's dependency tree | `FLAGGED, then FIXED (see next row) — the npm advisory database change was confirmed real and repo-wide, not a false positive` | — | GitHub Actions run `30121124740` |
 | PostCSS advisory remediation (`GHSA-r28c-9q8g-f849`, high, `<=8.5.17`) | Affected `node_modules/postcss` (direct devDependency, resolved `8.5.17`) and `node_modules/next/node_modules/postcss` (copy vendored inside `next@14.2.13`, pinned exactly `8.4.31`). `package.json`: bumped the top-level `postcss` devDependency `^8.4.47` → `^8.5.23` and added `"overrides": { "postcss": "^8.5.23" }` to force Next's internally-pinned nested copy onto the same patched version (same v8 major, semver-compatible, not a Next/Node/React upgrade — outside the `no-go-boundary.md` restriction). Also removed the two now-stale `postcss` exception entries (`GHSA-qx2v-qp2m-jg93`, `GHSA-6g55-p6wh-862q`) from `security/dependency-audit-exceptions.json` — the version bump fixes their underlying advisories too, so the exceptions became dead documentation rather than being left in place | `a573cd0` | (a) `npm audit --omit=dev --json` before/after — postcss entry present with all 3 advisories before, absent entirely after (only 1 resolved postcss location, both instances deduped to `8.5.23`); (b) `node scripts/phase14-dependency-audit-gate.mjs` against the post-fix audit output; (c) `npm run typecheck`; (d) `next build` (full production build, exercises the Tailwind/PostCSS pipeline both instances were part of); (e) GitHub Actions run on the pushed commit | `PASS — (a) postcss fully absent from the production-only audit, only the pre-existing/still-necessary `next` major-upgrade exception remains (21 findings suppressed, unchanged); (b) gate script exit 0, 0 blocking; (c) tsc --noEmit exit 0; (d) next build exit 0, no output-affecting regression; (e) Security Scans workflow run `30122823214` — all 3 jobs (M11 dependency audit, M12 secret scanning, L3 CodeQL) pass on head `a573cd0`, confirmed via `gh run view`` | PR #43 | GitHub Actions run `30122823214`; local `npm audit`/gate-script/build/typecheck output, this work cycle |
 | Doc updates | `14-release-c-existing-delivery-audit.md` (addendum), `15-email-and-secure-delivery-design.md` (closure cycle addendum), `16-email-and-secure-delivery-runbook.md` (recipient correction, bounce, complaint, legacy-vs-Release-C, no-direct-SQL sections) | `(this commit)` | Manual review | `PASS` | — | — |
@@ -199,18 +200,27 @@ in a parallel session against this same branch and covered by its own evidence, 
 | Provider webhook re-verification (12 live checks, real crypto) | `PASS` — locally |
 | Closure cycle: missing-recipient, bounce, complaint, ordering (43 live checks total) | `PASS` — locally |
 | Static test scripts (Release A, B, C) | `PASS` — all three, B's assertion corrected not weakened |
-| GitHub CI (Supabase Migration Replay, Phase 1/2-3 Release Safety, V1 Verification, V7 Report Hardening) | `PASS` on the checks this cycle's changes affect |
-| GitHub CI (Security Scans / dependency-audit gate) | `PASS` on head `a573cd0` — the `postcss` advisory (`GHSA-r28c-9q8g-f849`) is fixed via an `overrides`-forced version bump to `8.5.23`, not an exception; all 3 jobs (M11, M12, L3) verified green via `gh run view 30122823214`. This fix is present on Release C (`release-c/email-secure-delivery`) only as of this cycle — it has not been propagated to Release B, Release A, or `main`; propagation through the stacked release chain is deliberately deferred to integration |
-| Admin dashboard delivery-state display (item 1) | `PASS` — landed, reviewed, integrated, and its own bounce/complaint-visibility follow-on gap found and fixed this cycle |
-| Controlled live Resend verification (real send against Preview) | `BLOCKED` — tooling/access gap (Vercel env vars, Preview's DB identity, admin session), not a false pass. Owner-executed runbook written instead: `18-controlled-resend-preview-verification.md` |
+| GitHub CI — all 6 required workflows on the final integrated head (`8f309f2`) | `PASS` — Supabase Migration Replay, Phase 1 Release Safety, Phase 2-3 Release Safety, V1 Verification, V7 Report Hardening, Security Scans all green, polled to completion via `gh run list` |
+| PostCSS advisory (`GHSA-r28c-9q8g-f849`) | `PASS` — fixed via an `overrides`-forced version bump to `8.5.23`, not an exception. Present on Release C (`release-c/email-secure-delivery`) only as of this cycle — not yet propagated to Release B, Release A, or `main`; propagation through the stacked release chain is deliberately deferred to integration |
+| Admin dashboard delivery-state display (item 1) | `PASS` — landed, reviewed, integrated, and its own bounce/complaint-visibility follow-on gap found and fixed this cycle on both the orders list and the order-detail page (confirmed to agree) |
+| Controlled live Resend verification (real send against Preview) | `BLOCKED` — tooling/access gap (Vercel env vars, Preview's DB identity, admin session), not a false pass. Owner-executed runbook written instead: `18-controlled-resend-preview-verification.md` — this is the one remaining item before real customer email can be certified |
 | Cloud migration execution | `NOT TESTED` — no Supabase Cloud environment has applied this migration |
 | Domain authentication (SPF/DKIM/DMARC) | `NOT CONFIGURED` — documented this cycle, DNS access required |
 | External provider connection | `BLOCKED` — owner decision gate, not attempted |
 | Runbook | `PASS` — `16-email-and-secure-delivery-runbook.md`, extended this cycle |
 | Paid customer journey | `NOT READY` |
 
-**Production status: `NOT READY FOR PRODUCTION`** (item 1 not yet integrated; domain
-authentication not configured; no external provider connected — none of these are closed yet).
+**Production status: `IMPLEMENTATION COMPLETE — EXTERNAL PROVIDER CERTIFICATION BLOCKED`.**
+Every landed-work acceptance criterion is now met: the unified admin delivery-state fix is
+integrated and its own list/detail-agreement gap fixed, the security advisory is remediated (not
+suppressed), all regression tests pass, all 6 required GitHub workflows are green on the final
+head, PR #43 is current, and documentation is current. What remains is entirely external and
+requires the MK owner directly: the controlled live Resend Preview verification
+(`18-controlled-resend-preview-verification.md`), domain authentication (SPF/DKIM/DMARC), the
+external-provider connection decision gate, and the deferred Supabase Cloud migration execution.
+No external provider or DNS configuration is claimed as complete anywhere in this document — all
+four remain open, named, owner-actionable items. This status is not `PRODUCTION CERTIFIED` and
+must never be read as production authorisation.
 
 ---
 
