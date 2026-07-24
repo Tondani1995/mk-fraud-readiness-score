@@ -26,6 +26,9 @@ their instruction, not autonomously).
 | 3 | Docker volumes `supabase_db_mk-repo`, `supabase_edge_runtime_mk-repo`, `supabase_storage_mk-repo` | Local, free | Backing storage for resource #2 | None | Tondani | 2026-07-24 | **Removed** (`docker volume rm`) after the test transaction was rolled back and its results (11 PASS lines) were recorded in this pack | 2026-07-24, same session |
 | 4 | GitHub draft PRs #40, #41 | Free (GitHub) | Reviewable diffs for the discovery doc and Release A tooling | None | Tondani | 2026-07-24 | **Active**, both draft, both `DO NOT MERGE` | N/A — intentionally kept open for review |
 | 5 | Homebrew `node@26` + partial `supabase` formula install | Local, free, but caused an **unintended global change** | Attempted global Supabase CLI install; superseded by `npx supabase` (no persistent install needed) | None | Tondani's machine | 2026-07-24 | **Reverted** — `node@26` was unlinked and `node@24` relinked as default (matching this repo's `.nvmrc`/`engines` requirement); orphaned Homebrew dependency kegs removed via `brew uninstall supabase` (cellar cleanup) | 2026-07-24, same session, immediately on discovery |
+| 6 | Local Supabase/Postgres stack, Docker project `mk-repo` (same ports as #2 — reused, not a second instance) | Local, free | Release B: full local replay of all 32 migrations (31 prior + the new Release B one) + 24 live functional SQL checks against the payment-transaction/worker/quality-review RPCs | None (local Docker only) | Tondani | 2026-07-24 | **Stopped** (`supabase stop`); containers removed | 2026-07-24, same session |
+| 7 | Docker volumes `supabase_db_mk-repo`, `supabase_edge_runtime_mk-repo`, `supabase_storage_mk-repo` (recreated by resource #6 after #3 was removed) | Local, free | Backing storage for resource #6 | None | Tondani | 2026-07-24 | **Removed** (`docker volume rm`) after the test transaction was rolled back and its 24 PASS results were recorded in this pack | 2026-07-24, same session |
+| 8 | GitHub draft PR #42 | Free (GitHub) | Reviewable diff for the Release B audit, design, and implementation | None | Tondani | 2026-07-24 | **Active**, draft, `DO NOT MERGE`, stacked on PR #41 | N/A — intentionally kept open for review |
 
 **Accidental global machine change — documented per instruction.** Installing the Supabase CLI's
 node dependency via Homebrew unlinked this machine's `node@24` and linked `node@26.5.0` instead,
@@ -62,6 +65,55 @@ it.
 
 ---
 
+## Release B evidence
+
+| Requirement | Implementation | Commit(s) | Test | Result | Preview | Evidence |
+|---|---|---|---|---|---|---|
+| Release B0 existing-infrastructure audit (20 questions, infrastructure map) | `docs/safe-launch/11-release-b-existing-infrastructure-audit.md` | `f18f0df` | Independent spot-check of the 5 most consequential/surprising claims against production schema before trusting the audit | `PASS — 5/5 spot-checks confirmed exactly as claimed (partial-unique constraints, dual-parent report_ai_attempts binding, live call from the manual path into Phase 14 feature flags, empty vercel.json crons, absence of maxDuration)` | PR #42 | This document's own citations |
+| Minimum-change design | `docs/safe-launch/12-durable-fulfilment-design.md` | `f18f0df` | Manual review against the audit's own evidence | `PASS — design decision (extend manual_report_generation_attempts, not a new table) is directly traceable to the audit's answers to Q1-Q3/Q7/Q9/Q20` | PR #42 | — |
+| Durable-fulfilment migration (lease/heartbeat/backoff/quality-review columns, 4 additive status values, 9 new RPCs) | `supabase/migrations/20260724160000_release_b_durable_fulfilment.sql` | `0474b0a` | (a) `npm run typecheck`; (b) full local `supabase start` replay of all 32 migrations; (c) manual diff of the two `create or replace`-redefined functions (`record_payment_transition`, `claim_payment_report_generation`) against their original `0024` bodies, confirming no migration between 0024 and now had already touched them | `PASS — (a) tsc --noEmit exit 0; (b) all 32 migrations applied, only benign idempotency NOTICEs; (c) confirmed byte-for-byte faithful reproduction of the 0024 originals with only the documented additive changes` | PR #42 | This document's own citations |
+| Payment transaction boundary: `record_payment_transition()` queues the job atomically | Same migration + `src/lib/payments/payment-service.ts` | `0474b0a` | Live SQL: PAID confirmation queues exactly 1 job; a retried confirmation (same idempotency key) is recognised as a duplicate and does not create a second job | `PASS — verified by direct psql execution against a local replay; both assertions passed` | — | Live test run, this work cycle (test script not committed — synthetic-fixture SQL, one-off verification, results recorded here, mirroring the Release A entries above) |
+| Worker claim exclusivity | Same migration (`claim_next_fulfilment_job`, `for update skip locked`) | `0474b0a` | Live SQL: worker-a claims the queued job; a competing worker-b claim immediately after returns nothing | `PASS — verified by direct psql execution` | — | Same live test run |
+| Lease ownership enforcement | Same migration (`fail_fulfilment_job`) | `0474b0a` | Live SQL: a caller that does not hold the lease is rejected (`fulfilment_lease_not_held`) | `PASS — verified by direct psql execution` | — | Same live test run |
+| Bounded retry with exponential backoff | Same migration | `0474b0a` | Live SQL: 1st failure -> `RETRY_SCHEDULED` with a future `next_attempt_at`, lease released; 5th failure (`retry_count` reaching `max_attempts`=5) -> `MANUAL_REVIEW_REQUIRED` | `PASS — verified by direct psql execution for both boundary cases` | — | Same live test run |
+| Admin retry rejects an ineligible state (not a silent no-op) | Same migration (`retry_fulfilment_job`) | `0474b0a` | Live SQL: calling retry on a `REPORT_QUEUED` row raises `fulfilment_retry_invalid_state`; calling it on the real `MANUAL_REVIEW_REQUIRED` row, as `platform_admin`, succeeds and resets `retry_count` to 0 | `PASS — verified by direct psql execution for both cases` | — | Same live test run |
+| Expired-lease recovery, scoped correctly | Same migration (`recover_expired_fulfilment_leases`) | `0474b0a` | Live SQL: a `REPORT_GENERATING` row with a past `lease_expires_at` is recovered to `RETRY_SCHEDULED`; a row with a future `lease_expires_at` is left untouched by the same sweep | `PASS — verified by direct psql execution for both cases` | — | Same live test run |
+| Quality review: precondition, role gating, linked regeneration | Same migration (`submit_for_quality_review`, `approve_quality_review`, `reject_quality_review`) | `0474b0a` | Live SQL: submit rejects a non-`REPORT_READY` row and accepts a `REPORT_READY` one; `finance_admin` is forbidden from approving; `approver` approval moves the row to `DELIVERY_QUEUED` with reviewer identity recorded; rejection creates exactly 1 new attempt row linked via `regenerated_from_attempt_id` | `PASS — verified by direct psql execution for all five assertions` | — | Same live test run |
+| RLS and worker-RPC privilege restriction | Same migration | `0474b0a` | Live SQL: `anon` role cannot read `manual_report_generation_attempts` directly; `authenticated` role has no execute privilege on `claim_next_fulfilment_job` (service_role only) | `PASS — verified by direct psql execution for both cases` | — | Same live test run |
+| Worker route (Bearer-token auth, reuses existing generation function, no PII in logs) | `src/app/score/api/internal/fulfilment-worker/route.ts` | `0474b0a` | `npm run typecheck`; static source assertions (`scripts/release-b-durable-fulfilment-tests.mjs`) confirming the auth check, the call to the existing unmodified `generateManualPhase1Report()`, and the absence of `customer_email`/`customer_name` references | `PASS — typecheck exit 0; node scripts/release-b-durable-fulfilment-tests.mjs exit 0, all assertions ok` | PR #42 | Script output, this work cycle |
+| Admin recovery/quality-review routes and UI | `src/lib/fulfilment/fulfilment-service.ts`, `src/app/score/api/admin/orders/[orderReference]/fulfilment/{approve,reject,retry,recover}/route.ts`, `src/components/admin/FulfilmentReviewPanel.tsx`, extends `src/app/score/admin/orders/[orderReference]/page.tsx` | `0474b0a` | `npm run typecheck`; static source assertions confirming each route's role check runs before its service-layer call | `PASS — see script output` | PR #42 | Script output |
+| `vercel.json` cron entry — deployment compatibility | `vercel.json` | `0474b0a`, schedule corrected `a4c5b2f` | Real Vercel deployment attempt on PR #42 | `PASS — preview deployment builds successfully using a temporary once-daily Hobby-compatible cron expression.` | PR #42 | Vercel deployment failure comment on the `*/5 * * * *` attempt, then success on `0 3 * * *`, both this work cycle |
+| Production worker frequency vs. current plan | `docs/safe-launch/12-durable-fulfilment-design.md` ("Vercel plan launch gate") | — | Real deployment failure evidence + Vercel plan-tier confirmation | `BLOCKED — the current Vercel plan cannot run the certified production worker frequency (one-to-two-minute interval). Confirmed Hobby tier by a real deployment rejection of */5 * * * *, not inferred from code.` | — | Same deployment failure evidence |
+| Cron execution in preview | — | — | — | `NOT VERIFIED — Vercel cron execution does not occur in preview deployments and therefore has not been exercised by the preview. A successful preview build is not evidence the worker has ever been invoked by cron.` | — | — |
+| Production readiness of the worker-trigger path as a whole | — | — | — | `REQUIRED BEFORE PRODUCTION — authorised upgrade to a commercially suitable Vercel plan, a production schedule update to the certified interval, an authenticated cron invocation test against a real production deployment, and measured worker runtime (docs/safe-launch/12-durable-fulfilment-design.md, "Measuring worker runtime") against the selected function's duration limit.` | — | — |
+| Worker-schedule certification script | `scripts/release-b-worker-schedule-gate.mjs`, `npm run release-b:certify-worker-schedule` | (this commit) | Ran manually against both the temporary schedule (must fail) and a synthetic certified schedule in an isolated directory (must pass) | `PASS — correctly fails with a clear message against 0 3 * * * (temporary schedule), correctly passes against a */2 * * * * synthetic example. Deliberately NOT wired into CI/preview builds while the project remains on Hobby — intended for manual use during the integrated release-candidate/production-certification cycle, per its own header comment. Does not and cannot infer the Vercel account plan from code.` | — | This work cycle |
+| Runbook | `docs/safe-launch/13-durable-fulfilment-runbook.md` | `0474b0a` | Manual review | `PASS` | — | — |
+| Regression: Release A tests still pass | `scripts/release-a-backlog-reconciliation-tests.mjs` | — | Re-run after Release B changes | `PASS — all assertions ok, unaffected by Release B` | — | This work cycle |
+| Regression: `phase23-payment-assessment-tests.mjs` updated for the intentional architectural change | Same test file | `0474b0a` | Re-run after updating one assertion (payment-service.ts no longer calls the synchronous fulfilment trigger, by design) | `PASS — narrowly-scoped, justified update; all other assertions in the file unchanged and passing` | — | This work cycle |
+| Migration applied to a Supabase Cloud environment | — | — | — | `BLOCKED — no Supabase Cloud environment has executed this migration, per explicit controller instruction not to create another preview branch this cycle. Deferred to the single integrated release-candidate cloud branch planned after Releases A-D.` | — | — |
+| Real email delivery from `DELIVERY_QUEUED` | — | — | — | `NOT IN SCOPE for Release B — Release B's job is to create the durable handoff point into DELIVERY_QUEUED; Release C implements real delivery, per the brief.` | — | — |
+| AI narrative generation activation | — | — | — | `NOT IN SCOPE for Release B — report_ai_attempts/ai_narrative feature-flag activation is untouched; Release B's worker calls the same generateManualPhase1Report() the live path already calls, which independently checks that flag (still off).` | — | — |
+
+**Note on an in-session incident, not a resource:** during this work cycle, a background implementation agent was terminated by the account's monthly spend limit partway through drafting the migration file. This is not itself a created/cleaned-up resource, so it has no row above — recorded here for completeness. The partial work it left on disk (uncommitted) was independently reviewed, verified against production schema, and completed directly rather than re-delegated, after the user raised the account's spend limit.
+
+### Current testing conclusion (Release B, this cycle)
+
+| Item | Status |
+|---|---|
+| Branch relationship (PR #42 base/head, GitHub mergeability) | `PASS` |
+| GitHub mergeability | `PASS` |
+| `npm run typecheck` | `PASS` |
+| Migration replay | `PASS` — locally (Docker) and in GitHub CI |
+| Release B SQL behaviour (24 live checks) | `PASS` — locally |
+| Preview deployment | `PASS` |
+| Scheduled cloud invocation (cron actually firing) | `NOT TESTED` — impossible in preview, requires production |
+| Cloud migration execution | `NOT TESTED` — no Supabase Cloud environment has applied this migration |
+| Production worker frequency | `BLOCKED` — by current Vercel plan (Hobby) |
+| Production runtime duration | `NOT CERTIFIED` — deferred to the integrated release-candidate cycle |
+| Paid customer journey | `NOT READY` |
+
+---
+
 ## Cross-references
 
 - Current-state findings: `00-current-state.md`
@@ -69,3 +121,7 @@ it.
 - Migration discrepancy investigation: `10-migration-discrepancy-investigation.md`
 - PR #40: `docs(safe-launch): current-state discovery report`, base `feat/essential-report-v2-commercial-rebuild`
 - PR #41: `feat(release-a): paid-order backlog reconciliation tooling`, base `docs/safe-launch-discovery` (stacked)
+- PR #42: `feat(release-b): durable payment-to-fulfilment orchestration`, base `release-a/backlog-reconciliation` (stacked)
+- Release B0 audit: `11-release-b-existing-infrastructure-audit.md`
+- Release B design: `12-durable-fulfilment-design.md`
+- Release B runbook: `13-durable-fulfilment-runbook.md`

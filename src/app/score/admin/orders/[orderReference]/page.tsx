@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
+import { FulfilmentReviewPanel } from '@/components/admin/FulfilmentReviewPanel';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -163,6 +164,19 @@ export default async function AdminOrderDetailPage({
               canDeliver={canDeliver}
               capabilityAvailable={operationalAvailable}
             />
+            {operations.latestGeneration ? (
+              <FulfilmentReviewPanel
+                orderReference={order.order_reference}
+                attemptId={operations.latestGeneration.id}
+                status={operations.latestGeneration.status}
+                retryCount={operations.latestGeneration.retry_count ?? 0}
+                maxAttempts={(operations.latestGeneration as any).max_attempts ?? 5}
+                nextAttemptAt={(operations.latestGeneration as any).next_attempt_at ?? null}
+                leaseExpiresAt={(operations.latestGeneration as any).lease_expires_at ?? null}
+                canReview={['platform_admin', 'reviewer', 'approver'].includes(admin.role)}
+                canRecover={['platform_admin', 'finance_admin'].includes(admin.role)}
+              />
+            ) : null}
             <div className="flex flex-wrap gap-4 text-sm font-semibold text-mk-brassDark">
               {operations.generationHistory.length ? <a href="#generation-history">View Generation History</a> : null}
               {operations.deliveryHistory.length ? <a href="#delivery-history">View Delivery History</a> : null}
