@@ -30,6 +30,9 @@ function resolveRelative(fromAbsPath, specifier) {
   const candidate = path.resolve(dir, specifier);
   if (fs.existsSync(`${candidate}.ts`)) return `${candidate}.ts`;
   if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory() && fs.existsSync(path.join(candidate, 'index.ts'))) {
+    return path.join(candidate, 'index.ts');
+  }
   throw new Error(`Cannot resolve module: ${specifier} from ${fromAbsPath}`);
 }
 
@@ -110,6 +113,10 @@ const stubs = {
 
 const narrativePipelinePath = path.join(root, 'src/lib/reports/automation/narrative-pipeline.ts');
 const { preparePremiumReportNarrative } = loadReal(narrativePipelinePath, stubs);
+const { ReportCommercialQualityError, COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE } = loadReal(
+  path.join(root, 'src/lib/reports/commercial-quality.ts'),
+  stubs
+);
 
 // ---- Fixtures ----
 function buildAssembled(overrides = {}) {
@@ -199,11 +206,11 @@ const flags = {
 
 function validGrounded(orgOverride) {
   return {
-    executiveEvidenceRefs: ['score:final_maturity'],
+    executiveEvidenceRefs: ['score:overall', 'score:final_maturity', 'score:exposure_band'],
     executiveBody: 'The organisation shows a Developing overall position with one critical governance gap requiring attention.',
-    falseComfortEvidenceRefs: ['gap:Q-GOV-01'],
+    falseComfortEvidenceRefs: ['score:final_maturity', 'score:exposure_band', 'gap:Q-GOV-01'],
     falseComfortBody: 'Existing activity does not offset the open ownership gap identified in governance.',
-    leadershipEvidenceRefs: ['score:final_maturity', 'domain:GOV'],
+    leadershipEvidenceRefs: ['score:final_maturity', 'domain:GOV', 'gap:Q-GOV-01'],
     leadershipBody: 'Leadership should assign named ownership for the governance gap and track it to resolution.',
     domainEvidence: [
       { domainCode: 'GOV', evidenceRefs: ['domain:GOV'], body: 'Governance requires consistent ownership and follow-through on the identified gap.' }
@@ -306,6 +313,80 @@ await test('C1: AI generation error falls back deterministically and records the
   const result = await preparePremiumReportNarrative(baseInput({ generator }));
   assert.equal(result.mode, 'deterministic_fallback');
   assert.match(result.fallbackReason, /^ai_generation_failed:provider_timeout$/);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Checkpoint D final correction: invalid evidence must fail before durable generator creation,
+// authorisation, attempt accounting or any provider-facing generate/repair method.
+// ---------------------------------------------------------------------------------------------
+async function assertPreProviderEvidenceFailure(inputOverrides, expectedCode) {
+  const calls = { generate: 0, repair: 0, authorize: 0 };
+  const durableCallBaseline = dbCalls.length;
+  const generator = fakeGenerator(validGrounded(), {
+    onGenerate: () => { calls.generate += 1; },
+    onRepair: () => { calls.repair += 1; }
+  });
+  await assert.rejects(
+    preparePremiumReportNarrative(baseInput({
+      generator,
+      authorizeAiAction: async () => { calls.authorize += 1; },
+      ...inputOverrides
+    })),
+    (error) => {
+      assert.ok(error instanceof ReportCommercialQualityError);
+      assert.equal(error.message, COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE);
+      assert.equal(error.safeMessage, COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE);
+      assert.ok(error.violations.some((issue) => issue.code === expectedCode));
+      assert.doesNotMatch(error.message, /customer@example\.com|Respondent|Q-GOV-01.*customer/i);
+      return true;
+    }
+  );
+  assert.deepEqual(calls, { generate: 0, repair: 0, authorize: 0 });
+  assert.equal(dbCalls.length, durableCallBaseline, 'Invalid evidence must consume no durable AI attempt.');
+}
+
+await test('D-final: unresolved evidence refs fail with the exact code before all AI side effects', async () => {
+  await assertPreProviderEvidenceFailure({
+    assembledOverrides: {
+      maturityCapEvents: [{
+        ruleCode: 'test-cap', capTo: 'Developing', reason: 'Synthetic cap',
+        relatedQuestionCode: 'Q-GOV-01', relatedDomainCode: 'GOV', relatedDomainName: 'Governance'
+      }]
+    }
+  }, 'QG_AI_EVIDENCE_REF_UNRESOLVED');
+});
+
+await test('D-final: duplicate evidence IDs fail with the exact code before all AI side effects', async () => {
+  const row = {
+    ruleCode: 'RA-1', domainCode: 'GOV', domainName: 'Governance', ownerRole: 'Executive',
+    rationale: 'Synthetic valid roadmap row for duplicate-ID testing.', severity: 'Immediate priority',
+    action30: 'Complete the synthetic roadmap action and retain operating evidence.',
+    action60: null, action90: null, priorityScore: 1
+  };
+  await assertPreProviderEvidenceFailure({ roadmap: { agenda: [row, { ...row, ruleCode: 'RA-2' }] } }, 'QG_AI_EVIDENCE_REF_DUPLICATE');
+});
+
+await test('D-final: prohibited sensitive values fail with the exact code before all AI side effects', async () => {
+  await assertPreProviderEvidenceFailure({ assembledOverrides: { organisationName: 'Respondent' } }, 'QG_AI_EVIDENCE_CONTAINS_PII');
+});
+
+await test('D-final: invalid evidence is never converted to feature-disabled deterministic fallback', async () => {
+  await assertPreProviderEvidenceFailure({
+    flags: { ...flags, aiNarrativeEnabled: false },
+    assembledOverrides: { packageName: 'customer@example.com' }
+  }, 'QG_AI_EVIDENCE_CONTAINS_PII');
+});
+
+await test('D-final: a valid pack retains normal disabled-feature fallback behaviour', async () => {
+  let generateCalls = 0;
+  const generator = fakeGenerator(validGrounded(), { onGenerate: () => { generateCalls += 1; } });
+  const result = await preparePremiumReportNarrative(baseInput({
+    generator,
+    flags: { ...flags, aiNarrativeEnabled: false }
+  }));
+  assert.equal(generateCalls, 0);
+  assert.equal(result.mode, 'deterministic_fallback');
+  assert.equal(result.fallbackReason, 'ai_feature_disabled');
 });
 
 // ---------------------------------------------------------------------------------------------

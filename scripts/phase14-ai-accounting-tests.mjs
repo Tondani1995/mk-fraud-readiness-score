@@ -29,8 +29,13 @@ new Function('require', 'module', 'exports', compiled)((specifier) => {
     }
   };
   if (specifier === './ai-sdk-generator') return {
-    PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 3500,
+    PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 5000,
     PREMIUM_REPORT_AI_TIMEOUT_MS: 45_000
+  };
+  if (specifier === './prompt') return {
+    PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS: 'test system instructions',
+    buildPremiumReportGenerationPrompt: (input) => `test generation prompt\n${JSON.stringify(input.evidence)}`,
+    buildPremiumReportRepairPrompt: (input) => `test repair prompt\n${JSON.stringify(input.evidence)}`
   };
   // M1: load the REAL classification module (not a fake), transpiled the same way as
   // the module under test, so this suite exercises the actual AI-SDK-error-class

@@ -1,7 +1,11 @@
+import { officialResponseLabelsFixture } from './official-response-labels';
+
 // Real data for MK Assist (MKFRS-2026-18BC0EC4D7), pulled via SQL against production
 // jvjxlphdyzerrhwcgkup on 2026-07-20. Used only for this local smoke test.
 export const mkAssistFixture = {
   organisationName: 'MK Assist',
+  scoreRun: { id: 'mk-assist-run', assessmentId: 'mk-assist-assessment', methodologyVersionId: 'mfrs-v1.1-fixture', status: 'completed', lockedAt: null, inputHash: null, overallScore: 61.2, calculatedMaturity: 'Developing', finalMaturity: 'Developing', exposureScore: 60, exposureBand: 'High', coveragePct: 100, nARatePct: 0, criticalGapCount: 8, majorGapCount: 3, capApplied: true, capReason: 'Fixture cap' },
+  officialResponseLabels: officialResponseLabelsFixture,
   domainResults: [
     { domainCode: 'D1', domainName: 'Fraud Leadership and Governance', rawScore: 65.33, weightPct: 10 },
     { domainCode: 'D2', domainName: 'Fraud Risk Identification', rawScore: 77.95, weightPct: 10 },
@@ -23,6 +27,16 @@ export const mkAssistFixture = {
     { questionCode: 'D7-Q01', domainCode: 'D7', domainName: 'Third-Party and Supply Chain Fraud Risk', prompt: 'Suppliers, contractors or other third parties are subject to due diligence before being engaged.', responseValue: 1, isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false },
     { questionCode: 'D7-Q04', domainCode: 'D7', domainName: 'Third-Party and Supply Chain Fraud Risk', prompt: 'Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation.', responseValue: 1, isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: true },
     { questionCode: 'D8-Q04', domainCode: 'D8', domainName: 'Digital and Identity Fraud Risk', prompt: 'Access to sensitive digital systems, administrator rights and confidential data is restricted and reviewed.', responseValue: 1, isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: true }
+  ],
+  questionTraces: [
+    { questionCode: 'D1-Q04', domainCode: 'D1', domainName: 'Fraud Leadership and Governance', prompt: 'Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist.', responseValue: 2, normalisedScore: 40, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false },
+    { questionCode: 'D3-Q04', domainCode: 'D3', domainName: 'Operational Fraud Controls', prompt: 'System and data access are granted based on role requirements and reviewed periodically.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: true },
+    { questionCode: 'D5-Q01', domainCode: 'D5', domainName: 'Fraud Incident Response', prompt: 'The organisation has a documented process for responding to suspected fraud incidents.', responseValue: 2, normalisedScore: 40, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false },
+    { questionCode: 'D5-Q05', domainCode: 'D5', domainName: 'Fraud Incident Response', prompt: 'Evidence linked to suspected fraud is identified, preserved and handled appropriately.', responseValue: 2, normalisedScore: 40, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false },
+    { questionCode: 'D6-Q01', domainCode: 'D6', domainName: 'Whistleblowing and Reporting Culture', prompt: 'The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false },
+    { questionCode: 'D7-Q01', domainCode: 'D7', domainName: 'Third-Party and Supply Chain Fraud Risk', prompt: 'Suppliers, contractors or other third parties are subject to due diligence before being engaged.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: false, isCriticalGap: true, isMajorGap: false },
+    { questionCode: 'D7-Q04', domainCode: 'D7', domainName: 'Third-Party and Supply Chain Fraud Risk', prompt: 'Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: true },
+    { questionCode: 'D8-Q04', domainCode: 'D8', domainName: 'Digital and Identity Fraud Risk', prompt: 'Access to sensitive digital systems, administrator rights and confidential data is restricted and reviewed.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: true }
   ],
   maturityCapEvents: [
     { ruleCode: 'any_hard_gate_critical_control_lte_1', capTo: 'Developing', reason: 'One or more hard-gate critical controls scored 0 or 1.', relatedQuestionCode: 'D3-Q04', relatedQuestionPrompt: 'System and data access are granted based on role requirements and reviewed periodically.', relatedDomainCode: 'D3', relatedDomainName: 'Operational Fraud Controls' },

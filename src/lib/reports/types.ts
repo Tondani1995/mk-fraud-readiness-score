@@ -4,6 +4,14 @@ export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
 export interface ScoreRunRecord {
   id: string;
   assessmentId: string;
+  /**
+   * The methodology version this score run was actually calculated against, sourced directly
+   * from score_runs.methodology_version_id. The report must use this value, not the currently
+   * active methodology, not the first active methodology, not a date-based inference, and not a
+   * hardcoded version -- a score run locked against an older methodology version must still be
+   * reported against that same version.
+   */
+  methodologyVersionId: string;
   status: string;
   lockedAt: string | null;
   inputHash: string | null;
@@ -40,6 +48,13 @@ export interface GapQuestionRecord {
   isHardGate: boolean;
   isCriticalGap: boolean;
   isMajorGap: boolean;
+}
+
+/** Complete persisted question-level evidence from score_question_traces. */
+export interface QuestionTraceRecord extends GapQuestionRecord {
+  normalisedScore: number | null;
+  applicable: boolean;
+  triggeredRules: unknown[];
 }
 
 export interface ExposureAnswerRecord {
@@ -114,7 +129,11 @@ export interface AssembledReportData {
   scoreRun: ScoreRunRecord;
   domainResults: DomainResultRecord[];
   exposureAnswers: ExposureAnswerRecord[];
+  /** All persisted traces for the locked score run, not only critical/major gaps. */
+  questionTraces: QuestionTraceRecord[];
   criticalMajorGaps: GapQuestionRecord[];
+  /** Validated response_scale rows for scoreRun.methodologyVersionId, loaded once per report. */
+  officialResponseLabels: import('./response-labels').OfficialResponseLabel[];
   maturityCapEvents: MaturityCapEventRecord[];
   recommendationRules: RecommendationRuleRecord[];
   expectedDomainResultCount: number;
@@ -153,4 +172,6 @@ export interface RoadmapItem {
   action60: string | null;
   action90: string | null;
   priorityScore: number;
+  /** Checkpoint D: exact authoritative action IDs from which this compatibility row was derived. */
+  authoritativeActionIds?: string[];
 }

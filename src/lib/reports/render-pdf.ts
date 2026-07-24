@@ -169,7 +169,11 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
     const pdf = await page!.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      preferCSSPageSize: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: '<div style="width:100%;padding:0 14mm;color:#6c665b;font:7px Arial,sans-serif;text-align:right;border-top:1px solid #ded5c5;"><span style="float:left;padding-top:4px;">MK Essential Report · Confidential</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
+      margin: { top: '12mm', right: '13mm', bottom: '15mm', left: '13mm' },
       timeout: pdfRenderTimeoutMs
     });
     consecutiveRenderFailures = 0;

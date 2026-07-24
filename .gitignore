@@ -34,3 +34,9 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 /.swc
+
+# Checkpoint F local rendered-review outputs (published only as CI artifacts)
+/output/pdf/
+/tmp/pdfs/
+/tmp/phase1-migration-replay/
+/tmp/phase1-sb-isolated/

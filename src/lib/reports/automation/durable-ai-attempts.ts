@@ -1,15 +1,14 @@
 import crypto from 'node:crypto';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import {
-  executePhase14WorkerStep,
-  loadPhase14WorkerLease,
-  requirePhase14Action
-} from '../phase14-security';
 import {
   PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
   PREMIUM_REPORT_AI_TIMEOUT_MS
 } from './ai-sdk-generator';
 import { aiAttemptStatusForFailureClass, classifyAiProviderFailure } from './ai-failure-classification';
+import {
+  buildPremiumReportGenerationPrompt,
+  buildPremiumReportRepairPrompt,
+  PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS
+} from './prompt';
 import type {
   NarrativeGenerationInput,
   NarrativeGenerationResult,
@@ -26,10 +25,110 @@ const CONSERVATIVE_OUTPUT_MICROS_PER_TOKEN = 20;
 
 type AttemptKind = 'generate' | 'repair';
 
+export interface DurableAttemptFingerprint {
+  generationIdentity: string;
+  evidenceChecksum: string;
+  requestedProvider: string;
+  requestedModel: string;
+  promptVersion: string;
+  schemaVersion: string;
+}
+
+export interface DurableAttemptRecord {
+  id: string;
+  status: string;
+  output_json?: unknown;
+  attempt_number: number;
+  accounting_status?: string;
+}
+
+export interface DurableNarrativeAttemptStore {
+  authorize(requestedProvider: string): Promise<unknown>;
+  findReusableAttempt(fingerprint: DurableAttemptFingerprint, kind: AttemptKind): Promise<DurableAttemptRecord | null>;
+  countChargeableAttempts(fingerprint: DurableAttemptFingerprint): Promise<number>;
+  claimAttempt(payload: Record<string, unknown>): Promise<DurableAttemptRecord>;
+  settleAttempt(attemptId: string, result: Record<string, unknown>): Promise<unknown>;
+}
+
 function asGenerationResult(value: unknown): NarrativeGenerationResult | null {
   if (!value || typeof value !== 'object') return null;
   const result = value as NarrativeGenerationResult;
   return result.output && result.provider && result.model ? result : null;
+}
+
+export function createPhase14NarrativeAttemptStore(input: {
+  fulfilmentId?: string | null;
+  workerCapabilityId?: string | null;
+  db?: any;
+  authorizeAction?: () => Promise<unknown>;
+}): DurableNarrativeAttemptStore {
+  async function database() {
+    if (input.db) return input.db;
+    const { createSupabaseServiceClient } = await import('@/lib/supabase/server');
+    return createSupabaseServiceClient() as any;
+  }
+
+  return {
+    authorize: async () => {
+      if (input.authorizeAction) return input.authorizeAction();
+      const { requirePhase14Action } = await import('../phase14-security');
+      return requirePhase14Action('ai_narrative_generation');
+    },
+    findReusableAttempt: async (fingerprint, kind) => {
+      const db = await database();
+      const { data, error } = await db
+        .from('report_ai_attempts')
+        .select('id,status,output_json,attempt_number,accounting_status')
+        .eq('generation_identity', fingerprint.generationIdentity)
+        .eq('evidence_checksum', fingerprint.evidenceChecksum)
+        .eq('requested_provider', fingerprint.requestedProvider)
+        .eq('requested_model', fingerprint.requestedModel)
+        .eq('prompt_version', fingerprint.promptVersion)
+        .eq('schema_version', fingerprint.schemaVersion)
+        .eq('attempt_kind', kind)
+        .order('attempt_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as DurableAttemptRecord | null;
+    },
+    countChargeableAttempts: async (fingerprint) => {
+      const db = await database();
+      const { count, error } = await db
+        .from('report_ai_attempts')
+        .select('id', { count: 'exact', head: true })
+        .eq('generation_identity', fingerprint.generationIdentity)
+        .eq('evidence_checksum', fingerprint.evidenceChecksum)
+        .eq('requested_provider', fingerprint.requestedProvider)
+        .eq('requested_model', fingerprint.requestedModel)
+        .eq('prompt_version', fingerprint.promptVersion)
+        .eq('schema_version', fingerprint.schemaVersion)
+        .neq('status', 'failed_before_provider');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    claimAttempt: async (payload) => {
+      if (!input.workerCapabilityId || !input.fulfilmentId) {
+        throw new Error('AI attempt persistence requires an opaque worker capability and fulfilment binding.');
+      }
+      const { executePhase14WorkerStep, loadPhase14WorkerLease } = await import('../phase14-security');
+      const lease = await loadPhase14WorkerLease(input.workerCapabilityId);
+      const attempt = await executePhase14WorkerStep<DurableAttemptRecord>(lease, 'claim_phase14_ai_attempt', {
+        attempt: { ...payload, fulfilment_id: input.fulfilmentId }
+      });
+      if (!attempt) throw new Error('AI attempt could not be persisted before provider dispatch.');
+      return attempt;
+    },
+    settleAttempt: async (attemptId, result) => {
+      if (!input.workerCapabilityId) throw new Error('AI attempt settlement requires an opaque worker capability.');
+      const { executePhase14WorkerStep, loadPhase14WorkerLease } = await import('../phase14-security');
+      const lease = await loadPhase14WorkerLease(input.workerCapabilityId);
+      return executePhase14WorkerStep(lease, 'settle_phase14_ai_attempt', {
+        attempt_id: attemptId,
+        result
+      });
+    }
+  };
 }
 
 export function createDurablePremiumReportNarrativeGenerator(input: {
@@ -39,14 +138,16 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
   workerCapabilityId?: string | null;
   db?: any;
   authorizeAction?: () => Promise<unknown>;
+  attemptStore?: DurableNarrativeAttemptStore;
 }): PremiumReportNarrativeGenerator {
-  const db = input.db ?? createSupabaseServiceClient() as any;
+  const store = input.attemptStore ?? createPhase14NarrativeAttemptStore(input);
 
   async function run(kind: AttemptKind, generationInput: NarrativeGenerationInput) {
-    await (input.authorizeAction
-      ? input.authorizeAction()
-      : requirePhase14Action('ai_narrative_generation'));
-    const inputSizeBytes = Buffer.byteLength(JSON.stringify(generationInput), 'utf8');
+    await store.authorize(input.generator.provider);
+    const providerPrompt = kind === 'generate'
+      ? buildPremiumReportGenerationPrompt(generationInput)
+      : buildPremiumReportRepairPrompt(generationInput);
+    const inputSizeBytes = Buffer.byteLength(`${PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS}\n${providerPrompt}`, 'utf8');
     const estimatedInputTokens = Math.max(1, Math.ceil(inputSizeBytes / 4));
     const preDispatchEstimatedCostMicros =
       estimatedInputTokens * CONSERVATIVE_INPUT_MICROS_PER_TOKEN
@@ -60,20 +161,15 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     if (preDispatchEstimatedCostMicros > PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS) {
       throw new Error('Premium report AI request exceeds the pre-dispatch estimated-cost limit.');
     }
-    const { data: existing, error: lookupError } = await db
-      .from('report_ai_attempts')
-      .select('id,status,output_json,attempt_number,accounting_status')
-      .eq('generation_identity', input.generationIdentity)
-      .eq('evidence_checksum', generationInput.evidenceChecksum)
-      .eq('requested_provider', input.generator.provider)
-      .eq('requested_model', input.generator.model)
-      .eq('prompt_version', generationInput.promptVersion)
-      .eq('schema_version', generationInput.schemaVersion)
-      .eq('attempt_kind', kind)
-      .order('attempt_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (lookupError) throw lookupError;
+    const fingerprint: DurableAttemptFingerprint = {
+      generationIdentity: input.generationIdentity,
+      evidenceChecksum: generationInput.evidenceChecksum,
+      requestedProvider: input.generator.provider,
+      requestedModel: input.generator.model,
+      promptVersion: generationInput.promptVersion,
+      schemaVersion: generationInput.schemaVersion
+    };
+    const existing = await store.findReusableAttempt(fingerprint, kind);
 
     if (existing?.status === 'succeeded' && existing.accounting_status === 'verified') {
       const persisted = asGenerationResult(existing.output_json);
@@ -100,21 +196,11 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
     // silently exhaust the entire real-provider-call budget before a single real
     // attempt was ever made. Excluded here and in the matching SQL-side count inside
     // public.claim_phase14_ai_attempt (migration 0030).
-    const { count: totalPriorAttempts, error: totalCountError } = await db
-      .from('report_ai_attempts')
-      .select('id', { count: 'exact', head: true })
-      .eq('generation_identity', input.generationIdentity)
-      .eq('evidence_checksum', generationInput.evidenceChecksum)
-      .eq('requested_provider', input.generator.provider)
-      .eq('requested_model', input.generator.model)
-      .eq('prompt_version', generationInput.promptVersion)
-      .eq('schema_version', generationInput.schemaVersion)
-      .neq('status', 'failed_before_provider');
-    if (totalCountError) throw totalCountError;
-    if ((totalPriorAttempts ?? 0) + 1 > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
+    const totalPriorAttempts = await store.countChargeableAttempts(fingerprint);
+    if (totalPriorAttempts + 1 > PREMIUM_REPORT_AI_MAX_ATTEMPTS) {
       throw new Error('Premium report AI maximum attempt limit reached.');
     }
-    const fingerprint = crypto.createHash('sha256').update(JSON.stringify({
+    const requestFingerprint = crypto.createHash('sha256').update(JSON.stringify({
       generationIdentity: input.generationIdentity,
       evidenceChecksum: generationInput.evidenceChecksum,
       provider: input.generator.provider,
@@ -123,17 +209,11 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       schemaVersion: generationInput.schemaVersion,
       kind
     })).digest('hex').slice(0, 24);
-    const providerRequestKey = `premium-report-ai:${fingerprint}:${attemptNumber}`;
-    if (!input.workerCapabilityId || !input.fulfilmentId) {
-      throw new Error('AI attempt persistence requires an opaque worker capability and fulfilment binding.');
-    }
-    const attemptLease = await loadPhase14WorkerLease(input.workerCapabilityId);
+    const providerRequestKey = `premium-report-ai:${requestFingerprint}:${attemptNumber}`;
     let attempt: any;
     try {
-      attempt = await executePhase14WorkerStep(attemptLease, 'claim_phase14_ai_attempt', {
-        attempt: {
+      attempt = await store.claimAttempt({
         generation_identity: input.generationIdentity,
-        fulfilment_id: input.fulfilmentId,
         attempt_kind: kind,
         attempt_number: attemptNumber,
         provider_request_key: providerRequestKey,
@@ -151,7 +231,6 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         timeout_ms: PREMIUM_REPORT_AI_TIMEOUT_MS,
         status: 'started',
         accounting_status: 'unverified'
-        }
       });
     } catch (insertError) {
       throw insertError ?? new Error('AI attempt could not be persisted before provider dispatch.');
@@ -171,9 +250,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       if (accountingValues.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
         let accountingError: unknown = null;
         try {
-          await executePhase14WorkerStep(attemptLease, 'settle_phase14_ai_attempt', {
-            attempt_id: attempt.id,
-            result: {
+          await store.settleAttempt(attempt.id, {
           status: 'accounting_unverified',
           accounting_status: 'unverified',
           output_json: result,
@@ -186,7 +263,6 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           latency_ms: result.latencyMs,
           completed_at: new Date().toISOString(),
           error_message: 'Provider usage or cost metadata is incomplete; AI output is prohibited from release.'
-            }
           });
         } catch (caught) {
           accountingError = caught;
@@ -205,9 +281,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       let persisted: unknown = null;
       let persistError: any = null;
       try {
-        persisted = await executePhase14WorkerStep(attemptLease, 'settle_phase14_ai_attempt', {
-          attempt_id: attempt.id,
-          result: {
+        persisted = await store.settleAttempt(attempt.id, {
           status: 'succeeded',
           accounting_status: 'verified',
           output_json: result,
@@ -222,7 +296,6 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
           latency_ms: result.latencyMs,
           completed_at: new Date().toISOString(),
           error_message: null
-          }
         });
       } catch (caught) {
         persistError = caught;
@@ -230,11 +303,9 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       if (persistError || !persisted) {
         let uncertainError: any = null;
         try {
-          const recoveryLease = await loadPhase14WorkerLease(input.workerCapabilityId);
-          await executePhase14WorkerStep(recoveryLease, 'settle_phase14_ai_attempt', {
-            attempt_id: attempt.id,
-            result: { status: 'provider_result_uncertain', accounting_status: 'unverified',
-              error_message: `Provider returned output but durable persistence failed: ${persistError?.message ?? 'compare-and-set lost'}` }
+          await store.settleAttempt(attempt.id, {
+            status: 'provider_result_uncertain', accounting_status: 'unverified',
+            error_message: `Provider returned output but durable persistence failed: ${persistError?.message ?? 'compare-and-set lost'}`
           });
         } catch (caught) {
           uncertainError = caught;
@@ -262,10 +333,8 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       const classifiedMessage = `[${failureClass}] ${message}`;
       let recoveryError: any = null;
       try {
-        const recoveryLease = await loadPhase14WorkerLease(input.workerCapabilityId);
-        await executePhase14WorkerStep(recoveryLease, 'settle_phase14_ai_attempt', {
-          attempt_id: attempt.id,
-          result: { status: settledStatus, accounting_status: 'unverified', error_message: classifiedMessage }
+        await store.settleAttempt(attempt.id, {
+          status: settledStatus, accounting_status: 'unverified', error_message: classifiedMessage
         });
       } catch (caught) {
         recoveryError = caught;

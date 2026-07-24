@@ -64,7 +64,7 @@ assert.ok(!generationRoute.includes('phase14-security'), 'manual generation rout
 assert.ok(generationRoute.includes('getAdminSession'), 'generation requires an authenticated admin session');
 
 const generation = read('src/lib/reports/phase1-manual-fulfilment.ts');
-assert.ok(generation.indexOf('await getPhase1SchemaCapability') < generation.indexOf('assembled = await assembleReportData'), 'generation checks capability before report work');
+assert.ok(generation.indexOf('await doGetSchemaCapability') < generation.indexOf('assembled = await doAssembleReportData'), 'generation checks capability before report work');
 assert.ok(generation.includes("upsert: false"), 'report objects are immutable');
 assert.ok(generation.includes("subarray(0, 4).toString('ascii') !== '%PDF'"), 'PDF output is validated');
 assert.ok(generation.includes('verifyPrivateObject'), 'stored output is read back and verified');

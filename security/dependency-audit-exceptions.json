@@ -13,7 +13,15 @@
     {
       "advisoryIdPattern": "GHSA-qx2v-qp2m-jg93",
       "package": "postcss",
-      "severity": "moderate",
+      "severity": "high",
+      "reason": "Transitive dependency of next@14.2.x itself (node_modules/next/node_modules/postcss), not a direct dependency this repo controls independently. Fixed only by the same Next.js major upgrade covered by the next/GHSA-* exception above. Advisory was reclassified from moderate to high severity by the upstream advisory database after this exception was first recorded; the exception's severity field is updated to match so the gate keeps recognising it -- the underlying dependency, version and reasoning are unchanged.",
+      "owner": "platform-engineering",
+      "expires": "2026-10-16"
+    },
+    {
+      "advisoryIdPattern": "GHSA-6g55-p6wh-862q",
+      "package": "postcss",
+      "severity": "high",
       "reason": "Transitive dependency of next@14.2.x itself (node_modules/next/node_modules/postcss), not a direct dependency this repo controls independently. Fixed only by the same Next.js major upgrade covered by the next/GHSA-* exception above.",
       "owner": "platform-engineering",
       "expires": "2026-10-16"

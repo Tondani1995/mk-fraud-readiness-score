@@ -17,12 +17,15 @@ export type ReportEntitlementReason =
   | 'score_run_incomplete';
 
 export class ReportEntitlementError extends Error {
-  constructor(
-    public readonly reason: ReportEntitlementReason,
-    message: string
-  ) {
+  readonly reason: ReportEntitlementReason;
+
+  // Explicit field + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why. Behaviourally identical
+  // to the prior version.
+  constructor(reason: ReportEntitlementReason, message: string) {
     super(message);
     this.name = 'ReportEntitlementError';
+    this.reason = reason;
   }
 }
 

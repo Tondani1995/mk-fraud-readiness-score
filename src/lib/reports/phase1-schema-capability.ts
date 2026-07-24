@@ -104,9 +104,15 @@ export async function getPhase1SchemaCapability(
 export const getFulfilmentSchemaCapability = getPhase1SchemaCapability;
 
 export class Phase1SchemaCapabilityError extends Error {
-  constructor(public readonly capability: Phase1SchemaCapability) {
+  readonly capability: Phase1SchemaCapability;
+
+  // Explicit field + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why. Behaviourally identical
+  // to the prior version.
+  constructor(capability: Phase1SchemaCapability) {
     super(capability.message ?? PHASE1_SCHEMA_ERROR_MESSAGE);
     this.name = 'Phase1SchemaCapabilityError';
+    this.capability = capability;
   }
 }
 

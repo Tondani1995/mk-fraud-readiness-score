@@ -5,9 +5,11 @@ import type {
   ExposureAnswerRecord,
   GapQuestionRecord,
   MaturityCapEventRecord,
+  QuestionTraceRecord,
   RecommendationRuleRecord,
   ScoreBand
 } from './types';
+import { getOfficialResponseLabels } from './response-labels';
 
 /**
  * Parses a recommendation rule's numeric score band from its structured condition_json where
@@ -37,19 +39,27 @@ export function parseScoreBand(conditionJson: unknown, title: string | null): Sc
   return null;
 }
 
+export type ReportAssemblyErrorReason =
+  | 'order_not_found'
+  | 'order_not_eligible'
+  | 'assessment_not_scored'
+  | 'entitlement_snapshot_failed'
+  | 'score_run_missing_domain_results'
+  | 'score_run_missing_question_traces';
+
 export class ReportAssemblyError extends Error {
-  constructor(
-    public readonly reason:
-      | 'order_not_found'
-      | 'order_not_eligible'
-      | 'assessment_not_scored'
-      | 'entitlement_snapshot_failed'
-      | 'score_run_missing_domain_results'
-      | 'score_run_missing_question_traces',
-    message: string
-  ) {
+  readonly reason: ReportAssemblyErrorReason;
+
+  // Explicit field + assignment, not TypeScript parameter-property shorthand -- see the matching
+  // note on ReportCommercialQualityError (commercial-quality.ts) for why (node --experimental-
+  // strip-types cannot codegen parameter properties, and this file is in the Checkpoint B lifecycle
+  // test's real-orchestration import chain via phase1-manual-fulfilment.ts). Behaviourally
+  // identical to the prior version; the reason union is unchanged, just named and hoisted so it can
+  // be referenced without repeating it.
+  constructor(reason: ReportAssemblyErrorReason, message: string) {
     super(message);
     this.name = 'ReportAssemblyError';
+    this.reason = reason;
   }
 }
 
@@ -131,23 +141,33 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: traceRows, error: traceError } = await supabase
     .from('score_question_traces')
-    .select('response_value, is_critical_gap, is_major_gap, questions:question_id(question_code, prompt, is_critical, is_hard_gate, domains:domain_id(domain_code, name))')
-    .eq('score_run_id', scoreRunRow.id)
-    .or('is_critical_gap.eq.true,is_major_gap.eq.true');
+    .select('response_value, normalised_score, applicable, triggered_rules, is_critical_gap, is_major_gap, questions:question_id(question_code, prompt, is_critical, is_hard_gate, domains:domain_id(domain_code, name))')
+    .eq('score_run_id', scoreRunRow.id);
 
   if (traceError) throw new ReportAssemblyError('score_run_missing_question_traces', `Failed to load question traces for score run ${scoreRunRow.id}.`);
 
-  const criticalMajorGaps: GapQuestionRecord[] = (traceRows ?? []).map((row: any) => ({
+  const questionTraces: QuestionTraceRecord[] = (traceRows ?? []).map((row: any) => ({
     questionCode: row.questions.question_code,
     domainCode: row.questions.domains.domain_code,
     domainName: row.questions.domains.name,
     prompt: row.questions.prompt,
     responseValue: row.response_value,
+    normalisedScore: row.normalised_score === null ? null : Number(row.normalised_score),
+    applicable: Boolean(row.applicable),
+    triggeredRules: Array.isArray(row.triggered_rules) ? row.triggered_rules : [],
     isCritical: row.questions.is_critical,
     isHardGate: row.questions.is_hard_gate,
     isCriticalGap: row.is_critical_gap,
     isMajorGap: row.is_major_gap
-  }));
+  })).sort((a, b) => a.questionCode.localeCompare(b.questionCode));
+
+  const criticalMajorGaps: GapQuestionRecord[] = questionTraces
+    .filter((trace) => trace.isCriticalGap || trace.isMajorGap)
+    .map(({ normalisedScore: _normalisedScore, applicable: _applicable, triggeredRules: _triggeredRules, ...gap }) => gap);
+
+  // The official scale is loaded once for the score run's persisted methodology version. This is
+  // deliberately not an active-methodology lookup and not a per-finding query.
+  const officialResponseLabels = await getOfficialResponseLabels(scoreRunRow.methodology_version_id);
 
   // related_domain_id can be null on question-level cap events (every question belongs to a
   // domain, but the cap-writing path only ever persisted the question reference for those rules).
@@ -256,6 +276,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     scoreRun: {
       id: scoreRunRow.id,
       assessmentId: scoreRunRow.assessment_id,
+      methodologyVersionId: scoreRunRow.methodology_version_id,
       status: scoreRunRow.status,
       lockedAt: scoreRunRow.locked_at ?? null,
       inputHash: scoreRunRow.input_hash ?? null,
@@ -273,7 +294,9 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     },
     domainResults,
     exposureAnswers,
+    questionTraces,
     criticalMajorGaps,
+    officialResponseLabels,
     maturityCapEvents,
     recommendationRules,
     expectedDomainResultCount: Number(expectedDomainCount ?? 0),

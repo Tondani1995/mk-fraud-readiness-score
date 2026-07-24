@@ -113,9 +113,19 @@ includes('src/lib/reports/phase1-report-access.ts', "createHash('sha256')", 'Dow
 includes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Downloads must issue only short-lived access');
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
+// Checkpoint F controller review blocker 4 restructured the report into an executive core +
+// implementation appendix (src/lib/reports/templates/report-template.ts), renaming several
+// section headings in the process ("Critical Flags and False Comfort" -> "What the result means"
+// with a false-comfort subsection; "30/60/90-Day Roadmap" -> "Leadership decisions and roadmap"
+// with a "30/60/90-day roadmap" subsection; "Leadership Agenda" -> appendix "A5. Functional
+// agenda"; the standalone "Report governance"/"Version Record" page was folded into the cover,
+// which still renders the report reference, generation date and package name). These checks are
+// updated to the new headings/markers rather than the old ones so they verify the same
+// substantive content (false-comfort narrative, the one roadmap, the functional agenda, and
+// report version metadata) actually still exists, not literal strings that no longer apply.
 const template = read('src/lib/reports/templates/report-template.ts');
-for (const heading of ['False Comfort', '30/60/90-Day Roadmap', 'Leadership Agenda', 'Version Record']) {
-  assert(template.includes(heading), `Template must include ${heading}`);
+for (const marker of ['content.falseComfort', '30/60/90-day roadmap', 'A5. Functional agenda', 'data.reportReference']) {
+  assert(template.includes(marker), `Template must include ${marker}`);
 }
 assert(!/benchmark|peer average/i.test(template), 'Template must not claim unsupported benchmarks');
 assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose internal phase labels');
