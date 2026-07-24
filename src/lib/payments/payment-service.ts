@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordPaymentConfirmedNotification } from '@/lib/notifications/phase1-order-notifications';
 import { getPaymentAutomationCapability } from './payment-capability';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
 
@@ -50,7 +51,7 @@ export async function processVerifiedPayment(input: {
     return { ok: false, duplicate: false, state: 'PAYMENT_PENDING', fulfilment: 'not_requested', message: capability.message!, technicalReference };
   }
   const { data: order, error: orderError } = await db.from('orders')
-    .select('id,order_reference,assessment_id,amount_cents,currency,status')
+    .select('id,order_reference,assessment_id,amount_cents,currency,status,customer_name,customer_email')
     .eq('order_reference', input.event.orderReference).maybeSingle();
   if (orderError || !order) {
     await db.rpc('record_unmatched_payment_event', {
@@ -96,6 +97,25 @@ export async function processVerifiedPayment(input: {
         : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
       updated_at: new Date().toISOString()
     }).eq('order_id', order.id);
+    // Fire-and-forget: a notification failure must never fail payment recording itself -- the
+    // payment transition above already committed. recordPaymentConfirmedNotification throws on
+    // DB errors (see phase1-order-notifications.ts), so this is caught explicitly rather than
+    // relying on the caller.
+    await recordPaymentConfirmedNotification({
+      orderId: order.id,
+      orderReference: order.order_reference,
+      assessmentId: order.assessment_id,
+      amountCents: Number(order.amount_cents),
+      currency: String(order.currency ?? 'ZAR'),
+      customerName: order.customer_name ?? null,
+      customerEmail: order.customer_email ?? null,
+      verifiedAtIso: new Date().toISOString()
+    }).catch((notificationError: unknown) => {
+      console.error('payment_confirmed_notification_failed', {
+        technicalReference, orderReference: order.order_reference,
+        message: notificationError instanceof Error ? notificationError.message : String(notificationError)
+      });
+    });
   }
   await trackAssessmentEvent({
     eventType: 'payment_marked_received', assessmentId: order.assessment_id, orderId: order.id,

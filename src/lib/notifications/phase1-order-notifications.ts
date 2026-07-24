@@ -4,6 +4,12 @@ import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
 } from '@/lib/reports/phase1-schema-capability';
+import { sendEmail } from '@/lib/notifications/email-provider';
+import {
+  buildAdminNewOrderAlertMessage,
+  buildOrderConfirmationMessage,
+  buildPaymentConfirmedMessage
+} from '@/lib/notifications/message-templates';
 
 type NotificationContext = {
   assessment: any;
@@ -26,11 +32,43 @@ function nextStep(productCode: string | null) {
   return 'MK Fraud Insights will confirm payment manually, generate the report, and record delivery as a separate controlled step.';
 }
 
+// Mirrors src/lib/orders/manual-eft-orders.ts's paymentReference() -- duplicated rather than
+// imported, since that module imports recordPhase1OrderNotifications from this one and importing
+// back would create a cycle.
+function manualEftPaymentReference(orderReference: string) {
+  return orderReference.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
+}
+
+function formatEftAccountSummary(eftSnapshot: any): string {
+  const snapshot = eftSnapshot ?? {};
+  if (snapshot.active !== true) {
+    return 'MK Fraud Insights will send EFT payment instructions directly.';
+  }
+  const bankName = snapshot.bankName ?? snapshot.bank_name ?? 'Not configured';
+  const accountHolder = snapshot.accountHolder ?? snapshot.account_holder ?? 'Not configured';
+  const accountNumber = snapshot.accountNumber ?? snapshot.account_number ?? 'Not configured';
+  const branchCode = snapshot.branchCode ?? snapshot.branch_code ?? 'Not configured';
+  const accountType = snapshot.accountType ?? snapshot.account_type ?? null;
+  const lines = [
+    `Bank: ${bankName}`,
+    `Account holder: ${accountHolder}`,
+    `Account number: ${accountNumber}`,
+    `Branch code: ${branchCode}`
+  ];
+  if (accountType) lines.push(`Account type: ${accountType}`);
+  return lines.join('\n');
+}
+
+// Insert the email_events row BEFORE calling sendEmail() -- the row's dedupe_key unique index
+// (0012) is what actually serialises concurrent callers. Sending first and inserting after would
+// let two concurrent requests both pass the earlier `existing` check and both dispatch a real
+// email before either claimed the dedupe slot.
 async function recordNotification(db: any, input: {
   context: NotificationContext;
-  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification';
+  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed';
   recipient: string | null;
   payload: Record<string, unknown>;
+  message: { subject: string; text: string; html: string };
 }) {
   const dedupeKey = `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
@@ -55,13 +93,12 @@ async function recordNotification(db: any, input: {
     template_key: input.notificationType,
     notification_type: input.notificationType,
     dedupe_key: dedupeKey,
-    status: 'recorded_disabled',
+    status: 'queued',
     request_id: requestId,
     provider_mode: 'disabled',
     retry_count: 0,
     metadata_json: {
       ...input.payload,
-      provider_mode: 'disabled',
       provider_send_attempted: false,
       request_id: requestId
     }
@@ -72,19 +109,53 @@ async function recordNotification(db: any, input: {
     if (raced) return { ...raced, reused: true };
     throw error ?? new Error('Notification record was not created.');
   }
+
+  const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
+  const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
+  const sendResult = await sendEmail({
+    from: fromAddress,
+    to: input.recipient,
+    replyTo,
+    subject: input.message.subject,
+    html: input.message.html,
+    text: input.message.text,
+    idempotencyKey: data.id
+  });
+
+  const providerMode = sendResult.mode === 'disabled' ? 'disabled' : 'external';
+  const finalStatus = !sendResult.ok ? 'send_failed' : sendResult.mode === 'disabled' ? 'recorded_disabled' : 'sent';
+  const sentSuccessfully = sendResult.ok && sendResult.mode !== 'disabled';
+
+  await db.from('email_events').update({
+    status: finalStatus,
+    provider_mode: providerMode,
+    provider_message_id: sentSuccessfully ? sendResult.providerMessageId : null,
+    sent_at: sentSuccessfully ? new Date().toISOString() : null,
+    error_message: sendResult.ok ? null : sendResult.error,
+    updated_at: new Date().toISOString()
+  }).eq('id', data.id);
+
+  if (!sendResult.ok) {
+    console.error('phase1_notification_send_failed', { notificationType: input.notificationType, emailEventId: data.id, mode: sendResult.mode, error: sendResult.error });
+  }
+
   await db.from('order_events').insert({
     order_id: input.context.order.id,
-    event_type: 'notification_recorded',
-    note: `${input.notificationType.replace(/_/g, ' ')} recorded; provider delivery is disabled.`,
+    event_type: sendResult.ok ? 'notification_recorded' : 'notification_failed',
+    note: sendResult.ok
+      ? `${input.notificationType.replace(/_/g, ' ')} recorded; provider mode ${sendResult.mode}.`
+      : `${input.notificationType.replace(/_/g, ' ')} could not be sent: provider error.`,
     metadata_json: {
       notification_type: input.notificationType,
       email_event_id: data.id,
-      provider_mode: 'disabled',
-      provider_send_attempted: false,
-      request_id: requestId
+      provider_mode: providerMode,
+      provider_send_attempted: sendResult.mode !== 'disabled',
+      request_id: requestId,
+      ...(sendResult.ok ? {} : { error_category: 'provider_send_failed' })
     }
   });
-  return { ...data, reused: false };
+
+  return { id: data.id, status: finalStatus, retry_count: 0, reused: false };
 }
 
 export async function recordPhase1OrderNotifications(context: NotificationContext) {
@@ -105,12 +176,17 @@ export async function recordPhase1OrderNotifications(context: NotificationContex
     || process.env.MK_INTERNAL_NOTIFICATIONS_EMAIL?.trim()
     || contactEmail;
   const orderReference = context.order.order_reference;
+  const organisationName = context.order.organisation_name ?? context.organisation?.legal_name ?? context.organisation?.trading_name ?? null;
+  const customerName = context.order.customer_name ?? context.respondent?.full_name ?? null;
+  const productName = context.order.product_name ?? context.product?.name ?? 'MK Fraud Readiness Report';
+  const amountCents = Number(context.order.amount_cents ?? 0);
+  const currency = context.order.currency ?? 'ZAR';
   const common = {
     order_reference: orderReference,
-    organisation: context.order.organisation_name ?? context.organisation?.legal_name ?? context.organisation?.trading_name,
-    customer: context.order.customer_name ?? context.respondent?.full_name,
-    product: context.order.product_name ?? context.product?.name,
-    amount: displayAmount(context.order.amount_cents, context.order.currency ?? 'ZAR'),
+    organisation: organisationName,
+    customer: customerName,
+    product: productName,
+    amount: displayAmount(amountCents, currency),
     payment_state: context.order.status,
     submission_timestamp: context.order.created_at ?? new Date().toISOString(),
     next_step: nextStep(context.product?.product_code ?? null),
@@ -120,7 +196,16 @@ export async function recordPhase1OrderNotifications(context: NotificationContex
     context,
     notificationType: 'customer_order_confirmation',
     recipient: context.order.customer_email ?? context.respondent?.email ?? null,
-    payload: common
+    payload: common,
+    message: buildOrderConfirmationMessage({
+      customerName,
+      orderReference,
+      productName,
+      amountCents,
+      currency,
+      eftAccountSummary: formatEftAccountSummary(context.eftSnapshot),
+      paymentReference: manualEftPaymentReference(orderReference)
+    })
   });
   const admin = await recordNotification(db, {
     context,
@@ -134,9 +219,61 @@ export async function recordPhase1OrderNotifications(context: NotificationContex
       score: score?.overall_score ?? null,
       maturity: score?.final_maturity ?? null,
       admin_path: `/score/admin/orders/${encodeURIComponent(orderReference)}`
-    }
+    },
+    message: buildAdminNewOrderAlertMessage({
+      orderReference,
+      organisationName,
+      customerName,
+      productName,
+      amountCents,
+      currency
+    })
   });
   return { customer, admin };
+}
+
+export type PaymentConfirmedNotificationInput = {
+  orderId: string;
+  orderReference: string;
+  assessmentId: string | null;
+  amountCents: number;
+  currency: string;
+  customerName: string | null;
+  customerEmail: string | null;
+  verifiedAtIso: string;
+};
+
+export async function recordPaymentConfirmedNotification(input: PaymentConfirmedNotificationInput) {
+  const db = createSupabaseServiceClient() as any;
+  const capability = await getPhase1SchemaCapability(db);
+  if (capability.status !== 'available') {
+    return { skipped: true, reason: capability.status, message: capability.message };
+  }
+  return recordNotification(db, {
+    context: {
+      assessment: { id: input.assessmentId },
+      organisation: null,
+      respondent: null,
+      dataRequest: null,
+      order: { id: input.orderId },
+      product: null,
+      eftSnapshot: null
+    },
+    notificationType: 'payment_confirmed',
+    recipient: input.customerEmail,
+    payload: {
+      order_reference: input.orderReference,
+      amount: displayAmount(input.amountCents, input.currency),
+      verified_at: input.verifiedAtIso
+    },
+    message: buildPaymentConfirmedMessage({
+      customerName: input.customerName,
+      orderReference: input.orderReference,
+      amountCents: input.amountCents,
+      currency: input.currency,
+      verifiedAtIso: input.verifiedAtIso
+    })
+  });
 }
 
 export async function retryPhase1NotificationWithDouble(emailEventId: string, result: 'success' | 'failure') {
