@@ -29,7 +29,11 @@ export type Phase1QueueKey = keyof typeof PHASE1_QUEUE_LABELS;
 // still-live legacy/provider-double admin delivery action (FulfilmentActions' "Initiate/Retry
 // Delivery" button, via src/lib/reports/phase1-manual-delivery.ts), not real customer delivery.
 const DELIVERY_IN_FLIGHT_STATUSES = ['queued', 'claimed', 'dispatching', 'retry_scheduled'];
-const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked'];
+// 'bounced'/'complained' are added here even though they're not values of
+// report_delivery_authorizations.status itself (they live on the linked email_events row --
+// see the deliveryState override below) -- a bounce/complaint always means "needs attention",
+// the same bucket a terminal authorization failure already means.
+const DELIVERY_ATTENTION_STATUSES = ['failed_terminal', 'reconciliation_required', 'revoked', 'bounced', 'complained'];
 
 function latestBy<T extends { order_id: string; created_at: string }>(rows: T[]) {
   const map = new Map<string, T>();
@@ -112,7 +116,12 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
       .in('order_id', ids).order('version_number', { ascending: false }),
     db.from('manual_report_generation_attempts').select('order_id,status,safe_operational_error,created_at')
       .in('order_id', ids).order('created_at', { ascending: false }),
-    db.from('report_delivery_authorizations').select('order_id,status,authorised_at')
+    // email_events(status) embeds the linked send's provider-reported outcome (via the
+    // report_delivery_authorizations_email_event_id_fkey relationship) -- finalize_delivery()
+    // only ever sets the authorization itself to 'finalized' at send time; a later bounce or
+    // complaint webhook (apply_email_provider_event_atomic()) only ever updates email_events.
+    // Without this join, a bounced/complained order would keep showing as 'delivered' forever.
+    db.from('report_delivery_authorizations').select('order_id,status,authorised_at,email_events(status)')
       .in('order_id', ids).order('authorised_at', { ascending: false })
   ])));
   const queryError = results.flatMap((result) => result).find((result) => result.error)?.error;
@@ -136,7 +145,12 @@ export async function annotateOrdersWithPhase1State(orders: any[], checkedCapabi
     const delivery: any = deliveryByOrder.get(order.id) ?? null;
     const ready = Boolean(report?.storage_status === 'VERIFIED' && report?.storage_bucket && report?.storage_path && !['voided'].includes(report?.status));
     const generationState = generation?.status ?? (ready ? 'REPORT_READY' : 'NOT_REQUESTED');
-    const deliveryState = delivery?.status ?? 'NOT_READY';
+    // A bounce/complaint always overrides the authorization's own status for display purposes --
+    // a 'finalized' authorization only means the provider accepted the request, not that the
+    // customer actually received it. See the query comment above for why this can't be read off
+    // report_delivery_authorizations.status alone.
+    const emailOutcome = delivery?.email_events?.status;
+    const deliveryState = emailOutcome === 'bounced' || emailOutcome === 'complained' ? emailOutcome : (delivery?.status ?? 'NOT_READY');
     const generationStuck = ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(generationState)
       && Date.now() - new Date(generation?.created_at ?? 0).getTime() > 15 * 60 * 1_000;
     const deliveryStuck = DELIVERY_IN_FLIGHT_STATUSES.includes(deliveryState)

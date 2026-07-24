@@ -55,11 +55,19 @@ function privilegedClient() {
 }
 
 function mapAuthorization(row: Record<string, unknown>): DeliveryAuthorization {
+  // Same override as annotateOrdersWithPhase1State() in phase1-operations.ts (the admin orders
+  // list/queue page) -- a bounce/complaint only ever updates the linked email_events row, never
+  // report_delivery_authorizations.status itself, so without this the order-detail page's own
+  // delivery card would keep showing "finalized" after a bounce while the queue list correctly
+  // shows the order needs attention. Kept in lockstep with that function deliberately: list and
+  // detail-page delivery truth must agree.
+  const emailOutcome = (row.email_events as { status?: string } | null)?.status;
+  const status = emailOutcome === 'bounced' || emailOutcome === 'complained' ? emailOutcome : String(row.status ?? '');
   return {
     id: String(row.id),
     reportId: String(row.report_id),
     recipientEmail: String(row.recipient_email ?? ''),
-    status: String(row.status ?? ''),
+    status,
     retryCount: Number(row.retry_count ?? 0),
     maxAttempts: Number(row.max_attempts ?? 5),
     nextAttemptAt: (row.next_attempt_at as string | null) ?? null,
@@ -144,7 +152,7 @@ export async function getOrderDeliveryState(orderId: string): Promise<{
   const db = createSupabaseServiceClient() as any;
   const [authorizationsResult, tokensResult, latestExceptionEventResult] = await Promise.all([
     db.from('report_delivery_authorizations')
-      .select('id,report_id,recipient_email,status,retry_count,max_attempts,next_attempt_at,provider_message_id,revoked_reason,authorised_at,finalized_at')
+      .select('id,report_id,recipient_email,status,retry_count,max_attempts,next_attempt_at,provider_message_id,revoked_reason,authorised_at,finalized_at,email_events(status)')
       .eq('order_id', orderId).order('authorised_at', { ascending: false }),
     db.from('customer_report_access_tokens')
       .select('id,report_id,recipient_email,issued_at,expires_at,revoked_at,revoked_reason,last_accessed_at,access_count')

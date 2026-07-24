@@ -33,7 +33,10 @@ shows two independent lists, most recent first:
 - **Delivery attempts** — one row per `report_delivery_authorizations` record: status
   (`queued`/`claimed`/`dispatching`/`finalized`/`revoked`/`reconciliation_required`/
   `retry_scheduled`/`failed_terminal`), retry count out of the max, the provider message id once
-  accepted, and the next scheduled retry time if one is pending.
+  accepted, and the next scheduled retry time if one is pending. A `finalized` row means the
+  provider *accepted* the send — if a bounce or complaint arrives afterward, the displayed status
+  changes to `bounced`/`complained` instead (this overrides the raw authorization status; the same
+  override is applied identically on the admin orders list/queue page, so the two always agree).
 - **Customer report access links** — one row per `customer_report_access_tokens` record:
   recipient, issued/expiry timestamps, access count, and whether it's currently active, revoked,
   or expired. Only one link can be active per report+recipient at a time — issuing or reissuing a
