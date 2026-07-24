@@ -67,7 +67,8 @@
     "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c && npm run v7:test-checkpoint-d && npm run v7:test-checkpoint-e && npm run v7:test-checkpoint-f",
     "release-a:test-backlog-reconciliation": "node scripts/release-a-backlog-reconciliation-tests.mjs",
     "release-b:test-durable-fulfilment": "node scripts/release-b-durable-fulfilment-tests.mjs",
-    "release-b:certify-worker-schedule": "node scripts/release-b-worker-schedule-gate.mjs"
+    "release-b:certify-worker-schedule": "node scripts/release-b-worker-schedule-gate.mjs",
+    "release-c:test-email-secure-delivery": "node scripts/release-c-email-secure-delivery-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
