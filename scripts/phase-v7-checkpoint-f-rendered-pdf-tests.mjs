@@ -341,6 +341,36 @@ const tests = [
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
     const output = execFileSync(PYTHON, [auditScript, '--self-test-near-empty-rule'], { cwd: ROOT, encoding: 'utf8' });
     assert.match(output, /all 5 near-empty-rule regression fixtures passed/);
+  }],
+  ['F18 no internal release-workflow copy in any customer PDF; replacement content present; review file unaffected', async () => {
+    const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    // 3. A deliberately injected release-candidate callout (and every phrase on the controller's
+    //    minimum list) fails with PDF_INTERNAL_RELEASE_WORKFLOW_COPY, without falsely flagging
+    //    ordinary fraud-control prose that happens to use the same bare words.
+    const output = execFileSync(PYTHON, [auditScript, '--self-test-internal-release-copy'], { cwd: ROOT, encoding: 'utf8' });
+    assert.match(output, /self_test_internal_release_workflow_copy: all fixtures passed/);
+
+    // 1. All four real, rendered customer PDFs contain zero internal release-workflow phrases --
+    //    the actual audit check, already run as part of the real render above.
+    assert.ok(
+      audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').length === candidates.length
+        && audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').every((x) => x.passed),
+      'PDF_INTERNAL_RELEASE_WORKFLOW_COPY must run and pass for every candidate'
+    );
+
+    // 4. The replacement customer-facing content -- a concrete, per-report "Recommended next step"
+    //    -- is present in every candidate in place of the removed callout.
+    for (const candidate of candidates) {
+      assert.match(text[candidate.name], /Recommended next step/);
+      assert.match(text[candidate.name], /Commission independent validation of/);
+      assert.doesNotMatch(text[candidate.name], /Controller review remains required/i);
+      assert.doesNotMatch(text[candidate.name], /commercial release candidate/i);
+    }
+
+    // 2. inspection/commercial-review.md (a non-customer review record, never scanned by the PDF
+    //    audit) may still say controller review is outstanding.
+    const reviewMarkdown = await readFile(path.join(ARTIFACT, 'inspection', 'commercial-review.md'), 'utf8');
+    assert.match(reviewMarkdown, /awaiting controller review/);
   }]
 ];
 

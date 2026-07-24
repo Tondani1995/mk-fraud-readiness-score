@@ -103,6 +103,29 @@ META_TEST_COPY = re.compile(
 METHOD_CODE = re.compile(r"\bD\d{1,2}-Q\d{2}\b")
 METHOD_CODE_LIMIT = 0
 
+# Third controller review round: internal development/release-governance language (controller
+# approval status, PR/checkpoint/merge/deployment references) must never appear in a customer's
+# purchased PDF -- that copy belongs only in non-customer records (the PR description, this script's
+# own inspection/commercial-review.md, CI logs). Every pattern here is a specific, multi-word phrase
+# (or, for "PR #"/"checkpoint <letter>", an unambiguous internal-reference shape) precisely so
+# ordinary fraud-control language is never falsely flagged -- e.g. a bare "controller" (a legitimate
+# job title, "domain controller", etc.) never matches on its own; only the exact internal-status
+# phrasing does.
+INTERNAL_RELEASE_WORKFLOW_COPY = re.compile(
+    r"\bcontroller review remains required\b|"
+    r"\bawaiting controller review\b|"
+    r"\bcommercial release candidate\b|"
+    r"\brelease approval is not implied\b|"
+    r"\bdraft and unmerged\b|"
+    r"\bpull request\b|"
+    r"\bPR\s*#\d*\b|"
+    r"\bcheckpoint [a-z]\b|"
+    r"\bproduction deployment\b|"
+    r"\bmerge approval\b|"
+    r"\bnot yet approved for (?:merge|commercial release)\b",
+    re.I,
+)
+
 # Blocker 1 (rendered-PDF proof): literal absolute-assertion fragments that can only appear if the
 # raw (non-resilience) pathway text leaked into a clean-assurance candidate -- mirrors
 # ASSURANCE_BODY_ASSERTION_PATTERNS in src/lib/reports/evidence-model/index.ts.
@@ -264,6 +287,56 @@ def self_test_near_empty_rule() -> None:
     stranded.unlink()
 
     print("self_test_near_empty_rule: all 5 near-empty-rule regression fixtures passed")
+
+
+def self_test_internal_release_workflow_copy() -> None:
+    """Regression fixtures for PDF_INTERNAL_RELEASE_WORKFLOW_COPY (third controller review round).
+    Runs in-process against fabricated text -- no rendered PDF required -- proving both that every
+    phrase from the controller's minimum list is caught (a deliberately injected release-candidate
+    callout must fail) and that ordinary fraud-control prose using the bare words involved
+    ("controller", "release", "merge", "draft") in an unrelated sense is never falsely flagged."""
+    removed_callout = (
+        "Controller review remains required. This report is a commercial release candidate. "
+        "Final visual and release approval is not implied by generation."
+    )
+    assert INTERNAL_RELEASE_WORKFLOW_COPY.search(removed_callout), \
+        "the exact callout removed from the customer template must still be detected if reintroduced"
+
+    for phrase in [
+        "Controller review remains required",
+        "awaiting controller review",
+        "commercial release candidate",
+        "release approval is not implied",
+        "draft and unmerged",
+        "pull request",
+        "PR #39",
+        "Checkpoint F",
+        "production deployment",
+        "merge approval",
+    ]:
+        assert INTERNAL_RELEASE_WORKFLOW_COPY.search(phrase), f"required phrase not detected: {phrase!r}"
+
+    # Bounded patterns: ordinary fraud-control / business prose using these bare words in an
+    # unrelated sense must never be falsely flagged.
+    for benign in [
+        "The Financial Controller approved the payment run outside the documented delegation of authority.",
+        "Access to the domain controller is restricted to two named administrators.",
+        "The organisation should commission independent validation of the evidence listed above.",
+        "A new release of the payment platform introduced an unreviewed configuration change.",
+        "Suppliers are merged into a single vendor master file without independent review.",
+        "The control owner drafted a remediation plan for the reporting quarter.",
+    ]:
+        assert not INTERNAL_RELEASE_WORKFLOW_COPY.search(benign), f"benign fraud-control text was falsely flagged: {benign!r}"
+
+    # The review file's own controller-status language (inspection/commercial-review.md) is exactly
+    # the same phrase this check exists to keep OUT of the customer PDF -- proving the regex working
+    # correctly on that phrase is not itself a bug; what matters is which document it is applied to
+    # (full_text extracted from the rendered candidate PDF, never commercial-review.md).
+    review_state_line = "- Decision state: **awaiting controller review**."
+    assert INTERNAL_RELEASE_WORKFLOW_COPY.search(review_state_line), \
+        "sanity check: the review file's own decision-state phrase is recognised by the pattern (it is simply never scanned, by construction)"
+
+    print("self_test_internal_release_workflow_copy: all fixtures passed")
 
 
 def sha256(path: Path) -> str:
@@ -468,6 +541,12 @@ def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] == "--self-test-near-empty-rule":
         self_test_near_empty_rule()
         return 0
+    # Isolated, fast debug entry point used by the internal-release-copy regression test (F18 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_internal_release_workflow_copy()
+    # in isolation, without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-internal-release-copy":
+        self_test_internal_release_workflow_copy()
+        return 0
     if len(sys.argv) != 3:
         raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
     artifact = Path(sys.argv[1]).resolve()
@@ -531,6 +610,13 @@ def main() -> int:
         # Blocker 3: no checkpoint/fixture/test/pipeline jargon in customer-facing prose.
         meta_matches = sorted(set(match.group(0) for match in META_TEST_COPY.finditer(full_text)))
         record(checks, "PDF_META_TEST_COPY", not meta_matches, name, f"matches={meta_matches[:8]}")
+
+        # Third controller review round: no internal development/release-governance language
+        # (controller approval status, PR/checkpoint/merge/deployment references) in the customer
+        # PDF -- full_text is the extracted text of the actual rendered candidate, never
+        # inspection/commercial-review.md, which is a separate file this scan never reads.
+        release_workflow_matches = sorted(set(match.group(0) for match in INTERNAL_RELEASE_WORKFLOW_COPY.finditer(full_text)))
+        record(checks, "PDF_INTERNAL_RELEASE_WORKFLOW_COPY", not release_workflow_matches, name, f"matches={release_workflow_matches[:8]}")
 
         # Blocker 6: internal question codes (e.g. D1-Q04) must not appear in the core report.
         # The appendix's "A6. Methodology question-code mapping" table is the one place codes are

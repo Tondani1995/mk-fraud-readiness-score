@@ -332,6 +332,18 @@ export function renderReportHtml(
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and test the specified operating evidence before treating a control as effective or a finding as resolved.</p>
     <p><strong>Next step.</strong> Commission independent validation of the operating evidence listed in this report's evidence-validation section and appendix, in the sequence set by the leadership decisions above.</p>`;
 
+  // Customer-facing replacement for the removed internal controller/release-status callout: a
+  // concrete, per-report "Recommended next step" derived from the single highest-priority evidence
+  // item (the same one leading the Evidence validation priorities section/table above), not a
+  // generic restatement of the "Next step" paragraph immediately above. Falls back to the checklist's
+  // first item if no evidence is linked to the top finding specifically -- the evidence checklist is
+  // never empty for a generated report (every finding, including assurance-priority ones, carries at
+  // least one validation item), so this always has real, varying-per-report content to show.
+  const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
+  const recommendedNextStep = topEvidenceItem
+    ? `<div class="closing-note"><strong>Recommended next step</strong><p>Commission independent validation of <strong>${esc(topEvidenceItem.artefact)}</strong> -- ${esc(topEvidenceItem.provesWhat.replace(/\.$/, ''))}. This is the immediate validation priority; the complete sequence is set out in Evidence validation priorities above and the full checklist in the appendix.</p></div>`
+    : '';
+
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
     ? [
         subsection('The recorded conditions requiring first attention', priorityGaps),
@@ -463,7 +475,7 @@ export function renderReportHtml(
       ${priorityRisksBlock}`, 'long-section'),
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${decisionsBlock}${roadmapBlock}`, 'long-section'),
     section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section'),
-    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}<div class="closing-note"><strong>Controller review remains required.</strong><p>This report is a commercial release candidate. Final visual and release approval is not implied by generation.</p></div>`),
+    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`),
     appendixSections
   ].join('\n');
 
