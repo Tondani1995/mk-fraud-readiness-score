@@ -121,14 +121,19 @@ existing storage-cleanup route), invoked by a Vercel Cron entry. On each invocat
    records `error_category`/`safe_operational_error`/`technical_reference`, and releases the
    lease.
 
-**Known open dependency, stated honestly rather than assumed:** the actual invocation frequency
-of a `vercel.json` cron entry depends on the Vercel plan tier for this project (Hobby plans are
-limited to a minimum interval Vercel enforces; Pro/Enterprise allow finer granularity). This was
-not verified in this work cycle (no Vercel MCP team/plan access was resolved). The worker route
-itself does not depend on cron for correctness — it is also safely callable on demand (used
-directly by the integration tests in this cycle, and available as an admin-triggered "process
-queue now" fallback) — only for how *promptly* queued jobs get picked up in production. This is
-recorded as a Release C/D-adjacent follow-up, not blocking Release B's own completion.
+**Confirmed constraint (was an open dependency, now resolved by evidence):** the Vercel deployment
+build for PR #42 failed the cron entry at `*/5 * * * *` with `Hobby accounts are limited to daily
+cron jobs. This cron expression would run more than once per day.` — this project's current
+Vercel plan is confirmed Hobby tier. `vercel.json` now uses `0 3 * * *` (once daily), the only
+schedule shape Hobby allows. This is a real, material limitation for production readiness: a
+paid customer's report generation would wait up to ~24 hours for the cron-triggered worker to
+pick up their queued job on this plan. The worker route itself does not depend on cron for
+correctness — it is also safely callable on demand (used directly by the integration tests in
+this cycle, and available as an admin-triggered "process queue now" fallback) — but relying on
+that as the *normal* path for a paid product is not acceptable. **Upgrading to a Vercel plan
+that supports sub-daily cron (or invoking the worker route via an external scheduler/webhook
+instead of `vercel.json` cron) is now a concrete, evidence-backed blocker to raise with the
+authorised MK operator before production, not a hypothetical one.**
 
 ## Idempotency strategy
 

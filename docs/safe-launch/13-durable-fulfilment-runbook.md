@@ -83,13 +83,17 @@ cannot approve or reject (it can, however, retry/recover, per the role split abo
 
 ## Stop the worker safely
 
-The worker is invoked by the `vercel.json` cron entry (`*/5 * * * *` by default — confirm the
-actual interval against your Vercel plan's cron granularity, per
-`docs/safe-launch/12-durable-fulfilment-design.md`'s noted open dependency). To stop it without
-a deploy: remove or comment out the `crons` entry in `vercel.json` and redeploy, or disable the
-cron from the Vercel project dashboard. Jobs already `REPORT_QUEUED`/`RETRY_SCHEDULED` simply
-wait — nothing is lost, and no in-flight generation is interrupted mid-render by stopping future
-cron triggers (an already-claimed job keeps running to completion within its own request).
+The worker is invoked by the `vercel.json` cron entry, currently `0 3 * * *` (once daily) —
+this project's Vercel plan is confirmed Hobby tier, which rejects any cron schedule more
+frequent than daily (a `*/5 * * * *` schedule failed deployment with exactly this error). See
+`docs/safe-launch/12-durable-fulfilment-design.md` for why this is a real production blocker,
+not just a slow default: a paid customer's report would wait up to ~24 hours for the
+cron-triggered worker on this plan. Use the admin "process queue now" fallback or upgrade the
+Vercel plan before relying on cron alone in production. To stop it without a deploy: remove or
+comment out the `crons` entry in `vercel.json` and redeploy, or disable the cron from the Vercel
+project dashboard. Jobs already `REPORT_QUEUED`/`RETRY_SCHEDULED` simply wait — nothing is lost,
+and no in-flight generation is interrupted mid-render by stopping future cron triggers (an
+already-claimed job keeps running to completion within its own request).
 
 ## Resume the worker safely
 
