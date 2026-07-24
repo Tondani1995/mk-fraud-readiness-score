@@ -311,7 +311,14 @@ const tests = [
   ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }],
   ['F16 review metadata uses the real PR head SHA, never the checkout merge-ref, when the two diverge', () => {
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
-    const withoutOverride = execFileSync(PYTHON, [auditScript, '--print-resolved-head-sha'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    // The CI workflow sets V7_ARTIFACT_HEAD_SHA for this whole step (so the *real* audit run below
+    // uses the real PR head), which means it is already present in this test's own process.env --
+    // inheriting it unmodified would test nothing here. The local-dev fallback path only exists
+    // when the override is genuinely absent, so it must be stripped explicitly for this assertion,
+    // regardless of what the ambient (CI or local) environment happens to have set.
+    const envWithoutOverride = { ...process.env };
+    delete envWithoutOverride.V7_ARTIFACT_HEAD_SHA;
+    const withoutOverride = execFileSync(PYTHON, [auditScript, '--print-resolved-head-sha'], { cwd: ROOT, encoding: 'utf8', env: envWithoutOverride }).trim();
     const actualGitHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
     assert.equal(withoutOverride, actualGitHead, 'without a PR-head override, resolve_head_sha() must fall back to git rev-parse HEAD (the local-dev path)');
 
