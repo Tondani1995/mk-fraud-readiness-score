@@ -5,6 +5,7 @@ import {
   listBacklogQueue,
   type BacklogQueueItem
 } from '@/lib/backlog-reconciliation/reconciliation-service';
+import { csvEscape } from '@/lib/backlog-reconciliation/csv-safety';
 
 // Admin-only CSV export of the backlog reconciliation queue. Streams exactly the same
 // non-PII field set as the admin queue page: order reference, product, payment state,
@@ -35,13 +36,6 @@ const CSV_COLUMNS: Array<{ header: string; value: (item: BacklogQueueItem) => un
   { header: 'order_id', value: (item) => item.orderId },
   { header: 'report_id', value: (item) => item.reportId }
 ];
-
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  const text = String(value);
-  if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
 
 export async function GET() {
   const admin = await getAdminSession();

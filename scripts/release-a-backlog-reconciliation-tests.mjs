@@ -1,22 +1,31 @@
 // Release A backlog reconciliation tests.
 //
-// Follows the static source-assertion style used by scripts/phase9-manual-eft-order-tests.mjs
-// rather than a live-database integration test: this script has no Supabase project to run
-// against in this environment (no SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL are
-// available), and the task explicitly forbids applying the new migration to any live project.
-// Every assertion below reads the actual migration SQL and TypeScript source and checks that
-// the required behaviour is present in the code, so a regression that removes a check, a role
-// gate, or an audit write will fail this script even without a database connection.
+// Sections 1-8 and 10-11 follow the static source-assertion style used by
+// scripts/phase9-manual-eft-order-tests.mjs: they read the actual migration SQL and
+// TypeScript source and check that the required behaviour (role gates, the 5-character
+// note minimum, the upsert-not-duplicate + always-audited write path, the non-PII field
+// set) is present in the code, without a database connection.
 //
-// What is NOT covered by this script (would need a live Supabase project to execute for real):
-//   - Actually calling classify_backlog_order()/backlog_reconciliation_queue() over the wire
-//     and observing Postgres enforce the role/role-forbidden and note-length exceptions.
-//   - Actually classifying the same order twice and counting rows in backlog_reconciliation_records
-//     (expect 1) and audit_logs (expect 2) via SQL.
-//   - Actually hitting the two Next.js routes with a real/forbidden admin session cookie.
+// Section 9c is a genuine functional test, not a source assertion: it imports the real
+// csvEscape() implementation from src/lib/backlog-reconciliation/csv-safety.ts (the same
+// module the export route imports) and calls it with real payloads, asserting on its
+// actual return value. A regression in the formula-injection neutralisation logic itself
+// will fail this section even though no database or HTTP layer is involved.
+//
+// What is NOT covered by this script (would need a live Supabase project/Next.js server to
+// execute for real): actually calling classify_backlog_order()/backlog_reconciliation_queue()
+// over the wire, or hitting the two Next.js routes with a real/forbidden admin session
+// cookie. That live-database coverage (role/session/note-length enforcement, the upsert +
+// 2-audit-row behaviour, RLS blocking anon) was independently verified in this work cycle
+// by applying every migration to a local Postgres via `supabase start` and running 11
+// direct SQL checks against it with synthetic fixture data — see
+// docs/safe-launch/09-release-evidence.md and PR #41 for that evidence. It was a one-off
+// manual verification, not wired into this repeatable script, because it requires bringing
+// up a local Supabase/Docker stack that this script cannot assume is running.
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { csvEscape } from '../src/lib/backlog-reconciliation/csv-safety.ts';
 
 const root = process.cwd();
 
@@ -50,11 +59,12 @@ const migration = `supabase/migrations/${migrationCandidates[0]}`;
 const service = 'src/lib/backlog-reconciliation/reconciliation-service.ts';
 const classifyRoute = 'src/app/score/api/admin/backlog-reconciliation/route.ts';
 const exportRoute = 'src/app/score/api/admin/backlog-reconciliation/export/route.ts';
+const csvSafety = 'src/lib/backlog-reconciliation/csv-safety.ts';
 const page = 'src/app/score/admin/backlog-reconciliation/page.tsx';
 const runbook = 'docs/safe-launch/01-backlog-reconciliation-runbook.md';
 
 console.log('--- 1. Files exist ---');
-for (const file of [migration, service, classifyRoute, exportRoute, page, runbook]) {
+for (const file of [migration, service, classifyRoute, exportRoute, csvSafety, page, runbook]) {
   assert(exists(file), `${file} exists`);
 }
 
@@ -144,6 +154,39 @@ for (const piiField of ['customer_name', 'customer_email', 'organisation_name', 
 for (const allowedField of ['order_reference', 'product_name', 'payment_state', 'classification', 'resolution_note', 'order_id', 'report_id']) {
   assert(csvColumnBlock.includes(allowedField), `CSV column list includes the expected non-PII field: ${allowedField}`);
 }
+
+console.log('--- 9b. Export route uses the shared csv-safety module (not a re-inlined copy) ---');
+assertIncludes(exportRoute, "from '@/lib/backlog-reconciliation/csv-safety'", 'Export route imports csvEscape from the shared, independently-tested module');
+assertNotIncludes(exportRoute, 'FORMULA_TRIGGER_CHARS', 'Export route no longer defines its own copy of the formula-trigger set (single source of truth)');
+
+console.log('--- 9c. CSV formula-injection neutralisation: real function calls against the exact payload set ---');
+function assertCsvCell(input, expected, label) {
+  const actual = csvEscape(input);
+  assert(actual === expected, `${label} (csvEscape(${JSON.stringify(input)}) === ${JSON.stringify(expected)}, got ${JSON.stringify(actual)})`);
+}
+
+// Dangerous leading characters: neutralised with a leading single quote, value preserved after it.
+assertCsvCell('=SUM(1,1)', '"\'=SUM(1,1)"', 'Formula =SUM(1,1) is neutralised and comma-quoted');
+assertCsvCell('+cmd', "'+cmd", 'Formula +cmd is neutralised');
+assertCsvCell('-1+2', "'-1+2", 'Formula -1+2 is neutralised (leading minus, not just a negative number)');
+assertCsvCell('@IMPORT', "'@IMPORT", 'Formula @IMPORT is neutralised');
+
+// Leading whitespace/control characters hiding a formula prefix must still be caught.
+// The neutralising quote is inserted at the true start of the cell (before the leading
+// whitespace), because a spreadsheet's "force text" rule only takes effect when the
+// apostrophe is literally the first character of the cell.
+assertCsvCell(' =SUM(1,1)', '"\' =SUM(1,1)"', 'Leading-space-then-formula text is neutralised (quote inserted before the leading space, comma-quoted)');
+assertCsvCell('\t=SUM(1,1)', '"\'\t=SUM(1,1)"', 'Leading-tab-then-formula text is neutralised (quote inserted before the leading tab, comma-quoted)');
+
+// Plain text, quoted text, commas, line breaks, embedded quotes: never neutralised, still RFC 4180 safe.
+assertCsvCell('normal plain text', 'normal plain text', 'Normal plain text passes through unmodified');
+assertCsvCell('"already quoted"', '"""already quoted"""', 'Text the admin wrapped in quotes is RFC 4180 quote-doubled, not treated as a formula (quote is not a trigger char)');
+assertCsvCell('report owed, follow up', '"report owed, follow up"', 'A comma in free text forces RFC 4180 quoting without formula neutralisation');
+assertCsvCell('line one\nline two', '"line one\nline two"', 'An embedded line break forces RFC 4180 quoting without formula neutralisation');
+assertCsvCell('the customer said "urgent"', '"the customer said ""urgent"""', 'Embedded double quotes are doubled per RFC 4180 without formula neutralisation');
+assertCsvCell(null, '', 'null values render as an empty cell');
+assertCsvCell(undefined, '', 'undefined values render as an empty cell');
+assertCsvCell(42, '42', 'Numeric values pass through unmodified (no digit is a formula trigger)');
 
 console.log('--- 10. Placeholder examples only (no fabricated customer data anywhere in the new code/docs) ---');
 const allNewSources = [migration, service, classifyRoute, exportRoute, page, runbook].map(read).join('\n');
