@@ -371,6 +371,66 @@ const tests = [
     //    audit) may still say controller review is outstanding.
     const reviewMarkdown = await readFile(path.join(ARTIFACT, 'inspection', 'commercial-review.md'), 'utf8');
     assert.match(reviewMarkdown, /awaiting controller review/);
+  }],
+  ['F19 recommended-next-step copy is grammatical, deterministic and assessment-specific (no artefact -- Whether concatenation)', () => {
+    const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    // 2/5. The exact malformed concatenation (and every phrase on the controller's minimum list) is
+    //    caught if reintroduced; the corrected two-sentence form and ordinary "whether" usage in
+    //    unrelated advisory prose are never falsely flagged.
+    const output = execFileSync(PYTHON, [auditScript, '--self-test-customer-copy-grammar'], { cwd: ROOT, encoding: 'utf8' });
+    assert.match(output, /self_test_customer_copy_grammar_defect: all fixtures passed/);
+
+    // 2/7. All four real, rendered customer PDFs are clean under the actual audit check (already
+    //    run as part of the real render above), and the internal-release-workflow audit (previous
+    //    round) remains green alongside it -- no regression in either.
+    for (const code of ['PDF_CUSTOMER_COPY_GRAMMAR_DEFECT', 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY']) {
+      const results = audit.checks.filter((x) => x.code === code);
+      assert.equal(results.length, candidates.length, `${code} must run for every candidate`);
+      assert.ok(results.every((x) => x.passed), `${code} must pass for every candidate`);
+    }
+
+    // 1. Extract each candidate's actual recommendation sentence pair and prove it is natural,
+    //    assessment-specific prose -- no raw "Whether", no "--" concatenation, no mid-sentence
+    //    doubled capitalisation ("The organisation"/"Management" is fine as the answer's own opening
+    //    word, just not glued onto "Whether").
+    const recommendationByName = {};
+    for (const candidate of candidates) {
+      // pypdf wraps extracted text at the PDF's rendered line breaks, which can fall mid-phrase
+      // (e.g. "validation\npriority") -- normalise whitespace before matching, same as the
+      // line-wrap-tolerant pattern already used for F14's "Not yet\s+requested".
+      const normalised = text[candidate.name].replace(/\s+/g, ' ');
+      const match = /Recommended next step\s+(.+?)\s+This is the immediate validation priority/.exec(normalised);
+      assert.ok(match, `${candidate.name}: Recommended next step sentence pair must be present and extractable`);
+      const recommendation = match[1].trim();
+      recommendationByName[candidate.name] = recommendation;
+      assert.doesNotMatch(recommendation, /--/, `${candidate.name}: no "--" concatenation`);
+      assert.doesNotMatch(recommendation, /\bWhether\b/, `${candidate.name}: no raw "Whether ..." proof phrasing`);
+      assert.doesNotMatch(recommendation, /operates? to the exact expected control standard/, `${candidate.name}: no raw provesWhat closing phrase`);
+      assert.match(recommendation, /^Commission /, `${candidate.name}: must open with a natural action sentence`);
+      assert.match(recommendation, /\. Confirm /, `${candidate.name}: must be exactly two sentences (action, then a Confirm... test)`);
+    }
+
+    // 3. Weak AI and fallback share the same deterministic advisory authority (Checkpoint E), so
+    //    their recommendation must be identical, not independently varied text.
+    assert.equal(
+      recommendationByName['mk-essential-v7-materially-weak-ai'],
+      recommendationByName['mk-essential-v7-materially-weak-fallback'],
+      'weak AI and fallback recommendations must be identical'
+    );
+
+    // 4. Moderate and clean draw on different findings/evidence, so their recommendations must
+    //    differ -- proves this is genuinely assessment-specific, not a fixed template string.
+    assert.notEqual(
+      recommendationByName['mk-essential-v7-moderate-ai'],
+      recommendationByName['mk-essential-v7-clean-assurance-ai'],
+      'moderate and clean recommendations must differ'
+    );
+
+    // 6. No page-count, near-empty, TOC/bookmark, clean-assurance or AI/fallback-authority
+    //    regression -- these are the same checks F2/F5/F11/F12 and the TOC checks already assert
+    //    against this same regenerated artifact; re-assert the aggregate here as a single guard tied
+    //    specifically to this round's change.
+    assert.equal(audit.passed, true, 'the full audit (page budgets, near-empty pages, TOC/bookmarks, clean-assurance semantics, AI/fallback authority) must remain green');
   }]
 ];
 

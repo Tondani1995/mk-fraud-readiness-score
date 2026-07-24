@@ -126,6 +126,25 @@ INTERNAL_RELEASE_WORKFLOW_COPY = re.compile(
     re.I,
 )
 
+# Fourth controller review round: the customer-facing "Recommended next step" callout (the
+# replacement for the internal release-workflow copy above) must never leak the raw, internal
+# artefact/proof-sentence concatenation it is built from -- see buildEvidenceRecommendation() in
+# report-template.ts. This is deliberately anchored on the literal "--" concatenation marker, not a
+# bare, unconditional match on "Whether The organisation" / "Whether Management" / "operates to the
+# exact expected control standard" -- those three sub-phrases are also the tail of the raw
+# provesWhat sentence rendered legitimately, and outside this round's scope, in the pre-existing
+# Evidence validation priorities table and the A4 appendix's "What it proves" column (a checklist's
+# proof-statement column reads fine as "Whether X operates..."; it is only the callout's narrative
+# prose that reads as a database-field join once an artefact title is glued onto it with "--"). The
+# anchor makes this correctly fire on the exact malformed shape from the controller's report
+# (artefact "--" Whether ... operates to the exact expected control standard) while leaving that
+# unrelated, un-flagged table content untouched, matching "when used in the malformed concatenated
+# form" in the correction brief precisely instead of over-broadly.
+CUSTOMER_COPY_GRAMMAR_DEFECT = re.compile(
+    r"--\s*Whether\b.{0,500}?\boperates? to the exact expected control standard\b",
+    re.I | re.S,
+)
+
 # Blocker 1 (rendered-PDF proof): literal absolute-assertion fragments that can only appear if the
 # raw (non-resilience) pathway text leaked into a clean-assurance candidate -- mirrors
 # ASSURANCE_BODY_ASSERTION_PATTERNS in src/lib/reports/evidence-model/index.ts.
@@ -339,6 +358,67 @@ def self_test_internal_release_workflow_copy() -> None:
     print("self_test_internal_release_workflow_copy: all fixtures passed")
 
 
+def self_test_customer_copy_grammar_defect() -> None:
+    """Regression fixtures for PDF_CUSTOMER_COPY_GRAMMAR_DEFECT (fourth controller review round):
+    proves the exact malformed "artefact -- Whether clause operates..." concatenation removed from
+    report-template.ts's Recommended next step callout is caught if ever reintroduced, and that
+    ordinary English uses of "whether" (which any advisory report legitimately uses) are not
+    falsely flagged."""
+    malformed_examples = [
+        "Commission independent validation of Bank-detail-change request -- Whether Supplier payment "
+        "processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or "
+        "vendor impersonation operates to the exact expected control standard across the complete "
+        "in-scope population.",
+        "Commission independent validation of Annual tabletop record -- Whether The organisation has a "
+        "documented process for responding to suspected fraud incidents operates to the exact expected "
+        "control standard across the complete in-scope population.",
+        "Commission independent validation of Approved fraud-risk RACI -- Whether Management owns fraud "
+        "risk, while internal audit or assurance functions provide independent review where they exist "
+        "operates to the exact expected control standard across the complete in-scope population.",
+    ]
+    for example in malformed_examples:
+        assert CUSTOMER_COPY_GRAMMAR_DEFECT.search(example), f"malformed concatenation not detected: {example!r}"
+        # Each malformed example is built from all four fragments the correction brief lists as the
+        # required minimum ("-- Whether", "Whether The organisation" or "Whether Management",
+        # "operates to the exact expected control standard") occurring together as one concatenated
+        # unit -- proving the compiled pattern covers that combined shape, not just isolated
+        # fragments (which, in isolation, are also legitimate table-cell content -- see the
+        # corrected_examples/table-cell fixtures below).
+        assert "--" in example and "Whether" in example and "operates" in example.lower(), \
+            f"fixture does not actually exercise the combined defect shape: {example!r}"
+
+    # The corrected, grammatical two-sentence form (buildEvidenceRecommendation() in
+    # report-template.ts) must never trip this check.
+    corrected_examples = [
+        "Commission independent validation of the bank-detail-change request. Confirm across the "
+        "complete in-scope population that supplier payment processes include checks to reduce invoice "
+        "manipulation, fake vendors, bank-detail changes or vendor impersonation.",
+        "Commission an independently observed fraud-incident tabletop exercise. Confirm across the "
+        "complete in-scope population that the organisation has a documented process for responding to "
+        "suspected fraud incidents.",
+        "Commission independent validation of the approved fraud-risk RACI. Confirm across the complete "
+        "in-scope population that management owns fraud risk, while internal audit or assurance "
+        "functions provide independent review where they exist.",
+        # Ordinary, unrelated use of "whether" in advisory prose must never be flagged.
+        "Confirm whether access to sensitive digital systems is restricted and reviewed as designed.",
+        "Leadership should determine whether the control operates consistently across the full population.",
+        # The pre-existing, un-flagged, out-of-scope Evidence validation priorities table and A4
+        # appendix "What it proves" column render the same raw provesWhat sentence verbatim in a
+        # table cell -- legitimate there (a proof-statement column), and outside this round's scope,
+        # so it must not be flagged just because it lacks the "--" concatenation the actual defect
+        # requires.
+        "Whether The organisation has a documented process for responding to suspected fraud incidents "
+        "operates to the exact expected control standard across the complete in-scope population.",
+        "Whether Management owns fraud risk, while internal audit or assurance functions provide "
+        "independent review where they exist operates to the exact expected control standard across "
+        "the complete in-scope population.",
+    ]
+    for example in corrected_examples:
+        assert not CUSTOMER_COPY_GRAMMAR_DEFECT.search(example), f"corrected/benign text was falsely flagged: {example!r}"
+
+    print("self_test_customer_copy_grammar_defect: all fixtures passed")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -547,6 +627,12 @@ def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] == "--self-test-internal-release-copy":
         self_test_internal_release_workflow_copy()
         return 0
+    # Isolated, fast debug entry point used by the customer-copy-grammar regression test (F19 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- runs self_test_customer_copy_grammar_defect()
+    # in isolation, without rendering or auditing any real candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-customer-copy-grammar":
+        self_test_customer_copy_grammar_defect()
+        return 0
     if len(sys.argv) != 3:
         raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
     artifact = Path(sys.argv[1]).resolve()
@@ -617,6 +703,11 @@ def main() -> int:
         # inspection/commercial-review.md, which is a separate file this scan never reads.
         release_workflow_matches = sorted(set(match.group(0) for match in INTERNAL_RELEASE_WORKFLOW_COPY.finditer(full_text)))
         record(checks, "PDF_INTERNAL_RELEASE_WORKFLOW_COPY", not release_workflow_matches, name, f"matches={release_workflow_matches[:8]}")
+
+        # Fourth controller review round: the customer-facing "Recommended next step" callout must
+        # never leak the raw artefact/proof-sentence concatenation it is built from.
+        grammar_defect_matches = sorted(set(match.group(0) for match in CUSTOMER_COPY_GRAMMAR_DEFECT.finditer(full_text)))
+        record(checks, "PDF_CUSTOMER_COPY_GRAMMAR_DEFECT", not grammar_defect_matches, name, f"matches={grammar_defect_matches[:8]}")
 
         # Blocker 6: internal question codes (e.g. D1-Q04) must not appear in the core report.
         # The appendix's "A6. Methodology question-code mapping" table is the one place codes are
