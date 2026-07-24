@@ -241,3 +241,49 @@ provisioned. **This is unknown from code alone and must be confirmed by the auth
 in `disabled` mode (the safe default) without requiring that answer; `live` mode is implemented
 and ready to activate the moment the owner confirms which case applies and, if (b), approves
 creating the account. No trial account is created to find out.
+
+## Closure cycle addendum
+
+Three gaps found during this release's own end-of-cycle review, resolved additively in
+`supabase/migrations/20260724180000_release_c_closure_delivery_exceptions.sql`. Item 1 of that
+same closure brief (unifying the admin delivery-state/queue display across
+`report_delivery_authorizations` and the legacy `manual_report_delivery_attempts` table) is
+covered separately — implemented in a parallel session against this same branch to avoid two
+divergent implementations of the same display logic.
+
+**Missing-recipient handling.** The original design's `approve_quality_review()` addition
+correctly chose not to fail the whole approval when `orders.customer_email` is null (the report
+still deserves to be released), but only recorded that as an `audit_logs` line — invisible unless
+an operator thought to look. The fix keeps the same non-blocking design decision but adds a
+visible, correctable surface: an `order_events` row (queryable, shown in the admin UI), a flag on
+the RPC's own return value driving exactly one deduped internal alert, and a new RPC,
+`correct_delivery_recipient_and_queue()`, scoped narrowly to "a released report with no existing
+delivery authorization" — it cannot create a second, competing authorization, and it never
+regenerates the report. No new table, no placeholder/fake email address ever written (the
+approval transaction was never actually blocked by the `email_events.recipient_email not null`
+constraint in the first place — it simply skips the insert, which is why this was findable only
+by reading the code, not by hitting an error).
+
+**Bounce/complaint owned exceptions and resend suppression.** Reusing
+`phase14_operational_alerts` (previously only used for the provider-event-conflict case) rather
+than inventing a second alerting mechanism — the alert_key is derived from `(email_event_id,
+outcome)`, giving the same replay-safety the conflict case already relied on, for free.
+Resend-suppression on `reissue_customer_report_access_token()` is a default-block, explicit-
+override design (a boolean parameter, not a separate confirmation table) — deliberately the
+lightest-weight mechanism that still requires an audited, reasoned, distinguishable action to
+bypass. A transient/soft bounce is classified in the webhook route (Resend's own
+`data.bounce.type` field) rather than in the RPC, keeping the RPC's status vocabulary unchanged
+and mapping the transient case onto the already-existing `delivery_delayed` status rather than
+inventing a new one.
+
+**Status-vocabulary rank fix.** `apply_email_provider_event_atomic()`'s ordering/staleness rank
+ladder (added well before this release, in the dormant Phase14 chain) never recognised Release
+C's own uppercase status vocabulary, so a row in one of those statuses ranked as 0 (lowest) until
+its first webhook event. Live testing (`docs/safe-launch/09-release-evidence.md`) confirmed this
+is not an *observable* bug in the current flow — every real incoming event has rank ≥ 30, so a
+rank-0 default never actually blocks anything a nonzero rank wouldn't also allow — but it's
+fragile: correct only by coincidence of the current vocabulary's specific rank values, not by
+design. Fixed by adding the four Release C statuses to the existing rank ladder at the position
+matching their real meaning, rather than leaving the coincidence in place or attempting a broader
+vocabulary unification that would also touch the still-dormant Phase14 chain's own use of the same
+function — out of scope for this release.

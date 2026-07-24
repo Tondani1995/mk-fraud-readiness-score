@@ -204,3 +204,17 @@ required state and are simply disconnected from a live caller.** The one excepti
 a narrow customer-access-token construct, which has no existing equivalent to extend (the admin
 path's 60-second signed URL is not customer-holdable) and must be new. See the design doc for
 the full minimum-change plan, including the `released`-status wiring decision.
+
+## Addendum — closure cycle findings
+
+This audit predates Release C's own end-of-cycle self-review, which found three additional gaps
+in the implementation this audit's conclusions led to (not gaps in the audit's own reasoning
+above, which held up): missing-recipient handling was log-only rather than visible/correctable,
+bounce/complaint outcomes updated `email_events.status` but created no owned admin exception, and
+`apply_email_provider_event_atomic()`'s ordering-rank check didn't recognise Release C's own
+status vocabulary. All three are additive fixes in
+`supabase/migrations/20260724180000_release_c_closure_delivery_exceptions.sql` — see
+`15-email-and-secure-delivery-design.md`'s "Closure cycle addendum" for the reasoning behind each,
+and `09-release-evidence.md` for live-test evidence. This audit's own gate outcome above — reuse
+existing structures, one new table for tokens — was not revisited and still holds; the closure
+fixes extend the same RPCs this audit already found, they don't introduce new tables.
