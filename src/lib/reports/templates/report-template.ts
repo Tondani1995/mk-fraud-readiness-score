@@ -437,8 +437,8 @@ export function renderReportHtml(
       <div class="exposure-layout">
         <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
         <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
-      </div>`)}`, 'long-section'),
-    section('What the result means', 'What the result means', priorityAndFalseComfort, 'long-section'),
+      </div>`)}
+      ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
     section('Domain overview', 'Domain overview', domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
       <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register is in Appendix A1.</p>

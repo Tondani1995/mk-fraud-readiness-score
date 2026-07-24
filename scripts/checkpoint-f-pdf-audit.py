@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -14,9 +15,19 @@ from PIL import Image, ImageChops, ImageDraw
 from pypdf import PdfReader
 
 
-def git_head_sha() -> str:
+def resolve_head_sha() -> str:
     """Checkpoint F controller review blocker 8: review metadata must be computed from the final
-    artifact, not hard-coded -- including the head SHA the candidates were built from."""
+    artifact, not hard-coded -- including the head SHA the candidates were built from.
+
+    Final controller review round: on a pull_request CI run, the checked-out working tree is the
+    synthetic merge-ref commit (refs/pull/<PR>/merge), not the PR branch head GitHub ties the
+    artifact to -- so `git rev-parse HEAD` alone would silently record the wrong SHA. The workflow
+    exports V7_ARTIFACT_HEAD_SHA (github.event.pull_request.head.sha, falling back to github.sha for
+    non-PR runs); that always wins when present. `git rev-parse HEAD` remains a local-dev fallback
+    for running this script directly, outside CI, where no such env var exists."""
+    env_sha = os.environ.get("V7_ARTIFACT_HEAD_SHA", "").strip()
+    if env_sha:
+        return env_sha
     try:
         repo_root = Path(__file__).resolve().parent.parent
         return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(repo_root), stderr=subprocess.DEVNULL).decode().strip()
@@ -105,22 +116,34 @@ ASSURANCE_SEMANTIC_FAILURE = re.compile(
 # allowed exceptions; the final page of each candidate is also exempted in the per-candidate loop.
 NEAR_EMPTY_EXEMPT_PAGES = {1, 2}
 NEAR_EMPTY_CHAR_THRESHOLD = 600
-NEAR_EMPTY_INK_RATIO_THRESHOLD = 0.02
+# Final controller review round: raw dark-pixel *density* (the previous 0.02 ink-ratio threshold)
+# is a poor proxy for how much of the page is actually used -- a short paragraph or a small partial
+# chart has similar pixel-level darkness to a denser page, since both are mostly whitespace between
+# strokes, so a real continuation page (a chart fragment clinging to the top of an otherwise blank
+# page) could clear a 2% density bar while leaving most of the page unused. Occupied *area* --
+# specifically, how far down the body region the content's bounding box actually extends -- is what
+# distinguishes that case. 0.34 means content must span at least roughly a third of the body height;
+# below that, more than roughly two-thirds of the body area is unused.
+NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD = 0.34
 
 
-def body_region_ink_ratio(image_path: Path) -> float:
-    """Fraction of non-white pixels in the page body, excluding a thin header/footer band -- so a
-    page with little extracted text but a dense heatmap/chart is not misclassified as near-empty,
-    while a page with only a stray trailing field (high whitespace, low ink) is correctly flagged."""
+def body_region_occupied_ratio(image_path: Path) -> float:
+    """Fraction of the page body's vertical extent (excluding a thin header/footer band) actually
+    spanned by non-white content, measured from the topmost to the bottommost non-white row of the
+    body region. Unlike raw dark-pixel density, this catches a page whose only content is a small
+    chart fragment or a couple of trailing rows clinging to the top of the page while the remaining
+    two-thirds-plus of the body is blank."""
     with Image.open(image_path).convert("L") as image:
         width, height = image.size
         top = int(height * 0.05)
         bottom = int(height * 0.95)
         region = image.crop((0, top, width, bottom))
-        histogram = region.histogram()
-        dark_pixels = sum(histogram[:235])
-        total_pixels = region.width * region.height
-        return dark_pixels / total_pixels if total_pixels else 0.0
+        mask = region.point(lambda p: 255 if p < 235 else 0)
+        bbox = mask.getbbox()
+        if bbox is None:
+            return 0.0
+        _, content_top, _, content_bottom = bbox
+        return (content_bottom - content_top) / region.height if region.height else 0.0
 
 
 def sha256(path: Path) -> str:
@@ -237,6 +260,15 @@ def render_commercial_review(candidate_results: dict[str, dict], head_sha: str) 
 
 
 def verify_review_metadata(review_markdown: str, candidate_results: dict[str, dict], head_sha: str) -> bool:
+    # Final controller review round: when the workflow has exported a PR-head override (the only
+    # situation where the checked-out git commit can be a merge-ref rather than the real PR head --
+    # see resolve_head_sha()), the generated head_sha must be exactly that override. This is the
+    # guard that actually stops a merge-ref SHA from silently passing: if some future change
+    # reintroduces an unconditional `git rev-parse HEAD` anywhere in the head-SHA path, head_sha
+    # would again diverge from the override and this check fails the build.
+    expected_override = os.environ.get("V7_ARTIFACT_HEAD_SHA", "").strip()
+    if expected_override and head_sha != expected_override:
+        return False
     if f"`{head_sha}`" not in review_markdown:
         return False
     for name, result in candidate_results.items():
@@ -304,6 +336,12 @@ def write_manifest(artifact: Path, candidate_results: dict[str, dict], report: d
 
 
 def main() -> int:
+    # Isolated, fast debug entry point used by the PR-head-vs-merge-ref regression test (F16 in
+    # phase-v7-checkpoint-f-rendered-pdf-tests.mjs) -- prints only the SHA resolve_head_sha() would
+    # use, without rendering or auditing any candidate.
+    if len(sys.argv) == 2 and sys.argv[1] == "--print-resolved-head-sha":
+        print(resolve_head_sha())
+        return 0
     if len(sys.argv) != 3:
         raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
     artifact = Path(sys.argv[1]).resolve()
@@ -440,9 +478,12 @@ def main() -> int:
 
         # Blocker 5: near-empty/tail-page detection using body-area analysis, not just "any text".
         # A page counts as near-empty when BOTH the extracted body-text count is low AND the
-        # rendered body region (excluding header/footer bands) has a low ink/occupied-area ratio --
-        # requiring both signals avoids flagging legitimately sparse-but-intentional pages (a table
-        # with few but large cells, for instance) on text count alone.
+        # rendered body region (excluding header/footer bands) leaves more than roughly two-thirds
+        # of its vertical extent unoccupied by content -- requiring both signals avoids flagging
+        # legitimately sparse-but-intentional pages (a table with few but large cells, for instance)
+        # on text count alone, while still catching a page whose only content is a small chart
+        # fragment or a couple of trailing rows (low text, low occupied area, but not literally
+        # blank, so a pixel-difference-from-white check alone would miss it).
         near_empty_pages: list[int] = []
         for page_number, image_path in enumerate(images, start=1):
             if page_number in NEAR_EMPTY_EXEMPT_PAGES or page_number == len(images):
@@ -456,8 +497,8 @@ def main() -> int:
             body_chars = len(normalise_page(page_text))
             if body_chars >= NEAR_EMPTY_CHAR_THRESHOLD:
                 continue
-            ink_ratio = body_region_ink_ratio(image_path)
-            if ink_ratio < NEAR_EMPTY_INK_RATIO_THRESHOLD:
+            occupied_ratio = body_region_occupied_ratio(image_path)
+            if occupied_ratio < NEAR_EMPTY_OCCUPIED_RATIO_THRESHOLD:
                 near_empty_pages.append(page_number)
         record(checks, "PDF_NEAR_EMPTY_PAGE", not near_empty_pages, name, f"pages={near_empty_pages}")
 
@@ -629,7 +670,7 @@ def main() -> int:
             name, f"closer-sentence-occurrences={total_occurrences} distinct-templates={distinct_templates_used}",
         )
 
-    head_sha = git_head_sha()
+    head_sha = resolve_head_sha()
     (artifact / "inspection").mkdir(parents=True, exist_ok=True)
 
     # Blocker 8: generate the commercial review from the final candidate_results/head_sha computed

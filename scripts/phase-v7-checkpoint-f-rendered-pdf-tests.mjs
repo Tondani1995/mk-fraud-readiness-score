@@ -308,7 +308,28 @@ const tests = [
   ['F12 clean assurance avoids false failure language', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_CLEAN_FALSE_FAILURE_LANGUAGE').every((x) => x.passed))],
   ['F13 risk, decision and roadmap authority contains no semantic duplicates', () => { for (const model of models) for (const key of ['riskRegister', 'leadershipDecisions', 'roadmapActions']) { const values = model[key].map((item) => sha(JSON.stringify(item))); assert.equal(new Set(values).size, values.length); } }],
   ['F14 every evidence checklist item renders its required status', () => { for (const [index, candidate] of candidates.entries()) assert.ok((text[candidate.name].match(/Not yet\s+requested/g) ?? []).length >= models[index].evidenceChecklist.length); }],
-  ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }]
+  ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }],
+  ['F16 review metadata uses the real PR head SHA, never the checkout merge-ref, when the two diverge', () => {
+    const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    const withoutOverride = execFileSync(PYTHON, [auditScript, '--print-resolved-head-sha'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const actualGitHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    assert.equal(withoutOverride, actualGitHead, 'without a PR-head override, resolve_head_sha() must fall back to git rev-parse HEAD (the local-dev path)');
+
+    // Simulate a pull_request CI run where the checked-out merge-ref commit (what `git rev-parse
+    // HEAD` would return) differs from the real PR branch head GitHub ties the artifact to --
+    // exactly the divergence this correction round fixes.
+    const simulatedMergeRefHead = actualGitHead;
+    const simulatedPrHead = `f${actualGitHead.slice(1)}` === actualGitHead ? `e${actualGitHead.slice(1)}` : `f${actualGitHead.slice(1)}`;
+    assert.notEqual(simulatedPrHead, simulatedMergeRefHead, 'test fixture must actually simulate a divergent PR head');
+
+    const withOverride = execFileSync(
+      PYTHON,
+      [auditScript, '--print-resolved-head-sha'],
+      { cwd: ROOT, encoding: 'utf8', env: { ...process.env, V7_ARTIFACT_HEAD_SHA: simulatedPrHead } }
+    ).trim();
+    assert.equal(withOverride, simulatedPrHead, 'V7_ARTIFACT_HEAD_SHA (the PR branch head) must win over whatever git rev-parse HEAD (the merge-ref commit) would independently resolve to');
+    assert.notEqual(withOverride, simulatedMergeRefHead, 'the resolved head SHA must not silently fall back to the merge-ref commit once a PR-head override is present');
+  }]
 ];
 
 for (const [name, test] of tests) {

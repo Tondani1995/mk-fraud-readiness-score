@@ -87,6 +87,13 @@ jobs:
         run: npm run typecheck
 
       - name: Run V7 report-hardening suite (Checkpoints A through F, credential-free)
+        # actions/checkout@v4 on a pull_request event checks out the synthetic merge-ref commit
+        # (refs/pull/<PR>/merge), not the PR branch tip -- so `git rev-parse HEAD` inside this job
+        # returns a commit GitHub never ties the artifact to. V7_ARTIFACT_HEAD_SHA carries the real
+        # PR head (falling back to github.sha only for non-PR triggers, e.g. push) so every
+        # generated review file records the same SHA reviewers actually see on the PR.
+        env:
+          V7_ARTIFACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run v7:test-report-hardening
 
       - name: Publish Checkpoint F rendered PDF review artifacts
