@@ -2,8 +2,27 @@ import crypto from 'node:crypto';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPaymentAutomationCapability } from './payment-capability';
-import { triggerPaidOrderFulfilment } from './fulfilment';
 import type { NormalisedPaymentEvent, PaymentSource, PaymentState, PaymentTransitionResult } from './types';
+
+// Release B: record_payment_transition() (extended in
+// supabase/migrations/20260724160000_release_b_durable_fulfilment.sql) now queues the
+// deterministic Phase 1 fulfilment job itself, inside the same transaction as the payment
+// state transition (closes the Q6 atomicity gap -- see
+// docs/safe-launch/11-release-b-existing-infrastructure-audit.md and
+// docs/safe-launch/12-durable-fulfilment-design.md, "Payment transaction boundary").
+// processVerifiedPayment() therefore no longer calls the synchronous fulfilment trigger
+// (src/lib/payments/fulfilment.ts, which still exists for reference/tests but is no longer
+// imported here) to run generateManualPhase1Report() synchronously inside this request --
+// generation now runs later, out of band, when the internal worker route
+// (src/app/score/api/internal/fulfilment-worker/route.ts) claims the queued row. This is
+// what makes the payment-confirmation HTTP response return without waiting for PDF
+// generation, per the design doc's "Durable workflow boundary".
+function fulfilmentFromTransition(result: Record<string, unknown> | null | undefined): PaymentTransitionResult['fulfilment'] {
+  const queued = String(result?.fulfilment ?? '');
+  if (queued === 'QUEUED') return 'queued';
+  if (queued === 'ALREADY_ACTIVE') return 'already_active';
+  return 'not_requested';
+}
 
 function targetState(event: NormalisedPaymentEvent, expectedAmount: number, expectedCurrency: string, requireTransactionReference: boolean): { state: PaymentState; reason: string } {
   if (event.outcome === 'failed') return { state: 'PAYMENT_FAILED', reason: 'Provider reported payment failure.' };
@@ -68,15 +87,13 @@ export async function processVerifiedPayment(input: {
   }
   let fulfilment: PaymentTransitionResult['fulfilment'] = 'not_requested';
   let message = target.reason;
-  if (target.state === 'PAID') {
-    const result = await triggerPaidOrderFulfilment({ orderReference: order.order_reference, paymentEventId: input.event.eventId });
-    fulfilment = result.result;
-    message = result.message;
+  if (target.state === 'PAID' && !data.duplicate) {
+    fulfilment = fulfilmentFromTransition(data as Record<string, unknown>);
+    if (fulfilment === 'queued') message = 'Payment confirmed. Report generation has been queued for the fulfilment worker.';
+    else if (fulfilment === 'already_active') message = 'Payment confirmed. A fulfilment job is already queued or in progress for this order.';
     await db.from('payment_automation_records').update({
-      fulfilment_trigger_result: result.result === 'phase1_unavailable' ? 'PHASE1_UNAVAILABLE'
-        : result.result === 'queued' ? 'QUEUED'
-          : result.result === 'already_active' ? 'ALREADY_ACTIVE'
-            : result.result === 'already_fulfilled' ? 'ALREADY_FULFILLED' : 'FAILED',
+      fulfilment_trigger_result: fulfilment === 'queued' ? 'QUEUED'
+        : fulfilment === 'already_active' ? 'ALREADY_ACTIVE' : 'NOT_REQUESTED',
       updated_at: new Date().toISOString()
     }).eq('order_id', order.id);
   }

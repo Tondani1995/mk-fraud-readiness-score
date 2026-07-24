@@ -60,7 +60,7 @@ export async function getPhase1OrderOperations(
   }
   const [generationResult, deliveryResult, notificationResult] = await Promise.all([
     db.from('manual_report_generation_attempts')
-      .select('id,request_id,order_id,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,error_category,safe_operational_error,technical_reference,output_report_id,created_at,updated_at')
+      .select('id,request_id,order_id,report_version,trigger_source,requested_by,requested_at,started_at,completed_at,status,retry_count,max_attempts,next_attempt_at,lease_owner,lease_expires_at,error_category,safe_operational_error,technical_reference,output_report_id,quality_reviewed_by,quality_reviewed_at,quality_review_decision,quality_review_reason,regenerated_from_attempt_id,delivery_queued_at,created_at,updated_at')
       .eq('order_id', orderId).order('created_at', { ascending: false }),
     db.from('manual_report_delivery_attempts')
       .select('id,request_id,order_id,report_id,requested_by,requested_at,started_at,completed_at,status,retry_count,provider_mode,error_category,safe_operational_error,technical_reference,email_event_id,created_at,updated_at')

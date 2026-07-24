@@ -36,7 +36,14 @@ const paymentService = read('src/lib/payments/payment-service.ts');
 const fulfilment = read('src/lib/payments/fulfilment.ts');
 assert.match(paymentService, /confirmManualPayment/);
 assert.match(paymentService, /processVerifiedPayment/);
-assert.equal((paymentService.match(/triggerPaidOrderFulfilment/g) ?? []).length, 2, 'one shared fulfilment import and call are expected');
+// Release B (docs/safe-launch/12-durable-fulfilment-design.md, "Durable workflow boundary"):
+// record_payment_transition() now queues the fulfilment job itself inside the same
+// transaction as the payment state transition, so processVerifiedPayment() no longer needs
+// to call triggerPaidOrderFulfilment() synchronously in-request -- the payment-confirmation
+// HTTP response returns as soon as the RPC returns, and generation happens later when
+// src/app/score/api/internal/fulfilment-worker/route.ts claims the queued row.
+// fulfilment.ts itself is untouched (kept for reference; no remaining importer).
+assert.equal((paymentService.match(/triggerPaidOrderFulfilment/g) ?? []).length, 0, 'payment-service.ts no longer calls triggerPaidOrderFulfilment synchronously (Release B)');
 assert.ok(fulfilment.indexOf('await getPhase1SchemaCapability') < fulfilment.indexOf('const generated = await generateManualPhase1Report'));
 assert.match(fulfilment, /Payment confirmed\. Fulfilment will remain pending until the Phase 1 upgrade is activated\./);
 assert.doesNotMatch(paymentService + fulfilment, /phase14/i);
