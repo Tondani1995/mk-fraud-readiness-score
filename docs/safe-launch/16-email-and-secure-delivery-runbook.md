@@ -92,6 +92,22 @@ Every retry, revoke, and reissue writes an `audit_logs` row (`delivery_retried`,
 and the before/after state — the same discipline as every other admin recovery action in this
 programme. Nothing here is a fire-and-forget button.
 
+## A report approval with no customer email on file does not queue delivery
+
+`approve_quality_review()` releases the report either way, but only creates the delivery
+authorization (and the `email_events` row) when `orders.customer_email` is set. A legacy or
+malformed order with no address on file is never silently dropped — it's recorded explicitly as
+an `audit_logs` entry (`delivery_not_queued_missing_recipient_email`) so it's discoverable, but
+there is currently no admin control to add a missing email and queue delivery after the fact. If
+you see a `released` report with no delivery attempt and no access token ever issued, check the
+audit trail for this event before assuming something else went wrong.
+
+## Domain authentication is a prerequisite for real sending
+
+`docs/safe-launch/17-domain-authentication.md` covers this in full — no SPF/DKIM/DMARC record has
+been configured for any MK domain as of this cycle. Do not set `MK_EMAIL_PROVIDER_MODE=live`
+before that document's status changes from `NOT CONFIGURED`.
+
 ## Handling bounces and complaints
 
 Bounce-retry (`report_delivery_remediations`) is reused unchanged from the dormant Phase14 chain
