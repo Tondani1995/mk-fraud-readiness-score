@@ -218,8 +218,8 @@ export default async function AdminOrderDetailPage({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader id="real-delivery">
+        <div id="real-delivery"><Card>
+          <CardHeader>
             <CardTitle>Real delivery &amp; customer access</CardTitle>
             <p className="mt-1 text-xs font-normal text-mk-muted">
               Authoritative Release C customer-delivery record — the source of the "Customer delivery status" shown above
@@ -238,7 +238,7 @@ export default async function AdminOrderDetailPage({
               canManageAccessTokens={ACCESS_TOKEN_ROLES.includes(admin.role)}
             />
           </CardContent>
-        </Card>
+        </Card></div>
 
         <Card>
           <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
