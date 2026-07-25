@@ -26,12 +26,10 @@ export function OperationalAlertActions({ alertId, status }: { alertId: string; 
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
-  const [pendingTarget, setPendingTarget] = useState<OperationalAlertStatus | null>(null);
 
   async function submit(target: OperationalAlertStatus) {
     if (!reason.trim()) {
       setNotice({ tone: 'error', text: 'A reason is required and is recorded in audit_logs.' });
-      setPendingTarget(target);
       return;
     }
     setBusy(target);

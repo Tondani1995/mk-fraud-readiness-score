@@ -369,7 +369,6 @@ try {
   // checks gate status even when the service_role short-circuit applies to the actor check) --
   // satisfied directly, matching release-c-runtime-secret-provisioning-tests.mjs's own pattern,
   // since the point under test here is the operational-alerts mapper, not the gate machinery.
-  const gateRow = (await db.query(`select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'`)).rows[0];
   await db.query(
     `update public.phase14_security_gates
      set satisfied_version = required_version, status = 'satisfied',
