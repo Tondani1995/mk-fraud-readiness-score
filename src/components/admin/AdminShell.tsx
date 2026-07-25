@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AdminSession } from '@/lib/auth/admin-route';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 const adminLinks = [
   { href: '/admin', label: 'Control room' },
@@ -14,6 +15,7 @@ const adminLinks = [
   { href: '/admin/orders', label: 'Order controls' },
   { href: '/admin/enquiries', label: 'Personalised enquiries' },
   { href: '/admin/reports', label: 'Report controls' },
+  { href: '/admin/operational-alerts', label: 'Operational alerts' },
   { href: '/admin/phase14-activation', label: 'Automation activation controls' },
   { href: '/admin/security', label: 'Security (MFA)' }
 ];
@@ -22,7 +24,30 @@ function scorePath(path: string) {
   return `/score${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-export function AdminShell({ admin, children }: { admin: AdminSession; children: ReactNode }) {
+// A single indexed count against the partial index added by Release D's migration
+// (phase14_operational_alerts_open_critical_idx) -- effectively free on every admin page render,
+// unlike fetching or paginating the alerts table itself, which only the alerts page does. Fails
+// silently to "no badge" rather than breaking every admin page if the table is briefly
+// unreachable or (pre-Release-D cloud schema) the index doesn't exist yet -- the table itself
+// already exists on every environment this app runs against, so this only ever fails on a genuine
+// connectivity problem, not a capability gap.
+async function getOpenCriticalAlertCount(): Promise<number | null> {
+  try {
+    const db = createSupabaseServiceClient();
+    const { count, error } = await db
+      .from('phase14_operational_alerts')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .eq('severity', 'critical');
+    if (error) return null;
+    return count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+export async function AdminShell({ admin, children }: { admin: AdminSession; children: ReactNode }) {
+  const criticalAlertCount = await getOpenCriticalAlertCount();
   return (
     <div className="min-h-[calc(100vh-5rem)] border-t border-mk-line bg-gradient-to-br from-mk-cream via-white to-mk-cream">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-8 lg:flex-row">
@@ -41,8 +66,11 @@ export function AdminShell({ admin, children }: { admin: AdminSession; children:
               </div>
               <nav className="mt-5 grid gap-2">
                 {adminLinks.map((link) => (
-                  <Link key={link.href} href={scorePath(link.href)} className="rounded-2xl px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
-                    {link.label}
+                  <Link key={link.href} href={scorePath(link.href)} className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-mk-muted transition hover:bg-mk-cream hover:text-mk-ink">
+                    <span>{link.label}</span>
+                    {link.href === '/admin/operational-alerts' && Boolean(criticalAlertCount) && (
+                      <Badge className="bg-red-100 text-red-800">{criticalAlertCount}</Badge>
+                    )}
                   </Link>
                 ))}
               </nav>

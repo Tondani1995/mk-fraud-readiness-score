@@ -324,6 +324,177 @@ updated with the rollback's independent verification once the owner confirms the
 
 ---
 
+## Release D evidence
+
+Scope: `20-release-d-scope-and-existing-infrastructure-audit.md`. Controller's D0 approval amended
+the originally-proposed read-only alerts surface to require an actionable, audited lifecycle — see
+that document's §5 for the full record of the amendment. PR #44, base `release-c/email-secure-delivery`
+(stacked, same constraint chain as #41/#42/#43): **explicitly cloud-uncertified**, nothing applied to
+`jvjxlphdyzerrhwcgkup` or any Supabase project.
+
+**What was built:**
+- `/score/admin/operational-alerts` — server-side filtered/paginated admin list, read-gated to the
+  four existing table-select roles (`platform_admin`, `reviewer`, `approver`, `read_only_admin`).
+  Detail rendering goes through an explicit per-category safe-field allow-list
+  (`src/lib/reports/operational-alerts.ts`); raw `detail_json` is never rendered.
+- `transition_phase14_operational_alert` — one new SECURITY DEFINER RPC (migration
+  `20260725150000_release_d_operational_alert_lifecycle.sql`), the sole authoritative path for the
+  open/acknowledged/resolved lifecycle. Mutation restricted to `platform_admin`/`reviewer`; requires
+  a non-empty reason; uses the existing `phase14_require_actor` AAL2 gate; writes one `audit_logs`
+  entry per transition (alert key, previous/new status, reason — never `detail_json`); reopening
+  clears both acknowledgement and resolution metadata.
+- Cloud-capability detection via PostgREST OpenAPI introspection
+  (`checkOperationalAlertLifecycleCapability`) — fails closed against the current shared cloud schema
+  (no raw PostgREST error surfaced, no direct-table-update fallback, no temporary cloud RPC, no
+  synthetic alert inserted anywhere near the shared database).
+- Nav entry with an open-critical-alert count badge (`AdminShell.tsx`), backed by a small partial
+  index, silently omitted on any query failure.
+- `21-go-live-checklist.md`, `22-release-and-rollback-runbook.md`, `23-vercel-operational-inventory.md`.
+- `vercel.json` — deliberately unchanged. Per the controller's explicit instruction, no "prepared but
+  inert" cron entry was added; the target cadence/plan dependency is recorded as an owner decision in
+  the checklist and inventory docs only.
+
+**Local verification — PASS, verified this cycle:**
+- `scripts/release-d-operational-alerts-tests.mjs` — the required 18-case suite: 13 executed live
+  against disposable local Postgres with all 37 accumulated A-D migrations replayed (including a real
+  alert created through Release C's own `apply_email_provider_event_atomic` bounce/complaint path,
+  read back and rendered through the real, non-reimplemented presentation mapper — not a synthetic
+  fixture); 2 covered by static source assertions; 1 by pure-function tests against fixture OpenAPI
+  documents; 1 (`all prior Release A/B/C tests remain green`) deferred by design to the pre-existing
+  separate npm scripts, run alongside this one this cycle. Full run: "All Release D operational-alerts
+  checks passed."
+- `npm run typecheck` — PASS, no errors.
+- `npm run build` — PASS, production build succeeds; `/score/admin/operational-alerts` and
+  `/score/api/admin/operational-alerts/[alertId]/transition` both compile as expected dynamic routes.
+- Dependency audit gate (`npm audit --omit=dev --json` → `phase14-dependency-audit-gate.mjs`) — PASS,
+  0 unsuppressed Critical/High findings; the 21 suppressed findings are the same pre-existing,
+  documented `next` exceptions carried from every prior release, nothing new introduced.
+- `release-a:test-backlog-reconciliation`, `release-b:test-durable-fulfilment`,
+  `release-c:test-email-secure-delivery`, `release-c:test-runtime-secret-provisioning`, and the
+  order-detail delivery-truth suite — all PASS, unchanged, re-run this cycle alongside Release D's own
+  suite (item 18 of the required test list).
+- Complete migration replay — PASS, confirmed both by every embedded-postgres suite above booting
+  against all 37 migrations (including `20260725150000`) and independently by the
+  "Supabase Migration Replay" GitHub workflow on the final head below.
+
+**CI — PASS, all 6 required workflows green on the exact final head `dff69d2` (not an earlier
+commit):** V1 Verification (×2, push + pull_request triggers), Security Scans, Phase 1 Release
+Safety, Phase 2-3 Release Safety, Supabase Migration Replay, V7 Report Hardening. One intermediate
+head (`bdc6f05`) carried two CodeQL findings (unused variables `gateRow` in the test script and
+`pendingTarget` in `OperationalAlertActions`, neither a security or correctness issue — both were
+dead reads/writes); both were removed in `dff69d2`, re-verified locally (typecheck + the Release D
+suite), and CodeQL's own re-scan on `dff69d2` shows both findings resolved.
+
+**Explicitly not claimed:** no cloud migration applied; no live PostgREST capability-detection test
+against a real Supabase project (proven only via fixture-based pure-function tests and the documented
+fail-closed design, per the controller's explicit prohibition on touching the shared database or
+creating a temporary cloud RPC); no Production or account-level change of any kind.
+
+### Controller correction cycle: operational-queue correctness defects (not cosmetic)
+
+Controller review of head `503f383` found one material queue-ordering defect and two related
+filter-correctness defects in `/score/admin/operational-alerts`. **These are recorded as operational
+correctness defects, not cosmetic refinements** — each one would have produced wrong information to
+an operator triaging alerts, not just an imperfect display:
+
+1. **Global critical-first ordering was applied after pagination, not before.** The list query
+   ordered by `created_at desc`, applied `.range()`, and only then re-sorted the already-paginated
+   25-row page critical-before-warning in application code. An older critical alert more than 25
+   rows back in `created_at desc` order could be hidden on page 2 or later, behind newer warnings —
+   the operator's "what needs attention right now" view could silently omit the most urgent open
+   item. **Fix:** severity/created_at ordering moved into the database query itself, before
+   `.range()`, via a new shared function (`buildOperationalAlertListQuery`,
+   `src/lib/reports/operational-alerts.ts`) used by the real page; the in-memory re-sort was removed
+   entirely. A new index (`phase14_operational_alerts_severity_created_idx` on
+   `(severity, created_at desc)`) supports the true default (no-status-filter) query shape; the
+   pre-existing open-critical partial index was not removed.
+2. **The "to" date filter used an inclusive `lte` on a bare `YYYY-MM-DD` value**, which compares
+   against midnight UTC on the selected day and silently excludes every event later that same day —
+   an operator filtering "up to today" would see today's alerts vanish. **Fix:** a new
+   `normalizeOperationalAlertDateRange` function computes an inclusive start bound for "from" and an
+   *exclusive* start-of-next-day bound for "to" (`.lt()`, not `.lte()`); invalid date values are
+   dropped before ever reaching a query (never a raw database error) and surface a controlled notice
+   banner instead.
+3. **Each status-count query reused the list's own status filter, then appended its own** — when an
+   operator selected `resolved` in the list, the open/acknowledged count queries received both
+   `.eq('status','resolved')` (from the shared filter helper) and their own `.eq('status','open')` /
+   `.eq('status','acknowledged')`, an impossible AND that silently zeroed both badges. **Fix:** filters
+   split into `applyOperationalAlertNonStatusFilters` (severity/category/date only, shared by the list
+   and all three counts) and `applyOperationalAlertListFilters` (adds the list's own status filter on
+   top); each count query now applies exactly one status condition. Count-query errors are also now
+   rendered as an explicit "unavailable" marker (`formatOperationalAlertCount`) rather than a silent 0.
+
+**Proof, not just the fix:** all three corrected functions are exported from
+`src/lib/reports/operational-alerts.ts` and used verbatim by the real page — the same functions are
+exercised in `scripts/release-d-operational-alerts-tests.mjs` via a recording query-builder mock
+(proving the real call sequence: both `order()` calls happen before `range()`; the status
+count-filter helper never issues a `status` condition) and via three new live-Postgres scenarios
+(19–21) against real rows: 25 newer warning alerts plus 1 older critical alert prove the critical
+alert lands on page 1 with no duplicate rows on page 2; an alert at `23:59:59.999` on the selected
+final day and one at `00:00:00.000` the next day prove the date bound is correctly inclusive/exclusive;
+three alerts in open/acknowledged/resolved under a shared category filter prove all three counts stay
+accurate regardless of which status is selected in the list. Full suite: 134 assertions, all passing.
+
+**CI on the correction's own exact final head `b8d0b17` (not `503f383`, per the controller's explicit
+instruction not to reuse the earlier result):** all 6 required workflows green — V1 Verification (×2,
+push + pull_request), V7 Report Hardening (×2), Security Scans, Supabase Migration Replay, Phase 1
+Release Safety, Phase 2-3 Release Safety. No new CodeQL findings; no open review threads. A follow-up
+docs-only commit (`03310eb`) recording that result was independently re-confirmed on its own exact
+head, not assumed to inherit `b8d0b17`'s status.
+
+### Controller hardening pass: determinism, strict calendar validation, and operational timezone
+
+Controller re-review of head `03310eb` confirmed the three original defects fixed, and required one
+final narrow hardening pass before acceptance — again functional correctness, not cosmetic:
+
+1. **Pagination was not fully deterministic when alerts shared both severity and created_at.**
+   `severity asc, created_at desc` alone does not uniquely order rows with identical values on both
+   columns; Postgres does not guarantee a stable tie order across repeated executions without an
+   explicit tie-breaker. **Fix:** `id asc` added as a third, final ordering column in
+   `buildOperationalAlertListQuery`, applied in the database before `.range()`, same as the other
+   two. Both supporting indexes (`phase14_operational_alerts_severity_created_idx`,
+   `phase14_operational_alerts_list_idx`) extended to include `id asc` as their final column,
+   matching the query's own `ORDER BY` exactly. The open-critical partial index is untouched.
+2. **Date validation relied on `Date.parse`/the `Date` constructor alone**, which silently rolls
+   impossible calendar dates over into a nearby valid one (e.g. February 31 becomes March 3) rather
+   than rejecting them. **Fix:** `parseStrictCalendarDate` parses the year/month/day components,
+   constructs the intended UTC date, and round-trips it — the input is accepted only if the
+   constructed date's year/month/day match exactly what was typed. Rejects month 00/13+, day 00, Feb
+   31, Apr 31, Feb 29 on a non-leap year, and anything not shaped like YYYY-MM-DD; a real leap day
+   (2024-02-29) is still accepted, proving the validator isn't simply rejecting all Feb 29 values.
+   Also added: when both dates are individually valid but "from" is chronologically after "to", both
+   bounds are dropped (`rangeOrderInvalid`) and a controlled "from date must not be after to date"
+   notice is shown instead of sending a contradictory range to the database; entered values remain in
+   the form for correction (the form already binds to the raw, unnormalized query-string values).
+3. **Date bounds were computed as UTC calendar days, not the South African operational calendar.**
+   This platform serves South African MK operators; a date-picker value of "2026-07-20" is a SAST
+   (Africa/Johannesburg) calendar day, not a UTC one. **Fix:** `sastCalendarDayStartUtc`, backed by a
+   named `SOUTH_AFRICA_OPERATIONAL_UTC_OFFSET_MS` constant (SAST is a fixed UTC+02:00 offset
+   year-round — South Africa does not observe DST), converts each SAST calendar day boundary to its
+   correct UTC instant. For 2026-07-20 SAST: inclusive start `2026-07-19T22:00:00.000Z`, exclusive end
+   `2026-07-20T22:00:00.000Z` — exactly the bounds the controller specified.
+
+**Proof:** all three fixes are exercised in `scripts/release-d-operational-alerts-tests.mjs` — a new
+live-Postgres scenario (19b) inserts 30 alerts sharing identical severity and created_at, proving
+page 1/page 2 never overlap, the concatenated paginated order exactly matches the full unpaginated
+`ORDER BY` result, and repeated execution of the identical query returns an identical order; the
+query-builder-mock tests were extended to prove the real `id` `order()` call happens third, after
+severity/created_at and before `range()`, and that repeated calls with identical inputs produce an
+identical call sequence; pure-function tests prove each of the calendar-rejection cases (Feb 31, Apr
+31, Feb 29 2025, month 00/13, day 00, malformed strings) is rejected while a real leap day is
+accepted, and that from-after-to is flagged distinctly from a single invalid value; a rewritten live
+Scenario 20 inserts alerts at the four exact boundary instants the controller specified
+(`2026-07-19T21:59:59.999Z` outside, `2026-07-19T22:00:00.000Z` inside, `2026-07-20T21:59:59.999Z`
+inside, `2026-07-20T22:00:00.000Z` outside) and proves the real query includes/excludes each
+correctly. Full suite: 167 assertions, all passing.
+
+**Status: `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.** Production status remains
+`NOT READY FOR PRODUCTION`, matching every prior release this cycle (Option B, same constraint as
+Release C's own accepted status above). Release D remains not yet controller-accepted pending this
+hardening pass's own review.
+
+---
+
 ## Cross-references
 
 - Current-state findings: `00-current-state.md`
@@ -341,4 +512,11 @@ updated with the rollback's independent verification once the owner confirms the
 - Release C runbook: `16-email-and-secure-delivery-runbook.md`
 - Release C domain-authentication requirements: `17-domain-authentication.md`
 - Release C controlled Resend Preview verification (owner-executed): `18-controlled-resend-preview-verification.md`
+- Release C cloud-schema reconciliation and controller decision: `19-release-c-cloud-schema-reconciliation.md`
+- PR #44: `feat(release-d): operational-alerts admin surface with audited lifecycle`, base
+  `release-c/email-secure-delivery` (stacked)
+- Release D0 scope and existing-infrastructure audit: `20-release-d-scope-and-existing-infrastructure-audit.md`
+- Go-live checklist: `21-go-live-checklist.md`
+- Release and rollback runbook: `22-release-and-rollback-runbook.md`
+- Vercel operational inventory: `23-vercel-operational-inventory.md`
 - Release C cloud-schema reconciliation audit + release decision memo: `19-release-c-cloud-schema-reconciliation.md`
