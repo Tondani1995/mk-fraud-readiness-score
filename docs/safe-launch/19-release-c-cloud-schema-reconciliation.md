@@ -240,18 +240,45 @@ executed without explicit owner approval — Option C would be a Production data
 explicit safety boundary above: Preview and Production share `main`), and no migration was applied
 in the course of writing this document.
 
+## 2a. Controller decision: Option B approved
+
+The controller reviewed this memo and approved **Option B**: defer all Supabase Cloud migration
+execution and full cloud certification until Releases A-D are integrated into one release-candidate
+branch. **Option A (isolated Supabase branch) is deferred, not pursued now. Option C (apply pending
+migrations to shared `main` now) is not authorised.** Release C is accepted as `CODE IMPLEMENTATION
+COMPLETE — CLOUD CERTIFICATION DEFERRED`, remaining `NOT READY FOR PRODUCTION`. Release D is
+authorised to proceed as code-only work under the same constraint (its own migrations/RPCs written
+and locally verified, no cloud-level claim) -- see
+`20-release-d-scope-and-existing-infrastructure-audit.md`.
+
+No migration was applied, no Supabase branch was created, and no change was made to `main` as a
+result of this decision being recorded -- Option B is explicitly a decision to defer action, not an
+action itself.
+
 ## 3. What this means for PR #43 right now
 
 - The runtime-secret provisioning capability (migration + route + admin UI + tests, commits
   `5fa9653`/`7b1dfa7`) is implemented and CI-verified against disposable local Postgres. It is
-  **not operational against the live database** until the cloud-schema gap above is closed by one
-  of the options in §2 — owner secret entry must not be attempted before then, since the deployed
-  route would simply fail against the live 2-arg RPC (§1.3, row 8).
-- Real Resend acceptance and delivery, and one owner-confirmed mailbox receipt, remain valid
-  evidence for messages 1 and 2 (§0) — that part of the cycle is genuinely certified.
-- Signed webhook ingestion, and messages 3 and 4, remain uncertified, and cannot become certified
-  under the current cloud schema regardless of secret provisioning.
-- Production status remains `NOT READY FOR PRODUCTION`.
+  **not operational against the live database** and, per the Option B decision (§2a), will not be
+  exercised against live cloud until the integrated A-D release candidate is certified — owner
+  secret entry must not be attempted before then.
+- Production status remains `NOT READY FOR PRODUCTION`, accepted this cycle as `CODE
+  IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.
+
+**Retained as valid evidence** (independently observed; none of it depends on an unapplied
+migration): customer order-confirmation sent through Resend; admin new-order notification sent
+through Resend; real provider message IDs persisted for both; `provider_mode=external` confirmed
+for both; the admin-alert recipient bug fixed (correctly resolves to `admin@mkfraud.co.za`); real
+mailbox receipt independently confirmed for the admin alert; the Preview protection bypass proven
+to reach the webhook route; webhook signature verification advanced far enough to correctly
+identify the missing-secret / missing-attestation cloud-schema dependency, rather than failing
+silently or for an unrelated reason.
+
+**Retained as uncertified** (blocked on the cloud-schema gap, independent of secret provisioning):
+successful HTTP 200 webhook ingestion; a persisted provider attestation; the payment-confirmed
+email; the report-ready email; quality-review approval; secure customer report-access token
+issuance; token revocation and reissue; bounce/complaint handling against the cloud schema; durable
+fulfilment against the shared cloud database. This document does not overstate either list.
 
 ## Cross-references
 

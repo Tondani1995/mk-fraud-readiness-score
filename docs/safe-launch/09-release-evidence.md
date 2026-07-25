@@ -290,6 +290,38 @@ messages 1 and 2 (§0 of that document explains why -- they don't depend on any 
 Signed webhook ingestion and messages 3 and 4 remain uncertified, and cannot become certified under
 the current cloud schema no matter how the runtime secrets are handled.
 
+### Controller decision: Option B approved -- Release C accepted as `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`
+
+The controller reviewed `19-release-c-cloud-schema-reconciliation.md`'s three-option memo and
+approved **Option B**: defer all Supabase Cloud migration execution and full cloud certification
+until Releases A-D are integrated into one release-candidate branch. Option A (isolated Supabase
+branch) is deferred, not pursued now. Option C (apply pending migrations to shared `main` now) is
+not authorised. No migration was applied, no Supabase branch was created, and no change was made to
+`main` in the course of this decision.
+
+**Retained as valid evidence:** customer order-confirmation sent through Resend; admin new-order
+notification sent through Resend; real provider message IDs persisted for both;
+`provider_mode=external` confirmed for both; the admin-alert recipient bug fixed; real mailbox
+receipt independently confirmed for the admin alert; the Preview protection bypass proven to reach
+the webhook route; webhook signature verification advanced far enough to correctly identify the
+missing-secret / missing-attestation cloud-schema dependency.
+
+**Retained as uncertified:** successful HTTP 200 webhook ingestion; a persisted provider
+attestation; the payment-confirmed email; the report-ready email; quality-review approval; secure
+customer report-access token issuance; token revocation and reissue; bounce/complaint handling
+against the cloud schema; durable fulfilment against the shared cloud database.
+
+Release D is authorised to proceed as code-only work under the same constraint -- see
+`20-release-d-scope-and-existing-infrastructure-audit.md`. Production status remains `NOT READY FOR
+PRODUCTION`; this is the accepted, documented state of this cycle, not an open defect.
+
+**Preview environment rollback (owner action, in progress):** per the controller's decision, the
+owner is setting `MK_EMAIL_PROVIDER_MODE=disabled`, redeploying `release-c/email-secure-delivery`,
+and temporarily disabling (not deleting, not rotating the signing secret for) the Resend webhook
+targeting this Preview. As of this entry, no new Preview deployment beyond the branch's normal
+auto-deploy-on-push has appeared (checked read-only via the Vercel API). This section will be
+updated with the rollback's independent verification once the owner confirms the change is made.
+
 ---
 
 ## Cross-references
