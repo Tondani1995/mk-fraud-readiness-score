@@ -57,8 +57,8 @@ might otherwise suggest.
 
 | Gate | Stage | Evidence |
 |---|---|---|
-| Operational-alerts admin surface | Code complete, Locally verified pending §"Tests" of `20-release-d-scope-and-existing-infrastructure-audit.md` | This PR (#44) |
-| Audited alert lifecycle (acknowledge/resolve/reopen) | Code complete, Locally verified pending same | `transition_phase14_operational_alert` RPC, migration `20260725150000` |
+| Operational-alerts admin surface | Code complete, Locally verified, CI verified | `09-release-evidence.md` "Release D evidence" |
+| Audited alert lifecycle (acknowledge/resolve/reopen) | Code complete, Locally verified, CI verified | `transition_phase14_operational_alert` RPC, migration `20260725150000`; `09-release-evidence.md` |
 | Monitoring and alert ownership decided (who watches this page) | **Not decided** — this document does not itself assign an owner | — |
 | Second-admin/break-glass decision | **Not decided** | `20-release-d-scope-and-existing-infrastructure-audit.md` §3 |
 | Rollback readiness (documented procedure) | Code complete (the procedure exists) | `22-release-and-rollback-runbook.md` |

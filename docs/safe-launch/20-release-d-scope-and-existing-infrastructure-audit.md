@@ -122,42 +122,61 @@ purposes (creating a real Supabase Auth user is an account-level action, not a s
 
 ## 5. Smallest safe implementation boundary
 
-Proposed scope for Release D's code:
+**Superseded by controller amendment, recorded here for the audit trail:** this section originally
+proposed a read-only alerts surface (§5 as first written, see git history of this file). The
+controller's Release D0 approval amended that scope before implementation began: the surface must be
+*actionable* (acknowledge/resolve/reopen), not read-only, via one narrow, audited, SECURITY DEFINER
+RPC. What was actually built, matching the amended instruction:
 
-1. **Operational alerts admin surface** — a new read-only admin route/page
-   (`/score/admin/operational-alerts`, matching existing route conventions) that lists
-   `phase14_operational_alerts` rows, filterable by severity/category/date, role-gated the same way
-   every other admin route in this codebase is (`requireAdmin(['platform_admin', ...])`). Zero new
-   migrations required — the table and its RLS policy already exist. This is the single most
-   concrete, evidence-backed gap found (a live write path with no consumer).
-2. **Consolidated go-live checklist** (`docs/safe-launch/21-go-live-checklist.md` or similar) —
-   aggregates every open gate already scattered across 09/12/15/17/19 into one document, cross-
-   referencing rather than duplicating each source. Pure documentation.
-3. **Release/rollback runbook** — closes `00-current-state.md` §15 directly: how to deploy, how to
-   roll back a Vercel deployment, how a migration would be rolled back if the integrated release
-   candidate's cloud certification ever needs it. Pure documentation; does not require the cloud
-   certification to have happened yet to be written correctly.
-4. **`vercel.json` cron entry prepared at target frequency**, added as a documented, currently-inert
-   change (or left as a clearly-labelled follow-up in the checklist) — do not silently flip production
-   cron frequency as a side effect of an unrelated commit; that decision belongs with the plan
-   upgrade, not buried in Release D's diff.
+1. **Operational alerts admin surface** (`/score/admin/operational-alerts`) — lists
+   `phase14_operational_alerts` rows with server-side status/severity/category/date filtering,
+   pagination, and open/acknowledged/resolved counts. Read-gated the same way every other admin route
+   in this codebase is (`requireAdmin(['platform_admin','reviewer','approver','read_only_admin'])`,
+   the four existing table-select roles). Raw `detail_json` is never rendered — an explicit
+   per-category safe-field allow-list (`src/lib/reports/operational-alerts.ts`) governs what surfaces.
+2. **Audited lifecycle transition** — one new additive migration
+   (`supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql`) adds lifecycle
+   metadata columns and the `transition_phase14_operational_alert` SECURITY DEFINER RPC, the sole
+   authoritative path for open→acknowledged, open→resolved, acknowledged→resolved, acknowledged→open,
+   and resolved→open (explicit reopen only). Mutation is restricted to `platform_admin`/`reviewer`,
+   requires a non-empty reason, uses the existing `phase14_require_actor` AAL2 gate, and writes one
+   `audit_logs` entry per transition (never `detail_json`). No direct table UPDATE from TypeScript —
+   table grants remain `select`-only to `authenticated`, matching every other Phase14 admin surface.
+3. **Cloud-schema fail-closed behaviour** — capability is detected via PostgREST OpenAPI
+   introspection (`checkOperationalAlertLifecycleCapability`), never a raw RPC probe. Against the
+   current shared cloud schema (which does not have this migration), the page renders read-only, the
+   lifecycle controls do not render, and the transition route returns a clean message rather than a
+   raw PostgREST error if called directly. No temporary cloud RPC was created; no synthetic alert was
+   inserted into the shared database.
+4. **Consolidated go-live checklist** (`docs/safe-launch/21-go-live-checklist.md`) — aggregates every
+   open gate already scattered across 09/12/15/17/19 into one document, cross-referencing rather than
+   duplicating each source.
+5. **Release/rollback runbook** (`docs/safe-launch/22-release-and-rollback-runbook.md`) — closes
+   `00-current-state.md` §15 directly.
+6. **Vercel operational inventory** (`docs/safe-launch/23-vercel-operational-inventory.md`) —
+   read-only evidence pulled via the Vercel MCP tools this cycle; no secret values recorded.
 
-**Explicitly out of scope for this cycle** (would exceed "smallest safe boundary" or duplicate
-another release's own domain): new alert *write* paths beyond what A/B/C already generate (adding new
-alert sources risks touching frozen A/B/C domain logic); any Vercel plan/billing change; empirical
-worker-runtime measurement against a real deployment; a second admin account or any Supabase Auth
-user-management change; centralising `/score/admin/*` auth into `middleware.ts` (a real improvement,
-but a broad refactor touching every existing admin route — higher blast radius than this cycle's
-boundary should take on, better suited to its own reviewed change).
+**`vercel.json` cron entry — explicitly not done, per controller instruction.** The controller
+directed that no "prepared but inert" cron schedule be committed, on the grounds that a committed cron
+schedule is not meaningfully inert once the branch is integrated. `vercel.json` is unchanged by
+Release D; the target cadence and plan dependency are recorded in the go-live checklist and Vercel
+inventory as an owner decision instead.
+
+**Remains explicitly out of scope for this cycle** (unchanged from the original boundary): any Vercel
+plan/billing change; empirical worker-runtime measurement against a real deployment; a second admin
+account or any Supabase Auth user-management change; centralising `/score/admin/*` auth into
+`middleware.ts`; duplicating any Release B/C recovery RPC inside Release D.
 
 ## 6. Migration requirements
 
-None required for the boundary in §5 — `phase14_operational_alerts` already exists with its schema,
-RLS, and admin-select policy on `main`. If query performance on a filtered/time-windowed view turns
-out to need a new index, that would be one small additive migration, reviewed on its own merits at
-implementation time. Whatever Release D's own migration file (if any) contains would join the same
-queue as Releases A/B/C's — written, locally replayed, CI-verified, and **not applied to
-`jvjxlphdyzerrhwcgkup`** until the integrated release candidate's own cloud-certification event.
+One narrow, additive migration was required after all — `20260725150000` (see §5.2), because the
+amended scope requires an audited *write* path, not only a read surface. `phase14_operational_alerts`
+itself, its schema, RLS, and admin-select policy were already on `main` and are unchanged; this
+migration only adds new nullable/defaulted lifecycle columns, three new indexes, and one new function.
+No existing column, constraint, or function is altered or dropped. This migration joins the same queue
+as Releases A/B/C's — written, locally replayed (all 37 migrations, embedded-postgres), CI-verified,
+and **not applied to `jvjxlphdyzerrhwcgkup`** until the integrated release candidate's own
+cloud-certification event.
 
 ## 7. External-provider or paid-resource requirements
 
@@ -178,13 +197,18 @@ structural reason C couldn't be verified before B.
 
 ## 9. Tests and evidence required
 
-Following the established pattern (static source assertions + live disposable-Postgres checks, no
-new framework introduced): confirm the new admin route is role-gated before rendering any alert
-detail; confirm `phase14_operational_alerts` rows created by Release C's existing bounce/complaint
-path render correctly; confirm the route makes no write calls (read-only surface); `npm run
-typecheck`, `npm run build`, existing release-a/b/c static suites unchanged; all 6 required GitHub
-workflows green on the true final head, independently, like every prior cycle. No claim of cloud
-verification anywhere in Release D's own evidence pack entry, matching Option B.
+**Superseded by the amended, actionable scope** (§5): the original proposal above described tests for
+a read-only surface. The controller's amendment additionally required an 18-case suite covering the
+lifecycle RPC's role gating, transition validation, audit-record correctness, reopen field-clearing,
+secret/raw-payload non-exposure, and cloud-capability-absence behaviour. `scripts/release-d-operational-alerts-tests.mjs`
+implements all 18 cases (13 executed live against disposable local Postgres with all 37 accumulated
+A-D migrations replayed, including a real alert created through Release C's own bounce/complaint path
+— not a reimplemented fixture; 2 covered by static source assertions; 1 by pure-function tests; 1
+deferred by design to the pre-existing separate release-a/b/c npm scripts, per the script's own header
+comment) — see `09-release-evidence.md` for the run result. Also run: `npm run typecheck`, `npm run
+build`, the dependency-audit gate, and existing release-a/b/c static and live suites unchanged; all 6
+required GitHub workflows green on the true final head, independently, like every prior cycle. No
+claim of cloud verification anywhere in Release D's own evidence pack entry, matching Option B.
 
 ## 10. Fit into the integrated A-D release candidate
 
@@ -207,4 +231,8 @@ that same pass, rather than being separately re-verified release by release.
 - Original discovery report (source of the Release D forward-references): `00-current-state.md`
 - PR #43: `feat(release-c): real transactional email and secure customer report delivery`, base
   `release-b/durable-fulfilment` (stacked)
-- Release D PR (to be opened alongside this document): base `release-c/email-secure-delivery`
+- PR #44: `feat(release-d): operational-alerts admin surface with audited lifecycle`, base
+  `release-c/email-secure-delivery` (stacked)
+- Go-live checklist: `21-go-live-checklist.md`
+- Release and rollback runbook: `22-release-and-rollback-runbook.md`
+- Vercel operational inventory: `23-vercel-operational-inventory.md`

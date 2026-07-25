@@ -324,6 +324,78 @@ updated with the rollback's independent verification once the owner confirms the
 
 ---
 
+## Release D evidence
+
+Scope: `20-release-d-scope-and-existing-infrastructure-audit.md`. Controller's D0 approval amended
+the originally-proposed read-only alerts surface to require an actionable, audited lifecycle — see
+that document's §5 for the full record of the amendment. PR #44, base `release-c/email-secure-delivery`
+(stacked, same constraint chain as #41/#42/#43): **explicitly cloud-uncertified**, nothing applied to
+`jvjxlphdyzerrhwcgkup` or any Supabase project.
+
+**What was built:**
+- `/score/admin/operational-alerts` — server-side filtered/paginated admin list, read-gated to the
+  four existing table-select roles (`platform_admin`, `reviewer`, `approver`, `read_only_admin`).
+  Detail rendering goes through an explicit per-category safe-field allow-list
+  (`src/lib/reports/operational-alerts.ts`); raw `detail_json` is never rendered.
+- `transition_phase14_operational_alert` — one new SECURITY DEFINER RPC (migration
+  `20260725150000_release_d_operational_alert_lifecycle.sql`), the sole authoritative path for the
+  open/acknowledged/resolved lifecycle. Mutation restricted to `platform_admin`/`reviewer`; requires
+  a non-empty reason; uses the existing `phase14_require_actor` AAL2 gate; writes one `audit_logs`
+  entry per transition (alert key, previous/new status, reason — never `detail_json`); reopening
+  clears both acknowledgement and resolution metadata.
+- Cloud-capability detection via PostgREST OpenAPI introspection
+  (`checkOperationalAlertLifecycleCapability`) — fails closed against the current shared cloud schema
+  (no raw PostgREST error surfaced, no direct-table-update fallback, no temporary cloud RPC, no
+  synthetic alert inserted anywhere near the shared database).
+- Nav entry with an open-critical-alert count badge (`AdminShell.tsx`), backed by a small partial
+  index, silently omitted on any query failure.
+- `21-go-live-checklist.md`, `22-release-and-rollback-runbook.md`, `23-vercel-operational-inventory.md`.
+- `vercel.json` — deliberately unchanged. Per the controller's explicit instruction, no "prepared but
+  inert" cron entry was added; the target cadence/plan dependency is recorded as an owner decision in
+  the checklist and inventory docs only.
+
+**Local verification — PASS, verified this cycle:**
+- `scripts/release-d-operational-alerts-tests.mjs` — the required 18-case suite: 13 executed live
+  against disposable local Postgres with all 37 accumulated A-D migrations replayed (including a real
+  alert created through Release C's own `apply_email_provider_event_atomic` bounce/complaint path,
+  read back and rendered through the real, non-reimplemented presentation mapper — not a synthetic
+  fixture); 2 covered by static source assertions; 1 by pure-function tests against fixture OpenAPI
+  documents; 1 (`all prior Release A/B/C tests remain green`) deferred by design to the pre-existing
+  separate npm scripts, run alongside this one this cycle. Full run: "All Release D operational-alerts
+  checks passed."
+- `npm run typecheck` — PASS, no errors.
+- `npm run build` — PASS, production build succeeds; `/score/admin/operational-alerts` and
+  `/score/api/admin/operational-alerts/[alertId]/transition` both compile as expected dynamic routes.
+- Dependency audit gate (`npm audit --omit=dev --json` → `phase14-dependency-audit-gate.mjs`) — PASS,
+  0 unsuppressed Critical/High findings; the 21 suppressed findings are the same pre-existing,
+  documented `next` exceptions carried from every prior release, nothing new introduced.
+- `release-a:test-backlog-reconciliation`, `release-b:test-durable-fulfilment`,
+  `release-c:test-email-secure-delivery`, `release-c:test-runtime-secret-provisioning`, and the
+  order-detail delivery-truth suite — all PASS, unchanged, re-run this cycle alongside Release D's own
+  suite (item 18 of the required test list).
+- Complete migration replay — PASS, confirmed both by every embedded-postgres suite above booting
+  against all 37 migrations (including `20260725150000`) and independently by the
+  "Supabase Migration Replay" GitHub workflow on the final head below.
+
+**CI — PASS, all 6 required workflows green on the exact final head `dff69d2` (not an earlier
+commit):** V1 Verification (×2, push + pull_request triggers), Security Scans, Phase 1 Release
+Safety, Phase 2-3 Release Safety, Supabase Migration Replay, V7 Report Hardening. One intermediate
+head (`bdc6f05`) carried two CodeQL findings (unused variables `gateRow` in the test script and
+`pendingTarget` in `OperationalAlertActions`, neither a security or correctness issue — both were
+dead reads/writes); both were removed in `dff69d2`, re-verified locally (typecheck + the Release D
+suite), and CodeQL's own re-scan on `dff69d2` shows both findings resolved.
+
+**Explicitly not claimed:** no cloud migration applied; no live PostgREST capability-detection test
+against a real Supabase project (proven only via fixture-based pure-function tests and the documented
+fail-closed design, per the controller's explicit prohibition on touching the shared database or
+creating a temporary cloud RPC); no Production or account-level change of any kind.
+
+**Status: `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.** Production status remains
+`NOT READY FOR PRODUCTION`, matching every prior release this cycle (Option B, same constraint as
+Release C's own accepted status above).
+
+---
+
 ## Cross-references
 
 - Current-state findings: `00-current-state.md`
@@ -341,4 +413,11 @@ updated with the rollback's independent verification once the owner confirms the
 - Release C runbook: `16-email-and-secure-delivery-runbook.md`
 - Release C domain-authentication requirements: `17-domain-authentication.md`
 - Release C controlled Resend Preview verification (owner-executed): `18-controlled-resend-preview-verification.md`
+- Release C cloud-schema reconciliation and controller decision: `19-release-c-cloud-schema-reconciliation.md`
+- PR #44: `feat(release-d): operational-alerts admin surface with audited lifecycle`, base
+  `release-c/email-secure-delivery` (stacked)
+- Release D0 scope and existing-infrastructure audit: `20-release-d-scope-and-existing-infrastructure-audit.md`
+- Go-live checklist: `21-go-live-checklist.md`
+- Release and rollback runbook: `22-release-and-rollback-runbook.md`
+- Vercel operational inventory: `23-vercel-operational-inventory.md`
 - Release C cloud-schema reconciliation audit + release decision memo: `19-release-c-cloud-schema-reconciliation.md`
