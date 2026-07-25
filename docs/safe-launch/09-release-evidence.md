@@ -435,6 +435,11 @@ final day and one at `00:00:00.000` the next day prove the date bound is correct
 three alerts in open/acknowledged/resolved under a shared category filter prove all three counts stay
 accurate regardless of which status is selected in the list. Full suite: 134 assertions, all passing.
 
+**CI on the correction's own exact final head `b8d0b17` (not `503f383`, per the controller's explicit
+instruction not to reuse the earlier result):** all 6 required workflows green — V1 Verification (×2,
+push + pull_request), V7 Report Hardening (×2), Security Scans, Supabase Migration Replay, Phase 1
+Release Safety, Phase 2-3 Release Safety. No new CodeQL findings; no open review threads.
+
 **Status: `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.** Production status remains
 `NOT READY FOR PRODUCTION`, matching every prior release this cycle (Option B, same constraint as
 Release C's own accepted status above). Release D remains not yet controller-accepted pending this
