@@ -5,7 +5,8 @@ import {
   Phase14GateControl,
   Phase14PoliciesControl,
   Phase14AiRoutesControl,
-  Phase14SettingsControl
+  Phase14SettingsControl,
+  Phase14RuntimeSecretControl
 } from '@/components/admin/Phase14ActivationControls';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -96,6 +97,30 @@ export default async function Phase14ActivationPage() {
               reportEngineSettings={state.reportEngineSettings}
               deliveryPolicySettings={state.deliveryPolicySettings}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Runtime secret provisioning (HMAC secrets)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="mb-4 text-sm text-mk-muted">
+              These two secrets are never preloaded, displayed, or logged by this page — this control only shows
+              a rotation timestamp and a non-secret SHA-256 fingerprint after a successful submission. Each secret
+              must independently reach the matching Vercel Preview variable and this Supabase secret with the
+              identical value; this page cannot see or verify what is stored in Vercel.
+            </p>
+            <div className="space-y-4">
+              <Phase14RuntimeSecretControl
+                secretKey="provider_webhook_db_hmac"
+                vercelVarName="PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET"
+                description="Verifies signed Resend webhook attestations before they are applied to an email_events row."
+              />
+              <Phase14RuntimeSecretControl
+                secretKey="provider_lookup_db_hmac"
+                vercelVarName="PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET"
+                description="Verifies provider-lookup attestations (the reconciliation path independent of the webhook)."
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
