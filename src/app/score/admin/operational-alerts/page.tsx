@@ -7,9 +7,14 @@ import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { createSupabaseAuthenticatedServerClient } from '@/lib/supabase/server';
 import {
+  applyOperationalAlertNonStatusFilters,
+  buildOperationalAlertListQuery,
   checkOperationalAlertLifecycleCapability,
   extractSafeAlertDetails,
+  formatOperationalAlertCount,
   getOperationalAlertPresentation,
+  normalizeOperationalAlertDateRange,
+  type OperationalAlertQueryFilters,
   type OperationalAlertRow,
   type OperationalAlertSeverity,
   type OperationalAlertStatus
@@ -84,46 +89,40 @@ export default async function OperationalAlertsPage({
   const fromDate = searchParams?.from?.trim() || undefined;
   const toDate = searchParams?.to?.trim() || undefined;
   const page = Math.max(1, Number.parseInt(searchParams?.page ?? '1', 10) || 1);
-  const offset = (page - 1) * PAGE_SIZE;
 
-  function applyFilters(query: any) {
-    let q = query;
-    if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-    if (severityFilter !== 'all') q = q.eq('severity', severityFilter);
-    if (categoryFilter) q = q.eq('category', categoryFilter);
-    if (fromDate) q = q.gte('created_at', fromDate);
-    if (toDate) q = q.lte('created_at', toDate);
-    return q;
-  }
+  // Invalid date-filter values are dropped here, before ever reaching a query -- they are never
+  // passed to `.gte()`/`.lt()`, so a malformed query-string value cannot surface a raw database
+  // error. `dateRange.invalid` drives the notice banner below instead.
+  const dateRange = normalizeOperationalAlertDateRange(fromDate, toDate);
+  const filters: OperationalAlertQueryFilters = { status: statusFilter, severity: severityFilter, category: categoryFilter, dateRange };
 
-  // Fetched newest-first within the page window; final critical-before-warning ordering is
-  // applied in application code below (see the `.sort()` on `alerts`) rather than relied on from
-  // severity's alphabetical order, which would silently break if a third severity value were
-  // ever added.
-  const listQuery = applyFilters(
-    db.from('phase14_operational_alerts').select('*', { count: 'exact' })
-  )
-    .order('created_at', { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+  // Global ordering (critical before warning, newest first within each severity) is applied by
+  // the database, before `.range()` -- see buildOperationalAlertListQuery's own comment. An older
+  // critical alert must surface on page 1 even if 25 newer warnings exist; re-sorting an
+  // already-paginated page in application code cannot fix that, since the wrong rows would
+  // already have been paginated in.
+  const listQuery = buildOperationalAlertListQuery(
+    db.from('phase14_operational_alerts').select('*', { count: 'exact' }) as any,
+    filters,
+    page,
+    PAGE_SIZE
+  );
 
+  // Status counts share every filter except status -- applyOperationalAlertNonStatusFilters never
+  // applies a `.eq('status', ...)`, so selecting one status in the list filter cannot force the
+  // other two counts to zero by ANDing two conflicting status conditions together.
   const [{ data: rawAlerts, count, error: listError }, openCount, acknowledgedCount, resolvedCount, capability] = await Promise.all([
     listQuery,
-    applyFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true })).eq('status', 'open'),
-    applyFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true })).eq('status', 'acknowledged'),
-    applyFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true })).eq('status', 'resolved'),
+    applyOperationalAlertNonStatusFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true }) as any, filters).eq('status', 'open'),
+    applyOperationalAlertNonStatusFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true }) as any, filters).eq('status', 'acknowledged'),
+    applyOperationalAlertNonStatusFilters(db.from('phase14_operational_alerts').select('id', { count: 'exact', head: true }) as any, filters).eq('status', 'resolved'),
     checkOperationalAlertLifecycleCapability(accessToken)
   ]);
 
   if (listError) throw new Error(listError.message);
 
-  // Critical-before-warning, newest-first within each severity band -- done in application code
-  // (a bounded page of at most PAGE_SIZE rows, not the whole table) rather than relying on
-  // severity's alphabetical ordering matching the intended critical-first order, which would be
-  // fragile if a third severity value were ever added.
-  const alerts = ((rawAlerts ?? []) as OperationalAlertRow[]).slice().sort((a, b) => {
-    if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  const alerts = (rawAlerts ?? []) as OperationalAlertRow[];
+  const countsUnavailable = Boolean(openCount.error || acknowledgedCount.error || resolvedCount.error);
 
   const orderLinks = await resolveOrderLinks(db, alerts);
   const canMutate = MUTATION_ROLES.has(admin.role);
@@ -155,10 +154,23 @@ export default async function OperationalAlertsPage({
           </div>
         )}
 
+        {dateRange.invalid.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+            Ignored invalid date filter{dateRange.invalid.length > 1 ? 's' : ''}: {dateRange.invalid.join(', ')}.
+            Use the YYYY-MM-DD format shown in the date pickers below.
+          </div>
+        )}
+
+        {countsUnavailable && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-900">
+            One or more status counts could not be loaded. The badges below marked “—” are unavailable, not zero -- reload to retry.
+          </div>
+        )}
+
         <div className="mb-6 flex flex-wrap gap-3">
-          <Badge className="bg-red-50 text-red-800">Open: {openCount.count ?? 0}</Badge>
-          <Badge className="bg-amber-50 text-amber-800">Acknowledged: {acknowledgedCount.count ?? 0}</Badge>
-          <Badge className="bg-emerald-50 text-emerald-800">Resolved: {resolvedCount.count ?? 0}</Badge>
+          <Badge className="bg-red-50 text-red-800">Open: {formatOperationalAlertCount(openCount)}</Badge>
+          <Badge className="bg-amber-50 text-amber-800">Acknowledged: {formatOperationalAlertCount(acknowledgedCount)}</Badge>
+          <Badge className="bg-emerald-50 text-emerald-800">Resolved: {formatOperationalAlertCount(resolvedCount)}</Badge>
         </div>
 
         <Card>

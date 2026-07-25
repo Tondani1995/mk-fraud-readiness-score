@@ -22,11 +22,17 @@ update public.phase14_operational_alerts
 set last_status_changed_at = coalesce(resolved_at, created_at)
 where last_status_changed_at = now();
 
--- Supports the admin page's default ordering (critical before warning, then newest first) and its
--- status/severity filters without a sequential scan; supports the nav badge's open+critical count
--- via a small partial index rather than counting the whole table.
+-- The admin page's real default view has no status filter applied (status='all') and orders
+-- globally by severity then created_at before paginating -- this index supports exactly that
+-- query shape without a sequential scan or an in-memory re-sort of an already-paginated page.
+create index if not exists phase14_operational_alerts_severity_created_idx
+  on public.phase14_operational_alerts (severity, created_at desc);
+-- Supports the same ordering when a status filter *is* applied, plus plain status/severity
+-- filtering.
 create index if not exists phase14_operational_alerts_list_idx
   on public.phase14_operational_alerts (status, severity, created_at desc);
+-- Supports the nav badge's open+critical count via a small partial index rather than counting
+-- the whole table.
 create index if not exists phase14_operational_alerts_open_critical_idx
   on public.phase14_operational_alerts (status, severity)
   where status = 'open' and severity = 'critical';

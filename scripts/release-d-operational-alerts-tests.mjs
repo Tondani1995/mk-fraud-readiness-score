@@ -15,6 +15,19 @@
 //     synthetic fixture -- a REAL alert created by Release C's own bounce/complaint path
 //     (apply_email_provider_event_atomic), read back and run through the real presentation mapper.
 //
+// Controller correction cycle (added after the first accepted-with-findings review): three real
+// defects were found in the admin page -- (a) severity ordering was re-sorted in application code
+// AFTER pagination, so an older critical alert could hide on a later page behind newer warnings;
+// (b) the "to" date filter used an inclusive `lte` on a bare date, silently excluding events later
+// on the selected final day; (c) each status-count query reused the list's own status filter and
+// then appended its own, so selecting one status ANDed two conflicting `.eq('status', ...)`
+// conditions together and forced the other two counts to zero. All three are fixed in
+// src/lib/reports/operational-alerts.ts (ordering/filtering extracted into shared, exported
+// functions so both the real page and this file's query-builder-mock tests exercise the exact same
+// code) and proven three ways: Part 1 static assertions that the old buggy patterns are gone, Part
+// 2b query-builder-mock tests that prove the real functions' call sequence (not source text), and
+// new live-Postgres scenarios 19-21 below that prove the resulting SQL semantics against real rows.
+//
 // Note on item 18 of this cycle's required test list ("all prior Release A/B/C tests remain
 // green"): run separately via `npm run release-a:test-backlog-reconciliation`,
 // `release-b:test-durable-fulfilment`, `release-c:test-email-secure-delivery`,
@@ -57,9 +70,30 @@ includes(routeFile, "if (!reason)", 'the route requires a reason before calling 
 includes(routeFile, "PGRST202", 'the route maps a capability-absent (function-not-found) error to a clean message');
 notIncludes(routeFile, 'console.log', 'the route never logs anything');
 
+includes(pageFile, 'buildOperationalAlertListQuery', 'the list query is built through the shared, unit-tested query-ordering helper, not an inline .order()/.range() call');
+includes(pageFile, 'applyOperationalAlertNonStatusFilters', 'the three status-count queries share the non-status-filter helper, so a selected status can never leak into another status\'s count');
+includes(pageFile, 'formatOperationalAlertCount', 'count badges render through the safe formatter, which turns a query error into "unavailable" rather than a bare 0');
+includes(pageFile, 'normalizeOperationalAlertDateRange', 'date filters are normalized (inclusive start, exclusive end) before ever reaching a query');
+includes(pageFile, 'dateRange.invalid', 'an invalid date filter surfaces a controlled notice, driven by the normalizer\'s own invalid list');
+includes(pageFile, 'countsUnavailable', 'a count-query error surfaces a controlled notice rather than a silent zero');
+notIncludes(pageFile, '.lte(', 'the page never uses an inclusive lte on created_at for the end-date bound (controller-found defect: excluded events on the final day)');
+notIncludes(pageFile, '.slice().sort(', 'the page no longer re-sorts an already-paginated page in application code (controller-found defect: hid older critical alerts on later pages)');
+
 const libFile = 'src/lib/reports/operational-alerts.ts';
 includes(libFile, 'Accept: \'application/openapi+json\'', 'capability detection reads the PostgREST OpenAPI document, not a raw RPC call attempt');
 includes(libFile, 'return false', 'capability detection has an explicit fail-closed path');
+includes(libFile, ".order('severity', { ascending: true })", 'the list-query builder orders by severity ascending (critical before warning) before anything else');
+includes(libFile, ".order('created_at', { ascending: false })", 'the list-query builder orders newest-first within each severity band');
+includes(libFile, '.range(offset, offset + pageSize - 1)', 'range/pagination is applied after both order() calls, not before');
+{
+  const source = read(libFile);
+  const statusEqCount = (source.match(/q = q\.eq\('status', filters\.status\)/g) ?? []).length;
+  ok(statusEqCount === 1, 'exactly one function in the file (applyOperationalAlertListFilters) ever applies a status filter -- proven precisely by the query-builder-mock tests below, this only confirms it is not duplicated elsewhere in source');
+}
+
+const migrationIndexCheck = 'supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql';
+includes(migrationIndexCheck, 'phase14_operational_alerts_severity_created_idx', 'a (severity, created_at desc) index supports the real default view (no status filter) without a sequential scan');
+includes(migrationIndexCheck, 'phase14_operational_alerts_open_critical_idx', 'the pre-existing open+critical partial index used by the nav badge was not removed');
 
 const migrationFile = 'supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql';
 includes(migrationFile, "array['platform_admin','reviewer']::public.admin_role[]", 'the RPC restricts mutation to platform_admin/reviewer at the database layer, not only the API route');
@@ -84,7 +118,11 @@ function loadPureModule(relativePath, resolveImport) {
   return module.exports;
 }
 
-const { specHasOperationalAlertLifecycleCapability, getOperationalAlertPresentation, extractSafeAlertDetails } = loadPureModule(
+const {
+  specHasOperationalAlertLifecycleCapability, getOperationalAlertPresentation, extractSafeAlertDetails,
+  normalizeOperationalAlertDateRange, applyOperationalAlertNonStatusFilters, applyOperationalAlertListFilters,
+  buildOperationalAlertListQuery, formatOperationalAlertCount
+} = loadPureModule(
   'src/lib/reports/operational-alerts.ts',
   (specifier) => {
     if (specifier === '@/lib/env/server') return { requireServerEnv: () => 'unused-in-pure-tests' };
@@ -122,6 +160,94 @@ ok(getOperationalAlertPresentation('some_unknown_future_category').safeDetailKey
   ok(!('recipient_email' in safe) && !('customer_name' in safe) && !('access_token' in safe), 'extractSafeAlertDetails never leaks recipient_email/customer_name/access_token even when present in detail_json');
   const unknownCategorySafe = extractSafeAlertDetails('some_unknown_future_category', dangerous);
   ok(Object.keys(unknownCategorySafe).length === 0, 'an unknown category exposes zero detail_json fields, however sensitive-looking the raw data is');
+}
+
+console.log('--- 2b. Controller-found correctness defects: date-range inclusivity, count-error formatting, ordering-before-pagination (pure-function + query-builder-mock) ---');
+
+{
+  const noBounds = normalizeOperationalAlertDateRange(undefined, undefined);
+  ok(noBounds.fromIso === undefined && noBounds.toExclusiveIso === undefined && noBounds.invalid.length === 0, 'no date filter set produces no bounds and no invalid flags');
+
+  const fromOnly = normalizeOperationalAlertDateRange('2026-07-01', undefined);
+  ok(fromOnly.fromIso === '2026-07-01T00:00:00.000Z', 'a valid "from" date normalizes to the inclusive UTC start of that day');
+
+  const toOnly = normalizeOperationalAlertDateRange(undefined, '2026-07-20');
+  ok(toOnly.toExclusiveIso === '2026-07-21T00:00:00.000Z', 'a valid "to" date normalizes to the EXCLUSIVE UTC start of the following day, not an inclusive bound on the selected day itself (controller-found defect)');
+  ok(new Date('2026-07-20T23:59:59.999Z').getTime() < new Date(toOnly.toExclusiveIso).getTime(), 'an event late on the selected final day (23:59:59.999) falls before the exclusive upper bound -- it would be included by a `created_at < toExclusiveIso` query');
+  ok(new Date('2026-07-21T00:00:00.000Z').getTime() >= new Date(toOnly.toExclusiveIso).getTime(), 'an event at the very start of the following day (00:00:00.000) falls at or after the exclusive upper bound -- it would be excluded');
+
+  const bothInvalid = normalizeOperationalAlertDateRange('not-a-date', '2026-13-40');
+  ok(bothInvalid.invalid.includes('from') && bothInvalid.invalid.includes('to'), 'a malformed "from" and an impossible calendar "to" date (month 13, day 40) are both flagged invalid');
+  ok(bothInvalid.fromIso === undefined && bothInvalid.toExclusiveIso === undefined, 'invalid date values never produce a usable bound -- they are dropped, not passed through to a query');
+
+  const oneInvalid = normalizeOperationalAlertDateRange('2026-07-01', 'garbage');
+  ok(oneInvalid.fromIso === '2026-07-01T00:00:00.000Z' && oneInvalid.invalid.length === 1 && oneInvalid.invalid[0] === 'to', 'a valid "from" alongside an invalid "to" keeps the valid bound and flags only the invalid one');
+}
+
+{
+  ok(formatOperationalAlertCount({ count: 5, error: null }) === '5', 'a successful count with rows renders the number');
+  ok(formatOperationalAlertCount({ count: 0, error: null }) === '0', 'a genuine zero count still renders as 0, not as unavailable');
+  ok(formatOperationalAlertCount({ count: null, error: { message: 'connection reset' } }) === '—', 'a count-query error renders as an explicit "unavailable" marker, never a bare 0 that reads as a legitimate zero (controller-found defect)');
+  ok(formatOperationalAlertCount(null) === '—', 'a missing count result renders as unavailable');
+  ok(formatOperationalAlertCount(undefined) === '—', 'an undefined count result renders as unavailable');
+}
+
+{
+  // A minimal recording mock of the supabase-js filter-builder surface: each method records its
+  // call and returns the same object (chainable), exactly like the real PostgrestFilterBuilder --
+  // this proves the actual, unmodified production functions call order()/range() in the right
+  // sequence, rather than asserting on source text that could drift from the real behaviour.
+  function mockQuery() {
+    const calls = [];
+    const builder = {
+      eq: (col, val) => { calls.push(['eq', col, val]); return builder; },
+      gte: (col, val) => { calls.push(['gte', col, val]); return builder; },
+      lt: (col, val) => { calls.push(['lt', col, val]); return builder; },
+      order: (col, opts) => { calls.push(['order', col, opts]); return builder; },
+      range: (from, to) => { calls.push(['range', from, to]); return builder; }
+    };
+    return { builder, calls };
+  }
+  const emptyDateRange = { fromIso: undefined, toExclusiveIso: undefined, invalid: [] };
+
+  {
+    const { builder, calls } = mockQuery();
+    buildOperationalAlertListQuery(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange }, 1, 25);
+    ok(calls.length === 3, 'with no filters, the list query issues exactly 3 calls: two order() calls and one range() call');
+    ok(calls[0][0] === 'order' && calls[0][1] === 'severity' && calls[0][2].ascending === true, 'the FIRST call orders by severity ascending (critical before warning) -- proven by call sequence, not source text');
+    ok(calls[1][0] === 'order' && calls[1][1] === 'created_at' && calls[1][2].ascending === false, 'the SECOND call orders by created_at descending, within each severity band');
+    ok(calls[2][0] === 'range' && calls[2][1] === 0 && calls[2][2] === 24, 'the THIRD and final call is range() -- pagination is applied strictly after both order() calls, not before (controller-found defect)');
+  }
+  {
+    const { builder, calls } = mockQuery();
+    buildOperationalAlertListQuery(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange }, 2, 25);
+    const rangeCall = calls[calls.length - 1];
+    ok(rangeCall[0] === 'range' && rangeCall[1] === 25 && rangeCall[2] === 49, 'page 2 requests offset 25-49 -- pagination stays deterministic and non-overlapping with page 1 (0-24) purely from the page number, independent of ordering');
+  }
+  {
+    const { builder, calls } = mockQuery();
+    buildOperationalAlertListQuery(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [] } }, 1, 25);
+    const kinds = calls.map((c) => `${c[0]}:${c[1]}`);
+    ok(kinds.indexOf('eq:status') > kinds.indexOf('eq:severity'), 'severity/category/date filters are applied before the list\'s own status filter');
+    ok(kinds.indexOf('order:severity') > kinds.indexOf('eq:status'), 'all .eq()/.gte()/.lt() filters are applied before either order() call');
+    ok(calls[calls.length - 1][0] === 'range', 'range() remains the final call even with every filter present');
+  }
+  {
+    // The exact scenario the controller's audit named: selecting a status must never make this
+    // function apply that status as a filter -- it is used verbatim for all three count queries.
+    const { builder, calls } = mockQuery();
+    applyOperationalAlertNonStatusFilters(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [] } });
+    ok(calls.some((c) => c[0] === 'eq' && c[1] === 'severity' && c[2] === 'critical'), 'the shared count-filter helper applies the severity filter');
+    ok(calls.some((c) => c[0] === 'eq' && c[1] === 'category' && c[2] === 'cat-x'), 'the shared count-filter helper applies the category filter');
+    ok(calls.some((c) => c[0] === 'gte' && c[1] === 'created_at'), 'the shared count-filter helper applies the date-range lower bound');
+    ok(calls.some((c) => c[0] === 'lt' && c[1] === 'created_at'), 'the shared count-filter helper applies the date-range upper bound as an exclusive lt()');
+    ok(!calls.some((c) => c[0] === 'eq' && c[1] === 'status'), 'the shared count-filter helper NEVER applies a status filter, even though filters.status is "resolved" -- this is what keeps a selected status from corrupting the other two counts (controller-found defect)');
+  }
+  {
+    const { builder, calls } = mockQuery();
+    applyOperationalAlertListFilters(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange });
+    ok(!calls.some((c) => c[0] === 'eq' && c[1] === 'status'), 'when the list\'s own status filter is "all", no status .eq() is applied to the list query either');
+  }
 }
 
 console.log('--- 3. Live Postgres replay: full auth/role/transition-matrix/audit behaviour, and a real Release C alert through the real mapper ---');
@@ -224,7 +350,14 @@ try {
        values ($1,$2,$3,$4::jsonb,$5) returning id`,
       [row.alert_key, row.severity, row.category, row.detail_json, row.status]
     );
-    return result.rows[0].id;
+    const id = result.rows[0].id;
+    // created_at defaults to now() and isn't part of the insert column list above -- an explicit
+    // override backdates/forward-dates it after insert, needed only by the ordering/date-range
+    // scenarios below, which must control exact timestamps to prove correctness.
+    if (overrides.created_at) {
+      await db.query(`update public.phase14_operational_alerts set created_at = $1 where id = $2`, [overrides.created_at, id]);
+    }
+    return id;
   }
 
   console.log('Scenario 1: unauthenticated read fails (RLS)');
@@ -417,6 +550,87 @@ try {
   const realSafeDetails = extractSafeAlertDetails(realAlertRow.category, realAlertRow.detail_json);
   assert.equal(JSON.stringify(realSafeDetails).includes('customer@truth.local'), false, 'the real mapper never surfaces the real alert\'s recipient_email, even though it is present in the row\'s own order/email-event context');
   ok(true, 'a genuinely-emitted Release C alert is correctly read and safely presented by the real (not reimplemented) mapper functions');
+
+  console.log('Scenario 19 (controller-found defect): global critical-before-warning ordering is applied before pagination, against real data');
+  {
+    const baseTime = Date.now();
+    for (let i = 0; i < 25; i++) {
+      // 0..24 minutes ago, strictly newest-first -- all 25 are newer than the critical alert below.
+      await insertAlert(`ordering-warning-${i}`, { severity: 'warning', created_at: new Date(baseTime - i * 60000).toISOString() });
+    }
+    // ~16.7 hours older than every warning above -- if pagination happened before global ordering,
+    // this row would land on some later page, hidden behind all 25 newer warnings.
+    const criticalId = await insertAlert('ordering-critical-older', { severity: 'critical', created_at: new Date(baseTime - 1000 * 60000).toISOString() });
+
+    // Mirrors exactly the call sequence proven by the query-builder-mock tests in Part 2b:
+    // ORDER BY severity ASC, created_at DESC LIMIT pageSize OFFSET offset (supabase-js .range(from,to)
+    // is an inclusive [from,to] window, i.e. LIMIT (to-from+1) OFFSET from).
+    async function fetchOrderingPage(offset, limit) {
+      const result = await db.query(
+        `select id, severity, created_at from public.phase14_operational_alerts
+         where alert_key like 'ordering-%'
+         order by severity asc, created_at desc
+         limit $1 offset $2`,
+        [limit, offset]
+      );
+      return result.rows;
+    }
+
+    const page1 = await fetchOrderingPage(0, 25);
+    const page2 = await fetchOrderingPage(25, 25);
+
+    ok(page1.length === 25, 'page 1 returns exactly PAGE_SIZE (25) rows');
+    ok(page1[0].id === criticalId, 'the single older critical alert is the very first row on page 1 -- severity ordering wins over recency and is applied before pagination');
+    ok(page2.length === 1, 'page 2 contains exactly the one remaining row (26 total: 1 critical + 25 warnings, 25 fit on page 1)');
+    const page1Ids = new Set(page1.map((r) => r.id));
+    ok(!page2.some((r) => page1Ids.has(r.id)), 'page 2 does not duplicate any row already returned on page 1 -- pagination is deterministic');
+
+    const page1WarningTimes = page1.slice(1).map((r) => new Date(r.created_at).getTime());
+    const sortedDesc = [...page1WarningTimes].sort((a, b) => b - a);
+    ok(page1WarningTimes.length === 24 && JSON.stringify(page1WarningTimes) === JSON.stringify(sortedDesc), 'newest-first ordering holds within the warning severity band on page 1 (the 24 non-critical rows are in strictly descending created_at order)');
+  }
+
+  console.log('Scenario 20 (controller-found defect): the final date filter is inclusive of its own day and excludes the following day, against real data');
+  {
+    const dateRange = normalizeOperationalAlertDateRange(undefined, '2026-07-20');
+    const lateOnSelectedDayId = await insertAlert('date-range-late-on-day', { created_at: '2026-07-20T23:59:59.999Z' });
+    const startOfNextDayId = await insertAlert('date-range-next-day', { created_at: '2026-07-21T00:00:00.000Z' });
+
+    const included = (await db.query(
+      `select id from public.phase14_operational_alerts where alert_key like 'date-range-%' and created_at < $1`,
+      [dateRange.toExclusiveIso]
+    )).rows.map((r) => r.id);
+
+    ok(included.includes(lateOnSelectedDayId), 'an event late on the selected final day (23:59:59.999 UTC) is included by the real exclusive-bound query');
+    ok(!included.includes(startOfNextDayId), 'an event at the very start of the following day (00:00:00.000 UTC) is excluded by the real exclusive-bound query');
+  }
+
+  console.log('Scenario 21 (controller-found defect): selecting one status in the list filter does not corrupt the other two status counts, against real data');
+  {
+    const isolationCategory = 'count-isolation-test-category';
+    await insertAlert('count-isolation-open', { status: 'open', severity: 'warning', category: isolationCategory });
+    await insertAlert('count-isolation-ack', { status: 'acknowledged', severity: 'warning', category: isolationCategory });
+    await insertAlert('count-isolation-resolved', { status: 'resolved', severity: 'warning', category: isolationCategory });
+
+    // Mirrors applyOperationalAlertNonStatusFilters(query, filters).eq('status', X): the shared
+    // category filter applies identically to all three counts, and exactly one status condition is
+    // added per count -- never the list's own selected status ('resolved' here, simulating an
+    // operator who has the "resolved" tab selected).
+    async function countByStatus(status) {
+      return (await db.query(
+        `select count(*)::int as n from public.phase14_operational_alerts where category = $1 and status = $2`,
+        [isolationCategory, status]
+      )).rows[0].n;
+    }
+
+    const openN = await countByStatus('open');
+    const ackN = await countByStatus('acknowledged');
+    const resolvedN = await countByStatus('resolved');
+
+    ok(openN === 1, 'the open count is accurate under the shared category filter, with "resolved" selected in the list -- not forced to 0');
+    ok(ackN === 1, 'the acknowledged count is accurate under the shared category filter, with "resolved" selected in the list -- not forced to 0');
+    ok(resolvedN === 1, 'the resolved count is accurate under the shared category filter, matching the list\'s own selected status');
+  }
 
   console.log('Scenario 16 (static, already covered in Part 1): the page performs no write on initial render -- see Part 1 assertions above.');
   console.log('Scenario 17 (pure-function, already covered in Part 2): cloud capability absence disables mutation cleanly -- see specHasOperationalAlertLifecycleCapability checks above.');

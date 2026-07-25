@@ -210,6 +210,21 @@ build`, the dependency-audit gate, and existing release-a/b/c static and live su
 required GitHub workflows green on the true final head, independently, like every prior cycle. No
 claim of cloud verification anywhere in Release D's own evidence pack entry, matching Option B.
 
+**Controller correction cycle (head `503f383` reviewed, found not yet acceptable):** the controller's
+review found one material queue-ordering defect and two related filter-correctness defects in the
+admin page — global severity ordering applied after pagination instead of before (an older critical
+alert could hide on a later page), an inclusive `lte` end-date bound that silently excluded events
+later on the selected final day, and status-count queries that ANDed two conflicting status
+conditions together, zeroing the other two badges whenever one status was selected. **This scope
+correction stays within the boundary already approved in §5 — it is a correctness fix to the
+already-approved alerts surface and lifecycle, not new scope, a new feature, or a reopening of any
+question this document previously closed.** No cloud action was taken to investigate or fix any of
+the three defects; all three were fixed and proven entirely in application code, a query-builder-mock
+test layer, and the existing disposable-local-Postgres harness. See `09-release-evidence.md`
+"Controller correction cycle" for the full defect-by-defect record and proof. Release D is not yet
+controller-accepted; this correction is submitted for the controller's own re-review, not a
+self-certified close-out.
+
 ## 10. Fit into the integrated A-D release candidate
 
 Once Releases A-D are each code-complete and independently CI-green on their own stacked branches,

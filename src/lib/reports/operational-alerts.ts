@@ -64,6 +64,126 @@ export const OPERATIONAL_ALERT_VALID_TRANSITIONS: Record<OperationalAlertStatus,
   resolved: ['open']
 };
 
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+export type OperationalAlertDateRange = {
+  fromIso?: string;
+  toExclusiveIso?: string;
+  invalid: Array<'from' | 'to'>;
+};
+
+/**
+ * Turns a raw <input type="date"> value (a bare YYYY-MM-DD, UI-local, no time component) into a
+ * UTC ISO bound safe to compare against created_at (timestamptz). The end date is deliberately
+ * the *exclusive* start of the following day, not an inclusive lte on the bare date string --
+ * `lte(created_at, '2026-07-20')` compares against midnight 2026-07-20T00:00:00Z and silently
+ * drops every event from later that same day. An invalid or malformed value is dropped (not
+ * passed to the database) and reported back via `invalid` so the caller can show a controlled
+ * message instead of letting a bad string reach a `.gte()`/`.lte()` call.
+ */
+export function normalizeOperationalAlertDateRange(fromRaw: string | undefined, toRaw: string | undefined): OperationalAlertDateRange {
+  const invalid: Array<'from' | 'to'> = [];
+  let fromIso: string | undefined;
+  let toExclusiveIso: string | undefined;
+
+  if (fromRaw) {
+    if (ISO_DATE_ONLY.test(fromRaw) && !Number.isNaN(Date.parse(`${fromRaw}T00:00:00.000Z`))) {
+      fromIso = `${fromRaw}T00:00:00.000Z`;
+    } else {
+      invalid.push('from');
+    }
+  }
+
+  if (toRaw) {
+    if (ISO_DATE_ONLY.test(toRaw) && !Number.isNaN(Date.parse(`${toRaw}T00:00:00.000Z`))) {
+      const next = new Date(`${toRaw}T00:00:00.000Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      toExclusiveIso = next.toISOString();
+    } else {
+      invalid.push('to');
+    }
+  }
+
+  return { fromIso, toExclusiveIso, invalid };
+}
+
+export type OperationalAlertQueryFilters = {
+  status: OperationalAlertStatus | 'all';
+  severity: OperationalAlertSeverity | 'all';
+  category?: string;
+  dateRange: OperationalAlertDateRange;
+};
+
+/**
+ * A structural subset of the supabase-js query builder -- typed narrowly so the same function
+ * can run against the real Supabase client on the page and against a plain recording mock in
+ * tests, without either side needing the other's concrete type.
+ */
+export interface OperationalAlertQueryLike {
+  eq(column: string, value: unknown): this;
+  gte(column: string, value: unknown): this;
+  lt(column: string, value: unknown): this;
+  order(column: string, options: { ascending: boolean }): this;
+  range(from: number, to: number): this;
+}
+
+/**
+ * Severity/category/date filters only -- never status. This is the one function every status
+ * count query (open/acknowledged/resolved) and the list query itself all go through, so a
+ * selected status filter can never leak an extra `.eq('status', ...)` into another status's own
+ * count. Each caller appends exactly one status condition (or none) on top of this.
+ */
+export function applyOperationalAlertNonStatusFilters<Q extends OperationalAlertQueryLike>(query: Q, filters: OperationalAlertQueryFilters): Q {
+  let q = query;
+  if (filters.severity !== 'all') q = q.eq('severity', filters.severity);
+  if (filters.category) q = q.eq('category', filters.category);
+  if (filters.dateRange.fromIso) q = q.gte('created_at', filters.dateRange.fromIso);
+  if (filters.dateRange.toExclusiveIso) q = q.lt('created_at', filters.dateRange.toExclusiveIso);
+  return q;
+}
+
+/** Non-status filters plus the list's own status filter (if any) -- used only for the row list, never for a count. */
+export function applyOperationalAlertListFilters<Q extends OperationalAlertQueryLike>(query: Q, filters: OperationalAlertQueryFilters): Q {
+  let q = applyOperationalAlertNonStatusFilters(query, filters);
+  if (filters.status !== 'all') q = q.eq('status', filters.status);
+  return q;
+}
+
+/**
+ * Builds the admin list query with the required global ordering applied *before* pagination:
+ * critical before warning (severity ascending -- the check constraint permits only
+ * 'critical'/'warning', and 'critical' < 'warning' lexically, so ascending order is
+ * critical-first without depending on a third value never being added), newest first within
+ * each severity band, and only then `.range()`. Ordering must be applied by the database, not
+ * by re-sorting an already-paginated page in application code -- an older critical alert on
+ * page 2 must not be hidden behind 25 newer warnings that all sorted ahead of it in the
+ * database's own `created_at desc` order.
+ */
+export function buildOperationalAlertListQuery<Q extends OperationalAlertQueryLike>(
+  query: Q,
+  filters: OperationalAlertQueryFilters,
+  page: number,
+  pageSize: number
+): Q {
+  const safePage = Math.max(1, Math.floor(page) || 1);
+  const offset = (safePage - 1) * pageSize;
+  return applyOperationalAlertListFilters(query, filters)
+    .order('severity', { ascending: true })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + pageSize - 1);
+}
+
+export type OperationalAlertCountResult = { count: number | null; error: unknown };
+
+/**
+ * Renders a count query's result safely: an error becomes an explicit "unavailable" marker, not
+ * a silently-displayed 0 that reads as "genuinely zero alerts in this state" to an operator.
+ */
+export function formatOperationalAlertCount(result: OperationalAlertCountResult | null | undefined): string {
+  if (!result || result.error) return '—';
+  return String(result.count ?? 0);
+}
+
 // Every category actually emitted anywhere in this codebase as of Release D (confirmed by reading
 // every insert site into phase14_operational_alerts across supabase/migrations/*.sql, and every
 // db.rpc('record_phase14_operational_alert', ...) call site in src/ -- not assumed). Each entry

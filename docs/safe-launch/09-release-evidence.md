@@ -390,9 +390,55 @@ against a real Supabase project (proven only via fixture-based pure-function tes
 fail-closed design, per the controller's explicit prohibition on touching the shared database or
 creating a temporary cloud RPC); no Production or account-level change of any kind.
 
+### Controller correction cycle: operational-queue correctness defects (not cosmetic)
+
+Controller review of head `503f383` found one material queue-ordering defect and two related
+filter-correctness defects in `/score/admin/operational-alerts`. **These are recorded as operational
+correctness defects, not cosmetic refinements** — each one would have produced wrong information to
+an operator triaging alerts, not just an imperfect display:
+
+1. **Global critical-first ordering was applied after pagination, not before.** The list query
+   ordered by `created_at desc`, applied `.range()`, and only then re-sorted the already-paginated
+   25-row page critical-before-warning in application code. An older critical alert more than 25
+   rows back in `created_at desc` order could be hidden on page 2 or later, behind newer warnings —
+   the operator's "what needs attention right now" view could silently omit the most urgent open
+   item. **Fix:** severity/created_at ordering moved into the database query itself, before
+   `.range()`, via a new shared function (`buildOperationalAlertListQuery`,
+   `src/lib/reports/operational-alerts.ts`) used by the real page; the in-memory re-sort was removed
+   entirely. A new index (`phase14_operational_alerts_severity_created_idx` on
+   `(severity, created_at desc)`) supports the true default (no-status-filter) query shape; the
+   pre-existing open-critical partial index was not removed.
+2. **The "to" date filter used an inclusive `lte` on a bare `YYYY-MM-DD` value**, which compares
+   against midnight UTC on the selected day and silently excludes every event later that same day —
+   an operator filtering "up to today" would see today's alerts vanish. **Fix:** a new
+   `normalizeOperationalAlertDateRange` function computes an inclusive start bound for "from" and an
+   *exclusive* start-of-next-day bound for "to" (`.lt()`, not `.lte()`); invalid date values are
+   dropped before ever reaching a query (never a raw database error) and surface a controlled notice
+   banner instead.
+3. **Each status-count query reused the list's own status filter, then appended its own** — when an
+   operator selected `resolved` in the list, the open/acknowledged count queries received both
+   `.eq('status','resolved')` (from the shared filter helper) and their own `.eq('status','open')` /
+   `.eq('status','acknowledged')`, an impossible AND that silently zeroed both badges. **Fix:** filters
+   split into `applyOperationalAlertNonStatusFilters` (severity/category/date only, shared by the list
+   and all three counts) and `applyOperationalAlertListFilters` (adds the list's own status filter on
+   top); each count query now applies exactly one status condition. Count-query errors are also now
+   rendered as an explicit "unavailable" marker (`formatOperationalAlertCount`) rather than a silent 0.
+
+**Proof, not just the fix:** all three corrected functions are exported from
+`src/lib/reports/operational-alerts.ts` and used verbatim by the real page — the same functions are
+exercised in `scripts/release-d-operational-alerts-tests.mjs` via a recording query-builder mock
+(proving the real call sequence: both `order()` calls happen before `range()`; the status
+count-filter helper never issues a `status` condition) and via three new live-Postgres scenarios
+(19–21) against real rows: 25 newer warning alerts plus 1 older critical alert prove the critical
+alert lands on page 1 with no duplicate rows on page 2; an alert at `23:59:59.999` on the selected
+final day and one at `00:00:00.000` the next day prove the date bound is correctly inclusive/exclusive;
+three alerts in open/acknowledged/resolved under a shared category filter prove all three counts stay
+accurate regardless of which status is selected in the list. Full suite: 134 assertions, all passing.
+
 **Status: `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.** Production status remains
 `NOT READY FOR PRODUCTION`, matching every prior release this cycle (Option B, same constraint as
-Release C's own accepted status above).
+Release C's own accepted status above). Release D remains not yet controller-accepted pending this
+correction's own review.
 
 ---
 
