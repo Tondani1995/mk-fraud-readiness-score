@@ -225,6 +225,21 @@ test layer, and the existing disposable-local-Postgres harness. See `09-release-
 controller-accepted; this correction is submitted for the controller's own re-review, not a
 self-certified close-out.
 
+**Controller hardening pass (head `03310eb` reviewed, one final pass required before acceptance):**
+the controller confirmed the three original defects fixed and required one narrow hardening pass:
+severity/created_at ordering was not fully deterministic for rows sharing both values (fixed with an
+`id asc` tie-breaker, applied in the database before pagination, same as the other two ordering
+columns); date validation relied on `Date.parse` alone, which silently rolls impossible calendar
+dates over rather than rejecting them (fixed with strict component-parse-and-round-trip validation,
+plus explicit handling of a valid-but-contradictory from-after-to range); and date bounds were
+computed as UTC calendar days rather than the South African operational calendar this platform's
+MK operators actually use (fixed with an explicit, named SAST/Africa-Johannesburg conversion,
+replacing unexplained UTC arithmetic). **This hardening pass, like the correction before it, stays
+within the boundary already approved in §5 — it does not add scope, a new feature, or reopen any
+question this document previously closed.** No cloud action was taken. See `09-release-evidence.md`
+"Controller hardening pass" for the full record and proof. Release D remains not yet
+controller-accepted pending this pass's own review.
+
 ## 10. Fit into the integrated A-D release candidate
 
 Once Releases A-D are each code-complete and independently CI-green on their own stacked branches,

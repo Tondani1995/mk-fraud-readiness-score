@@ -64,47 +64,90 @@ export const OPERATIONAL_ALERT_VALID_TRANSITIONS: Record<OperationalAlertStatus,
   resolved: ['open']
 };
 
-const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * This platform's operators are South African MK users; the date picker's YYYY-MM-DD values are
+ * calendar days in their local operational timezone (Africa/Johannesburg, SAST), not UTC calendar
+ * days. SAST has been a fixed UTC+02:00 offset year-round since 1994 -- South Africa does not
+ * observe DST -- so the conversion is a constant, but it is named and centralized here rather than
+ * left as unexplained `+2`/`-2` arithmetic scattered through the page.
+ */
+const SOUTH_AFRICA_OPERATIONAL_UTC_OFFSET_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Strictly validates a YYYY-MM-DD calendar date. `Date.parse`/the `Date` constructor alone accept
+ * and silently roll over impossible dates (e.g. `new Date(Date.UTC(2026, 1, 31))` becomes March 3,
+ * not an error) -- this parses the components, constructs the intended UTC date, and round-trips
+ * it, rejecting the input unless the constructed date's year/month/day match exactly what was
+ * typed. Rejects month 00/13+, day 00, Feb 31, Apr 31, Feb 29 on a non-leap year, and anything not
+ * shaped like YYYY-MM-DD.
+ */
+function parseStrictCalendarDate(raw: string): { year: number; month: number; day: number } | null {
+  const match = ISO_DATE_ONLY.exec(raw);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const roundTrip = new Date(Date.UTC(year, month - 1, day));
+  if (roundTrip.getUTCFullYear() !== year || roundTrip.getUTCMonth() !== month - 1 || roundTrip.getUTCDate() !== day) return null;
+  return { year, month, day };
+}
+
+/**
+ * The UTC instant of 00:00:00 SAST on the given SAST calendar day -- i.e. the *previous* UTC
+ * calendar day at 22:00:00, since SAST is UTC+2. `Date.UTC` correctly rolls `day + 1` into the
+ * next month/year on its own, so the exclusive end bound for one day is computed the same way as
+ * the start bound for the next, with no separate increment step to get wrong.
+ */
+function sastCalendarDayStartUtc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day) - SOUTH_AFRICA_OPERATIONAL_UTC_OFFSET_MS);
+}
 
 export type OperationalAlertDateRange = {
   fromIso?: string;
   toExclusiveIso?: string;
   invalid: Array<'from' | 'to'>;
+  /** Both dates individually parsed, but "from" is chronologically after "to" -- a contradictory range, not an invalid single value. */
+  rangeOrderInvalid: boolean;
 };
 
 /**
- * Turns a raw <input type="date"> value (a bare YYYY-MM-DD, UI-local, no time component) into a
- * UTC ISO bound safe to compare against created_at (timestamptz). The end date is deliberately
- * the *exclusive* start of the following day, not an inclusive lte on the bare date string --
- * `lte(created_at, '2026-07-20')` compares against midnight 2026-07-20T00:00:00Z and silently
- * drops every event from later that same day. An invalid or malformed value is dropped (not
- * passed to the database) and reported back via `invalid` so the caller can show a controlled
- * message instead of letting a bad string reach a `.gte()`/`.lte()` call.
+ * Turns raw <input type="date"> values (bare YYYY-MM-DD, interpreted as SAST operational calendar
+ * days -- see sastCalendarDayStartUtc) into UTC ISO bounds safe to compare against created_at
+ * (timestamptz). The end date is deliberately the *exclusive* start of the following SAST day, not
+ * an inclusive bound on the selected day itself -- an inclusive `lte` on a bare date compares
+ * against midnight and silently drops every event from later that same day. Malformed or
+ * calendar-impossible values (see parseStrictCalendarDate) are dropped, not passed to the
+ * database, and reported via `invalid`; a valid-but-contradictory range (from after to) is
+ * reported via `rangeOrderInvalid` and both bounds are dropped rather than sending either
+ * contradictory bound to a query.
  */
 export function normalizeOperationalAlertDateRange(fromRaw: string | undefined, toRaw: string | undefined): OperationalAlertDateRange {
   const invalid: Array<'from' | 'to'> = [];
-  let fromIso: string | undefined;
-  let toExclusiveIso: string | undefined;
 
-  if (fromRaw) {
-    if (ISO_DATE_ONLY.test(fromRaw) && !Number.isNaN(Date.parse(`${fromRaw}T00:00:00.000Z`))) {
-      fromIso = `${fromRaw}T00:00:00.000Z`;
-    } else {
-      invalid.push('from');
+  const fromParsed = fromRaw ? parseStrictCalendarDate(fromRaw) : undefined;
+  if (fromRaw && !fromParsed) invalid.push('from');
+
+  const toParsed = toRaw ? parseStrictCalendarDate(toRaw) : undefined;
+  if (toRaw && !toParsed) invalid.push('to');
+
+  let fromIso = fromParsed ? sastCalendarDayStartUtc(fromParsed.year, fromParsed.month, fromParsed.day).toISOString() : undefined;
+  let toExclusiveIso = toParsed ? sastCalendarDayStartUtc(toParsed.year, toParsed.month, toParsed.day + 1).toISOString() : undefined;
+
+  let rangeOrderInvalid = false;
+  if (fromParsed && toParsed) {
+    const fromStartMs = sastCalendarDayStartUtc(fromParsed.year, fromParsed.month, fromParsed.day).getTime();
+    const toStartMs = sastCalendarDayStartUtc(toParsed.year, toParsed.month, toParsed.day).getTime();
+    if (fromStartMs > toStartMs) {
+      rangeOrderInvalid = true;
+      fromIso = undefined;
+      toExclusiveIso = undefined;
     }
   }
 
-  if (toRaw) {
-    if (ISO_DATE_ONLY.test(toRaw) && !Number.isNaN(Date.parse(`${toRaw}T00:00:00.000Z`))) {
-      const next = new Date(`${toRaw}T00:00:00.000Z`);
-      next.setUTCDate(next.getUTCDate() + 1);
-      toExclusiveIso = next.toISOString();
-    } else {
-      invalid.push('to');
-    }
-  }
-
-  return { fromIso, toExclusiveIso, invalid };
+  return { fromIso, toExclusiveIso, invalid, rangeOrderInvalid };
 }
 
 export type OperationalAlertQueryFilters = {
@@ -154,10 +197,14 @@ export function applyOperationalAlertListFilters<Q extends OperationalAlertQuery
  * critical before warning (severity ascending -- the check constraint permits only
  * 'critical'/'warning', and 'critical' < 'warning' lexically, so ascending order is
  * critical-first without depending on a third value never being added), newest first within
- * each severity band, and only then `.range()`. Ordering must be applied by the database, not
- * by re-sorting an already-paginated page in application code -- an older critical alert on
- * page 2 must not be hidden behind 25 newer warnings that all sorted ahead of it in the
- * database's own `created_at desc` order.
+ * each severity band, id ascending as a final deterministic tie-breaker, and only then
+ * `.range()`. Ordering must be applied by the database, not by re-sorting an already-paginated
+ * page in application code -- an older critical alert on page 2 must not be hidden behind 25
+ * newer warnings that all sorted ahead of it in the database's own `created_at desc` order. The
+ * `id` tie-breaker exists because severity and created_at alone are not unique: two alerts with
+ * the same severity and the same (or equal-precision-truncated) created_at timestamp would
+ * otherwise have no defined relative order, and Postgres does not guarantee a stable order for
+ * ties across repeated executions of the same query without one.
  */
 export function buildOperationalAlertListQuery<Q extends OperationalAlertQueryLike>(
   query: Q,
@@ -170,6 +217,7 @@ export function buildOperationalAlertListQuery<Q extends OperationalAlertQueryLi
   return applyOperationalAlertListFilters(query, filters)
     .order('severity', { ascending: true })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
     .range(offset, offset + pageSize - 1);
 }
 

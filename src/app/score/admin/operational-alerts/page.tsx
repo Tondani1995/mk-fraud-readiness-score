@@ -161,6 +161,12 @@ export default async function OperationalAlertsPage({
           </div>
         )}
 
+        {dateRange.rangeOrderInvalid && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+            From date must not be after to date. Both filters were ignored -- adjust the dates below and reapply.
+          </div>
+        )}
+
         {countsUnavailable && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-900">
             One or more status counts could not be loaded. The badges below marked “—” are unavailable, not zero -- reload to retry.

@@ -75,6 +75,7 @@ includes(pageFile, 'applyOperationalAlertNonStatusFilters', 'the three status-co
 includes(pageFile, 'formatOperationalAlertCount', 'count badges render through the safe formatter, which turns a query error into "unavailable" rather than a bare 0');
 includes(pageFile, 'normalizeOperationalAlertDateRange', 'date filters are normalized (inclusive start, exclusive end) before ever reaching a query');
 includes(pageFile, 'dateRange.invalid', 'an invalid date filter surfaces a controlled notice, driven by the normalizer\'s own invalid list');
+includes(pageFile, 'dateRange.rangeOrderInvalid', 'a "from" after "to" contradictory range surfaces its own controlled notice, distinct from a single malformed value');
 includes(pageFile, 'countsUnavailable', 'a count-query error surfaces a controlled notice rather than a silent zero');
 notIncludes(pageFile, '.lte(', 'the page never uses an inclusive lte on created_at for the end-date bound (controller-found defect: excluded events on the final day)');
 notIncludes(pageFile, '.slice().sort(', 'the page no longer re-sorts an already-paginated page in application code (controller-found defect: hid older critical alerts on later pages)');
@@ -84,7 +85,11 @@ includes(libFile, 'Accept: \'application/openapi+json\'', 'capability detection 
 includes(libFile, 'return false', 'capability detection has an explicit fail-closed path');
 includes(libFile, ".order('severity', { ascending: true })", 'the list-query builder orders by severity ascending (critical before warning) before anything else');
 includes(libFile, ".order('created_at', { ascending: false })", 'the list-query builder orders newest-first within each severity band');
-includes(libFile, '.range(offset, offset + pageSize - 1)', 'range/pagination is applied after both order() calls, not before');
+includes(libFile, ".order('id', { ascending: true })", 'the list-query builder applies id ascending as a final deterministic tie-breaker');
+includes(libFile, '.range(offset, offset + pageSize - 1)', 'range/pagination is applied after all three order() calls, not before');
+includes(libFile, 'SOUTH_AFRICA_OPERATIONAL_UTC_OFFSET_MS', 'date bounds are computed via a named SAST-offset constant, not unexplained arithmetic scattered through the page');
+includes(libFile, 'roundTrip.getUTCFullYear() !== year', 'calendar-date validation round-trips the constructed date and rejects any mismatch, catching impossible dates that Date.parse alone would silently roll over');
+includes(libFile, 'rangeOrderInvalid', 'a valid-but-contradictory from/to range is reported distinctly from a single invalid value');
 {
   const source = read(libFile);
   const statusEqCount = (source.match(/q = q\.eq\('status', filters\.status\)/g) ?? []).length;
@@ -92,7 +97,9 @@ includes(libFile, '.range(offset, offset + pageSize - 1)', 'range/pagination is 
 }
 
 const migrationIndexCheck = 'supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql';
-includes(migrationIndexCheck, 'phase14_operational_alerts_severity_created_idx', 'a (severity, created_at desc) index supports the real default view (no status filter) without a sequential scan');
+includes(migrationIndexCheck, 'phase14_operational_alerts_severity_created_idx', 'a (severity, created_at desc, id asc) index supports the real default view (no status filter) without a sequential scan');
+includes(migrationIndexCheck, '(severity, created_at desc, id asc)', 'the default-view index includes the id tie-breaker as its final column, matching the query\'s own ORDER BY exactly');
+includes(migrationIndexCheck, '(status, severity, created_at desc, id asc)', 'the status-filtered list index also includes the id tie-breaker as its final column');
 includes(migrationIndexCheck, 'phase14_operational_alerts_open_critical_idx', 'the pre-existing open+critical partial index used by the nav badge was not removed');
 
 const migrationFile = 'supabase/migrations/20260725150000_release_d_operational_alert_lifecycle.sql';
@@ -166,22 +173,60 @@ console.log('--- 2b. Controller-found correctness defects: date-range inclusivit
 
 {
   const noBounds = normalizeOperationalAlertDateRange(undefined, undefined);
-  ok(noBounds.fromIso === undefined && noBounds.toExclusiveIso === undefined && noBounds.invalid.length === 0, 'no date filter set produces no bounds and no invalid flags');
+  ok(noBounds.fromIso === undefined && noBounds.toExclusiveIso === undefined && noBounds.invalid.length === 0 && noBounds.rangeOrderInvalid === false, 'no date filter set produces no bounds and no invalid flags');
+
+  // Controller's exact SAST boundary case: the calendar day 2026-07-20 in Africa/Johannesburg
+  // (fixed UTC+02:00) begins at 2026-07-19T22:00:00.000Z and ends, exclusive, at
+  // 2026-07-20T22:00:00.000Z -- NOT at 2026-07-20T00:00:00Z/2026-07-21T00:00:00Z (UTC calendar
+  // days), which was this defect: operators are South African, the picker's date is a SAST day.
+  const singleDay = normalizeOperationalAlertDateRange('2026-07-20', '2026-07-20');
+  ok(singleDay.invalid.length === 0 && singleDay.rangeOrderInvalid === false, '2026-07-20 to 2026-07-20 is a valid single-SAST-day range');
+  ok(singleDay.fromIso === '2026-07-19T22:00:00.000Z', '20 July SAST begins at 2026-07-19T22:00:00.000Z UTC, not 2026-07-20T00:00:00.000Z UTC (controller-found defect: date bounds were UTC calendar days, not SAST operational days)');
+  ok(singleDay.toExclusiveIso === '2026-07-20T22:00:00.000Z', '20 July SAST ends (exclusive) at 2026-07-20T22:00:00.000Z UTC, not 2026-07-21T00:00:00.000Z UTC');
+
+  {
+    const fromMs = new Date(singleDay.fromIso).getTime();
+    const toMs = new Date(singleDay.toExclusiveIso).getTime();
+    ok(new Date('2026-07-19T21:59:59.999Z').getTime() < fromMs, 'an alert at 2026-07-19T21:59:59.999Z is OUTSIDE 20 July SAST -- one millisecond before the SAST day starts');
+    ok(new Date('2026-07-19T22:00:00.000Z').getTime() >= fromMs && new Date('2026-07-19T22:00:00.000Z').getTime() < toMs, 'an alert at 2026-07-19T22:00:00.000Z is INSIDE 20 July SAST -- exactly the SAST day\'s first instant');
+    ok(new Date('2026-07-20T21:59:59.999Z').getTime() >= fromMs && new Date('2026-07-20T21:59:59.999Z').getTime() < toMs, 'an alert at 2026-07-20T21:59:59.999Z is INSIDE 20 July SAST -- one millisecond before the SAST day ends');
+    ok(new Date('2026-07-20T22:00:00.000Z').getTime() >= toMs, 'an alert at 2026-07-20T22:00:00.000Z is OUTSIDE 20 July SAST -- exactly the next SAST day\'s first instant');
+  }
 
   const fromOnly = normalizeOperationalAlertDateRange('2026-07-01', undefined);
-  ok(fromOnly.fromIso === '2026-07-01T00:00:00.000Z', 'a valid "from" date normalizes to the inclusive UTC start of that day');
-
-  const toOnly = normalizeOperationalAlertDateRange(undefined, '2026-07-20');
-  ok(toOnly.toExclusiveIso === '2026-07-21T00:00:00.000Z', 'a valid "to" date normalizes to the EXCLUSIVE UTC start of the following day, not an inclusive bound on the selected day itself (controller-found defect)');
-  ok(new Date('2026-07-20T23:59:59.999Z').getTime() < new Date(toOnly.toExclusiveIso).getTime(), 'an event late on the selected final day (23:59:59.999) falls before the exclusive upper bound -- it would be included by a `created_at < toExclusiveIso` query');
-  ok(new Date('2026-07-21T00:00:00.000Z').getTime() >= new Date(toOnly.toExclusiveIso).getTime(), 'an event at the very start of the following day (00:00:00.000) falls at or after the exclusive upper bound -- it would be excluded');
-
-  const bothInvalid = normalizeOperationalAlertDateRange('not-a-date', '2026-13-40');
-  ok(bothInvalid.invalid.includes('from') && bothInvalid.invalid.includes('to'), 'a malformed "from" and an impossible calendar "to" date (month 13, day 40) are both flagged invalid');
-  ok(bothInvalid.fromIso === undefined && bothInvalid.toExclusiveIso === undefined, 'invalid date values never produce a usable bound -- they are dropped, not passed through to a query');
+  ok(fromOnly.fromIso === '2026-06-30T22:00:00.000Z', 'a valid "from" date normalizes to the inclusive SAST start of that day (previous UTC day 22:00, since SAST is UTC+2)');
 
   const oneInvalid = normalizeOperationalAlertDateRange('2026-07-01', 'garbage');
-  ok(oneInvalid.fromIso === '2026-07-01T00:00:00.000Z' && oneInvalid.invalid.length === 1 && oneInvalid.invalid[0] === 'to', 'a valid "from" alongside an invalid "to" keeps the valid bound and flags only the invalid one');
+  ok(oneInvalid.fromIso === '2026-06-30T22:00:00.000Z' && oneInvalid.invalid.length === 1 && oneInvalid.invalid[0] === 'to', 'a valid "from" alongside a malformed "to" keeps the valid bound and flags only the invalid one');
+
+  // Strict calendar validation: Date.parse/`new Date(...)` alone silently roll impossible dates
+  // over into the next valid date instead of rejecting them (controller-found defect) -- each of
+  // these must be rejected outright, not accepted as some other, nearby date.
+  for (const bad of ['2026-02-31', '2026-04-31', '2025-02-29', '2026-00-15', '2026-13-15', '2026-07-00', '2026-7-1', 'not-a-date', '']) {
+    if (bad === '') continue; // an empty string means "no filter", not "an invalid filter" -- covered by noBounds above
+    const r = normalizeOperationalAlertDateRange(bad, undefined);
+    ok(r.invalid.includes('from') && r.fromIso === undefined, `"${bad}" is rejected as an impossible or malformed calendar date, not silently rolled over to a nearby valid one`);
+  }
+  {
+    // Sanity check that the validator rejects Feb 29 specifically because 2025 isn't a leap year,
+    // not because it rejects every Feb 29 -- a real leap day must still be accepted.
+    const leapOk = normalizeOperationalAlertDateRange('2024-02-29', undefined);
+    ok(leapOk.invalid.length === 0 && leapOk.fromIso !== undefined, '2024-02-29 (a real leap day) is accepted -- the validator distinguishes real leap years from non-leap ones, not just pattern-matching Feb 29');
+  }
+
+  const bothMalformed = normalizeOperationalAlertDateRange('not-a-date', '2026-13-40');
+  ok(bothMalformed.invalid.includes('from') && bothMalformed.invalid.includes('to'), 'a malformed "from" and an impossible calendar "to" date (month 13, day 40) are both flagged invalid');
+  ok(bothMalformed.fromIso === undefined && bothMalformed.toExclusiveIso === undefined, 'invalid date values never produce a usable bound -- they are dropped, not passed through to a query');
+
+  // from > to: both individually valid, but a contradictory range -- must not reach the database
+  // as two conflicting bounds, and must be distinguished from a single malformed value.
+  const contradictory = normalizeOperationalAlertDateRange('2026-07-20', '2026-07-10');
+  ok(contradictory.invalid.length === 0, 'from/to are each individually valid calendar dates -- only the range relationship is wrong, not the values themselves');
+  ok(contradictory.rangeOrderInvalid === true, 'from chronologically after to is flagged as a contradictory range (controller-found requirement)');
+  ok(contradictory.fromIso === undefined && contradictory.toExclusiveIso === undefined, 'a contradictory range drops both bounds rather than sending either to the database (never a raw database error from an impossible range)');
+
+  const equalRange = normalizeOperationalAlertDateRange('2026-07-20', '2026-07-20');
+  ok(equalRange.rangeOrderInvalid === false && equalRange.fromIso !== undefined && equalRange.toExclusiveIso !== undefined, 'from equal to to is a valid single-day range, not treated as contradictory');
 }
 
 {
@@ -208,15 +253,16 @@ console.log('--- 2b. Controller-found correctness defects: date-range inclusivit
     };
     return { builder, calls };
   }
-  const emptyDateRange = { fromIso: undefined, toExclusiveIso: undefined, invalid: [] };
+  const emptyDateRange = { fromIso: undefined, toExclusiveIso: undefined, invalid: [], rangeOrderInvalid: false };
 
   {
     const { builder, calls } = mockQuery();
     buildOperationalAlertListQuery(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange }, 1, 25);
-    ok(calls.length === 3, 'with no filters, the list query issues exactly 3 calls: two order() calls and one range() call');
+    ok(calls.length === 4, 'with no filters, the list query issues exactly 4 calls: three order() calls (severity, created_at, id) and one range() call');
     ok(calls[0][0] === 'order' && calls[0][1] === 'severity' && calls[0][2].ascending === true, 'the FIRST call orders by severity ascending (critical before warning) -- proven by call sequence, not source text');
     ok(calls[1][0] === 'order' && calls[1][1] === 'created_at' && calls[1][2].ascending === false, 'the SECOND call orders by created_at descending, within each severity band');
-    ok(calls[2][0] === 'range' && calls[2][1] === 0 && calls[2][2] === 24, 'the THIRD and final call is range() -- pagination is applied strictly after both order() calls, not before (controller-found defect)');
+    ok(calls[2][0] === 'order' && calls[2][1] === 'id' && calls[2][2].ascending === true, 'the THIRD call orders by id ascending -- a deterministic tie-breaker for rows sharing both severity and created_at (controller-found defect: ordering was not fully deterministic)');
+    ok(calls[3][0] === 'range' && calls[3][1] === 0 && calls[3][2] === 24, 'the FOURTH and final call is range() -- pagination is applied strictly after all three order() calls, not before');
   }
   {
     const { builder, calls } = mockQuery();
@@ -226,17 +272,18 @@ console.log('--- 2b. Controller-found correctness defects: date-range inclusivit
   }
   {
     const { builder, calls } = mockQuery();
-    buildOperationalAlertListQuery(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [] } }, 1, 25);
+    buildOperationalAlertListQuery(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [], rangeOrderInvalid: false } }, 1, 25);
     const kinds = calls.map((c) => `${c[0]}:${c[1]}`);
     ok(kinds.indexOf('eq:status') > kinds.indexOf('eq:severity'), 'severity/category/date filters are applied before the list\'s own status filter');
-    ok(kinds.indexOf('order:severity') > kinds.indexOf('eq:status'), 'all .eq()/.gte()/.lt() filters are applied before either order() call');
+    ok(kinds.indexOf('order:severity') > kinds.indexOf('eq:status'), 'all .eq()/.gte()/.lt() filters are applied before any order() call');
+    ok(kinds.indexOf('order:id') > kinds.indexOf('order:created_at'), 'the id tie-breaker is ordered after severity and created_at, even with every other filter present');
     ok(calls[calls.length - 1][0] === 'range', 'range() remains the final call even with every filter present');
   }
   {
     // The exact scenario the controller's audit named: selecting a status must never make this
     // function apply that status as a filter -- it is used verbatim for all three count queries.
     const { builder, calls } = mockQuery();
-    applyOperationalAlertNonStatusFilters(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [] } });
+    applyOperationalAlertNonStatusFilters(builder, { status: 'resolved', severity: 'critical', category: 'cat-x', dateRange: { fromIso: '2026-01-01T00:00:00.000Z', toExclusiveIso: '2026-02-01T00:00:00.000Z', invalid: [], rangeOrderInvalid: false } });
     ok(calls.some((c) => c[0] === 'eq' && c[1] === 'severity' && c[2] === 'critical'), 'the shared count-filter helper applies the severity filter');
     ok(calls.some((c) => c[0] === 'eq' && c[1] === 'category' && c[2] === 'cat-x'), 'the shared count-filter helper applies the category filter');
     ok(calls.some((c) => c[0] === 'gte' && c[1] === 'created_at'), 'the shared count-filter helper applies the date-range lower bound');
@@ -247,6 +294,18 @@ console.log('--- 2b. Controller-found correctness defects: date-range inclusivit
     const { builder, calls } = mockQuery();
     applyOperationalAlertListFilters(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange });
     ok(!calls.some((c) => c[0] === 'eq' && c[1] === 'status'), 'when the list\'s own status filter is "all", no status .eq() is applied to the list query either');
+  }
+  {
+    // The exact call sequence is itself the source of determinism: repeated calls with identical
+    // inputs must produce an identical, fully-specified ORDER BY, independent of anything about
+    // the data. Postgres cannot reorder ties on its own accord once every tie-breaking column up
+    // to a unique one (id) is specified.
+    const runs = [1, 2, 3].map(() => {
+      const { builder, calls } = mockQuery();
+      buildOperationalAlertListQuery(builder, { status: 'all', severity: 'all', category: undefined, dateRange: emptyDateRange }, 1, 25);
+      return JSON.stringify(calls);
+    });
+    ok(runs[0] === runs[1] && runs[1] === runs[2], 'building the same list query repeatedly produces an identical call sequence every time -- the ORDER BY is fully specified, not left to depend on physical row order');
   }
 }
 
@@ -563,13 +622,13 @@ try {
     const criticalId = await insertAlert('ordering-critical-older', { severity: 'critical', created_at: new Date(baseTime - 1000 * 60000).toISOString() });
 
     // Mirrors exactly the call sequence proven by the query-builder-mock tests in Part 2b:
-    // ORDER BY severity ASC, created_at DESC LIMIT pageSize OFFSET offset (supabase-js .range(from,to)
-    // is an inclusive [from,to] window, i.e. LIMIT (to-from+1) OFFSET from).
+    // ORDER BY severity ASC, created_at DESC, id ASC LIMIT pageSize OFFSET offset (supabase-js
+    // .range(from,to) is an inclusive [from,to] window, i.e. LIMIT (to-from+1) OFFSET from).
     async function fetchOrderingPage(offset, limit) {
       const result = await db.query(
         `select id, severity, created_at from public.phase14_operational_alerts
          where alert_key like 'ordering-%'
-         order by severity asc, created_at desc
+         order by severity asc, created_at desc, id asc
          limit $1 offset $2`,
         [limit, offset]
       );
@@ -590,19 +649,55 @@ try {
     ok(page1WarningTimes.length === 24 && JSON.stringify(page1WarningTimes) === JSON.stringify(sortedDesc), 'newest-first ordering holds within the warning severity band on page 1 (the 24 non-critical rows are in strictly descending created_at order)');
   }
 
-  console.log('Scenario 20 (controller-found defect): the final date filter is inclusive of its own day and excludes the following day, against real data');
+  console.log('Scenario 19b (controller-found defect): the id tie-breaker makes pagination fully deterministic when severity and created_at are identical, against real data');
   {
-    const dateRange = normalizeOperationalAlertDateRange(undefined, '2026-07-20');
-    const lateOnSelectedDayId = await insertAlert('date-range-late-on-day', { created_at: '2026-07-20T23:59:59.999Z' });
-    const startOfNextDayId = await insertAlert('date-range-next-day', { created_at: '2026-07-21T00:00:00.000Z' });
+    const tiedTime = new Date(Date.now() - 5_000_000).toISOString();
+    for (let i = 0; i < 30; i++) {
+      await insertAlert(`tie-breaker-${i}`, { severity: 'warning', created_at: tiedTime });
+    }
 
-    const included = (await db.query(
-      `select id from public.phase14_operational_alerts where alert_key like 'date-range-%' and created_at < $1`,
-      [dateRange.toExclusiveIso]
+    async function fetchTiedPage(offset, limit) {
+      const result = await db.query(
+        `select id from public.phase14_operational_alerts
+         where alert_key like 'tie-breaker-%'
+         order by severity asc, created_at desc, id asc
+         limit $1 offset $2`,
+        [limit, offset]
+      );
+      return result.rows.map((r) => r.id);
+    }
+    const fullOrder = (await db.query(
+      `select id from public.phase14_operational_alerts where alert_key like 'tie-breaker-%' order by severity asc, created_at desc, id asc`
     )).rows.map((r) => r.id);
 
-    ok(included.includes(lateOnSelectedDayId), 'an event late on the selected final day (23:59:59.999 UTC) is included by the real exclusive-bound query');
-    ok(!included.includes(startOfNextDayId), 'an event at the very start of the following day (00:00:00.000 UTC) is excluded by the real exclusive-bound query');
+    const page1 = await fetchTiedPage(0, 25);
+    const page2 = await fetchTiedPage(25, 25);
+    const page1Repeat = await fetchTiedPage(0, 25);
+
+    ok(page1.length === 25 && page2.length === 5, 'all 30 rows sharing severity and created_at are still split 25/5 across two pages');
+    const page1Set = new Set(page1);
+    ok(!page2.some((id) => page1Set.has(id)), 'page 1 and page 2 never overlap, even though every row shares both severity and created_at');
+    ok(JSON.stringify([...page1, ...page2]) === JSON.stringify(fullOrder), 'the concatenated paginated order exactly matches the full unpaginated order -- the id tie-breaker, not physical row order, decided the split');
+    ok(JSON.stringify(page1) === JSON.stringify(page1Repeat), 'repeated execution of the identical query returns the identical order (deterministic, not incidentally stable)');
+  }
+
+  console.log('Scenario 20 (controller-found defect): date filters use the South African (SAST, Africa/Johannesburg) operational calendar day, not UTC, against real data');
+  {
+    const dateRange = normalizeOperationalAlertDateRange('2026-07-20', '2026-07-20');
+    const outsideBeforeId = await insertAlert('sast-outside-before', { created_at: '2026-07-19T21:59:59.999Z' });
+    const insideStartId = await insertAlert('sast-inside-start', { created_at: '2026-07-19T22:00:00.000Z' });
+    const insideEndId = await insertAlert('sast-inside-end', { created_at: '2026-07-20T21:59:59.999Z' });
+    const outsideAfterId = await insertAlert('sast-outside-after', { created_at: '2026-07-20T22:00:00.000Z' });
+
+    const included = (await db.query(
+      `select id from public.phase14_operational_alerts where alert_key like 'sast-%' and created_at >= $1 and created_at < $2`,
+      [dateRange.fromIso, dateRange.toExclusiveIso]
+    )).rows.map((r) => r.id);
+
+    ok(!included.includes(outsideBeforeId), 'an alert at 2026-07-19T21:59:59.999Z (one millisecond before 20 July SAST begins) is excluded');
+    ok(included.includes(insideStartId), 'an alert at 2026-07-19T22:00:00.000Z (the first instant of 20 July SAST) is included');
+    ok(included.includes(insideEndId), 'an alert at 2026-07-20T21:59:59.999Z (the last instant of 20 July SAST) is included');
+    ok(!included.includes(outsideAfterId), 'an alert at 2026-07-20T22:00:00.000Z (the first instant of 21 July SAST) is excluded');
   }
 
   console.log('Scenario 21 (controller-found defect): selecting one status in the list filter does not corrupt the other two status counts, against real data');

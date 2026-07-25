@@ -438,12 +438,60 @@ accurate regardless of which status is selected in the list. Full suite: 134 ass
 **CI on the correction's own exact final head `b8d0b17` (not `503f383`, per the controller's explicit
 instruction not to reuse the earlier result):** all 6 required workflows green — V1 Verification (×2,
 push + pull_request), V7 Report Hardening (×2), Security Scans, Supabase Migration Replay, Phase 1
-Release Safety, Phase 2-3 Release Safety. No new CodeQL findings; no open review threads.
+Release Safety, Phase 2-3 Release Safety. No new CodeQL findings; no open review threads. A follow-up
+docs-only commit (`03310eb`) recording that result was independently re-confirmed on its own exact
+head, not assumed to inherit `b8d0b17`'s status.
+
+### Controller hardening pass: determinism, strict calendar validation, and operational timezone
+
+Controller re-review of head `03310eb` confirmed the three original defects fixed, and required one
+final narrow hardening pass before acceptance — again functional correctness, not cosmetic:
+
+1. **Pagination was not fully deterministic when alerts shared both severity and created_at.**
+   `severity asc, created_at desc` alone does not uniquely order rows with identical values on both
+   columns; Postgres does not guarantee a stable tie order across repeated executions without an
+   explicit tie-breaker. **Fix:** `id asc` added as a third, final ordering column in
+   `buildOperationalAlertListQuery`, applied in the database before `.range()`, same as the other
+   two. Both supporting indexes (`phase14_operational_alerts_severity_created_idx`,
+   `phase14_operational_alerts_list_idx`) extended to include `id asc` as their final column,
+   matching the query's own `ORDER BY` exactly. The open-critical partial index is untouched.
+2. **Date validation relied on `Date.parse`/the `Date` constructor alone**, which silently rolls
+   impossible calendar dates over into a nearby valid one (e.g. February 31 becomes March 3) rather
+   than rejecting them. **Fix:** `parseStrictCalendarDate` parses the year/month/day components,
+   constructs the intended UTC date, and round-trips it — the input is accepted only if the
+   constructed date's year/month/day match exactly what was typed. Rejects month 00/13+, day 00, Feb
+   31, Apr 31, Feb 29 on a non-leap year, and anything not shaped like YYYY-MM-DD; a real leap day
+   (2024-02-29) is still accepted, proving the validator isn't simply rejecting all Feb 29 values.
+   Also added: when both dates are individually valid but "from" is chronologically after "to", both
+   bounds are dropped (`rangeOrderInvalid`) and a controlled "from date must not be after to date"
+   notice is shown instead of sending a contradictory range to the database; entered values remain in
+   the form for correction (the form already binds to the raw, unnormalized query-string values).
+3. **Date bounds were computed as UTC calendar days, not the South African operational calendar.**
+   This platform serves South African MK operators; a date-picker value of "2026-07-20" is a SAST
+   (Africa/Johannesburg) calendar day, not a UTC one. **Fix:** `sastCalendarDayStartUtc`, backed by a
+   named `SOUTH_AFRICA_OPERATIONAL_UTC_OFFSET_MS` constant (SAST is a fixed UTC+02:00 offset
+   year-round — South Africa does not observe DST), converts each SAST calendar day boundary to its
+   correct UTC instant. For 2026-07-20 SAST: inclusive start `2026-07-19T22:00:00.000Z`, exclusive end
+   `2026-07-20T22:00:00.000Z` — exactly the bounds the controller specified.
+
+**Proof:** all three fixes are exercised in `scripts/release-d-operational-alerts-tests.mjs` — a new
+live-Postgres scenario (19b) inserts 30 alerts sharing identical severity and created_at, proving
+page 1/page 2 never overlap, the concatenated paginated order exactly matches the full unpaginated
+`ORDER BY` result, and repeated execution of the identical query returns an identical order; the
+query-builder-mock tests were extended to prove the real `id` `order()` call happens third, after
+severity/created_at and before `range()`, and that repeated calls with identical inputs produce an
+identical call sequence; pure-function tests prove each of the calendar-rejection cases (Feb 31, Apr
+31, Feb 29 2025, month 00/13, day 00, malformed strings) is rejected while a real leap day is
+accepted, and that from-after-to is flagged distinctly from a single invalid value; a rewritten live
+Scenario 20 inserts alerts at the four exact boundary instants the controller specified
+(`2026-07-19T21:59:59.999Z` outside, `2026-07-19T22:00:00.000Z` inside, `2026-07-20T21:59:59.999Z`
+inside, `2026-07-20T22:00:00.000Z` outside) and proves the real query includes/excludes each
+correctly. Full suite: 167 assertions, all passing.
 
 **Status: `CODE IMPLEMENTATION COMPLETE — CLOUD CERTIFICATION DEFERRED`.** Production status remains
 `NOT READY FOR PRODUCTION`, matching every prior release this cycle (Option B, same constraint as
 Release C's own accepted status above). Release D remains not yet controller-accepted pending this
-correction's own review.
+hardening pass's own review.
 
 ---
 

@@ -23,14 +23,16 @@ set last_status_changed_at = coalesce(resolved_at, created_at)
 where last_status_changed_at = now();
 
 -- The admin page's real default view has no status filter applied (status='all') and orders
--- globally by severity then created_at before paginating -- this index supports exactly that
--- query shape without a sequential scan or an in-memory re-sort of an already-paginated page.
+-- globally by severity, then created_at, then id (a deterministic tie-breaker for rows that share
+-- a severity and created_at value -- without it, Postgres does not guarantee a stable order for
+-- ties across repeated executions) before paginating -- this index supports exactly that query
+-- shape without a sequential scan or an in-memory re-sort of an already-paginated page.
 create index if not exists phase14_operational_alerts_severity_created_idx
-  on public.phase14_operational_alerts (severity, created_at desc);
--- Supports the same ordering when a status filter *is* applied, plus plain status/severity
--- filtering.
+  on public.phase14_operational_alerts (severity, created_at desc, id asc);
+-- Supports the same ordering (including the id tie-breaker) when a status filter *is* applied,
+-- plus plain status/severity filtering.
 create index if not exists phase14_operational_alerts_list_idx
-  on public.phase14_operational_alerts (status, severity, created_at desc);
+  on public.phase14_operational_alerts (status, severity, created_at desc, id asc);
 -- Supports the nav badge's open+critical count via a small partial index rather than counting
 -- the whole table.
 create index if not exists phase14_operational_alerts_open_critical_idx
