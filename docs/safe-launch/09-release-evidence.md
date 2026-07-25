@@ -262,9 +262,33 @@ directly. Verified end-to-end against a disposable local Postgres with all 37 mi
 (`scripts/release-c-runtime-secret-provisioning-tests.mjs`): `ingest_phase14_provider_webhook` fails
 closed with `phase14_attestation_secret_unprovisioned` before the secret exists, and succeeds --
 creating exactly one attestation, applying the verified state to the correlated `email_events` row
--- after, with a byte-identical replay proven idempotent. This is capability, not provisioning: the
-two real secret values still need to be generated and submitted by the owner via the new UI, then
-Preview redeployed, before a real webhook can be independently confirmed.
+-- after, with a byte-identical replay proven idempotent.
+
+### Correction: this was capability, not a path to provisioning -- the live cloud schema is not on Release C (or A/B) yet
+
+A controller-verified finding, independently reconfirmed by this cycle's own read-only audit against
+`jvjxlphdyzerrhwcgkup` (full detail: `19-release-c-cloud-schema-reconciliation.md`), corrects the
+paragraph above: it is not accurate to say "the two secret values still need to be generated and
+submitted by the owner via the new UI" as if that were the only remaining step. The live migration
+ledger stops at `20260721150808`, before Release A's own first migration -- **Releases A, B, and C
+are all unapplied to the live database**, not only Release C's three migrations. Confirmed via
+`pg_proc`/`information_schema` introspection: the deployed runtime-secret-provisioning route calls
+`set_phase14_runtime_secret` with a `p_reason` parameter that does not exist on the live 2-argument
+function, `customer_report_access_tokens` doesn't exist, `approve_quality_review` and every new
+Release C delivery/webhook RPC don't exist under any signature, and `record_payment_transition`'s
+live function body is confirmed (via `pg_get_functiondef`, not inferred) to be the pre-Release-B
+version with no fulfilment-job queuing. **Owner secret entry must not be attempted until the cloud
+schema is reconciled** -- the deployed route would fail against the live schema regardless. See
+`19-release-c-cloud-schema-reconciliation.md` for the full per-migration comparison and a decision
+memo on how to close this gap (an isolated Supabase branch, deferring to an integrated
+release-candidate migration, or applying to shared `main` now -- assessed, not recommended, given
+the 18 existing `payment_received` orders and the unconfirmed compatibility with whatever code
+Production currently runs).
+
+Real Resend acceptance, delivery, and one owner-confirmed mailbox receipt remain valid evidence for
+messages 1 and 2 (§0 of that document explains why -- they don't depend on any unapplied migration).
+Signed webhook ingestion and messages 3 and 4 remain uncertified, and cannot become certified under
+the current cloud schema no matter how the runtime secrets are handled.
 
 ---
 
@@ -285,3 +309,4 @@ Preview redeployed, before a real webhook can be independently confirmed.
 - Release C runbook: `16-email-and-secure-delivery-runbook.md`
 - Release C domain-authentication requirements: `17-domain-authentication.md`
 - Release C controlled Resend Preview verification (owner-executed): `18-controlled-resend-preview-verification.md`
+- Release C cloud-schema reconciliation audit + release decision memo: `19-release-c-cloud-schema-reconciliation.md`
