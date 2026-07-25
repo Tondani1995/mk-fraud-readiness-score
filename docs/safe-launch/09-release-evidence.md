@@ -233,6 +233,39 @@ also remain open, owner-actionable items, per the owner-attested configuration f
 external provider send, DNS configuration, or production deployment is claimed as complete
 anywhere in this document. This status must never be read as production authorisation.
 
+### Controlled Resend send cycle (commits `5fa9653`, `7b1dfa7`) -- two real sends, webhook root-caused and fixed at the tooling level
+
+With `MK_EMAIL_PROVIDER_MODE=test` confirmed active on a genuinely redeployed Preview (deployment
+timestamp independently checked against the redeploy time, not assumed), two real controlled sends
+were made against the live Resend account: `customer_order_confirmation` and
+`admin_new_order_notification` for synthetic order `MKORD-2026-960J4HDD`. Independently observed
+(read-only DB query, `email_events` table): both rows show `provider_mode=external`,
+`status=sent`, a real persisted `provider_message_id`, and a populated `sent_at`. Owner-attested:
+real mailbox receipt of the admin alert at `admin@mkfraud.co.za` (screenshot provided), matching
+the order reference exactly. The admin-alert recipient bug from the prior cycle's first attempt
+(fell back to the customer address) is confirmed fixed -- the recipient is now correctly
+`admin@mkfraud.co.za`.
+
+Independently observed: no signed webhook ever arrived for either message, despite confirmed real
+delivery. Root-caused via read-only queries, not assumed: `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET`
+/ `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` have never existed in Vercel, and the paired Supabase
+secrets (`provider_webhook_db_hmac` / `provider_lookup_db_hmac`) were never written via
+`set_phase14_runtime_secret` -- `phase14_private.runtime_secrets` and the append-only
+`email_provider_events` table were both confirmed empty. No tool available in any session up to
+this point could write a Supabase secret or a Vercel env var, so this had no path to self-heal.
+
+Fixed at the tooling/capability level this cycle (see commit `5fa9653` for the full technical
+account): a new admin-only secret-provisioning control (`/score/admin/phase14-activation`,
+"Runtime secret provisioning" card) calls the existing `set_phase14_runtime_secret` RPC --
+`platform_admin` + AAL2 gated, never bypassing the RPC or touching `phase14_private.runtime_secrets`
+directly. Verified end-to-end against a disposable local Postgres with all 37 migrations replayed
+(`scripts/release-c-runtime-secret-provisioning-tests.mjs`): `ingest_phase14_provider_webhook` fails
+closed with `phase14_attestation_secret_unprovisioned` before the secret exists, and succeeds --
+creating exactly one attestation, applying the verified state to the correlated `email_events` row
+-- after, with a byte-identical replay proven idempotent. This is capability, not provisioning: the
+two real secret values still need to be generated and submitted by the owner via the new UI, then
+Preview redeployed, before a real webhook can be independently confirmed.
+
 ---
 
 ## Cross-references

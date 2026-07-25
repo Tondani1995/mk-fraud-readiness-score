@@ -37,6 +37,37 @@ permitted sender, and under Webhooks there's an endpoint pointing at
 `https://<preview-url>/score/api/webhooks/resend` (or however the Preview alias is configured)
 with at least `email.sent`, `email.delivered`, `email.bounced`, and `email.complained` enabled.
 
+## 1a. Provision the runtime HMAC secrets (added this cycle — required before continuing)
+
+A controlled send cycle run before this step was added found that `email.sent`/`email.delivered`
+webhooks never reach the app at all: Resend accepts and delivers the mail (confirmed by real
+mailbox receipt) but no signed webhook is ever received, because `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET`
+/ `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` have never been set in Vercel, and the paired Supabase
+secrets were never provisioned either. Step 1's list above still names
+`PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` as something to confirm exists — if it doesn't, or if
+you're not sure, do this step regardless; provisioning is idempotent (rotating an already-correct
+secret to the same value is harmless).
+
+An admin-only control now exists for this at `/score/admin/phase14-activation`, in the "Runtime
+secret provisioning" card (requires a `platform_admin` session at AAL2/MFA). For **each** of the
+two secrets:
+
+1. Click "Generate a new 48-byte secret" (or paste your own equally high-entropy value). The value
+   is generated in your browser and never leaves it except in the one submission below.
+2. Copy the exact value into Vercel → Project `mk-fraud-platform` → Settings → Environment
+   Variables → the matching variable name (`PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` or
+   `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET`), scoped to **Preview** on
+   `release-c/email-secure-delivery` only. Do not touch Production.
+3. Enter a reason (required, audited) and submit the identical value through the admin control.
+4. Compare the client-computed fingerprint shown before submission against the server-returned one
+   shown after — they must match (both are SHA-256 of the one value you just used in both places).
+   Neither fingerprint is the secret itself, so this comparison is safe to do visually.
+5. Repeat for the second secret.
+
+**After both are provisioned, redeploy Preview** (env var changes only take effect on a new
+deployment, not the currently-running one) and confirm the new deployment is `READY` before
+continuing to the next step below.
+
 ## 2. Set Preview to test mode
 
 Still filtered to **Preview only** (never Production), set `MK_EMAIL_PROVIDER_MODE=test`. Save,
