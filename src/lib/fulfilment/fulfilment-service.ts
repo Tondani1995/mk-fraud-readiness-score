@@ -110,7 +110,22 @@ export async function approveQualityReview(attemptId: string, reason: string): P
   if (!client) return { ok: false, reason: 'no_session', message: 'Your admin session has expired. Sign in again.' };
   const { data, error } = await client.rpc('approve_quality_review', { p_attempt_id: attemptId, p_reason: note });
   if (error || !data) { const mapped = mapError(error); return { ok: false, reason: mapped.reason, message: mapped.message }; }
-  return { ok: true, data: mapAttempt(data as Record<string, unknown>) };
+  const payload = data as Record<string, unknown>;
+  if (payload.delivery_exception === 'recipient_required') {
+    // Fire-and-forget: an alert failure must never fail the approval itself, which already
+    // committed. See recordDeliveryRecipientRequiredAlert() for the dedupe-by-order-id discipline
+    // that keeps this from becoming an alert loop.
+    const { recordDeliveryRecipientRequiredAlert } = await import('@/lib/notifications/phase1-order-notifications');
+    recordDeliveryRecipientRequiredAlert({
+      orderId: String(payload.order_id ?? ''),
+      reportId: (payload.output_report_id as string | null) ?? null
+    }).catch((alertError: unknown) => {
+      console.error('delivery_recipient_required_alert_failed', {
+        attemptId, message: alertError instanceof Error ? alertError.message : String(alertError)
+      });
+    });
+  }
+  return { ok: true, data: mapAttempt(payload) };
 }
 
 export async function rejectQualityReview(attemptId: string, reason: string): Promise<FulfilmentServiceResult<{ rejected: FulfilmentAttempt; regenerated: FulfilmentAttempt }>> {

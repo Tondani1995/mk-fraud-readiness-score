@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
 import { FulfilmentReviewPanel } from '@/components/admin/FulfilmentReviewPanel';
+import { DeliveryAccessPanel } from '@/components/admin/DeliveryAccessPanel';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +15,8 @@ import { getPhase1SchemaCapability, PHASE1_SCHEMA_ERROR_MESSAGE } from '@/lib/re
 import { logCapabilityQueryFailure, type QueryFailureDiagnostic } from '@/lib/reports/capability-diagnostics';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getPaymentOrderOperations } from '@/lib/payments/payment-operations';
+import { ACCESS_TOKEN_ROLES, DELIVERY_RETRY_ROLES, getOrderDeliveryState } from '@/lib/reports/delivery-recovery-service';
+import { PHASE1_QUEUE_LABELS } from '@/lib/reports/phase1-operations';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,6 +29,15 @@ function cleanStatus(status: string | null | undefined) {
 
 function dateTime(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString('en-ZA') : 'Not recorded';
+}
+
+// currentDeliveryBucket is 'not_ready' | 'delivery_pending' | 'delivered' | 'delivery_failed'
+// (classifyDeliveryBucket() in src/lib/reports/phase1-operations.ts, shared with the admin
+// orders list); PHASE1_QUEUE_LABELS covers the latter three (they are also this page's
+// admin-list queue keys) but has no 'not_ready' entry, since that bucket only ever appears
+// here, never as a list queue.
+function deliveryBucketLabel(bucket: string) {
+  return bucket === 'not_ready' ? 'Not Yet Queued' : (PHASE1_QUEUE_LABELS as Record<string, string>)[bucket] ?? cleanStatus(bucket);
 }
 
 function SnapshotValue({ label, value }: { label: string; value: string | null | undefined }) {
@@ -74,10 +86,11 @@ export default async function AdminOrderDetailPage({
   const { order, events, auditEvents } = detail;
   const capability = await getPhase1SchemaCapability(db, { requestPath: ORDER_DETAIL_REQUEST_PATH });
   const capabilityAvailable = capability.status === 'available';
-  const [reportResult, operations, payment] = await Promise.all([
+  const [reportResult, operations, payment, realDeliveryState] = await Promise.all([
     getReportVersions(db, order.id, capabilityAvailable),
     getPhase1OrderOperations(order.id, capability, { requestPath: ORDER_DETAIL_REQUEST_PATH }),
-    getPaymentOrderOperations(order.id, order.status)
+    getPaymentOrderOperations(order.id, order.status),
+    getOrderDeliveryState(order.id)
   ]);
   const reportVersions = reportResult.reports;
   const operationalAvailable = capabilityAvailable && operations.schemaAvailable && reportResult.available;
@@ -92,7 +105,16 @@ export default async function AdminOrderDetailPage({
   const generationState = operations.latestGeneration?.status ?? (storageReady ? 'REPORT_READY' : 'NOT_REQUESTED');
   const generationStuck = ['REPORT_QUEUED', 'REPORT_GENERATING'].includes(generationState)
     && Date.now() - new Date(operations.latestGeneration?.updated_at ?? 0).getTime() > 15 * 60 * 1_000;
-  const deliveryState = operations.latestDelivery?.status ?? 'NOT_READY';
+  // Legacy/manual provider-double delivery action (src/lib/reports/phase1-manual-delivery.ts),
+  // sourced from manual_report_delivery_attempts -- drives FulfilmentActions' "Initiate/Retry
+  // Delivery" button only. It is NOT the current Release C customer-delivery status; that is
+  // realDeliveryState.currentDeliveryStatus below (src/lib/reports/delivery-recovery-service.ts's
+  // getOrderDeliveryState), sourced from report_delivery_authorizations (and email_events for a
+  // post-send bounce/complaint) via the same shared classifyDeliveryBucket() the admin orders
+  // list uses (src/lib/reports/phase1-operations.ts).
+  const legacyDeliveryState = operations.latestDelivery?.status ?? 'NOT_READY';
+  const currentDeliveryStatus = realDeliveryState.currentDeliveryStatus;
+  const currentDeliveryBucket = realDeliveryState.currentDeliveryBucket;
   const canGenerate = ['platform_admin', 'reviewer', 'approver'].includes(admin.role);
   const canRegenerate = ['platform_admin', 'approver'].includes(admin.role);
   const canDeliver = ['platform_admin', 'approver'].includes(admin.role);
@@ -141,13 +163,12 @@ export default async function AdminOrderDetailPage({
               <SnapshotValue label="Latest attempt" value={operations.latestGeneration?.id ?? 'No attempt'} />
               <SnapshotValue label="Report version" value={latestReport ? `Version ${latestReport.version_number}` : 'No report'} />
               <SnapshotValue label="Storage state" value={cleanStatus(latestReport?.storage_status ?? 'NOT_STORED')} />
-              <SnapshotValue label="Delivery state" value={cleanStatus(deliveryState)} />
-              <SnapshotValue label="Last delivery attempt" value={dateTime(operations.latestDelivery?.requested_at)} />
-              <SnapshotValue label="Retry count" value={String(operations.latestGeneration?.retry_count ?? operations.latestDelivery?.retry_count ?? 0)} />
+              <SnapshotValue label="Customer delivery status (Release C)" value={deliveryBucketLabel(currentDeliveryBucket)} />
+              <SnapshotValue label="Generation retry count" value={String(operations.latestGeneration?.retry_count ?? 0)} />
             </div>
-            {operations.latestGeneration?.safe_operational_error || operations.latestDelivery?.safe_operational_error ? (
+            {operations.latestGeneration?.safe_operational_error ? (
               <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">
-                {operations.latestGeneration?.safe_operational_error ?? operations.latestDelivery?.safe_operational_error}
+                {operations.latestGeneration.safe_operational_error}
               </div>
             ) : null}
             <FulfilmentActions
@@ -155,7 +176,7 @@ export default async function AdminOrderDetailPage({
               reportId={latestReport?.id}
               generationState={generationState}
               generationStuck={generationStuck}
-              deliveryState={deliveryState}
+              deliveryState={legacyDeliveryState}
               eligible={order.status === 'payment_received'}
               storageReady={storageReady}
               storageCandidate={storageCandidate}
@@ -164,6 +185,19 @@ export default async function AdminOrderDetailPage({
               canDeliver={canDeliver}
               capabilityAvailable={operationalAvailable}
             />
+            {canDeliver && storageReady ? (
+              <div className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-xs leading-5 text-mk-muted">
+                <span className="font-semibold text-mk-ink">Legacy/manual delivery.</span> The button above (and the retry
+                state it reacts to, currently <span className="font-semibold">{cleanStatus(legacyDeliveryState)}</span>)
+                operates the older provider-double delivery mechanism, not real customer email. It does not reflect and
+                cannot change the current Release C customer-delivery status shown above. Use{' '}
+                <a href="#real-delivery" className="font-semibold text-mk-brassDark">Real delivery &amp; customer access</a>{' '}
+                below for the authoritative status and its controls.
+                {operations.latestDelivery?.safe_operational_error ? (
+                  <span className="mt-2 block text-mk-danger">{operations.latestDelivery.safe_operational_error}</span>
+                ) : null}
+              </div>
+            ) : null}
             {operations.latestGeneration ? (
               <FulfilmentReviewPanel
                 orderReference={order.order_reference}
@@ -179,10 +213,32 @@ export default async function AdminOrderDetailPage({
             ) : null}
             <div className="flex flex-wrap gap-4 text-sm font-semibold text-mk-brassDark">
               {operations.generationHistory.length ? <a href="#generation-history">View Generation History</a> : null}
-              {operations.deliveryHistory.length ? <a href="#delivery-history">View Delivery History</a> : null}
+              {operations.deliveryHistory.length ? <a href="#delivery-history">View Legacy Manual Delivery History</a> : null}
             </div>
           </CardContent>
         </Card>
+
+        <div id="real-delivery"><Card>
+          <CardHeader>
+            <CardTitle>Real delivery &amp; customer access</CardTitle>
+            <p className="mt-1 text-xs font-normal text-mk-muted">
+              Authoritative Release C customer-delivery record — the source of the &ldquo;Customer delivery status&rdquo; shown above
+              and of the admin orders list&rsquo;s delivery queues. Sourced from report_delivery_authorizations and, for a
+              bounce or spam complaint after a successful send, email_events.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <DeliveryAccessPanel
+              orderReference={order.order_reference}
+              reportId={latestReport?.id ?? null}
+              authorizations={realDeliveryState.authorizations}
+              accessTokens={realDeliveryState.accessTokens}
+              recipientException={realDeliveryState.recipientException}
+              canRetryDelivery={DELIVERY_RETRY_ROLES.includes(admin.role)}
+              canManageAccessTokens={ACCESS_TOKEN_ROLES.includes(admin.role)}
+            />
+          </CardContent>
+        </Card></div>
 
         <Card>
           <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
@@ -246,7 +302,7 @@ export default async function AdminOrderDetailPage({
               </div>
             ))}
             {!operations.notifications.length ? <p className="text-sm text-mk-muted">No notification records found.</p> : null}
-            <p className="text-xs text-mk-muted">Provider mode is disabled unless an approved local provider double is configured. This page does not send real email.</p>
+            <p className="text-xs text-mk-muted">Provider mode is disabled unless MK_EMAIL_PROVIDER_MODE is set to test or live. When enabled, these notifications and the Reissue &amp; Resend action below send real email.</p>
           </CardContent>
         </Card>
 
@@ -286,7 +342,13 @@ export default async function AdminOrderDetailPage({
           </Card></div>
 
           <div id="delivery-history"><Card>
-            <CardHeader><CardTitle>Delivery history</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Legacy manual delivery history</CardTitle>
+              <p className="mt-1 text-xs font-normal text-mk-muted">
+                Provider-double attempts only (manual_report_delivery_attempts) — not real customer email. See &ldquo;Real
+                delivery &amp; customer access&rdquo; above for actual delivery history.
+              </p>
+            </CardHeader>
             <CardContent className="space-y-3">
               {operations.deliveryHistory.map((attempt: any) => (
                 <div key={attempt.id} className="rounded-xl border border-mk-line bg-white p-4 text-sm">

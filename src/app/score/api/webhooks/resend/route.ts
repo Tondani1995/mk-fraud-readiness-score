@@ -61,9 +61,21 @@ export async function POST(request: Request) {
   if (!providerEventId) {
     return NextResponse.json({ ok: false, error: 'invalid_webhook' }, { status: 400 });
   }
+  const bounceData = event.data?.bounce as { message?: string; type?: string } | undefined;
   const reason = (event.data?.failed as { reason?: string } | undefined)?.reason
-    ?? (event.data?.bounce as { message?: string } | undefined)?.message
+    ?? bounceData?.message
     ?? null;
+  // Release C closure: a soft/transient bounce should stay retry-eligible (maps to the existing
+  // 'delivery_delayed' status), while a permanent (or type-undetermined, treated conservatively
+  // as permanent) bounce triggers the resend-suppression path -- see
+  // apply_email_provider_event_atomic()'s comment in
+  // supabase/migrations/20260724180000_release_c_closure_delivery_exceptions.sql for the full
+  // reasoning. This is a synthetic event_type used only for our own RPC call, never sent back to
+  // Resend or exposed to the customer; the attestation below is computed over this same value so
+  // both sides agree.
+  const effectiveEventType = event.type === 'email.bounced' && /^(transient|soft)$/i.test(bounceData?.type ?? '')
+    ? 'email.bounced.transient'
+    : event.type;
   // H4: forward Resend's own send-time tags through to the ingest RPC so it can fall back to
   // delivery_attempt_ref-based correlation for a "lost response" attempt whose provider_message_id
   // was never captured (a plain provider_message_id match can never reach that row -- see the
@@ -85,7 +97,7 @@ export async function POST(request: Request) {
   try {
     attestation = createProviderWebhookDatabaseAttestation({
       provider: 'resend', providerEventId, providerMessageId,
-      eventType: event.type, eventCreatedAt, payloadSha256
+      eventType: effectiveEventType, eventCreatedAt, payloadSha256
     });
   } catch {
     return NextResponse.json({ ok: false, error: 'webhook_attestation_unavailable' }, { status: 503 });
@@ -94,7 +106,7 @@ export async function POST(request: Request) {
     p_provider: 'resend',
     p_provider_event_id: providerEventId,
     p_provider_message_id: providerMessageId,
-    p_event_type: event.type,
+    p_event_type: effectiveEventType,
     p_event_created_at: eventCreatedAt,
     p_payload_sha256: payloadSha256,
     p_payload_json: { type: event.type, created_at: event.created_at ?? null, reason, data: { tags: safeTags } },
