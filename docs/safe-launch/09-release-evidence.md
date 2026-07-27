@@ -548,3 +548,42 @@ customer-data, or Production action occurred.
 - Release and rollback runbook: `22-release-and-rollback-runbook.md`
 - Vercel operational inventory: `23-vercel-operational-inventory.md`
 - Release C cloud-schema reconciliation audit + release decision memo: `19-release-c-cloud-schema-reconciliation.md`
+
+---
+
+## RC1 readiness cycle — controller accepted preparation, Production still NO-GO
+
+**Status:** RC PREPARATION: CODE COMPLETE — CONTROLLER ACCEPTED at exact head
+`19a2d139c702ce6a2cbf767253af62244dec75dc`. RC1 OPERATIONAL READINESS: IN PROGRESS.
+RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH remain **NO-GO**; PR #45 remains
+open, draft and **DO NOT MERGE**.
+
+The accepted preparation included the full six-workflow green battery at that exact head:
+
+- V1 Verification — run 1456
+- V7 Report Hardening — run 163
+- Supabase Migration Replay — run 300
+- Phase 1 Release Safety — run 148
+- Phase 2-3 Release Safety — run 136
+- Security Scans — run 197
+
+The Production database and cloud migration ledger remain unchanged. No Production migration,
+ledger write, Supabase branch, Vercel change, Resend enablement, worker trigger, cloud order or
+merge occurred as part of RC preparation.
+
+The RC1 readiness artifacts are now defined, but their gates remain unresolved until owner/controller
+evidence exists:
+
+- `27-rc1-production-change-runbook.md`
+- `28-rc1-operational-freeze-and-canary-plan.md`
+- `29-manual-fulfilment-operating-model.md`
+- `30-rc1-abort-and-forward-repair-matrix.md`
+- `31-rc1-go-evidence-requirements.md`
+- `scripts/rc1-production-preflight.sql`
+- `scripts/rc1-production-postflight.sql`
+- `26-existing-order-action-register.md` (anonymised defaults only)
+
+The Supabase backup/PITR gate is intentionally unresolved until the owner confirms PITR status,
+retention, latest recoverable point, backup requirement and restoration authority from the dashboard.
+The active `mk_validated` template limitation remains a documented Production limitation and is not
+invented or filled during RC preparation.

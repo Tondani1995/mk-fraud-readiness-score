@@ -120,11 +120,3 @@ values (
 on conflict (setting_key) do update set value_json = excluded.value_json, updated_at = now();
 
 commit;
--- RETIRED MIGRATION — DO NOT EXECUTE.
--- This migration was committed locally but was never applied under version 0011 to the Production cloud ledger.
--- It was a consolidated surrogate for separately applied Production migrations and is retired from canonical replay.
--- Migration tooling must never execute this archived file.
--- RETIRED MIGRATION — DO NOT EXECUTE.
--- This migration was committed locally but was never applied under version 0011 to the Production cloud ledger.
--- It was a consolidated surrogate for separately applied Production migrations and is retired from canonical replay.
--- Migration tooling must never execute this archived file.

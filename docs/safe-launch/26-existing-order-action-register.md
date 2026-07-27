@@ -31,34 +31,34 @@ it is the record that a future decision fills in.
 
 | # | Classification | Intended action | Approver | Approved at | Notes |
 |---|---|---|---|---|---|
-| 1 | CURRENT_VERIFIED | _TBD_ | _TBD_ | _TBD_ | Must be excluded from every regeneration-claim path before any worker is enabled (see doc 24 §6). |
-| 2 | CURRENT_VERIFIED | _TBD_ | _TBD_ | _TBD_ | Same. |
+| 1 | CURRENT_VERIFIED | `protect_no_regeneration_no_delivery` | _TBD_ | _TBD_ | Must be excluded from every regeneration-claim path before any worker is enabled (see doc 24 §6). |
+| 2 | CURRENT_VERIFIED | `protect_no_regeneration_no_delivery` | _TBD_ | _TBD_ | Same. |
 
 ## CURRENT_NOT_STORED (13 orders) — regenerate vs. recover, decided individually
 
 | # | Classification | Intended action | Approver | Approved at | Notes |
 |---|---|---|---|---|---|
-| 3 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 4 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 5 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 6 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 7 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 8 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 9 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 10 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 11 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 12 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | This order's current report has 3 prior superseded versions — confirm which regeneration attempt, if any, is intended before re-triggering generation. |
-| 13 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 14 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
-| 15 | CURRENT_NOT_STORED | _TBD: regenerate / recover-existing_ | _TBD_ | _TBD_ | |
+| 3 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 4 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 5 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 6 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 7 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 8 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 9 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 10 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 11 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 12 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | This order's current report has 3 prior superseded versions — confirm which regeneration attempt, if any, is intended before re-triggering generation. |
+| 13 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 14 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
+| 15 | CURRENT_NOT_STORED | `controlled_regenerate_new_version` (default; owner may approve recovery instead) | _TBD_ | _TBD_ | Do not deliver until quality review and recipient verification. |
 
 ## NO_REPORT (3 orders) — queue only after explicit backlog approval
 
 | # | Classification | Intended action | Approver | Approved at | Notes |
 |---|---|---|---|---|---|
-| 16 | NO_REPORT | _TBD_ | _TBD_ | _TBD_ | Route through Release A's own backlog-reconciliation classifier/approval flow, not a direct worker queue action. |
-| 17 | NO_REPORT | _TBD_ | _TBD_ | _TBD_ | Same. |
-| 18 | NO_REPORT | _TBD_ | _TBD_ | _TBD_ | Same. |
+| 16 | NO_REPORT | `approve_individual_first_generation_after_review` | _TBD_ | _TBD_ | Confirm legitimacy and completed assessment; route through Release A approval, then quality review and recipient verification. |
+| 17 | NO_REPORT | `approve_individual_first_generation_after_review` | _TBD_ | _TBD_ | Same. |
+| 18 | NO_REPORT | `approve_individual_first_generation_after_review` | _TBD_ | _TBD_ | Same. |
 
 ## Sign-off
 
@@ -67,6 +67,10 @@ it is the record that a future decision fills in.
       from every generation-claim code path, per `24-integrated-a-d-release-candidate-plan.md` §6.
 - [ ] No `payment_received` order can be claimed and generated twice — verified against
       `claim_payment_report_generation`'s real logic, not assumed.
+- [ ] The 13 `CURRENT_NOT_STORED` rows have an individual owner decision; the default is controlled
+      regeneration as a new version, not an automatic batch action.
+- [ ] The 3 `NO_REPORT` rows have individual legitimacy/completion approval before first generation.
+- [ ] No worker was invoked before all 18 owner-approved actions were recorded outside git.
 - [ ] This register was re-pulled against live data immediately before being treated as final, not
       reused from an earlier session.
 
