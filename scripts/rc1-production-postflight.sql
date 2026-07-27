@@ -6,7 +6,7 @@
 -- RC1 Production postflight. READ ONLY and fail closed.
 -- Required invocation variables:
 --   rc1_cutover_started_at, rc1_preflight_newest_version,
---   rc1_preflight_protected_pair_fingerprint, rc1_preflight_baseline_counts_json.
+--   rc1_preflight_protected_state_fingerprint, rc1_preflight_baseline_counts_json.
 -- No customer identifiers, UUIDs, emails, names, report content or function bodies are emitted.
 \if :{?rc1_cutover_started_at}
 \else
@@ -18,9 +18,9 @@
 \echo STOP|missing_rc1_preflight_newest_version
 \quit 3
 \endif
-\if :{?rc1_preflight_protected_pair_fingerprint}
+\if :{?rc1_preflight_protected_state_fingerprint}
 \else
-\echo STOP|missing_rc1_preflight_protected_pair_fingerprint
+\echo STOP|missing_rc1_preflight_protected_state_fingerprint
 \quit 3
 \endif
 \if :{?rc1_preflight_baseline_counts_json}
@@ -122,24 +122,24 @@ with expected(table_name, column_name, type_name, not_null) as (
     ('backlog_reconciliation_records','completion_date','date',false),
     ('backlog_reconciliation_records','evidence_reference','text',false),
     ('backlog_reconciliation_records','classified_by','uuid',true),
-    ('backlog_reconciliation_records','classified_at','timestamp with time zone',true),
-    ('backlog_reconciliation_records','created_at','timestamp with time zone',true),
-    ('backlog_reconciliation_records','updated_at','timestamp with time zone',true),
+    ('backlog_reconciliation_records','classified_at','timestamptz',true),
+    ('backlog_reconciliation_records','created_at','timestamptz',true),
+    ('backlog_reconciliation_records','updated_at','timestamptz',true),
     ('customer_report_access_tokens','id','uuid',true),
     ('customer_report_access_tokens','order_id','uuid',true),
     ('customer_report_access_tokens','report_id','uuid',true),
     ('customer_report_access_tokens','recipient_email','citext',true),
     ('customer_report_access_tokens','token_hash','text',true),
     ('customer_report_access_tokens','purpose','text',true),
-    ('customer_report_access_tokens','issued_at','timestamp with time zone',true),
-    ('customer_report_access_tokens','expires_at','timestamp with time zone',true),
-    ('customer_report_access_tokens','revoked_at','timestamp with time zone',false),
+    ('customer_report_access_tokens','issued_at','timestamptz',true),
+    ('customer_report_access_tokens','expires_at','timestamptz',true),
+    ('customer_report_access_tokens','revoked_at','timestamptz',false),
     ('customer_report_access_tokens','revoked_reason','text',false),
     ('customer_report_access_tokens','issued_by','uuid',false),
-    ('customer_report_access_tokens','last_accessed_at','timestamp with time zone',false),
-    ('customer_report_access_tokens','access_count','integer',true),
-    ('customer_report_access_tokens','created_at','timestamp with time zone',true),
-    ('customer_report_access_tokens','updated_at','timestamp with time zone',true)
+    ('customer_report_access_tokens','last_accessed_at','timestamptz',false),
+    ('customer_report_access_tokens','access_count','int4',true),
+    ('customer_report_access_tokens','created_at','timestamptz',true),
+    ('customer_report_access_tokens','updated_at','timestamptz',true)
 ), actual as (
   select c.table_name, c.column_name, c.udt_name, c.is_nullable = 'NO' as not_null
   from information_schema.columns c where c.table_schema = 'public'
@@ -182,11 +182,11 @@ from found;
 
 with expected(name, args, search_path, positive_role) as (
   values
-    ('authorize_manual_report_ai_action','uuid,text','', 'service_role'),
-    ('claim_manual_report_ai_attempt','jsonb','', 'service_role'),
-    ('settle_manual_report_ai_attempt','uuid,jsonb','', 'service_role'),
-    ('record_manual_report_narrative_provenance','uuid,jsonb','', 'service_role'),
-    ('record_premium_report_generation_run','uuid,uuid,jsonb','', 'service_role'),
+    ('authorize_manual_report_ai_action','uuid,text','""', 'service_role'),
+    ('claim_manual_report_ai_attempt','jsonb','""', 'service_role'),
+    ('settle_manual_report_ai_attempt','uuid,jsonb','""', 'service_role'),
+    ('record_manual_report_narrative_provenance','uuid,jsonb','""', 'service_role'),
+    ('record_premium_report_generation_run','uuid,uuid,jsonb','""', 'service_role'),
     ('classify_backlog_order','uuid,uuid,text,text,uuid,text,date,text','public, pg_temp','authenticated'),
     ('backlog_reconciliation_queue','','public, pg_temp','authenticated'),
     ('claim_next_fulfilment_job','text,integer','public, pg_temp','service_role'),
@@ -207,10 +207,10 @@ with expected(name, args, search_path, positive_role) as (
     ('revoke_customer_report_access_token','uuid,text','public, pg_temp','authenticated'),
     ('issue_customer_report_access_token','uuid,uuid,text,integer','public, pg_temp','service_role'),
     ('reissue_customer_report_access_token','uuid,uuid,text,text,integer,boolean','public, pg_temp','authenticated'),
-    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','', 'service_role'),
+    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','""', 'service_role'),
     ('correct_delivery_recipient_and_queue','uuid,text,text','public, pg_temp','authenticated'),
-    ('set_phase14_runtime_secret','text,text,text','', 'authenticated'),
-    ('transition_phase14_operational_alert','uuid,text,text','', 'authenticated')
+    ('set_phase14_runtime_secret','text,text,text','""', 'authenticated'),
+    ('transition_phase14_operational_alert','uuid,text,text','""', 'authenticated')
 ), actual as (
   select e.*, p.oid, p.prosecdef,
     coalesce((select split_part(cfg, '=', 2) from unnest(coalesce(p.proconfig, array[]::text[])) cfg where cfg like 'search_path=%' limit 1), 'UNSET') as actual_search_path
@@ -251,17 +251,55 @@ select 'rls_policy_result|' || case when
     and (a.roles::text like '%anon%' or a.roles::text like '%public%' or coalesce(a.qual,'') ~* '(^|[^a-z])true([^a-z]|$)'))
 then 'PASS' else 'STOP' end;
 
-with protected as (
-  select r.order_id, r.id as report_id
-  from public.reports r join public.orders o on o.id = r.order_id
+with protected_reports as (
+  select r.*,o.customer_email,o.updated_at as order_updated_at
+  from public.reports r join public.orders o on o.id=r.order_id
   where o.status = 'payment_received' and r.report_type = 'essential_self_assessment'
     and r.status not in ('superseded','voided') and r.storage_status = 'VERIFIED'
     and r.version_number = (select max(r2.version_number) from public.reports r2
       where r2.order_id=r.order_id and r2.report_type=r.report_type and r2.status not in ('superseded','voided'))
+), protected as (
+  select encode(extensions.digest(convert_to(jsonb_build_object(
+    'order_id',r.order_id,
+    'report_id',r.id,
+    'report_type',r.report_type,
+    'report_version',r.version_number,
+    'report_status',r.status,
+    'storage_status',r.storage_status,
+    'storage_locator_fingerprint',encode(extensions.digest(convert_to(
+      coalesce(r.storage_bucket,'') || ':' || coalesce(r.storage_path,''),'UTF8'),'sha256'),'hex'),
+    'order_recipient_fingerprint',encode(extensions.digest(convert_to(
+      lower(coalesce(r.customer_email::text,'')),'UTF8'),'sha256'),'hex'),
+    'manual_delivery_state_fingerprint',coalesce((
+      select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',m.status,
+        'recipient_fingerprint',encode(extensions.digest(convert_to(
+          lower(coalesce(m.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'updated_at',m.updated_at
+      )::text,'|' order by m.id),''),'UTF8'),'sha256'),'hex')
+      from public.manual_report_delivery_attempts m
+      where m.order_id=r.order_id and m.report_id=r.id
+    ),''),
+    'delivery_authorization_state_fingerprint',coalesce((
+      select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',d.status,
+        'recipient_fingerprint',encode(extensions.digest(convert_to(
+          lower(coalesce(d.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'lease_token_present',d.lease_token is not null,
+        'lease_expires_at',d.lease_expires_at,
+        'updated_at',d.updated_at
+      )::text,'|' order by d.id),''),'UTF8'),'sha256'),'hex')
+      from public.report_delivery_authorizations d
+      where d.order_id=r.order_id and d.report_id=r.id
+    ),''),
+    'report_updated_at',r.updated_at,
+    'order_updated_at',r.order_updated_at
+  )::text,'UTF8'),'sha256'),'hex') as row_fingerprint
+  from protected_reports r
 )
-select 'protected_pair_fingerprint_result|' || case when count(*) = 2 and
-  encode(extensions.digest(convert_to(coalesce(string_agg(order_id::text || ':' || report_id::text, '|' order by order_id, report_id), ''), 'UTF8'), 'sha256'), 'hex') =
-    :'rc1_preflight_protected_pair_fingerprint'
+select 'protected_state_fingerprint_result|' || case when count(*) = 2 and
+  encode(extensions.digest(convert_to(coalesce(string_agg(row_fingerprint, '|' order by row_fingerprint), ''), 'UTF8'), 'sha256'), 'hex') =
+    :'rc1_preflight_protected_state_fingerprint'
 then 'PASS' else 'STOP' end
 from protected;
 select 'duplicate_current_reports_result|' || case when not exists (
@@ -288,19 +326,25 @@ with baseline(key, value) as (select key, value from jsonb_each_text(:'rc1_prefl
     ('report_delivery_finalizations',(select count(*)::text from public.report_delivery_finalizations)),
     ('report_delivery_remediations',(select count(*)::text from public.report_delivery_remediations)),
     ('phase14_operational_alerts',(select count(*)::text from public.phase14_operational_alerts)),
-    ('manual_report_generation_attempts',(select count(*)::text from public.manual_report_generation_attempts))
+    ('manual_report_generation_attempts',(select count(*)::text from public.manual_report_generation_attempts)),
+    ('reports',(select count(*)::text from public.reports)),
+    ('payment_automation_records',(select count(*)::text from public.payment_automation_records)),
+    ('customer_report_access_tokens',(select count(*)::text from public.customer_report_access_tokens)),
+    ('storage.objects',(select count(*)::text from storage.objects)),
+    ('orders',(select count(*)::text from public.orders))
 ), no_change as (
   select b.key, b.value, a.value as actual_value from baseline b left join actual a using (key)
 )
 select 'no_change_aggregate_result|' || case when
-  not exists (select 1 from no_change where actual_value is null or actual_value <> value)
+  (select count(*) from baseline)=14
+  and not exists (select 1 from no_change where actual_value is null or actual_value <> value)
   and (select count(*) from public.manual_report_generation_attempts where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.reports where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.payment_automation_records where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.email_events where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
-  and (select count(*) from public.email_provider_events where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
-  and (select count(*) from public.report_delivery_authorizations where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
-  and (select count(*) from public.report_delivery_finalizations where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
+  and (select count(*) from public.email_provider_events where received_at >= :'rc1_cutover_started_at'::timestamptz) = 0
+  and (select count(*) from public.report_delivery_authorizations where updated_at >= :'rc1_cutover_started_at'::timestamptz) = 0
+  and (select count(*) from public.report_delivery_finalizations where finalized_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.report_delivery_remediations where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.customer_report_access_tokens where created_at >= :'rc1_cutover_started_at'::timestamptz) = 0
   and (select count(*) from public.customer_report_access_tokens) = 0
@@ -311,7 +355,7 @@ then 'PASS' else 'STOP' end;
 select 'worker_lease_result|' || case when not exists (
   select 1 from public.manual_report_generation_attempts where lease_owner is not null or lease_expires_at is not null
 ) and not exists (
-  select 1 from public.report_delivery_authorizations where lease_owner is not null or lease_expires_at is not null
+  select 1 from public.report_delivery_authorizations where lease_token is not null or lease_expires_at is not null
 ) then 'PASS' else 'STOP' end;
 
 \echo RC1_POSTFLIGHT_END

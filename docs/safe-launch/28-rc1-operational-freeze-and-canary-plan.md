@@ -65,13 +65,20 @@ the disabled resting state before any freeze release.
 
 ## Release criteria
 
-The freeze cannot be released until the owner has approved: backup/PITR evidence, all seven ledger
-postflight checks, exact-SHA deployment, disabled-state smoke tests, canary closure, an anonymised
-18-order action register and the complete GO evidence bundle. Any missing technical control remains a
-NO-GO; it is not replaced by a written promise that an administrator will remember not to mutate.
+The freeze cannot be released until the owner has approved the **CONDITIONAL PASS** backup gate and
+its cutover evidence: the latest evidenced scheduled physical backup is
+**2026-07-27 01:03:57 UTC** and the latest available scheduled backup must be retained as fallback;
+a fresh logical database
+backup created after freeze activation and successful final preflight immediately before migration 1,
+and a restricted safeguard of critical Storage objects including `generated-reports` and
+`payment-proofs`, with logical-backup timestamp/checksum, aggregate bucket object counts/size totals
+and protected recovery artifacts outside git. It also requires all seven ledger postflight checks, exact-SHA deployment,
+disabled-state smoke tests, canary closure, an anonymised 18-order action register and the complete
+GO evidence bundle. PITR remains disabled and no compute upgrade or add-on is approved. Any missing
+technical control remains a NO-GO.
 
 
-## RC1A correction reference
+## RC1B correction reference
 
 The exact route/service/RPC inventory, database-bootstrap recommendation, old-application protection
 model, AAL2 control requirements, canary scope and options analysis are in

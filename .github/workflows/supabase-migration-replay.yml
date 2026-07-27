@@ -18,6 +18,9 @@ on:
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
       - 'scripts/phase14-runtime-mutation-guard-tests.sql'
       - 'scripts/phase14-grant-inventory.sql'
+      - 'scripts/rc1-*'
+      - 'package.json'
+      - 'package-lock.json'
       - 'docs/v1/supabase-migration-reconciliation/**'
       - 'docs/v1/phase14/migration-audit-archive/**'
       - '.github/workflows/supabase-migration-replay.yml'
@@ -41,6 +44,9 @@ on:
       - 'scripts/phase14-atomic-capability-completion-tests.sql'
       - 'scripts/phase14-runtime-mutation-guard-tests.sql'
       - 'scripts/phase14-grant-inventory.sql'
+      - 'scripts/rc1-*'
+      - 'package.json'
+      - 'package-lock.json'
       - 'docs/v1/supabase-migration-reconciliation/**'
       - 'docs/v1/phase14/migration-audit-archive/**'
       - '.github/workflows/supabase-migration-replay.yml'
@@ -108,6 +114,9 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -121,6 +130,20 @@ jobs:
           supabase start --help | tee tmp/migration-replay/supabase-start-help.txt
           supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
           supabase db start --help | tee tmp/migration-replay/supabase-db-start-help.txt
+
+      - name: Run required RC1 preflight and postflight disposable harness
+        env:
+          DATABASE_URL: ''
+          DIRECT_URL: ''
+          SUPABASE_DB_URL: ''
+          SUPABASE_DATABASE_URL: ''
+          SUPABASE_ACCESS_TOKEN: ''
+          SUPABASE_SERVICE_ROLE_KEY: ''
+        run: |
+          set -Eeuo pipefail
+          command -v psql
+          npm run rc1:test-prepostflight \
+            | tee tmp/migration-replay/rc1-prepostflight-disposable-tests.txt
 
       - name: Verify expected migration files and generate repair artefact
         run: |

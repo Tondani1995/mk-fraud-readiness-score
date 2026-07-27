@@ -16,6 +16,10 @@ const port = 58600 + (process.pid % 200);
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc1-prepostflight-'));
 const postgres = new EmbeddedPostgres({ databaseDir: dataDir, user: 'postgres', password: 'testpass', port, persistent: false });
 const db = new Client({ host: '127.0.0.1', port, user: 'postgres', password: 'testpass', database: 'testdb' });
+const cloudConnectionVariables = [
+  'DATABASE_URL', 'DIRECT_URL', 'SUPABASE_DB_URL', 'SUPABASE_DATABASE_URL',
+  'SUPABASE_ACCESS_TOKEN', 'SUPABASE_SERVICE_ROLE_KEY'
+];
 
 const pending = [
   '20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql',
@@ -55,15 +59,15 @@ function assert(condition, message) {
   if (!condition) throw new Error(`RC1 PRE/POST TEST FAILED: ${message}`);
 }
 async function query(sql, params = []) { return (await db.query(sql, params)).rows; }
-async function scalar(sql, params = []) { return (await query(sql, params))[0]?.value; }
-function sqlFile(name) { return fs.readFileSync(path.join(root, 'scripts', name), 'utf8'); }
 function migrationFile(name) { return fs.readFileSync(path.join(root, 'supabase', 'migrations', name), 'utf8'); }
 
 function runGate(file, variables) {
   const args = ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'testdb', '-X', '-v', 'ON_ERROR_STOP=1'];
   for (const [key, value] of Object.entries(variables)) args.push('-v', `${key}=${value}`);
   args.push('-f', path.join(root, 'scripts', file));
-  const result = spawnSync(psql, args, { env: { ...process.env, PGPASSWORD: 'testpass' }, encoding: 'utf8' });
+  const localOnlyEnv = { ...process.env, PGPASSWORD: 'testpass' };
+  for (const variable of cloudConnectionVariables) delete localOnlyEnv[variable];
+  const result = spawnSync(psql, args, { env: localOnlyEnv, encoding: 'utf8' });
   return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 function passResult(result, label) {
@@ -78,6 +82,8 @@ function stopResult(result, label, expectedLine) {
 }
 
 async function setup() {
+  assert(db.connectionParameters.host === '127.0.0.1', 'database host must be IPv4 loopback');
+  assert(postgres.options?.databaseDir === undefined || dataDir.startsWith(os.tmpdir()), 'database directory must be disposable and local');
   await postgres.initialise();
   await postgres.start();
   await postgres.createDatabase('testdb');
@@ -102,6 +108,7 @@ async function setup() {
       if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin noinherit; end if;
       if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin noinherit; end if;
       if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin noinherit bypassrls; end if;
+      if not exists (select 1 from pg_roles where rolname='supabase_admin') then create role supabase_admin superuser login; end if;
     end $$;
     grant anon, authenticated, service_role to postgres;
     alter database testdb set search_path=public,extensions;
@@ -111,8 +118,9 @@ async function setup() {
 async function applyMigration(name) {
   const version = name.slice(0, name.indexOf('_'));
   const migrationName = name.slice(name.indexOf('_') + 1, -4);
-  await db.query(migrationFile(name));
-  await db.query('insert into supabase_migrations.schema_migrations(version,name,statements) values ($1,$2,$3)', [version, migrationName, [migrationFile(name)]]);
+  const sql = migrationFile(name);
+  await db.query(sql);
+  await db.query('insert into supabase_migrations.schema_migrations(version,name,statements) values ($1,$2,$3)', [version, migrationName, [sql]]);
 }
 async function replayBaseline() {
   const files = fs.readdirSync(path.join(root, 'supabase', 'migrations')).filter((name) => name.endsWith('.sql')).sort();
@@ -129,7 +137,6 @@ async function ensureAdmin() {
   return '00000000-0000-0000-0000-00000000a001';
 }
 async function seedOrders(adminId) {
-  await db.query(`insert into public.app_settings(setting_key,value_json) values ('email_provider_mode','{"mode":"disabled"}') on conflict (setting_key) do update set value_json=excluded.value_json`);
   const method = await query("select id from public.methodology_versions where status='active' limit 1");
   assert(method.length === 1, 'active methodology seed required');
   let product = (await query('select id from public.products where active limit 1'))[0];
@@ -147,11 +154,14 @@ async function seedOrders(adminId) {
     const score = `00000000-0000-0000-0000-00000000f${n}`;
     await db.query("insert into public.assessments(id,assessment_reference,organisation_id,methodology_version_id,status,submitted_at) values ($1,$2,'00000000-0000-0000-0000-00000000c001',$3,'submitted',now()) on conflict do nothing", [assessment, `RC1-SYNTHETIC-${n}`, method[0].id]);
     await db.query("insert into public.score_runs(id,assessment_id,methodology_version_id,run_number,run_type,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,input_hash,locked_at) values ($1,$2,$3,1,'test_fixture','completed',50,'Reactive','Reactive',50,'Low',100,'0000000000000000000000000000000000000000000000000000000000000000',now()) on conflict do nothing", [score, assessment, method[0].id]);
-    await db.query("insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency) values ($1,$2,$3,$4,'payment_received',1,'ZAR') on conflict do nothing", [order, `RC1-SYNTHETIC-ORDER-${n}`, assessment, product.id]);
+    await db.query("insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency,customer_email) values ($1,$2,$3,$4,'payment_received',1,'ZAR',$5) on conflict do nothing", [order, `RC1-SYNTHETIC-ORDER-${n}`, assessment, product.id, `rc1-synthetic-${n}@invalid.test`]);
     if (i <= 15) {
       const report = `00000000-0000-0000-0000-00000000a${n}`;
       const storage = i <= 2 ? 'VERIFIED' : 'NOT_STORED';
-      await db.query("insert into public.reports(id,assessment_id,order_id,score_run_id,template_id,report_type,status,report_reference,version_number,storage_status) values ($1,$2,$3,$4,$5,'essential_self_assessment','generated',$6,1,$7) on conflict do nothing", [report, assessment, order, score, template.id, `RC1-SYNTHETIC-REPORT-${n}`, storage]);
+      const storageBucket = i <= 2 ? 'generated-reports' : null;
+      const storagePath = i <= 2 ? `rc1/synthetic/${n}.pdf` : null;
+      const checksum = i <= 2 ? String(i).repeat(64) : null;
+      await db.query("insert into public.reports(id,assessment_id,order_id,score_run_id,template_id,report_type,status,report_reference,version_number,storage_status,storage_bucket,storage_path,checksum) values ($1,$2,$3,$4,$5,'essential_self_assessment','generated',$6,1,$7,$8,$9,$10) on conflict do nothing", [report, assessment, order, score, template.id, `RC1-SYNTHETIC-REPORT-${n}`, storage, storageBucket, storagePath, checksum]);
     }
   }
   return { adminId };
@@ -175,23 +185,59 @@ async function baselineCounts() {
     'report_delivery_finalizations',(select count(*)::text from public.report_delivery_finalizations),
     'report_delivery_remediations',(select count(*)::text from public.report_delivery_remediations),
     'phase14_operational_alerts',(select count(*)::text from public.phase14_operational_alerts),
-    'manual_report_generation_attempts',(select count(*)::text from public.manual_report_generation_attempts)
+    'manual_report_generation_attempts',(select count(*)::text from public.manual_report_generation_attempts),
+    'reports',(select count(*)::text from public.reports),
+    'payment_automation_records',(select count(*)::text from public.payment_automation_records),
+    'customer_report_access_tokens','0',
+    'storage.objects',(select count(*)::text from storage.objects),
+    'orders',(select count(*)::text from public.orders)
   ) as value`);
   return rows[0].value;
 }
-async function protectedFingerprint() {
-  const rows = await query(`with protected as (
-    select r.order_id,r.id report_id from public.reports r join public.orders o on o.id=r.order_id
-    where o.status='payment_received' and r.report_type='essential_self_assessment' and r.status not in ('superseded','voided') and r.storage_status='VERIFIED'
-  ) select encode(extensions.digest(convert_to(coalesce(string_agg(order_id::text||':'||report_id::text,'|' order by order_id,report_id),''),'UTF8'),'sha256'),'hex') as value from protected`);
+async function protectedStateFingerprint() {
+  const rows = await query(`with protected_reports as (
+    select r.*,o.customer_email,o.updated_at as order_updated_at
+    from public.reports r join public.orders o on o.id=r.order_id
+    where o.status='payment_received' and r.report_type='essential_self_assessment'
+      and r.status not in ('superseded','voided') and r.storage_status='VERIFIED'
+      and r.version_number=(select max(r2.version_number) from public.reports r2
+        where r2.order_id=r.order_id and r2.report_type=r.report_type and r2.status not in ('superseded','voided'))
+  ), protected as (
+    select encode(extensions.digest(convert_to(jsonb_build_object(
+      'order_id',r.order_id,'report_id',r.id,'report_type',r.report_type,
+      'report_version',r.version_number,'report_status',r.status,'storage_status',r.storage_status,
+      'storage_locator_fingerprint',encode(extensions.digest(convert_to(coalesce(r.storage_bucket,'')||':'||coalesce(r.storage_path,''),'UTF8'),'sha256'),'hex'),
+      'order_recipient_fingerprint',encode(extensions.digest(convert_to(lower(coalesce(r.customer_email::text,'')),'UTF8'),'sha256'),'hex'),
+      'manual_delivery_state_fingerprint',coalesce((select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',m.status,'recipient_fingerprint',encode(extensions.digest(convert_to(lower(coalesce(m.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'updated_at',m.updated_at)::text,'|' order by m.id),''),'UTF8'),'sha256'),'hex')
+        from public.manual_report_delivery_attempts m where m.order_id=r.order_id and m.report_id=r.id),''),
+      'delivery_authorization_state_fingerprint',coalesce((select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',d.status,'recipient_fingerprint',encode(extensions.digest(convert_to(lower(coalesce(d.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'lease_token_present',d.lease_token is not null,'lease_expires_at',d.lease_expires_at,'updated_at',d.updated_at
+      )::text,'|' order by d.id),''),'UTF8'),'sha256'),'hex')
+        from public.report_delivery_authorizations d where d.order_id=r.order_id and d.report_id=r.id),''),
+      'report_updated_at',r.updated_at,'order_updated_at',r.order_updated_at
+    )::text,'UTF8'),'sha256'),'hex') row_fingerprint
+    from protected_reports r
+  ) select encode(extensions.digest(convert_to(coalesce(string_agg(row_fingerprint,'|' order by row_fingerprint),''),'UTF8'),'sha256'),'hex') as value from protected`);
   return rows[0].value;
 }
 async function injectDuplicateReport() {
   await db.query(`insert into public.reports(id,assessment_id,order_id,score_run_id,template_id,report_type,status,report_reference,version_number,storage_status)
-    select '00000000-0000-0000-0000-00000000a099',assessment_id,order_id,score_run_id,template_id,report_type,'generated','RC1-SYNTHETIC-DUPLICATE',2,'NOT_STORED'
-    from public.reports where report_reference='RC1-SYNTHETIC-REPORT-01'`);
+    select '00000000-0000-0000-0000-00000000a099','00000000-0000-0000-0000-00000000d016',r1.order_id,
+      '00000000-0000-0000-0000-00000000f016',r1.template_id,r1.report_type,'generated',
+      'RC1-SYNTHETIC-DUPLICATE',2,'NOT_STORED'
+    from public.reports r1
+    where r1.report_reference='RC1-SYNTHETIC-REPORT-001'
+  `);
 }
 async function cleanDuplicate() { await db.query("delete from public.reports where report_reference='RC1-SYNTHETIC-DUPLICATE'"); }
+async function injectActiveGeneration(adminId) {
+  await db.query(`insert into public.manual_report_generation_attempts(request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+    values ('00000000-0000-0000-0000-00000000aa01','RC1-SYNTHETIC-ACTIVE','00000000-0000-0000-0000-00000000e001',1,'admin_generate',$1,'REPORT_GENERATING','synthetic')`,[adminId]);
+}
+async function cleanActiveGeneration() { await db.query("delete from public.manual_report_generation_attempts where request_key='RC1-SYNTHETIC-ACTIVE'"); }
 async function injectLease(adminId) {
   await db.query(`insert into public.manual_report_generation_attempts(request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference,lease_owner,lease_expires_at)
     values ('00000000-0000-0000-0000-00000000aa01','RC1-SYNTHETIC-LEASE','00000000-0000-0000-0000-00000000e001',1,'admin_generate',$1,'REPORT_GENERATING','synthetic','synthetic-worker',now()+interval '5 minutes')`, [adminId]);
@@ -199,37 +245,64 @@ async function injectLease(adminId) {
 async function cleanLease() { await db.query("delete from public.manual_report_generation_attempts where request_key='RC1-SYNTHETIC-LEASE'"); }
 async function runPre(vars) { return runGate('rc1-production-preflight.sql', vars); }
 async function runPost(vars) { return runGate('rc1-production-postflight.sql', vars); }
-async function expectPreStop(label, mutate, cleanup, line) { await mutate(); try { stopResult(await runPre(preVars), label, line); } finally { await cleanup(); } }
+async function expectPreStop(label, mutate, cleanup, line) {
+  const before = await protectedStateFingerprint();
+  await mutate();
+  try {
+    stopResult(await runPre(preVars), label, line);
+  } finally {
+    await cleanup();
+  }
+  assert((await protectedStateFingerprint()) === before, `${label} cleanup must restore protected state`);
+}
 async function expectPostStop(label, mutate, cleanup, line, override = {}) { await mutate(); try { stopResult(await runPost({ ...postVars, ...override }), label, line); } finally { await cleanup(); } }
 
 let preVars;
 let postVars;
+let protectedReportOriginal;
 try {
   await setup();
   await replayBaseline();
   const adminId = await ensureAdmin();
   await seedOrders(adminId);
   const baselineCountsJson = JSON.stringify(await baselineCounts());
-  const protectedPair = await protectedFingerprint();
+  const protectedState = await protectedStateFingerprint();
+  [protectedReportOriginal] = await query("select storage_path,updated_at::text as updated_at from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
   const baselineRpcJson = await jsonRpcFingerprints(baselineRpc);
   preVars = {
     rc1_approved_rpc_baseline_json: baselineRpcJson,
     rc1_expected_baseline_counts_json: baselineCountsJson,
-    rc1_approved_protected_pair_fingerprint: protectedPair
+    rc1_approved_protected_state_fingerprint: protectedState
   };
   passResult(await runPre(preVars), 'baseline preflight');
 
   await expectPreStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
-  await expectPreStop('generation lease', () => injectLease(adminId), cleanLease, 'active_generation_result|STOP');
+  await expectPreStop('active generation', () => injectActiveGeneration(adminId), cleanActiveGeneration, 'active_generation_result|STOP');
+  await expectPreStop('unexpected early post-migration column', async () => { await db.query('alter table public.manual_report_generation_attempts add column lease_owner text'); }, async () => { await db.query('alter table public.manual_report_generation_attempts drop column lease_owner'); }, 'pre_migration_capability_result|STOP');
+  await expectPreStop('database-visible provider mode enabled', async () => { await db.query(`insert into public.app_settings(setting_key,value_json) values ('email_provider_mode','{"mode":"test"}'::jsonb)`); }, async () => { await db.query("delete from public.app_settings where setting_key='email_provider_mode'"); }, 'provider_mode_database_visibility_result|STOP');
+  await expectPreStop('protected report updated', async () => { await db.query("update public.reports set storage_path='rc1/synthetic/changed.pdf' where report_reference='RC1-SYNTHETIC-REPORT-001'"); }, async () => {
+    await db.query('alter table public.reports disable trigger trg_reports_updated_at');
+    await db.query("update public.reports set storage_path=$1,updated_at=$2 where report_reference='RC1-SYNTHETIC-REPORT-001'",[protectedReportOriginal.storage_path,protectedReportOriginal.updated_at]);
+    await db.query('alter table public.reports enable trigger trg_reports_updated_at');
+  }, 'protected_state_fingerprint_result|STOP');
   await expectPreStop('new order event', async () => { await db.query("insert into public.order_events(order_id,event_type,note,metadata_json) values ('00000000-0000-0000-0000-00000000e001','synthetic','synthetic', '{}'::jsonb)"); }, async () => { await db.query("delete from public.order_events where event_type='synthetic'"); }, 'baseline_counts_result|STOP');
   await expectPreStop('new email event', async () => { await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-synthetic-event@invalid.test','queued','disabled')"); }, async () => { await db.query("delete from public.email_events where recipient_email='rc1-synthetic-event@invalid.test'"); }, 'baseline_counts_result|STOP');
+  assert(
+    (await protectedStateFingerprint()) === protectedState,
+    'preflight defect cleanup must restore protected state',
+  );
 
+  const cutoverStartedAt = new Date().toISOString();
   for (const name of pending) await applyMigration(name);
+  assert(
+    (await protectedStateFingerprint()) === protectedState,
+    'seven migrations must preserve protected state',
+  );
   const postRpcJson = await jsonRpcFingerprints(postflightRpc);
   postVars = {
-    rc1_cutover_started_at: new Date().toISOString(),
+    rc1_cutover_started_at: cutoverStartedAt,
     rc1_preflight_newest_version: '20260721150808',
-    rc1_preflight_protected_pair_fingerprint: protectedPair,
+    rc1_preflight_protected_state_fingerprint: protectedState,
     rc1_preflight_baseline_counts_json: baselineCountsJson,
     rc1_approved_postflight_rpc_fingerprints_json: postRpcJson
   };
@@ -243,7 +316,11 @@ try {
   await expectPostStop('unsafe search_path', async () => { await db.query("alter function public.recover_expired_fulfilment_leases() set search_path = public"); }, async () => { await db.query("alter function public.recover_expired_fulfilment_leases() set search_path = public, pg_temp"); }, 'rpc_combined_result|STOP');
   await expectPostStop('PUBLIC EXECUTE grant', async () => { await db.query("grant execute on function public.recover_expired_fulfilment_leases() to public"); }, async () => { await db.query("revoke execute on function public.recover_expired_fulfilment_leases() from public"); }, 'rpc_combined_result|STOP');
   await expectPostStop('RLS disabled', async () => { await db.query('alter table public.backlog_reconciliation_records disable row level security'); }, async () => { await db.query('alter table public.backlog_reconciliation_records enable row level security'); }, 'rls_policy_result|STOP');
-  await expectPostStop('changed protected-order fingerprint', async () => {}, async () => {}, 'protected_pair_fingerprint_result|STOP', { rc1_preflight_protected_pair_fingerprint: '0000000000000000000000000000000000000000000000000000000000000000' });
+  await expectPostStop('changed protected-state fingerprint', async () => { await db.query("update public.reports set storage_path='rc1/synthetic/postflight-changed.pdf' where report_reference='RC1-SYNTHETIC-REPORT-001'"); }, async () => {
+    await db.query('alter table public.reports disable trigger trg_reports_updated_at');
+    await db.query("update public.reports set storage_path=$1,updated_at=$2 where report_reference='RC1-SYNTHETIC-REPORT-001'",[protectedReportOriginal.storage_path,protectedReportOriginal.updated_at]);
+    await db.query('alter table public.reports enable trigger trg_reports_updated_at');
+  }, 'protected_state_fingerprint_result|STOP');
   await expectPostStop('worker lease', () => injectLease(adminId), cleanLease, 'worker_lease_result|STOP');
   await expectPostStop('new order event', async () => { await db.query("insert into public.order_events(order_id,event_type,note,metadata_json) values ('00000000-0000-0000-0000-00000000e001','synthetic-post','synthetic', '{}'::jsonb)"); }, async () => { await db.query("delete from public.order_events where event_type='synthetic-post'"); }, 'no_change_aggregate_result|STOP');
   await expectPostStop('new email event', async () => { await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-synthetic-post@invalid.test','queued','disabled')"); }, async () => { await db.query("delete from public.email_events where recipient_email='rc1-synthetic-post@invalid.test'"); }, 'no_change_aggregate_result|STOP');

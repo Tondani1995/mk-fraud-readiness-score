@@ -192,6 +192,13 @@ begin
 end;
 $$;
 
+revoke all on function public.apply_email_provider_event_atomic(
+  text, text, text, text, timestamptz, text, jsonb
+) from public, anon, authenticated;
+grant execute on function public.apply_email_provider_event_atomic(
+  text, text, text, text, timestamptz, text, jsonb
+) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- 2. approve_quality_review(): missing-recipient exception is now visible and correctable, not
 --    only logged. Full existing body from 20260724170000_release_c_email_secure_delivery.sql

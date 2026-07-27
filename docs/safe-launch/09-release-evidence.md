@@ -583,8 +583,14 @@ evidence exists:
 - `scripts/rc1-production-postflight.sql`
 - `26-existing-order-action-register.md` (anonymised defaults only)
 
-The Supabase backup/PITR gate is intentionally unresolved until the owner confirms PITR status,
-retention, latest recoverable point, backup requirement and restoration authority from the dashboard.
+The supplemental owner decision records a **CONDITIONAL PASS** for the Supabase backup gate:
+Supabase organisation owner and restoration authority are **Tondani Netili**; permission to initiate
+restoration is confirmed; scheduled physical backups are active; PITR is disabled; and PITR/compute
+upgrade is not approved. The conditional gate still requires, at the eventual cutover, the latest
+scheduled physical backup as fallback, a fresh logical database backup after freeze activation and
+successful final preflight immediately before the first migration, and a restricted safeguard of
+critical Supabase Storage objects including `generated-reports` and `payment-proofs`.
+No logical backup, Storage copy or restoration has been performed, and PITR must not be enabled.
 The active `mk_validated` template limitation remains a documented Production limitation and is not
 invented or filled during RC preparation.
 
@@ -608,5 +614,90 @@ accepted. This correction cycle hardens the read-only preflight/postflight asser
 machine-readable manifest and disposable runtime defect tests, corrects the provider-certification
 sequence, and returns the technical-freeze capability as a design for controller approval only.
 No migration, cloud ledger, Production, Vercel, Resend, worker, customer-data or merge action is
-performed. The unresolved PITR/recovery point, absence cover, 18-order external actions and final
-worker/manual operating-model decision remain owner gates.
+performed. The backup gate is conditionally passed on the supplied owner decision, but the cutover
+backup evidence and execution sequence remain outstanding alongside absence cover, 18-order
+external actions and the final worker/manual operating-model decision.
+
+### Supplemental owner decision — RC1 backup gate
+
+- Supabase organisation owner: **Tondani Netili**.
+- Restoration authority: **Tondani Netili**; permission to initiate restoration confirmed.
+- Scheduled physical backups: **active**.
+- PITR: **disabled**; PITR and compute upgrade are **not approved**.
+- Backup gate: **CONDITIONAL PASS**.
+- Required eventual safeguards: latest scheduled physical backup as fallback; fresh logical backup
+  after freeze activation and successful final preflight, immediately before migration 1; and a
+  restricted safeguard of critical Storage objects, including `generated-reports` and
+  `payment-proofs`.
+- Not performed: logical backup creation, Storage copy, restoration, PITR enablement, compute
+  upgrade, add-on purchase or any cloud/Production action.
+
+---
+
+## RC1B correction evidence
+
+**Status:** RC PREPARATION CORE: PREVIOUSLY ACCEPTED; RC1A CORRECTION HEAD: NOT ACCEPTED;
+RC1B CORRECTION: CODE COMPLETE — CONTROLLER REVIEW REQUIRED; RC1 OPERATIONAL READINESS,
+RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH: **NO-GO**; **DO NOT MERGE**.
+
+### Security Scans run 199 classification
+
+The redacted `secret-scan-evidence` artifact from exact run 199 was inspected without printing or
+retaining the detected value:
+
+- Rule ID: `generic-api-key`.
+- File: `scripts/rc1-prepostflight-disposable-tests.mjs`.
+- Commit: `fa2b57c133baccf3069b0a2e280b50ecb7e1e613`.
+- Finding fingerprint:
+  `fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-tests.mjs:generic-api-key:199`.
+- Classification: **false positive**. The matched source is a fixed synthetic `request_key` used
+  only to delete a disposable embedded-Postgres fixture row. It is not used for authentication,
+  authorisation, signing, encryption, a provider call or any external connection.
+- Suppression scope: only the exact finding fingerprint above is added to `.gitleaksignore`; no
+  path, rule or regex suppression is added.
+
+### Migration-0006 harness root cause and repair
+
+The exact failure was PostgreSQL `42P01` at `0006_phase6_scoring_guards.sql`:
+`public.score_question_traces` did not exist when the migration created its unique index.
+
+The RC1 harness had diverged from the proven RC0 compatibility bootstrap in two ways: it omitted the
+local `supabase_admin` compatibility role, and it read each migration file separately for execution
+and ledger recording instead of executing and recording the same SQL bytes. The repair reuses the
+RC0 compatibility role and single-read replay pattern. Migration 0006 is not bypassed, weakened,
+manually marked applied or supplied arbitrary pass-through rows.
+
+The required `npm run rc1:test-prepostflight` command is a mandatory step in the Supabase Migration
+Replay workflow. The harness binds only to disposable embedded Postgres on `127.0.0.1`, removes
+cloud connection variables from its `psql` child environment and cannot select an external database.
+
+### Confirmed backup owner decision
+
+- Supabase organisation owner and restoration authority: **Tondani Netili**.
+- Scheduled physical backups: active; latest evidenced backup:
+  **2026-07-27 01:03:57 UTC**.
+- PITR: disabled; PITR/compute upgrade: not approved.
+- Backup gate: **CONDITIONAL PASS**.
+- Future cutover still requires the technical freeze, successful final preflight, a fresh logical
+  backup immediately before migration 1 with timestamp/checksum, and restricted safeguards for
+  `generated-reports` and `payment-proofs` with aggregate object counts/size totals. Protected
+  recovery artifacts remain outside git.
+
+No PITR, compute, add-on, logical-backup, Storage-copy, restoration, cloud or Production action was
+performed during RC1B.
+
+### Disposable replay outcome
+
+`npm run rc1:test-prepostflight` completed successfully in an isolated loopback database:
+
+- all 34 baseline migrations replayed in exact order, including migrations 0006 and 0026;
+- the current-boundary preflight passed and every required preflight defect emitted `STOP`;
+- all seven cutover migrations applied in exact order;
+- postflight passed its ledger, schema, index, 29-RPC, grant, RLS, protected-state, duplicate,
+  no-change and worker-lease checks;
+- every required postflight defect emitted `STOP`; and
+- the two protected paid-order/report records retained their full approved-state fingerprint.
+
+The successful replay also verifies the explicit service-role grant and PUBLIC/anon/authenticated
+revocation for `record_premium_report_generation_run(...)` and
+`apply_email_provider_event_atomic(...)`. No customer data or external database was used.

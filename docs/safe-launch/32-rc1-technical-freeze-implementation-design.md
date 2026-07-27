@@ -8,23 +8,25 @@ recommended implementation boundary for a future authorised cycle.
 
 ## 1. Design decision
 
-The eventual cutover must become **eight migrations**: one freeze-bootstrap migration followed by
-the seven already-approved behaviour-changing migrations. The bootstrap migration is required before
-the first of the seven because the current Production application has no common freeze gate and can
-continue calling legacy direct writes/RPCs during a schema/application deployment gap.
+The eventual schema cutover contains **eight migrations**: one freeze-bootstrap migration followed
+by the seven already-approved behaviour-changing migrations. Before any schema operation, however,
+the final RC application SHA must already be deployed with a fail-closed, environment-controlled
+technical freeze active. The current Production application has no common freeze gate and can
+continue calling legacy direct writes/RPCs, so a procedural or administrator-only freeze is rejected.
 
 The bootstrap migration must be additive and independently fingerprinted. It must create the freeze
 state, the database enforcement trigger/function, and the three AAL2 platform-admin control RPCs.
 The seven existing migrations must not be edited to implement the freeze in this correction cycle.
 
-The application/edge deployment remains same-SHA work and is not counted as a migration. The
-bootstrap migration itself must be applied only after the owner has activated the existing manual
-operational freeze for the short bootstrap transaction; once committed, the database guard protects
-the old Production app until the new application is deployed.
+The application/edge deployment remains same-SHA work and is not counted as a migration. The final
+RC application must be compatible with the old 34-migration schema while frozen and must stop every
+mutation before database access. Only after technical mutation probes pass may the bootstrap
+migration run in an already-frozen environment. The same application SHA remains deployed throughout.
 
 ## 2. Exact current mutation inventory
 
-The inventory is based on the current RC head `226c25eed98eed5d62fbc2a3067a6c96d9920127`. “Old app
+The inventory is based on the controller-reviewed RC1A base
+`fa2b57c133baccf3069b0a2e280b50ecb7e1e613`. “Old app
 call” means the current Production application version can reach the route/service/RPC before the
 same-SHA application deployment. Every row below therefore requires a database guard, even where an
 application check will be added later.
@@ -76,12 +78,24 @@ The control RPCs must verify AAL2 from the server-side auth context, not from us
 The canary authorization must be single-use, surface-scoped, time-limited, and bound to the
 controller-approved synthetic fixture and designated test mailbox outside git.
 
-## 4. Old-application protection and bootstrap gap
+## 4. Pre-schema technical isolation and bootstrap gap
 
-The owner first activates the existing manual operational freeze. The bootstrap migration is then
-applied as the first schema operation. Its commit creates the fail-closed row and triggers before
-any of the seven behaviour-changing migrations are attempted. From that commit onward, the old app
-can still receive requests, but every protected mutation reaches a trigger and stops.
+The chosen design is a two-layer technical freeze with no procedural-only interval:
+
+1. The final RC application contains a fail-closed application/edge gate controlled by a Production
+   freeze environment setting. It is deployed with that setting active while the database still has
+   exactly the old 34-migration schema.
+2. Every public `/score` intake route and every mutation route in §2 checks the freeze before any
+   database client or service call. Public/admin mutations return HTTP 423. Payment and Resend
+   callbacks are disabled at the provider and also fail closed at the route with HTTP 503 and
+   `Retry-After`. Scheduled and manual worker invocation are unavailable.
+3. Compatibility tests deploy or run that freeze-enabled RC application against the old schema and
+   prove health/read-only paths work while all mutation probes produce no writes. The pre-schema gate
+   must not call the not-yet-created `rc1_freeze_status()` RPC.
+4. Only after those probes pass does the freeze-bootstrap migration run. It creates the database
+   freeze row and guards already in the frozen state.
+5. The seven behaviour migrations then apply while both the application gate and database guard are
+   frozen. The same application SHA remains deployed across the transition.
 
 The seven later migrations must not drop the freeze table, replace the guard function, remove guard
 triggers, or widen grants. The postflight must fingerprint the bootstrap objects and verify trigger
@@ -91,23 +105,29 @@ implicit released state.
 ## 5. Application/edge gate
 
 The same-SHA application correction adds a single gate helper called before every route/service
-listed in §2. It reads the non-PII `rc1_freeze_status()` result and fails closed on timeout, unknown
-state or RPC absence. User/admin mutations return HTTP 423 with reason `RC1_OPERATION_FROZEN`.
+listed in §2. Before bootstrap, its authoritative input is the fail-closed Production freeze
+environment setting, so it is compatible with the old schema. After bootstrap, it also reads the
+non-PII `rc1_freeze_status()` result and fails closed on timeout, disagreement, unknown state or RPC
+absence. User/admin mutations return HTTP 423 with reason `RC1_OPERATION_FROZEN`.
 Payment and Resend webhooks return HTTP 503 with `Retry-After` so the provider can retry without a
 false acknowledgment. The worker returns HTTP 423 without claiming a lease. Provider mode remains
 disabled throughout RC1 certification.
 
-The application gate is defence in depth only. The database trigger/RPC guard is the authority that
-protects the old application during the schema/application gap.
+Before bootstrap, the application/edge gate is the technical isolation authority. After bootstrap,
+the database trigger/RPC guard becomes the authoritative second layer. Freeze release requires both
+layers to agree and must happen only after postflight, disabled-state smoke and certification.
 
 ## 6. Options considered
 
 | Option | Result |
 |---|---|
-| Application-only boolean/env flag | Reject. Old Production code can still mutate during the gap, and a missing flag can accidentally default open. |
+| Final RC application/edge gate deployed freeze-active before schema change | **Choose for pre-schema isolation.** It is implementable in the application without assuming a paid Vercel feature, can cover public/admin/webhook/worker routes before DB access, and is testable against the old schema. Missing/unknown state defaults frozen. |
+| Existing application plus manual/admin freeze | Reject. It leaves an interval where the old application can mutate and relies on discipline. |
 | RPC wrappers only | Reject. Legacy direct writes and already-existing RPCs can bypass a new wrapper. |
 | Provider/webhook/worker disable only | Reject. It does not stop public assessment/order writes or admin status/generation actions. |
-| Database trigger guard plus AAL2 control RPCs plus application gate | **Recommend.** It protects old and new callers, fails closed on missing state, and gives auditable narrow canary control. |
+| Database trigger guard plus AAL2 control RPCs | **Choose after bootstrap.** It protects old and new database callers, fails closed on missing state, and gives auditable narrow canary control. |
+| Vercel Firewall/WAF or maintenance rule as the sole gate | Reject as the primary control. Actual paid-feature availability is not assumed or approved; route coverage for provider callbacks, admin paths and manual worker invocation must not depend on an unverified plan capability. It may be supplemental only if separately evidenced. |
+| Vercel deployment protection/maintenance page | Reject as the primary control. It does not prove every internal mutation route and provider callback fails before database access. |
 | Connection-pool or cloud firewall block | Reject as the primary control. It is coarse, provider-dependent, and does not provide a transaction-level canary scope or an auditable release RPC. |
 
 ## 7. Acceptance conditions for a future implementation
@@ -118,11 +138,33 @@ implementation. The future cycle must then prove, in a disposable database, that
 canary can pass only through its scoped ticket, and that activation/canary/release each require AAL2,
 reason and audit evidence.
 
-No freeze capability is implemented by this RC1A correction cycle.
+No freeze capability is implemented by this RC1B correction cycle.
 
-## 8. Unresolved owner decisions retained
+## 8. Final expected cutover
 
-- Supabase PITR/backup evidence and the approved recovery point.
+1. Deploy the exact final RC application SHA with the pre-schema technical freeze active.
+2. Disable payment/Resend callbacks at their providers and make route callbacks fail closed.
+3. Make scheduled and manual worker invocation unavailable.
+4. Prove old-34-schema compatibility and zero-write mutation probes.
+5. Run final preflight and create the separately authorised logical backup/Storage safeguards.
+6. Apply the freeze-bootstrap migration in frozen state.
+7. Apply the seven behaviour migrations in exact order.
+8. Run postflight.
+9. Run same-SHA disabled-state smoke tests.
+10. Run the separately controlled certification sequence.
+11. Release both database and application freeze layers under named authority.
+
+## 9. Unresolved owner decisions retained
+
+- Supabase backup gate is **CONDITIONAL PASS**: Tondani Netili is the Supabase organisation owner
+  and restoration authority, permission to initiate restoration is confirmed, scheduled physical
+  backups are active, latest evidenced backup is **2026-07-27 01:03:57 UTC**, PITR is disabled, and
+  PITR/compute upgrade is not approved. Cutover evidence remains outstanding: latest scheduled
+  physical backup as fallback, fresh logical backup after
+  freeze activation and successful final preflight immediately before migration 1, and restricted
+  safeguards of critical Storage objects including `generated-reports` and `payment-proofs`, with
+  logical-backup timestamp/checksum, aggregate bucket counts/size totals and protected artifacts
+  outside git.
 - Named absence-cover operator.
 - Owner-approved external action for all 18 paid orders.
 - Final worker/manual fulfilment operating-model decision.

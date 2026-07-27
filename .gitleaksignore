@@ -52,3 +52,6 @@ a3d7c144033a156d109c75bca60d8ec44dab2d9a:supabase/migrations/0017_phase14_canoni
 
 # Reviewed non-secret phase14 delivery-policy setting in the generated production reconciliation artifact.
 5ae75713be1bdf2bfee7f944926572bc48665d0d:scripts/phase14-production-canonical-reconciliation.sql:generic-api-key:2003
+
+# Reviewed non-secret fixed synthetic request key in the disposable RC1 harness; no credential value is present.
+fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-tests.mjs:generic-api-key:199

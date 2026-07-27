@@ -50,17 +50,30 @@ unexpected file in the allowlist.
 
 **Actor:** Tondani Netili from the Supabase dashboard; Codex records only the supplied evidence.
 
-**Exact action:** Confirm whether PITR is enabled, retention period, latest recoverable point, whether
-an on-demand or logical backup is additionally required, and who may initiate restoration. Capture
-the approved recovery point timestamp and restoration authority without exposing credentials.
+**Exact action:** Record the supplied owner decision: Supabase organisation owner and restoration
+authority are Tondani Netili; permission to initiate restoration is confirmed; scheduled physical
+backups are active; PITR is disabled; PITR and compute upgrade are not approved; and the backup gate
+is a **CONDITIONAL PASS**. The latest evidenced scheduled physical backup is
+**2026-07-27 01:03:57 UTC**. At the eventual cutover, use that scheduled-backup class as fallback,
+create a fresh logical database backup only after the technical freeze is active and successful
+final preflight and immediately before migration 1, and create a restricted safeguard of critical
+Storage objects including `generated-reports` and `payment-proofs`. Retain the logical-backup
+timestamp/checksum and aggregate bucket object counts/size totals; keep protected recovery artifacts
+outside git.
 
-**Expected result:** A recoverable point is explicitly approved for this event.
+Do not enable PITR, upgrade compute, purchase an add-on, create the logical backup, copy Storage
+objects or restore anything during RC preparation.
 
-**Evidence retained:** Dashboard screenshot or equivalent export, project identifier only, retention,
-latest recoverable point, backup decision and restoration-authority name.
+**Expected result:** The conditional backup gate is recorded, with the eventual fallback backup,
+logical-backup timing and restricted Storage safeguard required as cutover evidence.
 
-**Stop condition:** Any item is unknown, stale, unavailable or not approved. No migration or freeze
-progresses while this gate is unresolved.
+**Evidence retained:** Supplied owner decision, latest scheduled-backup identifier/timestamp when
+cutover begins, logical-backup checksum/timestamp after final preflight, restricted Storage-safeguard
+manifest/checksum, backup decision and restoration-authority name. Keep all evidence non-PII.
+
+**Stop condition:** The scheduled fallback is unavailable, the logical backup is not created at the
+required point, the Storage safeguard is incomplete, or any backup evidence is stale, contradictory
+or unavailable. No migration progresses on a conditional pass without those cutover artefacts.
 
 **Cloud state:** No, except any separately approved backup operation; Codex does not initiate one.
 
@@ -108,7 +121,7 @@ the approved baseline; do not investigate by mutating Production.
 
 ## 5. Seven-migration execution order
 
-**Status:** No migration command is approved in this RC1A cycle.
+**Status:** No migration command is approved in this RC1B cycle.
 
 The requested installed-tool verification was performed in the available workspace. There is no
 installed `supabase` executable; `supabase --version`, `supabase db push --help` and
@@ -132,7 +145,7 @@ The safest executable alternative for a future controller-authorised run is:
    leaves them **unapproved** because the executable is absent. If the runner has no supported
    way to target the linked project while consuming only the seven-file staging directory, STOP.
 5. Before application, require the read-only preflight to prove 34 rows, newest
-   `20260721150808`, no pending seven versions, the approved RPC baseline and the protected-pair
+   `20260721150808`, no pending seven versions, the approved RPC baseline and the protected-state
    fingerprint. After each successful file, require one matching ledger row and the per-step
    object manifest.
 6. Run with the executor's fail-fast mode, no automatic retry, and a trap that records the first
@@ -154,7 +167,7 @@ The safest executable alternative for a future controller-authorised run is:
 
 The eventual approved sequence must include the separate freeze-bootstrap migration before this list,
 making the future cutover eight migrations. The seven behaviour migrations are not applied by this
-RC1A correction cycle.
+RC1B correction cycle.
 
 ## 6. Schema and RPC postflight
 
@@ -365,7 +378,7 @@ affected aggregate counts, owner decision and forward-repair record.
 **Cloud state:** Depends on the incident; the freeze remains active and Codex takes no unapproved
 repair action.
 
-## RC1A provider-certification correction
+## RC1B provider-certification correction
 
 The three secret relationships are separate and must be evidenced separately:
 
@@ -376,29 +389,32 @@ The three secret relationships are separate and must be evidenced separately:
 
 The future certification sequence is exactly:
 
-1. Deploy the integrated approved SHA with provider mode **disabled**.
+1. Deploy the exact approved RC SHA with `MK_EMAIL_PROVIDER_MODE=disabled`.
 2. Keep the Resend webhook disabled.
-3. Confirm/provision all three secret relationships; record names, actors, timestamps and
-   non-reversible fingerprints only.
-4. Redeploy the same SHA with provider mode still disabled.
-5. Verify all three fingerprints and the disabled resting state.
-6. Enable the Resend webhook.
-7. Change `MK_EMAIL_PROVIDER_MODE` to `test`.
-8. Redeploy the same SHA.
-9. Use one preapproved synthetic canary and the designated MK test mailbox only.
-10. Certify payment acknowledgement and secure report-ready delivery.
-11. Require the signed webhook to return HTTP 200.
-12. Prove the provider event correlates to the intended email event.
-13. Prove no unrelated order or job is eligible.
-14. Return `MK_EMAIL_PROVIDER_MODE` to `disabled`.
-15. Redeploy the same SHA.
-16. Disable the Resend webhook.
-17. Independently verify the final disabled resting state, including workers, webhooks, provider mode
-    and no unrelated state changes.
+3. Confirm `RESEND_WEBHOOK_SECRET` against the intended Resend endpoint.
+4. Provision the two independent Phase 14 HMAC values through Vercel and the AAL2 admin RPC:
+   `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` and
+   `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET`.
+5. Redeploy the same SHA while provider mode remains disabled.
+6. Verify Vercel READY/exact SHA and both non-reversible database HMAC fingerprints.
+7. Enable the Resend webhook.
+8. Change `MK_EMAIL_PROVIDER_MODE` to `test`.
+9. Redeploy the same SHA.
+10. Use one approved synthetic canary and the designated MK test mailbox only.
+11. Certify the payment-acknowledgement message.
+12. Certify the secure report-ready message.
+13. Require the signed webhook to return HTTP 200.
+14. Prove the provider event correlates to the intended email event.
+15. Prove no unrelated order or job is eligible.
+16. Return `MK_EMAIL_PROVIDER_MODE` to `disabled`.
+17. Redeploy the same SHA.
+18. Disable the Resend webhook.
+19. Independently verify the final disabled resting state, including workers, webhooks, provider
+    mode and no unrelated state changes.
 
 RC1 certification must never set provider mode to `live`. The sequence is design/evidence only in
 this correction cycle; no secret, webhook, provider mode, deployment or canary action is performed.
 
 ## Current decision
 
-This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1 decision-package structure is accepted, but RC1 operational readiness is **CORRECTIONS REQUIRED**. Supabase PITR/backup evidence, the approved recovery point, the exact technical freeze design, the 18-order approvals, the worker/manual operating-model decision and all other §1–§16 gates remain owner/controller gates.
+This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1 decision-package structure is accepted, but RC1 operational readiness is **CORRECTIONS REQUIRED**. The Supabase backup gate is **CONDITIONAL PASS** under the supplemental owner decision; the eventual scheduled-backup fallback evidence, post-freeze logical-backup evidence, restricted Storage safeguard, exact technical freeze design, 18-order approvals, worker/manual operating-model decision and all other §1–§16 gates remain owner/controller gates.

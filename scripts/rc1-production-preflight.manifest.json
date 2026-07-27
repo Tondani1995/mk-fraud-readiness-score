@@ -22,7 +22,31 @@
     "NO_REPORT": 3,
     "OTHER_CURRENT_STATE": 0,
     "aggregate_fingerprint": "282e23d1aade6ddffd0d0e6a09ad3963ba04d0f299fc1188f2d43ab4afd9c47b",
-    "protected_order_report_pair_fingerprint": "controller-supplied-at-read-only-preflight"
+    "protected_state_fingerprint": {
+      "value": "controller-supplied-at-read-only-preflight",
+      "covers": [
+        "order_report_pairing",
+        "report_version",
+        "report_status",
+        "storage_status",
+        "storage_bucket_path_fingerprint",
+        "order_recipient_fingerprint",
+        "manual_delivery_state_fingerprint",
+        "delivery_authorization_state_fingerprint",
+        "order_updated_at",
+        "report_updated_at"
+      ]
+    }
+  },
+  "current_boundary_capabilities": {
+    "manual_report_generation_attempts.lease_owner": "absent",
+    "manual_report_generation_attempts.lease_expires_at": "absent",
+    "report_delivery_authorizations.lease_owner": "absent",
+    "report_delivery_authorizations.lease_token": "present",
+    "report_delivery_authorizations.lease_expires_at": "present",
+    "customer_report_access_tokens": "absent",
+    "provider_mode_database_visibility": "NOT_DATABASE_VISIBLE_when_both_app_settings_keys_are_absent",
+    "vercel_MK_EMAIL_PROVIDER_MODE": "separate_owner_deployment_evidence_required"
   },
   "baseline_counts": {
     "order_events": "controller-supplied-at-read-only-preflight",
@@ -33,7 +57,12 @@
     "report_delivery_finalizations": "controller-supplied-at-read-only-preflight",
     "report_delivery_remediations": "controller-supplied-at-read-only-preflight",
     "phase14_operational_alerts": "controller-supplied-at-read-only-preflight",
-    "manual_report_generation_attempts": "controller-supplied-at-read-only-preflight"
+    "manual_report_generation_attempts": "controller-supplied-at-read-only-preflight",
+    "reports": "controller-supplied-at-read-only-preflight",
+    "payment_automation_records": "controller-supplied-at-read-only-preflight",
+    "customer_report_access_tokens": "0_when_expected_table_is_absent_at_current_boundary",
+    "storage.objects": "controller-supplied-at-read-only-preflight",
+    "orders": "controller-supplied-at-read-only-preflight"
   },
   "baseline_rpc_fingerprints": {
     "source": "controller-approved baseline captured from the exact Production catalog; no function body is committed",
@@ -53,7 +82,6 @@
   },
   "no_change_state": {
     "active_generation_attempts": 0,
-    "active_generation_leases": 0,
     "active_delivery_leases": 0,
     "provider_events_since_freeze": 0,
     "operational_alert_mutations_since_freeze": 0

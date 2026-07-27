@@ -7,7 +7,7 @@
 -- Required values are supplied by the controller-approved, non-PII manifest:
 --   rc1_approved_rpc_baseline_json
 --   rc1_expected_baseline_counts_json
---   rc1_approved_protected_pair_fingerprint
+--   rc1_approved_protected_state_fingerprint
 -- The script never emits UUIDs, order references, emails, names, report content or function bodies.
 \if :{?rc1_approved_rpc_baseline_json}
 \else
@@ -19,9 +19,9 @@
 \echo STOP|missing_rc1_expected_baseline_counts_json
 \quit 3
 \endif
-\if :{?rc1_approved_protected_pair_fingerprint}
+\if :{?rc1_approved_protected_state_fingerprint}
 \else
-\echo STOP|missing_rc1_approved_protected_pair_fingerprint
+\echo STOP|missing_rc1_approved_protected_state_fingerprint
 \quit 3
 \endif
 
@@ -43,6 +43,26 @@ with pending(version) as (
 )
 select 'pending_versions_result|' || case when count(m.version) = 0 then 'PASS' else 'STOP' end
 from pending p left join supabase_migrations.schema_migrations m using (version);
+
+with expected(table_name, column_name, expected_count) as (
+  values
+    ('manual_report_generation_attempts','lease_owner',0),
+    ('manual_report_generation_attempts','lease_expires_at',0),
+    ('report_delivery_authorizations','lease_owner',0),
+    ('report_delivery_authorizations','lease_token',1),
+    ('report_delivery_authorizations','lease_expires_at',1)
+), actual as (
+  select e.*, count(c.column_name)::integer as actual_count
+  from expected e
+  left join information_schema.columns c
+    on c.table_schema='public' and c.table_name=e.table_name and c.column_name=e.column_name
+  group by e.table_name,e.column_name,e.expected_count
+)
+select 'pre_migration_capability_result|' || case when
+  count(*)=5 and bool_and(actual_count=expected_count)
+  and to_regclass('public.customer_report_access_tokens') is null
+then 'PASS' else 'STOP' end
+from actual;
 
 with current_reports as (
   select distinct on (r.order_id, r.report_type)
@@ -85,8 +105,8 @@ select 'duplicate_current_reports_result|' || case when not exists (
   group by r.order_id, r.report_type having count(*) > 1
 ) then 'PASS' else 'STOP' end;
 
-with protected as (
-  select r.order_id, r.id as report_id
+with protected_reports as (
+  select r.*, o.customer_email, o.updated_at as order_updated_at
   from public.reports r
   join public.orders o on o.id = r.order_id
   where o.status = 'payment_received'
@@ -96,26 +116,71 @@ with protected as (
     and r.version_number = (select max(r2.version_number) from public.reports r2
                              where r2.order_id = r.order_id and r2.report_type = r.report_type
                                and r2.status not in ('superseded', 'voided'))
+), protected as (
+  select encode(extensions.digest(convert_to(jsonb_build_object(
+    'order_id',r.order_id,
+    'report_id',r.id,
+    'report_type',r.report_type,
+    'report_version',r.version_number,
+    'report_status',r.status,
+    'storage_status',r.storage_status,
+    'storage_locator_fingerprint',encode(extensions.digest(convert_to(
+      coalesce(r.storage_bucket,'') || ':' || coalesce(r.storage_path,''),'UTF8'),'sha256'),'hex'),
+    'order_recipient_fingerprint',encode(extensions.digest(convert_to(
+      lower(coalesce(r.customer_email::text,'')),'UTF8'),'sha256'),'hex'),
+    'manual_delivery_state_fingerprint',coalesce((
+      select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',m.status,
+        'recipient_fingerprint',encode(extensions.digest(convert_to(
+          lower(coalesce(m.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'updated_at',m.updated_at
+      )::text,'|' order by m.id),''),'UTF8'),'sha256'),'hex')
+      from public.manual_report_delivery_attempts m
+      where m.order_id=r.order_id and m.report_id=r.id
+    ),''),
+    'delivery_authorization_state_fingerprint',coalesce((
+      select encode(extensions.digest(convert_to(coalesce(string_agg(jsonb_build_object(
+        'status',d.status,
+        'recipient_fingerprint',encode(extensions.digest(convert_to(
+          lower(coalesce(d.recipient_email::text,'')),'UTF8'),'sha256'),'hex'),
+        'lease_token_present',d.lease_token is not null,
+        'lease_expires_at',d.lease_expires_at,
+        'updated_at',d.updated_at
+      )::text,'|' order by d.id),''),'UTF8'),'sha256'),'hex')
+      from public.report_delivery_authorizations d
+      where d.order_id=r.order_id and d.report_id=r.id
+    ),''),
+    'report_updated_at',r.updated_at,
+    'order_updated_at',r.order_updated_at
+  )::text,'UTF8'),'sha256'),'hex') as row_fingerprint
+  from protected_reports r
 )
-select 'protected_pair_fingerprint_result|' || case when count(*) = 2 and
-  encode(extensions.digest(convert_to(coalesce(string_agg(order_id::text || ':' || report_id::text, '|' order by order_id, report_id), ''), 'UTF8'), 'sha256'), 'hex') =
-    :'rc1_approved_protected_pair_fingerprint'
+select 'protected_state_fingerprint_result|' || case when count(*) = 2 and
+  encode(extensions.digest(convert_to(coalesce(string_agg(row_fingerprint, '|' order by row_fingerprint), ''), 'UTF8'), 'sha256'), 'hex') =
+    :'rc1_approved_protected_state_fingerprint'
 then 'PASS' else 'STOP' end
 from protected;
 
 select 'active_generation_result|' || case when count(*) = 0 then 'PASS' else 'STOP' end
 from public.manual_report_generation_attempts
 where status in ('REPORT_QUEUED','REPORT_GENERATING','DELIVERY_QUEUED','RETRY_SCHEDULED','AWAITING_QUALITY_REVIEW');
-select 'active_generation_lease_result|' || case when count(*) = 0 then 'PASS' else 'STOP' end
-from public.manual_report_generation_attempts
-where lease_owner is not null or lease_expires_at is not null;
 select 'active_delivery_lease_result|' || case when count(*) = 0 then 'PASS' else 'STOP' end
 from public.report_delivery_authorizations
-where lease_owner is not null or lease_expires_at is not null;
-select 'provider_state_result|' || case when
-  coalesce((select value_json->>'mode' from public.app_settings
-            where setting_key in ('email_provider_mode','phase14_email_provider_mode') limit 1), 'UNKNOWN') = 'disabled'
-  and (select count(*) from public.email_provider_events) = 0
+where lease_token is not null or lease_expires_at is not null or status in ('claimed','dispatching');
+with provider_modes as (
+  select coalesce(value_json->>'mode',value_json#>>'{}') as mode
+  from public.app_settings
+  where setting_key in ('email_provider_mode','phase14_email_provider_mode')
+)
+select 'provider_mode_database_visibility_result|' || case
+  when count(*)=0 then 'NOT_DATABASE_VISIBLE'
+  when bool_and(mode='disabled') then 'PASS'
+  else 'STOP' end
+from provider_modes;
+select 'provider_database_activity_result|' || case when
+  (select count(*) from public.email_provider_events)=0
+  and (select count(*) from public.email_events
+       where status in ('queued','sending','sent','delivered','bounced','complained'))=0
 then 'PASS' else 'STOP' end;
 select 'delivery_state_result|' || case when
   (select count(*) from public.report_delivery_authorizations where status in ('queued','dispatching','ready')) = 0
@@ -135,10 +200,15 @@ with expected(key, value) as (
     ('report_delivery_finalizations', (select count(*)::text from public.report_delivery_finalizations)),
     ('report_delivery_remediations', (select count(*)::text from public.report_delivery_remediations)),
     ('phase14_operational_alerts', (select count(*)::text from public.phase14_operational_alerts)),
-    ('manual_report_generation_attempts', (select count(*)::text from public.manual_report_generation_attempts))
+    ('manual_report_generation_attempts', (select count(*)::text from public.manual_report_generation_attempts)),
+    ('reports', (select count(*)::text from public.reports)),
+    ('payment_automation_records', (select count(*)::text from public.payment_automation_records)),
+    ('customer_report_access_tokens', case when to_regclass('public.customer_report_access_tokens') is null then '0' else 'EARLY_PRESENT' end),
+    ('storage.objects', (select count(*)::text from storage.objects)),
+    ('orders', (select count(*)::text from public.orders))
 )
 select 'baseline_counts_result|' || case when
-  (select count(*) from expected) = 9 and
+  (select count(*) from expected) = 14 and
   not exists (select 1 from expected e left join actual a using (key) where a.value is null or a.value <> e.value)
 then 'PASS' else 'STOP' end;
 
