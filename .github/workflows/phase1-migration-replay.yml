@@ -99,14 +99,23 @@ jobs:
 
       - name: Verify controlled fulfilment after 0023
         run: |
+          # Use a distinct port from the pre-0023 step. The Next.js child process can outlive the
+          # step shell's EXIT trap on a hosted runner; a fresh post-migration server must never
+          # silently fall back to the pre-boundary process that happens to own port 3100.
+          post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+            npm start -- --port "$post_port" > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do
-            curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break
+            curl --fail --silent "http://127.0.0.1:$post_port/" >/dev/null && break
             sleep 1
           done
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
           PHASE1_EXPECT_CAPABILITY=available node scripts/phase1-schema-compatibility-integration.mjs \
             | tee tmp/phase1-migration-replay/post-0023-compatibility.txt
 

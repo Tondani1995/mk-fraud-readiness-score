@@ -2,6 +2,13 @@
 -- Additive, production-compatible state for the permitted synchronous/manual model.
 -- This migration is intentionally independent of, and does not enable, migration 0017.
 
+-- `report_events` predates the Phase 1 boundary and did not yet have the event metadata column
+-- used by this migration's authoritative completion/failure events. Keep the migration genuinely
+-- independent of 0017 in the isolated 0016 -> 0023 replay: this is idempotent on environments
+-- where 0017 has already supplied the column, and preserves the existing default for older ones.
+alter table public.report_events
+  add column if not exists metadata_json jsonb not null default '{}'::jsonb;
+
 alter table public.reports
   add column if not exists organisation_id uuid references public.organisations(id) on delete set null,
   add column if not exists file_name text,
