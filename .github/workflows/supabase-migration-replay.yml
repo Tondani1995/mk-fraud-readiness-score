@@ -543,9 +543,9 @@ jobs:
           # prerequisite that canonical 0017 owns, but only to the temporary CI copy; never
           # alter the committed historical archive or its ledger identity.
           uat_canonical_archive='supabase/migrations/0017_phase14_autonomous_report_engine.sql'
-          perl -0pi -e "s/^begin;\\n/begin;\\nalter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;\\n/" "$uat_canonical_archive"
+          perl -0pi -e "s/^begin;\\n/begin;\\nalter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;\\n/m" "$uat_canonical_archive"
           uat_fourth_archive='supabase/migrations/20260714214023_phase14_fourth_adversarial_remediation.sql'
-          perl -0pi -e "s/^with ranked as/alter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;\\n\\nwith ranked as/" "$uat_fourth_archive"
+          perl -0pi -e "s/^with ranked as/alter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;\\n\\nwith ranked as/m" "$uat_fourth_archive"
           mkdir -p tmp/migration-replay
           : > "$uat_keep_manifest"
           : > "$uat_keep_prefixes"
