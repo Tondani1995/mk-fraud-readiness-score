@@ -1,10 +1,11 @@
 # RC1 Technical-Freeze Implementation Design
 
-**Status:** RC1 OPERATIONAL READINESS: CORRECTIONS REQUIRED. Design for controller approval only.
+**Status:** RC1D TECHNICAL-FREEZE FOUNDATION: **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**;
+RC1 OPERATIONAL READINESS: **NO-GO**; RC MIGRATION/DEPLOYMENT: **NO-GO**; **DO NOT MERGE**.
 
-This document does not implement a freeze, alter the schema, change application routes, or perform
-any cloud action. It records the exact current mutation inventory, the bootstrap design, and the
-recommended implementation boundary for a future authorised cycle.
+This document records the design and RC1D as-built code-only foundation. The source now contains the
+bootstrap migration, application gates and disposable proofs. Nothing has been applied to Production
+and no cloud action has been performed.
 
 ## 1. Design decision
 
@@ -50,12 +51,16 @@ application check will be added later.
 | Resend webhook | `/score/api/webhooks/resend` → `ingest_phase14_provider_webhook` | Svix signature, rate limit, attestation/security gate | provider events, delivery state, operational alerts, audit rows | Yes where the dormant route is reachable | `resend_webhook` guard | Signature + secret relationship + provider-mode + freeze gate | HTTP 503 with retry signal | One preapproved synthetic provider event |
 | Operational-alert mutation | admin transition route → `transition_phase14_operational_alert` | `platform_admin`/`reviewer`, AAL2 | `phase14_operational_alerts`, `audit_logs` | Yes after Release D | `operational_alert` guard | `requireAdmin` + AAL2 + freeze gate | HTTP 423 | No; alert control is not a canary path |
 
+The “Canary bypass” column records the original desired scope. RC1D implements none of those
+exceptions; every surface remains frozen. Document 33 supersedes the ticket assumptions wherever the
+table says “synthetic” or “approved ticket”.
+
 The database guard must cover the underlying DML targets as well as the listed RPCs. This is what
 protects legacy code paths that do not yet know about the application gate.
 
 ## 3. Bootstrap object design
 
-The future bootstrap migration should create, in one transaction:
+The RC1D bootstrap migration creates, in one transaction:
 
 1. A single-row `public.rc1_operation_freeze_state` table with a fixed key, state, epoch,
    activated/released timestamps, actor IDs, mandatory reason, and an explicit canary-ticket hash
@@ -65,18 +70,19 @@ The future bootstrap migration should create, in one transaction:
    empty controlled `search_path`. Missing row, unknown state, expired state or malformed state
    raises `rc1_operation_frozen` rather than defaulting open.
 3. A database trigger function on every protected DML table. The trigger calls the guard before
-   INSERT/UPDATE/DELETE. It permits only a validated, short-lived, surface-scoped synthetic ticket
-   for the canary; it never permits a customer row or arbitrary order reference to bypass the gate.
-4. `rc1_activate_freeze(reason text)`, `rc1_authorize_canary(surface text, reason text)` and
-   `rc1_release_freeze(reason text)`. Each requires an active platform admin with an AAL2 session,
-   a non-empty mandatory reason, and writes an audit row. Release is impossible while a canary is
-   active or when the final disabled-state checks are not recorded.
+   INSERT/UPDATE/DELETE. RC1D intentionally permits no canary bypass.
+4. `rc1_activate_freeze(reason text)` and
+   `rc1_release_freeze(reason text, evidence_sha256 text, expected_epoch bigint)`. Each requires an
+   active platform admin with an AAL2 session, a non-empty mandatory reason, and writes an audit row.
+   Release requires the exact current epoch, a nonzero SHA-256 evidence fingerprint and no active
+   canary record.
 5. A non-PII `rc1_freeze_status()` RPC for evidence. It returns state, epoch, timestamps and
    fingerprints only; never customer IDs, emails, names or ticket values.
 
-The control RPCs must verify AAL2 from the server-side auth context, not from user-editable metadata.
-The canary authorization must be single-use, surface-scoped, time-limited, and bound to the
-controller-approved synthetic fixture and designated test mailbox outside git.
+The control RPCs verify AAL2 from the server-side auth context, not from user-editable metadata.
+Canary authorization remains a STOP because the current workflow cannot enforce a genuine
+single-use transaction across database, Storage, provider and pooled HTTP boundaries. See document
+33.
 
 ## 4. Pre-schema technical isolation and bootstrap gap
 
@@ -130,15 +136,20 @@ layers to agree and must happen only after postflight, disabled-state smoke and 
 | Vercel deployment protection/maintenance page | Reject as the primary control. It does not prove every internal mutation route and provider callback fails before database access. |
 | Connection-pool or cloud firewall block | Reject as the primary control. It is coarse, provider-dependent, and does not provide a transaction-level canary scope or an auditable release RPC. |
 
-## 7. Acceptance conditions for a future implementation
+## 7. RC1D acceptance evidence
 
 The controller must approve the bootstrap migration and its exact object/fingerprint manifest before
-implementation. The future cycle must then prove, in a disposable database, that every surface in
-§2 stops while frozen, that the old RPC/direct-DML paths cannot bypass the guard, that one synthetic
-canary can pass only through its scoped ticket, and that activation/canary/release each require AAL2,
-reason and audit evidence.
+any deployment. The disposable suite proves that every inventoried application surface stops while
+frozen; the same application stays healthy against the old 34-migration schema; old RPC/direct-DML
+paths and `service_role` cannot bypass relation guards; unknown surfaces fail; and activation/release
+require AAL2, reason, audit evidence, exact epoch and release-evidence fingerprint.
 
-No freeze capability is implemented by this RC1B correction cycle.
+The manifest pins the bootstrap SHA-256, two tables, 11 functions, 40 relation triggers and one event
+trigger. The accepted seven behaviour migrations are independently checksum-pinned and remain
+byte-identical. Full replay proves exactly 42 migration-ledger rows.
+
+Canary acceptance is not claimed. No bypass function exists in RC1D, and certification remains
+NO-GO until document 33 has a separately accepted and implemented transactional design.
 
 ## 8. Final expected cutover
 

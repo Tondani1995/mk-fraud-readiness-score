@@ -1,8 +1,10 @@
 # RC1 Operational Freeze and Canary Plan
 
-**Decision status:** RC1 DECISION-PACKAGE STRUCTURE: ACCEPTED; RC1 OPERATIONAL READINESS: **CORRECTIONS REQUIRED**; RC MIGRATION/DEPLOYMENT: **NO-GO**.
-The controller accepted the readiness inventory but has not authorised a Production freeze or cloud
-change. This document designs the required controls; it does not implement them.
+**Decision status:** RC1C CORRECTION: **CONTROLLER ACCEPTED**; RC1D TECHNICAL-FREEZE FOUNDATION:
+**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
+RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; **DO NOT MERGE**.
+The foundation is implemented in source and disposable tests only. No Production freeze or cloud
+change is authorised or performed.
 
 **Owner and freeze activator:** Tondani Netili. **Canary approver:** Tondani Netili.
 **Freeze-release authority:** Tondani Netili. Codex may execute only after explicit approval and may
@@ -22,6 +24,10 @@ not treat administrator discipline as a technical control.
 
 ## Mutation-surface audit
 
+The table below preserves the accepted pre-RC1D gap audit. Its “implementation required” entries are
+superseded by the RC1D as-built foundation section: application and database enforcement now exist
+in source and disposable tests, but remain undeployed and require controller acceptance.
+
 | Surface | Current RC control | Freeze control required before GO | Gap status |
 |---|---|---|---|
 | New assessments | Public assessment-start route and respondent flow; no single global RC1 freeze gate is evidenced in this preparation | A central, fail-closed operational-freeze gate at the route/service boundary, plus a read-only health indicator | **Gap — implementation required** |
@@ -38,12 +44,12 @@ not treat administrator discipline as a technical control.
 | Resend webhook | Route uses provider verification and disabled provider mode for outbound sends; inbound mutation must still be frozen explicitly | Disable provider delivery and add a fail-closed freeze gate before webhook mutation | **Gap — implementation required** |
 | Fulfilment workers | No active Vercel cron is currently configured; internal worker route is bearer-protected | Keep cadence disabled and add a durable freeze check in claim RPC/worker route | **Gap — implementation required** |
 
-The narrowest acceptable implementation is one database-visible, audited `rc1_operational_freeze`
+The implemented foundation uses one database-visible, audited `rc1_operation_freeze_state`
 state read by every authoritative mutation RPC and route, with fail-closed behaviour when the state is
 unknown. Public intake and webhooks additionally require an application/edge gate so requests are
 rejected before any write. Worker claims must check the same state inside the claim transaction.
-The change must be additive, tested on a disposable database, and separately approved; it is not
-implemented in this cycle.
+The change is additive and tested on disposable databases. It remains undeployed and separately
+reviewable.
 
 ## Activation sequence
 
@@ -52,7 +58,7 @@ implemented in this cycle.
 3. Public intake, admin mutation, webhook and worker probes are run without submitting data.
 4. Email provider mode is confirmed disabled; Vercel worker cadence is confirmed unavailable.
 5. `scripts/rc1-production-preflight.sql` is run and all result lines are checked.
-6. Only after the freeze evidence is complete may the seven-migration runbook proceed.
+6. Only after the freeze evidence is complete may the eight-migration runbook proceed.
 
 ## Canary sequence
 
@@ -63,6 +69,9 @@ test mode. It must never use a real order or recipient. The canary must prove ge
 review, recipient confirmation, delivery handling and audit evidence, then return the environment to
 the disabled resting state before any freeze release.
 
+RC1D provides no bypass for this sequence. The sequence remains a strict STOP until document 33 has
+a controller-approved implementation meeting the transactional, single-use and scope requirements.
+
 ## Release criteria
 
 The freeze cannot be released until the owner has approved the **CONDITIONAL PASS** backup gate and
@@ -72,16 +81,27 @@ a fresh logical database
 backup created after freeze activation and successful final preflight immediately before migration 1,
 and a restricted safeguard of critical Storage objects including `generated-reports` and
 `payment-proofs`, with logical-backup timestamp/checksum, aggregate bucket object counts/size totals
-and protected recovery artifacts outside git. It also requires all seven ledger postflight checks, exact-SHA deployment,
+and protected recovery artifacts outside git. It also requires all eight ledger postflight checks, exact-SHA deployment,
 disabled-state smoke tests, canary closure, an anonymised 18-order action register and the complete
 GO evidence bundle. PITR remains disabled and no compute upgrade or add-on is approved. Any missing
 technical control remains a NO-GO.
 
 
-## RC1B correction reference
+## RC1D as-built foundation
 
-The exact route/service/RPC inventory, database-bootstrap recommendation, old-application protection
-model, AAL2 control requirements, canary scope and options analysis are in
-`32-rc1-technical-freeze-implementation-design.md`. The freeze capability is not implemented in
-this cycle. The eventual cutover is therefore eight migrations: one approved freeze bootstrap plus
-the seven behaviour migrations.
+The centralized application gate is controlled by `MK_RC1_OPERATION_FREEZE_MODE`. Missing, invalid
+or explicitly frozen mode fails closed before a database client is created. Released mode also
+requires a valid released database status; timeout, RPC absence, malformed state or layer
+disagreement fails closed. Mutation routes return HTTP 423, provider callbacks return HTTP 503 with
+`Retry-After`, and workers return without claiming.
+
+The bootstrap migration creates an initial `FROZEN` singleton state, AAL2 platform-admin
+activate/release controls, non-PII audit records, relation-level guards that include `service_role`,
+and an event trigger for recognized future mutation tables. Forty relation guards include
+report/enquiry request state and legacy manual delivery. Disposable replay verifies 34 old-schema
+migrations, then bootstrap plus the seven accepted payloads, for exactly 42 ledger rows.
+
+No genuine canary bypass is implemented. The current multi-request application/provider/Storage
+workflow cannot bind a one-time authorization transactionally across pooled HTTP requests. The
+strict STOP and safest design options are recorded in
+`33-rc1-canary-transaction-design.md`. CLOUD CERTIFICATION remains **NO-GO**.

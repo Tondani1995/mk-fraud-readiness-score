@@ -761,3 +761,101 @@ connection, requires `RC1_CONNECTION_MODE=read-only`, injects libpq
 errors and credentials. The harness tests the procedure only against loopback disposable Postgres,
 including every missing-variable refusal, non-read-only refusal, target mismatch refusal and a full
 PASS evaluation. It is not executed against Production in RC1C.
+
+---
+
+## RC1D technical-freeze foundation evidence
+
+**Current status:** RC1C CORRECTION: **CONTROLLER ACCEPTED** at
+`5b518d16f42436c608f2c6fb4422482d6b72444d`; RC1D TECHNICAL-FREEZE FOUNDATION:
+**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
+RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
+**NO-GO**; **DO NOT MERGE**.
+
+RC1D is a code-only foundation. No Production preflight, migration, cloud-ledger change, Supabase
+branch, Vercel change, Resend change, worker invocation, backup, Storage copy, restoration, customer
+data access or merge occurred.
+
+### Accepted migration integrity
+
+`npm run rc1:verify-accepted-migrations` fixes and verifies the SHA-256 of every accepted behaviour
+migration in local verification and all six established GitHub workflows:
+
+| Version | SHA-256 |
+|---|---|
+| `20260722143000` | `d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25` |
+| `20260724150000` | `4a1c7c88a7f70fb2f50776b140bb26d022aacbbdd41eb46ba160e6a237dc432e` |
+| `20260724160000` | `f3d37600a461e646007312c07640a1d49c513385094e98ab633795302c667046` |
+| `20260724170000` | `e320ea500bfcfb3b51166cbe957549ddb8189e53a33f6e1d4cd67845e1e18809` |
+| `20260724180000` | `0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533` |
+| `20260725090000` | `a0eca9a5426955ea1526362940174b0463f7536131cf74fae938c7bfa105923d` |
+| `20260725150000` | `efc3a4317d23316036cd09a7a1b300675cbdad1a6f5c7b798a7957dd092bf6d1` |
+
+No accepted behaviour migration payload is changed.
+
+### Freeze-bootstrap and enforcement manifest
+
+`supabase/migrations/20260722120000_rc1_operational_freeze_bootstrap.sql` has SHA-256
+`aa8f094359957d8313eae74db05bf84d8bbc6d49e62bb63b1af49294273e6bc7`. It applies in one
+transaction and creates:
+
+- `rc1_operation_freeze_state`, initially `FROZEN` at epoch 1, and
+  `rc1_operation_freeze_audit`;
+- 11 controlled `SECURITY DEFINER` functions, including status, fail-closed surface enforcement,
+  AAL2 platform-admin activation/release, direct-state-write protection, relation guard installation
+  and future recognized-relation installation;
+- 40 authoritative relation-guard triggers, including report/enquiry request state, legacy manual
+  delivery, Storage and private runtime-secret state; and
+- one DDL event trigger that adds guards to recognized future relations.
+
+The state tables use RLS plus forced RLS and expose no direct mutation grant. `service_role` and
+older direct-DML paths do not bypass the relation guards. Unknown surfaces fail closed. Release
+requires AAL2, active platform-admin authority, reason, exact epoch, nonzero SHA-256 evidence and no
+active canary record. Postflight pins every object and trigger fingerprint.
+
+### Application and compatibility proof
+
+One typed gate with canonical surface vocabulary interprets
+`MK_RC1_OPERATION_FREEZE_MODE`. Missing, invalid or frozen input stops before database-client or
+mutation-service creation. Released input also requires a valid released database status; timeout,
+RPC absence, malformed response and application/database disagreement all freeze.
+
+Executable tests invoke all 34 authoritative mutation route exports with database credentials absent.
+Public/admin mutations return HTTP 423, provider callbacks return HTTP 503 with `Retry-After`, and
+worker routes return without a claim. Health and build-info remain available, and frozen responses
+contain no customer identifiers.
+
+The old-schema compatibility suite replays the exact 34-migration Production boundary in disposable
+loopback PostgreSQL. With application mode frozen, health/read-only diagnostics work, the
+not-yet-created freeze-status RPC is not required, all mutation probes stop before database access
+and aggregate counts for orders, assessments, reports, events, emails, Storage objects, attempts,
+payments and AI attempts remain unchanged.
+
+### Replay and STOP evidence
+
+The disposable RC1 harness:
+
+- replays the exact 34-migration boundary;
+- verifies bootstrap absence and explicit frozen application mode at preflight;
+- applies the bootstrap first and proves its initial frozen state and AAL2 control rules;
+- applies all seven accepted behaviour migrations without editing their payloads;
+- proves exactly 42 ledger rows, eight exact new versions and newest version `20260725150000`;
+- verifies the bootstrap object/trigger manifest plus all existing schema, grant, RLS, protected
+  order, email-history and no-business-change evidence; and
+- proves STOP for a missing freeze row, unexpected released state, unsafe grant, missing or disabled
+  trigger, service-role bypass, unknown-surface allowance, application/database disagreement and an
+  unlisted ninth migration, in addition to the previously accepted defect set.
+
+### Canary decision
+
+No canary bypass is implemented. The current flow spans independent pooled database requests,
+Storage and provider side effects, so a ticket cannot be consumed transactionally across the whole
+workflow without replacing major workflow components. A superficial header, GUC, environment,
+global-state or service-role bypass is rejected. `33-rc1-canary-transaction-design.md` records the
+safest options. CLOUD CERTIFICATION remains **NO-GO**.
+
+### Non-blocking housekeeping
+
+For the next otherwise-authorised commit, remove the duplicated retirement notice appended at the
+end of `supabase/retired-migrations/0011_phase10_pdf_report_engine_additions.sql` while retaining the
+single retirement header at the top. Do not create a standalone commit for this cosmetic change.

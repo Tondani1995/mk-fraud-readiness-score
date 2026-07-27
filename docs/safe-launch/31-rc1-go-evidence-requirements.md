@@ -1,9 +1,9 @@
 # RC1 GO Evidence Requirements
 
-This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1B security
-and harness correction is **ACCEPTED** and the RC1B technical-freeze design is **ACCEPTED IN
-PRINCIPLE**, but RC1C is **IN PROGRESS** and RC1 OPERATIONAL READINESS remains **NO-GO**. This is not
-a GO decision and does not authorise any cloud or Production action. Every item must reference one
+This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1C is
+**CONTROLLER ACCEPTED** and the RC1D technical-freeze foundation is **CODE COMPLETE — CONTROLLER
+REVIEW REQUIRED**, but RC1 OPERATIONAL READINESS remains **NO-GO**. This is not a GO decision and
+does not authorise any cloud or Production action. Every item must reference one
 exact application SHA and one cutover window. Evidence must be anonymised and must not contain
 secret values, customer identifiers, order references, organisation names, email addresses, report
 content or access tokens.
@@ -26,18 +26,21 @@ content or access tokens.
       size totals, and protected recovery artifacts outside git.
 - [ ] Signed operational-freeze activation evidence covering every mutation surface in
       `28-rc1-operational-freeze-and-canary-plan.md`.
-- [ ] Read-only preflight output: 34 ledger rows, newest `20260721150808`, no pending-seven rows,
+- [ ] Read-only preflight output: 34 ledger rows, newest `20260721150808`, no pending-eight rows,
       18 paid orders, classification totals 2/13/3, zero active attempts, zero payment automation
       records, no unexpected activity and RPC fingerprints.
-- [ ] Per-migration results for exactly the seven authorised migrations in exact order.
-- [ ] Ledger postflight: seven new rows exactly once, final newest version `20260725150000`, no
+- [ ] Per-migration results for the bootstrap plus exactly seven accepted behaviour migrations in
+      exact order, with all seven accepted payload checksums unchanged.
+- [ ] Ledger postflight: eight new rows exactly once, 42 rows total, final newest version
+      `20260725150000`, no
       unlisted migration and no duplicate version.
 - [ ] Schema, index, grant, RLS and RPC fingerprints, including security-definer/search-path checks.
 - [ ] Vercel READY deployment evidence with the exact approved SHA.
 - [ ] Provider-mode-disabled confirmation before and after deployment/environment changes.
 - [ ] Disabled-state no-send/no-worker evidence and smoke-test results.
 - [ ] Secret provisioning evidence containing names, timestamps and non-reversible fingerprints only.
-- [ ] Controlled synthetic-canary approval, result, designated-mailbox evidence and closure record.
+- [ ] Controller-approved transactional canary implementation from document 33, followed by
+      controlled synthetic-canary approval, result, designated-mailbox evidence and closure record.
 - [ ] Confirmation that the environment returned to disabled resting state after certification.
 - [ ] Completed anonymised 18-order disposition totals and owner-approved action register outside git.
 - [ ] Evidence that the 2 `CURRENT_VERIFIED` orders remained excluded and no worker claimed an order.
@@ -54,7 +57,7 @@ content or access tokens.
 5. A missing, contradictory or stale item is a STOP, not an implied approval.
 
 
-## RC1B/RC1C corrected gate evidence
+## RC1C/RC1D corrected gate evidence
 
 - [ ] Preflight is executed through `npm run rc1:dry-evaluate-live-boundary` with the
       machine-readable manifest, approved target fingerprint, explicit read-only mode,
@@ -64,11 +67,23 @@ content or access tokens.
       `sent=2` (total 75) and approved SHA-256 fingerprint; `email_provider_events=0`; no recipient,
       provider ID, order ID or message ID is emitted.
 - [ ] Preflight proves the exact current-boundary columns, no duplicate current report per order/report type, and compares the non-reversible protected-state and 2/13/3 classification fingerprints.
-- [ ] Postflight proves 41 total ledger rows, final version `20260725150000`, exact seven `(version,name)` pairs, no duplicate or unlisted version, full backlog/token structures, all 14 migration-derived indexes, all 29 RPCs including `recover_expired_fulfilment_leases()` and `record_premium_report_generation_run(...)`, exact grants, RLS/policies and combined fingerprints.
+- [ ] Postflight proves 42 total ledger rows, final version `20260725150000`, exact eight
+      `(version,name)` pairs, no duplicate or unlisted version, the bootstrap tables/functions,
+      40 relation guards and event trigger, full backlog/token structures, all 14
+      migration-derived indexes, all 29 behaviour RPCs including
+      `recover_expired_fulfilment_leases()` and
+      `record_premium_report_generation_run(...)`, exact grants, RLS/policies and combined
+      fingerprints.
 - [ ] Postflight no-change evidence includes order/report/generation/payment/email/provider/delivery/token/alert/storage aggregates and the exact protected-state fingerprint supplied by preflight.
 - [ ] Disposable runtime tests prove the baseline and postflight gates pass, then prove STOP for each controller-required defect, including wrong migration name, unlisted migration, missing index/RPC, unsafe search path, PUBLIC EXECUTE, disabled RLS, changed protected fingerprint, worker lease, new order/email event and duplicate current report.
 - [ ] The exact Supabase runner/tool version and real `--help` output are captured. The current workspace has no Supabase CLI, so no dry-run or application command is approved or invented.
-- [ ] The technical-freeze implementation design at `32-rc1-technical-freeze-implementation-design.md` is controller-approved before any freeze implementation; it recommends one bootstrap migration, making the eventual cutover eight migrations.
+- [ ] The RC1D technical-freeze foundation and exact bootstrap manifest are controller accepted.
+- [ ] Old-34-schema compatibility proves health/read-only diagnostics remain available and every
+      authoritative application mutation surface is stopped before database access.
+- [ ] Missing, invalid, malformed, timed-out or disagreeing freeze state fails closed; service-role
+      direct DML, unknown surface and unsafe control-RPC attempts produce STOP.
+- [ ] Document 33 has an accepted and implemented transactional canary design. RC1D intentionally
+      implements no bypass, so this item is currently outstanding and CLOUD CERTIFICATION is NO-GO.
 
 ## Provider-certification evidence sequence
 
