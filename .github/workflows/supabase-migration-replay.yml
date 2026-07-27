@@ -1016,16 +1016,20 @@ jobs:
           psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-schema-inventory.sql \
             > tmp/migration-replay/exact-production-schema-inventory.txt
-          test "$(tail -n 1 tmp/migration-replay/exact-production-schema-inventory.txt)" = \
+          exact_production_inventory_tail=$(tail -n 1 tmp/migration-replay/exact-production-schema-inventory.txt)
+          echo "exact_production_inventory_tail=${exact_production_inventory_tail}"
+          test "$exact_production_inventory_tail" = \
             'ZZ|inventory_sha256|417dfbf2fb7fdea1727d7dc9d84d0463a597db6b545def32de18d2e15d8509cd'
           before_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-preservation-fixture.sql | tail -n 1)
+          echo "before_checksum=${before_checksum}"
           test "$before_checksum" = '258c8fa9d59383cc27857efb093c219f0db02c130ad6dc8ac62eb25d9f5275e4'
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-canonical-reconciliation.sql \
             | tee tmp/migration-replay/production-history-convergence.txt
           after_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-preservation-assertions.sql | tail -n 1)
+          echo "after_checksum=${after_checksum}"
           test "$after_checksum" = "$before_checksum"
           # Now that the historical schema has been reconciled to canonical-0017 shape, re-apply
           # 0023-0031 in filename order -- same set, same order, the "fresh" canonical path
