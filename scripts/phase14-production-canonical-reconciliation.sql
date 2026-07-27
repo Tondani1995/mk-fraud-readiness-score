@@ -1,8775 +1,2004 @@
-\set ON_ERROR_STOP on
--- CONTROLLER-ONLY, PRODUCTION-SPECIFIC reconciliation artefact.
--- Never use this file for UAT. Never execute without a separate controller approval.
--- It applies only the closure/fourth/fifth/sixth delta and keeps every gate,
--- feature policy and AI route disabled.
-
-select pg_advisory_lock(hashtextextended('phase14-production-canonical-reconciliation',0));
-select exists(
-  select 1 from supabase_migrations.schema_migrations
-  where version='0017' and name='phase14_canonical_disabled_foundation'
-) as phase14_production_already_reconciled \gset
-
-\if :phase14_production_already_reconciled
-do $safe_restart$
-begin
-  if to_regprocedure('public.admin_terminal_phase14_generation_publication(jsonb)') is null
-     or to_regprocedure('public.recover_phase14_worker_capability_lease(jsonb,text)') is null
-     or exists(select 1 from public.phase14_feature_policies where enabled)
-     or exists(select 1 from public.phase14_ai_route_policies where enabled)
-     or exists(select 1 from public.phase14_security_gates where status<>'unsatisfied' or satisfied_version<>0) then
-    raise exception 'phase14_production_safe_restart_posture_invalid';
-  end if;
-end;
-$safe_restart$;
-\echo 'Production canonical acknowledgement already exists; safe restart verified and no delta executed.'
-\else
-do $preflight$
-declare
-  v_actual text[]; v_expected constant text[]:=array[
-    '0001|0001_phase2_v1_1_schema_rls',
-    '0002|0002_phase4_dev_seed',
-    '0003|0003_phase5_methodology_seed',
-    '0004|0004_phase4_v1_2_rate_limiting',
-    '0005|0005_phase5_v1_1_guards',
-    '0006|0006_phase6_scoring_guards',
-    '0007|0007_phase6_v1_1_atomic_scoring',
-    '0009|0009_methodology_copy_polish',
-    '20260708181207|0010_phase9_manual_eft_order_flow',
-    '20260708193238|phase10_report_engine_additions',
-    '20260708193318|phase9_phase10_private_storage_buckets',
-    '20260708194834|phase10_v2_report_engine_content',
-    '20260709033522|phase10_v2_report_template_seed',
-    '20260710220504|0012_phase13_commercial_event_foundation',
-    '20260710220746|0013_phase13_event_index_cleanup',
-    '20260711211557|0014_phase13_customer_commercial_conversion',
-    '20260711211654|0015_phase13_data_request_policy_cleanup',
-    '20260712153438|platform_database_hardening',
-    '20260712180303|phase14_report_fulfilment_core',
-    '20260712180317|phase14_report_generation_runs',
-    '20260712180329|phase14_report_links',
-    '20260712180346|phase14_report_security_and_flags',
-    '20260712182003|phase14_pdf_email_delivery',
-    '20260712184501|phase14_email_delivery_state_hardening'
-  ];
-  v_final_schema boolean;
-begin
-  select array_agg(version||'|'||name order by version,name) into v_actual
-  from supabase_migrations.schema_migrations;
-  if v_actual is distinct from v_expected then
-    raise exception 'phase14_production_ledger_mismatch: expected %, received %',v_expected,v_actual;
-  end if;
-  v_final_schema:=to_regprocedure('public.admin_terminal_phase14_generation_publication(jsonb)') is not null
-    and to_regprocedure('public.recover_phase14_worker_capability_lease(jsonb,text)') is not null;
-  if not v_final_schema and (
-    to_regclass('public.report_fulfilments') is null
-    or to_regclass('public.report_generation_runs') is null
-    or to_regclass('public.email_provider_events') is null
-    or to_regclass('public.phase14_security_gates') is not null
-  ) then
-    raise exception 'phase14_production_schema_boundary_mismatch';
-  end if;
-  if exists(select 1 from public.app_settings where setting_key='phase14_autonomous_report_engine'
-      and coalesce((value_json->>'premium_report_auto_fulfilment_enabled')::boolean,false)) then
-    raise exception 'phase14_production_automation_flag_unexpectedly_enabled';
-  end if;
-end;
-$preflight$;
-
-select (
-  to_regprocedure('public.admin_terminal_phase14_generation_publication(jsonb)') is null
-  or to_regprocedure('public.recover_phase14_worker_capability_lease(jsonb,text)') is null
-) as phase14_production_delta_required \gset
-
-begin;
-select set_config('lock_timeout','10s',true);
-\if :phase14_production_delta_required
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0020_phase14_privileged_function_grants.sql (sha256:3beac7831756fd9c5d43573c5372ca6e096741f82712e985ffdefed85dc3b180)
--- Phase 14 database-security hardening.
--- Restrict direct execution of high-risk SECURITY DEFINER RPCs to the
--- server-side service role while preserving authenticated execution of admin
--- RLS helper functions used by MK administrator policies. The DO block keeps
--- this migration as one prepared statement for Supabase CLI 2.81.3 clean replay
--- while still using explicit REVOKE, GRANT and COMMENT commands.
-
-DO $phase14_privileged_function_grants$
-BEGIN
-  EXECUTE 'revoke execute on function public.check_rate_limit(text, integer, integer) from public';
-  EXECUTE 'revoke execute on function public.check_rate_limit(text, integer, integer) from anon';
-  EXECUTE 'revoke execute on function public.check_rate_limit(text, integer, integer) from authenticated';
-  EXECUTE 'grant execute on function public.check_rate_limit(text, integer, integer) to service_role';
-
-  EXECUTE 'revoke execute on function public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb) from public';
-  EXECUTE 'revoke execute on function public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb) from anon';
-  EXECUTE 'revoke execute on function public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb) from authenticated';
-  EXECUTE 'grant execute on function public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb) to service_role';
-
-  EXECUTE 'revoke execute on function public.current_admin_role() from public';
-  EXECUTE 'revoke execute on function public.current_admin_role() from anon';
-  EXECUTE 'grant execute on function public.current_admin_role() to authenticated';
-  EXECUTE 'grant execute on function public.current_admin_role() to service_role';
-
-  EXECUTE 'revoke execute on function public.is_admin_role(public.admin_role[]) from public';
-  EXECUTE 'revoke execute on function public.is_admin_role(public.admin_role[]) from anon';
-  EXECUTE 'grant execute on function public.is_admin_role(public.admin_role[]) to authenticated';
-  EXECUTE 'grant execute on function public.is_admin_role(public.admin_role[]) to service_role';
-
-  EXECUTE 'comment on function public.check_rate_limit(text, integer, integer) is ''Atomic fixed-window rate limiter. Direct execution is restricted to the service role; application calls must go through trusted server-side code.''';
-  EXECUTE 'comment on function public.complete_score_run_atomic(uuid, uuid, public.score_run_type, text, uuid, jsonb, jsonb, jsonb, jsonb) is ''Atomic score-run persistence RPC. Direct execution is restricted to the service role; assessment scoring must go through trusted server-side code.''';
-  EXECUTE 'comment on function public.current_admin_role() is ''Admin-role helper for authenticated MK administrator RLS evaluation. Anonymous execution is revoked; authenticated and service-role execution is required for admin policies.''';
-  EXECUTE 'comment on function public.is_admin_role(public.admin_role[]) is ''Admin-role predicate for authenticated MK administrator RLS evaluation. Anonymous execution is revoked; authenticated and service-role execution is required for admin policies.''';
-END
-$phase14_privileged_function_grants$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0020_phase14_privileged_function_grants.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0021_phase14_adversarial_remediation.sql (sha256:4ebcdd55dd031f634afc04bbb0f30ede6070a6d3c6e9909c63b81467ac3628f3)
--- Phase 14 adversarial remediation.
--- Transactional entitlement, generation publication, durable provider state and webhook CAS.
-
-
-create table public.report_generation_claims (
-  assessment_id uuid not null references public.assessments(id) on delete cascade,
-  report_type public.report_type not null,
-  claim_token uuid not null default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  score_run_id uuid not null references public.score_runs(id) on delete restrict,
-  fulfilment_id uuid references public.report_fulfilments(id) on delete set null,
-  claim_owner text not null,
-  report_id uuid references public.reports(id) on delete set null,
-  version_number integer not null check (version_number > 0),
-  report_reference text not null,
-  lease_expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (assessment_id, report_type),
-  constraint report_generation_claims_token_unique unique (claim_token),
-  constraint report_generation_claims_reference_unique unique (report_reference)
-);
-
-create index report_generation_claims_lease_idx
-  on public.report_generation_claims(lease_expires_at);
-alter table public.report_generation_claims enable row level security;
-revoke all on table public.report_generation_claims from public, anon, authenticated;
-
-create table public.report_ai_attempts (
-  id uuid primary key default gen_random_uuid(),
-  generation_identity text not null,
-  fulfilment_id uuid references public.report_fulfilments(id) on delete set null,
-  attempt_kind text not null check (attempt_kind in ('generate', 'repair')),
-  attempt_number integer not null check (attempt_number between 1 and 2),
-  provider_request_key text not null,
-  provider text not null,
-  model text not null,
-  evidence_checksum text not null check (evidence_checksum ~ '^[0-9a-f]{64}$'),
-  max_output_tokens integer not null check (max_output_tokens between 1 and 5000),
-  max_estimated_cost_micros bigint not null check (max_estimated_cost_micros between 1 and 1000000),
-  timeout_ms integer not null check (timeout_ms between 1000 and 120000),
-  status text not null check (status in ('started', 'succeeded', 'failed_before_provider', 'provider_result_uncertain', 'reconciliation_required')),
-  output_json jsonb,
-  input_token_count integer check (input_token_count is null or input_token_count >= 0),
-  output_token_count integer check (output_token_count is null or output_token_count >= 0),
-  total_token_count integer check (total_token_count is null or total_token_count >= 0),
-  latency_ms integer check (latency_ms is null or latency_ms >= 0),
-  estimated_cost_micros bigint check (estimated_cost_micros is null or estimated_cost_micros >= 0),
-  error_message text,
-  started_at timestamptz not null default now(),
-  completed_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint report_ai_attempts_identity_attempt_unique unique (generation_identity, attempt_kind, attempt_number),
-  constraint report_ai_attempts_provider_request_unique unique (provider_request_key)
-);
-
-create index report_ai_attempts_fulfilment_idx
-  on public.report_ai_attempts(fulfilment_id, created_at desc);
-create index report_ai_attempts_reconciliation_idx
-  on public.report_ai_attempts(created_at)
-  where status in ('provider_result_uncertain', 'reconciliation_required');
-alter table public.report_ai_attempts enable row level security;
-revoke all on table public.report_ai_attempts from public, anon, authenticated;
-grant select on table public.report_ai_attempts to authenticated;
-
-create policy report_ai_attempts_admin_select on public.report_ai_attempts
-  for select using (
-    public.current_admin_role() in ('platform_admin', 'reviewer', 'approver', 'read_only_admin')
-  );
-
-alter table public.email_events
-  add column if not exists provider_request_key text,
-  add column if not exists provider_idempotency_key text,
-  add column if not exists send_lease_token uuid,
-  add column if not exists send_lease_expires_at timestamptz,
-  add column if not exists reconciliation_required_at timestamptz,
-  add column if not exists reconciliation_attempted_at timestamptz,
-  add column if not exists reconciliation_result_json jsonb not null default '{}'::jsonb;
-
-create unique index email_events_provider_request_uidx
-  on public.email_events(provider_request_key)
-  where provider_request_key is not null;
-create index email_events_stale_send_lease_idx
-  on public.email_events(send_lease_expires_at)
-  where status = 'sending';
-
-alter table public.email_provider_events
-  alter column email_event_id drop not null;
-
-insert into public.app_settings(setting_key, value_json)
-values (
-  'phase14_delivery_policy',
-  '{
-    "premium_report_manual_delivery_enabled":false,
-    "premium_report_test_recipient_override_enabled":false,
-    "provider_reconciliation_required_before_resend":true,
-    "mfa_enforcement_gate":"required_before_production_enablement",
-    "provider_data_minimisation_gate":"required_before_production_enablement"
-  }'::jsonb
-)
-on conflict (setting_key) do update
-set value_json = excluded.value_json,
-    updated_at = now();
-
-create or replace function public.assert_premium_report_generation_entitlement(
-  p_order_reference text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_order public.orders%rowtype;
-  v_assessment public.assessments%rowtype;
-  v_score_run public.score_runs%rowtype;
-  v_product public.products%rowtype;
-  v_expected_domains integer;
-  v_actual_domains integer;
-  v_expected_traces integer;
-  v_actual_traces integer;
-begin
-  select o.* into v_order
-  from public.orders o
-  where o.order_reference = p_order_reference
-  for share;
-  if not found then raise exception 'order_not_found'; end if;
-
-  select a.* into v_assessment
-  from public.assessments a
-  where a.id = v_order.assessment_id
-  for share;
-  if not found then raise exception 'order_assessment_mismatch'; end if;
-
-  select p.* into v_product
-  from public.products p
-  where p.id = v_order.product_id
-  for share;
-  if not found then raise exception 'order_product_mismatch'; end if;
-
-  if v_assessment.current_score_run_id is null then raise exception 'assessment_not_scored'; end if;
-  select sr.* into v_score_run
-  from public.score_runs sr
-  where sr.id = v_assessment.current_score_run_id
-  for share;
-  if not found then raise exception 'current_score_run_missing'; end if;
-
-  if v_order.assessment_id <> v_assessment.id then raise exception 'order_assessment_mismatch'; end if;
-  if v_score_run.assessment_id <> v_assessment.id then raise exception 'score_run_assessment_mismatch'; end if;
-  if v_assessment.current_score_run_id <> v_score_run.id then raise exception 'stale_current_score_reference'; end if;
-  if v_order.status::text <> 'payment_received' then raise exception 'order_not_payment_received'; end if;
-  if v_order.verified_at is null then raise exception 'order_missing_verified_at'; end if;
-  if v_order.verified_by is null then raise exception 'order_missing_verified_by'; end if;
-  if v_product.product_code <> 'essential_self_assessment' then raise exception 'product_not_essential'; end if;
-  if v_order.amount_cents <> 500000 or v_product.price_cents <> 500000 then raise exception 'essential_price_mismatch'; end if;
-  if v_order.currency <> 'ZAR' or v_product.currency <> 'ZAR' then raise exception 'essential_currency_mismatch'; end if;
-  if not v_product.active then raise exception 'essential_product_inactive'; end if;
-  if not v_product.requires_payment_verification then raise exception 'manual_verification_not_required'; end if;
-  if v_product.delivery_mode <> 'mk_controlled_pdf' then raise exception 'unsupported_delivery_mode'; end if;
-  if v_score_run.status::text <> 'completed' then raise exception 'score_run_not_completed'; end if;
-  if v_score_run.locked_at is null then raise exception 'score_run_not_locked'; end if;
-  if v_score_run.input_hash is null or v_score_run.input_hash !~ '^[0-9a-f]{64}$' then raise exception 'score_run_input_hash_invalid'; end if;
-
-  select count(*) into v_expected_domains
-  from public.domains d
-  where d.methodology_version_id = v_score_run.methodology_version_id;
-  select count(distinct sdr.domain_id) into v_actual_domains
-  from public.score_domain_results sdr
-  join public.domains d on d.id = sdr.domain_id
-  where sdr.score_run_id = v_score_run.id
-    and d.methodology_version_id = v_score_run.methodology_version_id;
-  if v_expected_domains = 0 or v_actual_domains <> v_expected_domains then
-    raise exception 'score_run_domain_results_incomplete:%/%', v_actual_domains, v_expected_domains;
-  end if;
-
-  select count(*) into v_expected_traces
-  from public.questions q
-  where q.methodology_version_id = v_score_run.methodology_version_id and q.active;
-  select count(distinct sqt.question_id) into v_actual_traces
-  from public.score_question_traces sqt
-  join public.questions q on q.id = sqt.question_id
-  where sqt.score_run_id = v_score_run.id
-    and q.methodology_version_id = v_score_run.methodology_version_id
-    and q.active;
-  if v_expected_traces = 0 or v_actual_traces <> v_expected_traces then
-    raise exception 'score_run_question_traces_incomplete:%/%', v_actual_traces, v_expected_traces;
-  end if;
-
-  return jsonb_build_object(
-    'order_id', v_order.id,
-    'assessment_id', v_assessment.id,
-    'score_run_id', v_score_run.id,
-    'product_id', v_product.id,
-    'expected_domain_count', v_expected_domains,
-    'actual_domain_count', v_actual_domains,
-    'expected_trace_count', v_expected_traces,
-    'actual_trace_count', v_actual_traces
-  );
-end;
-$function$;
-
-create or replace function public.claim_premium_report_generation(
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid default null,
-  p_report_type public.report_type default 'essential_self_assessment'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_context jsonb;
-  v_claim public.report_generation_claims%rowtype;
-  v_version integer;
-  v_assessment_reference text;
-  v_current public.reports%rowtype;
-begin
-  if coalesce(trim(p_claim_owner), '') = '' then raise exception 'generation_claim_owner_required'; end if;
-  v_context := public.assert_premium_report_generation_entitlement(p_order_reference);
-  if p_report_type <> 'essential_self_assessment' then raise exception 'unsupported_report_type'; end if;
-
-  perform pg_advisory_xact_lock(hashtextextended((v_context->>'assessment_id') || ':' || p_report_type::text, 0));
-  delete from public.report_generation_claims
-  where assessment_id = (v_context->>'assessment_id')::uuid
-    and report_type = p_report_type
-    and lease_expires_at < now()
-    and report_id is null;
-
-  select * into v_claim
-  from public.report_generation_claims
-  where assessment_id = (v_context->>'assessment_id')::uuid
-    and report_type = p_report_type
-  for update;
-
-  if found then
-    return jsonb_build_object(
-      'claimed', v_claim.claim_owner = p_claim_owner,
-      'claim_token', case when v_claim.claim_owner = p_claim_owner then v_claim.claim_token else null end,
-      'version_number', v_claim.version_number,
-      'report_reference', v_claim.report_reference,
-      'report_id', v_claim.report_id,
-      'lease_expires_at', v_claim.lease_expires_at,
-      'reason', case when v_claim.claim_owner = p_claim_owner then 'same_owner_resume' else 'generation_in_progress' end
-    );
-  end if;
-
-  select * into v_current
-  from public.reports r
-  where r.assessment_id = (v_context->>'assessment_id')::uuid
-    and r.report_type = p_report_type
-    and r.status not in ('superseded', 'voided', 'draft')
-  order by r.version_number desc
-  limit 1
-  for update;
-
-  select coalesce(max(r.version_number), 0) + 1 into v_version
-  from public.reports r
-  where r.assessment_id = (v_context->>'assessment_id')::uuid
-    and r.report_type = p_report_type;
-  select a.assessment_reference into v_assessment_reference
-  from public.assessments a where a.id = (v_context->>'assessment_id')::uuid;
-
-  insert into public.report_generation_claims(
-    assessment_id, report_type, order_id, score_run_id, fulfilment_id, claim_owner,
-    version_number, report_reference, lease_expires_at
-  ) values (
-    (v_context->>'assessment_id')::uuid, p_report_type,
-    (v_context->>'order_id')::uuid, (v_context->>'score_run_id')::uuid, p_fulfilment_id, p_claim_owner,
-    v_version, 'RPT-' || v_assessment_reference || '-V' || v_version, now() + interval '20 minutes'
-  ) returning * into v_claim;
-
-  return jsonb_build_object(
-    'claimed', true,
-    'claim_token', v_claim.claim_token,
-    'version_number', v_claim.version_number,
-    'report_reference', v_claim.report_reference,
-    'report_id', null,
-    'current_report_id', v_current.id,
-    'lease_expires_at', v_claim.lease_expires_at,
-    'reason', 'claimed'
-  );
-end;
-$function$;
-
-create or replace function public.commit_premium_report_draft(
-  p_claim_token uuid,
-  p_template_id uuid,
-  p_storage_bucket text,
-  p_temp_storage_path text,
-  p_checksum text,
-  p_generated_by uuid default null,
-  p_generation_run_id uuid default null
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claim public.report_generation_claims%rowtype;
-  v_report_id uuid;
-  v_supersedes uuid;
-begin
-  select * into v_claim from public.report_generation_claims
-  where claim_token = p_claim_token for update;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  if v_claim.lease_expires_at < now() then raise exception 'generation_claim_expired'; end if;
-  if p_checksum !~ '^[0-9a-f]{64}$' then raise exception 'report_checksum_invalid'; end if;
-  if p_temp_storage_path not like 'tmp/%' then raise exception 'temporary_storage_path_required'; end if;
-  if v_claim.report_id is not null then return v_claim.report_id; end if;
-
-  select r.id into v_supersedes
-  from public.reports r
-  where r.assessment_id = v_claim.assessment_id
-    and r.report_type = v_claim.report_type
-    and r.status not in ('superseded', 'voided', 'draft')
-  order by r.version_number desc
-  limit 1
-  for update;
-
-  insert into public.reports(
-    assessment_id, order_id, score_run_id, template_id, report_type, status,
-    report_reference, version_number, storage_bucket, storage_path, checksum,
-    generated_by, generated_at, supersedes_report_id, fulfilment_id, generation_run_id
-  ) values (
-    v_claim.assessment_id, v_claim.order_id, v_claim.score_run_id, p_template_id,
-    v_claim.report_type, 'draft', v_claim.report_reference, v_claim.version_number,
-    p_storage_bucket, p_temp_storage_path, p_checksum, p_generated_by, now(),
-    v_supersedes, v_claim.fulfilment_id, p_generation_run_id
-  ) returning id into v_report_id;
-
-  update public.report_generation_claims
-  set report_id = v_report_id, updated_at = now()
-  where claim_token = p_claim_token;
-  return v_report_id;
-end;
-$function$;
-
-create or replace function public.publish_premium_report_generation(
-  p_claim_token uuid,
-  p_report_id uuid,
-  p_final_storage_path text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claim public.report_generation_claims%rowtype;
-  v_report public.reports%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims
-  where claim_token = p_claim_token for update;
-  if not found or v_claim.report_id <> p_report_id then raise exception 'generation_claim_report_mismatch'; end if;
-  select * into v_report from public.reports where id = p_report_id for update;
-  if not found or v_report.status <> 'draft' then raise exception 'report_draft_missing'; end if;
-  if p_final_storage_path like 'tmp/%' or p_final_storage_path = '' then raise exception 'final_storage_path_invalid'; end if;
-
-  if v_report.supersedes_report_id is not null then
-    update public.reports set status = 'superseded'
-    where id = v_report.supersedes_report_id
-      and status not in ('voided', 'superseded');
-  end if;
-  update public.reports
-  set status = 'generated', storage_path = p_final_storage_path, updated_at = now()
-  where id = p_report_id;
-  delete from public.report_generation_claims where claim_token = p_claim_token;
-
-  return jsonb_build_object(
-    'report_id', p_report_id,
-    'report_reference', v_report.report_reference,
-    'version_number', v_report.version_number,
-    'superseded_report_id', v_report.supersedes_report_id
-  );
-end;
-$function$;
-
-create or replace function public.release_premium_report_generation_claim(p_claim_token uuid)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  delete from public.report_generation_claims
-  where claim_token = p_claim_token and report_id is null;
-  return found;
-end;
-$function$;
-
-create or replace function public.assert_premium_report_delivery_entitlement(
-  p_report_id uuid,
-  p_recipient text,
-  p_allow_test_override boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_report public.reports%rowtype;
-  v_order public.orders%rowtype;
-  v_product public.products%rowtype;
-  v_assessment public.assessments%rowtype;
-  v_score_run public.score_runs%rowtype;
-  v_customer_email text;
-  v_current_report_id uuid;
-begin
-  select * into v_report from public.reports where id = p_report_id for share;
-  if not found then raise exception 'report_not_found'; end if;
-  select * into v_order from public.orders where id = v_report.order_id for share;
-  if not found then raise exception 'report_order_missing'; end if;
-  select * into v_product from public.products where id = v_order.product_id for share;
-  select * into v_assessment from public.assessments where id = v_report.assessment_id for share;
-  select * into v_score_run from public.score_runs where id = v_report.score_run_id for share;
-
-  select r.id into v_current_report_id
-  from public.reports r
-  where r.assessment_id = v_report.assessment_id
-    and r.report_type = v_report.report_type
-    and r.status not in ('superseded', 'voided', 'draft')
-  order by r.version_number desc limit 1;
-
-  if v_report.report_type <> 'essential_self_assessment' then raise exception 'delivery_report_type_ineligible'; end if;
-  if v_product.product_code <> 'essential_self_assessment' then raise exception 'delivery_product_ineligible'; end if;
-  if v_order.amount_cents <> 500000 or v_product.price_cents <> 500000 then raise exception 'delivery_price_mismatch'; end if;
-  if v_order.currency <> 'ZAR' or v_product.currency <> 'ZAR' then raise exception 'delivery_currency_mismatch'; end if;
-  if v_order.status::text <> 'payment_received' then raise exception 'delivery_order_not_paid'; end if;
-  if v_order.verified_at is null or v_order.verified_by is null then raise exception 'delivery_manual_verification_missing'; end if;
-  if not v_product.active or not v_product.requires_payment_verification or v_product.delivery_mode <> 'mk_controlled_pdf' then raise exception 'delivery_product_policy_mismatch'; end if;
-  if v_report.assessment_id <> v_order.assessment_id or v_score_run.assessment_id <> v_assessment.id then raise exception 'delivery_relationship_mismatch'; end if;
-  if v_assessment.current_score_run_id <> v_score_run.id then raise exception 'delivery_stale_score_run'; end if;
-  if v_score_run.status::text <> 'completed' or v_score_run.locked_at is null or v_score_run.input_hash is null or v_score_run.input_hash !~ '^[0-9a-f]{64}$' then raise exception 'delivery_score_run_ineligible'; end if;
-  if v_report.status in ('draft', 'superseded', 'voided') or v_current_report_id is distinct from v_report.id then raise exception 'delivery_report_not_current'; end if;
-  if coalesce(v_report.storage_bucket, '') = '' or coalesce(v_report.storage_path, '') = '' or v_report.checksum !~ '^[0-9a-f]{64}$' then raise exception 'delivery_storage_metadata_invalid'; end if;
-
-  v_customer_email := lower(trim(v_order.customer_email::text));
-  if not p_allow_test_override and lower(trim(p_recipient)) is distinct from v_customer_email then
-    raise exception 'delivery_recipient_override_forbidden';
-  end if;
-
-  return jsonb_build_object(
-    'report_id', v_report.id,
-    'order_id', v_order.id,
-    'assessment_id', v_assessment.id,
-    'score_run_id', v_score_run.id,
-    'customer_email', v_customer_email,
-    'recipient', lower(trim(p_recipient)),
-    'test_delivery', lower(trim(p_recipient)) is distinct from v_customer_email
-  );
-end;
-$function$;
-
-create or replace function public.recover_stale_premium_report_email_sends()
-returns integer
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_count integer;
-begin
-  update public.email_events
-  set status = 'reconciliation_required',
-      reconciliation_required_at = coalesce(reconciliation_required_at, now()),
-      delivery_updated_at = now(),
-      error_message = 'Send lease expired; provider acceptance must be reconciled before retry.'
-  where status = 'sending'
-    and send_lease_expires_at < now();
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$function$;
-
-
-create or replace function public.apply_email_provider_event_atomic(
-  p_provider text,
-  p_provider_event_id text,
-  p_provider_message_id text,
-  p_event_type text,
-  p_event_created_at timestamptz,
-  p_payload_json jsonb default '{}'::jsonb
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_email public.email_events%rowtype;
-  v_provider_event_id uuid;
-  v_status text;
-  v_current_rank integer;
-  v_incoming_rank integer;
-  v_applied boolean := false;
-begin
-  v_status := case p_event_type
-    when 'email.sent' then 'sent'
-    when 'email.delivery_delayed' then 'delivery_delayed'
-    when 'email.delivered' then 'delivered'
-    when 'email.failed' then 'delivery_failed'
-    when 'email.bounced' then 'bounced'
-    when 'email.suppressed' then 'bounced'
-    when 'email.complained' then 'complained'
-    else null end;
-  if v_status is null then return jsonb_build_object('ignored', true, 'reason', 'unsupported_event'); end if;
-
-  select * into v_email
-  from public.email_events
-  where provider_message_id = p_provider_message_id
-  for update;
-
-  insert into public.email_provider_events(
-    email_event_id, provider, provider_event_id, provider_message_id,
-    event_type, event_created_at, payload_json
-  ) values (
-    v_email.id, p_provider, p_provider_event_id, p_provider_message_id,
-    p_event_type, p_event_created_at, coalesce(p_payload_json, '{}'::jsonb)
-  ) on conflict (provider, provider_event_id) do nothing
-  returning id into v_provider_event_id;
-
-  if v_provider_event_id is null then
-    return jsonb_build_object('duplicate', true, 'state_updated', false);
-  end if;
-  if v_email.id is null then
-    update public.email_provider_events
-    set processing_error = 'unknown_provider_message', processed_at = now()
-    where id = v_provider_event_id;
-    return jsonb_build_object('ignored', true, 'reason', 'unknown_message');
-  end if;
-
-  v_current_rank := case v_email.status
-    when 'queued' then 10 when 'sending' then 20
-    when 'provider_acceptance_uncertain' then 25 when 'reconciliation_required' then 26
-    when 'sent' then 30 when 'delivery_delayed' then 40
-    when 'delivered' then 50 when 'failed_before_provider' then 50 when 'delivery_failed' then 60
-    when 'bounced' then 60 when 'complained' then 70 else 0 end;
-  v_incoming_rank := case v_status
-    when 'sent' then 30 when 'delivery_delayed' then 40 when 'delivered' then 50
-    when 'failed_before_provider' then 50 when 'delivery_failed' then 60 when 'bounced' then 60 when 'complained' then 70 else 0 end;
-
-  if v_incoming_rank >= v_current_rank
-     and (v_email.delivery_updated_at is null or p_event_created_at >= v_email.delivery_updated_at) then
-    update public.email_events
-    set status = v_status,
-        provider_event_id = p_provider_event_id,
-        delivered_at = case when v_status = 'delivered' then p_event_created_at else delivered_at end,
-        delivery_updated_at = p_event_created_at,
-        error_message = case when v_status in ('bounced', 'complained', 'delivery_failed', 'failed_before_provider') then coalesce(p_payload_json->>'reason', v_status) else null end,
-        metadata_json = coalesce(metadata_json, '{}'::jsonb) || jsonb_build_object(
-          'last_provider_event_type', p_event_type,
-          'last_provider_event_created_at', p_event_created_at
-        )
-    where id = v_email.id;
-    v_applied := true;
-  end if;
-
-  update public.email_provider_events
-  set processed_at = now(), processing_error = null
-  where id = v_provider_event_id;
-  return jsonb_build_object('duplicate', false, 'state_updated', v_applied, 'status', v_status);
-end;
-$function$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0021_phase14_adversarial_remediation.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0022_phase14_adversarial_remediation_grants.sql (sha256:359e5ad5371a873dc5d36c6636bbf628e78173b0452674cf95afa481093e7981)
--- Apply privileged Phase 14 remediation RPC grants as one parser-safe unit.
-
-do $grants$
-declare v_signature text;
-begin
-  foreach v_signature in array array[
-    'public.assert_premium_report_generation_entitlement(text)',
-    'public.claim_premium_report_generation(text,text,uuid,public.report_type)',
-    'public.commit_premium_report_draft(uuid,uuid,text,text,text,uuid,uuid)',
-    'public.publish_premium_report_generation(uuid,uuid,text)',
-    'public.release_premium_report_generation_claim(uuid)',
-    'public.assert_premium_report_delivery_entitlement(uuid,text,boolean)',
-    'public.recover_stale_premium_report_email_sends()',
-    'public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,jsonb)'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public, anon, authenticated';
-    execute 'grant execute on function ' || v_signature || ' to service_role';
-  end loop;
-end;
-$grants$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/0022_phase14_adversarial_remediation_grants.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714194317_phase14_security_state_machine_closure.sql (sha256:5037c698eb2acab09ee1c588c6b67909428b742600fa1cb7523272a71d7e1b93)
--- Phase 14 security and state-machine closure.
--- This migration is intentionally inert: the database security gate starts below
--- the required version. No report generation, download, delivery, reconciliation,
--- webhook mutation, or AI-backed publication can proceed until an AAL2 platform
--- administrator records the required gate version in a separately authorised step.
-
-
-create table public.phase14_security_gates (
-  gate_key text primary key,
-  required_version integer not null check (required_version > 0),
-  satisfied_version integer not null default 0 check (satisfied_version >= 0),
-  status text not null default 'unsatisfied' check (status in ('unsatisfied', 'satisfied', 'suspended')),
-  satisfied_by uuid references public.admin_profiles(id) on delete set null,
-  satisfied_at timestamptz,
-  reason text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint phase14_security_gate_consistency check (
-    (status = 'satisfied' and satisfied_version >= required_version and satisfied_at is not null)
-    or (status <> 'satisfied')
-  )
-);
-
-insert into public.phase14_security_gates(
-  gate_key, required_version, satisfied_version, status, reason
-) values (
-  'phase14-premium-report', 1, 0, 'unsatisfied',
-  'Phase 14 remains technically inert until the security closure is independently approved.'
-)
-on conflict (gate_key) do update
-set required_version = greatest(public.phase14_security_gates.required_version, excluded.required_version),
-    satisfied_version = least(public.phase14_security_gates.satisfied_version, excluded.satisfied_version),
-    status = 'unsatisfied',
-    satisfied_by = null,
-    satisfied_at = null,
-    reason = excluded.reason,
-    updated_at = now();
-
-alter table public.phase14_security_gates enable row level security;
-revoke all on table public.phase14_security_gates from public, anon, authenticated;
-grant select on table public.phase14_security_gates to authenticated;
-create policy phase14_security_gates_admin_select on public.phase14_security_gates
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin', 'reviewer', 'approver', 'read_only_admin'));
-
-create table public.phase14_operational_alerts (
-  id uuid primary key default gen_random_uuid(),
-  alert_key text not null unique,
-  severity text not null check (severity in ('warning', 'critical')),
-  category text not null,
-  report_id uuid references public.reports(id) on delete set null,
-  email_event_id uuid references public.email_events(id) on delete set null,
-  detail_json jsonb not null default '{}'::jsonb,
-  status text not null default 'open' check (status in ('open', 'acknowledged', 'resolved')),
-  created_at timestamptz not null default now(),
-  resolved_at timestamptz
-);
-alter table public.phase14_operational_alerts enable row level security;
-revoke all on table public.phase14_operational_alerts from public, anon, authenticated;
-grant select on table public.phase14_operational_alerts to authenticated;
-create policy phase14_operational_alerts_admin_select on public.phase14_operational_alerts
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin', 'reviewer', 'approver', 'read_only_admin'));
-
-alter table public.report_generation_claims
-  add column state text not null default 'claimed',
-  add column score_input_hash text,
-  add column temporary_storage_bucket text,
-  add column temporary_storage_path text,
-  add column final_storage_bucket text,
-  add column final_storage_path text,
-  add column expected_checksum text,
-  add column last_heartbeat_at timestamptz not null default now(),
-  add column committed_at timestamptz,
-  add column recovered_at timestamptz,
-  add column recovery_count integer not null default 0,
-  add column abandoned_at timestamptz,
-  add column abandonment_reason text;
-
-alter table public.report_generation_claims
-  add constraint report_generation_claims_state_chk
-    check (state in ('claimed', 'committed', 'abandoned')),
-  add constraint report_generation_claims_recovery_count_chk check (recovery_count >= 0),
-  add constraint report_generation_claims_storage_binding_chk check (
-    (state = 'claimed')
-    or (state = 'abandoned')
-    or (
-      state = 'committed'
-      and report_id is not null
-      and temporary_storage_bucket is not null
-      and temporary_storage_path is not null
-      and final_storage_bucket is not null
-      and final_storage_path is not null
-      and expected_checksum ~ '^[0-9a-f]{64}$'
-    )
-  );
-
-create index report_generation_claims_state_lease_idx
-  on public.report_generation_claims(state, lease_expires_at);
-
-alter table public.report_ai_attempts
-  add column prompt_version text,
-  add column schema_version text,
-  add column input_size_bytes integer,
-  add column estimated_input_tokens integer,
-  add column accounting_status text not null default 'unverified';
-
-alter table public.report_generation_runs
-  add column estimated_cost_micros bigint,
-  add column accounting_status text not null default 'not_applicable';
-
-alter table public.report_generation_runs
-  add constraint report_generation_runs_estimated_cost_chk
-    check (estimated_cost_micros is null or estimated_cost_micros >= 0),
-  add constraint report_generation_runs_accounting_status_chk
-    check (accounting_status in ('not_applicable', 'verified', 'unverified'));
-
-alter table public.report_ai_attempts
-  drop constraint report_ai_attempts_identity_attempt_unique,
-  drop constraint report_ai_attempts_status_check;
-
-alter table public.report_ai_attempts
-  add constraint report_ai_attempts_status_check check (status in (
-    'started', 'succeeded', 'accounting_unverified', 'failed_before_provider',
-    'provider_result_uncertain', 'reconciliation_required'
-  )),
-  add constraint report_ai_attempts_accounting_status_chk
-    check (accounting_status in ('unverified', 'verified', 'not_applicable')),
-  add constraint report_ai_attempts_input_size_chk
-    check (input_size_bytes is null or input_size_bytes between 1 and 262144),
-  add constraint report_ai_attempts_estimated_input_tokens_chk
-    check (estimated_input_tokens is null or estimated_input_tokens between 1 and 65536),
-  add constraint report_ai_attempts_full_fingerprint_unique unique (
-    generation_identity, evidence_checksum, provider, model,
-    prompt_version, schema_version, attempt_kind, attempt_number
-  );
-
-alter table public.email_events
-  add column provider text not null default 'resend';
-
-drop index if exists public.email_events_provider_message_idx;
-create unique index email_events_provider_message_uidx
-  on public.email_events(provider, provider_message_id)
-  where provider_message_id is not null;
-
-alter table public.email_provider_events
-  alter column provider_message_id drop not null,
-  add column payload_fingerprint text,
-  add column payload_size_bytes integer,
-  add column supported_event boolean not null default true,
-  add column conflict_detected_at timestamptz;
-
-alter table public.email_provider_events
-  add constraint email_provider_events_fingerprint_chk
-    check (payload_fingerprint is null or payload_fingerprint ~ '^[0-9a-f]{64}$'),
-  add constraint email_provider_events_payload_size_chk
-    check (payload_size_bytes is null or payload_size_bytes between 0 and 65536);
-
-create table public.report_delivery_authorizations (
-  id uuid primary key default gen_random_uuid(),
-  report_id uuid not null references public.reports(id) on delete restrict,
-  report_checksum text not null check (report_checksum ~ '^[0-9a-f]{64}$'),
-  recipient_email citext not null,
-  order_id uuid not null references public.orders(id) on delete restrict,
-  assessment_id uuid not null references public.assessments(id) on delete restrict,
-  score_run_id uuid not null references public.score_runs(id) on delete restrict,
-  security_gate_version integer not null check (security_gate_version > 0),
-  authorised_by uuid not null references public.admin_profiles(id) on delete restrict,
-  authorised_session_id uuid,
-  provider text not null,
-  email_event_id uuid not null unique references public.email_events(id) on delete restrict,
-  test_delivery boolean not null default false,
-  status text not null default 'queued' check (status in (
-    'queued', 'claimed', 'dispatching', 'finalized', 'revoked', 'reconciliation_required'
-  )),
-  lease_token uuid,
-  lease_expires_at timestamptz,
-  provider_message_id text,
-  revoked_reason text,
-  authorised_at timestamptz not null default now(),
-  claimed_at timestamptz,
-  dispatch_started_at timestamptz,
-  finalized_at timestamptz,
-  updated_at timestamptz not null default now()
-);
-
-create index report_delivery_authorizations_dispatch_idx
-  on public.report_delivery_authorizations(status, authorised_at);
-create index report_delivery_authorizations_report_idx
-  on public.report_delivery_authorizations(report_id, authorised_at desc);
-alter table public.report_delivery_authorizations enable row level security;
-revoke all on table public.report_delivery_authorizations from public, anon, authenticated;
-grant select on table public.report_delivery_authorizations to authenticated;
-create policy report_delivery_authorizations_admin_select on public.report_delivery_authorizations
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin', 'reviewer', 'approver', 'read_only_admin'));
-
-create table public.report_delivery_finalizations (
-  authorization_id uuid primary key references public.report_delivery_authorizations(id) on delete restrict,
-  email_event_id uuid not null unique references public.email_events(id) on delete restrict,
-  report_id uuid not null references public.reports(id) on delete restrict,
-  provider text not null,
-  provider_message_id text not null,
-  finalized_at timestamptz not null default now()
-);
-alter table public.report_delivery_finalizations enable row level security;
-revoke all on table public.report_delivery_finalizations from public, anon, authenticated;
-grant select on table public.report_delivery_finalizations to authenticated;
-create policy report_delivery_finalizations_admin_select on public.report_delivery_finalizations
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin', 'reviewer', 'approver', 'read_only_admin'));
-
-create or replace function public.phase14_require_actor(
-  p_action text,
-  p_allowed_roles public.admin_role[],
-  p_require_aal2 boolean default true
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $webhook$
-declare
-  v_claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
-  v_user_id uuid := auth.uid();
-  v_profile public.admin_profiles%rowtype;
-  v_exp bigint;
-begin
-  if v_user_id is null then raise exception 'phase14_no_session:%', p_action; end if;
-  v_exp := nullif(v_claims->>'exp', '')::bigint;
-  if v_exp is null or to_timestamp(v_exp) <= now() then
-    raise exception 'phase14_session_expired:%', p_action;
-  end if;
-
-  select * into v_profile from public.admin_profiles where id = v_user_id;
-  if not found then raise exception 'phase14_profile_missing:%', p_action; end if;
-  if v_profile.status = 'revoked' then raise exception 'phase14_profile_revoked:%', p_action; end if;
-  if v_profile.status <> 'active' then raise exception 'phase14_profile_inactive:%', p_action; end if;
-  if not (v_profile.role = any(p_allowed_roles)) then raise exception 'phase14_role_forbidden:%', p_action; end if;
-  if p_require_aal2 and coalesce(v_claims->>'aal', 'aal1') <> 'aal2' then
-    raise exception 'phase14_aal2_required:%', p_action;
-  end if;
-
-  return jsonb_build_object(
-    'user_id', v_user_id,
-    'role', v_profile.role,
-    'aal', coalesce(v_claims->>'aal', 'aal1'),
-    'session_id', v_claims->>'session_id'
-  );
-end;
-$webhook$;
-
-create or replace function public.phase14_require_security(
-  p_action text,
-  p_allowed_roles public.admin_role[] default array['platform_admin']::public.admin_role[],
-  p_require_aal2 boolean default true,
-  p_allow_service_role boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_gate public.phase14_security_gates%rowtype;
-  v_claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
-  v_actor jsonb;
-begin
-  select * into v_gate
-  from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report'
-  for share;
-  if not found
-     or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version < v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%', p_action;
-  end if;
-
-  if p_allow_service_role and v_claims->>'role' = 'service_role' then
-    return jsonb_build_object(
-      'actor_type', 'service_role',
-      'gate_version', v_gate.satisfied_version,
-      'action', p_action
-    );
-  end if;
-
-  v_actor := public.phase14_require_actor(p_action, p_allowed_roles, p_require_aal2);
-  return v_actor || jsonb_build_object('gate_version', v_gate.satisfied_version, 'action', p_action);
-end;
-$function$;
-
-create or replace function public.set_phase14_security_gate_version(
-  p_satisfied_version integer,
-  p_reason text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb;
-  v_gate public.phase14_security_gates%rowtype;
-begin
-  v_actor := public.phase14_require_actor(
-    'security_gate_administration', array['platform_admin']::public.admin_role[], true
-  );
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_gate_reason_required'; end if;
-
-  update public.phase14_security_gates
-  set satisfied_version = p_satisfied_version,
-      status = case when p_satisfied_version >= required_version then 'satisfied' else 'unsatisfied' end,
-      satisfied_by = (v_actor->>'user_id')::uuid,
-      satisfied_at = case when p_satisfied_version >= required_version then now() else null end,
-      reason = p_reason,
-      updated_at = now()
-  where gate_key = 'phase14-premium-report'
-  returning * into v_gate;
-
-  insert into public.audit_logs(
-    actor_type, actor_user_id, entity_table, action, after_json
-  ) values (
-    'admin', (v_actor->>'user_id')::uuid, 'phase14_security_gates',
-    'phase14_security_gate_changed',
-    jsonb_build_object('required_version', v_gate.required_version, 'satisfied_version', v_gate.satisfied_version, 'status', v_gate.status, 'reason', p_reason)
-  );
-  return to_jsonb(v_gate);
-end;
-$function$;
-
-create or replace function public.guard_phase14_feature_policy_mutation()
-returns trigger
-language plpgsql
-set search_path = ''
-as $function$
-begin
-  if new.setting_key not in ('phase14_autonomous_report_engine', 'phase14_delivery_policy') then
-    return new;
-  end if;
-  if coalesce(auth.jwt()->>'role', '') = '' and current_user in ('postgres', 'supabase_admin') then
-    return new;
-  end if;
-  perform public.phase14_require_security(
-    'feature_policy_change', array['platform_admin']::public.admin_role[], true, false
-  );
-  return new;
-end;
-$function$;
-
-drop trigger if exists trg_guard_phase14_feature_policy_mutation on public.app_settings;
-create trigger trg_guard_phase14_feature_policy_mutation
-  before insert or update on public.app_settings
-  for each row execute function public.guard_phase14_feature_policy_mutation();
-
-create or replace function public.update_phase14_feature_policy(
-  p_setting_key text,
-  p_value_json jsonb
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb;
-begin
-  if p_setting_key not in ('phase14_autonomous_report_engine', 'phase14_delivery_policy') then
-    raise exception 'phase14_feature_policy_key_forbidden';
-  end if;
-  v_actor := public.phase14_require_security(
-    'feature_policy_change', array['platform_admin']::public.admin_role[], true, false
-  );
-  insert into public.app_settings(setting_key, value_json)
-  values (p_setting_key, coalesce(p_value_json, '{}'::jsonb))
-  on conflict (setting_key) do update
-  set value_json = excluded.value_json, updated_at = now();
-  insert into public.audit_logs(actor_type, actor_user_id, entity_table, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, 'app_settings', 'phase14_feature_policy_changed',
-    jsonb_build_object('setting_key', p_setting_key, 'value_json', p_value_json));
-  return p_value_json;
-end;
-$function$;
-
-create or replace function public.authorize_phase14_action(p_action text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  case p_action
-    when 'report_generation' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-      );
-    when 'report_regeneration' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-      );
-    when 'report_download' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','reviewer','approver','read_only_admin']::public.admin_role[], true, false
-      );
-    when 'email_delivery' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','approver']::public.admin_role[], true, false
-      );
-    when 'email_resend' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','approver']::public.admin_role[], true, false
-      );
-    when 'provider_reconciliation' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','approver']::public.admin_role[], true, false
-      );
-    when 'ai_narrative_generation' then
-      return public.phase14_require_security(
-        p_action, array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-      );
-    else
-      raise exception 'phase14_action_not_supported:%', p_action;
-  end case;
-end;
-$function$;
-
-create or replace function public.phase14_generation_entitlement(
-  p_order_reference text,
-  p_expected_order_id uuid default null,
-  p_expected_assessment_id uuid default null,
-  p_expected_score_run_id uuid default null,
-  p_expected_input_hash text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_order public.orders%rowtype;
-  v_assessment public.assessments%rowtype;
-  v_score_run public.score_runs%rowtype;
-  v_product public.products%rowtype;
-  v_expected_domains integer;
-  v_actual_domains integer;
-  v_expected_traces integer;
-  v_actual_traces integer;
-begin
-  select * into v_order from public.orders where order_reference = p_order_reference for share;
-  if not found then raise exception 'order_not_found'; end if;
-  select * into v_assessment from public.assessments where id = v_order.assessment_id for share;
-  if not found then raise exception 'order_assessment_mismatch'; end if;
-  select * into v_product from public.products where id = v_order.product_id for share;
-  if not found then raise exception 'order_product_mismatch'; end if;
-  if v_assessment.current_score_run_id is null then raise exception 'assessment_not_scored'; end if;
-  select * into v_score_run from public.score_runs where id = v_assessment.current_score_run_id for share;
-  if not found then raise exception 'current_score_run_missing'; end if;
-
-  if p_expected_order_id is not null and v_order.id <> p_expected_order_id then raise exception 'claim_order_changed'; end if;
-  if p_expected_assessment_id is not null and v_assessment.id <> p_expected_assessment_id then raise exception 'claim_assessment_changed'; end if;
-  if p_expected_score_run_id is not null and v_score_run.id <> p_expected_score_run_id then raise exception 'claim_score_run_changed'; end if;
-  if p_expected_input_hash is not null and v_score_run.input_hash is distinct from p_expected_input_hash then raise exception 'claim_input_hash_changed'; end if;
-  if v_order.assessment_id <> v_assessment.id or v_score_run.assessment_id <> v_assessment.id then raise exception 'generation_relationship_mismatch'; end if;
-  if v_assessment.current_score_run_id <> v_score_run.id then raise exception 'stale_current_score_reference'; end if;
-  if v_order.status::text <> 'payment_received' then raise exception 'order_not_payment_received'; end if;
-  if v_order.verified_at is null then raise exception 'order_missing_verified_at'; end if;
-  if v_order.verified_by is null then raise exception 'order_missing_verified_by'; end if;
-  if v_product.product_code <> 'essential_self_assessment' then raise exception 'product_not_essential'; end if;
-  if v_order.amount_cents <> 500000 or v_product.price_cents <> 500000 then raise exception 'essential_price_mismatch'; end if;
-  if v_order.currency <> 'ZAR' or v_product.currency <> 'ZAR' then raise exception 'essential_currency_mismatch'; end if;
-  if not v_product.active then raise exception 'essential_product_inactive'; end if;
-  if not v_product.requires_payment_verification then raise exception 'manual_verification_not_required'; end if;
-  if v_product.delivery_mode <> 'mk_controlled_pdf' then raise exception 'unsupported_delivery_mode'; end if;
-  if v_score_run.status::text <> 'completed' then raise exception 'score_run_not_completed'; end if;
-  if v_score_run.locked_at is null then raise exception 'score_run_not_locked'; end if;
-  if v_score_run.input_hash is null or v_score_run.input_hash !~ '^[0-9a-f]{64}$' then raise exception 'score_run_input_hash_invalid'; end if;
-
-  select count(*) into v_expected_domains from public.domains where methodology_version_id = v_score_run.methodology_version_id;
-  select count(distinct sdr.domain_id) into v_actual_domains
-  from public.score_domain_results sdr join public.domains d on d.id = sdr.domain_id
-  where sdr.score_run_id = v_score_run.id and d.methodology_version_id = v_score_run.methodology_version_id;
-  if v_expected_domains = 0 or v_actual_domains <> v_expected_domains then
-    raise exception 'score_run_domain_results_incomplete:%/%', v_actual_domains, v_expected_domains;
-  end if;
-
-  select count(*) into v_expected_traces from public.questions
-  where methodology_version_id = v_score_run.methodology_version_id and active;
-  select count(distinct sqt.question_id) into v_actual_traces
-  from public.score_question_traces sqt join public.questions q on q.id = sqt.question_id
-  where sqt.score_run_id = v_score_run.id and q.methodology_version_id = v_score_run.methodology_version_id and q.active;
-  if v_expected_traces = 0 or v_actual_traces <> v_expected_traces then
-    raise exception 'score_run_question_traces_incomplete:%/%', v_actual_traces, v_expected_traces;
-  end if;
-
-  return jsonb_build_object(
-    'order_id', v_order.id, 'assessment_id', v_assessment.id,
-    'score_run_id', v_score_run.id, 'score_input_hash', v_score_run.input_hash,
-    'product_id', v_product.id, 'expected_domain_count', v_expected_domains,
-    'actual_domain_count', v_actual_domains, 'expected_trace_count', v_expected_traces,
-    'actual_trace_count', v_actual_traces
-  );
-end;
-$function$;
-
-create or replace function public.assert_premium_report_generation_entitlement(p_order_reference text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  return public.phase14_generation_entitlement(p_order_reference);
-end;
-$function$;
-
-create or replace function public.claim_premium_report_generation(
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid default null,
-  p_report_type public.report_type default 'essential_self_assessment'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_context jsonb;
-  v_claim public.report_generation_claims%rowtype;
-  v_version integer;
-  v_assessment_reference text;
-  v_current public.reports%rowtype;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_claim_owner), '') = '' then raise exception 'generation_claim_owner_required'; end if;
-  if p_report_type <> 'essential_self_assessment' then raise exception 'unsupported_report_type'; end if;
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform pg_advisory_xact_lock(hashtextextended((v_context->>'assessment_id') || ':' || p_report_type::text, 0));
-
-  select * into v_claim from public.report_generation_claims
-  where assessment_id = (v_context->>'assessment_id')::uuid and report_type = p_report_type
-  for update;
-  if found then
-    if v_claim.lease_expires_at >= now() then
-      return jsonb_build_object(
-        'claimed', v_claim.claim_owner = p_claim_owner,
-        'claim_token', case when v_claim.claim_owner = p_claim_owner then v_claim.claim_token else null end,
-        'version_number', v_claim.version_number, 'report_reference', v_claim.report_reference,
-        'report_id', v_claim.report_id, 'state', v_claim.state,
-        'lease_expires_at', v_claim.lease_expires_at,
-        'reason', case when v_claim.claim_owner = p_claim_owner then 'same_owner_resume' else 'generation_in_progress' end
-      );
-    end if;
-    if v_claim.state = 'committed' and v_claim.report_id is not null then
-      return jsonb_build_object(
-        'claimed', false, 'recoverable', true, 'claim_token', null,
-        'version_number', v_claim.version_number, 'report_reference', v_claim.report_reference,
-        'report_id', v_claim.report_id, 'state', v_claim.state,
-        'lease_expires_at', v_claim.lease_expires_at, 'reason', 'committed_draft_recovery_required'
-      );
-    end if;
-    update public.report_generation_claims
-    set claim_token = gen_random_uuid(), claim_owner = p_claim_owner,
-        order_id = (v_context->>'order_id')::uuid,
-        score_run_id = (v_context->>'score_run_id')::uuid,
-        score_input_hash = v_context->>'score_input_hash', fulfilment_id = p_fulfilment_id,
-        state = 'claimed', lease_expires_at = now() + interval '20 minutes',
-        last_heartbeat_at = now(), updated_at = now()
-    where assessment_id = v_claim.assessment_id and report_type = v_claim.report_type
-    returning * into v_claim;
-    return jsonb_build_object(
-      'claimed', true, 'claim_token', v_claim.claim_token, 'version_number', v_claim.version_number,
-      'report_reference', v_claim.report_reference, 'report_id', null, 'state', v_claim.state,
-      'lease_expires_at', v_claim.lease_expires_at, 'reason', 'expired_claim_takeover'
-    );
-  end if;
-
-  select * into v_current from public.reports
-  where assessment_id = (v_context->>'assessment_id')::uuid and report_type = p_report_type
-    and status not in ('superseded','voided','draft')
-  order by version_number desc limit 1 for update;
-  select coalesce(max(version_number), 0) + 1 into v_version from public.reports
-  where assessment_id = (v_context->>'assessment_id')::uuid and report_type = p_report_type;
-  select assessment_reference into v_assessment_reference from public.assessments
-  where id = (v_context->>'assessment_id')::uuid;
-
-  insert into public.report_generation_claims(
-    assessment_id, report_type, order_id, score_run_id, score_input_hash, fulfilment_id,
-    claim_owner, version_number, report_reference, lease_expires_at, state
-  ) values (
-    (v_context->>'assessment_id')::uuid, p_report_type, (v_context->>'order_id')::uuid,
-    (v_context->>'score_run_id')::uuid, v_context->>'score_input_hash', p_fulfilment_id,
-    p_claim_owner, v_version, 'RPT-' || v_assessment_reference || '-V' || v_version,
-    now() + interval '20 minutes', 'claimed'
-  ) returning * into v_claim;
-  return jsonb_build_object(
-    'claimed', true, 'claim_token', v_claim.claim_token, 'version_number', v_claim.version_number,
-    'report_reference', v_claim.report_reference, 'report_id', null,
-    'current_report_id', v_current.id, 'state', v_claim.state,
-    'lease_expires_at', v_claim.lease_expires_at, 'reason', 'claimed'
-  );
-end;
-$function$;
-
-create or replace function public.renew_premium_report_generation_lease(p_claim_token uuid)
-returns timestamptz
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_expiry timestamptz;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  update public.report_generation_claims
-  set lease_expires_at = now() + interval '20 minutes', last_heartbeat_at = now(), updated_at = now()
-  where claim_token = p_claim_token and state in ('claimed','committed') and lease_expires_at >= now()
-  returning lease_expires_at into v_expiry;
-  if v_expiry is null then raise exception 'generation_claim_not_renewable'; end if;
-  return v_expiry;
-end;
-$function$;
-
-create or replace function public.recover_premium_report_generation_claim(
-  p_order_reference text,
-  p_claim_owner text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_context jsonb; v_claim public.report_generation_claims%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'report_regeneration', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_claim_owner), '') = '' then raise exception 'generation_claim_owner_required'; end if;
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform pg_advisory_xact_lock(hashtextextended((v_context->>'assessment_id') || ':essential_self_assessment', 0));
-  select * into v_claim from public.report_generation_claims
-  where assessment_id = (v_context->>'assessment_id')::uuid and report_type = 'essential_self_assessment'
-  for update;
-  if not found or v_claim.state <> 'committed' or v_claim.report_id is null then raise exception 'committed_draft_not_recoverable'; end if;
-  if v_claim.lease_expires_at >= now() then raise exception 'generation_claim_still_active'; end if;
-  perform public.phase14_generation_entitlement(
-    p_order_reference, v_claim.order_id, v_claim.assessment_id, v_claim.score_run_id, v_claim.score_input_hash
-  );
-  update public.report_generation_claims
-  set claim_token = gen_random_uuid(), claim_owner = p_claim_owner,
-      lease_expires_at = now() + interval '20 minutes', last_heartbeat_at = now(),
-      recovered_at = now(), recovery_count = recovery_count + 1, updated_at = now()
-  where assessment_id = v_claim.assessment_id and report_type = v_claim.report_type
-  returning * into v_claim;
-  insert into public.audit_logs(actor_type, actor_user_id, assessment_id, entity_table, entity_id, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, v_claim.assessment_id, 'report_generation_claims', v_claim.report_id,
-    'committed_report_draft_recovered', jsonb_build_object('claim_owner', p_claim_owner, 'recovery_count', v_claim.recovery_count));
-  return jsonb_build_object(
-    'claimed', true, 'claim_token', v_claim.claim_token, 'report_id', v_claim.report_id,
-    'report_reference', v_claim.report_reference, 'version_number', v_claim.version_number,
-    'state', v_claim.state, 'lease_expires_at', v_claim.lease_expires_at,
-    'reason', 'committed_draft_recovered'
-  );
-end;
-$function$;
-
-create or replace function public.commit_premium_report_draft(
-  p_claim_token uuid,
-  p_template_id uuid,
-  p_storage_bucket text,
-  p_temp_storage_path text,
-  p_checksum text,
-  p_generated_by uuid default null,
-  p_generation_run_id uuid default null
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claim public.report_generation_claims%rowtype;
-  v_report_id uuid;
-  v_supersedes uuid;
-  v_assessment_reference text;
-  v_order_reference text;
-  v_final_path text;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token for update;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  if v_claim.lease_expires_at < now() then raise exception 'generation_claim_expired'; end if;
-  select order_reference into v_order_reference from public.orders where id = v_claim.order_id;
-  perform public.phase14_generation_entitlement(
-    v_order_reference, v_claim.order_id, v_claim.assessment_id, v_claim.score_run_id, v_claim.score_input_hash
-  );
-  if p_checksum !~ '^[0-9a-f]{64}$' then raise exception 'report_checksum_invalid'; end if;
-  if p_temp_storage_path not like 'tmp/%' then raise exception 'temporary_storage_path_required'; end if;
-  if coalesce(trim(p_storage_bucket), '') = '' then raise exception 'storage_bucket_required'; end if;
-  if v_claim.report_id is not null then return v_claim.report_id; end if;
-  select assessment_reference into v_assessment_reference from public.assessments where id = v_claim.assessment_id;
-  v_final_path := v_assessment_reference || '/' || v_claim.report_reference || '-' || p_checksum || '.pdf';
-
-  select id into v_supersedes from public.reports
-  where assessment_id = v_claim.assessment_id and report_type = v_claim.report_type
-    and status not in ('superseded','voided','draft')
-  order by version_number desc limit 1 for update;
-  insert into public.reports(
-    assessment_id, order_id, score_run_id, template_id, report_type, status,
-    report_reference, version_number, storage_bucket, storage_path, checksum,
-    generated_by, generated_at, supersedes_report_id, fulfilment_id, generation_run_id
-  ) values (
-    v_claim.assessment_id, v_claim.order_id, v_claim.score_run_id, p_template_id,
-    v_claim.report_type, 'draft', v_claim.report_reference, v_claim.version_number,
-    p_storage_bucket, p_temp_storage_path, p_checksum, p_generated_by, now(),
-    v_supersedes, v_claim.fulfilment_id, p_generation_run_id
-  ) returning id into v_report_id;
-  update public.report_generation_claims
-  set report_id = v_report_id, state = 'committed',
-      temporary_storage_bucket = p_storage_bucket, temporary_storage_path = p_temp_storage_path,
-      final_storage_bucket = p_storage_bucket, final_storage_path = v_final_path,
-      expected_checksum = p_checksum, committed_at = now(), last_heartbeat_at = now(), updated_at = now()
-  where claim_token = p_claim_token;
-  return v_report_id;
-end;
-$function$;
-
-create function public.publish_premium_report_generation(
-  p_claim_token uuid,
-  p_report_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claim public.report_generation_claims%rowtype;
-  v_report public.reports%rowtype;
-  v_order_reference text;
-  v_object record;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token for update;
-  if not found or v_claim.report_id <> p_report_id or v_claim.state <> 'committed' then raise exception 'generation_claim_report_mismatch'; end if;
-  select * into v_report from public.reports where id = p_report_id for update;
-  if not found or v_report.status <> 'draft' then raise exception 'report_draft_missing'; end if;
-  if v_report.order_id <> v_claim.order_id or v_report.assessment_id <> v_claim.assessment_id
-     or v_report.score_run_id <> v_claim.score_run_id or v_report.version_number <> v_claim.version_number
-     or v_report.checksum <> v_claim.expected_checksum then raise exception 'report_claim_binding_mismatch'; end if;
-  select order_reference into v_order_reference from public.orders where id = v_claim.order_id;
-  perform public.phase14_generation_entitlement(
-    v_order_reference, v_claim.order_id, v_claim.assessment_id, v_claim.score_run_id, v_claim.score_input_hash
-  );
-  if v_claim.final_storage_path like 'tmp/%' or coalesce(v_claim.final_storage_path, '') = '' then raise exception 'final_storage_path_invalid'; end if;
-  select so.bucket_id, so.name, so.metadata into v_object
-  from storage.objects so
-  where so.bucket_id = v_claim.final_storage_bucket and so.name = v_claim.final_storage_path;
-  if not found then raise exception 'final_storage_object_missing'; end if;
-  if coalesce(v_object.metadata->>'mimetype', '') <> 'application/pdf' then raise exception 'final_storage_content_type_invalid'; end if;
-  if coalesce(v_object.metadata->>'sha256', v_object.metadata->'metadata'->>'sha256', '') <> v_claim.expected_checksum then raise exception 'final_storage_checksum_metadata_mismatch'; end if;
-
-  if v_report.supersedes_report_id is not null then
-    update public.reports set status = 'superseded'
-    where id = v_report.supersedes_report_id and status not in ('voided','superseded');
-  end if;
-  update public.reports
-  set status = 'generated', storage_bucket = v_claim.final_storage_bucket,
-      storage_path = v_claim.final_storage_path, updated_at = now()
-  where id = p_report_id;
-  delete from public.report_generation_claims where claim_token = p_claim_token;
-  return jsonb_build_object(
-    'report_id', p_report_id, 'report_reference', v_report.report_reference,
-    'version_number', v_report.version_number, 'superseded_report_id', v_report.supersedes_report_id,
-    'final_storage_bucket', v_claim.final_storage_bucket, 'final_storage_path', v_claim.final_storage_path
-  );
-end;
-$function$;
-
-create or replace function public.abandon_premium_report_generation_claim(
-  p_claim_token uuid,
-  p_reason text
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_claim public.report_generation_claims%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'report_regeneration', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token for update;
-  if not found then return false; end if;
-  update public.report_generation_claims
-  set state = 'abandoned', abandoned_at = now(), abandonment_reason = p_reason,
-      lease_expires_at = now(), updated_at = now()
-  where claim_token = p_claim_token;
-  if v_claim.report_id is not null then
-    update public.reports set status = 'voided', updated_at = now()
-    where id = v_claim.report_id and status = 'draft';
-  end if;
-  insert into public.audit_logs(actor_type, actor_user_id, assessment_id, entity_table, entity_id, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, v_claim.assessment_id, 'report_generation_claims', v_claim.report_id,
-    'report_generation_claim_abandoned', jsonb_build_object('reason', p_reason));
-  return true;
-end;
-$function$;
-
-create or replace function public.cleanup_expired_premium_report_claims(p_older_than interval default interval '24 hours')
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_paths jsonb; v_count integer;
-begin
-  if auth.jwt()->>'role' <> 'service_role' and current_user not in ('postgres','supabase_admin') then
-    raise exception 'phase14_cleanup_service_role_required';
-  end if;
-  with deleted as (
-    delete from public.report_generation_claims
-    where report_id is null and state in ('claimed','abandoned')
-      and lease_expires_at < now() - p_older_than
-    returning temporary_storage_bucket, temporary_storage_path
-  )
-  select coalesce(jsonb_agg(jsonb_build_object('bucket', temporary_storage_bucket, 'path', temporary_storage_path))
-    filter (where temporary_storage_path is not null), '[]'::jsonb), count(*)
-  into v_paths, v_count from deleted;
-  return jsonb_build_object('deleted_claims', v_count, 'temporary_objects_eligible_for_api_cleanup', v_paths);
-end;
-$function$;
-
-create or replace function public.phase14_delivery_entitlement(
-  p_report_id uuid,
-  p_recipient text,
-  p_allow_test_override boolean default false,
-  p_purpose text default 'email_delivery'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_report public.reports%rowtype; v_order public.orders%rowtype; v_product public.products%rowtype;
-  v_assessment public.assessments%rowtype; v_score_run public.score_runs%rowtype;
-  v_customer_email text; v_current_report_id uuid; v_object record;
-begin
-  select * into v_report from public.reports where id = p_report_id for share;
-  if not found then raise exception 'report_not_found'; end if;
-  select * into v_order from public.orders where id = v_report.order_id for share;
-  if not found then raise exception 'report_order_missing'; end if;
-  select * into v_product from public.products where id = v_order.product_id for share;
-  select * into v_assessment from public.assessments where id = v_report.assessment_id for share;
-  select * into v_score_run from public.score_runs where id = v_report.score_run_id for share;
-  select id into v_current_report_id from public.reports
-  where assessment_id = v_report.assessment_id and report_type = v_report.report_type
-    and status not in ('superseded','voided','draft')
-  order by version_number desc limit 1;
-
-  if v_report.report_type <> 'essential_self_assessment' or v_product.product_code <> 'essential_self_assessment' then raise exception 'delivery_report_type_ineligible'; end if;
-  if v_order.amount_cents <> 500000 or v_product.price_cents <> 500000 then raise exception 'delivery_price_mismatch'; end if;
-  if v_order.currency <> 'ZAR' or v_product.currency <> 'ZAR' then raise exception 'delivery_currency_mismatch'; end if;
-  if v_order.status::text <> 'payment_received' then raise exception 'delivery_order_not_paid'; end if;
-  if v_order.verified_at is null or v_order.verified_by is null then raise exception 'delivery_manual_verification_missing'; end if;
-  if not v_product.active or not v_product.requires_payment_verification or v_product.delivery_mode <> 'mk_controlled_pdf' then raise exception 'delivery_product_policy_mismatch'; end if;
-  if v_report.assessment_id <> v_order.assessment_id or v_score_run.assessment_id <> v_assessment.id then raise exception 'delivery_relationship_mismatch'; end if;
-  if v_assessment.current_score_run_id <> v_score_run.id then raise exception 'delivery_stale_score_run'; end if;
-  if v_score_run.status::text <> 'completed' or v_score_run.locked_at is null or v_score_run.input_hash !~ '^[0-9a-f]{64}$' then raise exception 'delivery_score_run_ineligible'; end if;
-  if v_current_report_id is distinct from v_report.id or v_report.status in ('draft','superseded','voided') then raise exception 'delivery_report_not_current'; end if;
-  if p_purpose = 'email_delivery' and v_report.status not in ('generated','approved','released') then raise exception 'delivery_report_status_forbidden'; end if;
-  if p_purpose = 'admin_download' and v_report.status not in ('generated','under_review','approved','released') then raise exception 'download_report_status_forbidden'; end if;
-  if coalesce(v_report.storage_bucket, '') = '' or coalesce(v_report.storage_path, '') = '' or v_report.checksum !~ '^[0-9a-f]{64}$' then raise exception 'delivery_storage_metadata_invalid'; end if;
-  select bucket_id, name, metadata into v_object from storage.objects
-  where bucket_id = v_report.storage_bucket and name = v_report.storage_path;
-  if not found then raise exception 'report_storage_object_missing'; end if;
-  if coalesce(v_object.metadata->>'mimetype', '') <> 'application/pdf'
-     or coalesce(v_object.metadata->>'sha256', v_object.metadata->'metadata'->>'sha256', '') <> v_report.checksum then raise exception 'report_storage_metadata_mismatch'; end if;
-  v_customer_email := lower(trim(v_order.customer_email::text));
-  if not p_allow_test_override and lower(trim(p_recipient)) is distinct from v_customer_email then raise exception 'delivery_recipient_override_forbidden'; end if;
-  return jsonb_build_object(
-    'report_id', v_report.id, 'report_reference', v_report.report_reference,
-    'report_status', v_report.status, 'report_checksum', v_report.checksum,
-    'storage_bucket', v_report.storage_bucket, 'storage_path', v_report.storage_path,
-    'order_id', v_order.id, 'assessment_id', v_assessment.id, 'score_run_id', v_score_run.id,
-    'customer_email', v_customer_email, 'recipient', lower(trim(p_recipient)),
-    'test_delivery', lower(trim(p_recipient)) is distinct from v_customer_email
-  );
-end;
-$function$;
-
-create or replace function public.assert_premium_report_delivery_entitlement(
-  p_report_id uuid, p_recipient text, p_allow_test_override boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_require_security(
-    'email_delivery', array['platform_admin','approver']::public.admin_role[], true, false
-  );
-  return public.phase14_delivery_entitlement(p_report_id, p_recipient, p_allow_test_override, 'email_delivery');
-end;
-$function$;
-
-create or replace function public.assert_premium_report_download_entitlement(
-  p_report_id uuid,
-  p_purpose text default 'admin_download'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_report public.reports%rowtype; v_order public.orders%rowtype;
-begin
-  perform public.phase14_require_security(
-    'report_download', array['platform_admin','reviewer','approver','read_only_admin']::public.admin_role[], true, false
-  );
-  select * into v_report from public.reports where id = p_report_id;
-  if not found then raise exception 'report_not_found'; end if;
-  select * into v_order from public.orders where id = v_report.order_id;
-  return public.phase14_delivery_entitlement(p_report_id, lower(trim(v_order.customer_email::text)), false, p_purpose);
-end;
-$function$;
-
-create or replace function public.authorize_premium_report_delivery(
-  p_report_id uuid,
-  p_recipient text,
-  p_force_resend boolean default false,
-  p_allow_test_override boolean default false,
-  p_provider text default 'resend'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_context jsonb; v_gate_version integer; v_event public.email_events%rowtype;
-  v_auth public.report_delivery_authorizations%rowtype; v_attempt integer; v_dedupe text;
-begin
-  v_actor := public.phase14_require_security(
-    case when p_force_resend then 'email_resend' else 'email_delivery' end,
-    array['platform_admin','approver']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_provider), '') = '' then raise exception 'delivery_provider_required'; end if;
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(
-      'phase14-delivery:' || p_report_id::text || ':' || lower(trim(p_recipient)),
-      0
-    )
-  );
-  v_context := public.phase14_delivery_entitlement(p_report_id, p_recipient, p_allow_test_override, 'email_delivery');
-  v_gate_version := (v_actor->>'gate_version')::integer;
-  if exists (
-    select 1 from public.email_events where report_id = p_report_id
-      and recipient_email = lower(trim(p_recipient))
-      and status in ('sending','provider_acceptance_uncertain','reconciliation_required')
-  ) then raise exception 'delivery_provider_acceptance_unresolved'; end if;
-
-  if not p_force_resend then
-    select * into v_event from public.email_events
-    where report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-      and notification_type = 'premium_report_pdf'
-      and status in ('sent','delivery_delayed','delivered','bounced','complained')
-    order by created_at desc limit 1;
-    if found then
-      return jsonb_build_object('reused_existing_send', true, 'email_event_id', v_event.id,
-        'provider_message_id', v_event.provider_message_id, 'status', v_event.status,
-        'recipient', lower(trim(p_recipient)), 'test_delivery', (v_context->>'test_delivery')::boolean);
-    end if;
-  end if;
-
-  select count(*) + 1 into v_attempt from public.email_events
-  where report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-    and notification_type = 'premium_report_pdf';
-  v_dedupe := 'premium-report-delivery:' || p_report_id || ':' || lower(trim(p_recipient)) || ':attempt-' || v_attempt;
-  insert into public.email_events(
-    assessment_id, order_id, report_id, recipient_email, template_key, notification_type,
-    dedupe_key, provider_request_key, provider_idempotency_key, provider, status,
-    attempt_number, metadata_json
-  ) values (
-    (v_context->>'assessment_id')::uuid, (v_context->>'order_id')::uuid, p_report_id,
-    lower(trim(p_recipient)), 'premium_report_pdf_v1', 'premium_report_pdf', v_dedupe,
-    v_dedupe, v_dedupe, lower(trim(p_provider)), 'queued', v_attempt,
-    jsonb_build_object('attachment_checksum', v_context->>'report_checksum', 'test_delivery', (v_context->>'test_delivery')::boolean)
-  ) returning * into v_event;
-  insert into public.report_delivery_authorizations(
-    report_id, report_checksum, recipient_email, order_id, assessment_id, score_run_id,
-    security_gate_version, authorised_by, authorised_session_id, provider, email_event_id, test_delivery
-  ) values (
-    p_report_id, v_context->>'report_checksum', lower(trim(p_recipient)),
-    (v_context->>'order_id')::uuid, (v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid, v_gate_version, (v_actor->>'user_id')::uuid,
-    nullif(v_actor->>'session_id','')::uuid, lower(trim(p_provider)), v_event.id,
-    (v_context->>'test_delivery')::boolean
-  ) returning * into v_auth;
-  return jsonb_build_object(
-    'reused_existing_send', false, 'authorization_id', v_auth.id, 'email_event_id', v_event.id,
-    'provider_request_key', v_event.provider_request_key, 'attempt_number', v_event.attempt_number,
-    'recipient', v_auth.recipient_email, 'test_delivery', v_auth.test_delivery, 'status', v_auth.status
-  );
-end;
-$function$;
-
-create or replace function public.claim_premium_report_delivery(p_authorization_id uuid)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_security jsonb; v_auth public.report_delivery_authorizations%rowtype; v_context jsonb; v_lease uuid;
-begin
-  v_security := public.phase14_require_security(
-    'automatic_delivery', array['platform_admin','approver']::public.admin_role[], true, true
-  );
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found then raise exception 'delivery_authorization_missing'; end if;
-  if v_auth.status <> 'queued' then return jsonb_build_object('claimed', false, 'status', v_auth.status); end if;
-  if v_auth.security_gate_version <> (v_security->>'gate_version')::integer then
-    update public.report_delivery_authorizations set status = 'revoked', revoked_reason = 'security_gate_version_changed', updated_at = now() where id = v_auth.id;
-    update public.email_events set status = 'failed_before_provider', error_message = 'Delivery authorization gate version changed.' where id = v_auth.email_event_id and status = 'queued';
-    return jsonb_build_object('claimed', false, 'status', 'revoked', 'reason', 'security_gate_version_changed');
-  end if;
-  begin
-    v_context := public.phase14_delivery_entitlement(v_auth.report_id, v_auth.recipient_email::text, v_auth.test_delivery, 'email_delivery');
-    if v_context->>'report_checksum' <> v_auth.report_checksum
-       or (v_context->>'order_id')::uuid <> v_auth.order_id
-       or (v_context->>'score_run_id')::uuid <> v_auth.score_run_id then raise exception 'delivery_authorization_binding_changed'; end if;
-  exception when others then
-    update public.report_delivery_authorizations set status = 'revoked', revoked_reason = sqlerrm, updated_at = now() where id = v_auth.id;
-    update public.email_events set status = 'failed_before_provider', error_message = 'Delivery authorization revoked before dispatch: ' || sqlerrm where id = v_auth.email_event_id and status = 'queued';
-    return jsonb_build_object('claimed', false, 'status', 'revoked', 'reason', sqlerrm);
-  end;
-  v_lease := gen_random_uuid();
-  update public.report_delivery_authorizations
-  set status = 'claimed', lease_token = v_lease, lease_expires_at = now() + interval '10 minutes',
-      claimed_at = now(), updated_at = now()
-  where id = v_auth.id;
-  return jsonb_build_object(
-    'claimed', true, 'authorization_id', v_auth.id, 'lease_token', v_lease,
-    'email_event_id', v_auth.email_event_id, 'report_id', v_auth.report_id,
-    'recipient', v_auth.recipient_email, 'provider', v_auth.provider,
-    'test_delivery', v_auth.test_delivery, 'report_checksum', v_auth.report_checksum
-  );
-end;
-$function$;
-
-create or replace function public.mark_premium_report_delivery_dispatch_started(
-  p_authorization_id uuid,
-  p_lease_token uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype;
-begin
-  perform public.phase14_require_security('automatic_delivery', array['platform_admin','approver']::public.admin_role[], true, true);
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found or v_auth.status <> 'claimed' or v_auth.lease_token <> p_lease_token or v_auth.lease_expires_at < now() then
-    raise exception 'delivery_authorization_lease_invalid';
-  end if;
-  update public.report_delivery_authorizations set status = 'dispatching', dispatch_started_at = now(), updated_at = now() where id = v_auth.id;
-  update public.email_events set status = 'sending', send_lease_token = p_lease_token,
-    send_lease_expires_at = v_auth.lease_expires_at, delivery_updated_at = now(), error_message = null
-  where id = v_auth.email_event_id and status = 'queued';
-  if not found then raise exception 'delivery_email_event_not_queued'; end if;
-  return true;
-end;
-$function$;
-
-create or replace function public.fail_premium_report_delivery_before_dispatch(
-  p_authorization_id uuid,
-  p_lease_token uuid,
-  p_reason text
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype;
-begin
-  perform public.phase14_require_security('automatic_delivery', array['platform_admin','approver']::public.admin_role[], true, true);
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found or v_auth.status <> 'claimed' or v_auth.lease_token <> p_lease_token then return false; end if;
-  update public.report_delivery_authorizations set status = 'revoked', revoked_reason = p_reason,
-    lease_token = null, lease_expires_at = null, updated_at = now() where id = v_auth.id;
-  update public.email_events set status = 'failed_before_provider', error_message = p_reason,
-    send_lease_token = null, send_lease_expires_at = null, delivery_updated_at = now()
-  where id = v_auth.email_event_id and status = 'queued';
-  return true;
-end;
-$function$;
-
-create or replace function public.finalize_premium_report_delivery(
-  p_authorization_id uuid,
-  p_email_event_id uuid,
-  p_provider_message_id text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_existing public.report_delivery_finalizations%rowtype; v_report public.reports%rowtype; v_now timestamptz := now();
-begin
-  perform public.phase14_require_security('delivery_finalization', array['platform_admin','approver']::public.admin_role[], true, true);
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found or v_auth.email_event_id <> p_email_event_id then raise exception 'delivery_finalization_binding_mismatch'; end if;
-  select * into v_existing from public.report_delivery_finalizations where authorization_id = p_authorization_id;
-  if found then
-    return jsonb_build_object('finalized', true, 'idempotent_replay', true, 'report_id', v_existing.report_id, 'email_event_id', v_existing.email_event_id);
-  end if;
-  if v_auth.status not in ('dispatching','reconciliation_required') then raise exception 'delivery_finalization_state_invalid:%', v_auth.status; end if;
-  if coalesce(trim(p_provider_message_id), '') = '' then raise exception 'provider_message_id_required'; end if;
-  select * into v_report from public.reports where id = v_auth.report_id for update;
-  if not found then raise exception 'delivery_finalization_report_missing'; end if;
-
-  update public.email_events
-  set status = 'sent', provider = v_auth.provider, provider_message_id = p_provider_message_id,
-      sent_at = coalesce(sent_at, v_now), delivery_updated_at = v_now,
-      send_lease_token = null, send_lease_expires_at = null, error_message = null
-  where id = p_email_event_id and status in ('sending','provider_acceptance_uncertain','reconciliation_required');
-  if not found then raise exception 'delivery_finalization_email_cas_failed'; end if;
-
-  if not v_auth.test_delivery then
-    update public.reports set status = 'released', released_at = coalesce(released_at, v_now), updated_at = v_now
-    where id = v_report.id and status not in ('draft','superseded','voided');
-    if not found then raise exception 'delivery_finalization_report_cas_failed'; end if;
-    if v_report.fulfilment_id is not null then
-      update public.report_fulfilments
-      set status = 'completed', current_step = 'email_sent', completed_at = coalesce(completed_at, v_now),
-          report_id = v_report.id, updated_at = v_now
-      where id = v_report.fulfilment_id and status not in ('cancelled','completed');
-    end if;
-  end if;
-
-  insert into public.report_delivery_finalizations(authorization_id, email_event_id, report_id, provider, provider_message_id, finalized_at)
-  values (v_auth.id, p_email_event_id, v_report.id, v_auth.provider, p_provider_message_id, v_now);
-  insert into public.report_events(report_id, event_type, actor_user_id, note, metadata_json)
-  values (v_report.id, case when v_auth.test_delivery then 'email_test_sent' else 'email_sent' end,
-    v_auth.authorised_by, 'Atomic provider-acceptance finalization.',
-    jsonb_build_object('authorization_id', v_auth.id, 'email_event_id', p_email_event_id, 'provider_message_id', p_provider_message_id, 'test_delivery', v_auth.test_delivery));
-  insert into public.audit_logs(actor_type, actor_user_id, assessment_id, entity_table, entity_id, action, after_json)
-  values ('admin', v_auth.authorised_by, v_auth.assessment_id, 'reports', v_report.id,
-    case when v_auth.test_delivery then 'premium_report_test_delivery_finalized' else 'premium_report_delivery_finalized' end,
-    jsonb_build_object('authorization_id', v_auth.id, 'email_event_id', p_email_event_id, 'provider_message_id', p_provider_message_id));
-  if not v_auth.test_delivery then
-    insert into public.assessment_events(
-      assessment_id, order_id, report_id, event_type, dedupe_key, metadata_json
-    ) values (
-      v_auth.assessment_id, v_auth.order_id, v_report.id, 'report_emailed_to_customer',
-      'phase14-delivery-finalization:' || v_auth.id,
-      jsonb_build_object('authorization_id', v_auth.id, 'email_event_id', p_email_event_id, 'test_delivery', false)
-    );
-  end if;
-  update public.report_delivery_authorizations
-  set status = 'finalized', provider_message_id = p_provider_message_id, finalized_at = v_now,
-      lease_token = null, lease_expires_at = null, updated_at = v_now
-  where id = v_auth.id;
-  return jsonb_build_object('finalized', true, 'idempotent_replay', false, 'report_id', v_report.id, 'email_event_id', p_email_event_id);
-end;
-$function$;
-
-create or replace function public.mark_premium_report_delivery_reconciliation_required(
-  p_authorization_id uuid,
-  p_provider_message_id text,
-  p_reason text
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype;
-begin
-  perform public.phase14_require_security('provider_reconciliation', array['platform_admin','approver']::public.admin_role[], true, true);
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found or v_auth.status not in ('dispatching','reconciliation_required') then return false; end if;
-  update public.report_delivery_authorizations set status = 'reconciliation_required',
-    provider_message_id = coalesce(p_provider_message_id, provider_message_id), updated_at = now()
-  where id = v_auth.id;
-  update public.email_events set status = 'reconciliation_required',
-    provider_message_id = coalesce(p_provider_message_id, provider_message_id),
-    reconciliation_required_at = coalesce(reconciliation_required_at, now()),
-    error_message = p_reason, delivery_updated_at = now()
-  where id = v_auth.email_event_id and status in ('sending','provider_acceptance_uncertain','reconciliation_required');
-  return true;
-end;
-$function$;
-
-create or replace function public.recover_stale_premium_report_email_sends()
-returns integer
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_count integer;
-begin
-  perform public.phase14_require_security('provider_reconciliation', array['platform_admin','approver']::public.admin_role[], true, true);
-  update public.report_delivery_authorizations
-  set status = 'reconciliation_required', updated_at = now()
-  where status = 'dispatching' and lease_expires_at < now();
-  update public.email_events
-  set status = 'reconciliation_required', reconciliation_required_at = coalesce(reconciliation_required_at, now()),
-      delivery_updated_at = now(), error_message = 'Dispatch lease expired; provider acceptance remains unresolved.'
-  where status = 'sending' and send_lease_expires_at < now();
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$function$;
-
-do $grants$
-declare v_signature text;
-begin
-  foreach v_signature in array array[
-    'public.phase14_require_actor(text,public.admin_role[],boolean)',
-    'public.phase14_require_security(text,public.admin_role[],boolean,boolean)',
-    'public.phase14_generation_entitlement(text,uuid,uuid,uuid,text)',
-    'public.phase14_delivery_entitlement(uuid,text,boolean,text)',
-    'public.guard_phase14_feature_policy_mutation()'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public, anon, authenticated, service_role';
-  end loop;
-
-  foreach v_signature in array array[
-    'public.set_phase14_security_gate_version(integer,text)',
-    'public.update_phase14_feature_policy(text,jsonb)',
-    'public.authorize_phase14_action(text)',
-    'public.assert_premium_report_generation_entitlement(text)',
-    'public.claim_premium_report_generation(text,text,uuid,public.report_type)',
-    'public.renew_premium_report_generation_lease(uuid)',
-    'public.recover_premium_report_generation_claim(text,text)',
-    'public.commit_premium_report_draft(uuid,uuid,text,text,text,uuid,uuid)',
-    'public.publish_premium_report_generation(uuid,uuid)',
-    'public.abandon_premium_report_generation_claim(uuid,text)',
-    'public.assert_premium_report_delivery_entitlement(uuid,text,boolean)',
-    'public.assert_premium_report_download_entitlement(uuid,text)',
-    'public.authorize_premium_report_delivery(uuid,text,boolean,boolean,text)'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public, anon, service_role';
-    execute 'grant execute on function ' || v_signature || ' to authenticated';
-  end loop;
-
-  foreach v_signature in array array[
-    'public.cleanup_expired_premium_report_claims(interval)',
-    'public.claim_premium_report_delivery(uuid)',
-    'public.mark_premium_report_delivery_dispatch_started(uuid,uuid)',
-    'public.fail_premium_report_delivery_before_dispatch(uuid,uuid,text)',
-    'public.finalize_premium_report_delivery(uuid,uuid,text)',
-    'public.mark_premium_report_delivery_reconciliation_required(uuid,text,text)',
-    'public.recover_stale_premium_report_email_sends()'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public, anon, authenticated';
-    execute 'grant execute on function ' || v_signature || ' to service_role';
-  end loop;
-
-  execute 'revoke execute on function public.release_premium_report_generation_claim(uuid) from public, anon, authenticated, service_role';
-  execute 'revoke execute on function public.publish_premium_report_generation(uuid,uuid,text) from public, anon, authenticated, service_role';
-  execute 'revoke execute on function public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,jsonb) from public, anon, authenticated, service_role';
-end;
-$grants$;
-
-comment on table public.phase14_security_gates is
-  'Versioned database security gate. The seeded Phase 14 gate is intentionally unsatisfied and is authoritative over editable JSON flags.';
-comment on table public.report_delivery_authorizations is
-  'Durable delivery outbox. Claiming then marking dispatch_started is the irreversible provider-dispatch boundary; later business changes cannot unsend an accepted request.';
-comment on function public.cleanup_expired_premium_report_claims(interval) is
-  'Cleanup administration operation. It only removes old uncommitted claims and returns temporary paths for Storage API cleanup; active and committed report objects are excluded.';
-
-update public.app_settings
-set value_json = value_json || jsonb_build_object(
-      'premium_report_prompt_version', 'mk-premium-report-v2-evidence-plan',
-      'premium_report_schema_version', 'mk-premium-ai-evidence-plan-v2',
-      'premium_report_auto_fulfilment_enabled', false,
-      'premium_report_ai_narrative_enabled', false,
-      'premium_report_auto_email_enabled', false
-    ),
-    updated_at = now()
-where setting_key = 'phase14_autonomous_report_engine';
-
-update public.app_settings
-set value_json = value_json || jsonb_build_object(
-      'premium_report_manual_delivery_enabled', false,
-      'premium_report_test_recipient_override_enabled', false
-    ),
-    updated_at = now()
-where setting_key = 'phase14_delivery_policy';
-
-
-create or replace function public.apply_email_provider_event_atomic(
-  p_provider text,
-  p_provider_event_id text,
-  p_provider_message_id text,
-  p_event_type text,
-  p_event_created_at timestamptz,
-  p_payload_fingerprint text,
-  p_payload_json jsonb default '{}'::jsonb
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_email public.email_events%rowtype; v_existing public.email_provider_events%rowtype;
-  v_provider_event_id uuid; v_status text; v_current_rank integer; v_incoming_rank integer;
-  v_applied boolean := false; v_supported boolean; v_payload jsonb; v_payload_size integer;
-begin
-  perform public.phase14_require_security('webhook_mutation', array['platform_admin']::public.admin_role[], false, true);
-  if length(p_payload_fingerprint) <> 64 or p_payload_fingerprint ~ '[^0-9a-f]' then
-    raise exception 'webhook_payload_fingerprint_invalid';
-  end if;
-  v_payload := jsonb_strip_nulls(jsonb_build_object(
-    'type', p_payload_json->>'type', 'created_at', p_payload_json->>'created_at', 'reason', p_payload_json->>'reason'
-  ));
-  v_payload_size := octet_length(v_payload::text);
-  if v_payload_size > 65536 then raise exception 'webhook_minimal_payload_too_large'; end if;
-  v_status := case p_event_type
-    when 'email.sent' then 'sent' when 'email.delivery_delayed' then 'delivery_delayed'
-    when 'email.delivered' then 'delivered' when 'email.failed' then 'delivery_failed'
-    when 'email.bounced' then 'bounced' when 'email.suppressed' then 'bounced'
-    when 'email.complained' then 'complained' else null end;
-  v_supported := v_status is not null;
-
-  select * into v_existing from public.email_provider_events
-  where provider = lower(trim(p_provider)) and provider_event_id = p_provider_event_id for update;
-  if found then
-    if v_existing.payload_fingerprint is distinct from p_payload_fingerprint then
-      update public.email_provider_events set processing_error = 'provider_event_payload_conflict', conflict_detected_at = now()
-      where id = v_existing.id;
-      insert into public.phase14_operational_alerts(alert_key, severity, category, email_event_id, detail_json)
-      values ('provider-event-conflict:' || lower(trim(p_provider)) || ':' || p_provider_event_id,
-        'critical', 'provider_event_payload_conflict', v_existing.email_event_id,
-        jsonb_build_object('provider', lower(trim(p_provider)), 'provider_event_id', p_provider_event_id))
-      on conflict (alert_key) do nothing;
-      return jsonb_build_object('duplicate', true, 'conflict', true, 'state_updated', false);
-    end if;
-    return jsonb_build_object('duplicate', true, 'conflict', false, 'state_updated', false);
-  end if;
-
-  if p_provider_message_id is not null then
-    select * into v_email from public.email_events
-    where provider = lower(trim(p_provider)) and provider_message_id = p_provider_message_id
-    for update;
-  end if;
-  insert into public.email_provider_events(
-    email_event_id, provider, provider_event_id, provider_message_id, event_type,
-    event_created_at, payload_fingerprint, payload_size_bytes, supported_event, payload_json
-  ) values (
-    v_email.id, lower(trim(p_provider)), p_provider_event_id, p_provider_message_id, p_event_type,
-    p_event_created_at, p_payload_fingerprint, v_payload_size, v_supported, v_payload
-  ) returning id into v_provider_event_id;
-  if not v_supported then
-    update public.email_provider_events set processed_at = now(), processing_error = 'verified_unsupported_event' where id = v_provider_event_id;
-    return jsonb_build_object('ignored', true, 'reason', 'unsupported_event', 'recorded', true);
-  end if;
-  if v_email.id is null then
-    update public.email_provider_events set processing_error = 'unknown_provider_message', processed_at = now() where id = v_provider_event_id;
-    return jsonb_build_object('ignored', true, 'reason', 'unknown_message');
-  end if;
-
-  v_current_rank := case v_email.status
-    when 'queued' then 10 when 'sending' then 20 when 'provider_acceptance_uncertain' then 25
-    when 'reconciliation_required' then 26 when 'sent' then 30 when 'delivery_delayed' then 40
-    when 'delivered' then 50 when 'delivery_failed' then 60 when 'bounced' then 60
-    when 'complained' then 70 when 'failed_before_provider' then 80 else 0 end;
-  v_incoming_rank := case v_status when 'sent' then 30 when 'delivery_delayed' then 40
-    when 'delivered' then 50 when 'delivery_failed' then 60 when 'bounced' then 60 when 'complained' then 70 else 0 end;
-  if v_incoming_rank >= v_current_rank
-     and (v_email.delivery_updated_at is null or p_event_created_at >= v_email.delivery_updated_at) then
-    update public.email_events set status = v_status, provider_event_id = p_provider_event_id,
-      delivered_at = case when v_status = 'delivered' then p_event_created_at else delivered_at end,
-      delivery_updated_at = p_event_created_at,
-      error_message = case when v_status in ('bounced','complained','delivery_failed') then coalesce(v_payload->>'reason', v_status) else null end,
-      metadata_json = coalesce(metadata_json, '{}'::jsonb) || jsonb_build_object(
-        'last_provider_event_type', p_event_type, 'last_provider_event_created_at', p_event_created_at
-      ) where id = v_email.id;
-    v_applied := true;
-  end if;
-  update public.email_provider_events set processed_at = now(), processing_error = null where id = v_provider_event_id;
-  return jsonb_build_object('duplicate', false, 'conflict', false, 'state_updated', v_applied, 'status', v_status);
-end;
-$$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714194317_phase14_security_state_machine_closure.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714201550_phase14_webhook_state_machine.sql (sha256:6b06ed1f6d5618ea3ad2f3b803fd8a19bc56466c62390f05499690dee82804b0)
-do $webhook_grants$
-begin
-  execute 'revoke execute on function public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,text,jsonb) from public, anon, authenticated';
-  execute 'grant execute on function public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,text,jsonb) to service_role';
-end;
-$webhook_grants$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714201550_phase14_webhook_state_machine.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714214023_phase14_fourth_adversarial_remediation.sql (sha256:0a9215cb5798e7695500dc88ceed2577dac4d60425beb43ce52d7ca4b0479f16)
--- Phase 14 fourth adversarial remediation.
--- Forward-only and fail-closed. This migration intentionally leaves every
--- commercial policy disabled and does not satisfy the Phase 14 security gate.
-
-
--- 1. Make the gate internally consistent and impossible to mutate through a
--- service-role Data API client or a direct table grant.
-alter table public.phase14_security_gates
-  drop constraint if exists phase14_security_gate_consistency;
-
-alter table public.phase14_security_gates
-  add constraint phase14_security_gate_consistency check (
-    (
-      status = 'satisfied'
-      and satisfied_version >= required_version
-      and satisfied_by is not null
-      and satisfied_at is not null
-      and coalesce(trim(reason), '') <> ''
-    )
-    or (
-      status <> 'satisfied'
-      and satisfied_version < required_version
-    )
-  );
-
-revoke all on table public.phase14_security_gates from public, anon, authenticated, service_role;
-grant select on table public.phase14_security_gates to authenticated, service_role;
-
-create or replace function public.guard_phase14_security_gate_mutation()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_require_actor(
-    'security_gate_table_mutation',
-    array['platform_admin']::public.admin_role[],
-    true
-  );
-  if tg_op = 'DELETE' then return old; end if;
-  if tg_level = 'STATEMENT' then return null; end if;
-  return new;
-end;
-$function$;
-
--- 2. Database-authoritative, action-specific policies. Application settings may
--- still hold presentation/configuration values, but never confer authority.
-create table public.phase14_feature_policies (
-  policy_key text primary key check (policy_key in (
-    'manual_generation',
-    'automatic_fulfilment',
-    'ai_narrative',
-    'automatic_email',
-    'manual_delivery',
-    'recipient_override',
-    'storage_cleanup'
-  )),
-  enabled boolean not null default false,
-  required_gate_version integer not null default 1 check (required_gate_version > 0),
-  updated_by uuid references public.admin_profiles(id) on delete restrict,
-  reason text not null default 'Disabled pending controlled approval' check (coalesce(trim(reason), '') <> ''),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-insert into public.phase14_feature_policies(policy_key, enabled, reason)
-select key, false, 'Disabled by fourth adversarial remediation pending separate AAL2 approval.'
-from unnest(array[
-  'manual_generation', 'automatic_fulfilment', 'ai_narrative',
-  'automatic_email', 'manual_delivery', 'recipient_override', 'storage_cleanup'
-]) as key;
-
-alter table public.phase14_feature_policies enable row level security;
-revoke all on table public.phase14_feature_policies from public, anon, authenticated, service_role;
-grant select on table public.phase14_feature_policies to authenticated, service_role;
-create policy phase14_feature_policies_admin_select on public.phase14_feature_policies
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin','reviewer','approver','read_only_admin'));
-
-create or replace function public.guard_phase14_feature_policy_row_mutation()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_require_actor(
-    'feature_policy_table_mutation',
-    array['platform_admin']::public.admin_role[],
-    true
-  );
-  if tg_op = 'DELETE' then return old; end if;
-  if tg_level = 'STATEMENT' then return null; end if;
-  return new;
-end;
-$function$;
-
-create trigger trg_guard_phase14_feature_policy_rows
-  before insert or update or delete on public.phase14_feature_policies
-  for each row execute function public.guard_phase14_feature_policy_row_mutation();
-create trigger trg_guard_phase14_feature_policy_truncate
-  before truncate on public.phase14_feature_policies
-  for each statement execute function public.guard_phase14_feature_policy_row_mutation();
-
-create or replace function public.set_phase14_feature_policy(
-  p_policy_key text,
-  p_enabled boolean,
-  p_reason text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_policy public.phase14_feature_policies%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'feature_policy_change', array['platform_admin']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_policy_reason_required'; end if;
-  update public.phase14_feature_policies
-  set enabled = p_enabled,
-      updated_by = (v_actor->>'user_id')::uuid,
-      reason = p_reason,
-      updated_at = now()
-  where policy_key = p_policy_key
-  returning * into v_policy;
-  if not found then raise exception 'phase14_policy_not_supported:%', p_policy_key; end if;
-  insert into public.audit_logs(actor_type, actor_user_id, entity_table, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, 'phase14_feature_policies',
-    'phase14_feature_policy_changed',
-    jsonb_build_object('policy_key', p_policy_key, 'enabled', p_enabled, 'reason', p_reason));
-  return to_jsonb(v_policy);
-end;
-$function$;
-
-create or replace function public.phase14_require_policy(p_policy_key text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_policy public.phase14_feature_policies%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied' or v_gate.satisfied_version < v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%', p_policy_key;
-  end if;
-  select * into v_policy from public.phase14_feature_policies where policy_key = p_policy_key for share;
-  if not found or not v_policy.enabled then raise exception 'phase14_policy_disabled:%', p_policy_key; end if;
-  if v_gate.satisfied_version < v_policy.required_gate_version then
-    raise exception 'phase14_policy_gate_version_stale:%', p_policy_key;
-  end if;
-  return jsonb_build_object('policy_key', v_policy.policy_key, 'gate_version', v_gate.satisfied_version);
-end;
-$function$;
-
--- 3. Durable, human-issued worker capabilities. Raw issue/lease secrets are
--- returned once and never stored; only SHA-256 digests are durable.
-create table public.phase14_worker_capabilities (
-  id uuid primary key default gen_random_uuid(),
-  capability_type text not null check (capability_type in (
-    'automatic_generation', 'automatic_delivery', 'generation_recovery',
-    'delivery_reconciliation', 'storage_cleanup'
-  )),
-  policy_key text not null references public.phase14_feature_policies(policy_key) on delete restrict,
-  operation_key text not null check (coalesce(trim(operation_key), '') <> ''),
-  issue_secret_hash text not null check (issue_secret_hash ~ '^[0-9a-f]{64}$'),
-  order_id uuid references public.orders(id) on delete restrict,
-  assessment_id uuid references public.assessments(id) on delete restrict,
-  score_run_id uuid references public.score_runs(id) on delete restrict,
-  fulfilment_id uuid references public.report_fulfilments(id) on delete restrict,
-  report_id uuid references public.reports(id) on delete restrict,
-  recipient_email citext,
-  security_gate_version integer not null check (security_gate_version > 0),
-  authorised_by uuid not null references public.admin_profiles(id) on delete restrict,
-  authorised_session_id uuid,
-  reason text not null check (coalesce(trim(reason), '') <> ''),
-  status text not null default 'authorised' check (status in ('authorised','leased','consumed','revoked','expired')),
-  expires_at timestamptz not null,
-  lease_secret_hash text check (lease_secret_hash is null or lease_secret_hash ~ '^[0-9a-f]{64}$'),
-  lease_expires_at timestamptz,
-  claimed_at timestamptz,
-  consumed_at timestamptz,
-  revoked_at timestamptz,
-  revoked_reason text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint phase14_worker_capability_lease_chk check (
-    (status = 'leased' and lease_secret_hash is not null and lease_expires_at is not null)
-    or status <> 'leased'
-  )
-);
-
-create unique index phase14_worker_capabilities_one_active_uidx
-  on public.phase14_worker_capabilities(capability_type, operation_key)
-  where status in ('authorised','leased');
-create index phase14_worker_capabilities_expiry_idx
-  on public.phase14_worker_capabilities(status, expires_at);
-alter table public.phase14_worker_capabilities enable row level security;
-revoke all on table public.phase14_worker_capabilities from public, anon, authenticated, service_role;
-grant select on table public.phase14_worker_capabilities to authenticated;
-create policy phase14_worker_capabilities_admin_select on public.phase14_worker_capabilities
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin','reviewer','approver','read_only_admin'));
-
-alter table public.report_fulfilments
-  add column generation_capability_id uuid references public.phase14_worker_capabilities(id) on delete restrict,
-  add column delivery_capability_id uuid references public.phase14_worker_capabilities(id) on delete restrict;
-
-alter table public.report_delivery_authorizations
-  alter column authorised_by drop not null,
-  add column worker_capability_id uuid references public.phase14_worker_capabilities(id) on delete restrict,
-  add column bounce_remediation_id uuid;
-
-create or replace function public.authorize_phase14_worker_operation(
-  p_capability_type text,
-  p_operation_key text,
-  p_order_id uuid,
-  p_assessment_id uuid,
-  p_score_run_id uuid,
-  p_fulfilment_id uuid,
-  p_report_id uuid default null,
-  p_recipient text default null,
-  p_expires_in_seconds integer default 21600,
-  p_reason text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_gate public.phase14_security_gates%rowtype; v_policy_key text;
-  v_secret text; v_capability public.phase14_worker_capabilities%rowtype;
-  v_order public.orders%rowtype; v_fulfilment public.report_fulfilments%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'worker_capability_authorization', array['platform_admin']::public.admin_role[], true, false
-  );
-  if p_expires_in_seconds < 300 or p_expires_in_seconds > 86400 then
-    raise exception 'phase14_worker_capability_expiry_out_of_range';
-  end if;
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_worker_capability_reason_required'; end if;
-  v_policy_key := case p_capability_type
-    when 'automatic_generation' then 'automatic_fulfilment'
-    when 'generation_recovery' then 'automatic_fulfilment'
-    when 'automatic_delivery' then 'automatic_email'
-    when 'delivery_reconciliation' then 'automatic_email'
-    when 'storage_cleanup' then 'storage_cleanup'
-    else null end;
-  if v_policy_key is null then raise exception 'phase14_worker_capability_type_invalid'; end if;
-  perform public.phase14_require_policy(v_policy_key);
-  select * into v_gate from public.phase14_security_gates where gate_key = 'phase14-premium-report';
-  if p_capability_type = 'storage_cleanup' then
-    if p_order_id is not null or p_assessment_id is not null or p_score_run_id is not null
-       or p_fulfilment_id is not null or p_report_id is not null or p_recipient is not null then
-      raise exception 'storage_cleanup_capability_must_be_unbound';
-    end if;
-  else
-    if p_order_id is null or p_assessment_id is null or p_score_run_id is null then
-      raise exception 'worker_capability_commercial_binding_required';
-    end if;
-    select * into v_order from public.orders where id = p_order_id for share;
-    if not found or v_order.assessment_id <> p_assessment_id then raise exception 'worker_capability_order_binding_invalid'; end if;
-    perform public.phase14_generation_entitlement(
-      v_order.order_reference,p_order_id,p_assessment_id,p_score_run_id,null
-    );
-  end if;
-  if p_fulfilment_id is not null then
-    select * into v_fulfilment from public.report_fulfilments where id = p_fulfilment_id for share;
-    if not found or v_fulfilment.order_id <> p_order_id or v_fulfilment.assessment_id <> p_assessment_id
-       or v_fulfilment.score_run_id <> p_score_run_id then
-      raise exception 'worker_capability_fulfilment_binding_invalid';
-    end if;
-  end if;
-  perform pg_advisory_xact_lock(hashtextextended('phase14-capability:' || p_capability_type || ':' || p_operation_key, 0));
-  update public.phase14_worker_capabilities
-  set status = 'expired', updated_at = now()
-  where capability_type = p_capability_type and operation_key = p_operation_key
-    and status = 'authorised' and expires_at <= now();
-  if exists (select 1 from public.phase14_worker_capabilities
-    where capability_type = p_capability_type and operation_key = p_operation_key
-      and status in ('authorised','leased')) then
-    raise exception 'phase14_worker_capability_already_active';
-  end if;
-  v_secret := encode(extensions.gen_random_bytes(32), 'hex');
-  insert into public.phase14_worker_capabilities(
-    capability_type, policy_key, operation_key, issue_secret_hash,
-    order_id, assessment_id, score_run_id, fulfilment_id, report_id, recipient_email,
-    security_gate_version, authorised_by, authorised_session_id, reason, expires_at
-  ) values (
-    p_capability_type, v_policy_key, p_operation_key,
-    encode(extensions.digest(convert_to(v_secret, 'UTF8'), 'sha256'), 'hex'),
-    p_order_id, p_assessment_id, p_score_run_id, p_fulfilment_id, p_report_id,
-    nullif(lower(trim(p_recipient)), ''), v_gate.satisfied_version,
-    (v_actor->>'user_id')::uuid, nullif(v_actor->>'session_id','')::uuid,
-    p_reason, now() + make_interval(secs => p_expires_in_seconds)
-  ) returning * into v_capability;
-  if p_fulfilment_id is not null then
-    update public.report_fulfilments
-    set generation_capability_id = case when p_capability_type in ('automatic_generation','generation_recovery') then v_capability.id else generation_capability_id end,
-        delivery_capability_id = case when p_capability_type in ('automatic_delivery','delivery_reconciliation') then v_capability.id else delivery_capability_id end,
-        updated_at = now()
-    where id = p_fulfilment_id;
-  end if;
-  insert into public.audit_logs(actor_type, actor_user_id, assessment_id, entity_table, entity_id, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, p_assessment_id, 'phase14_worker_capabilities',
-    v_capability.id, 'phase14_worker_capability_authorized',
-    jsonb_build_object('capability_type', p_capability_type, 'operation_key', p_operation_key,
-      'policy_key', v_policy_key, 'expires_at', v_capability.expires_at));
-  return jsonb_build_object(
-    'capability_id', v_capability.id, 'capability_type', v_capability.capability_type,
-    'operation_key', v_capability.operation_key, 'issue_secret', v_secret,
-    'expires_at', v_capability.expires_at, 'security_gate_version', v_capability.security_gate_version
-  );
-end;
-$function$;
-
-create or replace function public.claim_phase14_worker_capability(
-  p_capability_id uuid,
-  p_issue_secret text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype; v_lease text; v_gate public.phase14_security_gates%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then raise exception 'phase14_worker_service_role_required'; end if;
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  if v_cap.status <> 'authorised' then raise exception 'phase14_worker_capability_not_claimable:%', v_cap.status; end if;
-  if v_cap.expires_at <= now() then
-    update public.phase14_worker_capabilities set status = 'expired', updated_at = now() where id = v_cap.id;
-    raise exception 'phase14_worker_capability_expired';
-  end if;
-  if encode(extensions.digest(convert_to(coalesce(p_issue_secret,''), 'UTF8'), 'sha256'), 'hex') <> v_cap.issue_secret_hash then
-    raise exception 'phase14_worker_capability_secret_invalid';
-  end if;
-  select * into v_gate from public.phase14_security_gates where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied' or v_gate.satisfied_version <> v_cap.security_gate_version then
-    raise exception 'phase14_worker_capability_gate_changed';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  v_lease := encode(extensions.gen_random_bytes(32), 'hex');
-  update public.phase14_worker_capabilities
-  set status = 'leased', lease_secret_hash = encode(extensions.digest(convert_to(v_lease, 'UTF8'), 'sha256'), 'hex'),
-      lease_expires_at = least(expires_at, now() + interval '60 minutes'), claimed_at = now(), updated_at = now()
-  where id = v_cap.id returning * into v_cap;
-  return jsonb_build_object(
-    'capability_id', v_cap.id, 'capability_type', v_cap.capability_type,
-    'operation_key', v_cap.operation_key, 'lease_token', v_lease,
-    'lease_expires_at', v_cap.lease_expires_at
-  );
-end;
-$function$;
-
-create or replace function public.phase14_activate_worker_capability(
-  p_capability_id uuid,
-  p_lease_token text,
-  p_expected_types text[],
-  p_order_id uuid default null,
-  p_assessment_id uuid default null,
-  p_score_run_id uuid default null,
-  p_fulfilment_id uuid default null,
-  p_report_id uuid default null,
-  p_recipient text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then raise exception 'phase14_worker_service_role_required'; end if;
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id for share;
-  if not found or v_cap.status <> 'leased' then raise exception 'phase14_worker_capability_not_leased'; end if;
-  if not (v_cap.capability_type = any(p_expected_types)) then raise exception 'phase14_worker_capability_type_mismatch'; end if;
-  if v_cap.expires_at <= now() or v_cap.lease_expires_at <= now() then raise exception 'phase14_worker_capability_lease_expired'; end if;
-  if encode(extensions.digest(convert_to(coalesce(p_lease_token,''), 'UTF8'), 'sha256'), 'hex') <> v_cap.lease_secret_hash then
-    raise exception 'phase14_worker_capability_lease_invalid';
-  end if;
-  select * into v_gate from public.phase14_security_gates where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied' or v_gate.satisfied_version <> v_cap.security_gate_version then
-    raise exception 'phase14_worker_capability_gate_changed';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  if v_cap.order_id is not null and v_cap.order_id is distinct from p_order_id then raise exception 'worker_capability_order_mismatch'; end if;
-  if v_cap.assessment_id is not null and v_cap.assessment_id is distinct from p_assessment_id then raise exception 'worker_capability_assessment_mismatch'; end if;
-  if v_cap.score_run_id is not null and v_cap.score_run_id is distinct from p_score_run_id then raise exception 'worker_capability_score_run_mismatch'; end if;
-  if v_cap.fulfilment_id is not null and v_cap.fulfilment_id is distinct from p_fulfilment_id then raise exception 'worker_capability_fulfilment_mismatch'; end if;
-  if v_cap.report_id is not null and v_cap.report_id is distinct from p_report_id then raise exception 'worker_capability_report_mismatch'; end if;
-  if v_cap.recipient_email is not null and lower(trim(p_recipient)) is distinct from lower(v_cap.recipient_email::text) then
-    raise exception 'worker_capability_recipient_mismatch';
-  end if;
-  perform set_config('phase14.worker_capability_id', v_cap.id::text, true);
-  perform set_config('phase14.worker_capability_type', v_cap.capability_type, true);
-  return to_jsonb(v_cap) - 'issue_secret_hash' - 'lease_secret_hash';
-end;
-$function$;
-
--- Replace the old service-role boolean bypass with a transaction-local worker
--- context that only the non-exposed activation helper can establish.
-create or replace function public.phase14_require_security(
-  p_action text,
-  p_allowed_roles public.admin_role[] default array['platform_admin']::public.admin_role[],
-  p_require_aal2 boolean default true,
-  p_allow_service_role boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_gate public.phase14_security_gates%rowtype; v_actor jsonb; v_policy_key text;
-  v_capability_id uuid; v_capability_type text; v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied' or v_gate.satisfied_version < v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%', p_action;
-  end if;
-
-  if coalesce(auth.jwt()->>'role','') = 'service_role' then
-    begin
-      v_capability_id := nullif(current_setting('phase14.worker_capability_id', true), '')::uuid;
-      v_capability_type := nullif(current_setting('phase14.worker_capability_type', true), '');
-    exception when others then
-      raise exception 'phase14_worker_context_missing:%', p_action;
-    end;
-    if v_capability_id is null or v_capability_type is null then raise exception 'phase14_worker_context_missing:%', p_action; end if;
-    select * into v_cap from public.phase14_worker_capabilities where id = v_capability_id for share;
-    if not found or v_cap.status <> 'leased' or v_cap.lease_expires_at <= now()
-       or v_cap.security_gate_version <> v_gate.satisfied_version then
-      raise exception 'phase14_worker_context_invalid:%', p_action;
-    end if;
-    if not (
-      (v_capability_type in ('automatic_generation','generation_recovery') and p_action in ('report_generation','report_regeneration','ai_narrative_generation'))
-      or (v_capability_type = 'automatic_delivery' and p_action in ('email_delivery','automatic_delivery','delivery_finalization','provider_reconciliation'))
-      or (v_capability_type = 'delivery_reconciliation' and p_action in ('provider_reconciliation','delivery_finalization','automatic_delivery'))
-      or (v_capability_type = 'storage_cleanup' and p_action = 'storage_cleanup')
-    ) then raise exception 'phase14_worker_action_forbidden:%', p_action; end if;
-    perform public.phase14_require_policy(v_cap.policy_key);
-    return jsonb_build_object('actor_type','worker','capability_id',v_cap.id,
-      'capability_type',v_cap.capability_type,'gate_version',v_gate.satisfied_version,'action',p_action);
-  end if;
-
-  v_actor := public.phase14_require_actor(p_action, p_allowed_roles, p_require_aal2);
-  v_policy_key := case
-    when p_action in ('report_generation','report_regeneration') then 'manual_generation'
-    when p_action = 'ai_narrative_generation' then 'ai_narrative'
-    when p_action in ('email_delivery','email_resend','provider_reconciliation','delivery_finalization','automatic_delivery') then 'manual_delivery'
-    else null end;
-  if v_policy_key is not null then perform public.phase14_require_policy(v_policy_key); end if;
-  return v_actor || jsonb_build_object('gate_version',v_gate.satisfied_version,'action',p_action);
-end;
-$function$;
-
-create or replace function public.authorize_phase14_worker_action(
-  p_capability_id uuid,
-  p_lease_token text,
-  p_action text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id, p_lease_token, array[v_cap.capability_type],
-    v_cap.order_id, v_cap.assessment_id, v_cap.score_run_id, v_cap.fulfilment_id,
-    v_cap.report_id, v_cap.recipient_email::text
-  );
-  return public.phase14_require_security(p_action, array['platform_admin']::public.admin_role[], true, false);
-end;
-$function$;
-
-create or replace function public.complete_phase14_worker_capability(
-  p_capability_id uuid,
-  p_lease_token text
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id for update;
-  if not found or v_cap.status <> 'leased' or v_cap.lease_expires_at <= now()
-     or encode(extensions.digest(convert_to(coalesce(p_lease_token,''), 'UTF8'), 'sha256'), 'hex') <> v_cap.lease_secret_hash then
-    raise exception 'phase14_worker_capability_completion_invalid';
-  end if;
-  update public.phase14_worker_capabilities
-  set status = 'consumed', consumed_at = now(), lease_secret_hash = null,
-      lease_expires_at = null, updated_at = now()
-  where id = v_cap.id;
-  return true;
-end;
-$function$;
--- 4. Reports are RPC-owned. Reconcile any UAT-only duplicate "current" rows by
--- keeping the highest version and superseding older rows before adding the
--- invariant. This is transactional and therefore restartable after failure.
-drop policy if exists reports_admin_manage on public.reports;
-
-with ranked as (
-  select r.id, r.assessment_id, r.report_type, r.status, r.version_number,
-    row_number() over (
-      partition by r.assessment_id, r.report_type
-      order by r.version_number desc, r.created_at desc, r.id desc
-    ) as current_rank
-  from public.reports r
-  where r.status in ('generated','under_review','approved','released')
-), reconciled as (
-  update public.reports r
-  set status = 'superseded', updated_at = now()
-  from ranked x
-  where r.id = x.id and x.current_rank > 1
-  returning r.id, r.assessment_id, r.report_reference, r.version_number
-)
-insert into public.report_events(report_id, event_type, note, metadata_json)
-select id, 'migration_duplicate_current_reconciled',
-  'Older current report superseded by forward-only Phase 14 remediation.',
-  jsonb_build_object('report_reference', report_reference, 'version_number', version_number)
-from reconciled;
-
-create unique index reports_one_current_assessment_type_uidx
-  on public.reports(assessment_id, report_type)
-  where status in ('generated','under_review','approved','released');
-
-revoke all on table public.reports from public, anon, authenticated, service_role;
-grant select on table public.reports to authenticated, service_role;
-
--- 5. Requested AI routing identity and provider-resolved identity are distinct.
-alter table public.report_ai_attempts
-  add column requested_provider text,
-  add column requested_model text,
-  add column resolved_provider text,
-  add column resolved_model text;
-
-update public.report_ai_attempts
-set requested_provider = coalesce(requested_provider, provider),
-    requested_model = coalesce(requested_model, model),
-    resolved_provider = coalesce(resolved_provider, output_json->>'provider', provider),
-    resolved_model = coalesce(resolved_model, output_json->>'model', model);
-
-alter table public.report_ai_attempts
-  alter column requested_provider set not null,
-  alter column requested_model set not null,
-  drop constraint if exists report_ai_attempts_full_fingerprint_unique;
-
-alter table public.report_ai_attempts
-  add constraint report_ai_attempts_full_fingerprint_unique unique (
-    generation_identity, evidence_checksum, requested_provider, requested_model,
-    prompt_version, schema_version, attempt_kind, attempt_number
-  ),
-  add constraint report_ai_attempts_resolved_identity_chk check (
-    status not in ('succeeded','accounting_unverified')
-    or (coalesce(trim(resolved_provider), '') <> '' and coalesce(trim(resolved_model), '') <> '')
-  );
-
-alter table public.report_generation_runs
-  add column requested_provider text,
-  add column requested_model text,
-  add column resolved_provider text,
-  add column resolved_model text;
-
-update public.report_generation_runs
-set requested_provider = case when generation_mode = 'deterministic_fallback' then null else coalesce(requested_provider, provider) end,
-    requested_model = case when generation_mode = 'deterministic_fallback' then null else coalesce(requested_model, model) end,
-    resolved_provider = case when generation_mode = 'deterministic_fallback' then null else coalesce(resolved_provider, provider) end,
-    resolved_model = case when generation_mode = 'deterministic_fallback' then null else coalesce(resolved_model, model) end;
-
-alter table public.report_generation_runs
-  add constraint report_generation_runs_routing_identity_chk check (
-    generation_mode = 'deterministic_fallback'
-    or (
-      coalesce(trim(requested_provider), '') <> '' and coalesce(trim(requested_model), '') <> ''
-      and coalesce(trim(resolved_provider), '') <> '' and coalesce(trim(resolved_model), '') <> ''
-    )
-  );
-
--- 6. Durable object-cleanup queue. A path is recorded before publication and
--- every deletion attempt is leased, counted, and alertable.
-create table public.phase14_storage_cleanup_queue (
-  id uuid primary key default gen_random_uuid(),
-  storage_bucket text not null check (coalesce(trim(storage_bucket), '') <> ''),
-  storage_path text not null check (storage_path like 'tmp/%'),
-  expected_checksum text not null check (expected_checksum ~ '^[0-9a-f]{64}$'),
-  claim_token uuid,
-  report_id uuid references public.reports(id) on delete restrict,
-  owner_admin_user_id uuid references public.admin_profiles(id) on delete restrict,
-  owner_capability_id uuid references public.phase14_worker_capabilities(id) on delete restrict,
-  cleanup_reason text not null check (coalesce(trim(cleanup_reason), '') <> ''),
-  status text not null default 'pending' check (status in ('pending','leased','failed','deleted','dead_letter')),
-  attempt_count integer not null default 0 check (attempt_count >= 0),
-  lease_owner_capability_id uuid references public.phase14_worker_capabilities(id) on delete restrict,
-  lease_token uuid,
-  lease_expires_at timestamptz,
-  last_attempt_at timestamptz,
-  next_attempt_at timestamptz not null default now(),
-  deleted_at timestamptz,
-  last_error text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint phase14_storage_cleanup_owner_chk check (
-    owner_admin_user_id is not null or owner_capability_id is not null
-  ),
-  constraint phase14_storage_cleanup_lease_chk check (
-    (status = 'leased' and lease_owner_capability_id is not null and lease_token is not null and lease_expires_at is not null)
-    or status <> 'leased'
-  ),
-  unique(storage_bucket, storage_path)
-);
-create index phase14_storage_cleanup_work_idx
-  on public.phase14_storage_cleanup_queue(status, next_attempt_at, created_at)
-  where status in ('pending','failed');
-alter table public.phase14_storage_cleanup_queue enable row level security;
-revoke all on table public.phase14_storage_cleanup_queue from public, anon, authenticated, service_role;
-grant select on table public.phase14_storage_cleanup_queue to authenticated;
-create policy phase14_storage_cleanup_admin_select on public.phase14_storage_cleanup_queue
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin','reviewer','approver','read_only_admin'));
-
-create or replace function public.register_phase14_storage_cleanup(
-  p_storage_bucket text,
-  p_storage_path text,
-  p_expected_checksum text,
-  p_claim_token uuid,
-  p_reason text
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_id uuid; v_capability_id uuid;
-begin
-  v_actor := public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  if p_storage_path not like 'tmp/%' then raise exception 'cleanup_temporary_path_required'; end if;
-  if p_expected_checksum !~ '^[0-9a-f]{64}$' then raise exception 'cleanup_checksum_invalid'; end if;
-  if coalesce(trim(p_reason), '') = '' then raise exception 'cleanup_reason_required'; end if;
-  v_capability_id := nullif(v_actor->>'capability_id','')::uuid;
-  insert into public.phase14_storage_cleanup_queue(
-    storage_bucket, storage_path, expected_checksum, claim_token,
-    owner_admin_user_id, owner_capability_id, cleanup_reason
-  ) values (
-    p_storage_bucket, p_storage_path, p_expected_checksum, p_claim_token,
-    nullif(v_actor->>'user_id','')::uuid, v_capability_id, p_reason
-  )
-  on conflict (storage_bucket, storage_path) do update
-  set updated_at = now()
-  where public.phase14_storage_cleanup_queue.expected_checksum = excluded.expected_checksum
-    and public.phase14_storage_cleanup_queue.claim_token is not distinct from excluded.claim_token
-  returning id into v_id;
-  if v_id is null then raise exception 'cleanup_path_ownership_conflict'; end if;
-  return v_id;
-end;
-$function$;
-
-create or replace function public.link_phase14_storage_cleanup_report(
-  p_cleanup_id uuid,
-  p_report_id uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_report public.reports%rowtype;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_queue from public.phase14_storage_cleanup_queue where id = p_cleanup_id for update;
-  select * into v_report from public.reports where id = p_report_id for share;
-  if not found then raise exception 'cleanup_report_missing'; end if;
-  if v_queue.claim_token is not null and not exists (
-    select 1 from public.report_generation_claims c
-    where c.claim_token = v_queue.claim_token and c.report_id = p_report_id
-  ) then raise exception 'cleanup_report_claim_binding_mismatch'; end if;
-  update public.phase14_storage_cleanup_queue set report_id = p_report_id, updated_at = now() where id = p_cleanup_id;
-  return true;
-end;
-$function$;
-
-create or replace function public.record_phase14_storage_cleanup_result(
-  p_cleanup_id uuid,
-  p_deleted boolean,
-  p_error text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_queue public.phase14_storage_cleanup_queue%rowtype; v_attempt integer;
-begin
-  v_actor := public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_queue from public.phase14_storage_cleanup_queue where id = p_cleanup_id for update;
-  if not found then raise exception 'cleanup_queue_item_missing'; end if;
-  v_attempt := v_queue.attempt_count + 1;
-  if p_deleted then
-    update public.phase14_storage_cleanup_queue
-    set status = 'deleted', attempt_count = v_attempt, last_attempt_at = now(), deleted_at = now(),
-        last_error = null, lease_owner_capability_id = null, lease_token = null,
-        lease_expires_at = null, updated_at = now()
-    where id = p_cleanup_id;
-  else
-    if coalesce(trim(p_error), '') = '' then raise exception 'cleanup_error_required'; end if;
-    update public.phase14_storage_cleanup_queue
-    set status = case when v_attempt >= 5 then 'dead_letter' else 'failed' end,
-        attempt_count = v_attempt, last_attempt_at = now(), last_error = p_error,
-        next_attempt_at = now() + make_interval(secs => least(3600, 30 * (2 ^ least(v_attempt, 7))::integer)),
-        lease_owner_capability_id = null, lease_token = null, lease_expires_at = null, updated_at = now()
-    where id = p_cleanup_id;
-    insert into public.phase14_operational_alerts(
-      alert_key, severity, category, report_id, detail_json
-    ) values (
-      'storage-cleanup:' || p_cleanup_id::text,
-      case when v_attempt >= 5 then 'critical' else 'warning' end,
-      'report_temporary_object_cleanup_failed', v_queue.report_id,
-      jsonb_build_object('cleanup_id', p_cleanup_id, 'bucket', v_queue.storage_bucket,
-        'path', v_queue.storage_path, 'attempt_count', v_attempt, 'error', p_error)
-    ) on conflict (alert_key) do update
-      set severity = excluded.severity, detail_json = excluded.detail_json, status = 'open';
-  end if;
-  return jsonb_build_object('cleanup_id', p_cleanup_id, 'deleted', p_deleted, 'attempt_count', v_attempt);
-end;
-$function$;
-
-create or replace function public.cleanup_expired_premium_report_claims(
-  p_older_than interval default interval '24 hours'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_count integer; v_queued integer;
-begin
-  perform public.phase14_require_security('storage_cleanup', array['platform_admin']::public.admin_role[], true, false);
-  if p_older_than < interval '1 hour' or p_older_than > interval '30 days' then
-    raise exception 'phase14_cleanup_retention_out_of_range';
-  end if;
-  with candidates as (
-    select * from public.report_generation_claims
-    where report_id is null and state in ('claimed','abandoned')
-      and lease_expires_at < now() - p_older_than
-    for update
-  ), queued as (
-    insert into public.phase14_storage_cleanup_queue(
-      storage_bucket, storage_path, expected_checksum, claim_token,
-      owner_capability_id, cleanup_reason
-    )
-    select temporary_storage_bucket, temporary_storage_path,
-      coalesce(expected_checksum, repeat('0',64)), claim_token,
-      nullif(current_setting('phase14.worker_capability_id', true),'')::uuid,
-      'Expired generation claim cleanup'
-    from candidates
-    where temporary_storage_bucket is not null and temporary_storage_path is not null
-    on conflict (storage_bucket, storage_path) do nothing
-    returning 1
-  ), deleted as (
-    delete from public.report_generation_claims c using candidates x
-    where c.claim_token = x.claim_token returning 1
-  )
-  select (select count(*) from deleted), (select count(*) from queued)
-  into v_count, v_queued;
-  return jsonb_build_object('deleted_claims', v_count, 'queued_cleanup_objects', v_queued);
-end;
-$function$;
-
-create or replace function public.claim_phase14_storage_cleanup_jobs(
-  p_capability_id uuid,
-  p_lease_token text,
-  p_limit integer default 10
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_work_lease uuid := gen_random_uuid(); v_jobs jsonb;
-begin
-  if p_limit < 1 or p_limit > 50 then raise exception 'cleanup_job_limit_out_of_range'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id, p_lease_token, array['storage_cleanup'], null, null, null, null, null, null
-  );
-  with selected as (
-    select id from public.phase14_storage_cleanup_queue
-    where status in ('pending','failed') and next_attempt_at <= now() and attempt_count < 5
-    order by created_at for update skip locked limit p_limit
-  ), leased as (
-    update public.phase14_storage_cleanup_queue q
-    set status = 'leased', lease_owner_capability_id = p_capability_id,
-        lease_token = v_work_lease, lease_expires_at = now() + interval '10 minutes', updated_at = now()
-    from selected s where q.id = s.id
-    returning q.id, q.storage_bucket, q.storage_path, q.expected_checksum, q.attempt_count
-  )
-  select coalesce(jsonb_agg(to_jsonb(leased)), '[]'::jsonb) into v_jobs from leased;
-  return jsonb_build_object('work_lease_token', v_work_lease, 'jobs', v_jobs);
-end;
-$function$;
-
-create or replace function public.complete_phase14_storage_cleanup_job(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_cleanup_id uuid,
-  p_work_lease_token uuid,
-  p_deleted boolean,
-  p_error text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_attempt integer;
-begin
-  perform public.phase14_activate_worker_capability(
-    p_capability_id, p_capability_lease_token, array['storage_cleanup'], null, null, null, null, null, null
-  );
-  select * into v_queue from public.phase14_storage_cleanup_queue where id = p_cleanup_id for update;
-  if not found or v_queue.status <> 'leased' or v_queue.lease_owner_capability_id <> p_capability_id
-     or v_queue.lease_token <> p_work_lease_token or v_queue.lease_expires_at <= now() then
-    raise exception 'cleanup_job_lease_invalid';
-  end if;
-  v_attempt := v_queue.attempt_count + 1;
-  update public.phase14_storage_cleanup_queue
-  set status = case when p_deleted then 'deleted' when v_attempt >= 5 then 'dead_letter' else 'failed' end,
-      attempt_count = v_attempt, last_attempt_at = now(),
-      deleted_at = case when p_deleted then now() else null end,
-      last_error = case when p_deleted then null else nullif(trim(p_error),'') end,
-      next_attempt_at = case when p_deleted then next_attempt_at else now() + make_interval(secs => least(3600, 30 * (2 ^ least(v_attempt,7))::integer)) end,
-      lease_owner_capability_id = null, lease_token = null, lease_expires_at = null, updated_at = now()
-  where id = p_cleanup_id;
-  if not p_deleted then
-    if coalesce(trim(p_error), '') = '' then raise exception 'cleanup_error_required'; end if;
-    insert into public.phase14_operational_alerts(alert_key,severity,category,report_id,detail_json)
-    values ('storage-cleanup:' || p_cleanup_id::text,
-      case when v_attempt >= 5 then 'critical' else 'warning' end,
-      'report_temporary_object_cleanup_failed', v_queue.report_id,
-      jsonb_build_object('cleanup_id',p_cleanup_id,'bucket',v_queue.storage_bucket,
-        'path',v_queue.storage_path,'attempt_count',v_attempt,'error',p_error))
-    on conflict (alert_key) do update
-      set severity=excluded.severity,detail_json=excluded.detail_json,status='open';
-  end if;
-  return jsonb_build_object('cleanup_id',p_cleanup_id,'deleted',p_deleted,'attempt_count',v_attempt);
-end;
-$function$;
-
--- 7. Complaint and bounce outcomes are separate. Complaints are permanently
--- non-retriable; a bounce requires a fresh AAL2 remediation record with evidence.
-create table public.report_delivery_remediations (
-  id uuid primary key default gen_random_uuid(),
-  prior_email_event_id uuid not null references public.email_events(id) on delete restrict,
-  report_id uuid not null references public.reports(id) on delete restrict,
-  recipient_email citext not null,
-  remediation_type text not null check (remediation_type = 'bounce_retry'),
-  reason text not null check (coalesce(trim(reason), '') <> ''),
-  evidence_json jsonb not null check (evidence_json <> '{}'::jsonb),
-  authorised_by uuid not null references public.admin_profiles(id) on delete restrict,
-  status text not null default 'authorised' check (status in ('authorised','consumed','revoked')),
-  authorised_at timestamptz not null default now(),
-  consumed_at timestamptz,
-  created_at timestamptz not null default now()
-);
-alter table public.report_delivery_remediations enable row level security;
-revoke all on table public.report_delivery_remediations from public,anon,authenticated,service_role;
-grant select on table public.report_delivery_remediations to authenticated;
-create policy report_delivery_remediations_admin_select on public.report_delivery_remediations
-  for select to authenticated
-  using (public.current_admin_role() in ('platform_admin','approver','reviewer','read_only_admin'));
-
-alter table public.report_delivery_authorizations
-  add constraint report_delivery_authorizations_bounce_remediation_fk
-  foreign key (bounce_remediation_id) references public.report_delivery_remediations(id) on delete restrict;
-
-create or replace function public.authorize_bounced_report_redelivery(
-  p_prior_email_event_id uuid,
-  p_reason text,
-  p_evidence jsonb
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_event public.email_events%rowtype; v_id uuid;
-begin
-  v_actor := public.phase14_require_security(
-    'email_resend', array['platform_admin','approver']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_reason),'') = '' or coalesce(p_evidence,'{}'::jsonb) = '{}'::jsonb then
-    raise exception 'bounce_remediation_evidence_required';
-  end if;
-  select * into v_event from public.email_events where id = p_prior_email_event_id for share;
-  if not found or v_event.status <> 'bounced' then raise exception 'bounce_remediation_event_ineligible'; end if;
-  insert into public.report_delivery_remediations(
-    prior_email_event_id, report_id, recipient_email, remediation_type,
-    reason, evidence_json, authorised_by
-  ) values (
-    v_event.id, v_event.report_id, v_event.recipient_email, 'bounce_retry',
-    p_reason, p_evidence, (v_actor->>'user_id')::uuid
-  ) returning id into v_id;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_event.assessment_id,'report_delivery_remediations',v_id,
-    'premium_report_bounce_retry_authorized',jsonb_build_object('prior_email_event_id',v_event.id,'reason',p_reason,'evidence',p_evidence));
-  return v_id;
-end;
-$function$;
--- 8. Publication requires a live generation lease. Capability-specific worker
--- facades activate scoped context; direct service-role execution stays revoked.
-create or replace function public.publish_premium_report_generation(
-  p_claim_token uuid,
-  p_report_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claim public.report_generation_claims%rowtype;
-  v_report public.reports%rowtype;
-  v_order_reference text;
-  v_object record;
-begin
-  perform public.phase14_require_security(
-    'report_generation', array['platform_admin','reviewer','approver']::public.admin_role[], true, false
-  );
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token for update;
-  if not found or v_claim.report_id <> p_report_id or v_claim.state <> 'committed' then
-    raise exception 'generation_claim_report_mismatch';
-  end if;
-  if v_claim.lease_expires_at <= now() then raise exception 'generation_claim_expired_at_publication'; end if;
-  select * into v_report from public.reports where id = p_report_id for update;
-  if not found or v_report.status <> 'draft' then raise exception 'report_draft_missing'; end if;
-  if v_report.order_id <> v_claim.order_id or v_report.assessment_id <> v_claim.assessment_id
-     or v_report.score_run_id <> v_claim.score_run_id or v_report.version_number <> v_claim.version_number
-     or v_report.checksum <> v_claim.expected_checksum then raise exception 'report_claim_binding_mismatch'; end if;
-  select order_reference into v_order_reference from public.orders where id = v_claim.order_id;
-  perform public.phase14_generation_entitlement(
-    v_order_reference, v_claim.order_id, v_claim.assessment_id, v_claim.score_run_id, v_claim.score_input_hash
-  );
-  if v_claim.final_storage_path like 'tmp/%' or coalesce(v_claim.final_storage_path, '') = '' then
-    raise exception 'final_storage_path_invalid';
-  end if;
-  select so.bucket_id, so.name, so.metadata into v_object
-  from storage.objects so
-  where so.bucket_id = v_claim.final_storage_bucket and so.name = v_claim.final_storage_path;
-  if not found then raise exception 'final_storage_object_missing'; end if;
-  if coalesce(v_object.metadata->>'mimetype', '') <> 'application/pdf' then
-    raise exception 'final_storage_content_type_invalid';
-  end if;
-  if coalesce(v_object.metadata->>'sha256', v_object.metadata->'metadata'->>'sha256', '') <> v_claim.expected_checksum then
-    raise exception 'final_storage_checksum_metadata_mismatch';
-  end if;
-  if v_report.supersedes_report_id is not null then
-    update public.reports set status = 'superseded'
-    where id = v_report.supersedes_report_id and status not in ('voided','superseded');
-  end if;
-  update public.reports
-  set status = 'generated', storage_bucket = v_claim.final_storage_bucket,
-      storage_path = v_claim.final_storage_path, updated_at = now()
-  where id = p_report_id;
-  delete from public.report_generation_claims where claim_token = p_claim_token;
-  return jsonb_build_object(
-    'report_id', p_report_id, 'report_reference', v_report.report_reference,
-    'version_number', v_report.version_number, 'superseded_report_id', v_report.supersedes_report_id,
-    'final_storage_bucket', v_claim.final_storage_bucket, 'final_storage_path', v_claim.final_storage_path
-  );
-end;
-$function$;
-
-create or replace function public.worker_claim_premium_report_generation(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid,
-  p_report_type public.report_type default 'essential_self_assessment'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_context jsonb;
-begin
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform public.phase14_activate_worker_capability(
-    p_capability_id, p_capability_lease_token,
-    array['automatic_generation','generation_recovery'],
-    (v_context->>'order_id')::uuid, (v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid, p_fulfilment_id, null, null
-  );
-  return public.claim_premium_report_generation(
-    p_order_reference, p_claim_owner, p_fulfilment_id, p_report_type
-  );
-end;
-$function$;
-
-create or replace function public.worker_renew_premium_report_generation_lease(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_claim_token uuid
-) returns timestamptz
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,v_claim.report_id,null
-  );
-  return public.renew_premium_report_generation_lease(p_claim_token);
-end;
-$function$;
-
-create or replace function public.worker_recover_premium_report_generation_claim(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_context jsonb;
-begin
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid,p_fulfilment_id,null,null
-  );
-  return public.recover_premium_report_generation_claim(p_order_reference,p_claim_owner);
-end;
-$function$;
-
-create or replace function public.worker_commit_premium_report_draft(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_claim_token uuid,
-  p_template_id uuid,
-  p_storage_bucket text,
-  p_temp_storage_path text,
-  p_checksum text,
-  p_generation_run_id uuid default null
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,v_claim.report_id,null
-  );
-  return public.commit_premium_report_draft(
-    p_claim_token,p_template_id,p_storage_bucket,p_temp_storage_path,p_checksum,null,p_generation_run_id
-  );
-end;
-$function$;
-
-create or replace function public.worker_publish_premium_report_generation(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_claim_token uuid,
-  p_report_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,p_report_id,null
-  );
-  return public.publish_premium_report_generation(p_claim_token,p_report_id);
-end;
-$function$;
-
-create or replace function public.worker_abandon_premium_report_generation_claim(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_claim_token uuid,
-  p_reason text
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_claim public.report_generation_claims%rowtype; v_result boolean;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token;
-  if not found then return false; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,v_claim.report_id,null
-  );
-  v_result := public.abandon_premium_report_generation_claim(p_claim_token,p_reason);
-  return v_result;
-end;
-$function$;
-
-create or replace function public.worker_register_phase14_storage_cleanup(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_storage_bucket text,
-  p_storage_path text,
-  p_expected_checksum text,
-  p_claim_token uuid,
-  p_reason text
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token = p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,v_claim.report_id,null
-  );
-  return public.register_phase14_storage_cleanup(
-    p_storage_bucket,p_storage_path,p_expected_checksum,p_claim_token,p_reason
-  );
-end;
-$function$;
-
-create or replace function public.worker_link_phase14_storage_cleanup_report(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_cleanup_id uuid,
-  p_report_id uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_report public.reports%rowtype; v_fulfilment_id uuid;
-begin
-  select * into v_report from public.reports where id = p_report_id;
-  if not found then raise exception 'cleanup_report_missing'; end if;
-  select fulfilment_id into v_fulfilment_id from public.reports where id = p_report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_report.order_id,v_report.assessment_id,v_report.score_run_id,v_fulfilment_id,p_report_id,null
-  );
-  return public.link_phase14_storage_cleanup_report(p_cleanup_id,p_report_id);
-end;
-$function$;
-
-create or replace function public.worker_record_phase14_storage_cleanup_result(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_cleanup_id uuid,
-  p_deleted boolean,
-  p_error text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_queue from public.phase14_storage_cleanup_queue where id = p_cleanup_id;
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_generation','generation_recovery'],
-    v_cap.order_id,v_cap.assessment_id,v_cap.score_run_id,v_cap.fulfilment_id,v_queue.report_id,null
-  );
-  return public.record_phase14_storage_cleanup_result(p_cleanup_id,p_deleted,p_error);
-end;
-$function$;
-
--- 9. Delivery authorization distinguishes complaints, bounce remediation, and
--- manual versus automatic policy. Recipient override has its own policy.
-drop function if exists public.authorize_premium_report_delivery(uuid,text,boolean,boolean,text);
-
-create function public.authorize_premium_report_delivery(
-  p_report_id uuid,
-  p_recipient text,
-  p_delivery_mode text default 'initial',
-  p_allow_test_override boolean default false,
-  p_provider text default 'resend',
-  p_bounce_remediation_id uuid default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_context jsonb; v_gate_version integer; v_event public.email_events%rowtype;
-  v_auth public.report_delivery_authorizations%rowtype; v_attempt integer; v_dedupe text;
-  v_prior_bounce public.email_events%rowtype; v_remediation public.report_delivery_remediations%rowtype;
-  v_worker_capability_id uuid;
-begin
-  if p_delivery_mode not in ('initial','bounce_retry') then
-    raise exception 'delivery_mode_invalid';
-  end if;
-  v_actor := public.phase14_require_security(
-    case when p_delivery_mode = 'bounce_retry' then 'email_resend' else 'email_delivery' end,
-    array['platform_admin','approver']::public.admin_role[], true, false
-  );
-  if p_allow_test_override then perform public.phase14_require_policy('recipient_override'); end if;
-  if coalesce(trim(p_provider), '') = '' then raise exception 'delivery_provider_required'; end if;
-  perform pg_advisory_xact_lock(hashtextextended(
-    'phase14-delivery:' || p_report_id::text || ':' || lower(trim(p_recipient)), 0
-  ));
-  v_context := public.phase14_delivery_entitlement(p_report_id,p_recipient,p_allow_test_override,'email_delivery');
-  v_gate_version := (v_actor->>'gate_version')::integer;
-  v_worker_capability_id := nullif(v_actor->>'capability_id','')::uuid;
-
-  if exists (
-    select 1 from public.email_events where report_id = p_report_id
-      and recipient_email = lower(trim(p_recipient)) and status = 'complained'
-  ) then raise exception 'delivery_complaint_permanently_non_retriable'; end if;
-
-  if exists (
-    select 1 from public.email_events where report_id = p_report_id
-      and recipient_email = lower(trim(p_recipient))
-      and status in ('sending','provider_acceptance_uncertain','reconciliation_required')
-  ) then raise exception 'delivery_provider_acceptance_unresolved'; end if;
-
-  select * into v_prior_bounce from public.email_events
-  where report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-    and notification_type = 'premium_report_pdf' and status = 'bounced'
-  order by created_at desc limit 1;
-  if found and p_delivery_mode = 'bounce_retry' then
-    select * into v_remediation from public.report_delivery_remediations
-    where id = p_bounce_remediation_id and prior_email_event_id = v_prior_bounce.id
-      and report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-      and remediation_type = 'bounce_retry' and status = 'authorised'
-    for update;
-    if not found then raise exception 'delivery_bounce_remediation_required'; end if;
-  elsif p_delivery_mode = 'bounce_retry' then
-    raise exception 'delivery_bounce_remediation_not_applicable';
-  end if;
-
-  if p_delivery_mode = 'initial' then
-    select * into v_event from public.email_events
-    where report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-      and notification_type = 'premium_report_pdf'
-      and status in ('sent','delivery_delayed','delivered','bounced','complained')
-    order by created_at desc limit 1;
-    if found then
-      return jsonb_build_object('reused_existing_send',true,'email_event_id',v_event.id,
-        'provider_message_id',v_event.provider_message_id,'status',v_event.status,
-        'recipient',lower(trim(p_recipient)),'test_delivery',(v_context->>'test_delivery')::boolean);
-    end if;
-  end if;
-
-  select count(*) + 1 into v_attempt from public.email_events
-  where report_id = p_report_id and recipient_email = lower(trim(p_recipient))
-    and notification_type = 'premium_report_pdf';
-  v_dedupe := 'premium-report-delivery:' || p_report_id || ':' || lower(trim(p_recipient)) || ':attempt-' || v_attempt;
-  insert into public.email_events(
-    assessment_id,order_id,report_id,recipient_email,template_key,notification_type,
-    dedupe_key,provider_request_key,provider_idempotency_key,provider,status,attempt_number,metadata_json
-  ) values (
-    (v_context->>'assessment_id')::uuid,(v_context->>'order_id')::uuid,p_report_id,
-    lower(trim(p_recipient)),'premium_report_pdf_v1','premium_report_pdf',v_dedupe,
-    v_dedupe,v_dedupe,lower(trim(p_provider)),'queued',v_attempt,
-    jsonb_build_object('attachment_checksum',v_context->>'report_checksum',
-      'test_delivery',(v_context->>'test_delivery')::boolean,'bounce_remediation_id',p_bounce_remediation_id)
-  ) returning * into v_event;
-  insert into public.report_delivery_authorizations(
-    report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,
-    security_gate_version,authorised_by,authorised_session_id,worker_capability_id,
-    provider,email_event_id,test_delivery,bounce_remediation_id
-  ) values (
-    p_report_id,v_context->>'report_checksum',lower(trim(p_recipient)),
-    (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid,v_gate_version,nullif(v_actor->>'user_id','')::uuid,
-    nullif(v_actor->>'session_id','')::uuid,v_worker_capability_id,
-    lower(trim(p_provider)),v_event.id,(v_context->>'test_delivery')::boolean,p_bounce_remediation_id
-  ) returning * into v_auth;
-  if p_bounce_remediation_id is not null then
-    update public.report_delivery_remediations
-    set status = 'consumed', consumed_at = now() where id = p_bounce_remediation_id;
-  end if;
-  return jsonb_build_object(
-    'reused_existing_send',false,'authorization_id',v_auth.id,'email_event_id',v_event.id,
-    'provider_request_key',v_event.provider_request_key,'attempt_number',v_event.attempt_number,
-    'recipient',v_auth.recipient_email,'test_delivery',v_auth.test_delivery,'status',v_auth.status
-  );
-end;
-$function$;
-
--- Revalidate the complete commercial and storage entitlement at the last
--- reversible point, immediately before provider dispatch.
-create or replace function public.mark_premium_report_delivery_dispatch_started(
-  p_authorization_id uuid,
-  p_lease_token uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_context jsonb; v_security jsonb;
-begin
-  v_security := public.phase14_require_security(
-    'automatic_delivery',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  select * into v_auth from public.report_delivery_authorizations where id = p_authorization_id for update;
-  if not found or v_auth.status <> 'claimed' or v_auth.lease_token <> p_lease_token
-     or v_auth.lease_expires_at <= now() then raise exception 'delivery_authorization_lease_invalid'; end if;
-  if v_auth.security_gate_version <> (v_security->>'gate_version')::integer then
-    raise exception 'delivery_authorization_gate_changed_at_dispatch';
-  end if;
-  v_context := public.phase14_delivery_entitlement(
-    v_auth.report_id,v_auth.recipient_email::text,v_auth.test_delivery,'email_delivery'
-  );
-  if v_context->>'report_checksum' <> v_auth.report_checksum
-     or (v_context->>'order_id')::uuid <> v_auth.order_id
-     or (v_context->>'assessment_id')::uuid <> v_auth.assessment_id
-     or (v_context->>'score_run_id')::uuid <> v_auth.score_run_id then
-    raise exception 'delivery_authorization_binding_changed_at_dispatch';
-  end if;
-  if v_auth.test_delivery then perform public.phase14_require_policy('recipient_override'); end if;
-  update public.report_delivery_authorizations
-  set status='dispatching',dispatch_started_at=now(),updated_at=now() where id=v_auth.id;
-  update public.email_events
-  set status='sending',send_lease_token=p_lease_token,send_lease_expires_at=v_auth.lease_expires_at,
-      delivery_updated_at=now(),error_message=null
-  where id=v_auth.email_event_id and status='queued';
-  if not found then raise exception 'delivery_email_event_not_queued'; end if;
-  return true;
-end;
-$function$;
-
--- Exact idempotent replay: every immutable binding must match. A mismatch is
--- retained as a critical alert and returns a non-mutating conflict result.
-create or replace function public.finalize_premium_report_delivery(
-  p_authorization_id uuid,
-  p_email_event_id uuid,
-  p_provider_message_id text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_auth public.report_delivery_authorizations%rowtype;
-  v_existing public.report_delivery_finalizations%rowtype;
-  v_report public.reports%rowtype; v_now timestamptz := now(); v_context jsonb;
-begin
-  perform public.phase14_require_security(
-    'delivery_finalization',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id for update;
-  if not found or v_auth.email_event_id <> p_email_event_id then raise exception 'delivery_finalization_binding_mismatch'; end if;
-  if coalesce(trim(p_provider_message_id),'') = '' then raise exception 'provider_message_id_required'; end if;
-  select * into v_existing from public.report_delivery_finalizations where authorization_id=p_authorization_id;
-  if found then
-    if v_existing.authorization_id = p_authorization_id
-       and v_existing.email_event_id = p_email_event_id
-       and v_existing.report_id = v_auth.report_id
-       and v_existing.provider = v_auth.provider
-       and v_existing.provider_message_id = p_provider_message_id then
-      return jsonb_build_object('finalized',true,'idempotent_replay',true,
-        'report_id',v_existing.report_id,'email_event_id',v_existing.email_event_id);
-    end if;
-    insert into public.phase14_operational_alerts(alert_key,severity,category,report_id,email_event_id,detail_json)
-    values ('delivery-finalization-replay-conflict:' || p_authorization_id::text,'critical',
-      'delivery_finalization_replay_conflict',v_auth.report_id,p_email_event_id,
-      jsonb_build_object('authorization_id',p_authorization_id,'incoming_email_event_id',p_email_event_id,
-        'incoming_provider',v_auth.provider,'incoming_provider_message_id',p_provider_message_id,
-        'persisted',to_jsonb(v_existing)))
-    on conflict (alert_key) do update set severity='critical',detail_json=excluded.detail_json,status='open';
-    return jsonb_build_object('finalized',false,'conflict',true,'reason','delivery_finalization_replay_conflict');
-  end if;
-  if v_auth.status not in ('dispatching','reconciliation_required') then
-    raise exception 'delivery_finalization_state_invalid:%',v_auth.status;
-  end if;
-  v_context := public.phase14_delivery_entitlement(
-    v_auth.report_id,v_auth.recipient_email::text,v_auth.test_delivery,'email_delivery'
-  );
-  if v_context->>'report_checksum' <> v_auth.report_checksum then raise exception 'delivery_finalization_entitlement_changed'; end if;
-  select * into v_report from public.reports where id=v_auth.report_id for update;
-  if not found then raise exception 'delivery_finalization_report_missing'; end if;
-  update public.email_events
-  set status='sent',provider=v_auth.provider,provider_message_id=p_provider_message_id,
-      sent_at=coalesce(sent_at,v_now),delivery_updated_at=v_now,send_lease_token=null,
-      send_lease_expires_at=null,error_message=null
-  where id=p_email_event_id and status in ('sending','provider_acceptance_uncertain','reconciliation_required');
-  if not found then raise exception 'delivery_finalization_email_cas_failed'; end if;
-  if not v_auth.test_delivery then
-    update public.reports set status='released',released_at=coalesce(released_at,v_now),updated_at=v_now
-    where id=v_report.id and status not in ('draft','superseded','voided');
-    if not found then raise exception 'delivery_finalization_report_cas_failed'; end if;
-    if v_report.fulfilment_id is not null then
-      update public.report_fulfilments
-      set status='completed',current_step='email_sent',completed_at=coalesce(completed_at,v_now),
-          report_id=v_report.id,updated_at=v_now
-      where id=v_report.fulfilment_id and status not in ('cancelled','completed');
-    end if;
-  end if;
-  insert into public.report_delivery_finalizations(
-    authorization_id,email_event_id,report_id,provider,provider_message_id,finalized_at
-  ) values (v_auth.id,p_email_event_id,v_report.id,v_auth.provider,p_provider_message_id,v_now);
-  insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-  values (v_report.id,case when v_auth.test_delivery then 'email_test_sent' else 'email_sent' end,
-    v_auth.authorised_by,'Atomic provider-acceptance finalization.',
-    jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,
-      'provider_message_id',p_provider_message_id,'test_delivery',v_auth.test_delivery,
-      'worker_capability_id',v_auth.worker_capability_id));
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values (case when v_auth.worker_capability_id is null then 'admin'::public.audit_actor_type else 'system'::public.audit_actor_type end,
-    v_auth.authorised_by,v_auth.assessment_id,'reports',v_report.id,
-    case when v_auth.test_delivery then 'premium_report_test_delivery_finalized' else 'premium_report_delivery_finalized' end,
-    jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,
-      'provider_message_id',p_provider_message_id,'worker_capability_id',v_auth.worker_capability_id));
-  if not v_auth.test_delivery then
-    insert into public.assessment_events(assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json)
-    values (v_auth.assessment_id,v_auth.order_id,v_report.id,'report_emailed_to_customer',
-      'phase14-delivery-finalization:' || v_auth.id,
-      jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,'test_delivery',false));
-  end if;
-  update public.report_delivery_authorizations
-  set status='finalized',provider_message_id=p_provider_message_id,finalized_at=v_now,
-      lease_token=null,lease_expires_at=null,updated_at=v_now where id=v_auth.id;
-  return jsonb_build_object('finalized',true,'idempotent_replay',false,
-    'report_id',v_report.id,'email_event_id',p_email_event_id);
-end;
-$function$;
-
--- Controlled operator reconciliation. Accepted requires a verified provider
--- correlation and canonical ID; not-accepted requires explicit AAL2 override.
-create or replace function public.resolve_premium_report_delivery_reconciliation(
-  p_authorization_id uuid,
-  p_resolution text,
-  p_provider_message_id text,
-  p_correlation_evidence jsonb,
-  p_operator_override boolean default false,
-  p_reason text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_auth public.report_delivery_authorizations%rowtype; v_event public.email_events%rowtype; v_result jsonb;
-begin
-  v_actor := public.phase14_require_security(
-    'provider_reconciliation',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_resolution not in ('accepted','not_accepted') then raise exception 'delivery_reconciliation_resolution_invalid'; end if;
-  if coalesce(p_correlation_evidence,'{}'::jsonb)='{}'::jsonb or coalesce(trim(p_reason),'')='' then
-    raise exception 'delivery_reconciliation_evidence_required';
-  end if;
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id for update;
-  if not found or v_auth.status <> 'reconciliation_required' then raise exception 'delivery_reconciliation_state_invalid'; end if;
-  select * into v_event from public.email_events where id=v_auth.email_event_id for update;
-  if p_resolution='accepted' then
-    if coalesce(trim(p_provider_message_id),'')='' then raise exception 'delivery_reconciliation_provider_id_required'; end if;
-    if coalesce(p_correlation_evidence->>'provider_request_key','') <> coalesce(v_event.provider_request_key,'')
-       or coalesce(p_correlation_evidence->>'verification_method','')='' then
-      raise exception 'delivery_reconciliation_correlation_unverified';
-    end if;
-    v_result := public.finalize_premium_report_delivery(v_auth.id,v_auth.email_event_id,p_provider_message_id);
-  else
-    if not p_operator_override then raise exception 'delivery_reconciliation_operator_override_required'; end if;
-    update public.report_delivery_authorizations
-    set status='revoked',revoked_reason=p_reason,lease_token=null,lease_expires_at=null,updated_at=now()
-    where id=v_auth.id;
-    update public.email_events
-    set status='failed_before_provider',error_message=p_reason,reconciliation_attempted_at=now(),
-        reconciliation_result_json=p_correlation_evidence,delivery_updated_at=now()
-    where id=v_auth.email_event_id and status='reconciliation_required';
-    v_result := jsonb_build_object('resolved',true,'resolution','not_accepted','authorization_id',v_auth.id);
-  end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_auth.assessment_id,'report_delivery_authorizations',v_auth.id,
-    'premium_report_delivery_reconciliation_resolved',jsonb_build_object('resolution',p_resolution,
-      'provider_message_id',p_provider_message_id,'operator_override',p_operator_override,
-      'reason',p_reason,'evidence',p_correlation_evidence));
-  return v_result;
-end;
-$function$;
-
--- Capability-specific automatic delivery facades.
-create or replace function public.worker_authorize_premium_report_delivery(
-  p_capability_id uuid,p_capability_lease_token text,p_report_id uuid,p_recipient text,p_provider text default 'resend'
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_report public.reports%rowtype; v_fulfilment_id uuid;
-begin
-  select * into v_report from public.reports where id=p_report_id;
-  if not found then raise exception 'report_not_found'; end if;
-  v_fulfilment_id := v_report.fulfilment_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery'],
-    v_report.order_id,v_report.assessment_id,v_report.score_run_id,v_fulfilment_id,p_report_id,p_recipient
-  );
-  return public.authorize_premium_report_delivery(p_report_id,p_recipient,'initial',false,p_provider,null);
-end;
-$function$;
-
-create or replace function public.worker_claim_premium_report_delivery(
-  p_capability_id uuid,p_capability_lease_token text,p_authorization_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.claim_premium_report_delivery(p_authorization_id);
-end;
-$function$;
-
-create or replace function public.worker_mark_premium_report_delivery_dispatch_started(
-  p_capability_id uuid,p_capability_lease_token text,p_authorization_id uuid,p_delivery_lease_token uuid
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.mark_premium_report_delivery_dispatch_started(p_authorization_id,p_delivery_lease_token);
-end;
-$function$;
-
-create or replace function public.worker_fail_premium_report_delivery_before_dispatch(
-  p_capability_id uuid,p_capability_lease_token text,p_authorization_id uuid,
-  p_delivery_lease_token uuid,p_reason text
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.fail_premium_report_delivery_before_dispatch(p_authorization_id,p_delivery_lease_token,p_reason);
-end;
-$function$;
-
-create or replace function public.worker_finalize_premium_report_delivery(
-  p_capability_id uuid,p_capability_lease_token text,p_authorization_id uuid,
-  p_email_event_id uuid,p_provider_message_id text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery','delivery_reconciliation'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.finalize_premium_report_delivery(p_authorization_id,p_email_event_id,p_provider_message_id);
-end;
-$function$;
-
-create or replace function public.worker_mark_premium_report_delivery_reconciliation_required(
-  p_capability_id uuid,p_capability_lease_token text,p_authorization_id uuid,
-  p_provider_message_id text,p_reason text
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['automatic_delivery','delivery_reconciliation'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.mark_premium_report_delivery_reconciliation_required(
-    p_authorization_id,p_provider_message_id,p_reason
-  );
-end;
-$function$;
-
-create or replace function public.worker_recover_stale_premium_report_email_send(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_authorization_id uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id for update;
-  if not found then raise exception 'delivery_authorization_missing'; end if;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['delivery_reconciliation'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,
-    v_auth.report_id,v_auth.recipient_email::text
-  );
-  if v_auth.status <> 'dispatching' or v_auth.lease_expires_at >= now() then
-    raise exception 'delivery_authorization_not_stale';
-  end if;
-  update public.report_delivery_authorizations set status='reconciliation_required',updated_at=now()
-  where id=v_auth.id and status='dispatching' and lease_expires_at<now();
-  update public.email_events
-  set status='reconciliation_required',reconciliation_required_at=coalesce(reconciliation_required_at,now()),
-      delivery_updated_at=now(),error_message='Dispatch lease expired; provider acceptance remains unresolved.'
-  where id=v_auth.email_event_id and status='sending' and send_lease_expires_at<now();
-  return true;
-end;
-$function$;
-
-create or replace function public.worker_cleanup_expired_premium_report_claims(
-  p_capability_id uuid,
-  p_capability_lease_token text,
-  p_older_than interval default interval '24 hours'
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_activate_worker_capability(
-    p_capability_id,p_capability_lease_token,array['storage_cleanup'],null,null,null,null,null,null
-  );
-  return public.cleanup_expired_premium_report_claims(p_older_than);
-end;
-$function$;
-
-create or replace function public.assert_premium_report_delivery_entitlement(
-  p_report_id uuid,
-  p_recipient text,
-  p_allow_test_override boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  perform public.phase14_require_security(
-    'email_delivery',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_allow_test_override then perform public.phase14_require_policy('recipient_override'); end if;
-  return public.phase14_delivery_entitlement(p_report_id,p_recipient,p_allow_test_override,'email_delivery');
-end;
-$function$;
-
--- Remove every broad service-role path. Only the worker facade functions below
--- are executable by service_role; every facade requires a live scoped lease.
-do $phase14_fourth_grants$
-declare v_signature text;
-begin
-  foreach v_signature in array array[
-    'public.guard_phase14_security_gate_mutation()',
-    'public.guard_phase14_feature_policy_row_mutation()',
-    'public.phase14_require_policy(text)',
-    'public.phase14_activate_worker_capability(uuid,text,text[],uuid,uuid,uuid,uuid,uuid,text)',
-    'public.phase14_require_actor(text,public.admin_role[],boolean)',
-    'public.phase14_require_security(text,public.admin_role[],boolean,boolean)',
-    'public.phase14_generation_entitlement(text,uuid,uuid,uuid,text)',
-    'public.phase14_delivery_entitlement(uuid,text,boolean,text)',
-    'public.guard_phase14_feature_policy_mutation()'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public,anon,authenticated,service_role';
-  end loop;
-
-  foreach v_signature in array array[
-    'public.set_phase14_security_gate_version(integer,text)',
-    'public.set_phase14_feature_policy(text,boolean,text)',
-    'public.update_phase14_feature_policy(text,jsonb)',
-    'public.authorize_phase14_action(text)',
-    'public.authorize_phase14_worker_operation(text,text,uuid,uuid,uuid,uuid,uuid,text,integer,text)',
-    'public.assert_premium_report_generation_entitlement(text)',
-    'public.claim_premium_report_generation(text,text,uuid,public.report_type)',
-    'public.renew_premium_report_generation_lease(uuid)',
-    'public.recover_premium_report_generation_claim(text,text)',
-    'public.commit_premium_report_draft(uuid,uuid,text,text,text,uuid,uuid)',
-    'public.publish_premium_report_generation(uuid,uuid)',
-    'public.abandon_premium_report_generation_claim(uuid,text)',
-    'public.register_phase14_storage_cleanup(text,text,text,uuid,text)',
-    'public.link_phase14_storage_cleanup_report(uuid,uuid)',
-    'public.record_phase14_storage_cleanup_result(uuid,boolean,text)',
-    'public.assert_premium_report_delivery_entitlement(uuid,text,boolean)',
-    'public.assert_premium_report_download_entitlement(uuid,text)',
-    'public.authorize_bounced_report_redelivery(uuid,text,jsonb)',
-    'public.authorize_premium_report_delivery(uuid,text,text,boolean,text,uuid)',
-    'public.claim_premium_report_delivery(uuid)',
-    'public.mark_premium_report_delivery_dispatch_started(uuid,uuid)',
-    'public.fail_premium_report_delivery_before_dispatch(uuid,uuid,text)',
-    'public.finalize_premium_report_delivery(uuid,uuid,text)',
-    'public.mark_premium_report_delivery_reconciliation_required(uuid,text,text)',
-    'public.resolve_premium_report_delivery_reconciliation(uuid,text,text,jsonb,boolean,text)'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public,anon,service_role';
-    execute 'grant execute on function ' || v_signature || ' to authenticated';
-  end loop;
-
-  foreach v_signature in array array[
-    'public.claim_phase14_worker_capability(uuid,text)',
-    'public.authorize_phase14_worker_action(uuid,text,text)',
-    'public.complete_phase14_worker_capability(uuid,text)',
-    'public.worker_claim_premium_report_generation(uuid,text,text,text,uuid,public.report_type)',
-    'public.worker_renew_premium_report_generation_lease(uuid,text,uuid)',
-    'public.worker_recover_premium_report_generation_claim(uuid,text,text,text,uuid)',
-    'public.worker_commit_premium_report_draft(uuid,text,uuid,uuid,text,text,text,uuid)',
-    'public.worker_publish_premium_report_generation(uuid,text,uuid,uuid)',
-    'public.worker_abandon_premium_report_generation_claim(uuid,text,uuid,text)',
-    'public.worker_register_phase14_storage_cleanup(uuid,text,text,text,text,uuid,text)',
-    'public.worker_link_phase14_storage_cleanup_report(uuid,text,uuid,uuid)',
-    'public.worker_record_phase14_storage_cleanup_result(uuid,text,uuid,boolean,text)',
-    'public.worker_authorize_premium_report_delivery(uuid,text,uuid,text,text)',
-    'public.worker_claim_premium_report_delivery(uuid,text,uuid)',
-    'public.worker_mark_premium_report_delivery_dispatch_started(uuid,text,uuid,uuid)',
-    'public.worker_fail_premium_report_delivery_before_dispatch(uuid,text,uuid,uuid,text)',
-    'public.worker_finalize_premium_report_delivery(uuid,text,uuid,uuid,text)',
-    'public.worker_mark_premium_report_delivery_reconciliation_required(uuid,text,uuid,text,text)',
-    'public.worker_recover_stale_premium_report_email_send(uuid,text,uuid)',
-    'public.worker_cleanup_expired_premium_report_claims(uuid,text,interval)',
-    'public.claim_phase14_storage_cleanup_jobs(uuid,text,integer)',
-    'public.complete_phase14_storage_cleanup_job(uuid,text,uuid,uuid,boolean,text)'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public,anon,authenticated';
-    execute 'grant execute on function ' || v_signature || ' to service_role';
-  end loop;
-
-  foreach v_signature in array array[
-    'public.cleanup_expired_premium_report_claims(interval)',
-    'public.recover_stale_premium_report_email_sends()'
-  ] loop
-    execute 'revoke execute on function ' || v_signature || ' from public,anon,authenticated,service_role';
-  end loop;
-end;
-$phase14_fourth_grants$;
-
-comment on table public.phase14_worker_capabilities is
-  'AAL2-human-issued, operation-bound authority. Raw issue and lease secrets are never stored.';
-comment on table public.phase14_storage_cleanup_queue is
-  'Durable temporary-object deletion queue with bounded retries, leases, checksums and alerts.';
-comment on index public.reports_one_current_assessment_type_uidx is
-  'At most one current generated/review/approved/released report per assessment and report type.';
-
-drop trigger if exists trg_guard_phase14_security_gate_rows on public.phase14_security_gates;
-create trigger trg_guard_phase14_security_gate_rows
-  before insert or update or delete on public.phase14_security_gates
-  for each row execute function public.guard_phase14_security_gate_mutation();
-
-drop trigger if exists trg_guard_phase14_security_gate_truncate on public.phase14_security_gates;
-create trigger trg_guard_phase14_security_gate_truncate
-  before truncate on public.phase14_security_gates
-  for each statement execute function public.guard_phase14_security_gate_mutation();
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/uat-applied/20260714214023_phase14_fourth_adversarial_remediation.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715022146_phase14_fifth_adversarial_remediation.sql (sha256:a472e8d9a93052c8a51d2ec1cc2bc97a6b827a0b5fba97d3fdaa6f150ffab84b)
--- Phase 14 fifth adversarial remediation.
--- Forward-only repair layered after the exact migration blob already applied in UAT.
--- Every commercial/runtime policy remains disabled. This migration does not satisfy
--- the Phase 14 gate, provision provider secrets, or enable any production path.
-
-
--- The UAT-applied historical migration ended its transaction before installing the
--- webhook function. Reinstall the final function inside this forward transaction so
--- fresh and UAT-shaped databases converge without changing historical bytes.
-do $phase14_historical_atomicity_repair$
-begin
-  if to_regprocedure('public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,text,jsonb)') is null then
-    raise exception 'phase14_historical_webhook_function_missing';
-  end if;
-end;
-$phase14_historical_atomicity_repair$;
-
--- 1. Exact-version policies. A gate change or suspension invalidates every policy
--- approval and every unconsumed worker operation immediately.
-alter table public.phase14_feature_policies
-  drop constraint if exists phase14_feature_policies_policy_key_check;
-
-alter table public.phase14_feature_policies
-  add constraint phase14_feature_policies_policy_key_check check (policy_key in (
-    'manual_generation',
-    'automatic_fulfilment',
-    'ai_narrative',
-    'automatic_email',
-    'manual_delivery',
-    'manual_download',
-    'recipient_override',
-    'provider_webhook_ingestion',
-    'storage_cleanup'
-  )),
-  add column approved_gate_version integer check (approved_gate_version is null or approved_gate_version > 0),
-  add column approved_at timestamptz;
-
-set local session_replication_role = replica;
-
-update public.phase14_feature_policies
-set enabled = false,
-    approved_gate_version = null,
-    approved_at = null,
-    reason = 'Disabled by fifth adversarial remediation pending exact-version approval.',
-    updated_at = now();
-
-insert into public.phase14_feature_policies(policy_key, enabled, reason)
-values
-  ('manual_download', false, 'Disabled by fifth adversarial remediation pending exact-version approval.'),
-  ('provider_webhook_ingestion', false, 'Disabled by fifth adversarial remediation pending exact-version approval.')
-on conflict (policy_key) do update
-set enabled = false,
-    approved_gate_version = null,
-    approved_at = null,
-    reason = excluded.reason,
-    updated_at = now();
-
-set local session_replication_role = origin;
-
-create or replace function public.phase14_require_actor(
-  p_action text,
-  p_allowed_roles public.admin_role[],
-  p_require_aal2 boolean default true
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_claims jsonb := coalesce(auth.jwt(), '{}'::jsonb);
-  v_user_id uuid := auth.uid();
-  v_profile public.admin_profiles%rowtype;
-  v_session_id uuid;
-  v_exp bigint;
-begin
-  if v_user_id is null then raise exception 'phase14_no_session:%', p_action; end if;
-  v_exp := nullif(v_claims->>'exp', '')::bigint;
-  if v_exp is null or to_timestamp(v_exp) <= now() then
-    raise exception 'phase14_session_expired:%', p_action;
-  end if;
-  begin
-    v_session_id := nullif(v_claims->>'session_id', '')::uuid;
-  exception when others then
-    raise exception 'phase14_session_id_invalid:%', p_action;
-  end;
-  if v_session_id is null then raise exception 'phase14_session_id_required:%', p_action; end if;
-  if not exists (
-    select 1
-    from auth.sessions s
-    where s.id = v_session_id
-      and s.user_id = v_user_id
-      and (s.not_after is null or s.not_after > now())
-  ) then
-    raise exception 'phase14_session_revoked_or_expired:%', p_action;
-  end if;
-
-  select * into v_profile from public.admin_profiles where id = v_user_id;
-  if not found then raise exception 'phase14_profile_missing:%', p_action; end if;
-  if v_profile.status = 'revoked' then raise exception 'phase14_profile_revoked:%', p_action; end if;
-  if v_profile.status <> 'active' then raise exception 'phase14_profile_inactive:%', p_action; end if;
-  if not (v_profile.role = any(p_allowed_roles)) then raise exception 'phase14_role_forbidden:%', p_action; end if;
-  if p_require_aal2 and coalesce(v_claims->>'aal', 'aal1') <> 'aal2' then
-    raise exception 'phase14_aal2_required:%', p_action;
-  end if;
-
-  return jsonb_build_object(
-    'user_id', v_user_id,
-    'role', v_profile.role,
-    'aal', coalesce(v_claims->>'aal', 'aal1'),
-    'session_id', v_session_id
-  );
-end;
-$function$;
-
--- 9. Cleanup execution is leased to an opaque capability and every success is
--- independently verified against the exact bucket, path and checksum.
-alter table public.phase14_storage_cleanup_queue
-  add column deletion_verified_at timestamptz,
-  add column dead_lettered_at timestamptz;
-
-alter table public.phase14_storage_cleanup_queue
-  drop constraint phase14_storage_cleanup_queue_storage_path_check,
-  add constraint phase14_storage_cleanup_queue_storage_path_check check (
-    storage_path like 'tmp/%' or storage_path like 'reports/%'
-  );
-
-create or replace function public.cleanup_expired_premium_report_claims(
-  p_older_than interval default interval '24 hours'
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_count integer; v_queued integer; v_unresolved integer;
-begin
-  perform public.phase14_require_security('storage_cleanup',array['platform_admin']::public.admin_role[],true,false);
-  if p_older_than < interval '1 hour' or p_older_than > interval '30 days' then
-    raise exception 'phase14_cleanup_retention_out_of_range';
-  end if;
-  with candidates as (
-    select * from public.report_generation_claims
-    where report_id is null and state in ('claimed','abandoned')
-      and lease_expires_at < now()-p_older_than for update
-  ), unresolved as (
-    select * from candidates where temporary_storage_path is not null
-      and coalesce(expected_checksum,'') !~ '^[0-9a-f]{64}$'
-  ), alerted as (
-    insert into public.phase14_operational_alerts(alert_key,severity,category,detail_json)
-    select 'storage-cleanup-unbound:'||claim_token,'critical',
-      'storage_cleanup_verification_failed',
-      jsonb_build_object('claim_token',claim_token,'bucket',temporary_storage_bucket,
-        'path',temporary_storage_path,'reason','expected_checksum_missing')
-    from unresolved on conflict(alert_key) do update set status='open',detail_json=excluded.detail_json
-    returning 1
-  ), queued as (
-    insert into public.phase14_storage_cleanup_queue(
-      storage_bucket,storage_path,expected_checksum,claim_token,owner_capability_id,cleanup_reason
-    ) select temporary_storage_bucket,temporary_storage_path,expected_checksum,claim_token,
-        nullif(current_setting('phase14.worker_capability_id',true),'')::uuid,
-        'Expired generation claim cleanup'
-      from candidates where temporary_storage_bucket is not null
-        and temporary_storage_path is not null and expected_checksum ~ '^[0-9a-f]{64}$'
-    on conflict(storage_bucket,storage_path) do nothing returning claim_token
-  ), deleted as (
-    delete from public.report_generation_claims c using candidates x
-    where c.claim_token=x.claim_token and (
-      x.temporary_storage_path is null or exists(select 1 from queued q where q.claim_token=x.claim_token)
-      or exists(select 1 from public.phase14_storage_cleanup_queue q where q.claim_token=x.claim_token)
-    ) returning 1
-  ) select (select count(*) from deleted),(select count(*) from queued),(select count(*) from unresolved)
-    into v_count,v_queued,v_unresolved;
-  return jsonb_build_object('deleted_claims',v_count,'queued_cleanup_objects',v_queued,
-    'unresolved_checksum_claims',v_unresolved);
-end;
-$function$;
-
-create or replace function public.worker_cleanup_expired_premium_report_claims(
-  p_capability_id uuid,p_older_than interval default interval '24 hours'
-) returns jsonb language plpgsql security definer set search_path=''
-as $function$
-begin
-  perform public.phase14_activate_worker_operation(p_capability_id,array['storage_cleanup'],null,null,null,null,null,null);
-  return public.cleanup_expired_premium_report_claims(p_older_than);
-end;
-$function$;
-
-create or replace function public.claim_phase14_storage_cleanup_jobs(
-  p_capability_id uuid,p_limit integer default 10
-) returns jsonb language plpgsql security definer set search_path=''
-as $function$
-declare v_work_lease uuid:=gen_random_uuid(); v_jobs jsonb;
-begin
-  if p_limit<1 or p_limit>50 then raise exception 'cleanup_job_limit_out_of_range'; end if;
-  perform public.phase14_activate_worker_operation(p_capability_id,array['storage_cleanup'],null,null,null,null,null,null);
-  with selected as (
-    select id from public.phase14_storage_cleanup_queue
-    where ((status in ('pending','failed') and next_attempt_at<=now())
-      or (status='leased' and lease_expires_at<=now())) and attempt_count<5
-    order by created_at for update skip locked limit p_limit
-  ), leased as (
-    update public.phase14_storage_cleanup_queue q set status='leased',
-      lease_owner_capability_id=p_capability_id,lease_token=v_work_lease,
-      lease_expires_at=now()+interval '10 minutes',updated_at=now()
-    from selected s where q.id=s.id
-    returning q.id,q.storage_bucket,q.storage_path,q.expected_checksum,q.attempt_count
-  ) select coalesce(jsonb_agg(to_jsonb(leased)),'[]'::jsonb) into v_jobs from leased;
-  return jsonb_build_object('work_lease_token',v_work_lease,'jobs',v_jobs);
-end;
-$function$;
-
-create or replace function public.complete_phase14_storage_cleanup_job(
-  p_capability_id uuid,p_cleanup_id uuid,p_work_lease_token uuid,
-  p_expected_bucket text,p_expected_path text,p_expected_checksum text,
-  p_deleted boolean,p_deletion_verified boolean,p_error text default null
-) returns jsonb language plpgsql security definer set search_path=''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_attempt integer;
-begin
-  perform public.phase14_activate_worker_operation(p_capability_id,array['storage_cleanup'],null,null,null,null,null,null);
-  select * into v_queue from public.phase14_storage_cleanup_queue where id=p_cleanup_id for update;
-  if not found or v_queue.status<>'leased' or v_queue.lease_owner_capability_id<>p_capability_id
-    or v_queue.lease_token<>p_work_lease_token or v_queue.lease_expires_at<=now() then
-    raise exception 'cleanup_job_lease_invalid';
-  end if;
-  if v_queue.storage_bucket is distinct from p_expected_bucket
-     or v_queue.storage_path is distinct from p_expected_path
-     or v_queue.expected_checksum is distinct from p_expected_checksum then
-    raise exception 'cleanup_job_object_binding_invalid';
-  end if;
-  if p_deleted and not p_deletion_verified then raise exception 'cleanup_deletion_verification_required'; end if;
-  if not p_deleted and coalesce(trim(p_error),'')='' then raise exception 'cleanup_error_required'; end if;
-  v_attempt:=v_queue.attempt_count+1;
-  update public.phase14_storage_cleanup_queue set
-    status=case when p_deleted then 'deleted' when v_attempt>=5 then 'dead_letter' else 'failed' end,
-    attempt_count=v_attempt,last_attempt_at=now(),deleted_at=case when p_deleted then now() end,
-    deletion_verified_at=case when p_deleted then now() end,
-    dead_lettered_at=case when not p_deleted and v_attempt>=5 then now() end,
-    last_error=case when p_deleted then null else p_error end,
-    next_attempt_at=case when p_deleted then next_attempt_at else now()+make_interval(secs=>least(3600,30*(2^least(v_attempt,7))::integer)) end,
-    lease_owner_capability_id=null,lease_token=null,lease_expires_at=null,updated_at=now()
-  where id=p_cleanup_id;
-  if not p_deleted then
-    insert into public.phase14_operational_alerts(alert_key,severity,category,report_id,detail_json)
-    values('storage-cleanup:'||p_cleanup_id,case when v_attempt>=5 then 'critical' else 'warning' end,
-      'report_temporary_object_cleanup_failed',v_queue.report_id,
-      jsonb_build_object('cleanup_id',p_cleanup_id,'capability_id',p_capability_id,
-        'work_lease',p_work_lease_token,'bucket',v_queue.storage_bucket,'path',v_queue.storage_path,
-        'checksum',v_queue.expected_checksum,'attempt_count',v_attempt,'error',p_error))
-    on conflict(alert_key) do update set severity=excluded.severity,detail_json=excluded.detail_json,status='open';
-  end if;
-  return jsonb_build_object('cleanup_id',p_cleanup_id,'deleted',p_deleted,
-    'deletion_verified',p_deletion_verified,'attempt_count',v_attempt,
-    'dead_letter',not p_deleted and v_attempt>=5);
-end;
-$function$;
-
--- 10. AI routing is separately approved for the exact gate version. Attempt
--- persistence is a database transition and resolved identity must come from
--- gateway/provider response metadata.
-create table public.phase14_ai_route_policies(
-  requested_provider text primary key,
-  enabled boolean not null default false,
-  approved_gate_version integer,
-  approved_by uuid references public.admin_profiles(id) on delete restrict,
-  approved_session_id uuid,
-  approved_at timestamptz,
-  updated_at timestamptz not null default now(),
-  constraint phase14_ai_route_approval_chk check (
-    (not enabled) or (approved_gate_version is not null and approved_by is not null
-      and approved_session_id is not null and approved_at is not null)
-  )
-);
-insert into public.phase14_ai_route_policies(requested_provider,enabled) values('openai',false);
-alter table public.phase14_ai_route_policies enable row level security;
-revoke all on public.phase14_ai_route_policies from public,anon,authenticated,service_role;
-grant select on public.phase14_ai_route_policies to authenticated,service_role;
-
-create or replace function public.set_phase14_ai_route_policy(p_provider text,p_enabled boolean)
-returns jsonb language plpgsql security definer set search_path=''
-as $function$
-declare v_actor jsonb; v_gate public.phase14_security_gates%rowtype; v_row public.phase14_ai_route_policies%rowtype;
-begin
-  v_actor:=public.phase14_require_actor('ai_route_policy_change',array['platform_admin']::public.admin_role[],true);
-  select * into v_gate from public.phase14_security_gates where gate_key='phase14-premium-report' for share;
-  if p_enabled and (v_gate.status<>'satisfied' or v_gate.satisfied_version<>v_gate.required_version) then
-    raise exception 'phase14_security_gate_not_satisfied'; end if;
-  insert into public.phase14_ai_route_policies(requested_provider,enabled,approved_gate_version,
-    approved_by,approved_session_id,approved_at)
-  values(lower(trim(p_provider)),p_enabled,case when p_enabled then v_gate.satisfied_version end,
-    case when p_enabled then (v_actor->>'user_id')::uuid end,
-    case when p_enabled then (v_actor->>'session_id')::uuid end,case when p_enabled then now() end)
-  on conflict(requested_provider) do update set enabled=excluded.enabled,
-    approved_gate_version=excluded.approved_gate_version,approved_by=excluded.approved_by,
-    approved_session_id=excluded.approved_session_id,approved_at=excluded.approved_at,updated_at=now()
-  returning * into v_row;
-  return to_jsonb(v_row);
-end;
-$function$;
-
-create or replace function public.claim_phase14_ai_attempt(p_capability_id uuid,p_attempt jsonb)
-returns jsonb language plpgsql security definer set search_path=''
-as $function$
-declare v_f public.report_fulfilments%rowtype; v_route public.phase14_ai_route_policies%rowtype;
-  v_row public.report_ai_attempts%rowtype; v_n integer;
-begin
-  select * into v_f from public.report_fulfilments where id=(p_attempt->>'fulfilment_id')::uuid for share;
-  if not found then raise exception 'phase14_ai_fulfilment_missing'; end if;
-  perform public.phase14_activate_worker_operation(p_capability_id,array['automatic_generation','generation_recovery'],
-    v_f.order_id,v_f.assessment_id,v_f.score_run_id,v_f.id,null,null);
-  perform public.phase14_require_policy('ai_narrative');
-  select * into v_route from public.phase14_ai_route_policies
-    where requested_provider=lower(p_attempt->>'requested_provider') for share;
-  if not found or not v_route.enabled or v_route.approved_gate_version<>(
-    select required_version from public.phase14_security_gates where gate_key='phase14-premium-report'
-  ) then raise exception 'phase14_ai_provider_route_disabled'; end if;
-  select coalesce(max(attempt_number),0)+1 into v_n from public.report_ai_attempts
-   where generation_identity=p_attempt->>'generation_identity'
-     and evidence_checksum=p_attempt->>'evidence_checksum'
-     and requested_provider=p_attempt->>'requested_provider'
-     and requested_model=p_attempt->>'requested_model'
-     and prompt_version=p_attempt->>'prompt_version' and schema_version=p_attempt->>'schema_version'
-     and attempt_kind=p_attempt->>'attempt_kind';
-  if v_n>2 then raise exception 'phase14_ai_attempt_limit_reached'; end if;
-  insert into public.report_ai_attempts(generation_identity,fulfilment_id,attempt_kind,attempt_number,
-    provider_request_key,provider,model,requested_provider,requested_model,evidence_checksum,
-    prompt_version,schema_version,input_size_bytes,estimated_input_tokens,max_output_tokens,
-    max_estimated_cost_micros,timeout_ms,status,accounting_status)
-  values(p_attempt->>'generation_identity',v_f.id,p_attempt->>'attempt_kind',v_n,
-    p_attempt->>'provider_request_key',p_attempt->>'requested_provider',p_attempt->>'requested_model',
-    p_attempt->>'requested_provider',p_attempt->>'requested_model',p_attempt->>'evidence_checksum',
-    p_attempt->>'prompt_version',p_attempt->>'schema_version',(p_attempt->>'input_size_bytes')::integer,
-    (p_attempt->>'estimated_input_tokens')::integer,(p_attempt->>'max_output_tokens')::integer,
-    (p_attempt->>'max_estimated_cost_micros')::bigint,(p_attempt->>'timeout_ms')::integer,
-    'started','unverified') returning * into v_row;
-  return to_jsonb(v_row);
-end;
-$function$;
-
-create or replace function public.settle_phase14_ai_attempt(p_capability_id uuid,p_attempt_id uuid,p_result jsonb)
-returns jsonb language plpgsql security definer set search_path=''
-as $function$
-declare v_row public.report_ai_attempts%rowtype; v_f public.report_fulfilments%rowtype; v_status text;
-begin
-  select * into v_row from public.report_ai_attempts where id=p_attempt_id for update;
-  if not found or v_row.status<>'started' then raise exception 'phase14_ai_attempt_cas_failed'; end if;
-  select * into v_f from public.report_fulfilments where id=v_row.fulfilment_id for share;
-  perform public.phase14_activate_worker_operation(p_capability_id,array['automatic_generation','generation_recovery'],
-    v_f.order_id,v_f.assessment_id,v_f.score_run_id,v_f.id,null,null);
-  v_status:=p_result->>'status';
-  if v_status in ('succeeded','accounting_unverified') then
-    if coalesce(trim(p_result->>'resolved_provider'),'')='' or coalesce(trim(p_result->>'resolved_model'),'')='' then
-      raise exception 'phase14_ai_resolved_identity_required'; end if;
-    if lower(p_result->>'resolved_provider')<>lower(v_row.requested_provider) then
-      raise exception 'phase14_ai_unexpected_provider_route'; end if;
-  elsif v_status not in ('failed_before_provider','provider_result_uncertain','reconciliation_required') then
-    raise exception 'phase14_ai_result_status_invalid';
-  end if;
-  update public.report_ai_attempts set status=v_status,output_json=p_result->'output_json',
-    resolved_provider=nullif(p_result->>'resolved_provider',''),resolved_model=nullif(p_result->>'resolved_model',''),
-    provider=coalesce(nullif(p_result->>'resolved_provider',''),provider),
-    model=coalesce(nullif(p_result->>'resolved_model',''),model),
-    input_token_count=nullif(p_result->>'input_token_count','')::integer,
-    output_token_count=nullif(p_result->>'output_token_count','')::integer,
-    total_token_count=nullif(p_result->>'total_token_count','')::integer,
-    estimated_cost_micros=nullif(p_result->>'estimated_cost_micros','')::bigint,
-    latency_ms=nullif(p_result->>'latency_ms','')::integer,
-    accounting_status=coalesce(nullif(p_result->>'accounting_status',''),'unverified'),
-    error_message=nullif(p_result->>'error_message',''),completed_at=now(),updated_at=now()
-  where id=p_attempt_id and status='started' returning * into v_row;
-  if not found then raise exception 'phase14_ai_attempt_cas_failed'; end if;
-  return to_jsonb(v_row);
-end;
-$function$;
-
-create or replace function public.guard_phase14_feature_policy_row_mutation()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  if current_setting('phase14.authoritative_transition', true) in ('gate_invalidation','migration') then
-    if tg_op = 'DELETE' then return old; end if;
-    if tg_level = 'STATEMENT' then return null; end if;
-    return new;
-  end if;
-  perform public.phase14_require_actor(
-    'feature_policy_table_mutation', array['platform_admin']::public.admin_role[], true
-  );
-  if tg_op = 'DELETE' then return old; end if;
-  if tg_level = 'STATEMENT' then return null; end if;
-  return new;
-end;
-$function$;
-
-create or replace function public.set_phase14_feature_policy(
-  p_policy_key text,
-  p_enabled boolean,
-  p_reason text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb;
-  v_policy public.phase14_feature_policies%rowtype;
-  v_gate public.phase14_security_gates%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'feature_policy_change', array['platform_admin']::public.admin_role[], true, false
-  );
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_policy_reason_required'; end if;
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied' or v_gate.satisfied_version <> v_gate.required_version then
-    raise exception 'phase14_policy_gate_not_exact';
-  end if;
-  perform set_config('phase14.authoritative_transition', 'policy_approval', true);
-  update public.phase14_feature_policies
-  set enabled = p_enabled,
-      required_gate_version = v_gate.required_version,
-      approved_gate_version = case when p_enabled then v_gate.satisfied_version else null end,
-      approved_at = case when p_enabled then now() else null end,
-      updated_by = (v_actor->>'user_id')::uuid,
-      reason = p_reason,
-      updated_at = now()
-  where policy_key = p_policy_key
-  returning * into v_policy;
-  if not found then raise exception 'phase14_policy_not_supported:%', p_policy_key; end if;
-  insert into public.audit_logs(actor_type, actor_user_id, entity_table, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, 'phase14_feature_policies',
-    'phase14_feature_policy_changed',
-    jsonb_build_object('policy_key', p_policy_key, 'enabled', p_enabled,
-      'approved_gate_version', v_policy.approved_gate_version, 'reason', p_reason));
-  return to_jsonb(v_policy);
-end;
-$function$;
-
-create or replace function public.set_phase14_security_gate_version(
-  p_satisfied_version integer,
-  p_reason text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb;
-  v_gate public.phase14_security_gates%rowtype;
-begin
-  v_actor := public.phase14_require_actor(
-    'security_gate_administration',array['platform_admin']::public.admin_role[],true
-  );
-  if coalesce(trim(p_reason),'')='' then raise exception 'phase14_gate_reason_required'; end if;
-  if p_satisfied_version < 0 then raise exception 'phase14_gate_version_invalid'; end if;
-  perform set_config('phase14.authoritative_transition','gate_administration',true);
-  update public.phase14_security_gates
-  set satisfied_version=p_satisfied_version,
-      status=case when p_satisfied_version>=required_version then 'satisfied' else 'unsatisfied' end,
-      satisfied_by=(v_actor->>'user_id')::uuid,
-      satisfied_at=case when p_satisfied_version>=required_version then now() else null end,
-      reason=p_reason,updated_at=now()
-  where gate_key='phase14-premium-report'
-  returning * into v_gate;
-  if not found then raise exception 'phase14_security_gate_missing'; end if;
-  insert into public.audit_logs(actor_type,actor_user_id,entity_table,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,'phase14_security_gates',
-    'phase14_security_gate_changed',jsonb_build_object(
-      'required_version',v_gate.required_version,
-      'satisfied_version',v_gate.satisfied_version,
-      'status',v_gate.status,'reason',p_reason
-    ));
-  return to_jsonb(v_gate);
-end;
-$function$;
-
-create or replace function public.phase14_require_policy(p_policy_key text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_policy public.phase14_feature_policies%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version <> v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%', p_policy_key;
-  end if;
-  select * into v_policy from public.phase14_feature_policies
-  where policy_key = p_policy_key for share;
-  if not found or not v_policy.enabled then raise exception 'phase14_policy_disabled:%', p_policy_key; end if;
-  if v_policy.approved_gate_version is null
-     or v_policy.approved_gate_version <> v_gate.satisfied_version
-     or v_policy.required_gate_version <> v_gate.required_version then
-    raise exception 'phase14_policy_gate_version_stale:%', p_policy_key;
-  end if;
-  return jsonb_build_object('policy_key', v_policy.policy_key,
-    'gate_version', v_gate.satisfied_version, 'approved_at', v_policy.approved_at);
-end;
-$function$;
-
-create or replace function public.invalidate_phase14_authority_on_gate_change()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  if old.required_version is distinct from new.required_version
-     or old.satisfied_version is distinct from new.satisfied_version
-     or old.status is distinct from new.status then
-    perform set_config('phase14.authoritative_transition', 'gate_invalidation', true);
-    update public.phase14_feature_policies
-    set enabled = false,
-        approved_gate_version = null,
-        approved_at = null,
-        reason = 'Automatically disabled because the Phase 14 gate changed or was suspended.',
-        updated_at = now();
-    update public.phase14_worker_capabilities
-    set status = 'revoked',
-        revoked_at = now(),
-        revoked_reason = 'Phase 14 gate changed or was suspended.',
-        lease_secret_hash = null,
-        lease_expires_at = null,
-        updated_at = now()
-    where status in ('authorised','leased');
-  end if;
-  return new;
-end;
-$function$;
-
-drop trigger if exists trg_phase14_gate_invalidate_authority on public.phase14_security_gates;
-create trigger trg_phase14_gate_invalidate_authority
-  after update of required_version, satisfied_version, status on public.phase14_security_gates
-  for each row execute function public.invalidate_phase14_authority_on_gate_change();
-
-create or replace function public.suspend_phase14_security_gate(p_reason text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_gate public.phase14_security_gates%rowtype;
-begin
-  v_actor := public.phase14_require_actor(
-    'security_gate_suspension', array['platform_admin']::public.admin_role[], true
-  );
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_gate_reason_required'; end if;
-  perform set_config('phase14.authoritative_transition', 'gate_administration', true);
-  update public.phase14_security_gates
-  set status = 'suspended', satisfied_version = 0, satisfied_by = null,
-      satisfied_at = null, reason = p_reason, updated_at = now()
-  where gate_key = 'phase14-premium-report'
-  returning * into v_gate;
-  insert into public.audit_logs(actor_type, actor_user_id, entity_table, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, 'phase14_security_gates',
-    'phase14_security_gate_suspended', jsonb_build_object('reason', p_reason));
-  return to_jsonb(v_gate);
-end;
-$function$;
-
--- 2. Opaque worker-operation broker. The durable workflow carries only UUIDs;
--- issue secrets and lease tokens are no longer returned or accepted.
-alter table public.phase14_worker_capabilities
-  add column lease_owner text,
-  add column lease_generation integer not null default 0 check (lease_generation >= 0),
-  add column last_heartbeat_at timestamptz,
-  add column takeover_count integer not null default 0 check (takeover_count >= 0);
-
-alter table public.phase14_worker_capabilities
-  drop constraint if exists phase14_worker_capability_lease_chk;
-alter table public.phase14_worker_capabilities
-  add constraint phase14_worker_capability_lease_chk check (
-    (status = 'leased' and lease_owner is not null and lease_expires_at is not null)
-    or status <> 'leased'
-  );
-
-create or replace function public.authorize_phase14_worker_operation(
-  p_capability_type text,
-  p_operation_key text,
-  p_order_id uuid,
-  p_assessment_id uuid,
-  p_score_run_id uuid,
-  p_fulfilment_id uuid,
-  p_report_id uuid default null,
-  p_recipient text default null,
-  p_expires_in_seconds integer default 21600,
-  p_reason text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_gate public.phase14_security_gates%rowtype; v_policy_key text;
-  v_capability public.phase14_worker_capabilities%rowtype;
-  v_order public.orders%rowtype; v_fulfilment public.report_fulfilments%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'worker_capability_authorization', array['platform_admin']::public.admin_role[], true, false
-  );
-  if p_expires_in_seconds < 300 or p_expires_in_seconds > 86400 then
-    raise exception 'phase14_worker_capability_expiry_out_of_range';
-  end if;
-  if coalesce(trim(p_operation_key), '') = '' then raise exception 'phase14_worker_operation_key_required'; end if;
-  if coalesce(trim(p_reason), '') = '' then raise exception 'phase14_worker_capability_reason_required'; end if;
-  v_policy_key := case p_capability_type
-    when 'automatic_generation' then 'automatic_fulfilment'
-    when 'generation_recovery' then 'automatic_fulfilment'
-    when 'automatic_delivery' then 'automatic_email'
-    when 'delivery_reconciliation' then 'automatic_email'
-    when 'storage_cleanup' then 'storage_cleanup'
-    else null end;
-  if v_policy_key is null then raise exception 'phase14_worker_capability_type_invalid'; end if;
-  perform public.phase14_require_policy(v_policy_key);
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if p_capability_type = 'storage_cleanup' then
-    if p_order_id is not null or p_assessment_id is not null or p_score_run_id is not null
-       or p_fulfilment_id is not null or p_report_id is not null or p_recipient is not null then
-      raise exception 'storage_cleanup_capability_must_be_unbound';
-    end if;
-  else
-    if p_order_id is null or p_assessment_id is null or p_score_run_id is null then
-      raise exception 'worker_capability_commercial_binding_required';
-    end if;
-    select * into v_order from public.orders where id = p_order_id for share;
-    if not found or v_order.assessment_id <> p_assessment_id then
-      raise exception 'worker_capability_order_binding_invalid';
-    end if;
-    perform public.phase14_generation_entitlement(
-      v_order.order_reference, p_order_id, p_assessment_id, p_score_run_id, null
-    );
-  end if;
-  if p_fulfilment_id is not null then
-    select * into v_fulfilment from public.report_fulfilments where id = p_fulfilment_id for share;
-    if not found or v_fulfilment.order_id <> p_order_id
-       or v_fulfilment.assessment_id <> p_assessment_id
-       or v_fulfilment.score_run_id <> p_score_run_id then
-      raise exception 'worker_capability_fulfilment_binding_invalid';
-    end if;
-  end if;
-  perform pg_advisory_xact_lock(hashtextextended(
-    'phase14-capability:' || p_capability_type || ':' || p_operation_key, 0
-  ));
-  update public.phase14_worker_capabilities
-  set status = 'expired', updated_at = now()
-  where capability_type = p_capability_type and operation_key = p_operation_key
-    and status in ('authorised','leased') and expires_at <= now();
-  if exists (select 1 from public.phase14_worker_capabilities
-    where capability_type = p_capability_type and operation_key = p_operation_key
-      and status in ('authorised','leased')) then
-    raise exception 'phase14_worker_capability_already_active';
-  end if;
-  perform set_config('phase14.authoritative_transition', 'worker_authorization', true);
-  insert into public.phase14_worker_capabilities(
-    capability_type, policy_key, operation_key, issue_secret_hash,
-    order_id, assessment_id, score_run_id, fulfilment_id, report_id, recipient_email,
-    security_gate_version, authorised_by, authorised_session_id, reason, expires_at
-  ) values (
-    p_capability_type, v_policy_key, p_operation_key,
-    encode(extensions.digest(extensions.gen_random_bytes(32), 'sha256'), 'hex'),
-    p_order_id, p_assessment_id, p_score_run_id, p_fulfilment_id, p_report_id,
-    nullif(lower(trim(p_recipient)), ''), v_gate.satisfied_version,
-    (v_actor->>'user_id')::uuid, (v_actor->>'session_id')::uuid,
-    p_reason, now() + make_interval(secs => p_expires_in_seconds)
-  ) returning * into v_capability;
-  if p_fulfilment_id is not null then
-    update public.report_fulfilments
-    set generation_capability_id = case
-          when p_capability_type in ('automatic_generation','generation_recovery') then v_capability.id
-          else generation_capability_id end,
-        delivery_capability_id = case
-          when p_capability_type in ('automatic_delivery','delivery_reconciliation') then v_capability.id
-          else delivery_capability_id end,
-        updated_at = now()
-    where id = p_fulfilment_id;
-  end if;
-  insert into public.audit_logs(actor_type, actor_user_id, assessment_id,
-    entity_table, entity_id, action, after_json)
-  values ('admin', (v_actor->>'user_id')::uuid, p_assessment_id,
-    'phase14_worker_capabilities', v_capability.id,
-    'phase14_worker_capability_authorized',
-    jsonb_build_object('capability_type', p_capability_type,
-      'operation_key', p_operation_key, 'policy_key', v_policy_key,
-      'expires_at', v_capability.expires_at, 'opaque_identifier_only', true));
-  return jsonb_build_object(
-    'capability_id', v_capability.id,
-    'capability_type', v_capability.capability_type,
-    'operation_key', v_capability.operation_key,
-    'expires_at', v_capability.expires_at,
-    'security_gate_version', v_capability.security_gate_version
-  );
-end;
-$function$;
-
-create or replace function public.claim_phase14_worker_operation(
-  p_capability_id uuid,
-  p_lease_owner text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_gate public.phase14_security_gates%rowtype;
-  v_takeover boolean := false;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  if coalesce(trim(p_lease_owner), '') = '' or length(p_lease_owner) > 200 then
-    raise exception 'phase14_worker_lease_owner_invalid';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id = p_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  if v_cap.expires_at <= now() then
-    update public.phase14_worker_capabilities
-    set status = 'expired', lease_owner = null, lease_expires_at = null, updated_at = now()
-    where id = v_cap.id;
-    raise exception 'phase14_worker_capability_expired';
-  end if;
-  if v_cap.status = 'leased' and v_cap.lease_expires_at > now()
-     and v_cap.lease_owner <> p_lease_owner then
-    raise exception 'phase14_worker_capability_already_leased';
-  end if;
-  if v_cap.status = 'leased' and v_cap.lease_expires_at <= now() then
-    v_takeover := true;
-  elsif v_cap.status not in ('authorised','leased') then
-    raise exception 'phase14_worker_capability_not_claimable:%', v_cap.status;
-  end if;
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version <> v_gate.required_version
-     or v_gate.satisfied_version <> v_cap.security_gate_version then
-    raise exception 'phase14_worker_capability_gate_changed';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  perform set_config('phase14.authoritative_transition', 'worker_claim', true);
-  update public.phase14_worker_capabilities
-  set status = 'leased', lease_owner = p_lease_owner,
-      lease_secret_hash = null,
-      lease_expires_at = least(expires_at, now() + interval '60 minutes'),
-      lease_generation = lease_generation + 1,
-      takeover_count = takeover_count + case when v_takeover then 1 else 0 end,
-      claimed_at = coalesce(claimed_at, now()), last_heartbeat_at = now(), updated_at = now()
-  where id = v_cap.id
-  returning * into v_cap;
-  return jsonb_build_object(
-    'capability_id', v_cap.id, 'capability_type', v_cap.capability_type,
-    'operation_key', v_cap.operation_key, 'lease_owner', v_cap.lease_owner,
-    'lease_generation', v_cap.lease_generation,
-    'lease_expires_at', v_cap.lease_expires_at, 'takeover', v_takeover
-  );
-end;
-$function$;
-
-create or replace function public.renew_phase14_worker_operation(
-  p_capability_id uuid,
-  p_lease_owner text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id = p_capability_id for update;
-  if not found or v_cap.status <> 'leased' or v_cap.lease_owner <> p_lease_owner
-     or v_cap.lease_expires_at <= now() or v_cap.expires_at <= now() then
-    raise exception 'phase14_worker_operation_renewal_invalid';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  update public.phase14_worker_capabilities
-  set lease_expires_at = least(expires_at, now() + interval '60 minutes'),
-      last_heartbeat_at = now(), updated_at = now()
-  where id = v_cap.id returning * into v_cap;
-  return jsonb_build_object('capability_id', v_cap.id,
-    'lease_generation', v_cap.lease_generation,
-    'lease_expires_at', v_cap.lease_expires_at);
-end;
-$function$;
-
-create or replace function public.phase14_activate_worker_operation(
-  p_capability_id uuid,
-  p_expected_types text[],
-  p_order_id uuid default null,
-  p_assessment_id uuid default null,
-  p_score_run_id uuid default null,
-  p_fulfilment_id uuid default null,
-  p_report_id uuid default null,
-  p_recipient text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id = p_capability_id for share;
-  if not found or v_cap.status <> 'leased' then
-    raise exception 'phase14_worker_capability_not_leased';
-  end if;
-  if not (v_cap.capability_type = any(p_expected_types)) then
-    raise exception 'phase14_worker_capability_type_mismatch';
-  end if;
-  if v_cap.expires_at <= now() or v_cap.lease_expires_at <= now() then
-    raise exception 'phase14_worker_capability_lease_expired';
-  end if;
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version <> v_gate.required_version
-     or v_gate.satisfied_version <> v_cap.security_gate_version then
-    raise exception 'phase14_worker_capability_gate_changed';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  if v_cap.order_id is not null and v_cap.order_id is distinct from p_order_id then
-    raise exception 'worker_capability_order_mismatch'; end if;
-  if v_cap.assessment_id is not null and v_cap.assessment_id is distinct from p_assessment_id then
-    raise exception 'worker_capability_assessment_mismatch'; end if;
-  if v_cap.score_run_id is not null and v_cap.score_run_id is distinct from p_score_run_id then
-    raise exception 'worker_capability_score_run_mismatch'; end if;
-  if v_cap.fulfilment_id is not null and v_cap.fulfilment_id is distinct from p_fulfilment_id then
-    raise exception 'worker_capability_fulfilment_mismatch'; end if;
-  if v_cap.report_id is not null and v_cap.report_id is distinct from p_report_id then
-    raise exception 'worker_capability_report_mismatch'; end if;
-  if v_cap.recipient_email is not null
-     and lower(trim(p_recipient)) is distinct from lower(v_cap.recipient_email::text) then
-    raise exception 'worker_capability_recipient_mismatch';
-  end if;
-  perform set_config('phase14.worker_capability_id', v_cap.id::text, true);
-  perform set_config('phase14.worker_capability_type', v_cap.capability_type, true);
-  perform set_config('phase14.authoritative_transition', 'worker_rpc', true);
-  return to_jsonb(v_cap) - 'issue_secret_hash' - 'lease_secret_hash';
-end;
-$function$;
-
-create or replace function public.authorize_phase14_worker_action(
-  p_capability_id uuid,
-  p_action text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_cap from public.phase14_worker_capabilities where id = p_capability_id;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id, array[v_cap.capability_type], v_cap.order_id, v_cap.assessment_id,
-    v_cap.score_run_id, v_cap.fulfilment_id, v_cap.report_id, v_cap.recipient_email::text
-  );
-  return public.phase14_require_security(
-    p_action, array['platform_admin']::public.admin_role[], true, false
-  );
-end;
-$function$;
-
-create or replace function public.complete_phase14_worker_operation(p_capability_id uuid)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id = p_capability_id for update;
-  if not found or v_cap.status <> 'leased' or v_cap.lease_expires_at <= now() then
-    raise exception 'phase14_worker_capability_completion_invalid';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  perform set_config('phase14.authoritative_transition', 'worker_completion', true);
-  update public.phase14_worker_capabilities
-  set status = 'consumed', consumed_at = now(), lease_owner = null,
-      lease_secret_hash = null, lease_expires_at = null,
-      last_heartbeat_at = now(), updated_at = now()
-  where id = v_cap.id and status = 'leased';
-  if not found then raise exception 'phase14_worker_capability_completion_cas_failed'; end if;
-  return true;
-end;
-$function$;
-
--- All authorised paths mark their transaction before touching authoritative or
--- shared Phase 14 rows. A generic service-role request has no such context.
-create or replace function public.phase14_require_security(
-  p_action text,
-  p_allowed_roles public.admin_role[] default array['platform_admin']::public.admin_role[],
-  p_require_aal2 boolean default true,
-  p_allow_service_role boolean default false
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_gate public.phase14_security_gates%rowtype; v_actor jsonb; v_policy_key text;
-  v_capability_id uuid; v_capability_type text; v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_gate from public.phase14_security_gates
-  where gate_key = 'phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version <> v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%', p_action;
-  end if;
-  if coalesce(auth.jwt()->>'role','') = 'service_role' then
-    if p_action = 'webhook_mutation'
-       and current_setting('phase14.authoritative_transition', true) = 'trusted_provider_attestation' then
-      return jsonb_build_object('actor_type','trusted_provider_attestation',
-        'gate_version',v_gate.satisfied_version,'action',p_action);
-    end if;
-    begin
-      v_capability_id := nullif(current_setting('phase14.worker_capability_id', true), '')::uuid;
-      v_capability_type := nullif(current_setting('phase14.worker_capability_type', true), '');
-    exception when others then
-      raise exception 'phase14_worker_context_missing:%', p_action;
-    end;
-    if v_capability_id is null or v_capability_type is null then
-      raise exception 'phase14_worker_context_missing:%', p_action;
-    end if;
-    select * into v_cap from public.phase14_worker_capabilities
-    where id = v_capability_id for share;
-    if not found or v_cap.status <> 'leased' or v_cap.lease_expires_at <= now()
-       or v_cap.security_gate_version <> v_gate.satisfied_version then
-      raise exception 'phase14_worker_context_invalid:%', p_action;
-    end if;
-    if not (
-      (v_capability_type in ('automatic_generation','generation_recovery')
-        and p_action in ('report_generation','report_regeneration','ai_narrative_generation'))
-      or (v_capability_type = 'automatic_delivery'
-        and p_action in ('email_delivery','automatic_delivery','delivery_finalization'))
-      or (v_capability_type = 'delivery_reconciliation'
-        and p_action in ('provider_reconciliation','delivery_finalization','automatic_delivery'))
-      or (v_capability_type = 'storage_cleanup' and p_action = 'storage_cleanup')
-    ) then raise exception 'phase14_worker_action_forbidden:%', p_action; end if;
-    perform public.phase14_require_policy(v_cap.policy_key);
-    perform set_config('phase14.authoritative_transition', 'worker_rpc', true);
-    return jsonb_build_object('actor_type','worker','capability_id',v_cap.id,
-      'capability_type',v_cap.capability_type,'gate_version',v_gate.satisfied_version,
-      'action',p_action);
-  end if;
-  v_actor := public.phase14_require_actor(p_action, p_allowed_roles, p_require_aal2);
-  v_policy_key := case
-    when p_action in ('report_generation','report_regeneration') then 'manual_generation'
-    when p_action = 'ai_narrative_generation' then 'ai_narrative'
-    when p_action in ('email_delivery','email_resend','provider_reconciliation',
-      'delivery_finalization','automatic_delivery') then 'manual_delivery'
-    when p_action = 'report_download' then 'manual_download'
-    else null end;
-  if v_policy_key is not null then perform public.phase14_require_policy(v_policy_key); end if;
-  perform set_config('phase14.authoritative_transition', 'authenticated_rpc', true);
-  return v_actor || jsonb_build_object('gate_version',v_gate.satisfied_version,'action',p_action);
-end;
-$function$;
-
--- 3. Shared-table mutation guards. Only an RPC that established a transaction-
--- local authoritative context may mutate a Phase 14-owned row.
-create or replace function public.guard_phase14_authoritative_mutation()
-returns trigger
-language plpgsql
-set search_path = ''
-as $function$
-declare
-  v_row jsonb := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;
-  v_protected boolean := false;
-  v_context text := nullif(current_setting('phase14.authoritative_transition', true), '');
-begin
-  v_protected := case tg_table_name
-    when 'audit_logs' then
-      coalesce(v_row->>'action','') ~ '^(phase14_|premium_report_|report_(generated|regenerated|download_))'
-      or coalesce(v_row->>'entity_table','') in (
-        'phase14_security_gates','phase14_feature_policies','phase14_worker_capabilities',
-        'report_fulfilments','report_generation_runs','report_ai_attempts',
-        'report_generation_claims','report_delivery_authorizations',
-        'report_delivery_finalizations','report_delivery_remediations'
-      )
-    when 'report_events' then coalesce(v_row->>'event_type','') in (
-      'generated','regenerated','email_sent','email_test_sent','download_requested'
-    )
-    when 'assessment_events' then coalesce(v_row->>'event_type','') in (
-      'report_generated','admin_report_downloaded','report_emailed_to_customer'
-    )
-    when 'email_events' then
-      coalesce(v_row->>'notification_type','') = 'premium_report_pdf'
-      or coalesce(v_row->>'provider_request_key','') <> ''
-    when 'email_provider_events' then true
-    when 'phase14_operational_alerts' then true
-    else false
-  end;
-  if v_protected and coalesce(v_context,'') not in (
-    'authenticated_rpc','fulfilment_queue_rpc','fulfilment_transition_rpc',
-    'gate_administration','gate_invalidation','migration','operational_alert_rpc',
-    'policy_approval','runtime_secret_rotation','trusted_provider_attestation',
-    'worker_authorization','worker_claim','worker_completion','worker_rpc'
-  ) then
-    raise exception 'phase14_authoritative_rpc_required:%:%', tg_table_name, tg_op;
-  end if;
-  if tg_op = 'DELETE' then return old; end if;
-  return new;
-end;
-$function$;
-
-do $phase14_shared_guards$
-declare v_table text;
-begin
-  foreach v_table in array array[
-    'audit_logs','report_events','assessment_events','email_events',
-    'email_provider_events','phase14_operational_alerts'
-  ] loop
-    execute format('drop trigger if exists trg_phase14_authoritative_mutation on public.%I', v_table);
-    execute format(
-      'create trigger trg_phase14_authoritative_mutation before insert or update or delete on public.%I for each row execute function public.guard_phase14_authoritative_mutation()',
-      v_table
-    );
-  end loop;
-end;
-$phase14_shared_guards$;
-
-create or replace function public.record_phase14_operational_alert(
-  p_alert_key text,
-  p_category text,
-  p_report_id uuid default null,
-  p_email_event_id uuid default null,
-  p_detail_json jsonb default '{}'::jsonb,
-  p_severity text default 'critical'
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_id uuid;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_service_role_required';
-  end if;
-  if coalesce(trim(p_alert_key),'') = '' or length(p_alert_key) > 300 then
-    raise exception 'phase14_alert_key_invalid';
-  end if;
-  if p_category not in (
-    'report_download_object_missing','report_download_object_size_invalid',
-    'report_download_checksum_mismatch','report_email_checksum_mismatch',
-    'report_temporary_object_cleanup_failed','storage_cleanup_verification_failed'
-  ) then raise exception 'phase14_alert_category_invalid'; end if;
-  if p_severity not in ('warning','critical') then raise exception 'phase14_alert_severity_invalid'; end if;
-  perform set_config('phase14.authoritative_transition', 'operational_alert_rpc', true);
-  insert into public.phase14_operational_alerts(
-    alert_key,severity,category,report_id,email_event_id,detail_json,status
-  ) values (
-    p_alert_key,p_severity,p_category,p_report_id,p_email_event_id,
-    coalesce(p_detail_json,'{}'::jsonb),'open'
-  ) on conflict (alert_key) do update
-  set severity = excluded.severity, detail_json = excluded.detail_json, status = 'open'
-  returning id into v_id;
-  return v_id;
-end;
-$function$;
-
--- 4. Fulfilment, workflow-start, provenance, and shared-event transitions are
--- explicit RPCs. No application code needs direct DML on authoritative tables.
-create or replace function public.queue_premium_report_fulfilment(
-  p_order_reference text,
-  p_trigger_source text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_context jsonb; v_order public.orders%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype; v_key text; v_created boolean := false;
-begin
-  v_actor := public.phase14_require_security(
-    'automatic_fulfilment_request', array['platform_admin']::public.admin_role[], true, false
-  );
-  perform public.phase14_require_policy('automatic_fulfilment');
-  if p_trigger_source not in ('payment_confirmation','admin_generate','admin_retry','admin_regenerate') then
-    raise exception 'phase14_fulfilment_trigger_invalid';
-  end if;
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  select * into v_order from public.orders where id = (v_context->>'order_id')::uuid for share;
-  v_key := 'premium-report:' || (v_context->>'order_id') || ':' || (v_context->>'score_run_id');
-  perform pg_advisory_xact_lock(hashtextextended(v_key, 0));
-  select * into v_fulfilment from public.report_fulfilments
-  where idempotency_key = v_key for update;
-  if not found then
-    perform set_config('phase14.authoritative_transition', 'fulfilment_queue_rpc', true);
-    insert into public.report_fulfilments(
-      order_id,assessment_id,score_run_id,idempotency_key,trigger_source,status,
-      current_step,requested_by_admin_user_id
-    ) values (
-      (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-      (v_context->>'score_run_id')::uuid,v_key,p_trigger_source,'queued',
-      'claim_fulfilment',(v_actor->>'user_id')::uuid
-    ) returning * into v_fulfilment;
-    v_created := true;
-    insert into public.order_events(order_id,event_type,note,actor_admin_user_id,metadata_json)
-    values (v_fulfilment.order_id,'premium_report_fulfilment_queued',
-      'Autonomous premium-report fulfilment queued.',(v_actor->>'user_id')::uuid,
-      jsonb_build_object('fulfilment_id',v_fulfilment.id,'trigger_source',p_trigger_source,
-        'idempotency_key',v_key));
-    insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-      entity_table,entity_id,action,after_json)
-    values ('admin',(v_actor->>'user_id')::uuid,v_fulfilment.assessment_id,
-      'report_fulfilments',v_fulfilment.id,'premium_report_fulfilment_queued',
-      jsonb_build_object('order_reference',p_order_reference,'trigger_source',p_trigger_source,
-        'score_run_id',v_fulfilment.score_run_id));
-  end if;
-  return jsonb_build_object(
-    'created',v_created,'fulfilment',to_jsonb(v_fulfilment),
-    'context',jsonb_build_object('order_id',v_fulfilment.order_id,
-      'assessment_id',v_fulfilment.assessment_id,'score_run_id',v_fulfilment.score_run_id,
-      'recipient',lower(v_order.customer_email::text))
-  );
-end;
-$function$;
-
-create or replace function public.transition_premium_report_fulfilment(
-  p_capability_id uuid,
-  p_fulfilment_id uuid,
-  p_status text,
-  p_current_step text,
-  p_generation_mode text default null,
-  p_report_id uuid default null,
-  p_increment_attempt boolean default false,
-  p_error_code text default null,
-  p_error_message text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_row public.report_fulfilments%rowtype; v_allowed boolean := false; v_now timestamptz := now();
-begin
-  select * into v_row from public.report_fulfilments where id = p_fulfilment_id for update;
-  if not found then raise exception 'phase14_fulfilment_missing'; end if;
-  if p_capability_id is not null then
-    perform public.phase14_activate_worker_operation(
-      p_capability_id,array['automatic_generation','generation_recovery','automatic_delivery'],
-      v_row.order_id,v_row.assessment_id,v_row.score_run_id,v_row.id,
-      case when p_status = 'completed' then coalesce(p_report_id,v_row.report_id) else null end,
-      null
-    );
-  else
-    perform public.phase14_require_security(
-      'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-    );
-  end if;
-  if coalesce(trim(p_current_step),'') = '' then raise exception 'phase14_fulfilment_step_required'; end if;
-  if p_generation_mode is not null and p_generation_mode not in ('ai','ai_repair','deterministic_fallback') then
-    raise exception 'phase14_fulfilment_generation_mode_invalid';
-  end if;
-  v_allowed := p_status = v_row.status or case v_row.status
-    when 'queued' then p_status in ('assembling','failed','cancelled')
-    when 'assembling' then p_status in ('generating','validating','failed')
-    when 'generating' then p_status in ('validating','rendering','failed')
-    when 'validating' then p_status in ('rendering','failed')
-    when 'rendering' then p_status in ('storing','failed')
-    when 'storing' then p_status in ('ready_for_delivery','failed')
-    when 'ready_for_delivery' then p_status in ('completed','failed')
-    when 'failed' then p_status in ('assembling','failed')
-    else false end;
-  if not v_allowed then raise exception 'phase14_fulfilment_transition_invalid:%->%',v_row.status,p_status; end if;
-  if p_report_id is not null and not exists (
-    select 1 from public.reports r where r.id = p_report_id
-      and r.order_id = v_row.order_id and r.assessment_id = v_row.assessment_id
-      and r.score_run_id = v_row.score_run_id
-  ) then raise exception 'phase14_fulfilment_report_binding_invalid'; end if;
-  perform set_config('phase14.authoritative_transition', 'fulfilment_transition_rpc', true);
-  update public.report_fulfilments
-  set status = p_status, current_step = p_current_step,
-      generation_mode = coalesce(p_generation_mode,generation_mode),
-      report_id = coalesce(p_report_id,report_id),
-      attempt_count = attempt_count + case when p_increment_attempt then 1 else 0 end,
-      last_error_code = p_error_code, last_error_message = p_error_message,
-      started_at = case when p_status='assembling' then coalesce(started_at,v_now) else started_at end,
-      completed_at = case when p_status='completed' then coalesce(completed_at,v_now) else completed_at end,
-      failed_at = case when p_status='failed' then v_now else failed_at end,
-      updated_at = v_now
-  where id = p_fulfilment_id and status = v_row.status
-  returning * into v_row;
-  if not found then raise exception 'phase14_fulfilment_transition_cas_failed'; end if;
-  return to_jsonb(v_row);
-end;
-$function$;
-
-create or replace function public.claim_premium_report_workflow_start(
-  p_capability_id uuid,
-  p_fulfilment_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_row public.report_fulfilments%rowtype;
-begin
-  select * into v_row from public.report_fulfilments where id=p_fulfilment_id for update;
-  if not found then raise exception 'phase14_fulfilment_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_row.order_id,v_row.assessment_id,v_row.score_run_id,v_row.id,null,null
-  );
-  if v_row.workflow_run_id is not null or v_row.workflow_start_status='started' then
-    return jsonb_build_object('claimed',false,'workflow_run_id',v_row.workflow_run_id,
-      'workflow_start_status',v_row.workflow_start_status);
-  end if;
-  if v_row.workflow_start_status='starting' then
-    return jsonb_build_object('claimed',false,'workflow_run_id',null,
-      'workflow_start_status','starting');
-  end if;
-  update public.report_fulfilments
-  set workflow_start_status='starting',workflow_start_error=null,updated_at=now()
-  where id=v_row.id and workflow_start_status in ('not_started','failed')
-  returning * into v_row;
-  if not found then raise exception 'phase14_workflow_start_claim_cas_failed'; end if;
-  return jsonb_build_object('claimed',true,'workflow_start_status','starting');
-end;
-$function$;
-
-create or replace function public.record_premium_report_workflow_start(
-  p_capability_id uuid,
-  p_fulfilment_id uuid,
-  p_started boolean,
-  p_workflow_run_id text default null,
-  p_error text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_row public.report_fulfilments%rowtype;
-begin
-  select * into v_row from public.report_fulfilments where id=p_fulfilment_id for update;
-  if not found then raise exception 'phase14_fulfilment_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_row.order_id,v_row.assessment_id,v_row.score_run_id,v_row.id,null,null
-  );
-  if p_started and coalesce(trim(p_workflow_run_id),'')='' then raise exception 'phase14_workflow_run_id_required'; end if;
-  if not p_started and coalesce(trim(p_error),'')='' then raise exception 'phase14_workflow_start_error_required'; end if;
-  update public.report_fulfilments
-  set workflow_start_status=case when p_started then 'started' else 'failed' end,
-      workflow_run_id=case when p_started then p_workflow_run_id else workflow_run_id end,
-      workflow_started_at=case when p_started then coalesce(workflow_started_at,now()) else workflow_started_at end,
-      workflow_start_error=case when p_started then null else p_error end,
-      last_error_code=case when p_started then last_error_code else 'workflow_start_failed' end,
-      last_error_message=case when p_started then last_error_message else p_error end,
-      updated_at=now()
-  where id=v_row.id and workflow_start_status='starting'
-  returning * into v_row;
-  if not found then
-    if p_started and v_row.workflow_start_status='started' and v_row.workflow_run_id=p_workflow_run_id then
-      return to_jsonb(v_row) || jsonb_build_object('idempotent_replay',true);
-    end if;
-    raise exception 'phase14_workflow_start_record_cas_failed';
-  end if;
-  return to_jsonb(v_row) || jsonb_build_object('idempotent_replay',false);
-end;
-$function$;
-
-create or replace function public.record_premium_report_generation_run(
-  p_capability_id uuid,
-  p_fulfilment_id uuid,
-  p_run jsonb
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_f public.report_fulfilments%rowtype; v_id uuid; v_attempt integer;
-begin
-  select * into v_f from public.report_fulfilments where id=p_fulfilment_id for update;
-  if not found then raise exception 'phase14_fulfilment_missing'; end if;
-  if p_capability_id is not null then
-    perform public.phase14_activate_worker_operation(
-      p_capability_id,array['automatic_generation','generation_recovery'],
-      v_f.order_id,v_f.assessment_id,v_f.score_run_id,v_f.id,null,null
-    );
-  else
-    perform public.phase14_require_security(
-      'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-    );
-  end if;
-  select id into v_id from public.report_generation_runs
-  where fulfilment_id=p_fulfilment_id and status='used' limit 1;
-  if v_id is not null then return v_id; end if;
-  select coalesce(max(attempt_number),0)+1 into v_attempt
-  from public.report_generation_runs where fulfilment_id=p_fulfilment_id;
-  insert into public.report_generation_runs(
-    fulfilment_id,attempt_number,generation_mode,provider,model,requested_provider,
-    requested_model,resolved_provider,resolved_model,prompt_version,schema_version,
-    evidence_checksum,evidence_snapshot_json,structured_output_json,
-    validation_result_json,validation_errors_json,input_token_count,output_token_count,
-    total_token_count,estimated_cost_micros,accounting_status,latency_ms,status,
-    error_code,error_message,completed_at
-  ) values (
-    p_fulfilment_id,v_attempt,p_run->>'generation_mode',nullif(p_run->>'provider',''),
-    nullif(p_run->>'model',''),nullif(p_run->>'requested_provider',''),
-    nullif(p_run->>'requested_model',''),nullif(p_run->>'resolved_provider',''),
-    nullif(p_run->>'resolved_model',''),p_run->>'prompt_version',p_run->>'schema_version',
-    p_run->>'evidence_checksum',coalesce(p_run->'evidence_snapshot_json','{}'::jsonb),
-    p_run->'structured_output_json',coalesce(p_run->'validation_result_json','{}'::jsonb),
-    coalesce(p_run->'validation_errors_json','[]'::jsonb),
-    nullif(p_run->>'input_token_count','')::integer,
-    nullif(p_run->>'output_token_count','')::integer,
-    nullif(p_run->>'total_token_count','')::integer,
-    nullif(p_run->>'estimated_cost_micros','')::bigint,
-    p_run->>'accounting_status',nullif(p_run->>'latency_ms','')::integer,'used',
-    nullif(p_run->>'error_code',''),nullif(p_run->>'error_message',''),now()
-  ) returning id into v_id;
-  return v_id;
-end;
-$function$;
-
-create or replace function public.link_premium_report_generation_run(
-  p_capability_id uuid,
-  p_generation_run_id uuid,
-  p_report_id uuid
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_run public.report_generation_runs%rowtype; v_f public.report_fulfilments%rowtype;
-begin
-  select * into v_run from public.report_generation_runs where id=p_generation_run_id for update;
-  if not found then raise exception 'phase14_generation_run_missing'; end if;
-  select * into v_f from public.report_fulfilments where id=v_run.fulfilment_id for share;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_f.order_id,v_f.assessment_id,v_f.score_run_id,v_f.id,null,null
-  );
-  if not exists (select 1 from public.reports where id=p_report_id and fulfilment_id=v_f.id) then
-    raise exception 'phase14_generation_run_report_binding_invalid';
-  end if;
-  update public.report_generation_runs set report_id=p_report_id where id=v_run.id;
-  return true;
-end;
-$function$;
-
-create or replace function public.record_phase14_report_generated(
-  p_capability_id uuid,
-  p_report_id uuid,
-  p_actor_user_id uuid,
-  p_event_type text,
-  p_note text,
-  p_metadata jsonb
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_report public.reports%rowtype; v_f public.report_fulfilments%rowtype;
-begin
-  if p_event_type not in ('generated','regenerated') then raise exception 'phase14_report_event_type_invalid'; end if;
-  select * into v_report from public.reports where id=p_report_id for share;
-  if not found then raise exception 'phase14_report_missing'; end if;
-  if p_capability_id is not null then
-    select * into v_f from public.report_fulfilments where id=v_report.fulfilment_id for share;
-    perform public.phase14_activate_worker_operation(
-      p_capability_id,array['automatic_generation','generation_recovery'],
-      v_report.order_id,v_report.assessment_id,v_report.score_run_id,v_f.id,null,null
-    );
-  else
-    perform public.phase14_require_security(
-      'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-    );
-  end if;
-  insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-  values (v_report.id,p_event_type,p_actor_user_id,p_note,coalesce(p_metadata,'{}'::jsonb));
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-    entity_table,entity_id,action,after_json)
-  values (case when p_capability_id is null then 'admin'::public.audit_actor_type else 'system'::public.audit_actor_type end,
-    p_actor_user_id,v_report.assessment_id,'reports',v_report.id,
-    case when p_event_type='regenerated' then 'report_regenerated' else 'report_generated' end,
-    coalesce(p_metadata,'{}'::jsonb));
-  insert into public.assessment_events(
-    assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json
-  ) values (
-    v_report.assessment_id,v_report.order_id,v_report.id,'report_generated',
-    'phase14-report-generated:' || v_report.id,coalesce(p_metadata,'{}'::jsonb)
-  ) on conflict (dedupe_key) do update
-  set event_count=public.assessment_events.event_count+1,last_seen_at=now(),
-      metadata_json=public.assessment_events.metadata_json || excluded.metadata_json,
-      updated_at=now();
-  return true;
-end;
-$function$;
-
--- Publication happens before the durable business transition because object
--- storage cannot participate in the database transaction. Everything after
--- publication, including capability consumption, is therefore one RPC/one
--- transaction. A raised error rolls back the linkage, fulfilment transition,
--- events, and capability state together.
-create or replace function public.complete_phase14_generation_operation(
-  p_capability_id uuid,
-  p_fulfilment_id uuid,
-  p_generation_run_id uuid,
-  p_report_id uuid,
-  p_generation_mode text,
-  p_actor_user_id uuid,
-  p_event_type text,
-  p_note text,
-  p_metadata jsonb
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype;
-  v_metadata jsonb;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id=p_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-
-  -- A response-loss retry is accepted only when every durable effect from the
-  -- original atomic completion is present and bound to this exact capability.
-  if v_cap.status='consumed' then
-    if v_cap.fulfilment_id is distinct from p_fulfilment_id
-       or not exists (
-         select 1 from public.report_fulfilments f
-         where f.id=p_fulfilment_id and f.report_id=p_report_id
-           and f.status in ('ready_for_delivery','completed')
-       )
-       or (p_generation_run_id is not null and not exists (
-         select 1 from public.report_generation_runs r
-         where r.id=p_generation_run_id and r.fulfilment_id=p_fulfilment_id
-           and r.report_id=p_report_id
-       ))
-       or not exists (
-         select 1 from public.report_events e
-         where e.report_id=p_report_id and e.event_type=p_event_type
-           and e.metadata_json->>'worker_capability_id'=p_capability_id::text
-       ) then
-      raise exception 'phase14_generation_completion_replay_mismatch';
-    end if;
-    return jsonb_build_object('completed',true,'idempotent_replay',true,
-      'report_id',p_report_id,'fulfilment_id',p_fulfilment_id);
-  end if;
-
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_cap.order_id,v_cap.assessment_id,v_cap.score_run_id,p_fulfilment_id,null,null
-  );
-  if p_generation_run_id is not null then
-    perform public.link_premium_report_generation_run(
-      p_capability_id,p_generation_run_id,p_report_id
-    );
-  end if;
-  perform public.transition_premium_report_fulfilment(
-    p_capability_id,p_fulfilment_id,'ready_for_delivery','ready_for_email_delivery',
-    p_generation_mode,p_report_id,false,null,null
-  );
-  v_metadata := coalesce(p_metadata,'{}'::jsonb)
-    || jsonb_build_object('worker_capability_id',p_capability_id);
-  perform public.record_phase14_report_generated(
-    p_capability_id,p_report_id,p_actor_user_id,p_event_type,p_note,v_metadata
-  );
-  perform public.complete_phase14_worker_operation(p_capability_id);
-  select * into strict v_fulfilment from public.report_fulfilments
-  where id=p_fulfilment_id;
-  return jsonb_build_object('completed',true,'idempotent_replay',false,
-    'report_id',p_report_id,'fulfilment_id',p_fulfilment_id,
-    'fulfilment_status',v_fulfilment.status);
-end;
-$function$;
-
-create or replace function public.record_phase14_report_download(
-  p_report_id uuid,
-  p_success boolean,
-  p_detail jsonb
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb; v_report public.reports%rowtype;
-begin
-  v_actor := public.phase14_require_security(
-    'report_download',array['platform_admin','reviewer','approver','read_only_admin']::public.admin_role[],true,false
-  );
-  select * into v_report from public.reports where id=p_report_id for share;
-  if not found then raise exception 'phase14_report_missing'; end if;
-  if p_success then
-    insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-    values (v_report.id,'download_requested',(v_actor->>'user_id')::uuid,
-      'Authenticated report bytes streamed after SHA-256 verification.',coalesce(p_detail,'{}'::jsonb));
-    insert into public.assessment_events(assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json)
-    values (v_report.assessment_id,v_report.order_id,v_report.id,'admin_report_downloaded',
-      'phase14-report-download:' || v_report.id || ':' || (v_actor->>'session_id'),
-      coalesce(p_detail,'{}'::jsonb));
-  end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-    entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_report.assessment_id,'reports',v_report.id,
-    case when p_success then 'report_download_streamed' else 'report_download_denied' end,
-    coalesce(p_detail,'{}'::jsonb));
-  return true;
-end;
-$function$;
-
--- 5. Provider trust boundary. Runtime HMAC keys live in a non-exposed schema;
--- service_role cannot read them. Receipts are append-only and consumption is
--- recorded separately so the attestation itself remains immutable.
-create schema if not exists phase14_private;
-revoke all on schema phase14_private from public, anon, authenticated, service_role;
-
-create table phase14_private.runtime_secrets (
-  secret_key text primary key check (secret_key in (
-    'provider_webhook_db_hmac','provider_lookup_db_hmac'
-  )),
-  secret_value text not null check (length(secret_value) >= 32),
-  rotated_at timestamptz not null default now(),
-  rotated_by uuid not null references public.admin_profiles(id) on delete restrict
-);
-revoke all on table phase14_private.runtime_secrets from public, anon, authenticated, service_role;
-
-create table public.phase14_provider_attestations (
-  id uuid primary key default gen_random_uuid(),
-  attestation_source text not null check (attestation_source in ('webhook','provider_lookup')),
-  provider text not null check (coalesce(trim(provider),'') <> ''),
-  provider_event_id text,
-  provider_request_key text,
-  authorization_id uuid references public.report_delivery_authorizations(id) on delete restrict,
-  email_event_id uuid references public.email_events(id) on delete restrict,
-  provider_message_id text,
-  provider_state text not null,
-  event_created_at timestamptz,
-  payload_sha256 text not null check (payload_sha256 ~ '^[0-9a-f]{64}$'),
-  nonce uuid not null,
-  attested_at timestamptz not null,
-  recorded_at timestamptz not null default now(),
-  minimal_payload_json jsonb not null default '{}'::jsonb,
-  constraint phase14_provider_attestation_identity_chk check (
-    (attestation_source='webhook' and provider_event_id is not null)
-    or (attestation_source='provider_lookup' and provider_request_key is not null
-      and authorization_id is not null and email_event_id is not null)
-  ),
-  unique(attestation_source,provider,nonce)
-);
-create unique index phase14_provider_attestation_event_uidx
-  on public.phase14_provider_attestations(provider,provider_event_id)
-  where attestation_source='webhook';
-create index phase14_provider_attestation_lookup_idx
-  on public.phase14_provider_attestations(provider,provider_request_key,recorded_at desc)
-  where attestation_source='provider_lookup';
-
-create table public.phase14_provider_attestation_consumptions (
-  attestation_id uuid primary key references public.phase14_provider_attestations(id) on delete restrict,
-  authorization_id uuid not null references public.report_delivery_authorizations(id) on delete restrict,
-  consumed_by uuid not null references public.admin_profiles(id) on delete restrict,
-  consumed_session_id uuid not null,
-  consumed_at timestamptz not null default now()
-);
-
-alter table public.phase14_provider_attestations enable row level security;
-alter table public.phase14_provider_attestation_consumptions enable row level security;
-revoke all on table public.phase14_provider_attestations from public,anon,authenticated,service_role;
-revoke all on table public.phase14_provider_attestation_consumptions from public,anon,authenticated,service_role;
-grant select on table public.phase14_provider_attestations to authenticated;
-grant select on table public.phase14_provider_attestation_consumptions to authenticated;
-create policy phase14_provider_attestations_admin_select on public.phase14_provider_attestations
-  for select to authenticated using (
-    public.current_admin_role() in ('platform_admin','approver','reviewer','read_only_admin')
-  );
-create policy phase14_provider_attestation_consumptions_admin_select
-  on public.phase14_provider_attestation_consumptions
-  for select to authenticated using (
-    public.current_admin_role() in ('platform_admin','approver','reviewer','read_only_admin')
-  );
-
-create or replace function public.guard_phase14_provider_attestation_immutable()
-returns trigger language plpgsql set search_path=''
-as $function$
-begin
-  raise exception 'phase14_provider_attestation_immutable';
-end;
-$function$;
-create trigger trg_phase14_provider_attestation_immutable
-  before update or delete on public.phase14_provider_attestations
-  for each row execute function public.guard_phase14_provider_attestation_immutable();
-
-create or replace function public.set_phase14_runtime_secret(
-  p_secret_key text,
-  p_secret_value text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_actor jsonb;
-begin
-  v_actor := public.phase14_require_actor(
-    'runtime_secret_rotation',array['platform_admin']::public.admin_role[],true
-  );
-  if p_secret_key not in ('provider_webhook_db_hmac','provider_lookup_db_hmac') then
-    raise exception 'phase14_runtime_secret_key_invalid';
-  end if;
-  if length(coalesce(p_secret_value,'')) < 32 then raise exception 'phase14_runtime_secret_too_short'; end if;
-  insert into phase14_private.runtime_secrets(secret_key,secret_value,rotated_at,rotated_by)
-  values (p_secret_key,p_secret_value,now(),(v_actor->>'user_id')::uuid)
-  on conflict (secret_key) do update
-  set secret_value=excluded.secret_value,rotated_at=excluded.rotated_at,rotated_by=excluded.rotated_by;
-  perform set_config('phase14.authoritative_transition','runtime_secret_rotation',true);
-  insert into public.audit_logs(actor_type,actor_user_id,entity_table,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,'phase14_private.runtime_secrets',
-    'phase14_runtime_secret_rotated',jsonb_build_object('secret_key',p_secret_key));
-  return jsonb_build_object('secret_key',p_secret_key,'rotated_at',now(),
-    'fingerprint',encode(extensions.digest(convert_to(p_secret_value,'UTF8'),'sha256'),'hex'));
-end;
-$function$;
-
-create or replace function phase14_private.verify_hmac(
-  p_secret_key text,
-  p_canonical text,
-  p_signature text,
-  p_attested_at_epoch bigint
-) returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_secret text; v_expected text;
-begin
-  if abs(extract(epoch from now())::bigint - p_attested_at_epoch) > 300 then
-    raise exception 'phase14_attestation_timestamp_invalid';
-  end if;
-  if p_signature !~ '^[0-9a-f]{64}$' then raise exception 'phase14_attestation_hmac_invalid'; end if;
-  select secret_value into v_secret from phase14_private.runtime_secrets
-  where secret_key=p_secret_key;
-  if v_secret is null then raise exception 'phase14_attestation_secret_unprovisioned'; end if;
-  v_expected := encode(extensions.hmac(
-    convert_to(p_canonical,'UTF8'),convert_to(v_secret,'UTF8'),'sha256'
-  ),'hex');
-  if v_expected <> p_signature then raise exception 'phase14_attestation_hmac_invalid'; end if;
-  return true;
-end;
-$function$;
-
-create or replace function public.ingest_phase14_provider_webhook(
-  p_provider text,
-  p_provider_event_id text,
-  p_provider_message_id text,
-  p_event_type text,
-  p_event_created_at text,
-  p_payload_sha256 text,
-  p_payload_json jsonb,
-  p_attested_at_epoch bigint,
-  p_nonce uuid,
-  p_attestation_hmac text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_canonical text; v_id uuid; v_result jsonb; v_created timestamptz;
-  v_authorization_id uuid; v_email_event_id uuid;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_service_role_required';
-  end if;
-  perform public.phase14_require_policy('provider_webhook_ingestion');
-  if p_payload_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'webhook_payload_fingerprint_invalid'; end if;
-  v_created := p_event_created_at::timestamptz;
-  v_canonical := concat_ws('|','webhook',lower(trim(p_provider)),p_provider_event_id,
-    coalesce(p_provider_message_id,''),p_event_type,p_event_created_at,p_payload_sha256,
-    p_attested_at_epoch::text,p_nonce::text);
-  perform phase14_private.verify_hmac(
-    'provider_webhook_db_hmac',v_canonical,p_attestation_hmac,p_attested_at_epoch
-  );
-  select e.id,a.id into v_email_event_id,v_authorization_id
-  from public.email_events e
-  left join public.report_delivery_authorizations a on a.email_event_id=e.id
-  where e.provider=lower(trim(p_provider))
-    and e.provider_message_id=p_provider_message_id
-  order by e.created_at desc limit 1;
-  insert into public.phase14_provider_attestations(
-    attestation_source,provider,provider_event_id,authorization_id,email_event_id,
-    provider_message_id,provider_state,
-    event_created_at,payload_sha256,nonce,attested_at,minimal_payload_json
-  ) values (
-    'webhook',lower(trim(p_provider)),p_provider_event_id,v_authorization_id,v_email_event_id,
-    p_provider_message_id,
-    p_event_type,v_created,p_payload_sha256,p_nonce,to_timestamp(p_attested_at_epoch),
-    jsonb_strip_nulls(jsonb_build_object('type',p_payload_json->>'type',
-      'created_at',p_payload_json->>'created_at','reason',p_payload_json->>'reason'))
-  ) on conflict (provider,provider_event_id) where attestation_source='webhook'
-  do nothing
-  returning id into v_id;
-  if v_id is null then
-    select id into v_id from public.phase14_provider_attestations
-    where attestation_source='webhook' and provider=lower(trim(p_provider))
-      and provider_event_id=p_provider_event_id
-      and provider_message_id is not distinct from p_provider_message_id
-      and provider_state=p_event_type and event_created_at=v_created
-      and payload_sha256=p_payload_sha256;
-    if v_id is null then raise exception 'phase14_webhook_replay_mismatch'; end if;
-  end if;
-  perform set_config('phase14.authoritative_transition','trusted_provider_attestation',true);
-  v_result := public.apply_email_provider_event_atomic(
-    p_provider,p_provider_event_id,p_provider_message_id,p_event_type,v_created,
-    p_payload_sha256,p_payload_json
-  );
-  return v_result || jsonb_build_object('attestation_id',v_id);
-end;
-$function$;
-
-create or replace function public.get_phase14_provider_attestation(
-  p_attestation_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_att public.phase14_provider_attestations%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_service_role_required';
-  end if;
-  select * into v_att from public.phase14_provider_attestations
-  where id=p_attestation_id;
-  if not found then raise exception 'phase14_provider_attestation_missing'; end if;
-  return jsonb_build_object(
-    'id',v_att.id,'attestation_source',v_att.attestation_source,
-    'provider',v_att.provider,'provider_event_id',v_att.provider_event_id,
-    'provider_request_key',v_att.provider_request_key,
-    'authorization_id',v_att.authorization_id,'email_event_id',v_att.email_event_id,
-    'provider_message_id',v_att.provider_message_id,
-    'provider_state',v_att.provider_state,
-    'event_created_at',v_att.event_created_at,
-    'payload_sha256',v_att.payload_sha256,
-    'attested_at',v_att.attested_at,'recorded_at',v_att.recorded_at
-  );
-end;
-$function$;
-
-create or replace function public.record_phase14_provider_lookup_attestation(
-  p_provider text,
-  p_provider_request_key text,
-  p_authorization_id uuid,
-  p_email_event_id uuid,
-  p_provider_message_id text,
-  p_provider_state text,
-  p_payload_sha256 text,
-  p_payload_json jsonb,
-  p_attested_at_epoch bigint,
-  p_nonce uuid,
-  p_attestation_hmac text
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_canonical text; v_id uuid;
-  v_auth public.report_delivery_authorizations%rowtype;
-  v_event public.email_events%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','') <> 'service_role' then
-    raise exception 'phase14_service_role_required';
-  end if;
-  perform public.phase14_require_policy('manual_delivery');
-  if p_provider_state not in ('accepted','not_found','pending','unknown') then
-    raise exception 'phase14_provider_attestation_state_invalid';
-  end if;
-  if p_payload_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'phase14_provider_attestation_payload_invalid'; end if;
-  select * into v_auth from public.report_delivery_authorizations
-  where id=p_authorization_id for share;
-  select * into v_event from public.email_events where id=p_email_event_id for share;
-  if v_auth.id is null or v_event.id is null
-     or v_auth.email_event_id is distinct from p_email_event_id
-     or v_event.provider_request_key is distinct from p_provider_request_key
-     or v_auth.provider is distinct from lower(trim(p_provider)) then
-    raise exception 'phase14_provider_lookup_binding_invalid';
-  end if;
-  v_canonical := concat_ws('|','provider_lookup',lower(trim(p_provider)),
-    p_provider_request_key,p_authorization_id::text,p_email_event_id::text,
-    coalesce(p_provider_message_id,''),p_provider_state,
-    p_payload_sha256,p_attested_at_epoch::text,p_nonce::text);
-  perform phase14_private.verify_hmac(
-    'provider_lookup_db_hmac',v_canonical,p_attestation_hmac,p_attested_at_epoch
-  );
-  insert into public.phase14_provider_attestations(
-    attestation_source,provider,provider_request_key,authorization_id,email_event_id,
-    provider_message_id,provider_state,
-    payload_sha256,nonce,attested_at,minimal_payload_json
-  ) values (
-    'provider_lookup',lower(trim(p_provider)),p_provider_request_key,p_authorization_id,
-    p_email_event_id,p_provider_message_id,
-    p_provider_state,p_payload_sha256,p_nonce,to_timestamp(p_attested_at_epoch),
-    jsonb_strip_nulls(jsonb_build_object('state',p_payload_json->>'state',
-      'detail',left(p_payload_json->>'detail',500)))
-  ) returning id into v_id;
-  return v_id;
-end;
-$function$;
-
--- 6. Tokenless worker facades. Each facade rebinds the opaque operation to the
--- exact commercial rows before invoking the existing transactional state machine.
-create or replace function public.worker_claim_premium_report_generation(
-  p_capability_id uuid,
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid,
-  p_report_type public.report_type default 'essential_self_assessment'
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_context jsonb;
-begin
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid,p_fulfilment_id,null,null
-  );
-  return public.claim_premium_report_generation(
-    p_order_reference,p_claim_owner,p_fulfilment_id,p_report_type
-  );
-end;
-$function$;
-
-create or replace function public.worker_renew_premium_report_generation_lease(
-  p_capability_id uuid,
-  p_claim_token uuid
-) returns timestamptz
-language plpgsql security definer set search_path=''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token=p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,
-    v_claim.report_id,null
-  );
-  return public.renew_premium_report_generation_lease(p_claim_token);
-end;
-$function$;
-
-create or replace function public.worker_recover_premium_report_generation_claim(
-  p_capability_id uuid,
-  p_order_reference text,
-  p_claim_owner text,
-  p_fulfilment_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_context jsonb;
-begin
-  v_context := public.phase14_generation_entitlement(p_order_reference);
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid,p_fulfilment_id,null,null
-  );
-  return public.recover_premium_report_generation_claim(p_order_reference,p_claim_owner);
-end;
-$function$;
-
-create or replace function public.worker_commit_premium_report_draft(
-  p_capability_id uuid,
-  p_claim_token uuid,
-  p_template_id uuid,
-  p_storage_bucket text,
-  p_temp_storage_path text,
-  p_checksum text,
-  p_generation_run_id uuid default null
-) returns uuid
-language plpgsql security definer set search_path=''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token=p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,
-    v_claim.report_id,null
-  );
-  return public.commit_premium_report_draft(
-    p_claim_token,p_template_id,p_storage_bucket,p_temp_storage_path,p_checksum,null,p_generation_run_id
-  );
-end;
-$function$;
-
-create or replace function public.worker_publish_premium_report_generation(
-  p_capability_id uuid,
-  p_claim_token uuid,
-  p_report_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token=p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,p_report_id,null
-  );
-  return public.publish_premium_report_generation(p_claim_token,p_report_id);
-end;
-$function$;
-
-create or replace function public.worker_abandon_premium_report_generation_claim(
-  p_capability_id uuid,
-  p_claim_token uuid,
-  p_reason text
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token=p_claim_token;
-  if not found then return false; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,
-    v_claim.report_id,null
-  );
-  return public.abandon_premium_report_generation_claim(p_claim_token,p_reason);
-end;
-$function$;
-
-create or replace function public.worker_register_phase14_storage_cleanup(
-  p_capability_id uuid,
-  p_storage_bucket text,
-  p_storage_path text,
-  p_expected_checksum text,
-  p_claim_token uuid,
-  p_reason text
-) returns uuid
-language plpgsql security definer set search_path=''
-as $function$
-declare v_claim public.report_generation_claims%rowtype;
-begin
-  select * into v_claim from public.report_generation_claims where claim_token=p_claim_token;
-  if not found then raise exception 'generation_claim_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.fulfilment_id,
-    v_claim.report_id,null
-  );
-  return public.register_phase14_storage_cleanup(
-    p_storage_bucket,p_storage_path,p_expected_checksum,p_claim_token,p_reason
-  );
-end;
-$function$;
-
-create or replace function public.worker_link_phase14_storage_cleanup_report(
-  p_capability_id uuid,
-  p_cleanup_id uuid,
-  p_report_id uuid
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_report public.reports%rowtype;
-begin
-  select * into v_report from public.reports where id=p_report_id;
-  if not found then raise exception 'cleanup_report_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_report.order_id,v_report.assessment_id,v_report.score_run_id,v_report.fulfilment_id,
-    p_report_id,null
-  );
-  return public.link_phase14_storage_cleanup_report(p_cleanup_id,p_report_id);
-end;
-$function$;
-
-create or replace function public.worker_record_phase14_storage_cleanup_result(
-  p_capability_id uuid,
-  p_cleanup_id uuid,
-  p_deleted boolean,
-  p_error text default null
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_cap public.phase14_worker_capabilities%rowtype;
-begin
-  select * into v_queue from public.phase14_storage_cleanup_queue where id=p_cleanup_id;
-  select * into v_cap from public.phase14_worker_capabilities where id=p_capability_id;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_generation','generation_recovery'],
-    v_cap.order_id,v_cap.assessment_id,v_cap.score_run_id,v_cap.fulfilment_id,
-    v_queue.report_id,null
-  );
-  return public.record_phase14_storage_cleanup_result(p_cleanup_id,p_deleted,p_error);
-end;
-$function$;
-
-create or replace function public.worker_authorize_premium_report_delivery(
-  p_capability_id uuid,
-  p_report_id uuid,
-  p_recipient text,
-  p_provider text default 'resend'
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_report public.reports%rowtype;
-begin
-  select * into v_report from public.reports where id=p_report_id;
-  if not found then raise exception 'report_not_found'; end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery'],v_report.order_id,v_report.assessment_id,
-    v_report.score_run_id,v_report.fulfilment_id,p_report_id,p_recipient
-  );
-  return public.authorize_premium_report_delivery(p_report_id,p_recipient,'initial',false,p_provider,null);
-end;
-$function$;
-
-create or replace function public.worker_claim_premium_report_delivery(
-  p_capability_id uuid,
-  p_authorization_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery'],v_auth.order_id,v_auth.assessment_id,
-    v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.claim_premium_report_delivery(p_authorization_id);
-end;
-$function$;
-
-create or replace function public.worker_mark_premium_report_delivery_dispatch_started(
-  p_capability_id uuid,
-  p_authorization_id uuid,
-  p_delivery_lease_token uuid
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery'],v_auth.order_id,v_auth.assessment_id,
-    v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.mark_premium_report_delivery_dispatch_started(p_authorization_id,p_delivery_lease_token);
-end;
-$function$;
-
-create or replace function public.worker_fail_premium_report_delivery_before_dispatch(
-  p_capability_id uuid,
-  p_authorization_id uuid,
-  p_delivery_lease_token uuid,
-  p_reason text
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery'],v_auth.order_id,v_auth.assessment_id,
-    v_auth.score_run_id,v_report.fulfilment_id,v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.fail_premium_report_delivery_before_dispatch(
-    p_authorization_id,p_delivery_lease_token,p_reason
-  );
-end;
-$function$;
-
-create or replace function public.worker_finalize_premium_report_delivery(
-  p_capability_id uuid,
-  p_authorization_id uuid,
-  p_email_event_id uuid,
-  p_provider_message_id text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_auth public.report_delivery_authorizations%rowtype;
-  v_report public.reports%rowtype;
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_result jsonb;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  select * into v_cap from public.phase14_worker_capabilities
-  where id=p_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  if v_cap.status='consumed' then
-    if v_auth.worker_capability_id is distinct from p_capability_id
-       or not exists (
-         select 1 from public.report_delivery_finalizations f
-         where f.authorization_id=p_authorization_id
-           and f.email_event_id=p_email_event_id
-           and f.report_id=v_auth.report_id
-           and f.provider=v_auth.provider
-           and f.provider_message_id=p_provider_message_id
-       ) then
-      raise exception 'phase14_delivery_completion_replay_mismatch';
-    end if;
-    return jsonb_build_object('finalized',true,'idempotent_replay',true,
-      'report_id',v_auth.report_id,'email_event_id',p_email_event_id,
-      'worker_capability_consumed',true);
-  end if;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery','delivery_reconciliation'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,
-    v_auth.report_id,v_auth.recipient_email::text
-  );
-  v_result := public.finalize_premium_report_delivery(
-    p_authorization_id,p_email_event_id,p_provider_message_id
-  );
-  if coalesce((v_result->>'finalized')::boolean,false) then
-    perform public.complete_phase14_worker_operation(p_capability_id);
-    return v_result || jsonb_build_object('worker_capability_consumed',true);
-  end if;
-  return v_result;
-end;
-$function$;
-
-create or replace function public.worker_mark_premium_report_delivery_reconciliation_required(
-  p_capability_id uuid,
-  p_authorization_id uuid,
-  p_provider_message_id text,
-  p_reason text
-) returns boolean
-language plpgsql security definer set search_path=''
-as $function$
-declare v_auth public.report_delivery_authorizations%rowtype; v_report public.reports%rowtype;
-begin
-  select * into v_auth from public.report_delivery_authorizations where id=p_authorization_id;
-  select * into v_report from public.reports where id=v_auth.report_id;
-  perform public.phase14_activate_worker_operation(
-    p_capability_id,array['automatic_delivery','delivery_reconciliation'],
-    v_auth.order_id,v_auth.assessment_id,v_auth.score_run_id,v_report.fulfilment_id,
-    v_auth.report_id,v_auth.recipient_email::text
-  );
-  return public.mark_premium_report_delivery_reconciliation_required(
-    p_authorization_id,p_provider_message_id,p_reason
-  );
-end;
-$function$;
-
--- 7. Finalization locks the fulfilment row before any terminal write, requires a
--- successful compare-and-set, and preserves exact idempotent replay semantics.
-alter table public.report_delivery_finalizations
-  add column fulfilment_id uuid references public.report_fulfilments(id) on delete restrict;
-
-update public.report_delivery_finalizations f
-set fulfilment_id=r.fulfilment_id
-from public.reports r
-where r.id=f.report_id and f.fulfilment_id is null;
-
-create or replace function public.finalize_premium_report_delivery(
-  p_authorization_id uuid,
-  p_email_event_id uuid,
-  p_provider_message_id text
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_auth public.report_delivery_authorizations%rowtype;
-  v_existing public.report_delivery_finalizations%rowtype;
-  v_report public.reports%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype;
-  v_email public.email_events%rowtype;
-  v_now timestamptz := now(); v_context jsonb;
-begin
-  perform public.phase14_require_security(
-    'delivery_finalization',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  select * into v_auth from public.report_delivery_authorizations
-  where id=p_authorization_id for update;
-  if not found or v_auth.email_event_id <> p_email_event_id then
-    raise exception 'delivery_finalization_binding_mismatch';
-  end if;
-  if coalesce(trim(p_provider_message_id),'') = '' then raise exception 'provider_message_id_required'; end if;
-  select * into v_existing from public.report_delivery_finalizations
-  where authorization_id=p_authorization_id for share;
-  if found then
-    if v_existing.email_event_id=p_email_event_id
-       and v_existing.report_id=v_auth.report_id
-       and v_existing.provider=v_auth.provider
-       and v_existing.provider_message_id=p_provider_message_id
-       and v_existing.fulfilment_id is not distinct from (
-         select r.fulfilment_id from public.reports r where r.id=v_auth.report_id
-       )
-       and (v_auth.test_delivery or exists (
-         select 1 from public.report_fulfilments f
-         where f.id=v_existing.fulfilment_id and f.status='completed'
-           and f.order_id=v_auth.order_id and f.assessment_id=v_auth.assessment_id
-           and f.score_run_id=v_auth.score_run_id and f.report_id=v_auth.report_id
-       )) then
-      return jsonb_build_object('finalized',true,'idempotent_replay',true,
-        'report_id',v_existing.report_id,'email_event_id',v_existing.email_event_id);
-    end if;
-    insert into public.phase14_operational_alerts(
-      alert_key,severity,category,report_id,email_event_id,detail_json
-    ) values (
-      'delivery-finalization-replay-conflict:' || p_authorization_id,'critical',
-      'delivery_finalization_replay_conflict',v_auth.report_id,p_email_event_id,
-      jsonb_build_object('authorization_id',p_authorization_id,
-        'incoming_email_event_id',p_email_event_id,'incoming_provider',v_auth.provider,
-        'incoming_provider_message_id',p_provider_message_id,'persisted',to_jsonb(v_existing))
-    ) on conflict (alert_key) do update
-      set severity='critical',detail_json=excluded.detail_json,status='open';
-    return jsonb_build_object('finalized',false,'conflict',true,
-      'reason','delivery_finalization_replay_conflict');
-  end if;
-  if v_auth.status not in ('dispatching','reconciliation_required') then
-    raise exception 'delivery_finalization_state_invalid:%',v_auth.status;
-  end if;
-  v_context := public.phase14_delivery_entitlement(
-    v_auth.report_id,v_auth.recipient_email::text,v_auth.test_delivery,'email_delivery'
-  );
-  if v_context->>'report_checksum' <> v_auth.report_checksum then
-    raise exception 'delivery_finalization_entitlement_changed';
-  end if;
-  select * into v_report from public.reports where id=v_auth.report_id for update;
-  if not found then raise exception 'delivery_finalization_report_missing'; end if;
-  if not v_auth.test_delivery and v_report.fulfilment_id is null then
-    raise exception 'delivery_finalization_fulfilment_missing';
-  end if;
-  if v_report.fulfilment_id is not null then
-    select * into v_fulfilment from public.report_fulfilments
-    where id=v_report.fulfilment_id for update;
-    if not found then raise exception 'delivery_finalization_fulfilment_missing'; end if;
-    if v_fulfilment.order_id <> v_auth.order_id
-       or v_fulfilment.assessment_id <> v_auth.assessment_id
-       or v_fulfilment.score_run_id <> v_auth.score_run_id
-       or v_fulfilment.report_id is distinct from v_report.id then
-      raise exception 'delivery_finalization_fulfilment_binding_changed';
-    end if;
-    if not v_auth.test_delivery and v_fulfilment.status <> 'ready_for_delivery' then
-      raise exception 'delivery_finalization_fulfilment_state_invalid:%',v_fulfilment.status;
-    end if;
-  end if;
-  select * into v_email from public.email_events where id=p_email_event_id for update;
-  if not found then raise exception 'delivery_finalization_email_missing'; end if;
-  update public.email_events
-  set status='sent',provider=v_auth.provider,provider_message_id=p_provider_message_id,
-      sent_at=coalesce(sent_at,v_now),delivery_updated_at=v_now,send_lease_token=null,
-      send_lease_expires_at=null,error_message=null
-  where id=p_email_event_id
-    and status in ('sending','provider_acceptance_uncertain','reconciliation_required');
-  if not found then raise exception 'delivery_finalization_email_cas_failed'; end if;
-  if not v_auth.test_delivery then
-    update public.reports
-    set status='released',released_at=coalesce(released_at,v_now),updated_at=v_now
-    where id=v_report.id and status in ('generated','under_review','approved','released');
-    if not found then raise exception 'delivery_finalization_report_cas_failed'; end if;
-    if v_report.fulfilment_id is not null then
-      update public.report_fulfilments
-      set status='completed',current_step='email_sent',completed_at=coalesce(completed_at,v_now),
-          report_id=v_report.id,updated_at=v_now
-      where id=v_report.fulfilment_id and status='ready_for_delivery'
-        and report_id=v_report.id;
-      if not found then raise exception 'delivery_finalization_fulfilment_cas_failed'; end if;
-    end if;
-  end if;
-  insert into public.report_delivery_finalizations(
-    authorization_id,email_event_id,report_id,fulfilment_id,provider,provider_message_id,finalized_at
-  ) values (v_auth.id,p_email_event_id,v_report.id,v_report.fulfilment_id,
-    v_auth.provider,p_provider_message_id,v_now);
-  insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-  values (v_report.id,case when v_auth.test_delivery then 'email_test_sent' else 'email_sent' end,
-    v_auth.authorised_by,'Atomic provider-acceptance finalization.',
-    jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,
-      'provider_message_id',p_provider_message_id,'test_delivery',v_auth.test_delivery,
-      'worker_capability_id',v_auth.worker_capability_id));
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-    entity_table,entity_id,action,after_json)
-  values (case when v_auth.worker_capability_id is null
-      then 'admin'::public.audit_actor_type else 'system'::public.audit_actor_type end,
-    v_auth.authorised_by,v_auth.assessment_id,'reports',v_report.id,
-    case when v_auth.test_delivery then 'premium_report_test_delivery_finalized'
-      else 'premium_report_delivery_finalized' end,
-    jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,
-      'provider_message_id',p_provider_message_id,'worker_capability_id',v_auth.worker_capability_id));
-  if not v_auth.test_delivery then
-    insert into public.assessment_events(
-      assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json
-    ) values (
-      v_auth.assessment_id,v_auth.order_id,v_report.id,'report_emailed_to_customer',
-      'phase14-delivery-finalization:' || v_auth.id,
-      jsonb_build_object('authorization_id',v_auth.id,'email_event_id',p_email_event_id,
-        'test_delivery',false)
-    );
-  end if;
-  update public.report_delivery_authorizations
-  set status='finalized',provider_message_id=p_provider_message_id,finalized_at=v_now,
-      lease_token=null,lease_expires_at=null,updated_at=v_now
-  where id=v_auth.id and status in ('dispatching','reconciliation_required');
-  if not found then raise exception 'delivery_finalization_authorization_cas_failed'; end if;
-  return jsonb_build_object('finalized',true,'idempotent_replay',false,
-    'report_id',v_report.id,'email_event_id',p_email_event_id);
-end;
-$function$;
-
-create or replace function public.resolve_premium_report_delivery_reconciliation(
-  p_authorization_id uuid,
-  p_resolution text,
-  p_attestation_id uuid,
-  p_operator_override boolean default false,
-  p_reason text default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_auth public.report_delivery_authorizations%rowtype;
-  v_event public.email_events%rowtype; v_att public.phase14_provider_attestations%rowtype;
-  v_result jsonb;
-begin
-  v_actor := public.phase14_require_security(
-    'provider_reconciliation',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_resolution not in ('accepted','not_accepted') then
-    raise exception 'delivery_reconciliation_resolution_invalid';
-  end if;
-  if coalesce(trim(p_reason),'')='' then raise exception 'delivery_reconciliation_reason_required'; end if;
-  select * into v_auth from public.report_delivery_authorizations
-  where id=p_authorization_id for update;
-  if not found or v_auth.status <> 'reconciliation_required' then
-    raise exception 'delivery_reconciliation_state_invalid';
-  end if;
-  select * into v_event from public.email_events where id=v_auth.email_event_id for update;
-  select * into v_att from public.phase14_provider_attestations
-  where id=p_attestation_id for share;
-  if not found or v_att.attestation_source <> 'provider_lookup'
-     or v_att.provider <> v_auth.provider
-     or v_att.authorization_id is distinct from v_auth.id
-     or v_att.email_event_id is distinct from v_auth.email_event_id
-     or v_att.provider_request_key is distinct from v_event.provider_request_key
-     or v_att.recorded_at < v_auth.dispatch_started_at then
-    raise exception 'delivery_reconciliation_attestation_binding_invalid';
-  end if;
-  if exists (select 1 from public.phase14_provider_attestation_consumptions
-    where attestation_id=v_att.id) then
-    raise exception 'delivery_reconciliation_attestation_already_consumed';
-  end if;
-  if p_resolution='accepted' then
-    if v_att.provider_state <> 'accepted'
-       or coalesce(trim(v_att.provider_message_id),'')='' then
-      raise exception 'delivery_reconciliation_acceptance_not_attested';
-    end if;
-  else
-    if not p_operator_override then raise exception 'delivery_reconciliation_operator_override_required'; end if;
-    if v_att.provider_state <> 'not_found' then
-      raise exception 'delivery_reconciliation_non_acceptance_not_attested';
-    end if;
-  end if;
-  insert into public.phase14_provider_attestation_consumptions(
-    attestation_id,authorization_id,consumed_by,consumed_session_id
-  ) values (
-    v_att.id,v_auth.id,(v_actor->>'user_id')::uuid,(v_actor->>'session_id')::uuid
-  );
-  if p_resolution='accepted' then
-    v_result := public.finalize_premium_report_delivery(
-      v_auth.id,v_auth.email_event_id,v_att.provider_message_id
-    );
-  else
-    update public.report_delivery_authorizations
-    set status='revoked',revoked_reason=p_reason,lease_token=null,lease_expires_at=null,updated_at=now()
-    where id=v_auth.id and status='reconciliation_required';
-    if not found then raise exception 'delivery_reconciliation_authorization_cas_failed'; end if;
-    update public.email_events
-    set status='failed_before_provider',error_message=p_reason,reconciliation_attempted_at=now(),
-        reconciliation_result_json=jsonb_build_object('attestation_id',v_att.id,
-          'provider_state',v_att.provider_state),delivery_updated_at=now()
-    where id=v_auth.email_event_id and status='reconciliation_required';
-    if not found then raise exception 'delivery_reconciliation_email_cas_failed'; end if;
-    v_result := jsonb_build_object('resolved',true,'resolution','not_accepted',
-      'authorization_id',v_auth.id);
-  end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-    entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_auth.assessment_id,
-    'report_delivery_authorizations',v_auth.id,
-    'premium_report_delivery_reconciliation_resolved',
-    jsonb_build_object('resolution',p_resolution,'attestation_id',v_att.id,
-      'provider_message_id',v_att.provider_message_id,'operator_override',p_operator_override,
-      'reason',p_reason));
-  return v_result;
-end;
-$function$;
-
--- 8. Bounce remediation proves an actual address correction and applies the
--- verified customer/order update atomically before a retry can be authorised.
-alter table public.report_delivery_remediations
-  add column previous_recipient_email citext,
-  add column corrected_recipient_email citext,
-  add column customer_update_applied_at timestamptz,
-  add column authorised_session_id uuid;
-
-update public.report_delivery_remediations
-set previous_recipient_email=recipient_email
-where previous_recipient_email is null;
-
-create or replace function public.authorize_bounced_report_redelivery(
-  p_prior_email_event_id uuid,
-  p_corrected_recipient text,
-  p_reason text,
-  p_evidence jsonb
-) returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_event public.email_events%rowtype; v_order public.orders%rowtype;
-  v_corrected public.citext; v_id uuid;
-begin
-  v_actor := public.phase14_require_security(
-    'email_resend',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  v_corrected := lower(trim(p_corrected_recipient))::public.citext;
-  if v_corrected::text !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
-    raise exception 'bounce_remediation_corrected_recipient_invalid';
-  end if;
-  if coalesce(trim(p_reason),'')='' or coalesce(p_evidence,'{}'::jsonb)='{}'::jsonb
-     or coalesce(trim(p_evidence->>'verification_method'),'')=''
-     or coalesce(trim(p_evidence->>'verified_at'),'')='' then
-    raise exception 'bounce_remediation_verified_evidence_required';
-  end if;
-  select * into v_event from public.email_events
-  where id=p_prior_email_event_id for update;
-  if not found or v_event.status <> 'bounced' or v_event.order_id is null
-     or v_event.report_id is null then
-    raise exception 'bounce_remediation_event_ineligible';
-  end if;
-  if v_corrected = v_event.recipient_email then
-    raise exception 'bounce_remediation_recipient_not_corrected';
-  end if;
-  select * into v_order from public.orders where id=v_event.order_id for update;
-  if not found or lower(v_order.customer_email::text) <> lower(v_event.recipient_email::text) then
-    raise exception 'bounce_remediation_order_recipient_changed';
-  end if;
-  update public.orders
-  set customer_email=v_corrected,updated_at=now()
-  where id=v_order.id and customer_email=v_event.recipient_email;
-  if not found then raise exception 'bounce_remediation_customer_update_cas_failed'; end if;
-  insert into public.report_delivery_remediations(
-    prior_email_event_id,report_id,recipient_email,previous_recipient_email,
-    corrected_recipient_email,remediation_type,reason,evidence_json,authorised_by,
-    authorised_session_id,customer_update_applied_at
-  ) values (
-    v_event.id,v_event.report_id,v_corrected,v_event.recipient_email,
-    v_corrected,'bounce_retry',p_reason,p_evidence,(v_actor->>'user_id')::uuid,
-    (v_actor->>'session_id')::uuid,now()
-  ) returning id into v_id;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,
-    entity_table,entity_id,action,before_json,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_event.assessment_id,
-    'report_delivery_remediations',v_id,'premium_report_bounce_retry_authorized',
-    jsonb_build_object('previous_recipient',v_event.recipient_email),
-    jsonb_build_object('prior_email_event_id',v_event.id,
-      'corrected_recipient',v_corrected,'reason',p_reason,
-      'verification_method',p_evidence->>'verification_method'));
-  return v_id;
-end;
-$function$;
-
-create or replace function public.authorize_premium_report_delivery(
-  p_report_id uuid,
-  p_recipient text,
-  p_delivery_mode text default 'initial',
-  p_allow_test_override boolean default false,
-  p_provider text default 'resend',
-  p_bounce_remediation_id uuid default null
-) returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_actor jsonb; v_context jsonb; v_gate_version integer; v_event public.email_events%rowtype;
-  v_auth public.report_delivery_authorizations%rowtype; v_attempt integer; v_dedupe text;
-  v_prior_bounce public.email_events%rowtype; v_remediation public.report_delivery_remediations%rowtype;
-  v_worker_capability_id uuid;
-begin
-  if p_delivery_mode not in ('initial','bounce_retry') then raise exception 'delivery_mode_invalid'; end if;
-  v_actor := public.phase14_require_security(
-    case when p_delivery_mode='bounce_retry' then 'email_resend' else 'email_delivery' end,
-    array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_allow_test_override then perform public.phase14_require_policy('recipient_override'); end if;
-  if coalesce(trim(p_provider),'')='' then raise exception 'delivery_provider_required'; end if;
-  perform pg_advisory_xact_lock(hashtextextended(
-    'phase14-delivery:' || p_report_id || ':' || lower(trim(p_recipient)),0
-  ));
-  v_context := public.phase14_delivery_entitlement(
-    p_report_id,p_recipient,p_allow_test_override,'email_delivery'
-  );
-  v_gate_version := (v_actor->>'gate_version')::integer;
-  v_worker_capability_id := nullif(v_actor->>'capability_id','')::uuid;
-  if exists (select 1 from public.email_events
-    where report_id=p_report_id and status='complained') then
-    raise exception 'delivery_complaint_permanently_non_retriable';
-  end if;
-  if exists (select 1 from public.email_events
-    where report_id=p_report_id
-      and status in ('sending','provider_acceptance_uncertain','reconciliation_required')) then
-    raise exception 'delivery_provider_acceptance_unresolved';
-  end if;
-  if p_delivery_mode='bounce_retry' then
-    select * into v_remediation from public.report_delivery_remediations
-    where id=p_bounce_remediation_id and report_id=p_report_id
-      and corrected_recipient_email=lower(trim(p_recipient))
-      and recipient_email=lower(trim(p_recipient))
-      and remediation_type='bounce_retry' and status='authorised'
-      and customer_update_applied_at is not null
-    for update;
-    if not found then raise exception 'delivery_bounce_remediation_required'; end if;
-    select * into v_prior_bounce from public.email_events
-    where id=v_remediation.prior_email_event_id and report_id=p_report_id
-      and recipient_email=v_remediation.previous_recipient_email
-      and notification_type='premium_report_pdf' and status='bounced'
-    for share;
-    if not found then raise exception 'delivery_bounce_remediation_prior_event_invalid'; end if;
-  elsif p_bounce_remediation_id is not null then
-    raise exception 'delivery_bounce_remediation_not_applicable';
-  end if;
-  if p_delivery_mode='initial' then
-    select * into v_event from public.email_events
-    where report_id=p_report_id and recipient_email=lower(trim(p_recipient))
-      and notification_type='premium_report_pdf'
-      and status in ('sent','delivery_delayed','delivered','bounced','complained')
-    order by created_at desc limit 1;
-    if found then
-      return jsonb_build_object('reused_existing_send',true,'email_event_id',v_event.id,
-        'provider_message_id',v_event.provider_message_id,'status',v_event.status,
-        'recipient',lower(trim(p_recipient)),'test_delivery',(v_context->>'test_delivery')::boolean);
-    end if;
-  end if;
-  select count(*)+1 into v_attempt from public.email_events where report_id=p_report_id;
-  v_dedupe := 'premium-report-delivery:' || p_report_id || ':' || lower(trim(p_recipient))
-    || ':attempt-' || v_attempt;
-  insert into public.email_events(
-    assessment_id,order_id,report_id,recipient_email,template_key,notification_type,
-    dedupe_key,provider_request_key,provider_idempotency_key,provider,status,
-    attempt_number,metadata_json
-  ) values (
-    (v_context->>'assessment_id')::uuid,(v_context->>'order_id')::uuid,p_report_id,
-    lower(trim(p_recipient)),'premium_report_pdf_v1','premium_report_pdf',v_dedupe,
-    v_dedupe,v_dedupe,lower(trim(p_provider)),'queued',v_attempt,
-    jsonb_build_object('attachment_checksum',v_context->>'report_checksum',
-      'test_delivery',(v_context->>'test_delivery')::boolean,
-      'bounce_remediation_id',p_bounce_remediation_id)
-  ) returning * into v_event;
-  insert into public.report_delivery_authorizations(
-    report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,
-    security_gate_version,authorised_by,authorised_session_id,worker_capability_id,
-    provider,email_event_id,test_delivery,bounce_remediation_id
-  ) values (
-    p_report_id,v_context->>'report_checksum',lower(trim(p_recipient)),
-    (v_context->>'order_id')::uuid,(v_context->>'assessment_id')::uuid,
-    (v_context->>'score_run_id')::uuid,v_gate_version,nullif(v_actor->>'user_id','')::uuid,
-    nullif(v_actor->>'session_id','')::uuid,v_worker_capability_id,
-    lower(trim(p_provider)),v_event.id,(v_context->>'test_delivery')::boolean,
-    p_bounce_remediation_id
-  ) returning * into v_auth;
-  if p_bounce_remediation_id is not null then
-    update public.report_delivery_remediations
-    set status='consumed',consumed_at=now()
-    where id=p_bounce_remediation_id and status='authorised';
-    if not found then raise exception 'delivery_bounce_remediation_consume_cas_failed'; end if;
-  end if;
-  return jsonb_build_object('reused_existing_send',false,'authorization_id',v_auth.id,
-    'email_event_id',v_event.id,'provider_request_key',v_event.provider_request_key,
-    'attempt_number',v_event.attempt_number,'recipient',v_auth.recipient_email,
-    'test_delivery',v_auth.test_delivery,'status',v_auth.status);
-end;
-$function$;
-
--- 11. Runtime grant inventory: generic service clients can read only where
--- explicitly needed and mutate solely through the reviewed facades.
-do $phase14_grants$
-declare v_function record;
-begin
-  for v_function in
-    select n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) as args
-    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname=any(array[
-      'authorize_bounced_report_redelivery','authorize_phase14_worker_action',
-      'authorize_phase14_worker_operation','authorize_premium_report_delivery',
-      'claim_phase14_ai_attempt','claim_phase14_storage_cleanup_jobs',
-      'claim_phase14_worker_operation','claim_premium_report_workflow_start',
-      'cleanup_expired_premium_report_claims','complete_phase14_storage_cleanup_job',
-      'complete_phase14_generation_operation','complete_phase14_worker_operation',
-      'finalize_premium_report_delivery','get_phase14_provider_attestation',
-      'ingest_phase14_provider_webhook','link_premium_report_generation_run',
-      'phase14_activate_worker_operation',
-      'queue_premium_report_fulfilment','record_phase14_operational_alert',
-      'record_phase14_provider_lookup_attestation','record_phase14_report_download',
-      'record_phase14_report_generated','record_premium_report_generation_run',
-      'record_premium_report_workflow_start','renew_phase14_worker_operation',
-      'resolve_premium_report_delivery_reconciliation','set_phase14_ai_route_policy',
-      'set_phase14_feature_policy','set_phase14_runtime_secret',
-      'set_phase14_security_gate_version',
-      'settle_phase14_ai_attempt','suspend_phase14_security_gate',
-      'transition_premium_report_fulfilment','worker_abandon_premium_report_generation_claim',
-      'worker_authorize_premium_report_delivery','worker_claim_premium_report_delivery',
-      'worker_claim_premium_report_generation','worker_cleanup_expired_premium_report_claims',
-      'worker_commit_premium_report_draft','worker_fail_premium_report_delivery_before_dispatch',
-      'worker_finalize_premium_report_delivery','worker_link_phase14_storage_cleanup_report',
-      'worker_mark_premium_report_delivery_dispatch_started',
-      'worker_mark_premium_report_delivery_reconciliation_required',
-      'worker_publish_premium_report_generation','worker_record_phase14_storage_cleanup_result',
-      'worker_recover_premium_report_generation_claim',
-      'worker_recover_stale_premium_report_email_send','worker_register_phase14_storage_cleanup',
-      'worker_renew_premium_report_generation_lease'
-    ])
-  loop
-    execute format('revoke all on function %I.%I(%s) from public,anon,authenticated,service_role',
-      v_function.nspname,v_function.proname,v_function.args);
-  end loop;
-  execute 'revoke insert,update,delete,truncate on public.report_fulfilments,
-    public.report_generation_runs,public.report_ai_attempts,public.report_generation_claims,
-    public.report_delivery_authorizations,public.report_delivery_finalizations,
-    public.phase14_operational_alerts,
-    public.phase14_storage_cleanup_queue,public.report_delivery_remediations,
-    public.phase14_provider_attestations,public.phase14_provider_attestation_consumptions
-    from service_role';
-  execute 'revoke truncate on public.audit_logs,public.report_events,
-    public.assessment_events,public.email_events,public.email_provider_events
-    from service_role';
-  execute 'revoke execute on function public.claim_phase14_worker_capability(uuid,text) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.complete_phase14_worker_capability(uuid,text) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.apply_email_provider_event_atomic(text,text,text,text,timestamptz,text,jsonb) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.claim_phase14_storage_cleanup_jobs(uuid,text,integer) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.complete_phase14_storage_cleanup_job(uuid,text,uuid,uuid,boolean,text) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.resolve_premium_report_delivery_reconciliation(uuid,text,text,jsonb,boolean,text) from public,anon,authenticated,service_role';
-  execute 'revoke execute on function public.authorize_bounced_report_redelivery(uuid,text,jsonb) from public,anon,authenticated,service_role';
-  execute 'grant execute on function public.claim_phase14_worker_operation(uuid,text),
-    public.renew_phase14_worker_operation(uuid,text),public.complete_phase14_worker_operation(uuid),
-    public.authorize_phase14_worker_action(uuid,text),
-    public.claim_premium_report_workflow_start(uuid,uuid),
-    public.record_premium_report_workflow_start(uuid,uuid,boolean,text,text),
-    public.worker_cleanup_expired_premium_report_claims(uuid,interval),
-    public.claim_phase14_storage_cleanup_jobs(uuid,integer),
-    public.complete_phase14_storage_cleanup_job(uuid,uuid,uuid,text,text,text,boolean,boolean,text),
-    public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text),
-    public.get_phase14_provider_attestation(uuid),
-    public.record_phase14_provider_lookup_attestation(text,text,uuid,uuid,text,text,text,jsonb,bigint,uuid,text),
-    public.claim_phase14_ai_attempt(uuid,jsonb),public.settle_phase14_ai_attempt(uuid,uuid,jsonb),
-    public.transition_premium_report_fulfilment(uuid,uuid,text,text,text,uuid,boolean,text,text),
-    public.record_premium_report_generation_run(uuid,uuid,jsonb),
-    public.link_premium_report_generation_run(uuid,uuid,uuid),
-    public.record_phase14_report_generated(uuid,uuid,uuid,text,text,jsonb),
-    public.complete_phase14_generation_operation(uuid,uuid,uuid,uuid,text,uuid,text,text,jsonb),
-    public.record_phase14_operational_alert(text,text,uuid,uuid,jsonb,text),
-    public.worker_claim_premium_report_generation(uuid,text,text,uuid,public.report_type),
-    public.worker_renew_premium_report_generation_lease(uuid,uuid),
-    public.worker_recover_premium_report_generation_claim(uuid,text,text,uuid),
-    public.worker_commit_premium_report_draft(uuid,uuid,uuid,text,text,text,uuid),
-    public.worker_publish_premium_report_generation(uuid,uuid,uuid),
-    public.worker_abandon_premium_report_generation_claim(uuid,uuid,text),
-    public.worker_register_phase14_storage_cleanup(uuid,text,text,text,uuid,text),
-    public.worker_link_phase14_storage_cleanup_report(uuid,uuid,uuid),
-    public.worker_record_phase14_storage_cleanup_result(uuid,uuid,boolean,text),
-    public.worker_authorize_premium_report_delivery(uuid,uuid,text,text),
-    public.worker_claim_premium_report_delivery(uuid,uuid),
-    public.worker_mark_premium_report_delivery_dispatch_started(uuid,uuid,uuid),
-    public.worker_fail_premium_report_delivery_before_dispatch(uuid,uuid,uuid,text),
-    public.worker_finalize_premium_report_delivery(uuid,uuid,uuid,text),
-    public.worker_mark_premium_report_delivery_reconciliation_required(uuid,uuid,text,text)
-    to service_role';
-  execute 'grant execute on function public.set_phase14_ai_route_policy(text,boolean),
-    public.set_phase14_feature_policy(text,boolean,text),
-    public.set_phase14_security_gate_version(integer,text),
-    public.suspend_phase14_security_gate(text),
-    public.set_phase14_runtime_secret(text,text),
-    public.authorize_phase14_worker_operation(text,text,uuid,uuid,uuid,uuid,uuid,text,integer,text),
-    public.queue_premium_report_fulfilment(text,text),
-    public.transition_premium_report_fulfilment(uuid,uuid,text,text,text,uuid,boolean,text,text),
-    public.record_premium_report_generation_run(uuid,uuid,jsonb),
-    public.link_premium_report_generation_run(uuid,uuid,uuid),
-    public.record_phase14_report_generated(uuid,uuid,uuid,text,text,jsonb),
-    public.record_phase14_report_download(uuid,boolean,jsonb),
-    public.authorize_premium_report_delivery(uuid,text,text,boolean,text,uuid),
-    public.finalize_premium_report_delivery(uuid,uuid,text),
-    public.authorize_bounced_report_redelivery(uuid,text,text,jsonb),
-    public.resolve_premium_report_delivery_reconciliation(uuid,text,uuid,boolean,text)
-    to authenticated';
-end;
-$phase14_grants$;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715022146_phase14_fifth_adversarial_remediation.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715073613_phase14_sixth_adversarial_remediation.sql (sha256:f9589a09d28590728f84978129209f4e748ea1e248218fea78e036c2a09bff18)
--- Phase 14 sixth adversarial remediation.
---
--- This migration is deliberately disabled-by-default.  It creates no secret,
--- enables no gate or policy, and performs no provider or storage operation.
-
--- ---------------------------------------------------------------------------
--- 1. Immutable ownership for Phase 14 rows in shared event/audit tables.
--- ---------------------------------------------------------------------------
-
-alter table public.audit_logs add column phase14_operation_ref text;
-alter table public.report_events add column phase14_operation_ref text;
-alter table public.assessment_events add column phase14_operation_ref text;
-alter table public.email_events add column phase14_operation_ref text;
-alter table public.email_provider_events add column phase14_operation_ref text;
-
-alter table public.audit_logs add constraint audit_logs_phase14_operation_ref_chk
-  check (phase14_operation_ref is null or phase14_operation_ref ~ '^phase14:[a-z0-9_.:-]+$');
-alter table public.report_events add constraint report_events_phase14_operation_ref_chk
-  check (phase14_operation_ref is null or phase14_operation_ref ~ '^phase14:[a-z0-9_.:-]+$');
-alter table public.assessment_events add constraint assessment_events_phase14_operation_ref_chk
-  check (phase14_operation_ref is null or phase14_operation_ref ~ '^phase14:[a-z0-9_.:-]+$');
-alter table public.email_events add constraint email_events_phase14_operation_ref_chk
-  check (phase14_operation_ref is null or phase14_operation_ref ~ '^phase14:[a-z0-9_.:-]+$');
-alter table public.email_provider_events add constraint email_provider_events_phase14_operation_ref_chk
-  check (phase14_operation_ref is null or phase14_operation_ref ~ '^phase14:[a-z0-9_.:-]+$');
-
--- Reviewed deterministic backfill.  Event/action names are used once to locate
--- historical rows; after this statement ownership is carried by an immutable
--- operation reference and is independent of the row's current shape.
-select set_config('phase14.authoritative_transition','migration',true);
-update public.audit_logs
-set phase14_operation_ref = 'phase14:audit:' || id::text
-where phase14_operation_ref is null and (
-  action ~ '^(phase14_|premium_report_|report_(generated|regenerated|download_))'
-  or entity_table in (
-    'phase14_security_gates','phase14_feature_policies','phase14_worker_capabilities',
-    'report_fulfilments','report_generation_runs','report_ai_attempts',
-    'report_generation_claims','report_delivery_authorizations',
-    'report_delivery_finalizations','report_delivery_remediations',
-    'phase14_provider_attestations','phase14_storage_cleanup_queue'
-  )
-);
-update public.report_events
-set phase14_operation_ref = 'phase14:report-event:' || id::text
-where phase14_operation_ref is null and event_type in (
-  'generated','regenerated','email_sent','email_test_sent','download_requested'
-);
-update public.assessment_events
-set phase14_operation_ref = 'phase14:assessment-event:' || id::text
-where phase14_operation_ref is null and event_type in (
-  'report_generated','admin_report_downloaded','report_emailed_to_customer'
-);
-update public.email_events
-set phase14_operation_ref = 'phase14:email-event:' || id::text
-where phase14_operation_ref is null and (
-  notification_type = 'premium_report_pdf' or provider_request_key is not null
-);
-update public.email_provider_events p
-set phase14_operation_ref = 'phase14:provider-event:' || p.id::text
-where p.phase14_operation_ref is null and exists (
-  select 1 from public.email_events e
-  where e.id = p.email_event_id and e.phase14_operation_ref is not null
-);
-
-create or replace function public.phase14_shared_row_was_owned(
-  p_table_name text,
-  p_row jsonb
-) returns boolean
-language sql
-immutable
-set search_path = ''
-as $function$
-  select case p_table_name
-    when 'audit_logs' then
-      coalesce(p_row->>'phase14_operation_ref','') like 'phase14:%'
-      or coalesce(p_row->>'action','') ~ '^(phase14_|premium_report_|report_(generated|regenerated|download_))'
-      or coalesce(p_row->>'entity_table','') in (
-        'phase14_security_gates','phase14_feature_policies','phase14_worker_capabilities',
-        'report_fulfilments','report_generation_runs','report_ai_attempts',
-        'report_generation_claims','report_delivery_authorizations',
-        'report_delivery_finalizations','report_delivery_remediations',
-        'phase14_provider_attestations','phase14_storage_cleanup_queue'
-      )
-    when 'report_events' then
-      coalesce(p_row->>'phase14_operation_ref','') like 'phase14:%'
-      or coalesce(p_row->>'event_type','') in (
-        'generated','regenerated','email_sent','email_test_sent','download_requested'
-      )
-    when 'assessment_events' then
-      coalesce(p_row->>'phase14_operation_ref','') like 'phase14:%'
-      or coalesce(p_row->>'event_type','') in (
-        'report_generated','admin_report_downloaded','report_emailed_to_customer'
-      )
-    when 'email_events' then
-      coalesce(p_row->>'phase14_operation_ref','') like 'phase14:%'
-      or coalesce(p_row->>'notification_type','') = 'premium_report_pdf'
-      or coalesce(p_row->>'provider_request_key','') <> ''
-    when 'email_provider_events' then
-      coalesce(p_row->>'phase14_operation_ref','') like 'phase14:%'
-    else false
-  end;
-$function$;
-
-create or replace function public.guard_phase14_authoritative_mutation()
-returns trigger
-language plpgsql
-set search_path = ''
-as $function$
-declare
-  v_old jsonb := case when tg_op in ('UPDATE','DELETE') then to_jsonb(old) else '{}'::jsonb end;
-  v_new jsonb := case when tg_op in ('INSERT','UPDATE') then to_jsonb(new) else '{}'::jsonb end;
-  v_old_owned boolean := false;
-  v_new_owned boolean := false;
-  v_context text := nullif(current_setting('phase14.authoritative_transition', true), '');
-  v_transition_owner name;
-begin
-  if tg_table_name = 'phase14_operational_alerts' then
-    v_old_owned := tg_op in ('UPDATE','DELETE');
-    v_new_owned := tg_op in ('INSERT','UPDATE');
-  else
-    v_old_owned := public.phase14_shared_row_was_owned(tg_table_name, v_old);
-    v_new_owned := public.phase14_shared_row_was_owned(tg_table_name, v_new);
-  end if;
-  if tg_table_name='email_provider_events' and tg_op in ('INSERT','UPDATE')
-     and not v_new_owned and nullif(v_new->>'email_event_id','') is not null then
-    v_new_owned:=exists(select 1 from public.email_events e
-      where e.id=(v_new->>'email_event_id')::uuid and e.phase14_operation_ref is not null);
-  end if;
-
-  select pg_get_userbyid(p.proowner) into v_transition_owner
-  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.proname = 'phase14_require_security'
-  order by p.oid limit 1;
-
-  if v_old_owned or v_new_owned then
-    if current_user is distinct from v_transition_owner
-       or coalesce(v_context,'') not in (
-         'authenticated_rpc','fulfilment_queue_rpc','fulfilment_transition_rpc',
-         'gate_administration','gate_invalidation','migration','operational_alert_rpc',
-         'policy_approval','runtime_secret_rotation','trusted_provider_attestation',
-         'worker_authorization','worker_attested_rpc','worker_rpc','worker_completion'
-       ) then
-      raise exception 'phase14_authoritative_rpc_required:%:%', tg_table_name, tg_op;
-    end if;
-  end if;
-
-  if tg_table_name <> 'phase14_operational_alerts' and tg_op = 'UPDATE' and v_old_owned then
-    if old.phase14_operation_ref is distinct from new.phase14_operation_ref then
-      raise exception 'phase14_operation_ref_immutable:%', tg_table_name;
-    end if;
-  end if;
-
-  if tg_table_name <> 'phase14_operational_alerts' then
-    if tg_op in ('INSERT','UPDATE') and v_new_owned
-       and new.phase14_operation_ref is null then
-      new.phase14_operation_ref := 'phase14:' || replace(tg_table_name,'_','-') || ':' || new.id::text;
-    end if;
-  end if;
-  if tg_op = 'DELETE' then return old; end if;
-  return new;
-end;
-$function$;
-
--- Operational alerts are an authoritative table with no runtime DML grants;
--- unlike the five shared tables, they do not need the shared-row marker guard.
-drop trigger if exists trg_phase14_authoritative_mutation on public.phase14_operational_alerts;
-
--- ---------------------------------------------------------------------------
--- 2. Monotonic authority epoch and invalidation.
--- ---------------------------------------------------------------------------
-
-alter table public.phase14_security_gates
-  add column authority_epoch bigint not null default 1 check (authority_epoch > 0);
-alter table public.phase14_feature_policies
-  add column approved_authority_epoch bigint check (approved_authority_epoch is null or approved_authority_epoch > 0);
-alter table public.phase14_ai_route_policies
-  add column approved_authority_epoch bigint check (approved_authority_epoch is null or approved_authority_epoch > 0);
-alter table public.phase14_worker_capabilities
-  add column authority_epoch bigint not null default 1 check (authority_epoch > 0),
-  add column expected_step text not null default 'claim',
-  add column workflow_execution_id text;
-alter table public.phase14_provider_attestations
-  add column authority_epoch bigint not null default 1 check (authority_epoch > 0),
-  add column authorization_status text,
-  add column authorization_updated_at timestamptz;
-
-create or replace function public.bump_phase14_authority_epoch()
-returns trigger
-language plpgsql
-set search_path = ''
-as $function$
-begin
-  if old.required_version is distinct from new.required_version
-     or old.satisfied_version is distinct from new.satisfied_version
-     or old.status is distinct from new.status then
-    new.authority_epoch := old.authority_epoch + 1;
-  elsif new.authority_epoch is distinct from old.authority_epoch then
-    raise exception 'phase14_authority_epoch_managed';
-  end if;
-  return new;
-end;
-$function$;
-
-drop trigger if exists trg_phase14_gate_bump_authority_epoch on public.phase14_security_gates;
-create trigger trg_phase14_gate_bump_authority_epoch
-  before update on public.phase14_security_gates
-  for each row execute function public.bump_phase14_authority_epoch();
-
-create or replace function public.invalidate_phase14_authority_on_gate_change()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  if old.authority_epoch is distinct from new.authority_epoch then
-    perform set_config('phase14.authoritative_transition', 'gate_invalidation', true);
-    update public.phase14_feature_policies
-    set enabled = false, approved_gate_version = null,
-        approved_authority_epoch = null, approved_at = null,
-        reason = 'Automatically disabled because the Phase 14 authority epoch changed.',
-        updated_at = now();
-    update public.phase14_ai_route_policies
-    set enabled = false, approved_gate_version = null,
-        approved_authority_epoch = null, approved_by = null,
-        approved_session_id = null, approved_at = null, updated_at = now();
-    update public.phase14_worker_capabilities
-    set status = 'revoked', revoked_at = now(),
-        revoked_reason = 'Phase 14 authority epoch changed.',
-        lease_secret_hash = null, lease_expires_at = null, updated_at = now()
-    where status in ('authorised','leased');
-    insert into public.audit_logs(actor_type,entity_table,action,before_json,after_json)
-    values ('system','phase14_security_gates','phase14_authority_epoch_changed',
-      jsonb_build_object('authority_epoch',old.authority_epoch,'status',old.status,
-        'required_version',old.required_version,'satisfied_version',old.satisfied_version),
-      jsonb_build_object('authority_epoch',new.authority_epoch,'status',new.status,
-        'required_version',new.required_version,'satisfied_version',new.satisfied_version));
-  end if;
-  return new;
-end;
-$function$;
-
-drop trigger if exists trg_phase14_gate_invalidate_authority on public.phase14_security_gates;
-create trigger trg_phase14_gate_invalidate_authority
-  after update on public.phase14_security_gates
-  for each row
-  when (old.authority_epoch is distinct from new.authority_epoch)
-  execute function public.invalidate_phase14_authority_on_gate_change();
-
--- ---------------------------------------------------------------------------
--- 3. Private worker attestation key boundary and nonce ledger.
--- ---------------------------------------------------------------------------
-
-create schema if not exists phase14_private;
-revoke all on schema phase14_private from public, anon, authenticated, service_role;
-
-create table phase14_private.worker_attestation_keys (
-  key_id text primary key check (key_id ~ '^[a-zA-Z0-9._:-]{1,80}$'),
-  vault_secret_id uuid not null unique,
-  status text not null check (status in ('current','previous','retired')),
-  valid_from timestamptz not null,
-  valid_until timestamptz,
-  created_at timestamptz not null default now(),
-  check (valid_until is null or valid_until > valid_from)
-);
-create unique index phase14_worker_attestation_one_current_idx
-  on phase14_private.worker_attestation_keys(status) where status = 'current';
-
-create table phase14_private.worker_attestation_nonces (
-  nonce uuid primary key,
-  capability_id uuid not null references public.phase14_worker_capabilities(id) on delete restrict,
-  action text not null,
-  lease_generation integer not null,
-  request_payload_hash text not null check (request_payload_hash ~ '^[0-9a-f]{64}$'),
-  issued_at timestamptz not null,
-  expires_at timestamptz not null,
-  consumed_at timestamptz not null default now()
-);
-revoke all on all tables in schema phase14_private from public, anon, authenticated, service_role;
-alter default privileges in schema phase14_private revoke all on tables from public, anon, authenticated, service_role;
-
--- ---------------------------------------------------------------------------
--- 4. Durable workflow-start outbox.
--- ---------------------------------------------------------------------------
-
-create table public.phase14_workflow_start_outbox (
-  id uuid primary key default extensions.gen_random_uuid(),
-  fulfilment_id uuid not null references public.report_fulfilments(id) on delete restrict,
-  capability_id uuid not null references public.phase14_worker_capabilities(id) on delete restrict,
-  operation_key text not null,
-  external_idempotency_key text not null,
-  attempt_number integer not null default 1 check (attempt_number > 0),
-  lease_owner text,
-  lease_generation integer not null default 0 check (lease_generation >= 0),
-  lease_expires_at timestamptz,
-  status text not null default 'pending' check (status in (
-    'pending','leased','acceptance_uncertain','started','failed_before_provider',
-    'reconciliation_required','cancelled'
-  )),
-  run_id text,
-  requested_at timestamptz not null default now(),
-  accepted_at timestamptz,
-  last_error text,
-  reconciliation_status text not null default 'not_required' check (reconciliation_status in (
-    'not_required','required','in_progress','resolved','failed'
-  )),
-  authority_epoch bigint not null check (authority_epoch > 0),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (capability_id),
-  unique (operation_key),
-  unique (external_idempotency_key),
-  check ((status = 'started' and run_id is not null and accepted_at is not null)
-      or status <> 'started')
-);
-create index phase14_workflow_start_takeover_idx
-  on public.phase14_workflow_start_outbox(status,lease_expires_at)
-  where status in ('pending','leased');
-alter table public.phase14_workflow_start_outbox enable row level security;
-revoke all on table public.phase14_workflow_start_outbox from public,anon,authenticated,service_role;
-grant select on table public.phase14_workflow_start_outbox to authenticated;
-create policy phase14_workflow_start_outbox_admin_select
-  on public.phase14_workflow_start_outbox for select to authenticated
-  using (public.current_admin_role() = any(array[
-    'platform_admin','reviewer','approver','read_only_admin'
-  ]::public.admin_role[]));
-
--- ---------------------------------------------------------------------------
--- 5. Immutable customer contact verification.
--- ---------------------------------------------------------------------------
-
-create table public.customer_contact_verifications (
-  id uuid primary key default extensions.gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete restrict,
-  assessment_id uuid not null references public.assessments(id) on delete restrict,
-  customer_identity text not null,
-  previous_email public.citext not null,
-  corrected_email public.citext not null,
-  verification_method text not null check (verification_method in (
-    'verified_email_link','support_callback','identity_provider','in_person'
-  )),
-  evidence_reference text not null,
-  verified_at timestamptz not null,
-  verified_by_actor uuid references public.admin_profiles(id) on delete restrict,
-  verified_by_system text,
-  expires_at timestamptz not null,
-  status text not null default 'verified' check (status in ('verified','consumed','expired','revoked')),
-  consumed_at timestamptz,
-  consumed_by_remediation_id uuid,
-  created_at timestamptz not null default now(),
-  check (lower(previous_email::text) <> lower(corrected_email::text)),
-  check (coalesce(trim(customer_identity),'') <> ''),
-  check (coalesce(trim(evidence_reference),'') <> ''),
-  check ((verified_by_actor is not null) <> (verified_by_system is not null)),
-  check (expires_at > verified_at),
-  check ((status = 'consumed' and consumed_at is not null and consumed_by_remediation_id is not null)
-      or status <> 'consumed')
-);
-create index customer_contact_verifications_active_idx
-  on public.customer_contact_verifications(order_id,status,expires_at);
-alter table public.customer_contact_verifications enable row level security;
-revoke all on table public.customer_contact_verifications from public,anon,authenticated,service_role;
-grant select on table public.customer_contact_verifications to authenticated;
-create policy customer_contact_verifications_admin_select
-  on public.customer_contact_verifications for select to authenticated
-  using (public.current_admin_role() = any(array['platform_admin','approver','read_only_admin']::public.admin_role[]));
-
-create or replace function public.guard_customer_contact_verification_immutable()
-returns trigger language plpgsql set search_path=''
-as $function$
-begin
-  if tg_op = 'DELETE' then raise exception 'customer_contact_verification_immutable'; end if;
-  if old.status = 'verified' and new.status = 'consumed'
-     and old.id = new.id and old.order_id = new.order_id
-     and old.assessment_id = new.assessment_id
-     and old.customer_identity = new.customer_identity
-     and old.previous_email = new.previous_email
-     and old.corrected_email = new.corrected_email
-     and old.verification_method = new.verification_method
-     and old.evidence_reference = new.evidence_reference
-     and old.verified_at = new.verified_at
-     and old.verified_by_actor is not distinct from new.verified_by_actor
-     and old.verified_by_system is not distinct from new.verified_by_system
-     and old.expires_at = new.expires_at
-     and new.consumed_at is not null and new.consumed_by_remediation_id is not null
-     and current_user = (select pg_get_userbyid(p.proowner) from pg_proc p
-       join pg_namespace n on n.oid=p.pronamespace
-       where n.nspname='public' and p.proname='authorize_bounced_report_redelivery'
-       order by p.oid desc limit 1) then
-    return new;
-  end if;
-  raise exception 'customer_contact_verification_immutable';
-end;
-$function$;
-create trigger trg_customer_contact_verification_immutable
-  before update or delete on public.customer_contact_verifications
-  for each row execute function public.guard_customer_contact_verification_immutable();
-
-create or replace function public.create_customer_contact_verification(
-  p_order_id uuid,
-  p_corrected_email text,
-  p_verification_method text,
-  p_evidence_reference text,
-  p_valid_for_seconds integer default 1800
-) returns uuid
-language plpgsql security definer set search_path=''
-as $function$
-declare v_actor jsonb; v_order public.orders%rowtype; v_id uuid; v_corrected public.citext;
-begin
-  v_actor:=public.phase14_require_security(
-    'email_resend',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_verification_method not in ('verified_email_link','support_callback','identity_provider','in_person')
-     or coalesce(trim(p_evidence_reference),'')='' or p_valid_for_seconds<300 or p_valid_for_seconds>3600 then
-    raise exception 'customer_contact_verification_input_invalid';
-  end if;
-  v_corrected:=lower(trim(p_corrected_email))::public.citext;
-  if v_corrected::text !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
-    raise exception 'customer_contact_verification_email_invalid';
-  end if;
-  select * into v_order from public.orders where id=p_order_id for share;
-  if not found or v_order.assessment_id is null or v_corrected=v_order.customer_email then
-    raise exception 'customer_contact_verification_order_binding_invalid';
-  end if;
-  insert into public.customer_contact_verifications(
-    order_id,assessment_id,customer_identity,previous_email,corrected_email,
-    verification_method,evidence_reference,verified_at,verified_by_actor,expires_at
-  ) values (
-    v_order.id,v_order.assessment_id,coalesce(v_order.customer_name,v_order.customer_email::text),
-    v_order.customer_email,v_corrected,p_verification_method,p_evidence_reference,
-    clock_timestamp(),(v_actor->>'user_id')::uuid,
-    clock_timestamp()+make_interval(secs=>p_valid_for_seconds)
-  ) returning id into v_id;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_order.assessment_id,
-    'customer_contact_verifications',v_id,'phase14_customer_contact_verified',
-    jsonb_build_object('order_id',v_order.id,'verification_method',p_verification_method,
-      'evidence_reference',p_evidence_reference,'expires_in_seconds',p_valid_for_seconds));
-  return v_id;
-end;
-$function$;
-
--- ---------------------------------------------------------------------------
--- 6. Cleanup evidence classification and durable final-object orphan jobs.
--- ---------------------------------------------------------------------------
-
-alter table public.phase14_storage_cleanup_queue
-  add column deletion_requested_at timestamptz,
-  add column delete_api_accepted_at timestamptz,
-  add column absence_verified_at timestamptz,
-  add column verification_error text,
-  add column provider_result_class text check (provider_result_class is null or provider_result_class in (
-    'object_present','object_not_found','authentication_failure','authorization_failure',
-    'rate_limited','timeout','network_failure','provider_outage','malformed_response',
-    'checksum_read_failure','unknown_provider_error','delete_accepted'
-  ));
-alter table public.phase14_storage_cleanup_queue
-  drop constraint phase14_storage_cleanup_queue_status_check,
-  add constraint phase14_storage_cleanup_queue_status_check check (status in (
-    'pending','leased','failed','deleted','dead_letter','retained'
-  ));
-
--- Claims are settled, not deleted, so terminal publication has durable replay
--- evidence and remains recoverable until its transaction commits.
-alter table public.report_generation_claims drop constraint report_generation_claims_state_chk;
-alter table public.report_generation_claims add constraint report_generation_claims_state_chk
-  check (state in ('claimed','committed','settled','abandoned'));
-alter table public.report_generation_claims drop constraint report_generation_claims_storage_binding_chk;
-alter table public.report_generation_claims add constraint report_generation_claims_storage_binding_chk check (
-  state in ('claimed','abandoned') or state in ('committed','settled')
-  and report_id is not null and temporary_storage_bucket is not null
-  and temporary_storage_path is not null and final_storage_bucket is not null
-  and final_storage_path is not null and expected_checksum ~ '^[0-9a-f]{64}$'
-);
-
--- Bind all newly approved authority to the current epoch.  These triggers run
--- inside the reviewed SECURITY DEFINER administration functions; direct table
--- DML remains blocked by the pre-existing mutation guards and grants.
-create or replace function public.bind_phase14_feature_policy_epoch()
-returns trigger language plpgsql set search_path=''
-as $function$
-declare v_gate public.phase14_security_gates%rowtype;
-begin
-  if new.enabled then
-    select * into strict v_gate from public.phase14_security_gates
-    where gate_key='phase14-premium-report' for share;
-    if v_gate.status <> 'satisfied' or v_gate.satisfied_version <> v_gate.required_version then
-      raise exception 'phase14_security_gate_unsatisfied:%',new.policy_key;
-    end if;
-    new.approved_authority_epoch := v_gate.authority_epoch;
-  else
-    new.approved_authority_epoch := null;
-  end if;
-  return new;
-end;
-$function$;
-create trigger trg_phase14_feature_policy_bind_epoch
-  before insert or update on public.phase14_feature_policies
-  for each row execute function public.bind_phase14_feature_policy_epoch();
-
-create or replace function public.bind_phase14_ai_route_epoch()
-returns trigger language plpgsql set search_path=''
-as $function$
-declare v_gate public.phase14_security_gates%rowtype;
-begin
-  if new.enabled then
-    select * into strict v_gate from public.phase14_security_gates
-    where gate_key='phase14-premium-report' for share;
-    if v_gate.status <> 'satisfied' or v_gate.satisfied_version <> v_gate.required_version then
-      raise exception 'phase14_security_gate_unsatisfied:ai_route';
-    end if;
-    new.approved_authority_epoch := v_gate.authority_epoch;
-  else
-    new.approved_authority_epoch := null;
-  end if;
-  return new;
-end;
-$function$;
-create trigger trg_phase14_ai_route_bind_epoch
-  before insert or update on public.phase14_ai_route_policies
-  for each row execute function public.bind_phase14_ai_route_epoch();
-
-create or replace function public.bind_phase14_capability_epoch()
-returns trigger language plpgsql set search_path=''
-as $function$
-declare v_gate public.phase14_security_gates%rowtype;
-begin
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  new.authority_epoch := v_gate.authority_epoch;
-  new.expected_step := 'claim';
-  new.workflow_execution_id := null;
-  return new;
-end;
-$function$;
-create trigger trg_phase14_capability_bind_epoch
-  before insert on public.phase14_worker_capabilities
-  for each row execute function public.bind_phase14_capability_epoch();
-
-create or replace function public.bind_phase14_provider_attestation_epoch()
-returns trigger language plpgsql set search_path=''
-as $function$
-declare v_gate public.phase14_security_gates%rowtype; v_auth public.report_delivery_authorizations%rowtype;
-begin
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  new.authority_epoch := v_gate.authority_epoch;
-  if new.authorization_id is not null then
-    select * into v_auth from public.report_delivery_authorizations
-    where id=new.authorization_id for share;
-    if not found then raise exception 'phase14_provider_attestation_authorization_missing'; end if;
-    new.authorization_status := v_auth.status;
-    new.authorization_updated_at := v_auth.updated_at;
-  end if;
-  return new;
-end;
-$function$;
-create trigger trg_phase14_provider_attestation_bind_epoch
-  before insert on public.phase14_provider_attestations
-  for each row execute function public.bind_phase14_provider_attestation_epoch();
-
-create or replace function public.phase14_require_policy(p_policy_key text)
-returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_policy public.phase14_feature_policies%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  select * into v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  if not found or v_gate.status <> 'satisfied'
-     or v_gate.satisfied_version <> v_gate.required_version then
-    raise exception 'phase14_security_gate_unsatisfied:%',p_policy_key;
-  end if;
-  select * into v_policy from public.phase14_feature_policies
-  where policy_key=p_policy_key for share;
-  if not found or not v_policy.enabled then raise exception 'phase14_policy_disabled:%',p_policy_key; end if;
-  if v_policy.approved_gate_version is distinct from v_gate.satisfied_version
-     or v_policy.required_gate_version is distinct from v_gate.required_version
-     or v_policy.approved_authority_epoch is distinct from v_gate.authority_epoch then
-    raise exception 'phase14_policy_authority_epoch_stale:%',p_policy_key;
-  end if;
-  return jsonb_build_object('policy_key',v_policy.policy_key,
-    'gate_version',v_gate.satisfied_version,'authority_epoch',v_gate.authority_epoch,
-    'approved_at',v_policy.approved_at);
-end;
-$function$;
-
--- Provisioning/rotation is an explicit, AAL2-gated enablement action.  The
--- migration never calls it.  The HMAC value lives only in Supabase Vault and
--- is never returned by an RPC, view, log, operational row, or setting.
-create or replace function public.rotate_phase14_worker_attestation_key(
-  p_key_id text,
-  p_secret text,
-  p_overlap_seconds integer,
-  p_reason text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_actor jsonb; v_secret_id uuid; v_now timestamptz:=now();
-begin
-  v_actor := public.phase14_require_security(
-    'runtime_secret_rotation',array['platform_admin']::public.admin_role[],true,false
-  );
-  if p_key_id !~ '^[a-zA-Z0-9._:-]{1,80}$' or length(p_secret)<32 then
-    raise exception 'phase14_worker_attestation_key_invalid';
-  end if;
-  if p_overlap_seconds<300 or p_overlap_seconds>86400 or coalesce(trim(p_reason),'')='' then
-    raise exception 'phase14_worker_attestation_rotation_invalid';
-  end if;
-  update phase14_private.worker_attestation_keys
-  set status='previous',valid_until=v_now+make_interval(secs=>p_overlap_seconds)
-  where status='current';
-  v_secret_id := vault.create_secret(p_secret,
-    'phase14-worker-attestation-'||p_key_id,
-    'Phase 14 worker/database attestation verification key',null);
-  insert into phase14_private.worker_attestation_keys(
-    key_id,vault_secret_id,status,valid_from
-  ) values (p_key_id,v_secret_id,'current',v_now);
-  insert into public.audit_logs(actor_type,actor_user_id,entity_table,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,'phase14_worker_attestation_keys',
-    'phase14_worker_attestation_key_rotated',
-    jsonb_build_object('key_id',p_key_id,'overlap_seconds',p_overlap_seconds,'reason',p_reason));
-  return jsonb_build_object('key_id',p_key_id,'activated_at',v_now,
-    'previous_key_valid_for_seconds',p_overlap_seconds);
-end;
-$function$;
-
-create or replace function phase14_private.verify_worker_attestation(
-  p_attestation jsonb,
-  p_signature text,
-  p_request_payload text,
-  p_expected_action text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_gate public.phase14_security_gates%rowtype;
-  v_key phase14_private.worker_attestation_keys%rowtype;
-  v_secret text; v_canonical text; v_expected_signature text; v_request_hash text;
-  v_issued timestamptz; v_expires timestamptz; v_nonce uuid;
-  v_capability_id uuid; v_lease_generation integer; v_action text; v_step text;
-begin
-  v_action := p_attestation->>'action';
-  v_step := p_attestation->>'step';
-  if v_action is distinct from p_expected_action
-     or v_action !~ '^[a-z0-9_]{1,100}$'
-     or v_step !~ '^[a-z0-9_]{1,100}$'
-     or coalesce(p_attestation->>'operation_key','') !~ '^[a-zA-Z0-9._:/-]{1,240}$'
-     or coalesce(p_attestation->>'execution_id','') !~ '^[a-zA-Z0-9._:/-]{1,240}$' then
-    raise exception 'phase14_worker_attestation_shape_invalid';
-  end if;
-  begin
-    v_capability_id := (p_attestation->>'capability_id')::uuid;
-    v_lease_generation := (p_attestation->>'lease_generation')::integer;
-    v_issued := to_timestamp((p_attestation->>'issued_at_epoch')::double precision);
-    v_expires := to_timestamp((p_attestation->>'expires_at_epoch')::double precision);
-    v_nonce := (p_attestation->>'nonce')::uuid;
-  exception when others then
-    raise exception 'phase14_worker_attestation_shape_invalid';
-  end;
-  v_request_hash := encode(extensions.digest(convert_to(p_request_payload,'utf8'),'sha256'),'hex');
-  if p_attestation->>'request_payload_hash' is distinct from v_request_hash then
-    raise exception 'phase14_worker_attestation_payload_mismatch';
-  end if;
-  if v_issued > clock_timestamp()+interval '5 seconds'
-     or v_issued < clock_timestamp()-interval '2 minutes'
-     or v_expires <= clock_timestamp()
-     or v_expires > v_issued+interval '2 minutes' then
-    raise exception 'phase14_worker_attestation_time_invalid';
-  end if;
-
-  select * into v_cap from public.phase14_worker_capabilities
-  where id=v_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  if v_gate.status<>'satisfied' or v_gate.satisfied_version<>v_gate.required_version
-     or v_cap.security_gate_version<>v_gate.satisfied_version
-     or v_cap.authority_epoch<>v_gate.authority_epoch
-     or (p_attestation->>'authority_epoch')::bigint<>v_gate.authority_epoch then
-    raise exception 'phase14_worker_capability_authority_epoch_stale';
-  end if;
-  if p_attestation->>'capability_type' is distinct from v_cap.capability_type
-     or p_attestation->>'operation_key' is distinct from v_cap.operation_key then
-    raise exception 'phase14_worker_attestation_capability_binding_invalid';
-  end if;
-  if v_cap.order_id is distinct from nullif(p_attestation->>'order_id','')::uuid
-     or v_cap.assessment_id is distinct from nullif(p_attestation->>'assessment_id','')::uuid
-     or v_cap.score_run_id is distinct from nullif(p_attestation->>'score_run_id','')::uuid
-     or v_cap.fulfilment_id is distinct from nullif(p_attestation->>'fulfilment_id','')::uuid
-     or (v_cap.report_id is not null and v_cap.report_id is distinct from nullif(p_attestation->>'report_id','')::uuid)
-     or (v_cap.recipient_email is not null and lower(v_cap.recipient_email::text)
-         is distinct from lower(nullif(p_attestation->>'recipient',''))) then
-    raise exception 'phase14_worker_attestation_commercial_binding_invalid';
-  end if;
-  if v_action='claim_phase14_worker_operation' then
-    if v_cap.status not in ('authorised','leased') or v_cap.expected_step<>'claim'
-       or v_lease_generation<>v_cap.lease_generation then
-      raise exception 'phase14_worker_capability_claim_state_invalid';
-    end if;
-  else
-    if v_cap.status<>'leased' or v_cap.lease_expires_at<=clock_timestamp()
-       or v_cap.expires_at<=clock_timestamp()
-       or v_cap.expected_step<>v_step
-       or v_cap.lease_generation<>v_lease_generation
-       or v_cap.workflow_execution_id is distinct from p_attestation->>'execution_id' then
-      raise exception 'phase14_worker_attestation_step_or_lease_invalid';
-    end if;
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-
-  select * into v_key from phase14_private.worker_attestation_keys
-  where key_id=p_attestation->>'key_id'
-    and status in ('current','previous')
-    and valid_from<=clock_timestamp()
-    and (valid_until is null or valid_until>clock_timestamp())
-  for share;
-  if not found then raise exception 'phase14_worker_attestation_key_invalid'; end if;
-  select decrypted_secret into v_secret from vault.decrypted_secrets
-  where id=v_key.vault_secret_id;
-  if v_secret is null then raise exception 'phase14_worker_attestation_key_unavailable'; end if;
-
-  v_canonical := concat_ws('|',
-    p_attestation->>'key_id',p_attestation->>'capability_id',p_attestation->>'capability_type',
-    p_attestation->>'operation_key',p_attestation->>'execution_id',v_action,v_step,
-    coalesce(p_attestation->>'order_id',''),coalesce(p_attestation->>'assessment_id',''),
-    coalesce(p_attestation->>'score_run_id',''),coalesce(p_attestation->>'fulfilment_id',''),
-    coalesce(p_attestation->>'report_id',''),coalesce(lower(p_attestation->>'recipient'),''),
-    p_attestation->>'lease_generation',p_attestation->>'request_payload_hash',
-    p_attestation->>'issued_at_epoch',p_attestation->>'expires_at_epoch',
-    p_attestation->>'nonce',p_attestation->>'authority_epoch'
-  );
-  v_expected_signature := encode(extensions.hmac(
-    convert_to(v_canonical,'utf8'),convert_to(v_secret,'utf8'),'sha256'
-  ),'hex');
-  if p_signature !~ '^[0-9a-f]{64}$'
-     or extensions.digest(convert_to(p_signature,'utf8'),'sha256')
-        <> extensions.digest(convert_to(v_expected_signature,'utf8'),'sha256') then
-    raise exception 'phase14_worker_attestation_signature_invalid';
-  end if;
-  begin
-    insert into phase14_private.worker_attestation_nonces(
-      nonce,capability_id,action,lease_generation,request_payload_hash,issued_at,expires_at
-    ) values (v_nonce,v_cap.id,v_action,v_lease_generation,v_request_hash,v_issued,v_expires);
-  exception when unique_violation then
-    raise exception 'phase14_worker_attestation_replay';
-  end;
-  return to_jsonb(v_cap)-'issue_secret_hash'-'lease_secret_hash';
-end;
-$function$;
-
--- Workflow-start outbox internals.  The platform's start() API exposes no
--- start-idempotency option, so a lost response is deliberately uncertain and
--- cannot cause an automatic second start.
-create or replace function phase14_private.claim_workflow_start(
-  p_capability_id uuid,p_fulfilment_id uuid,p_execution_id text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype; v_out public.phase14_workflow_start_outbox%rowtype;
-begin
-  select * into strict v_cap from public.phase14_worker_capabilities where id=p_capability_id for update;
-  if v_cap.fulfilment_id is distinct from p_fulfilment_id then raise exception 'phase14_workflow_start_binding_invalid'; end if;
-  insert into public.phase14_workflow_start_outbox(
-    fulfilment_id,capability_id,operation_key,external_idempotency_key,
-    lease_owner,lease_generation,lease_expires_at,status,authority_epoch
-  ) values (
-    p_fulfilment_id,p_capability_id,v_cap.operation_key,
-    'phase14-workflow-start:'||v_cap.operation_key,p_execution_id,v_cap.lease_generation,
-    least(v_cap.expires_at,clock_timestamp()+interval '5 minutes'),'leased',v_cap.authority_epoch
-  ) on conflict (capability_id) do nothing;
-  select * into strict v_out from public.phase14_workflow_start_outbox
-  where capability_id=p_capability_id for update;
-  if v_out.status='started' then
-    return jsonb_build_object('claimed',false,'status','started','run_id',v_out.run_id,
-      'outbox_id',v_out.id,'external_idempotency_key',v_out.external_idempotency_key);
-  end if;
-  if v_out.status in ('acceptance_uncertain','reconciliation_required') then
-    return jsonb_build_object('claimed',false,'status',v_out.status,'run_id',v_out.run_id,
-      'outbox_id',v_out.id,'reconciliation_required',true);
-  end if;
-  if v_out.status='leased' and v_out.lease_expires_at>clock_timestamp()
-     and v_out.lease_owner is distinct from p_execution_id then
-    raise exception 'phase14_workflow_start_already_leased';
-  end if;
-  update public.phase14_workflow_start_outbox
-  set status='leased',lease_owner=p_execution_id,lease_generation=v_cap.lease_generation,
-      lease_expires_at=least(v_cap.expires_at,clock_timestamp()+interval '5 minutes'),
-      attempt_number=attempt_number+case when lease_expires_at<=clock_timestamp() then 1 else 0 end,
-      updated_at=clock_timestamp()
-  where id=v_out.id returning * into v_out;
-  return jsonb_build_object('claimed',true,'status',v_out.status,'outbox_id',v_out.id,
-    'external_idempotency_key',v_out.external_idempotency_key,'attempt_number',v_out.attempt_number);
-end;
-$function$;
-
-create or replace function phase14_private.mark_workflow_start_uncertain(
-  p_capability_id uuid,p_outbox_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_out public.phase14_workflow_start_outbox%rowtype;
-begin
-  update public.phase14_workflow_start_outbox
-  set status='acceptance_uncertain',reconciliation_status='required',updated_at=clock_timestamp()
-  where id=p_outbox_id and capability_id=p_capability_id and status='leased'
-  returning * into v_out;
-  if not found then raise exception 'phase14_workflow_start_dispatch_boundary_invalid'; end if;
-  return jsonb_build_object('outbox_id',v_out.id,'status',v_out.status);
-end;
-$function$;
-
-create or replace function phase14_private.settle_workflow_start(
-  p_capability_id uuid,p_outbox_id uuid,p_run_id text,p_error text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_out public.phase14_workflow_start_outbox%rowtype;
-begin
-  select * into strict v_out from public.phase14_workflow_start_outbox
-  where id=p_outbox_id and capability_id=p_capability_id for update;
-  if coalesce(trim(p_run_id),'')<>'' then
-    update public.phase14_workflow_start_outbox
-    set status='started',run_id=p_run_id,accepted_at=clock_timestamp(),last_error=null,
-        reconciliation_status='resolved',lease_expires_at=null,updated_at=clock_timestamp()
-    where id=v_out.id and status in ('acceptance_uncertain','reconciliation_required')
-    returning * into v_out;
-    update public.report_fulfilments
-    set workflow_start_status='started',workflow_run_id=p_run_id,
-        workflow_started_at=coalesce(workflow_started_at,clock_timestamp()),
-        workflow_start_error=null,updated_at=clock_timestamp()
-    where id=v_out.fulfilment_id;
-  else
-    update public.phase14_workflow_start_outbox
-    set status='reconciliation_required',last_error=left(coalesce(p_error,'workflow start response unavailable'),2000),
-        reconciliation_status='required',lease_expires_at=null,updated_at=clock_timestamp()
-    where id=v_out.id and status='acceptance_uncertain' returning * into v_out;
-    update public.report_fulfilments
-    set workflow_start_status='starting',
-        workflow_start_error='External workflow acceptance is uncertain; reconciliation is required.',
-        updated_at=clock_timestamp()
-    where id=v_out.fulfilment_id;
-  end if;
-  return jsonb_build_object('outbox_id',v_out.id,'status',v_out.status,'run_id',v_out.run_id,
-    'reconciliation_required',v_out.status='reconciliation_required');
-end;
-$function$;
-
--- Strict provider result classifier used by cleanup settlement.
-create or replace function public.phase14_storage_result_is_verified_absence(p_class text)
-returns boolean language sql immutable set search_path=''
-as $function$ select p_class='object_not_found'; $function$;
-
-create or replace function phase14_private.settle_storage_cleanup(
-  p_capability_id uuid,p_cleanup_id uuid,p_work_lease_token uuid,
-  p_expected_bucket text,p_expected_path text,p_expected_checksum text,
-  p_deletion_requested boolean,p_delete_api_accepted boolean,
-  p_provider_result_class text,p_error text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_absent boolean;
-begin
-  select * into v_queue from public.phase14_storage_cleanup_queue
-  where id=p_cleanup_id for update;
-  if not found or v_queue.status<>'leased' or v_queue.lease_owner_capability_id<>p_capability_id
-     or v_queue.lease_token<>p_work_lease_token or v_queue.lease_expires_at<=clock_timestamp() then
-    raise exception 'cleanup_job_lease_invalid';
-  end if;
-  if v_queue.storage_bucket<>p_expected_bucket or v_queue.storage_path<>p_expected_path
-     or v_queue.expected_checksum<>p_expected_checksum then raise exception 'cleanup_job_object_binding_invalid'; end if;
-  if p_provider_result_class not in (
-    'object_present','object_not_found','authentication_failure','authorization_failure','rate_limited',
-    'timeout','network_failure','provider_outage','malformed_response','checksum_read_failure',
-    'unknown_provider_error','delete_accepted'
-  ) then raise exception 'cleanup_provider_result_class_invalid'; end if;
-  v_absent := public.phase14_storage_result_is_verified_absence(p_provider_result_class);
-  if v_absent and not p_deletion_requested and p_delete_api_accepted then
-    raise exception 'cleanup_deletion_evidence_inconsistent';
-  end if;
-  update public.phase14_storage_cleanup_queue set
-    status=case when v_absent then 'deleted'
-      when attempt_count+1>=5 then 'dead_letter' else 'failed' end,
-    attempt_count=attempt_count+1,last_attempt_at=clock_timestamp(),
-    deletion_requested_at=case when p_deletion_requested then clock_timestamp() else deletion_requested_at end,
-    delete_api_accepted_at=case when p_delete_api_accepted then clock_timestamp() else delete_api_accepted_at end,
-    absence_verified_at=case when v_absent then clock_timestamp() else null end,
-    deletion_verified_at=case when v_absent then clock_timestamp() else null end,
-    deleted_at=case when v_absent then clock_timestamp() else null end,
-    provider_result_class=p_provider_result_class,
-    verification_error=case when v_absent then null else left(coalesce(p_error,p_provider_result_class),2000) end,
-    last_error=case when v_absent then null else left(coalesce(p_error,p_provider_result_class),2000) end,
-    dead_lettered_at=case when not v_absent and attempt_count+1>=5 then clock_timestamp() else null end,
-    next_attempt_at=case when v_absent then next_attempt_at else clock_timestamp()+interval '15 minutes' end,
-    lease_owner_capability_id=null,lease_token=null,lease_expires_at=null,updated_at=clock_timestamp()
-  where id=v_queue.id returning * into v_queue;
-  return jsonb_build_object('cleanup_id',v_queue.id,'status',v_queue.status,
-    'absence_verified',v_absent,'provider_result_class',p_provider_result_class);
-end;
-$function$;
-
-create or replace function phase14_private.settle_owned_storage_cleanup(
-  p_capability_id uuid,p_cleanup_id uuid,p_deletion_requested boolean,
-  p_delete_api_accepted boolean,p_provider_result_class text,p_error text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_queue public.phase14_storage_cleanup_queue%rowtype; v_absent boolean;
-begin
-  select * into v_queue from public.phase14_storage_cleanup_queue
-  where id=p_cleanup_id for update;
-  if not found or v_queue.owner_capability_id is distinct from p_capability_id
-     or v_queue.status not in ('pending','failed') then
-    raise exception 'cleanup_job_owner_invalid';
-  end if;
-  if p_provider_result_class not in (
-    'object_present','object_not_found','authentication_failure','authorization_failure','rate_limited',
-    'timeout','network_failure','provider_outage','malformed_response','checksum_read_failure',
-    'unknown_provider_error','delete_accepted'
-  ) then raise exception 'cleanup_provider_result_class_invalid'; end if;
-  v_absent:=public.phase14_storage_result_is_verified_absence(p_provider_result_class);
-  update public.phase14_storage_cleanup_queue set
-    status=case when v_absent then 'deleted' when attempt_count+1>=5 then 'dead_letter' else 'failed' end,
-    attempt_count=attempt_count+1,last_attempt_at=clock_timestamp(),
-    deletion_requested_at=case when p_deletion_requested then clock_timestamp() else deletion_requested_at end,
-    delete_api_accepted_at=case when p_delete_api_accepted then clock_timestamp() else delete_api_accepted_at end,
-    absence_verified_at=case when v_absent then clock_timestamp() else null end,
-    deletion_verified_at=case when v_absent then clock_timestamp() else null end,
-    deleted_at=case when v_absent then clock_timestamp() else null end,
-    provider_result_class=p_provider_result_class,
-    verification_error=case when v_absent then null else left(coalesce(p_error,p_provider_result_class),2000) end,
-    last_error=case when v_absent then null else left(coalesce(p_error,p_provider_result_class),2000) end,
-    dead_lettered_at=case when not v_absent and attempt_count+1>=5 then clock_timestamp() else null end,
-    next_attempt_at=case when v_absent then next_attempt_at else clock_timestamp()+interval '15 minutes' end,
-    updated_at=clock_timestamp()
-  where id=v_queue.id returning * into v_queue;
-  return jsonb_build_object('cleanup_id',v_queue.id,'status',v_queue.status,
-    'absence_verified',v_absent,'provider_result_class',p_provider_result_class);
-end;
-$function$;
-
--- Bounce remediation consumes independent, immutable contact verification.
-create or replace function public.authorize_bounced_report_redelivery(
-  p_prior_email_event_id uuid,
-  p_verification_id uuid,
-  p_reason text
-) returns uuid
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_actor jsonb; v_event public.email_events%rowtype; v_order public.orders%rowtype;
-  v_ver public.customer_contact_verifications%rowtype; v_id uuid;
-begin
-  v_actor := public.phase14_require_security(
-    'email_resend',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if coalesce(trim(p_reason),'')='' then raise exception 'bounce_remediation_reason_required'; end if;
-  select * into v_event from public.email_events where id=p_prior_email_event_id for update;
-  if not found or v_event.status<>'bounced' or v_event.order_id is null or v_event.report_id is null then
-    raise exception 'bounce_remediation_event_ineligible';
-  end if;
-  -- Complaints are permanently non-retriable even if a later bounce exists.
-  if exists(select 1 from public.email_events e where e.report_id=v_event.report_id and e.status='complained') then
-    raise exception 'bounce_remediation_complaint_permanent';
-  end if;
-  select * into v_ver from public.customer_contact_verifications
-  where id=p_verification_id for update;
-  if not found or v_ver.status<>'verified' or v_ver.expires_at<=clock_timestamp()
-     or v_ver.verified_at>clock_timestamp()+interval '5 seconds' then
-    raise exception 'bounce_remediation_verification_invalid';
-  end if;
-  select * into v_order from public.orders where id=v_event.order_id for update;
-  if not found or v_ver.order_id<>v_order.id or v_ver.assessment_id<>v_order.assessment_id
-     or lower(v_ver.previous_email::text)<>lower(v_event.recipient_email::text)
-     or lower(v_order.customer_email::text)<>lower(v_ver.previous_email::text)
-     or lower(v_ver.corrected_email::text)=lower(v_ver.previous_email::text)
-     or v_ver.customer_identity<>coalesce(v_order.customer_name,v_order.customer_email::text) then
-    raise exception 'bounce_remediation_verification_binding_invalid';
-  end if;
-  insert into public.report_delivery_remediations(
-    prior_email_event_id,report_id,recipient_email,remediation_type,previous_recipient_email,
-    corrected_recipient_email,reason,evidence_json,authorised_by,authorised_session_id,
-    customer_update_applied_at
-  ) values (
-    v_event.id,v_event.report_id,v_ver.corrected_email,'bounce_retry',v_ver.previous_email,
-    v_ver.corrected_email,p_reason,
-    jsonb_build_object('contact_verification_id',v_ver.id,'verification_method',v_ver.verification_method,
-      'evidence_reference',v_ver.evidence_reference,'verified_at',v_ver.verified_at),
-    (v_actor->>'user_id')::uuid,(v_actor->>'session_id')::uuid,clock_timestamp()
-  ) returning id into v_id;
-  update public.customer_contact_verifications
-  set status='consumed',consumed_at=clock_timestamp(),consumed_by_remediation_id=v_id
-  where id=v_ver.id and status='verified';
-  if not found then raise exception 'bounce_remediation_verification_consumption_failed'; end if;
-  update public.orders set customer_email=v_ver.corrected_email,updated_at=clock_timestamp()
-  where id=v_order.id and customer_email=v_ver.previous_email;
-  if not found then raise exception 'bounce_remediation_order_recipient_cas_failed'; end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_order.assessment_id,'report_delivery_remediations',v_id,
-    'premium_report_bounce_remediation_authorized',
-    jsonb_build_object('contact_verification_id',v_ver.id,'prior_email_event_id',v_event.id,
-      'previous_recipient',v_ver.previous_email,'corrected_recipient',v_ver.corrected_email));
-  insert into public.assessment_events(
-    assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json
-  ) values (
-    v_order.assessment_id,v_order.id,v_event.report_id,'report_emailed_to_customer',
-    'phase14-bounce-remediation:'||v_id,
-    jsonb_build_object('remediation_id',v_id,'contact_verification_id',v_ver.id,
-      'authorization_only',true)
-  );
-  return v_id;
-end;
-$function$;
-
-create or replace function public.resolve_premium_report_delivery_reconciliation(
-  p_authorization_id uuid,
-  p_resolution text,
-  p_attestation_id uuid,
-  p_operator_override boolean default false,
-  p_reason text default null
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_actor jsonb; v_auth public.report_delivery_authorizations%rowtype;
-  v_event public.email_events%rowtype; v_att public.phase14_provider_attestations%rowtype;
-  v_gate public.phase14_security_gates%rowtype; v_result jsonb;
-begin
-  v_actor:=public.phase14_require_security(
-    'provider_reconciliation',array['platform_admin','approver']::public.admin_role[],true,false
-  );
-  if p_resolution not in ('accepted','not_accepted') then raise exception 'delivery_reconciliation_resolution_invalid'; end if;
-  if coalesce(trim(p_reason),'')='' then raise exception 'delivery_reconciliation_reason_required'; end if;
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  select * into v_auth from public.report_delivery_authorizations
-  where id=p_authorization_id for update;
-  if not found or v_auth.status<>'reconciliation_required' then raise exception 'delivery_reconciliation_state_invalid'; end if;
-  select * into strict v_event from public.email_events where id=v_auth.email_event_id for update;
-  select * into v_att from public.phase14_provider_attestations
-  where id=p_attestation_id for update;
-  if not found or v_att.attestation_source<>'provider_lookup'
-     or v_att.provider<>v_auth.provider
-     or v_att.authorization_id is distinct from v_auth.id
-     or v_att.email_event_id is distinct from v_auth.email_event_id
-     or v_att.provider_request_key is distinct from v_event.provider_request_key
-     or v_att.recorded_at<v_auth.dispatch_started_at
-     or v_att.recorded_at>clock_timestamp()+interval '5 seconds'
-     or v_att.recorded_at<clock_timestamp()-interval '10 minutes'
-     or v_att.authority_epoch<>v_gate.authority_epoch
-     or v_att.authorization_status is distinct from v_auth.status
-     or v_att.authorization_updated_at is distinct from v_auth.updated_at then
-    raise exception 'delivery_reconciliation_attestation_binding_or_age_invalid';
-  end if;
-  if exists(select 1 from public.phase14_provider_attestation_consumptions where attestation_id=v_att.id) then
-    raise exception 'delivery_reconciliation_attestation_already_consumed';
-  end if;
-  if p_resolution='accepted' then
-    if v_att.provider_state<>'accepted' or coalesce(trim(v_att.provider_message_id),'')='' then
-      raise exception 'delivery_reconciliation_acceptance_not_attested';
-    end if;
-  else
-    if not p_operator_override then raise exception 'delivery_reconciliation_operator_override_required'; end if;
-    if v_att.provider_state<>'not_found' then raise exception 'delivery_reconciliation_non_acceptance_not_attested'; end if;
-  end if;
-  insert into public.phase14_provider_attestation_consumptions(
-    attestation_id,authorization_id,consumed_by,consumed_session_id
-  ) values (v_att.id,v_auth.id,(v_actor->>'user_id')::uuid,(v_actor->>'session_id')::uuid);
-  if p_resolution='accepted' then
-    v_result:=public.finalize_premium_report_delivery(v_auth.id,v_auth.email_event_id,v_att.provider_message_id);
-  else
-    update public.report_delivery_authorizations
-    set status='revoked',revoked_reason=p_reason,lease_token=null,lease_expires_at=null,updated_at=clock_timestamp()
-    where id=v_auth.id and status='reconciliation_required';
-    if not found then raise exception 'delivery_reconciliation_authorization_cas_failed'; end if;
-    update public.email_events set
-      status='failed_before_provider',error_message=p_reason,reconciliation_attempted_at=clock_timestamp(),
-      reconciliation_result_json=jsonb_build_object('attestation_id',v_att.id,'provider_state',v_att.provider_state),
-      delivery_updated_at=clock_timestamp()
-    where id=v_auth.email_event_id and status='reconciliation_required';
-    if not found then raise exception 'delivery_reconciliation_email_cas_failed'; end if;
-    v_result:=jsonb_build_object('resolved',true,'resolution','not_accepted','authorization_id',v_auth.id);
-  end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_auth.assessment_id,'report_delivery_authorizations',v_auth.id,
-    'premium_report_delivery_reconciliation_resolved',
-    jsonb_build_object('resolution',p_resolution,'attestation_id',v_att.id,
-      'provider_message_id',v_att.provider_message_id,'operator_override',p_operator_override,
-      'authority_epoch',v_gate.authority_epoch,'reason',p_reason));
-  return v_result;
-end;
-$function$;
-
-create or replace function phase14_private.fault_if_requested(p_fault_after text,p_point text)
-returns void language plpgsql immutable set search_path=''
-as $function$
-begin
-  if p_fault_after=p_point then raise exception 'phase14_terminal_fault:%',p_point; end if;
-end;
-$function$;
-
--- One attested terminal publication transaction.  Storage copy is intentionally
--- outside this transaction; the bound final-object cleanup row exists before
--- copy and is changed to retained only when every database effect commits.
-create or replace function public.terminal_phase14_generation_publication(
-  p_attestation jsonb,
-  p_signature text,
-  p_request_payload text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_payload jsonb:=p_request_payload::jsonb;
-  v_capability_id uuid:=(v_payload->>'capability_id')::uuid;
-  v_claim_token uuid:=(v_payload->>'claim_token')::uuid;
-  v_fulfilment_id uuid:=(v_payload->>'fulfilment_id')::uuid;
-  v_generation_run_id uuid:=(v_payload->>'generation_run_id')::uuid;
-  v_report_id uuid:=(v_payload->>'report_id')::uuid;
-  v_cleanup_id uuid:=(v_payload->>'final_cleanup_id')::uuid;
-  v_fault_after text:=nullif(v_payload->>'fault_after','');
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_claim public.report_generation_claims%rowtype;
-  v_report public.reports%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype;
-  v_cleanup public.phase14_storage_cleanup_queue%rowtype;
-  v_object record; v_order_reference text; v_event_type text; v_metadata jsonb;
-begin
-  if coalesce(auth.jwt()->>'role','')<>'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  perform phase14_private.verify_worker_attestation(
-    p_attestation,p_signature,p_request_payload,'terminal_phase14_generation_publication'
-  );
-  perform phase14_private.fault_if_requested(v_fault_after,'after_attestation');
-  perform set_config('phase14.worker_capability_id',v_capability_id::text,true);
-  perform phase14_private.fault_if_requested(v_fault_after,'after_capability_context');
-  select * into strict v_cap from public.phase14_worker_capabilities
-  where id=v_capability_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_capability_lock');
-  if v_cap.capability_type not in ('automatic_generation','generation_recovery')
-     or v_cap.expected_step<>'terminal_publication'
-     or v_cap.fulfilment_id is distinct from v_fulfilment_id then
-    raise exception 'phase14_terminal_capability_binding_invalid';
-  end if;
-  perform set_config('phase14.worker_capability_type',v_cap.capability_type,true);
-  perform set_config('phase14.authoritative_transition','worker_attested_rpc',true);
-  select * into strict v_claim from public.report_generation_claims
-  where claim_token=v_claim_token for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_claim_lock');
-  if v_claim.state<>'committed' or v_claim.report_id is distinct from v_report_id
-     or v_claim.fulfilment_id is distinct from v_fulfilment_id
-     or v_claim.lease_expires_at<=clock_timestamp() then
-    raise exception 'phase14_terminal_generation_claim_invalid';
-  end if;
-  select * into strict v_report from public.reports where id=v_report_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_lock');
-  if v_report.status<>'draft' or v_report.order_id<>v_claim.order_id
-     or v_report.assessment_id<>v_claim.assessment_id
-     or v_report.score_run_id<>v_claim.score_run_id
-     or v_report.version_number<>v_claim.version_number
-     or v_report.checksum<>v_claim.expected_checksum
-     or v_report.storage_bucket<>v_claim.temporary_storage_bucket
-     or v_report.storage_path<>v_claim.temporary_storage_path then
-    raise exception 'phase14_terminal_report_claim_binding_invalid';
-  end if;
-  select * into strict v_fulfilment from public.report_fulfilments
-  where id=v_fulfilment_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_fulfilment_lock');
-  if v_fulfilment.order_id<>v_claim.order_id
-     or v_fulfilment.assessment_id<>v_claim.assessment_id
-     or v_fulfilment.score_run_id<>v_claim.score_run_id
-     or v_fulfilment.status not in ('storing','rendering','generating','validating','assembling') then
-    raise exception 'phase14_terminal_fulfilment_binding_invalid';
-  end if;
-  select * into strict v_cleanup from public.phase14_storage_cleanup_queue
-  where id=v_cleanup_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_cleanup_lock');
-  if v_cleanup.storage_bucket<>v_claim.final_storage_bucket
-     or v_cleanup.storage_path<>v_claim.final_storage_path
-     or v_cleanup.expected_checksum<>v_claim.expected_checksum
-     or v_cleanup.report_id is distinct from v_report.id
-     or v_cleanup.owner_capability_id is distinct from v_cap.id
-     or v_cleanup.status not in ('pending','failed') then
-    raise exception 'phase14_terminal_orphan_cleanup_binding_invalid';
-  end if;
-  select order_reference into strict v_order_reference from public.orders
-  where id=v_claim.order_id;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_order_read');
-  perform public.phase14_generation_entitlement(
-    v_order_reference,v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.score_input_hash
-  );
-  perform phase14_private.fault_if_requested(v_fault_after,'after_entitlement');
-  select so.bucket_id,so.name,so.metadata into strict v_object
-  from storage.objects so
-  where so.bucket_id=v_claim.final_storage_bucket and so.name=v_claim.final_storage_path;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_storage_binding');
-  if coalesce(v_object.metadata->>'mimetype','')<>'application/pdf'
-     or coalesce(v_object.metadata->>'sha256',v_object.metadata->'metadata'->>'sha256','')
-        <>v_claim.expected_checksum then
-    raise exception 'phase14_terminal_storage_checksum_invalid';
-  end if;
-  if v_report.supersedes_report_id is not null then
-    update public.reports set status='superseded',updated_at=clock_timestamp()
-    where id=v_report.supersedes_report_id and status not in ('voided','superseded');
-  end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_previous_report_supersession');
-  update public.reports set
-    status='generated',storage_bucket=v_claim.final_storage_bucket,
-    storage_path=v_claim.final_storage_path,generation_run_id=v_generation_run_id,
-    updated_at=clock_timestamp()
-  where id=v_report.id and status='draft';
-  if not found then raise exception 'phase14_terminal_report_cas_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_publication');
-  update public.report_generation_runs set report_id=v_report.id,status='used'
-  where id=v_generation_run_id and fulfilment_id=v_fulfilment.id
-    and (report_id is null or report_id=v_report.id);
-  if not found then raise exception 'phase14_terminal_generation_run_link_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_generation_run_link');
-  update public.report_generation_claims
-  set state='settled',last_heartbeat_at=clock_timestamp(),updated_at=clock_timestamp()
-  where claim_token=v_claim.claim_token and state='committed';
-  if not found then raise exception 'phase14_terminal_claim_settlement_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_claim_settlement');
-  update public.report_fulfilments set
-    status='ready_for_delivery',current_step='ready_for_email_delivery',
-    generation_mode=v_payload->>'generation_mode',report_id=v_report.id,
-    last_error_code=null,last_error_message=null,updated_at=clock_timestamp()
-  where id=v_fulfilment.id and status=v_fulfilment.status;
-  if not found then raise exception 'phase14_terminal_fulfilment_cas_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_fulfilment_transition');
-  v_event_type:=case when v_report.supersedes_report_id is null then 'generated' else 'regenerated' end;
-  v_metadata:=coalesce(v_payload->'metadata','{}'::jsonb)||jsonb_build_object(
-    'worker_capability_id',v_cap.id,'authority_epoch',v_cap.authority_epoch,
-    'generation_run_id',v_generation_run_id,'fulfilment_id',v_fulfilment.id
-  );
-  insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-  values (v_report.id,v_event_type,null,'Atomic terminal generation publication.',v_metadata);
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_event');
-  insert into public.audit_logs(actor_type,assessment_id,entity_table,entity_id,action,after_json)
-  values ('system',v_report.assessment_id,'reports',v_report.id,
-    case when v_event_type='generated' then 'premium_report_generated' else 'premium_report_regenerated' end,
-    v_metadata||jsonb_build_object('report_reference',v_report.report_reference));
-  perform phase14_private.fault_if_requested(v_fault_after,'after_audit_event');
-  insert into public.assessment_events(
-    assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json
-  ) values (
-    v_report.assessment_id,v_report.order_id,v_report.id,'report_generated',
-    'phase14-terminal-generation:'||v_claim.claim_token,v_metadata
-  );
-  perform phase14_private.fault_if_requested(v_fault_after,'after_assessment_event');
-  update public.phase14_storage_cleanup_queue set
-    status='retained',last_error=null,verification_error=null,
-    lease_owner_capability_id=null,lease_token=null,lease_expires_at=null,
-    updated_at=clock_timestamp()
-  where id=v_cleanup.id and status in ('pending','failed');
-  if not found then raise exception 'phase14_terminal_cleanup_transition_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_cleanup_transition');
-  update public.phase14_worker_capabilities set
-    status='consumed',consumed_at=clock_timestamp(),lease_owner=null,
-    lease_secret_hash=null,lease_expires_at=null,last_heartbeat_at=clock_timestamp(),
-    lease_generation=lease_generation+1,expected_step='consumed',updated_at=clock_timestamp()
-  where id=v_cap.id and status='leased' and lease_generation=v_cap.lease_generation;
-  if not found then raise exception 'phase14_terminal_capability_consumption_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_capability_consumption');
-  return jsonb_build_object('completed',true,'report_id',v_report.id,
-    'fulfilment_id',v_fulfilment.id,'generation_run_id',v_generation_run_id,
-    'final_storage_bucket',v_claim.final_storage_bucket,
-    'final_storage_path',v_claim.final_storage_path,'checksum',v_claim.expected_checksum,
-    'version_number',v_report.version_number,'superseded_report_id',v_report.supersedes_report_id,
-    'lease_generation',v_cap.lease_generation+1,'expected_step','consumed');
-end;
-$function$;
-
--- All non-terminal worker transitions enter through this single attested
--- dispatcher.  Legacy worker facades remain callable only by their owner and
--- are never granted to a runtime role.
-create or replace function public.execute_phase14_worker_step(
-  p_attestation jsonb,
-  p_signature text,
-  p_request_payload text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_payload jsonb:=p_request_payload::jsonb; v_action text:=p_attestation->>'action';
-  v_capability_id uuid:=(p_attestation->>'capability_id')::uuid;
-  v_cap public.phase14_worker_capabilities%rowtype; v_result jsonb; v_next text;
-  v_terminal boolean:=false;
-begin
-  if coalesce(auth.jwt()->>'role','')<>'service_role' then raise exception 'phase14_worker_service_role_required'; end if;
-  perform phase14_private.verify_worker_attestation(p_attestation,p_signature,p_request_payload,v_action);
-  select * into strict v_cap from public.phase14_worker_capabilities where id=v_capability_id for update;
-  perform set_config('phase14.worker_capability_id',v_cap.id::text,true);
-  perform set_config('phase14.worker_capability_type',v_cap.capability_type,true);
-  perform set_config('phase14.authoritative_transition','worker_attested_rpc',true);
-
-  case v_action
-    when 'claim_phase14_worker_operation' then
-      if v_cap.status='leased' and v_cap.lease_expires_at>clock_timestamp()
-         and v_cap.workflow_execution_id is distinct from p_attestation->>'execution_id' then
-        raise exception 'phase14_worker_capability_already_leased';
-      end if;
-      v_next:=case v_cap.capability_type
-        when 'automatic_generation' then 'workflow_start_claim'
-        when 'generation_recovery' then 'generation_claim'
-        when 'automatic_delivery' then 'delivery_authorize'
-        when 'delivery_reconciliation' then 'delivery_reconcile'
-        when 'storage_cleanup' then 'cleanup_expire' end;
-      update public.phase14_worker_capabilities set
-        status='leased',workflow_execution_id=p_attestation->>'execution_id',
-        lease_owner=p_attestation->>'execution_id',lease_expires_at=least(expires_at,clock_timestamp()+interval '60 minutes'),
-        lease_generation=lease_generation+1,expected_step=v_next,
-        takeover_count=takeover_count+case when status='leased' and lease_expires_at<=clock_timestamp() then 1 else 0 end,
-        claimed_at=coalesce(claimed_at,clock_timestamp()),last_heartbeat_at=clock_timestamp(),updated_at=clock_timestamp()
-      where id=v_cap.id returning * into v_cap;
-      v_result:=jsonb_build_object('capability_id',v_cap.id,'capability_type',v_cap.capability_type,
-        'operation_key',v_cap.operation_key,'execution_id',v_cap.workflow_execution_id,
-        'lease_expires_at',v_cap.lease_expires_at,'authority_epoch',v_cap.authority_epoch);
-    when 'claim_premium_report_workflow_start' then
-      if v_cap.expected_step<>'workflow_start_claim' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=phase14_private.claim_workflow_start(v_cap.id,(v_payload->>'fulfilment_id')::uuid,v_cap.workflow_execution_id);
-      v_next:='workflow_start_dispatch';
-    when 'mark_phase14_workflow_start_dispatching' then
-      if v_cap.expected_step<>'workflow_start_dispatch' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=phase14_private.mark_workflow_start_uncertain(v_cap.id,(v_payload->>'outbox_id')::uuid);
-      v_next:='workflow_start_settle';
-    when 'record_premium_report_workflow_start' then
-      if v_cap.expected_step<>'workflow_start_settle' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=phase14_private.settle_workflow_start(v_cap.id,(v_payload->>'outbox_id')::uuid,
-        nullif(v_payload->>'run_id',''),nullif(v_payload->>'error',''));
-      v_next:=case when coalesce(v_result->>'status','')='started' then 'generation_claim' else 'workflow_start_reconcile' end;
-    when 'worker_claim_premium_report_generation' then
-      if v_cap.expected_step<>'generation_claim' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_claim_premium_report_generation(v_cap.id,
-        v_payload->>'order_reference',v_payload->>'claim_owner',(v_payload->>'fulfilment_id')::uuid,
-        (v_payload->>'report_type')::public.report_type);
-      v_next:='fulfilment_assembling';
-    when 'worker_recover_premium_report_generation_claim' then
-      if v_cap.expected_step<>'generation_claim' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_recover_premium_report_generation_claim(v_cap.id,
-        v_payload->>'order_reference',v_payload->>'claim_owner',(v_payload->>'fulfilment_id')::uuid);
-      v_next:='cleanup_register_recovery_temp';
-    when 'transition_premium_report_fulfilment' then
-      if (v_cap.expected_step='fulfilment_assembling' and v_payload->>'status'='assembling') then
-        v_next:='narrative_decision';
-      elsif (v_cap.expected_step='narrative_decision' and v_payload->>'status' in ('generating','validating')) then
-        v_next:=case when v_payload->>'status'='generating' then 'ai_checkpoint' else 'generation_lease_renew' end;
-      elsif (v_cap.expected_step='fulfilment_rendering' and v_payload->>'status'='rendering') then
-        v_next:='cleanup_register_temp';
-      elsif (v_cap.expected_step='fulfilment_storing' and v_payload->>'status'='storing') then
-        v_next:='draft_commit';
-      else raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.transition_premium_report_fulfilment(v_cap.id,
-        (v_payload->>'fulfilment_id')::uuid,v_payload->>'status',v_payload->>'current_step',
-        nullif(v_payload->>'generation_mode',''),nullif(v_payload->>'report_id','')::uuid,
-        coalesce((v_payload->>'increment_attempt')::boolean,false),nullif(v_payload->>'error_code',''),
-        nullif(v_payload->>'error_message',''));
-    when 'authorize_phase14_worker_action' then
-      if v_cap.expected_step not in ('ai_checkpoint','ai_or_renew')
-         or v_payload->>'action'<>'ai_narrative_generation' then
-        raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.authorize_phase14_worker_action(v_cap.id,'ai_narrative_generation');
-      v_next:='ai_attempt_claim';
-    when 'claim_phase14_ai_attempt' then
-      if v_cap.expected_step not in ('ai_attempt_claim','ai_or_renew') then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.claim_phase14_ai_attempt(v_cap.id,coalesce(v_payload->'attempt','{}'::jsonb));
-      v_next:='ai_attempt_settle';
-    when 'settle_phase14_ai_attempt' then
-      if v_cap.expected_step<>'ai_attempt_settle' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.settle_phase14_ai_attempt(v_cap.id,(v_payload->>'attempt_id')::uuid,
-        coalesce(v_payload->'result','{}'::jsonb));
-      v_next:='ai_or_renew';
-    when 'worker_renew_premium_report_generation_lease' then
-      if v_cap.expected_step not in ('generation_lease_renew','ai_or_renew') then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_renew_premium_report_generation_lease(v_cap.id,
-        (v_payload->>'claim_token')::uuid));
-      v_next:='generation_run_record';
-    when 'record_premium_report_generation_run' then
-      if v_cap.expected_step<>'generation_run_record' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.record_premium_report_generation_run(v_cap.id,
-        (v_payload->>'fulfilment_id')::uuid,coalesce(v_payload->'run','{}'::jsonb)));
-      v_next:='fulfilment_rendering';
-    when 'worker_register_phase14_storage_cleanup' then
-      if v_cap.expected_step='cleanup_register_temp' then v_next:='fulfilment_storing';
-      elsif v_cap.expected_step='cleanup_register_recovery_temp' then v_next:='cleanup_link_temp';
-      elsif v_cap.expected_step='cleanup_register_final' then v_next:='cleanup_temp_settle';
-      else raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_register_phase14_storage_cleanup(v_cap.id,
-        v_payload->>'storage_bucket',v_payload->>'storage_path',v_payload->>'expected_checksum',
-        nullif(v_payload->>'claim_token','')::uuid,v_payload->>'reason'));
-      if v_cap.expected_step='cleanup_register_final' then
-        update public.phase14_storage_cleanup_queue set report_id=(v_payload->>'report_id')::uuid,
-          updated_at=clock_timestamp()
-        where id=(v_result#>>'{}')::uuid and owner_capability_id=v_cap.id and report_id is null;
-        if not found then raise exception 'phase14_final_cleanup_report_binding_failed'; end if;
-      end if;
-    when 'worker_commit_premium_report_draft' then
-      if v_cap.expected_step<>'draft_commit' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_commit_premium_report_draft(v_cap.id,
-        (v_payload->>'claim_token')::uuid,(v_payload->>'template_id')::uuid,
-        v_payload->>'storage_bucket',v_payload->>'temp_storage_path',v_payload->>'checksum',
-        (v_payload->>'generation_run_id')::uuid));
-      v_next:='cleanup_link_temp';
-    when 'worker_link_phase14_storage_cleanup_report' then
-      if v_cap.expected_step<>'cleanup_link_temp' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_link_phase14_storage_cleanup_report(v_cap.id,
-        (v_payload->>'cleanup_id')::uuid,(v_payload->>'report_id')::uuid));
-      v_next:='cleanup_register_final';
-    when 'worker_record_phase14_storage_cleanup_result' then
-      if v_cap.expected_step<>'cleanup_temp_settle' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=phase14_private.settle_owned_storage_cleanup(v_cap.id,
-        (v_payload->>'cleanup_id')::uuid,(v_payload->>'deletion_requested')::boolean,
-        (v_payload->>'delete_api_accepted')::boolean,v_payload->>'provider_result_class',
-        nullif(v_payload->>'error',''));
-      v_next:='terminal_publication';
-    when 'worker_abandon_premium_report_generation_claim' then
-      if v_cap.expected_step not in ('fulfilment_assembling','narrative_decision','ai_checkpoint','ai_attempt_claim',
-        'ai_attempt_settle','ai_or_renew','generation_lease_renew','generation_run_record','fulfilment_rendering',
-        'cleanup_register_temp','fulfilment_storing','draft_commit') then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_abandon_premium_report_generation_claim(v_cap.id,
-        (v_payload->>'claim_token')::uuid,v_payload->>'reason'));
-      v_next:='consumed'; v_terminal:=true;
-    when 'worker_authorize_premium_report_delivery' then
-      if v_cap.expected_step<>'delivery_authorize' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_authorize_premium_report_delivery(v_cap.id,(v_payload->>'report_id')::uuid,
-        v_payload->>'recipient',v_payload->>'provider'); v_next:='delivery_claim';
-    when 'worker_claim_premium_report_delivery' then
-      if v_cap.expected_step<>'delivery_claim' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_claim_premium_report_delivery(v_cap.id,(v_payload->>'authorization_id')::uuid);
-      v_next:='delivery_dispatch_start';
-    when 'worker_mark_premium_report_delivery_dispatch_started' then
-      if v_cap.expected_step<>'delivery_dispatch_start' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_mark_premium_report_delivery_dispatch_started(v_cap.id,
-        (v_payload->>'authorization_id')::uuid,(v_payload->>'delivery_lease_token')::uuid));
-      v_next:='delivery_terminal';
-    when 'worker_finalize_premium_report_delivery' then
-      if v_cap.expected_step<>'delivery_terminal' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_finalize_premium_report_delivery(v_cap.id,
-        (v_payload->>'authorization_id')::uuid,(v_payload->>'email_event_id')::uuid,
-        v_payload->>'provider_message_id'); v_next:='consumed'; v_terminal:=true;
-    when 'worker_fail_premium_report_delivery_before_dispatch' then
-      if v_cap.expected_step<>'delivery_dispatch_start' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_fail_premium_report_delivery_before_dispatch(v_cap.id,
-        (v_payload->>'authorization_id')::uuid,(v_payload->>'delivery_lease_token')::uuid,v_payload->>'reason'));
-      v_next:='consumed';v_terminal:=true;
-    when 'worker_mark_premium_report_delivery_reconciliation_required' then
-      if v_cap.expected_step<>'delivery_terminal' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=to_jsonb(public.worker_mark_premium_report_delivery_reconciliation_required(v_cap.id,
-        (v_payload->>'authorization_id')::uuid,nullif(v_payload->>'provider_message_id',''),v_payload->>'reason'));
-      v_next:='delivery_reconcile';
-    when 'worker_cleanup_expired_premium_report_claims' then
-      if v_cap.expected_step<>'cleanup_expire' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.worker_cleanup_expired_premium_report_claims(v_cap.id,(v_payload->>'older_than')::interval);
-      v_next:='cleanup_claim_jobs';
-    when 'claim_phase14_storage_cleanup_jobs' then
-      if v_cap.expected_step<>'cleanup_claim_jobs' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=public.claim_phase14_storage_cleanup_jobs(v_cap.id,(v_payload->>'limit')::integer);
-      v_next:='cleanup_settle';
-    when 'complete_phase14_storage_cleanup_job' then
-      if v_cap.expected_step<>'cleanup_settle' then raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=phase14_private.settle_storage_cleanup(v_cap.id,(v_payload->>'cleanup_id')::uuid,
-        (v_payload->>'work_lease_token')::uuid,v_payload->>'expected_bucket',v_payload->>'expected_path',
-        v_payload->>'expected_checksum',(v_payload->>'deletion_requested')::boolean,
-        (v_payload->>'delete_api_accepted')::boolean,v_payload->>'provider_result_class',
-        nullif(v_payload->>'error',''));
-      v_next:='cleanup_settle';
-    when 'renew_phase14_worker_operation' then
-      if v_cap.capability_type<>'storage_cleanup' or v_cap.expected_step<>'cleanup_settle' then
-        raise exception 'phase14_worker_step_out_of_order'; end if;
-      v_result:=jsonb_build_object('renewed',true);
-      v_next:='cleanup_expire';
-    else raise exception 'phase14_worker_action_unknown:%',v_action;
-  end case;
-
-  if v_action<>'claim_phase14_worker_operation' then
-    update public.phase14_worker_capabilities set
-      status=case when v_terminal then 'consumed' else status end,
-      consumed_at=case when v_terminal then clock_timestamp() else consumed_at end,
-      lease_owner=case when v_terminal then null else lease_owner end,
-      lease_expires_at=case when v_terminal then null else least(expires_at,clock_timestamp()+interval '60 minutes') end,
-      lease_generation=lease_generation+1,expected_step=v_next,
-      last_heartbeat_at=clock_timestamp(),updated_at=clock_timestamp()
-    where id=v_cap.id and status=case when v_terminal and v_action='worker_finalize_premium_report_delivery'
-      then 'consumed' else 'leased' end
-    returning * into v_cap;
-    -- Delivery finalization's legacy internal consumes the capability itself.
-    if not found and not (v_terminal and exists(select 1 from public.phase14_worker_capabilities
-      where id=v_capability_id and status='consumed')) then
-      raise exception 'phase14_worker_step_advance_cas_failed';
-    end if;
-  end if;
-  return jsonb_build_object('result',v_result,'capability_id',v_capability_id,
-    'lease_generation',v_cap.lease_generation,'expected_step',v_next,
-    'lease_expires_at',v_cap.lease_expires_at,'authority_epoch',v_cap.authority_epoch);
-end;
-$function$;
-
-create or replace function public.get_phase14_worker_attestation_context(p_capability_id uuid)
-returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_cap public.phase14_worker_capabilities%rowtype; v_gate public.phase14_security_gates%rowtype;
-begin
-  if coalesce(auth.jwt()->>'role','')<>'service_role' then raise exception 'phase14_worker_service_role_required'; end if;
-  select * into v_cap from public.phase14_worker_capabilities where id=p_capability_id for share;
-  if not found or v_cap.status not in ('authorised','leased') or v_cap.expires_at<=clock_timestamp() then
-    raise exception 'phase14_worker_capability_context_unavailable';
-  end if;
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  if v_gate.status<>'satisfied' or v_gate.satisfied_version<>v_gate.required_version
-     or v_cap.authority_epoch<>v_gate.authority_epoch then
-    raise exception 'phase14_worker_capability_authority_epoch_stale';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  return jsonb_build_object(
-    'capability_id',v_cap.id,'capability_type',v_cap.capability_type,
-    'operation_key',v_cap.operation_key,'execution_id',coalesce(v_cap.workflow_execution_id,v_cap.operation_key),
-    'expected_step',v_cap.expected_step,'lease_generation',v_cap.lease_generation,
-    'lease_expires_at',v_cap.lease_expires_at,'expires_at',v_cap.expires_at,
-    'authority_epoch',v_cap.authority_epoch,'order_id',v_cap.order_id,
-    'assessment_id',v_cap.assessment_id,'score_run_id',v_cap.score_run_id,
-    'fulfilment_id',v_cap.fulfilment_id,'report_id',v_cap.report_id,
-    'recipient',v_cap.recipient_email
-  );
-end;
-$function$;
-
--- The caller-authored evidence overload is retained only for migration replay
--- identity and is unreachable by every runtime role.
-revoke all on function public.authorize_bounced_report_redelivery(uuid,text,text,jsonb)
-  from public,anon,authenticated,service_role;
-grant execute on function public.authorize_bounced_report_redelivery(uuid,uuid,text) to authenticated;
-revoke all on function public.create_customer_contact_verification(uuid,text,text,text,integer)
-  from public,anon,service_role;
-grant execute on function public.create_customer_contact_verification(uuid,text,text,text,integer)
-  to authenticated;
-
-do $phase14_revoke_legacy_worker_surface$
-declare v record;
-begin
-  for v in
-    select p.oid::regprocedure as signature
-    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and (
-      p.proname like 'worker\_%' escape '\'
-      or p.proname in (
-        'claim_phase14_worker_operation','renew_phase14_worker_operation',
-        'complete_phase14_worker_operation','authorize_phase14_worker_action',
-        'claim_premium_report_workflow_start','record_premium_report_workflow_start',
-        'claim_phase14_ai_attempt','settle_phase14_ai_attempt',
-        'complete_phase14_generation_operation','publish_premium_report_generation',
-        'claim_phase14_storage_cleanup_jobs','complete_phase14_storage_cleanup_job'
-      )
-    )
-  loop
-    execute format('revoke all on function %s from public,anon,authenticated,service_role',v.signature);
-  end loop;
-end;
-$phase14_revoke_legacy_worker_surface$;
-
-revoke all on function public.transition_premium_report_fulfilment(uuid,uuid,text,text,text,uuid,boolean,text,text)
-  from public,anon,service_role;
-grant execute on function public.transition_premium_report_fulfilment(uuid,uuid,text,text,text,uuid,boolean,text,text)
-  to authenticated;
-revoke all on function public.record_premium_report_generation_run(uuid,uuid,jsonb)
-  from public,anon,service_role;
-grant execute on function public.record_premium_report_generation_run(uuid,uuid,jsonb) to authenticated;
-revoke all on function public.execute_phase14_worker_step(jsonb,text,text)
-  from public,anon,authenticated,service_role;
-revoke all on function public.terminal_phase14_generation_publication(jsonb,text,text)
-  from public,anon,authenticated,service_role;
-grant execute on function public.execute_phase14_worker_step(jsonb,text,text) to service_role;
-grant execute on function public.terminal_phase14_generation_publication(jsonb,text,text) to service_role;
-revoke all on function public.get_phase14_worker_attestation_context(uuid)
-  from public,anon,authenticated,service_role;
-grant execute on function public.get_phase14_worker_attestation_context(uuid) to service_role;
-grant select,insert,update,delete on table
-  public.audit_logs,public.report_events,public.assessment_events,
-  public.email_events,public.email_provider_events to service_role;
-revoke truncate on table
-  public.audit_logs,public.report_events,public.assessment_events,
-  public.email_events,public.email_provider_events from service_role;
-revoke all on function public.rotate_phase14_worker_attestation_key(text,text,integer,text)
-  from public,anon,service_role;
-grant execute on function public.rotate_phase14_worker_attestation_key(text,text,integer,text) to authenticated;
-
-revoke all on all functions in schema phase14_private from public,anon,authenticated,service_role;
-revoke all on schema phase14_private from public,anon,authenticated,service_role;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715073613_phase14_sixth_adversarial_remediation.sql
-
--- BEGIN PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715073614_phase14_sixth_handoff_corrections.sql (sha256:d2ac47847dd764befae2772c18a44cd0e5427c034d5ac5d4d08717d3a1178d33)
--- Phase 14 sixth-remediation handoff corrections.
--- This file remains unpublished.  It is folded into canonical migration 0017
--- and into the environment-specific reconciliation artefacts.
-
-
--- A manual request receives the same durable fulfilment identity as a worker
--- request.  The key changes after each successfully published report, while a
--- failed pre-publication attempt can safely resume its previous identity.
-create or replace function public.ensure_manual_premium_report_fulfilment(
-  p_order_reference text,
-  p_trigger_source text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_actor jsonb; v_context jsonb; v_order public.orders%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype; v_key text;
-begin
-  v_actor:=public.phase14_require_security(
-    'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-  );
-  perform public.phase14_require_policy('manual_generation');
-  if p_trigger_source not in ('admin_generate','admin_retry','admin_regenerate') then
-    raise exception 'phase14_manual_fulfilment_trigger_invalid';
-  end if;
-  v_context:=public.phase14_generation_entitlement(p_order_reference);
-  select * into strict v_order from public.orders where id=(v_context->>'order_id')::uuid for share;
-  perform pg_advisory_xact_lock(hashtextextended('phase14-manual:'||v_order.id::text,0));
-  select * into v_fulfilment from public.report_fulfilments
-  where order_id=v_order.id
-    and score_run_id=(v_context->>'score_run_id')::uuid
-    and trigger_source in ('admin_generate','admin_retry','admin_regenerate')
-    and status in ('queued','assembling','generating','validating','rendering','storing')
-  order by created_at desc limit 1 for update;
-  if found then
-    return jsonb_build_object('created',false,'fulfilment',to_jsonb(v_fulfilment),'context',v_context);
-  end if;
-  if exists(select 1 from public.report_fulfilments
-      where order_id=v_order.id and score_run_id=(v_context->>'score_run_id')::uuid
-        and trigger_source in ('admin_generate','admin_retry','admin_regenerate')
-        and status='ready_for_delivery') then
-    raise exception 'phase14_manual_fulfilment_already_ready';
-  end if;
-  if exists(select 1 from public.report_fulfilments
-      where order_id=v_order.id and score_run_id=(v_context->>'score_run_id')::uuid
-        and trigger_source='payment_confirmation'
-        and status in ('queued','assembling','generating','validating','rendering','storing','ready_for_delivery')) then
-    raise exception 'phase14_manual_fulfilment_conflicts_with_worker';
-  end if;
-  v_key:=concat('phase14-manual:',v_order.id,':',v_context->>'score_run_id',':',
-    coalesce((select id::text from public.reports where order_id=v_order.id and status='generated'
-      order by version_number desc limit 1),'initial'),':',p_trigger_source);
-  perform set_config('phase14.authoritative_transition','fulfilment_queue_rpc',true);
-  insert into public.report_fulfilments(
-    order_id,assessment_id,score_run_id,idempotency_key,trigger_source,status,current_step,
-    requested_by_admin_user_id
-  ) values (
-    v_order.id,(v_context->>'assessment_id')::uuid,(v_context->>'score_run_id')::uuid,
-    v_key,p_trigger_source,'queued','manual_generation_requested',(v_actor->>'user_id')::uuid
-  ) on conflict (idempotency_key) do update set
-    status='queued',current_step='manual_generation_requested',last_error_code=null,
-    last_error_message=null,failed_at=null,updated_at=clock_timestamp()
-  where public.report_fulfilments.status in ('failed','cancelled')
-  returning * into v_fulfilment;
-  if not found then raise exception 'phase14_manual_fulfilment_identity_conflict'; end if;
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ('admin',(v_actor->>'user_id')::uuid,v_fulfilment.assessment_id,'report_fulfilments',
-    v_fulfilment.id,'phase14_manual_fulfilment_created',jsonb_build_object(
-      'order_reference',p_order_reference,'trigger_source',p_trigger_source,
-      'score_run_id',v_fulfilment.score_run_id,'idempotency_key',v_fulfilment.idempotency_key));
-  return jsonb_build_object('created',true,'fulfilment',to_jsonb(v_fulfilment),'context',v_context);
-end;
-$function$;
-
--- A final-object orphan record must exist before the object copy for manual
--- generation as well as worker generation.
-create or replace function public.register_phase14_manual_final_storage_cleanup(
-  p_storage_bucket text,
-  p_storage_path text,
-  p_expected_checksum text,
-  p_claim_token uuid,
-  p_reason text,
-  p_report_id uuid
-) returns uuid
-language plpgsql security definer set search_path=''
-as $function$
-declare v_actor jsonb; v_claim public.report_generation_claims%rowtype; v_id uuid;
-begin
-  v_actor:=public.phase14_require_security(
-    'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-  );
-  perform public.phase14_require_policy('manual_generation');
-  if p_storage_path like 'tmp/%' or coalesce(trim(p_storage_path),'')='' then
-    raise exception 'phase14_final_cleanup_path_invalid';
-  end if;
-  if p_expected_checksum !~ '^[0-9a-f]{64}$' or coalesce(trim(p_reason),'')='' then
-    raise exception 'phase14_final_cleanup_input_invalid';
-  end if;
-  select * into strict v_claim from public.report_generation_claims
-  where claim_token=p_claim_token for share;
-  if v_claim.report_id is distinct from p_report_id
-     or v_claim.final_storage_bucket is distinct from p_storage_bucket
-     or v_claim.final_storage_path is distinct from p_storage_path
-     or v_claim.expected_checksum is distinct from p_expected_checksum then
-    raise exception 'phase14_final_cleanup_claim_binding_invalid';
-  end if;
-  perform set_config('phase14.authoritative_transition','authenticated_rpc',true);
-  insert into public.phase14_storage_cleanup_queue(
-    storage_bucket,storage_path,expected_checksum,claim_token,report_id,
-    owner_admin_user_id,cleanup_reason
-  ) values (
-    p_storage_bucket,p_storage_path,p_expected_checksum,p_claim_token,p_report_id,
-    (v_actor->>'user_id')::uuid,p_reason
-  ) on conflict (storage_bucket,storage_path) do update set updated_at=clock_timestamp()
-  where public.phase14_storage_cleanup_queue.expected_checksum=excluded.expected_checksum
-    and public.phase14_storage_cleanup_queue.claim_token=excluded.claim_token
-    and public.phase14_storage_cleanup_queue.report_id=excluded.report_id
-    and public.phase14_storage_cleanup_queue.owner_admin_user_id=excluded.owner_admin_user_id
-  returning id into v_id;
-  if v_id is null then raise exception 'phase14_final_cleanup_ownership_conflict'; end if;
-  return v_id;
-end;
-$function$;
-
--- Both outer entry points delegate all terminal business effects to this one
--- private transaction core.  p_entry_context is created only by a wrapper.
-create or replace function phase14_private.terminal_generation_core(
-  p_entry_context jsonb,
-  p_payload jsonb
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_entry text:=p_entry_context->>'entry';
-  v_capability_id uuid:=nullif(p_entry_context->>'capability_id','')::uuid;
-  v_actor_user_id uuid:=nullif(p_entry_context->>'actor_user_id','')::uuid;
-  v_authority_epoch bigint:=nullif(p_entry_context->>'authority_epoch','')::bigint;
-  v_claim_token uuid:=(p_payload->>'claim_token')::uuid;
-  v_fulfilment_id uuid:=(p_payload->>'fulfilment_id')::uuid;
-  v_generation_run_id uuid:=(p_payload->>'generation_run_id')::uuid;
-  v_report_id uuid:=(p_payload->>'report_id')::uuid;
-  v_cleanup_id uuid:=(p_payload->>'final_cleanup_id')::uuid;
-  v_fault_after text:=nullif(p_payload->>'fault_after','');
-  v_cap public.phase14_worker_capabilities%rowtype;
-  v_claim public.report_generation_claims%rowtype;
-  v_report public.reports%rowtype;
-  v_fulfilment public.report_fulfilments%rowtype;
-  v_run public.report_generation_runs%rowtype;
-  v_cleanup public.phase14_storage_cleanup_queue%rowtype;
-  v_object record; v_order_reference text; v_event_type text; v_metadata jsonb;
-begin
-  if v_entry not in ('worker','manual') or (v_entry='worker')=(v_actor_user_id is not null) then
-    raise exception 'phase14_terminal_entry_context_invalid';
-  end if;
-  if v_entry='worker' then
-    select * into strict v_cap from public.phase14_worker_capabilities
-    where id=v_capability_id for update;
-    perform phase14_private.fault_if_requested(v_fault_after,'after_capability_lock');
-    if v_cap.capability_type not in ('automatic_generation','generation_recovery')
-       or v_cap.expected_step<>'terminal_publication'
-       or v_cap.fulfilment_id is distinct from v_fulfilment_id
-       or v_cap.authority_epoch is distinct from v_authority_epoch then
-      raise exception 'phase14_terminal_capability_binding_invalid';
-    end if;
-  end if;
-  select * into strict v_claim from public.report_generation_claims
-  where claim_token=v_claim_token for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_claim_lock');
-  select * into strict v_report from public.reports where id=v_report_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_lock');
-  select * into strict v_fulfilment from public.report_fulfilments
-  where id=v_fulfilment_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_fulfilment_lock');
-  select * into strict v_run from public.report_generation_runs
-  where id=v_generation_run_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_generation_run_lock');
-  select * into strict v_cleanup from public.phase14_storage_cleanup_queue
-  where id=v_cleanup_id for update;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_cleanup_lock');
-  if v_claim.state<>'committed' or v_claim.report_id is distinct from v_report_id
-     or v_claim.fulfilment_id is distinct from v_fulfilment_id
-     or v_claim.lease_expires_at<=clock_timestamp() then
-    raise exception 'phase14_terminal_generation_claim_invalid';
-  end if;
-  if v_report.status<>'draft' or v_report.order_id<>v_claim.order_id
-     or v_report.assessment_id<>v_claim.assessment_id or v_report.score_run_id<>v_claim.score_run_id
-     or v_report.version_number<>v_claim.version_number or v_report.checksum<>v_claim.expected_checksum
-     or v_report.storage_bucket<>v_claim.temporary_storage_bucket
-     or v_report.storage_path<>v_claim.temporary_storage_path
-     or v_report.fulfilment_id is distinct from v_fulfilment_id then
-    raise exception 'phase14_terminal_report_claim_binding_invalid';
-  end if;
-  if v_fulfilment.order_id<>v_claim.order_id or v_fulfilment.assessment_id<>v_claim.assessment_id
-     or v_fulfilment.score_run_id<>v_claim.score_run_id
-     or v_fulfilment.status not in ('storing','rendering','generating','validating','assembling') then
-    raise exception 'phase14_terminal_fulfilment_binding_invalid';
-  end if;
-  if v_run.fulfilment_id is distinct from v_fulfilment.id
-     or (v_run.report_id is not null and v_run.report_id is distinct from v_report.id) then
-    raise exception 'phase14_terminal_generation_run_binding_invalid';
-  end if;
-  if v_cleanup.storage_bucket<>v_claim.final_storage_bucket
-     or v_cleanup.storage_path<>v_claim.final_storage_path
-     or v_cleanup.expected_checksum<>v_claim.expected_checksum
-     or v_cleanup.report_id is distinct from v_report.id
-     or v_cleanup.status not in ('pending','failed')
-     or (v_entry='worker' and v_cleanup.owner_capability_id is distinct from v_cap.id)
-     or (v_entry='manual' and v_cleanup.owner_admin_user_id is distinct from v_actor_user_id) then
-    raise exception 'phase14_terminal_orphan_cleanup_binding_invalid';
-  end if;
-  select order_reference into strict v_order_reference from public.orders where id=v_claim.order_id;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_order_read');
-  perform public.phase14_generation_entitlement(
-    v_order_reference,v_claim.order_id,v_claim.assessment_id,v_claim.score_run_id,v_claim.score_input_hash
-  );
-  perform phase14_private.fault_if_requested(v_fault_after,'after_entitlement');
-  select so.bucket_id,so.name,so.metadata into strict v_object from storage.objects so
-  where so.bucket_id=v_claim.final_storage_bucket and so.name=v_claim.final_storage_path;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_storage_binding');
-  if coalesce(v_object.metadata->>'mimetype','')<>'application/pdf'
-     or coalesce(v_object.metadata->>'sha256',v_object.metadata->'metadata'->>'sha256','')
-        <>v_claim.expected_checksum then
-    raise exception 'phase14_terminal_storage_checksum_invalid';
-  end if;
-  if v_report.supersedes_report_id is not null then
-    update public.reports set status='superseded',updated_at=clock_timestamp()
-    where id=v_report.supersedes_report_id and status not in ('voided','superseded');
-  end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_previous_report_supersession');
-  update public.reports set status='generated',storage_bucket=v_claim.final_storage_bucket,
-    storage_path=v_claim.final_storage_path,generation_run_id=v_generation_run_id,
-    updated_at=clock_timestamp()
-  where id=v_report.id and status='draft';
-  if not found then raise exception 'phase14_terminal_report_cas_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_publication');
-  update public.report_generation_runs set report_id=v_report.id,status='used'
-  where id=v_generation_run_id and fulfilment_id=v_fulfilment.id
-    and (report_id is null or report_id=v_report.id);
-  if not found then raise exception 'phase14_terminal_generation_run_link_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_generation_run_link');
-  update public.report_generation_claims set state='settled',last_heartbeat_at=clock_timestamp(),
-    updated_at=clock_timestamp() where claim_token=v_claim.claim_token and state='committed';
-  if not found then raise exception 'phase14_terminal_claim_settlement_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_claim_settlement');
-  update public.report_fulfilments set status='ready_for_delivery',
-    current_step='ready_for_email_delivery',generation_mode=p_payload->>'generation_mode',
-    report_id=v_report.id,last_error_code=null,last_error_message=null,updated_at=clock_timestamp()
-  where id=v_fulfilment.id and status=v_fulfilment.status;
-  if not found then raise exception 'phase14_terminal_fulfilment_cas_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_fulfilment_transition');
-  update public.phase14_storage_cleanup_queue set status='retained',last_error=null,
-    verification_error=null,lease_owner_capability_id=null,lease_token=null,
-    lease_expires_at=null,updated_at=clock_timestamp()
-  where id=v_cleanup.id and status in ('pending','failed');
-  if not found then raise exception 'phase14_terminal_cleanup_transition_failed'; end if;
-  perform phase14_private.fault_if_requested(v_fault_after,'after_cleanup_transition');
-  v_event_type:=case when v_report.supersedes_report_id is null then 'generated' else 'regenerated' end;
-  v_metadata:=coalesce(p_payload->'metadata','{}'::jsonb)||jsonb_build_object(
-    'entry_point',v_entry,'worker_capability_id',v_capability_id,'actor_user_id',v_actor_user_id,
-    'authority_epoch',v_authority_epoch,'generation_run_id',v_generation_run_id,
-    'fulfilment_id',v_fulfilment.id
-  );
-  insert into public.report_events(report_id,event_type,actor_user_id,note,metadata_json)
-  values (v_report.id,v_event_type,v_actor_user_id,'Atomic terminal generation publication.',v_metadata);
-  perform phase14_private.fault_if_requested(v_fault_after,'after_report_event');
-  insert into public.assessment_events(assessment_id,order_id,report_id,event_type,dedupe_key,metadata_json)
-  values (v_report.assessment_id,v_report.order_id,v_report.id,'report_generated',
-    'phase14-terminal-generation:'||v_claim.claim_token,v_metadata);
-  perform phase14_private.fault_if_requested(v_fault_after,'after_assessment_event');
-  insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action,after_json)
-  values ((case when v_entry='worker' then 'system' else 'admin' end)::public.audit_actor_type,v_actor_user_id,
-    v_report.assessment_id,'reports',v_report.id,
-    case when v_event_type='generated' then 'premium_report_generated' else 'premium_report_regenerated' end,
-    v_metadata||jsonb_build_object('report_reference',v_report.report_reference));
-  perform phase14_private.fault_if_requested(v_fault_after,'after_audit_event');
-  if v_entry='worker' then
-    update public.phase14_worker_capabilities set status='consumed',consumed_at=clock_timestamp(),
-      lease_owner=null,lease_secret_hash=null,lease_expires_at=null,last_heartbeat_at=clock_timestamp(),
-      lease_generation=lease_generation+1,expected_step='consumed',updated_at=clock_timestamp()
-    where id=v_cap.id and status='leased' and lease_generation=v_cap.lease_generation;
-    if not found then raise exception 'phase14_terminal_capability_consumption_failed'; end if;
-    perform phase14_private.fault_if_requested(v_fault_after,'after_capability_consumption');
-  end if;
-  return jsonb_build_object('completed',true,'entry_point',v_entry,'report_id',v_report.id,
-    'fulfilment_id',v_fulfilment.id,'generation_run_id',v_generation_run_id,
-    'final_storage_bucket',v_claim.final_storage_bucket,'final_storage_path',v_claim.final_storage_path,
-    'checksum',v_claim.expected_checksum,'version_number',v_report.version_number,
-    'superseded_report_id',v_report.supersedes_report_id,
-    'lease_generation',case when v_entry='worker' then v_cap.lease_generation+1 else null end,
-    'expected_step',case when v_entry='worker' then 'consumed' else 'ready_for_email_delivery' end);
-end;
-$function$;
-
-create or replace function public.terminal_phase14_generation_publication(
-  p_attestation jsonb,p_signature text,p_request_payload text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_payload jsonb:=p_request_payload::jsonb; v_cap jsonb;
-begin
-  if coalesce(auth.jwt()->>'role','')<>'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  v_cap:=phase14_private.verify_worker_attestation(
-    p_attestation,p_signature,p_request_payload,'terminal_phase14_generation_publication'
-  );
-  perform phase14_private.fault_if_requested(nullif(v_payload->>'fault_after',''),'after_attestation');
-  perform set_config('phase14.worker_capability_id',v_cap->>'id',true);
-  perform set_config('phase14.worker_capability_type',v_cap->>'capability_type',true);
-  perform set_config('phase14.authoritative_transition','worker_attested_rpc',true);
-  return phase14_private.terminal_generation_core(jsonb_build_object(
-    'entry','worker','capability_id',v_cap->>'id','authority_epoch',v_cap->>'authority_epoch'
-  ),v_payload);
-end;
-$function$;
-
-create or replace function public.admin_terminal_phase14_generation_publication(
-  p_request_payload jsonb
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_actor jsonb;
-begin
-  v_actor:=public.phase14_require_security(
-    'report_generation',array['platform_admin','reviewer','approver']::public.admin_role[],true,false
-  );
-  perform public.phase14_require_policy('manual_generation');
-  perform phase14_private.fault_if_requested(nullif(p_request_payload->>'fault_after',''),'after_administrator_authorization');
-  perform set_config('phase14.authoritative_transition','authenticated_rpc',true);
-  return phase14_private.terminal_generation_core(jsonb_build_object(
-    'entry','manual','actor_user_id',v_actor->>'user_id',
-    'authority_epoch',v_actor->>'authority_epoch'
-  ),p_request_payload);
-end;
-$function$;
-
--- Recovery has a distinct signed envelope and nonce domain.  It cannot be
--- confused with an ordinary business-step attestation.
-create table if not exists phase14_private.worker_recovery_nonces(
-  nonce uuid primary key,
-  capability_id uuid not null references public.phase14_worker_capabilities(id) on delete restrict,
-  old_execution_id text not null,
-  proposed_execution_id text not null,
-  lease_generation integer not null,
-  reason text not null,
-  issued_at timestamptz not null,
-  expires_at timestamptz not null,
-  consumed_at timestamptz not null default clock_timestamp()
-);
-revoke all on table phase14_private.worker_recovery_nonces from public,anon,authenticated,service_role;
-
-create or replace function phase14_private.verify_worker_recovery_attestation(
-  p_attestation jsonb,p_signature text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare
-  v_cap public.phase14_worker_capabilities%rowtype; v_gate public.phase14_security_gates%rowtype;
-  v_key phase14_private.worker_attestation_keys%rowtype;
-  v_secret text; v_canonical text; v_expected text; v_issued timestamptz; v_expires timestamptz;
-  v_nonce uuid; v_capability_id uuid; v_generation integer; v_reason text;
-begin
-  v_reason:=trim(coalesce(p_attestation->>'reason',''));
-  if coalesce(p_attestation->>'old_execution_id','') !~ '^[a-zA-Z0-9._:/-]{1,240}$'
-     or coalesce(p_attestation->>'proposed_execution_id','') !~ '^[a-zA-Z0-9._:/-]{1,240}$'
-     or coalesce(p_attestation->>'operation_key','') !~ '^[a-zA-Z0-9._:/-]{1,240}$'
-     or coalesce(p_attestation->>'expected_step','') !~ '^[a-z0-9_]{1,100}$'
-     or length(v_reason) not between 1 and 500 then
-    raise exception 'phase14_worker_recovery_attestation_shape_invalid';
-  end if;
-  begin
-    v_capability_id:=(p_attestation->>'capability_id')::uuid;
-    v_generation:=(p_attestation->>'lease_generation')::integer;
-    v_issued:=to_timestamp((p_attestation->>'issued_at_epoch')::double precision);
-    v_expires:=to_timestamp((p_attestation->>'expires_at_epoch')::double precision);
-    v_nonce:=(p_attestation->>'nonce')::uuid;
-  exception when others then raise exception 'phase14_worker_recovery_attestation_shape_invalid'; end;
-  if v_issued>clock_timestamp()+interval '5 seconds' or v_issued<clock_timestamp()-interval '2 minutes'
-     or v_expires<=clock_timestamp() or v_expires>v_issued+interval '2 minutes' then
-    raise exception 'phase14_worker_recovery_attestation_time_invalid';
-  end if;
-  select * into v_cap from public.phase14_worker_capabilities where id=v_capability_id for update;
-  if not found then raise exception 'phase14_worker_capability_missing'; end if;
-  select * into strict v_gate from public.phase14_security_gates
-  where gate_key='phase14-premium-report' for share;
-  if v_cap.status<>'leased' or v_cap.lease_expires_at is null
-     or v_cap.lease_expires_at>clock_timestamp() then
-    raise exception 'phase14_worker_recovery_lease_not_expired';
-  end if;
-  if v_cap.expires_at<=clock_timestamp() then raise exception 'phase14_worker_recovery_capability_expired'; end if;
-  if v_gate.status<>'satisfied' or v_gate.satisfied_version<>v_gate.required_version
-     or v_cap.security_gate_version<>v_gate.satisfied_version
-     or v_cap.authority_epoch<>v_gate.authority_epoch
-     or (p_attestation->>'authority_epoch')::bigint<>v_gate.authority_epoch then
-    raise exception 'phase14_worker_recovery_authority_epoch_stale';
-  end if;
-  perform public.phase14_require_policy(v_cap.policy_key);
-  if p_attestation->>'capability_type' is distinct from v_cap.capability_type
-     or p_attestation->>'operation_key' is distinct from v_cap.operation_key
-     or p_attestation->>'old_execution_id' is distinct from v_cap.workflow_execution_id
-     or p_attestation->>'expected_step' is distinct from v_cap.expected_step
-     or v_generation<>v_cap.lease_generation then
-    raise exception 'phase14_worker_recovery_state_binding_invalid';
-  end if;
-  if v_cap.order_id is distinct from nullif(p_attestation->>'order_id','')::uuid
-     or v_cap.assessment_id is distinct from nullif(p_attestation->>'assessment_id','')::uuid
-     or v_cap.score_run_id is distinct from nullif(p_attestation->>'score_run_id','')::uuid
-     or v_cap.fulfilment_id is distinct from nullif(p_attestation->>'fulfilment_id','')::uuid
-     or v_cap.report_id is distinct from nullif(p_attestation->>'report_id','')::uuid
-     or lower(coalesce(v_cap.recipient_email::text,'')) is distinct from lower(coalesce(p_attestation->>'recipient','')) then
-    raise exception 'phase14_worker_recovery_commercial_binding_invalid';
-  end if;
-  select * into v_key from phase14_private.worker_attestation_keys
-  where key_id=p_attestation->>'key_id' and status in ('current','previous')
-    and valid_from<=clock_timestamp() and (valid_until is null or valid_until>clock_timestamp()) for share;
-  if not found then raise exception 'phase14_worker_recovery_key_invalid'; end if;
-  select decrypted_secret into v_secret from vault.decrypted_secrets where id=v_key.vault_secret_id;
-  if v_secret is null then raise exception 'phase14_worker_recovery_key_unavailable'; end if;
-  v_canonical:=concat_ws('|',p_attestation->>'key_id',p_attestation->>'capability_id',
-    p_attestation->>'capability_type',p_attestation->>'operation_key',
-    p_attestation->>'old_execution_id',p_attestation->>'proposed_execution_id',
-    p_attestation->>'expected_step',p_attestation->>'lease_generation',
-    coalesce(p_attestation->>'order_id',''),coalesce(p_attestation->>'assessment_id',''),
-    coalesce(p_attestation->>'score_run_id',''),coalesce(p_attestation->>'fulfilment_id',''),
-    coalesce(p_attestation->>'report_id',''),coalesce(lower(p_attestation->>'recipient'),''),
-    p_attestation->>'authority_epoch',v_reason,p_attestation->>'issued_at_epoch',
-    p_attestation->>'expires_at_epoch',p_attestation->>'nonce');
-  v_expected:=encode(extensions.hmac(convert_to(v_canonical,'utf8'),convert_to(v_secret,'utf8'),'sha256'),'hex');
-  if p_signature !~ '^[0-9a-f]{64}$'
-     or extensions.digest(convert_to(p_signature,'utf8'),'sha256')
-        <>extensions.digest(convert_to(v_expected,'utf8'),'sha256') then
-    raise exception 'phase14_worker_recovery_signature_invalid';
-  end if;
-  begin
-    insert into phase14_private.worker_recovery_nonces(
-      nonce,capability_id,old_execution_id,proposed_execution_id,lease_generation,reason,issued_at,expires_at
-    ) values (v_nonce,v_cap.id,p_attestation->>'old_execution_id',
-      p_attestation->>'proposed_execution_id',v_generation,v_reason,v_issued,v_expires);
-  exception when unique_violation then raise exception 'phase14_worker_recovery_attestation_replay'; end;
-  return to_jsonb(v_cap)-'issue_secret_hash'-'lease_secret_hash';
-end;
-$function$;
-
-create or replace function public.recover_phase14_worker_capability_lease(
-  p_attestation jsonb,p_signature text
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_cap jsonb; v_row public.phase14_worker_capabilities%rowtype; v_new_execution text;
-begin
-  if coalesce(auth.jwt()->>'role','')<>'service_role' then
-    raise exception 'phase14_worker_service_role_required';
-  end if;
-  v_cap:=phase14_private.verify_worker_recovery_attestation(p_attestation,p_signature);
-  v_new_execution:=p_attestation->>'proposed_execution_id';
-  perform set_config('phase14.worker_capability_id',v_cap->>'id',true);
-  perform set_config('phase14.worker_capability_type',v_cap->>'capability_type',true);
-  perform set_config('phase14.authoritative_transition','worker_attested_rpc',true);
-  update public.phase14_worker_capabilities set workflow_execution_id=v_new_execution,
-    lease_owner=v_new_execution,lease_generation=lease_generation+1,
-    lease_expires_at=least(expires_at,clock_timestamp()+interval '60 minutes'),
-    takeover_count=takeover_count+1,last_heartbeat_at=clock_timestamp(),updated_at=clock_timestamp()
-  where id=(v_cap->>'id')::uuid and status='leased'
-    and lease_generation=(v_cap->>'lease_generation')::integer
-    and workflow_execution_id=p_attestation->>'old_execution_id'
-    and expected_step=p_attestation->>'expected_step'
-  returning * into v_row;
-  if not found then raise exception 'phase14_worker_recovery_cas_failed'; end if;
-  insert into public.audit_logs(actor_type,assessment_id,entity_table,entity_id,action,after_json)
-  values ('system',v_row.assessment_id,'phase14_worker_capabilities',v_row.id,
-    'phase14_worker_expired_lease_recovered',jsonb_build_object(
-      'capability_type',v_row.capability_type,'operation_key',v_row.operation_key,
-      'old_execution_id',p_attestation->>'old_execution_id','new_execution_id',v_new_execution,
-      'expected_step',v_row.expected_step,'previous_lease_generation',(v_cap->>'lease_generation')::integer,
-      'lease_generation',v_row.lease_generation,'lease_expires_at',v_row.lease_expires_at,
-      'takeover_count',v_row.takeover_count,'authority_epoch',v_row.authority_epoch,
-      'reason',p_attestation->>'reason'));
-  return jsonb_build_object('capability_id',v_row.id,'capability_type',v_row.capability_type,
-    'operation_key',v_row.operation_key,'execution_id',v_row.workflow_execution_id,
-    'expected_step',v_row.expected_step,'lease_generation',v_row.lease_generation,
-    'lease_expires_at',v_row.lease_expires_at,'expires_at',v_row.expires_at,
-    'takeover_count',v_row.takeover_count,'authority_epoch',v_row.authority_epoch,
-    'order_id',v_row.order_id,'assessment_id',v_row.assessment_id,'score_run_id',v_row.score_run_id,
-    'fulfilment_id',v_row.fulfilment_id,'report_id',v_row.report_id,'recipient',v_row.recipient_email);
-end;
-$function$;
-
-revoke all on function public.ensure_manual_premium_report_fulfilment(text,text)
-  from public,anon,service_role;
-grant execute on function public.ensure_manual_premium_report_fulfilment(text,text) to authenticated;
-revoke all on function public.register_phase14_manual_final_storage_cleanup(text,text,text,uuid,text,uuid)
-  from public,anon,service_role;
-grant execute on function public.register_phase14_manual_final_storage_cleanup(text,text,text,uuid,text,uuid)
-  to authenticated;
-revoke all on function public.admin_terminal_phase14_generation_publication(jsonb)
-  from public,anon,service_role;
-grant execute on function public.admin_terminal_phase14_generation_publication(jsonb) to authenticated;
-revoke all on function public.recover_phase14_worker_capability_lease(jsonb,text)
-  from public,anon,authenticated,service_role;
-grant execute on function public.recover_phase14_worker_capability_lease(jsonb,text) to service_role;
-revoke all on function public.terminal_phase14_generation_publication(jsonb,text,text)
-  from public,anon,authenticated,service_role;
-grant execute on function public.terminal_phase14_generation_publication(jsonb,text,text) to service_role;
-
--- Normalize the exact early-production ACL/constraint/storage variants to the
--- canonical disabled foundation without touching stored objects or rows.
-revoke insert,select,update,delete on table public.app_settings
-  from anon,authenticated,service_role;
-revoke insert,select,update,delete on table public.email_events
-  from anon,authenticated;
-revoke select on table public.report_fulfilments,public.report_generation_runs
-  from service_role;
-grant execute on function public.set_updated_at() to public,anon,authenticated,service_role;
-do $phase14_production_constraint_name_convergence$
-begin
-  if exists(select 1 from pg_constraint where conrelid='public.report_fulfilments'::regclass
-      and conname='report_fulfilments_idempotency_key_key')
-     and not exists(select 1 from pg_constraint where conrelid='public.report_fulfilments'::regclass
-      and conname='report_fulfilments_idempotency_key_unique') then
-    alter table public.report_fulfilments rename constraint
-      report_fulfilments_idempotency_key_key to report_fulfilments_idempotency_key_unique;
-  end if;
-end;
-$phase14_production_constraint_name_convergence$;
-update storage.buckets set file_size_limit=15728640,
-  allowed_mime_types=array['application/pdf']::text[] where id='generated-reports';
-
--- Split publication and post-publication evidence APIs are not runtime routes.
-revoke all on function public.publish_premium_report_generation(uuid,uuid)
-  from public,anon,authenticated,service_role;
-revoke all on function public.link_premium_report_generation_run(uuid,uuid,uuid)
-  from public,anon,authenticated,service_role;
-revoke all on function public.record_phase14_report_generated(uuid,uuid,uuid,text,text,jsonb)
-  from public,anon,authenticated,service_role;
-revoke all on all functions in schema phase14_private from public,anon,authenticated,service_role;
-revoke all on all tables in schema phase14_private from public,anon,authenticated,service_role;
-revoke all on schema phase14_private from public,anon,authenticated,service_role;
--- END PRODUCTION DELTA SOURCE: docs/v1/phase14/migration-audit-archive/unpublished-remediation/20260715073614_phase14_sixth_handoff_corrections.sql
-\else
-\echo 'Final schema is present without canonical ledger acknowledgement; performing ledger-only recovery.'
-\endif
-
-delete from supabase_migrations.schema_migrations where version in (
-  '20260712180303','20260712180317','20260712180329','20260712180346',
-  '20260712182003','20260712184501'
-);
-insert into supabase_migrations.schema_migrations(version,name,statements)
-values ('0017','phase14_canonical_disabled_foundation',array[
-  'Controlled production reconciliation; source SHA-256: 3beac7831756fd9c5d43573c5372ca6e096741f82712e985ffdefed85dc3b180 + 4ebcdd55dd031f634afc04bbb0f30ede6070a6d3c6e9909c63b81467ac3628f3 + 359e5ad5371a873dc5d36c6636bbf628e78173b0452674cf95afa481093e7981 + 5037c698eb2acab09ee1c588c6b67909428b742600fa1cb7523272a71d7e1b93 + 6b06ed1f6d5618ea3ad2f3b803fd8a19bc56466c62390f05499690dee82804b0 + 0a9215cb5798e7695500dc88ceed2577dac4d60425beb43ce52d7ca4b0479f16 + a472e8d9a93052c8a51d2ec1cc2bc97a6b827a0b5fba97d3fdaa6f150ffab84b + f9589a09d28590728f84978129209f4e748ea1e248218fea78e036c2a09bff18 + d2ac47847dd764befae2772c18a44cd0e5427c034d5ac5d4d08717d3a1178d33'
-])
-on conflict (version) do update set name=excluded.name,statements=excluded.statements;
-
-do $postflight$
-begin
-  if to_regprocedure('public.admin_terminal_phase14_generation_publication(jsonb)') is null
-     or to_regprocedure('public.terminal_phase14_generation_publication(jsonb,text,text)') is null
-     or to_regprocedure('public.recover_phase14_worker_capability_lease(jsonb,text)') is null
-     or to_regprocedure('phase14_private.terminal_generation_core(jsonb,jsonb)') is null then
-    raise exception 'phase14_production_reconciliation_postflight_function_missing';
-  end if;
-  if exists(select 1 from public.phase14_feature_policies where enabled)
-     or exists(select 1 from public.phase14_ai_route_policies where enabled)
-     or exists(select 1 from public.phase14_security_gates
-       where status<>'unsatisfied' or satisfied_version<>0) then
-    raise exception 'phase14_production_reconciliation_enabled_runtime_control';
-  end if;
-  if (select count(*) from supabase_migrations.schema_migrations
-      where version='0017' and name='phase14_canonical_disabled_foundation')<>1
-     or exists(select 1 from supabase_migrations.schema_migrations where version in (
-       '20260712180303','20260712180317','20260712180329','20260712180346',
-       '20260712182003','20260712184501')) then
-    raise exception 'phase14_production_canonical_ledger_reconciliation_failed';
-  end if;
-end;
-$postflight$;
-commit;
-\endif
-select pg_advisory_unlock(hashtextextended('phase14-production-canonical-reconciliation',0));
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×{çÄèµ©hºÚn¶X§zÍWÙ]Ó—ÑT”“Ô—ÔÕÔÛ‚‹KHÓÓ•“ÓT‹SÓ“K“ÑPÕSÓ‹TÔPÒQ’PÈ™XÛÛ˜Ú[X][Ûˆ\Y˜Xİ‚‹KH™]™\ˆ\ÙH\Èš[H›ÜˆPUˆ™]™\ˆ^Xİ]HÚ]İ]HÙ\\˜]HÛÛ›Û\ˆ\›İ˜[‚‹KH]\Y\ÈÛ›HHÛÜİ\™KÙ›İ\ÙšYÜÚ^[H[™ÙY\È]™\HØ]K‹KH™X]\™HÛXŞH[™RH›İ]H\ØX›Y‚‚œÙ[Xİ×ØYš\ÛÜWÛØÚÊ\Ú^^[™Y
+	Ü\ÙLM\›ÙXİ[Û‹XØ[›ÛšXØ[\™XÛÛ˜Ú[X][Û‰Ë
+JNÂœÙ[Xİ^\İÊˆÙ[XİHœ›ÛHİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÂˆÚ\™H™\œÚ[ÛIÌMÉÈ[™˜[YOIÜ\ÙLMØØ[›ÛšXØ[Ù\ØX›YÙ›İ[™][Û‰ÂŠH\È\ÙLMÜ›ÙXİ[Û—Ø[™XYWÜ™XÛÛ˜Ú[YÜÙ]‚—Yˆœ\ÙLMÜ›ÙXİ[Û—Ø[™XYWÜ™XÛÛ˜Ú[Y™È	ØY™WÜ™\İ\	˜™YÚ[‚ˆYˆ×Ü™YÜ›ØÙY\™J	ÜX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠIÊH\È[ˆÜˆ×Ü™YÜ›ØÙY\™J	ÜX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+IÊH\È[ˆÜˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÈÚ\™H[˜X›Y
+BˆÜˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMØZWÜ›İ]WÜÛXÚY\ÈÚ\™H[˜X›Y
+BˆÜˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÚ\™Hİ]\Ï‰İ[œØ]\ÙšYY	ÈÜˆØ]\ÙšYYİ™\œÚ[ÛŒ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—ÜØY™WÜ™\İ\ÜÜİ\™WÚ[˜[Y	ÎÂˆ[™YÂ™[™Â‰ØY™WÜ™\İ\	Â—XÚÈ	Ô›ÙXİ[ÛˆØ[›ÛšXØ[XÚÛ›İÛYÙ[Y[[™XYH^\İÎÈØY™H™\İ\™\šYšYY[™›È[H^Xİ]Y‰Â—[ÙB™È	™Y›YÚ	™XÛ\™Bˆ—ØXİX[^×NÈ—Ù^XİYÛÛœİ[^×NX\œ˜^VÂˆ	Ì_WÜ\ÙL—İŒWÌWÜØÚ[XWÜ›ÉËˆ	ÌŸ—Ü\ÙMÙ]—ÜÙYY	Ëˆ	Ìß×Ü\ÙMWÛY]ÙÛÙŞWÜÙYY	Ëˆ	ÌÜ\ÙMİŒWÌ—Ü˜]WÛ[Z][™ÉËˆ	Ì_WÜ\ÙMWİŒWÌWÙİX\™ÉËˆ	ÌŸ—Ü\ÙM—ÜØÛÜš[™×ÙİX\™ÉËˆ	Ìß×Ü\ÙM—İŒWÌWØ]ÛZX×ÜØÛÜš[™ÉËˆ	Ì_WÛY]ÙÛÙŞWØÛÜWÜÛ\Ú	Ëˆ	ÌŒŒÌNLŒßLÜ\ÙNWÛX[X[ÙYÛÜ™\—Ù›İÉËˆ	ÌŒŒÌNLÌŒÎ\ÙLLÜ™\ÜÙ[™Ú[™WØY][ÛœÉËˆ	ÌŒŒÌNLÌÌN\ÙNWÜ\ÙLLÜš]˜]WÜİÜ˜YÙWØXÚÙ]ÉËˆ	ÌŒŒÌNMÍ\ÙLLİŒ—Ü™\ÜÙ[™Ú[™WØÛÛ[	Ëˆ	ÌŒŒÌLÌÍLŒŸ\ÙLLİŒ—Ü™\Üİ[\]WÜÙYY	Ëˆ	ÌŒŒÌLŒŒLL—Ü\ÙLL×ØÛÛ[Y\˜ÚX[Ù]™[Ù›İ[™][Û‰Ëˆ	ÌŒŒÌLŒŒÍŸL×Ü\ÙLL×Ù]™[Ú[™^ØÛX[\	Ëˆ	ÌŒŒÌLLŒLMMMßMÜ\ÙLL×Øİ\İÛY\—ØÛÛ[Y\˜ÚX[ØÛÛ™\œÚ[Û‰Ëˆ	ÌŒŒÌLLŒLMMMWÜ\ÙLL×Ù]WÜ™\]Y\İÜÛXŞWØÛX[\	Ëˆ	ÌŒŒÌLŒMLÍÎ]›Ü›WÙ]X˜\ÙWÚ\™[š[™ÉËˆ	ÌŒŒÌLŒNÌß\ÙLMÜ™\ÜÙ[š[Y[ØÛÜ™IËˆ	ÌŒŒÌLŒNÌMß\ÙLMÜ™\ÜÙÙ[™\˜][Û—Ü[œÉËˆ	ÌŒŒÌLŒNÌ_\ÙLMÜ™\ÜÛ[šÜÉËˆ	ÌŒŒÌLŒNÍŸ\ÙLMÜ™\ÜÜÙXİ\š]WØ[™Ù›YÜÉËˆ	ÌŒŒÌLŒNŒß\ÙLMÜ—Ù[XZ[Ù[]™\IËˆ	ÌŒŒÌLŒNL_\ÙLMÙ[XZ[Ù[]™\WÜİ]WÚ\™[š[™ÉÂˆNÂˆ—Ùš[˜[ÜØÚ[XH›ÛÛX[Â˜™YÚ[‚ˆÙ[Xİ\œ˜^WØYÙÊ™\œÚ[ÛŸ	ß	ß˜[YHÜ™\ˆH™\œÚ[Û‹˜[YJH[È—ØXİX[ˆœ›ÛHİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÎÂˆYˆ—ØXİX[\È\İ[˜İœ›ÛH—Ù^XİY[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—ÛYÙ\—ÛZ\ÛX]Úˆ^XİY	K™XÙZ]™Y	IË—Ù^XİY—ØXİX[Âˆ[™YÂˆ—Ùš[˜[ÜØÚ[XN]×Ü™YÜ›ØÙY\™J	ÜX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠIÊH\È›İ[ˆ[™×Ü™YÜ›ØÙY\™J	ÜX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+IÊH\È›İ[ÂˆYˆ›İ—Ùš[˜[ÜØÚ[XH[™
+ˆ×Ü™YØÛ\ÜÊ	ÜX›XËœ™\ÜÙ[š[Y[ÉÊH\È[ˆÜˆ×Ü™YØÛ\ÜÊ	ÜX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÉÊH\È[ˆÜˆ×Ü™YØÛ\ÜÊ	ÜX›XË™[XZ[Ü›İšY\—Ù]™[ÉÊH\È[ˆÜˆ×Ü™YØÛ\ÜÊ	ÜX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÉÊH\È›İ[ˆ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—ÜØÚ[XWØ›İ[™\WÛZ\ÛX]Ú	ÎÂˆ[™YÂˆYˆ^\İÊÙ[XİHœ›ÛHX›XË˜\ÜÙ][™ÜÈÚ\™HÙ][™×ÚÙ^OIÜ\ÙLMØ]]Û›Û[İ\×Ü™\ÜÙ[™Ú[™IÂˆ[™ÛØ[\ØÙJ
+˜[YWÚœÛÛ‹O‰Ü™[Z][WÜ™\ÜØ]]×Ù[š[Y[Ù[˜X›Y	ÊN˜›ÛÛX[‹˜[ÙJJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—Ø]]ÛX][Û—Ù›Y×İ[™^XİYWÙ[˜X›Y	ÎÂˆ[™YÂ™[™Â‰™Y›YÚ	Â‚œÙ[Xİ
+ˆ×Ü™YÜ›ØÙY\™J	ÜX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠIÊH\È[ˆÜˆ×Ü™YÜ›ØÙY\™J	ÜX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+IÊH\È[ŠH\È\ÙLMÜ›ÙXİ[Û—Ù[WÜ™\]Z\™YÜÙ]‚˜™YÚ[ÂœÙ[XİÙ]ØÛÛ™šYÊ	ÛØÚ×İ[Y[İ]	Ë	ÌLÉËYJNÂ‹KH™\^K[Ü™\ˆÛÛ\]Xš[]NˆH›ÙXİ[Ûˆ\ÙHLZYÜ˜][ÛˆİÛœÈ\Â‹KHÛÛ[[‹Ú[H\ÈÛÛ›Û\‹[Û›H™XÛÛ˜Ú[X][ÛˆX^H[ˆYØZ[œİB‹KHX\›Y\ˆ\İÜšXØ[›İ[™\H™Y›Ü™H]ZYÜ˜][ÛˆØ\ÈXÚÛ›İÛYÙY‚˜[\ˆX›HX›XËœ™\ÜÙ]™[ÂˆYÛÛ[[ˆYˆ›İ^\İÈY]Y]WÚœÛÛˆœÛÛ˜ˆY˜][	ŞßIÎšœÛÛ˜Â—Yˆœ\ÙLMÜ›ÙXİ[Û—Ù[WÜ™\]Z\™Y‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒÜ\ÙLMÜš]š[YÙYÙ[˜İ[Û—ÙÜ˜[ËœÜ[
+ÚLMŒØ™XXÍÎÌMÍM™™XÍYÍMÌØÍLÍÌ˜ØM™LMÍYÌL™NNY™™Y™YYÌØŒN
+B‹KH\ÙHM]X˜\ÙK\ÙXİ\š]H\™[š[™Ë‚‹KH™\İšXİ\™Xİ^Xİ][ÛˆÙˆYÚ\š\ÚÈÑPÕT’UHQ’S‘Tˆ”ÜÈÈB‹KHÙ\™\‹\ÚYHÙ\šXÙH›ÛHÚ[H™\Ù\š[™È]][XØ]Y^Xİ][ÛˆÙˆYZ[‚‹KH“È[\ˆ[˜İ[ÛœÈ\ÙYHRÈYZ[š\İ˜]ÜˆÛXÚY\ËˆHÈ›ØÚÈÙY\Â‹KH\ÈZYÜ˜][Ûˆ\ÈÛ™H™\\™Yİ][Y[›Üˆİ\X˜\ÙHÓH‹KŒÈÛX[ˆ™\^B‹KHÚ[Hİ[\Ú[™È^XÚ]‘U“ÒÑKÔS•[™ÓÓSQS•ÛÛ[X[™Ë‚‚‘È	\ÙLMÜš]š[YÙYÙ[˜İ[Û—ÙÜ˜[É‘QÒS‚ˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÚXÚ×Ü˜]WÛ[Z]
+^[YÙ\‹[YÙ\ŠHœ›ÛHX›XÉÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÚXÚ×Ü˜]WÛ[Z]
+^[YÙ\‹[YÙ\ŠHœ›ÛH[›Û‰ÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÚXÚ×Ü˜]WÛ[Z]
+^[YÙ\‹[YÙ\ŠHœ›ÛH]][XØ]Y	ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÚXÚ×Ü˜]WÛ[Z]
+^[YÙ\‹[YÙ\ŠHÈÙ\šXÙWÜ›ÛIÎÂ‚ˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜØÛÜ™WÜ[—Ø]ÛZXÊ]ZY]ZYX›XËœØÛÜ™WÜ[—İ\K^]ZYœÛÛ˜‹œÛÛ˜‹œÛÛ˜‹œÛÛ˜ŠHœ›ÛHX›XÉÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜØÛÜ™WÜ[—Ø]ÛZXÊ]ZY]ZYX›XËœØÛÜ™WÜ[—İ\K^]ZYœÛÛ˜‹œÛÛ˜‹œÛÛ˜‹œÛÛ˜ŠHœ›ÛH[›Û‰ÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜØÛÜ™WÜ[—Ø]ÛZXÊ]ZY]ZYX›XËœØÛÜ™WÜ[—İ\K^]ZYœÛÛ˜‹œÛÛ˜‹œÛÛ˜‹œÛÛ˜ŠHœ›ÛH]][XØ]Y	ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜØÛÜ™WÜ[—Ø]ÛZXÊ]ZY]ZYX›XËœØÛÜ™WÜ[—İ\K^]ZYœÛÛ˜‹œÛÛ˜‹œÛÛ˜‹œÛÛ˜ŠHÈÙ\šXÙWÜ›ÛIÎÂ‚ˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+Hœ›ÛHX›XÉÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+Hœ›ÛH[›Û‰ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+HÈ]][XØ]Y	ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+HÈÙ\šXÙWÜ›ÛIÎÂ‚ˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XËš\×ØYZ[—Ü›ÛJX›XË˜YZ[—Ü›ÛV×JHœ›ÛHX›XÉÎÂˆVPÕUH	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XËš\×ØYZ[—Ü›ÛJX›XË˜YZ[—Ü›ÛV×JHœ›ÛH[›Û‰ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËš\×ØYZ[—Ü›ÛJX›XË˜YZ[—Ü›ÛV×JHÈ]][XØ]Y	ÎÂˆVPÕUH	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËš\×ØYZ[—Ü›ÛJX›XË˜YZ[—Ü›ÛV×JHÈÙ\šXÙWÜ›ÛIÎÂ‚ˆVPÕUH	ØÛÛ[Y[Ûˆ[˜İ[ÛˆX›XË˜ÚXÚ×Ü˜]WÛ[Z]
+^[YÙ\‹[YÙ\ŠH\È	ÉĞ]ÛZXÈš^Y]Ú[™İÈ˜]H[Z]\‹ˆ\™Xİ^Xİ][Ûˆ\È™\İšXİYÈHÙ\šXÙH›ÛNÈ\XØ][ÛˆØ[È]\İÛÈ›İYÚ\İYÙ\™\‹\ÚYHÛÙK‰ÉÉÎÂˆVPÕUH	ØÛÛ[Y[Ûˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜØÛÜ™WÜ[—Ø]ÛZXÊ]ZY]ZYX›XËœØÛÜ™WÜ[—İ\K^]ZYœÛÛ˜‹œÛÛ˜‹œÛÛ˜‹œÛÛ˜ŠH\È	ÉĞ]ÛZXÈØÛÜ™K\[ˆ\œÚ\İ[˜ÙH”Ëˆ\™Xİ^Xİ][Ûˆ\È™\İšXİYÈHÙ\šXÙH›ÛNÈ\ÜÙ\ÜÛY[ØÛÜš[™È]\İÛÈ›İYÚ\İYÙ\™\‹\ÚYHÛÙK‰ÉÉÎÂˆVPÕUH	ØÛÛ[Y[Ûˆ[˜İ[ÛˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H\È	ÉĞYZ[‹\›ÛH[\ˆ›Üˆ]][XØ]YRÈYZ[š\İ˜]Üˆ“È]˜[X][Û‹ˆ[›Û[[İ\È^Xİ][Ûˆ\È™]›ÚÙYÈ]][XØ]Y[™Ù\šXÙK\›ÛH^Xİ][Ûˆ\È™\]Z\™Y›ÜˆYZ[ˆÛXÚY\Ë‰ÉÉÎÂˆVPÕUH	ØÛÛ[Y[Ûˆ[˜İ[ÛˆX›XËš\×ØYZ[—Ü›ÛJX›XË˜YZ[—Ü›ÛV×JH\È	ÉĞYZ[‹\›ÛH™YXØ]H›Üˆ]][XØ]YRÈYZ[š\İ˜]Üˆ“È]˜[X][Û‹ˆ[›Û[[İ\È^Xİ][Ûˆ\È™]›ÚÙYÈ]][XØ]Y[™Ù\šXÙK\›ÛH^Xİ][Ûˆ\È™\]Z\™Y›ÜˆYZ[ˆÛXÚY\Ë‰ÉÉÎÂ‘S‘‰\ÙLMÜš]š[YÙYÙ[˜İ[Û—ÙÜ˜[ÉÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒÜ\ÙLMÜš]š[YÙYÙ[˜İ[Û—ÙÜ˜[ËœÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒWÜ\ÙLMØY™\œØ\šX[Ü™[YYX][Û‹œÜ[
+ÚLMX˜ÙMYÌYŒÍY˜Ì˜˜ŒŒÌYMŒÌM™ØÍ™NNLXÍŒØMØXÌÍŒŒÊB‹KH\ÙHMY™\œØ\šX[™[YYX][Û‹‚‹KH˜[œØXİ[Û˜[[][Y[Ù[™\˜][ÛˆX›XØ][Û‹\˜X›H›İšY\ˆİ]H[™ÙXšÛÚÈĞTË‚‚‚˜Ü™X]HX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\È
+ˆ\ÜÙ\ÜÛY[ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË˜\ÜÙ\ÜÛY[ÊY
+HÛˆ[]HØ\ØØYKˆ™\Üİ\HX›XËœ™\Üİ\H›İ[ˆÛZ[WİÚÙ[ˆ]ZY›İ[Y˜][Ù[—Ü˜[™ÛWİ]ZY
+
+KˆÜ™\—ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË›Ü™\œÊY
+HÛˆ[]HØ\ØØYKˆØÛÜ™WÜ[—ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœØÛÜ™WÜ[œÊY
+HÛˆ[]H™\İšXİˆ[š[Y[ÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÙ[š[Y[ÊY
+HÛˆ[]HÙ][ˆÛZ[WÛİÛ™\ˆ^›İ[ˆ™\ÜÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]HÙ][ˆ™\œÚ[Û—Û[X™\ˆ[YÙ\ˆ›İ[ÚXÚÈ
+™\œÚ[Û—Û[X™\ˆˆ
+Kˆ™\ÜÜ™Y™\™[˜ÙH^›İ[ˆX\ÙWÙ^\™\×Ø][Y\İ[\ˆ›İ[ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆš[X\HÙ^H
+\ÜÙ\ÜÛY[ÚY™\Üİ\JKˆÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×İÚÙ[—İ[š\]YH[š\]YH
+ÛZ[WİÚÙ[ŠKˆÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×Ü™Y™\™[˜ÙWİ[š\]YH[š\]YH
+™\ÜÜ™Y™\™[˜ÙJBŠNÂ‚˜Ü™X]H[™^™\ÜÙÙ[™\˜][Û—ØÛZ[\×ÛX\ÙWÚYˆÛˆX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÊX\ÙWÙ^\™\×Ø]
+NÂ˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\Èœ›ÛHX›XË[›Û‹]][XØ]YÂ‚˜Ü™X]HX›HX›XËœ™\ÜØZWØ][\È
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+KˆÙ[™\˜][Û—ÚY[]H^›İ[ˆ[š[Y[ÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÙ[š[Y[ÊY
+HÛˆ[]HÙ][ˆ][\ÚÚ[™^›İ[ÚXÚÈ
+][\ÚÚ[™[ˆ
+	ÙÙ[™\˜]IË	Ü™\Z\‰ÊJKˆ][\Û[X™\ˆ[YÙ\ˆ›İ[ÚXÚÈ
+][\Û[X™\ˆ™]ÙY[ˆH[™ŠKˆ›İšY\—Ü™\]Y\İÚÙ^H^›İ[ˆ›İšY\ˆ^›İ[ˆ[Ù[^›İ[ˆ]šY[˜ÙWØÚXÚÜİ[H^›İ[ÚXÚÈ
+]šY[˜ÙWØÚXÚÜİ[Hˆ	×–ÌNXKY—^ÍI	ÊKˆX^Ûİ]]İÚÙ[œÈ[YÙ\ˆ›İ[ÚXÚÈ
+X^Ûİ]]İÚÙ[œÈ™]ÙY[ˆH[™L
+KˆX^Ù\İ[X]YØÛÜİÛZXÜ›ÜÈšYÚ[›İ[ÚXÚÈ
+X^Ù\İ[X]YØÛÜİÛZXÜ›ÜÈ™]ÙY[ˆH[™L
+Kˆ[Y[İ]Û\È[YÙ\ˆ›İ[ÚXÚÈ
+[Y[İ]Û\È™]ÙY[ˆL[™LŒ
+Kˆİ]\È^›İ[ÚXÚÈ
+İ]\È[ˆ
+	Üİ\Y	Ë	ÜİXØÙYYY	Ë	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë	Ü›İšY\—Ü™\İ[İ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊJKˆİ]]ÚœÛÛˆœÛÛ˜‹ˆ[œ]İÚÙ[—ØÛİ[[YÙ\ˆÚXÚÈ
+[œ]İÚÙ[—ØÛİ[\È[Üˆ[œ]İÚÙ[—ØÛİ[H
+Kˆİ]]İÚÙ[—ØÛİ[[YÙ\ˆÚXÚÈ
+İ]]İÚÙ[—ØÛİ[\È[Üˆİ]]İÚÙ[—ØÛİ[H
+Kˆİ[İÚÙ[—ØÛİ[[YÙ\ˆÚXÚÈ
+İ[İÚÙ[—ØÛİ[\È[Üˆİ[İÚÙ[—ØÛİ[H
+Kˆ][˜ŞWÛ\È[YÙ\ˆÚXÚÈ
+][˜ŞWÛ\È\È[Üˆ][˜ŞWÛ\ÈH
+Kˆ\İ[X]YØÛÜİÛZXÜ›ÜÈšYÚ[ÚXÚÈ
+\İ[X]YØÛÜİÛZXÜ›ÜÈ\È[Üˆ\İ[X]YØÛÜİÛZXÜ›ÜÈH
+Kˆ\œ›Ü—ÛY\ÜØYÙH^ˆİ\YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛÛ\]YØ][Y\İ[\‹ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛÛœİ˜Z[™\ÜØZWØ][\×ÚY[]WØ][\İ[š\]YH[š\]YH
+Ù[™\˜][Û—ÚY[]K][\ÚÚ[™][\Û[X™\ŠKˆÛÛœİ˜Z[™\ÜØZWØ][\×Ü›İšY\—Ü™\]Y\İİ[š\]YH[š\]YH
+›İšY\—Ü™\]Y\İÚÙ^JBŠNÂ‚˜Ü™X]H[™^™\ÜØZWØ][\×Ù[š[Y[ÚYˆÛˆX›XËœ™\ÜØZWØ][\Ê[š[Y[ÚYÜ™X]YØ]\ØÊNÂ˜Ü™X]H[™^™\ÜØZWØ][\×Ü™XÛÛ˜Ú[X][Û—ÚYˆÛˆX›XËœ™\ÜØZWØ][\ÊÜ™X]YØ]
+BˆÚ\™Hİ]\È[ˆ
+	Ü›İšY\—Ü™\İ[İ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊNÂ˜[\ˆX›HX›XËœ™\ÜØZWØ][\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ™\ÜØZWØ][\Èœ›ÛHX›XË[›Û‹]][XØ]YÂ™Ü˜[Ù[XİÛˆX›HX›XËœ™\ÜØZWØ][\ÈÈ]][XØ]YÂ‚˜Ü™X]HÛXŞH™\ÜØZWØ][\×ØYZ[—ÜÙ[XİÛˆX›XËœ™\ÜØZWØ][\Âˆ›ÜˆÙ[Xİ\Ú[™È
+ˆX›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊBˆ
+NÂ‚˜[\ˆX›HX›XË™[XZ[Ù]™[ÂˆYÛÛ[[ˆYˆ›İ^\İÈ›İšY\—Ü™\]Y\İÚÙ^H^ˆYÛÛ[[ˆYˆ›İ^\İÈ›İšY\—ÚY[\İ[˜ŞWÚÙ^H^ˆYÛÛ[[ˆYˆ›İ^\İÈÙ[™ÛX\ÙWİÚÙ[ˆ]ZYˆYÛÛ[[ˆYˆ›İ^\İÈÙ[™ÛX\ÙWÙ^\™\×Ø][Y\İ[\‹ˆYÛÛ[[ˆYˆ›İ^\İÈ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ][Y\İ[\‹ˆYÛÛ[[ˆYˆ›İ^\İÈ™XÛÛ˜Ú[X][Û—Ø][\YØ][Y\İ[\‹ˆYÛÛ[[ˆYˆ›İ^\İÈ™XÛÛ˜Ú[X][Û—Ü™\İ[ÚœÛÛˆœÛÛ˜ˆ›İ[Y˜][	ŞßIÎšœÛÛ˜Â‚˜Ü™X]H[š\]YH[™^[XZ[Ù]™[×Ü›İšY\—Ü™\]Y\İİZYˆÛˆX›XË™[XZ[Ù]™[Ê›İšY\—Ü™\]Y\İÚÙ^JBˆÚ\™H›İšY\—Ü™\]Y\İÚÙ^H\È›İ[Â˜Ü™X]H[™^[XZ[Ù]™[×Üİ[WÜÙ[™ÛX\ÙWÚYˆÛˆX›XË™[XZ[Ù]™[ÊÙ[™ÛX\ÙWÙ^\™\×Ø]
+BˆÚ\™Hİ]\ÈH	ÜÙ[™[™ÉÎÂ‚˜[\ˆX›HX›XË™[XZ[Ü›İšY\—Ù]™[Âˆ[\ˆÛÛ[[ˆ[XZ[Ù]™[ÚY›Ü›İ[Â‚š[œÙ\[ÈX›XË˜\ÜÙ][™ÜÊÙ][™×ÚÙ^K˜[YWÚœÛÛŠB˜[Y\È
+ˆ	Ü\ÙLMÙ[]™\WÜÛXŞIËˆ	ŞÂˆœ™[Z][WÜ™\ÜÛX[X[Ù[]™\WÙ[˜X›Y™˜[ÙKˆœ™[Z][WÜ™\Üİ\İÜ™XÚ\Y[Ûİ™\œšYWÙ[˜X›Y™˜[ÙKˆœ›İšY\—Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ™Y›Ü™WÜ™\Ù[™YKˆ›Y˜WÙ[™›Ü˜Ù[Y[ÙØ]Hˆœ™\]Z\™YØ™Y›Ü™WÜ›ÙXİ[Û—Ù[˜X›[Y[‹ˆœ›İšY\—Ù]WÛZ[š[Z\Ø][Û—ÙØ]Hˆœ™\]Z\™YØ™Y›Ü™WÜ›ÙXİ[Û—Ù[˜X›[Y[‚ˆIÎšœÛÛ˜‚ŠB›ÛˆÛÛ™›Xİ
+Ù][™×ÚÙ^JHÈ\]BœÙ]˜[YWÚœÛÛˆH^ÛYY˜[YWÚœÛÛ‹ˆ\]YØ]H›İÊ
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ù[][Y[
+ˆÛÜ™\—Ü™Y™\™[˜ÙH^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—Ø\ÜÙ\ÜÛY[X›XË˜\ÜÙ\ÜÛY[É\›İİ\NÂˆ—ÜØÛÜ™WÜ[ˆX›XËœØÛÜ™WÜ[œÉ\›İİ\NÂˆ—Ü›ÙXİX›XËœ›ÙXİÉ\›İİ\NÂˆ—Ù^XİYÙÛXZ[œÈ[YÙ\Âˆ—ØXİX[ÙÛXZ[œÈ[YÙ\Âˆ—Ù^XİYİ˜XÙ\È[YÙ\Âˆ—ØXİX[İ˜XÙ\È[YÙ\Â˜™YÚ[‚ˆÙ[XİËŠˆ[È—ÛÜ™\‚ˆœ›ÛHX›XË›Ü™\œÈÂˆÚ\™HË›Ü™\—Ü™Y™\™[˜ÙHHÛÜ™\—Ü™Y™\™[˜ÙBˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Û›İÙ›İ[™	ÎÈ[™YÂ‚ˆÙ[XİKŠˆ[È—Ø\ÜÙ\ÜÛY[ˆœ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈBˆÚ\™HKšYH—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Ø\ÜÙ\ÜÛY[ÛZ\ÛX]Ú	ÎÈ[™YÂ‚ˆÙ[XİŠˆ[È—Ü›ÙXİˆœ›ÛHX›XËœ›ÙXİÈˆÚ\™HšYH—ÛÜ™\‹œ›ÙXİÚYˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Ü›ÙXİÛZ\ÛX]Ú	ÎÈ[™YÂ‚ˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø\ÜÙ\ÜÛY[Û›İÜØÛÜ™Y	ÎÈ[™YÂˆÙ[XİÜ‹Šˆ[È—ÜØÛÜ™WÜ[‚ˆœ›ÛHX›XËœØÛÜ™WÜ[œÈÜ‚ˆÚ\™HÜ‹šYH—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚYˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\œ™[ÜØÛÜ™WÜ[—ÛZ\ÜÚ[™ÉÎÈ[™YÂ‚ˆYˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šY[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Ø\ÜÙ\ÜÛY[ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šY[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Ø\ÜÙ\ÜÛY[ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚYˆ—ÜØÛÜ™WÜ[‹šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Üİ[WØİ\œ™[ÜØÛÜ™WÜ™Y™\™[˜ÙIÎÈ[™YÂˆYˆ—ÛÜ™\‹œİ]\Î^ˆ	Ü^[Y[Ü™XÙZ]™Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Û›İÜ^[Y[Ü™XÙZ]™Y	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØ]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—ÛZ\ÜÚ[™×İ™\šYšYYØ]	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØH\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—ÛZ\ÜÚ[™×İ™\šYšYYØIÎÈ[™YÂˆYˆ—Ü›ÙXİœ›ÙXİØÛÙHˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü›ÙXİÛ›İÙ\ÜÙ[X[	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜[[İ[ØÙ[ÈˆLÜˆ—Ü›ÙXİœšXÙWØÙ[ÈˆL[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[ÜšXÙWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜İ\œ™[˜ŞHˆ	ÖT‰ÈÜˆ—Ü›ÙXİ˜İ\œ™[˜ŞHˆ	ÖT‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[Øİ\œ™[˜ŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ›İ—Ü›ÙXİ˜Xİ]™H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[Ü›ÙXİÚ[˜Xİ]™IÎÈ[™YÂˆYˆ›İ—Ü›ÙXİœ™\]Z\™\×Ü^[Y[İ™\šYšXØ][Ûˆ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛX[X[İ™\šYšXØ][Û—Û›İÜ™\]Z\™Y	ÎÈ[™YÂˆYˆ—Ü›ÙXİ™[]™\WÛ[ÙHˆ	ÛZ×ØÛÛ›ÛYÜ‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[œİ\ÜYÙ[]™\WÛ[ÙIÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹œİ]\Î^ˆ	ØÛÛ\]Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Û›İØÛÛ\]Y	ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹›ØÚÙYØ]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Û›İÛØÚÙY	ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú\È[Üˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Ú[œ]Ú\ÚÚ[˜[Y	ÎÈ[™YÂ‚ˆÙ[XİÛİ[
+
+ŠH[È—Ù^XİYÙÛXZ[œÂˆœ›ÛHX›XË™ÛXZ[œÈˆÚ\™H›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYÂˆÙ[XİÛİ[
+\İ[˜İÙ‹™ÛXZ[—ÚY
+H[È—ØXİX[ÙÛXZ[œÂˆœ›ÛHX›XËœØÛÜ™WÙÛXZ[—Ü™\İ[ÈÙ‚ˆ›Ú[ˆX›XË™ÛXZ[œÈÛˆšYHÙ‹™ÛXZ[—ÚYˆÚ\™HÙ‹œØÛÜ™WÜ[—ÚYH—ÜØÛÜ™WÜ[‹šYˆ[™›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYÂˆYˆ—Ù^XİYÙÛXZ[œÈHÜˆ—ØXİX[ÙÛXZ[œÈˆ—Ù^XİYÙÛXZ[œÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—ÙÛXZ[—Ü™\İ[×Ú[˜ÛÛ\]N‰KÉIË—ØXİX[ÙÛXZ[œË—Ù^XİYÙÛXZ[œÎÂˆ[™YÂ‚ˆÙ[XİÛİ[
+
+ŠH[È—Ù^XİYİ˜XÙ\Âˆœ›ÛHX›XËœ]Y\İ[ÛœÈBˆÚ\™HK›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚY[™K˜Xİ]™NÂˆÙ[XİÛİ[
+\İ[˜İÜ]œ]Y\İ[Û—ÚY
+H[È—ØXİX[İ˜XÙ\Âˆœ›ÛHX›XËœØÛÜ™WÜ]Y\İ[Û—İ˜XÙ\ÈÜ]ˆ›Ú[ˆX›XËœ]Y\İ[ÛœÈHÛˆKšYHÜ]œ]Y\İ[Û—ÚYˆÚ\™HÜ]œØÛÜ™WÜ[—ÚYH—ÜØÛÜ™WÜ[‹šYˆ[™K›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYˆ[™K˜Xİ]™NÂˆYˆ—Ù^XİYİ˜XÙ\ÈHÜˆ—ØXİX[İ˜XÙ\Èˆ—Ù^XİYİ˜XÙ\È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Ü]Y\İ[Û—İ˜XÙ\×Ú[˜ÛÛ\]N‰KÉIË—ØXİX[İ˜XÙ\Ë—Ù^XİYİ˜XÙ\ÎÂˆ[™YÂ‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ÛÜ™\—ÚY	Ë—ÛÜ™\‹šYˆ	Ø\ÜÙ\ÜÛY[ÚY	Ë—Ø\ÜÙ\ÜÛY[šYˆ	ÜØÛÜ™WÜ[—ÚY	Ë—ÜØÛÜ™WÜ[‹šYˆ	Ü›ÙXİÚY	Ë—Ü›ÙXİšYˆ	Ù^XİYÙÛXZ[—ØÛİ[	Ë—Ù^XİYÙÛXZ[œËˆ	ØXİX[ÙÛXZ[—ØÛİ[	Ë—ØXİX[ÙÛXZ[œËˆ	Ù^XİYİ˜XÙWØÛİ[	Ë—Ù^XİYİ˜XÙ\Ëˆ	ØXİX[İ˜XÙWØÛİ[	Ë—ØXİX[İ˜XÙ\Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠˆÛÜ™\—Ü™Y™\™[˜ÙH^ˆØÛZ[WÛİÛ™\ˆ^ˆÙ[š[Y[ÚY]ZYY˜][[ˆÜ™\Üİ\HX›XËœ™\Üİ\HY˜][	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	ÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛÛ^œÛÛ˜Âˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—İ™\œÚ[Ûˆ[YÙ\Âˆ—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH^Âˆ—Øİ\œ™[X›XËœ™\ÜÉ\›İİ\NÂ˜™YÚ[‚ˆYˆÛØ[\ØÙJš[JØÛZ[WÛİÛ™\ŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛİÛ™\—Ü™\]Z\™Y	ÎÈ[™YÂˆ—ØÛÛ^HX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙJNÂˆYˆÜ™\Üİ\Hˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[œİ\ÜYÜ™\Üİ\IÎÈ[™YÂ‚ˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊH	Î‰ÈÜ™\Üİ\N^
+JNÂˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ[™™\Üİ\HHÜ™\Üİ\Bˆ[™X\ÙWÙ^\™\×Ø]›İÊ
+Bˆ[™™\ÜÚY\È[Â‚ˆÙ[Xİ
+ˆ[È—ØÛZ[Bˆœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ[™™\Üİ\HHÜ™\Üİ\Bˆ›Üˆ\]NÂ‚ˆYˆ›İ[™[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	Ë—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\‹ˆ	ØÛZ[WİÚÙ[‰ËØ\ÙHÚ[ˆ—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\ˆ[ˆ—ØÛZ[K˜ÛZ[WİÚÙ[ˆ[ÙH[[™ˆ	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙKˆ	Ü™\ÜÚY	Ë—ØÛZ[Kœ™\ÜÚYˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]ˆ	Ü™X\ÛÛ‰ËØ\ÙHÚ[ˆ—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\ˆ[ˆ	ÜØ[YWÛİÛ™\—Ü™\İ[YIÈ[ÙH	ÙÙ[™\˜][Û—Ú[—Ü›ÙÜ™\ÜÉÈ[™ˆ
+NÂˆ[™YÂ‚ˆÙ[Xİ
+ˆ[È—Øİ\œ™[ˆœ›ÛHX›XËœ™\ÜÈ‚ˆÚ\™H‹˜\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ[™‹œ™\Üİ\HHÜ™\Üİ\Bˆ[™‹œİ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH‹™\œÚ[Û—Û[X™\ˆ\ØÂˆ[Z]Bˆ›Üˆ\]NÂ‚ˆÙ[XİÛØ[\ØÙJX^
+‹™\œÚ[Û—Û[X™\ŠK
+H
+ÈH[È—İ™\œÚ[Û‚ˆœ›ÛHX›XËœ™\ÜÈ‚ˆÚ\™H‹˜\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ[™‹œ™\Üİ\HHÜ™\Üİ\NÂˆÙ[XİK˜\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH[È—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙBˆœ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈHÚ\™HKšYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYÂ‚ˆ[œÙ\[ÈX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\Êˆ\ÜÙ\ÜÛY[ÚY™\Üİ\KÜ™\—ÚYØÛÜ™WÜ[—ÚY[š[Y[ÚYÛZ[WÛİÛ™\‹ˆ™\œÚ[Û—Û[X™\‹™\ÜÜ™Y™\™[˜ÙKX\ÙWÙ^\™\×Ø]ˆ
+H˜[Y\È
+ˆ
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYÜ™\Üİ\Kˆ
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZY
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYÙ[š[Y[ÚYØÛZ[WÛİÛ™\‹ˆ—İ™\œÚ[Û‹	Ô”IÈ—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH	ËU‰È—İ™\œÚ[Û‹›İÊ
+H
+È[\˜[	ÌŒZ[]\ÉÂˆ
+H™]\›š[™È
+ˆ[È—ØÛZ[NÂ‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	ËYKˆ	ØÛZ[WİÚÙ[‰Ë—ØÛZ[K˜ÛZ[WİÚÙ[‹ˆ	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙKˆ	Ü™\ÜÚY	Ë[ˆ	Øİ\œ™[Ü™\ÜÚY	Ë—Øİ\œ™[šYˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]ˆ	Ü™X\ÛÛ‰Ë	ØÛZ[YY	Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+ˆØÛZ[WİÚÙ[ˆ]ZYˆİ[\]WÚY]ZYˆÜİÜ˜YÙWØXÚÙ]^ˆİ[\ÜİÜ˜YÙWÜ]^ˆØÚXÚÜİ[H^ˆÙÙ[™\˜]YØH]ZYY˜][[ˆÙÙ[™\˜][Û—Ü[—ÚY]ZYY˜][[ŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜÚY]ZYÂˆ—Üİ\\œÙY\È]ZYÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]›İÊ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÙ^\™Y	ÎÈ[™YÂˆYˆØÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜØÚXÚÜİ[WÚ[˜[Y	ÎÈ[™YÂˆYˆİ[\ÜİÜ˜YÙWÜ]›İZÙH	İ\ÉIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[\Ü˜\WÜİÜ˜YÙWÜ]Ü™\]Z\™Y	ÎÈ[™YÂˆYˆ—ØÛZ[Kœ™\ÜÚY\È›İ[[ˆ™]\›ˆ—ØÛZ[Kœ™\ÜÚYÈ[™YÂ‚ˆÙ[Xİ‹šY[È—Üİ\\œÙY\Âˆœ›ÛHX›XËœ™\ÜÈ‚ˆÚ\™H‹˜\ÜÙ\ÜÛY[ÚYH—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYˆ[™‹œ™\Üİ\HH—ØÛZ[Kœ™\Üİ\Bˆ[™‹œİ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH‹™\œÚ[Û—Û[X™\ˆ\ØÂˆ[Z]Bˆ›Üˆ\]NÂ‚ˆ[œÙ\[ÈX›XËœ™\ÜÊˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚYØÛÜ™WÜ[—ÚY[\]WÚY™\Üİ\Kİ]\Ëˆ™\ÜÜ™Y™\™[˜ÙK™\œÚ[Û—Û[X™\‹İÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]ÚXÚÜİ[KˆÙ[™\˜]YØKÙ[™\˜]YØ]İ\\œÙY\×Ü™\ÜÚY[š[Y[ÚYÙ[™\˜][Û—Ü[—ÚYˆ
+H˜[Y\È
+ˆ—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K›Ü™\—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYİ[\]WÚYˆ—ØÛZ[Kœ™\Üİ\K	Ù˜Y	Ë—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙK—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆÜİÜ˜YÙWØXÚÙ]İ[\ÜİÜ˜YÙWÜ]ØÚXÚÜİ[KÙÙ[™\˜]YØK›İÊ
+Kˆ—Üİ\\œÙY\Ë—ØÛZ[K™[š[Y[ÚYÙÙ[™\˜][Û—Ü[—ÚYˆ
+H™]\›š[™ÈY[È—Ü™\ÜÚYÂ‚ˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]™\ÜÚYH—Ü™\ÜÚY\]YØ]H›İÊ
+BˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[Âˆ™]\›ˆ—Ü™\ÜÚYÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠˆØÛZ[WİÚÙ[ˆ]ZYˆÜ™\ÜÚY]ZYˆÙš[˜[ÜİÜ˜YÙWÜ]^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—ØÛZ[Kœ™\ÜÚYˆÜ™\ÜÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÜ™\ÜÛZ\ÛX]Ú	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ü™\Üœİ]\Èˆ	Ù˜Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÙ˜YÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆÙš[˜[ÜİÜ˜YÙWÜ]ZÙH	İ\ÉIÈÜˆÙš[˜[ÜİÜ˜YÙWÜ]H	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ùš[˜[ÜİÜ˜YÙWÜ]Ú[˜[Y	ÎÈ[™YÂ‚ˆYˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÈH	Üİ\\œÙYY	ÂˆÚ\™HYH—Ü™\Üœİ\\œÙY\×Ü™\ÜÚYˆ[™İ]\È›İ[ˆ
+	İ›ÚYY	Ë	Üİ\\œÙYY	ÊNÂˆ[™YÂˆ\]HX›XËœ™\ÜÂˆÙ]İ]\ÈH	ÙÙ[™\˜]Y	ËİÜ˜YÙWÜ]HÙš[˜[ÜİÜ˜YÙWÜ]\]YØ]H›İÊ
+BˆÚ\™HYHÜ™\ÜÚYÂˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[Â‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™\ÜÚY	ËÜ™\ÜÚYˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—Ü™\Üœ™\ÜÜ™Y™\™[˜ÙKˆ	İ™\œÚ[Û—Û[X™\‰Ë—Ü™\Ü™\œÚ[Û—Û[X™\‹ˆ	Üİ\\œÙYYÜ™\ÜÚY	Ë—Ü™\Üœİ\\œÙY\×Ü™\ÜÚYˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™[X\ÙWÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[JØÛZ[WİÚÙ[ˆ]ZY
+Bœ™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ[™™\ÜÚY\È[Âˆ™]\›ˆ›İ[™Â™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙ[]™\WÙ[][Y[
+ˆÜ™\ÜÚY]ZYˆÜ™XÚ\Y[^ˆØ[İ×İ\İÛİ™\œšYH›ÛÛX[ˆY˜][˜[ÙBŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂˆ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—Ü›ÙXİX›XËœ›ÙXİÉ\›İİ\NÂˆ—Ø\ÜÙ\ÜÛY[X›XË˜\ÜÙ\ÜÛY[É\›İİ\NÂˆ—ÜØÛÜ™WÜ[ˆX›XËœØÛÜ™WÜ[œÉ\›İİ\NÂˆ—Øİ\İÛY\—Ù[XZ[^Âˆ—Øİ\œ™[Ü™\ÜÚY]ZYÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÛ›İÙ›İ[™	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HYH—Ü™\Ü›Ü™\—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÛÜ™\—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü›ÙXİœ›ÛHX›XËœ›ÙXİÈÚ\™HYH—ÛÜ™\‹œ›ÙXİÚY›ÜˆÚ\™NÂˆÙ[Xİ
+ˆ[È—Ø\ÜÙ\ÜÛY[œ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈÚ\™HYH—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY›ÜˆÚ\™NÂˆÙ[Xİ
+ˆ[È—ÜØÛÜ™WÜ[ˆœ›ÛHX›XËœØÛÜ™WÜ[œÈÚ\™HYH—Ü™\ÜœØÛÜ™WÜ[—ÚY›ÜˆÚ\™NÂ‚ˆÙ[Xİ‹šY[È—Øİ\œ™[Ü™\ÜÚYˆœ›ÛHX›XËœ™\ÜÈ‚ˆÚ\™H‹˜\ÜÙ\ÜÛY[ÚYH—Ü™\Ü˜\ÜÙ\ÜÛY[ÚYˆ[™‹œ™\Üİ\HH—Ü™\Üœ™\Üİ\Bˆ[™‹œİ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH‹™\œÚ[Û—Û[X™\ˆ\ØÈ[Z]NÂ‚ˆYˆ—Ü™\Üœ™\Üİ\Hˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™\Üİ\WÚ[™[YÚX›IÎÈ[™YÂˆYˆ—Ü›ÙXİœ›ÙXİØÛÙHˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›ÙXİÚ[™[YÚX›IÎÈ[™YÂˆYˆ—ÛÜ™\‹˜[[İ[ØÙ[ÈˆLÜˆ—Ü›ÙXİœšXÙWØÙ[ÈˆL[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜšXÙWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜İ\œ™[˜ŞHˆ	ÖT‰ÈÜˆ—Ü›ÙXİ˜İ\œ™[˜ŞHˆ	ÖT‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØİ\œ™[˜ŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹œİ]\Î^ˆ	Ü^[Y[Ü™XÙZ]™Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÛÜ™\—Û›İÜZY	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØ]\È[Üˆ—ÛÜ™\‹™\šYšYYØH\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÛX[X[İ™\šYšXØ][Û—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ›İ—Ü›ÙXİ˜Xİ]™HÜˆ›İ—Ü›ÙXİœ™\]Z\™\×Ü^[Y[İ™\šYšXØ][ÛˆÜˆ—Ü›ÙXİ™[]™\WÛ[ÙHˆ	ÛZ×ØÛÛ›ÛYÜ‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›ÙXİÜÛXŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚYˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYÜˆ—ÜØÛÜ™WÜ[‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™[][ÛœÚ\ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚYˆ—ÜØÛÜ™WÜ[‹šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜİ[WÜØÛÜ™WÜ[‰ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹œİ]\Î^ˆ	ØÛÛ\]Y	ÈÜˆ—ÜØÛÜ™WÜ[‹›ØÚÙYØ]\È[Üˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú\È[Üˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜØÛÜ™WÜ[—Ú[™[YÚX›IÎÈ[™YÂˆYˆ—Ü™\Üœİ]\È[ˆ
+	Ù˜Y	Ë	Üİ\\œÙYY	Ë	İ›ÚYY	ÊHÜˆ—Øİ\œ™[Ü™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜšY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™\ÜÛ›İØİ\œ™[	ÎÈ[™YÂˆYˆÛØ[\ØÙJ—Ü™\ÜœİÜ˜YÙWØXÚÙ]	ÉÊHH	ÉÈÜˆÛØ[\ØÙJ—Ü™\ÜœİÜ˜YÙWÜ]	ÉÊHH	ÉÈÜˆ—Ü™\Ü˜ÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜİÜ˜YÙWÛY]Y]WÚ[˜[Y	ÎÈ[™YÂ‚ˆ—Øİ\İÛY\—Ù[XZ[HİÙ\Šš[J—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+JNÂˆYˆ›İØ[İ×İ\İÛİ™\œšYH[™İÙ\Šš[JÜ™XÚ\Y[
+JH\È\İ[˜İœ›ÛH—Øİ\İÛY\—Ù[XZ[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÚ\Y[Ûİ™\œšYWÙ›Ü˜šY[‰ÎÂˆ[™YÂ‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™\ÜÚY	Ë—Ü™\ÜšYˆ	ÛÜ™\—ÚY	Ë—ÛÜ™\‹šYˆ	Ø\ÜÙ\ÜÛY[ÚY	Ë—Ø\ÜÙ\ÜÛY[šYˆ	ÜØÛÜ™WÜ[—ÚY	Ë—ÜØÛÜ™WÜ[‹šYˆ	Øİ\İÛY\—Ù[XZ[	Ë—Øİ\İÛY\—Ù[XZ[ˆ	Ü™XÚ\Y[	ËİÙ\Šš[JÜ™XÚ\Y[
+JKˆ	İ\İÙ[]™\IËİÙ\Šš[JÜ™XÚ\Y[
+JH\È\İ[˜İœ›ÛH—Øİ\İÛY\—Ù[XZ[ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™XÛİ™\—Üİ[WÜ™[Z][WÜ™\ÜÙ[XZ[ÜÙ[™Ê
+Bœ™]\›œÈ[YÙ\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØÛİ[[YÙ\Â˜™YÚ[‚ˆ\]HX›XË™[XZ[Ù]™[ÂˆÙ]İ]\ÈH	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ëˆ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]HÛØ[\ØÙJ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]›İÊ
+JKˆ[]™\Wİ\]YØ]H›İÊ
+Kˆ\œ›Ü—ÛY\ÜØYÙHH	ÔÙ[™X\ÙH^\™YÈ›İšY\ˆXØÙ\[˜ÙH]\İ™H™XÛÛ˜Ú[Y™Y›Ü™H™]K‰ÂˆÚ\™Hİ]\ÈH	ÜÙ[™[™ÉÂˆ[™Ù[™ÛX\ÙWÙ^\™\×Ø]›İÊ
+NÂˆÙ]XYÛ›ÜİXÜÈ—ØÛİ[H›İ×ØÛİ[Âˆ™]\›ˆ—ØÛİ[Â™[™Â‰[˜İ[Û‰Â‚‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊˆÜ›İšY\ˆ^ˆÜ›İšY\—Ù]™[ÚY^ˆÜ›İšY\—ÛY\ÜØYÙWÚY^ˆÙ]™[İ\H^ˆÙ]™[ØÜ™X]YØ][Y\İ[\‹ˆÜ^[ØYÚœÛÛˆœÛÛ˜ˆY˜][	ŞßIÎšœÛÛ˜‚ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ù[XZ[X›XË™[XZ[Ù]™[É\›İİ\NÂˆ—Ü›İšY\—Ù]™[ÚY]ZYÂˆ—Üİ]\È^Âˆ—Øİ\œ™[Ü˜[šÈ[YÙ\Âˆ—Ú[˜ÛÛZ[™×Ü˜[šÈ[YÙ\Âˆ—Ø\YY›ÛÛX[ˆH˜[ÙNÂ˜™YÚ[‚ˆ—Üİ]\ÈHØ\ÙHÙ]™[İ\BˆÚ[ˆ	Ù[XZ[œÙ[	È[ˆ	ÜÙ[	ÂˆÚ[ˆ	Ù[XZ[™[]™\WÙ[^YY	È[ˆ	Ù[]™\WÙ[^YY	ÂˆÚ[ˆ	Ù[XZ[™[]™\™Y	È[ˆ	Ù[]™\™Y	ÂˆÚ[ˆ	Ù[XZ[™˜Z[Y	È[ˆ	Ù[]™\WÙ˜Z[Y	ÂˆÚ[ˆ	Ù[XZ[˜›İ[˜ÙY	È[ˆ	Ø›İ[˜ÙY	ÂˆÚ[ˆ	Ù[XZ[œİ\™\ÜÙY	È[ˆ	Ø›İ[˜ÙY	ÂˆÚ[ˆ	Ù[XZ[˜ÛÛ\Z[™Y	È[ˆ	ØÛÛ\Z[™Y	Âˆ[ÙH[[™ÂˆYˆ—Üİ]\È\È[[ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚYÛ›Ü™Y	ËYK	Ü™X\ÛÛ‰Ë	İ[œİ\ÜYÙ]™[	ÊNÈ[™YÂ‚ˆÙ[Xİ
+ˆ[È—Ù[XZ[ˆœ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H›İšY\—ÛY\ÜØYÙWÚYHÜ›İšY\—ÛY\ÜØYÙWÚYˆ›Üˆ\]NÂ‚ˆ[œÙ\[ÈX›XË™[XZ[Ü›İšY\—Ù]™[Êˆ[XZ[Ù]™[ÚY›İšY\‹›İšY\—Ù]™[ÚY›İšY\—ÛY\ÜØYÙWÚYˆ]™[İ\K]™[ØÜ™X]YØ]^[ØYÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—Ù[XZ[šYÜ›İšY\‹Ü›İšY\—Ù]™[ÚYÜ›İšY\—ÛY\ÜØYÙWÚYˆÙ]™[İ\KÙ]™[ØÜ™X]YØ]ÛØ[\ØÙJÜ^[ØYÚœÛÛ‹	ŞßIÎšœÛÛ˜ŠBˆ
+HÛˆÛÛ™›Xİ
+›İšY\‹›İšY\—Ù]™[ÚY
+HÈ›İ[™Âˆ™]\›š[™ÈY[È—Ü›İšY\—Ù]™[ÚYÂ‚ˆYˆ—Ü›İšY\—Ù]™[ÚY\È[[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù\XØ]IËYK	Üİ]Wİ\]Y	Ë˜[ÙJNÂˆ[™YÂˆYˆ—Ù[XZ[šY\È[[‚ˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÂˆÙ]›ØÙ\ÜÚ[™×Ù\œ›ÜˆH	İ[šÛ›İÛ—Ü›İšY\—ÛY\ÜØYÙIË›ØÙ\ÜÙYØ]H›İÊ
+BˆÚ\™HYH—Ü›İšY\—Ù]™[ÚYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚYÛ›Ü™Y	ËYK	Ü™X\ÛÛ‰Ë	İ[šÛ›İÛ—ÛY\ÜØYÙIÊNÂˆ[™YÂ‚ˆ—Øİ\œ™[Ü˜[šÈHØ\ÙH—Ù[XZ[œİ]\ÂˆÚ[ˆ	Ü]Y]YY	È[ˆLÚ[ˆ	ÜÙ[™[™ÉÈ[ˆŒˆÚ[ˆ	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰È[ˆHÚ[ˆ	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	È[ˆ‚ˆÚ[ˆ	ÜÙ[	È[ˆÌÚ[ˆ	Ù[]™\WÙ[^YY	È[ˆˆÚ[ˆ	Ù[]™\™Y	È[ˆLÚ[ˆ	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰È[ˆLÚ[ˆ	Ù[]™\WÙ˜Z[Y	È[ˆŒˆÚ[ˆ	Ø›İ[˜ÙY	È[ˆŒÚ[ˆ	ØÛÛ\Z[™Y	È[ˆÌ[ÙH[™Âˆ—Ú[˜ÛÛZ[™×Ü˜[šÈHØ\ÙH—Üİ]\ÂˆÚ[ˆ	ÜÙ[	È[ˆÌÚ[ˆ	Ù[]™\WÙ[^YY	È[ˆÚ[ˆ	Ù[]™\™Y	È[ˆLˆÚ[ˆ	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰È[ˆLÚ[ˆ	Ù[]™\WÙ˜Z[Y	È[ˆŒÚ[ˆ	Ø›İ[˜ÙY	È[ˆŒÚ[ˆ	ØÛÛ\Z[™Y	È[ˆÌ[ÙH[™Â‚ˆYˆ—Ú[˜ÛÛZ[™×Ü˜[šÈH—Øİ\œ™[Ü˜[šÂˆ[™
+—Ù[XZ[™[]™\Wİ\]YØ]\È[ÜˆÙ]™[ØÜ™X]YØ]H—Ù[XZ[™[]™\Wİ\]YØ]
+H[‚ˆ\]HX›XË™[XZ[Ù]™[ÂˆÙ]İ]\ÈH—Üİ]\Ëˆ›İšY\—Ù]™[ÚYHÜ›İšY\—Ù]™[ÚYˆ[]™\™YØ]HØ\ÙHÚ[ˆ—Üİ]\ÈH	Ù[]™\™Y	È[ˆÙ]™[ØÜ™X]YØ][ÙH[]™\™YØ][™ˆ[]™\Wİ\]YØ]HÙ]™[ØÜ™X]YØ]ˆ\œ›Ü—ÛY\ÜØYÙHHØ\ÙHÚ[ˆ—Üİ]\È[ˆ
+	Ø›İ[˜ÙY	Ë	ØÛÛ\Z[™Y	Ë	Ù[]™\WÙ˜Z[Y	Ë	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰ÊH[ˆÛØ[\ØÙJÜ^[ØYÚœÛÛ‹O‰Ü™X\ÛÛ‰Ë—Üİ]\ÊH[ÙH[[™ˆY]Y]WÚœÛÛˆHÛØ[\ØÙJY]Y]WÚœÛÛ‹	ŞßIÎšœÛÛ˜ŠHœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Û\İÜ›İšY\—Ù]™[İ\IËÙ]™[İ\Kˆ	Û\İÜ›İšY\—Ù]™[ØÜ™X]YØ]	ËÙ]™[ØÜ™X]YØ]ˆ
+BˆÚ\™HYH—Ù[XZ[šYÂˆ—Ø\YYHYNÂˆ[™YÂ‚ˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÂˆÙ]›ØÙ\ÜÙYØ]H›İÊ
+K›ØÙ\ÜÚ[™×Ù\œ›ÜˆH[ˆÚ\™HYH—Ü›İšY\—Ù]™[ÚYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù\XØ]IË˜[ÙK	Üİ]Wİ\]Y	Ë—Ø\YY	Üİ]\ÉË—Üİ]\ÊNÂ™[™Â‰[˜İ[Û‰Â‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒWÜ\ÙLMØY™\œØ\šX[Ü™[YYX][Û‹œÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒ—Ü\ÙLMØY™\œØ\šX[Ü™[YYX][Û—ÙÜ˜[ËœÜ[
+ÚLMŒÍNYMXYLÍÌXNÌÙÍYÍ˜ÍŒÍ˜˜™ŒMÎMÌØŒLÍÙMXY˜MLLÙMÎNJB‹KH\Hš]š[YÙY\ÙHM™[YYX][Ûˆ”ÈÜ˜[È\ÈÛ™H\œÙ\‹\ØY™H[š]‚‚™È	Ü˜[É™XÛ\™H—ÜÚYÛ˜]\™H^Â˜™YÚ[‚ˆ›Ü™XXÚ—ÜÚYÛ˜]\™H[ˆ\œ˜^H\œ˜^VÂˆ	ÜX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ù[][Y[
+^
+IËˆ	ÜX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ^^]ZYX›XËœ™\Üİ\JIËˆ	ÜX›XË˜ÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+]ZY]ZY^^^]ZY]ZY
+IËˆ	ÜX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY]ZY^
+IËˆ	ÜX›XËœ™[X\ÙWÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J]ZY
+IËˆ	ÜX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙ[]™\WÙ[][Y[
+]ZY^›ÛÛX[ŠIËˆ	ÜX›XËœ™XÛİ™\—Üİ[WÜ™[Z][WÜ™\ÜÙ[XZ[ÜÙ[™Ê
+IËˆ	ÜX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊ^^^^[Y\İ[\‹œÛÛ˜ŠIÂˆHÛÜˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	Èœ›ÛHX›XË[›Û‹]][XØ]Y	ÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	ÈÈÙ\šXÙWÜ›ÛIÎÂˆ[™ÛÜÂ™[™Â‰Ü˜[ÉÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒ—Ü\ÙLMØY™\œØ\šX[Ü™[YYX][Û—ÙÜ˜[ËœÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒŒÌMNMÌM×Ü\ÙLMÜÙXİ\š]WÜİ]WÛXXÚ[™WØÛÜİ\™KœÜ[
+ÚLMLÍØÍNXŒ˜XØXŒYYLXÍNÍ˜ÎLMÍŒ˜LXØÍLŒÌÌ˜MÌYÙLXLÊB‹KH\ÙHMÙXİ\š]H[™İ]K[XXÚ[™HÛÜİ\™K‚‹KH\ÈZYÜ˜][Ûˆ\È[[[Û˜[H[™\ˆH]X˜\ÙHÙXİ\š]HØ]Hİ\È™[İÂ‹KHH™\]Z\™Y™\œÚ[Û‹ˆ›È™\ÜÙ[™\˜][Û‹İÛ›ØY[]™\K™XÛÛ˜Ú[X][Û‹‹KHÙXšÛÚÈ]]][Û‹ÜˆRKX˜XÚÙYX›XØ][ÛˆØ[ˆ›ØÙYY[[[ˆPSˆ]›Ü›B‹KHYZ[š\İ˜]Üˆ™XÛÜ™ÈH™\]Z\™YØ]H™\œÚ[Ûˆ[ˆHÙ\\˜][H]]Üš\ÙYİ\‚‚‚˜Ü™X]HX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\È
+ˆØ]WÚÙ^H^š[X\HÙ^Kˆ™\]Z\™Yİ™\œÚ[Ûˆ[YÙ\ˆ›İ[ÚXÚÈ
+™\]Z\™Yİ™\œÚ[Ûˆˆ
+KˆØ]\ÙšYYİ™\œÚ[Ûˆ[YÙ\ˆ›İ[Y˜][ÚXÚÈ
+Ø]\ÙšYYİ™\œÚ[ÛˆH
+Kˆİ]\È^›İ[Y˜][	İ[œØ]\ÙšYY	ÈÚXÚÈ
+İ]\È[ˆ
+	İ[œØ]\ÙšYY	Ë	ÜØ]\ÙšYY	Ë	Üİ\Ü[™Y	ÊJKˆØ]\ÙšYYØH]ZY™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]HÙ][ˆØ]\ÙšYYØ][Y\İ[\‹ˆ™X\ÛÛˆ^ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛÛœİ˜Z[\ÙLMÜÙXİ\š]WÙØ]WØÛÛœÚ\İ[˜ŞHÚXÚÈ
+ˆ
+İ]\ÈH	ÜØ]\ÙšYY	È[™Ø]\ÙšYYİ™\œÚ[ÛˆH™\]Z\™Yİ™\œÚ[Ûˆ[™Ø]\ÙšYYØ]\È›İ[
+BˆÜˆ
+İ]\Èˆ	ÜØ]\ÙšYY	ÊBˆ
+BŠNÂ‚š[œÙ\[ÈX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÊˆØ]WÚÙ^K™\]Z\™Yİ™\œÚ[Û‹Ø]\ÙšYYİ™\œÚ[Û‹İ]\Ë™X\ÛÛ‚ŠH˜[Y\È
+ˆ	Ü\ÙLM\™[Z][K\™\Ü	ËK	İ[œØ]\ÙšYY	Ëˆ	Ô\ÙHM™[XZ[œÈXÚšXØ[H[™\[[HÙXİ\š]HÛÜİ\™H\È[™\[™[H\›İ™Y‰ÂŠB›ÛˆÛÛ™›Xİ
+Ø]WÚÙ^JHÈ\]BœÙ]™\]Z\™Yİ™\œÚ[ÛˆHÜ™X]\İ
+X›XËœ\ÙLMÜÙXİ\š]WÙØ]\Ëœ™\]Z\™Yİ™\œÚ[Û‹^ÛYYœ™\]Z\™Yİ™\œÚ[ÛŠKˆØ]\ÙšYYİ™\œÚ[ÛˆHX\İ
+X›XËœ\ÙLMÜÙXİ\š]WÙØ]\ËœØ]\ÙšYYİ™\œÚ[Û‹^ÛYYœØ]\ÙšYYİ™\œÚ[ÛŠKˆİ]\ÈH	İ[œØ]\ÙšYY	ËˆØ]\ÙšYYØHH[ˆØ]\ÙšYYØ]H[ˆ™X\ÛÛˆH^ÛYYœ™X\ÛÛ‹ˆ\]YØ]H›İÊ
+NÂ‚˜[\ˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Èœ›ÛHX›XË[›Û‹]][XØ]YÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÈ]][XØ]YÂ˜Ü™X]HÛXŞH\ÙLMÜÙXİ\š]WÙØ]\×ØYZ[—ÜÙ[XİÛˆX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Âˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜Ü™X]HX›HX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\È
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+Kˆ[\ÚÙ^H^›İ[[š\]YKˆÙ]™\š]H^›İ[ÚXÚÈ
+Ù]™\š]H[ˆ
+	İØ\›š[™ÉË	ØÜš]XØ[	ÊJKˆØ]YÛÜH^›İ[ˆ™\ÜÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]HÙ][ˆ[XZ[Ù]™[ÚY]ZY™Y™\™[˜Ù\ÈX›XË™[XZ[Ù]™[ÊY
+HÛˆ[]HÙ][ˆ]Z[ÚœÛÛˆœÛÛ˜ˆ›İ[Y˜][	ŞßIÎšœÛÛ˜‹ˆİ]\È^›İ[Y˜][	ÛÜ[‰ÈÚXÚÈ
+İ]\È[ˆ
+	ÛÜ[‰Ë	ØXÚÛ›İÛYÙY	Ë	Ü™\ÛÛ™Y	ÊJKˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ™\ÛÛ™YØ][Y\İ[\‚ŠNÂ˜[\ˆX›HX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\Èœ›ÛHX›XË[›Û‹]][XØ]YÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\ÈÈ]][XØ]YÂ˜Ü™X]HÛXŞH\ÙLMÛÜ\˜][Û˜[Ø[\×ØYZ[—ÜÙ[XİÛˆX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\Âˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆYÛÛ[[ˆİ]H^›İ[Y˜][	ØÛZ[YY	ËˆYÛÛ[[ˆØÛÜ™WÚ[œ]Ú\Ú^ˆYÛÛ[[ˆ[\Ü˜\WÜİÜ˜YÙWØXÚÙ]^ˆYÛÛ[[ˆ[\Ü˜\WÜİÜ˜YÙWÜ]^ˆYÛÛ[[ˆš[˜[ÜİÜ˜YÙWØXÚÙ]^ˆYÛÛ[[ˆš[˜[ÜİÜ˜YÙWÜ]^ˆYÛÛ[[ˆ^XİYØÚXÚÜİ[H^ˆYÛÛ[[ˆ\İÚX\™X]Ø][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆYÛÛ[[ˆÛÛ[Z]YØ][Y\İ[\‹ˆYÛÛ[[ˆ™XÛİ™\™YØ][Y\İ[\‹ˆYÛÛ[[ˆ™XÛİ™\WØÛİ[[YÙ\ˆ›İ[Y˜][ˆYÛÛ[[ˆX˜[™Û™YØ][Y\İ[\‹ˆYÛÛ[[ˆX˜[™Û›Y[Ü™X\ÛÛˆ^Â‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×Üİ]WØÚÂˆÚXÚÈ
+İ]H[ˆ
+	ØÛZ[YY	Ë	ØÛÛ[Z]Y	Ë	ØX˜[™Û™Y	ÊJKˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×Ü™XÛİ™\WØÛİ[ØÚÈÚXÚÈ
+™XÛİ™\WØÛİ[H
+KˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×ÜİÜ˜YÙWØš[™[™×ØÚÈÚXÚÈ
+ˆ
+İ]HH	ØÛZ[YY	ÊBˆÜˆ
+İ]HH	ØX˜[™Û™Y	ÊBˆÜˆ
+ˆİ]HH	ØÛÛ[Z]Y	Âˆ[™™\ÜÚY\È›İ[ˆ[™[\Ü˜\WÜİÜ˜YÙWØXÚÙ]\È›İ[ˆ[™[\Ü˜\WÜİÜ˜YÙWÜ]\È›İ[ˆ[™š[˜[ÜİÜ˜YÙWØXÚÙ]\È›İ[ˆ[™š[˜[ÜİÜ˜YÙWÜ]\È›İ[ˆ[™^XİYØÚXÚÜİ[Hˆ	×–ÌNXKY—^ÍI	Âˆ
+Bˆ
+NÂ‚˜Ü™X]H[™^™\ÜÙÙ[™\˜][Û—ØÛZ[\×Üİ]WÛX\ÙWÚYˆÛˆX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\Êİ]KX\ÙWÙ^\™\×Ø]
+NÂ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\ÂˆYÛÛ[[ˆ›Û\İ™\œÚ[Ûˆ^ˆYÛÛ[[ˆØÚ[XWİ™\œÚ[Ûˆ^ˆYÛÛ[[ˆ[œ]ÜÚ^™WØ]\È[YÙ\‹ˆYÛÛ[[ˆ\İ[X]YÚ[œ]İÚÙ[œÈ[YÙ\‹ˆYÛÛ[[ˆXØÛİ[[™×Üİ]\È^›İ[Y˜][	İ[™\šYšYY	ÎÂ‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆYÛÛ[[ˆ\İ[X]YØÛÜİÛZXÜ›ÜÈšYÚ[ˆYÛÛ[[ˆXØÛİ[[™×Üİ]\È^›İ[Y˜][	Û›İØ\XØX›IÎÂ‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—Ü[œ×Ù\İ[X]YØÛÜİØÚÂˆÚXÚÈ
+\İ[X]YØÛÜİÛZXÜ›ÜÈ\È[Üˆ\İ[X]YØÛÜİÛZXÜ›ÜÈH
+KˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—Ü[œ×ØXØÛİ[[™×Üİ]\×ØÚÂˆÚXÚÈ
+XØÛİ[[™×Üİ]\È[ˆ
+	Û›İØ\XØX›IË	İ™\šYšYY	Ë	İ[™\šYšYY	ÊJNÂ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\Âˆ›ÜÛÛœİ˜Z[™\ÜØZWØ][\×ÚY[]WØ][\İ[š\]YKˆ›ÜÛÛœİ˜Z[™\ÜØZWØ][\×Üİ]\×ØÚXÚÎÂ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\ÂˆYÛÛœİ˜Z[™\ÜØZWØ][\×Üİ]\×ØÚXÚÈÚXÚÈ
+İ]\È[ˆ
+ˆ	Üİ\Y	Ë	ÜİXØÙYYY	Ë	ØXØÛİ[[™×İ[™\šYšYY	Ë	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ëˆ	Ü›İšY\—Ü™\İ[İ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Âˆ
+JKˆYÛÛœİ˜Z[™\ÜØZWØ][\×ØXØÛİ[[™×Üİ]\×ØÚÂˆÚXÚÈ
+XØÛİ[[™×Üİ]\È[ˆ
+	İ[™\šYšYY	Ë	İ™\šYšYY	Ë	Û›İØ\XØX›IÊJKˆYÛÛœİ˜Z[™\ÜØZWØ][\×Ú[œ]ÜÚ^™WØÚÂˆÚXÚÈ
+[œ]ÜÚ^™WØ]\È\È[Üˆ[œ]ÜÚ^™WØ]\È™]ÙY[ˆH[™ŒŒM
+KˆYÛÛœİ˜Z[™\ÜØZWØ][\×Ù\İ[X]YÚ[œ]İÚÙ[œ×ØÚÂˆÚXÚÈ
+\İ[X]YÚ[œ]İÚÙ[œÈ\È[Üˆ\İ[X]YÚ[œ]İÚÙ[œÈ™]ÙY[ˆH[™MLÍŠKˆYÛÛœİ˜Z[™\ÜØZWØ][\×Ù[Ùš[™Ù\œš[İ[š\]YH[š\]YH
+ˆÙ[™\˜][Û—ÚY[]K]šY[˜ÙWØÚXÚÜİ[K›İšY\‹[Ù[ˆ›Û\İ™\œÚ[Û‹ØÚ[XWİ™\œÚ[Û‹][\ÚÚ[™][\Û[X™\‚ˆ
+NÂ‚˜[\ˆX›HX›XË™[XZ[Ù]™[ÂˆYÛÛ[[ˆ›İšY\ˆ^›İ[Y˜][	Ü™\Ù[™	ÎÂ‚™›Ü[™^Yˆ^\İÈX›XË™[XZ[Ù]™[×Ü›İšY\—ÛY\ÜØYÙWÚYÂ˜Ü™X]H[š\]YH[™^[XZ[Ù]™[×Ü›İšY\—ÛY\ÜØYÙWİZYˆÛˆX›XË™[XZ[Ù]™[Ê›İšY\‹›İšY\—ÛY\ÜØYÙWÚY
+BˆÚ\™H›İšY\—ÛY\ÜØYÙWÚY\È›İ[Â‚˜[\ˆX›HX›XË™[XZ[Ü›İšY\—Ù]™[Âˆ[\ˆÛÛ[[ˆ›İšY\—ÛY\ÜØYÙWÚY›Ü›İ[ˆYÛÛ[[ˆ^[ØYÙš[™Ù\œš[^ˆYÛÛ[[ˆ^[ØYÜÚ^™WØ]\È[YÙ\‹ˆYÛÛ[[ˆİ\ÜYÙ]™[›ÛÛX[ˆ›İ[Y˜][YKˆYÛÛ[[ˆÛÛ™›XİÙ]XİYØ][Y\İ[\Â‚˜[\ˆX›HX›XË™[XZ[Ü›İšY\—Ù]™[ÂˆYÛÛœİ˜Z[[XZ[Ü›İšY\—Ù]™[×Ùš[™Ù\œš[ØÚÂˆÚXÚÈ
+^[ØYÙš[™Ù\œš[\È[Üˆ^[ØYÙš[™Ù\œš[ˆ	×–ÌNXKY—^ÍI	ÊKˆYÛÛœİ˜Z[[XZ[Ü›İšY\—Ù]™[×Ü^[ØYÜÚ^™WØÚÂˆÚXÚÈ
+^[ØYÜÚ^™WØ]\È\È[Üˆ^[ØYÜÚ^™WØ]\È™]ÙY[ˆ[™MLÍŠNÂ‚˜Ü™X]HX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈ
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+Kˆ™\ÜÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]H™\İšXİˆ™\ÜØÚXÚÜİ[H^›İ[ÚXÚÈ
+™\ÜØÚXÚÜİ[Hˆ	×–ÌNXKY—^ÍI	ÊKˆ™XÚ\Y[Ù[XZ[Ú]^›İ[ˆÜ™\—ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË›Ü™\œÊY
+HÛˆ[]H™\İšXİˆ\ÜÙ\ÜÛY[ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË˜\ÜÙ\ÜÛY[ÊY
+HÛˆ[]H™\İšXİˆØÛÜ™WÜ[—ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœØÛÜ™WÜ[œÊY
+HÛˆ[]H™\İšXİˆÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆ[YÙ\ˆ›İ[ÚXÚÈ
+ÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆˆ
+Kˆ]]Üš\ÙYØH]ZY›İ[™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]H™\İšXİˆ]]Üš\ÙYÜÙ\ÜÚ[Û—ÚY]ZYˆ›İšY\ˆ^›İ[ˆ[XZ[Ù]™[ÚY]ZY›İ[[š\]YH™Y™\™[˜Ù\ÈX›XË™[XZ[Ù]™[ÊY
+HÛˆ[]H™\İšXİˆ\İÙ[]™\H›ÛÛX[ˆ›İ[Y˜][˜[ÙKˆİ]\È^›İ[Y˜][	Ü]Y]YY	ÈÚXÚÈ
+İ]\È[ˆ
+ˆ	Ü]Y]YY	Ë	ØÛZ[YY	Ë	Ù\Ü]Ú[™ÉË	Ùš[˜[^™Y	Ë	Ü™]›ÚÙY	Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Âˆ
+JKˆX\ÙWİÚÙ[ˆ]ZYˆX\ÙWÙ^\™\×Ø][Y\İ[\‹ˆ›İšY\—ÛY\ÜØYÙWÚY^ˆ™]›ÚÙYÜ™X\ÛÛˆ^ˆ]]Üš\ÙYØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛZ[YYØ][Y\İ[\‹ˆ\Ü]ÚÜİ\YØ][Y\İ[\‹ˆš[˜[^™YØ][Y\İ[\‹ˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+BŠNÂ‚˜Ü™X]H[™^™\ÜÙ[]™\WØ]]Üš^˜][Ûœ×Ù\Ü]ÚÚYˆÛˆX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÊİ]\Ë]]Üš\ÙYØ]
+NÂ˜Ü™X]H[™^™\ÜÙ[]™\WØ]]Üš^˜][Ûœ×Ü™\ÜÚYˆÛˆX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÊ™\ÜÚY]]Üš\ÙYØ]\ØÊNÂ˜[\ˆX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈ[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈœ›ÛHX›XË[›Û‹]][XØ]YÂ™Ü˜[Ù[XİÛˆX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÈ]][XØ]YÂ˜Ü™X]HÛXŞH™\ÜÙ[]™\WØ]]Üš^˜][Ûœ×ØYZ[—ÜÙ[XİÛˆX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜Ü™X]HX›HX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÈ
+ˆ]]Üš^˜][Û—ÚY]ZYš[X\HÙ^H™Y™\™[˜Ù\ÈX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÊY
+HÛˆ[]H™\İšXİˆ[XZ[Ù]™[ÚY]ZY›İ[[š\]YH™Y™\™[˜Ù\ÈX›XË™[XZ[Ù]™[ÊY
+HÛˆ[]H™\İšXİˆ™\ÜÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]H™\İšXİˆ›İšY\ˆ^›İ[ˆ›İšY\—ÛY\ÜØYÙWÚY^›İ[ˆš[˜[^™YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+BŠNÂ˜[\ˆX›HX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÈ[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÈœ›ÛHX›XË[›Û‹]][XØ]YÂ™Ü˜[Ù[XİÛˆX›HX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÈÈ]][XØ]YÂ˜Ü™X]HÛXŞH™\ÜÙ[]™\WÙš[˜[^˜][Ûœ×ØYZ[—ÜÙ[XİÛˆX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÂˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠˆØXİ[Ûˆ^ˆØ[İÙYÜ›Û\ÈX›XË˜YZ[—Ü›ÛV×KˆÜ™\]Z\™WØX[ˆ›ÛÛX[ˆY˜][YBŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	ÙXšÛÚÉ™XÛ\™Bˆ—ØÛZ[\ÈœÛÛ˜ˆHÛØ[\ØÙJ]]šİ
+
+K	ŞßIÎšœÛÛ˜ŠNÂˆ—İ\Ù\—ÚY]ZYH]]ZY
+
+NÂˆ—Ü›Ùš[HX›XË˜YZ[—Ü›Ùš[\É\›İİ\NÂˆ—Ù^šYÚ[Â˜™YÚ[‚ˆYˆ—İ\Ù\—ÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛ›×ÜÙ\ÜÚ[Û‰IËØXİ[ÛÈ[™YÂˆ—Ù^H[YŠ—ØÛZ[\ËO‰Ù^	Ë	ÉÊN˜šYÚ[ÂˆYˆ—Ù^\È[Üˆ×İ[Y\İ[\
+—Ù^
+HH›İÊ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙ\ÜÚ[Û—Ù^\™Y‰IËØXİ[ÛÂˆ[™YÂ‚ˆÙ[Xİ
+ˆ[È—Ü›Ùš[Hœ›ÛHX›XË˜YZ[—Ü›Ùš[\ÈÚ\™HYH—İ\Ù\—ÚYÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›Ùš[WÛZ\ÜÚ[™Î‰IËØXİ[ÛÈ[™YÂˆYˆ—Ü›Ùš[Kœİ]\ÈH	Ü™]›ÚÙY	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›Ùš[WÜ™]›ÚÙY‰IËØXİ[ÛÈ[™YÂˆYˆ—Ü›Ùš[Kœİ]\Èˆ	ØXİ]™IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›Ùš[WÚ[˜Xİ]™N‰IËØXİ[ÛÈ[™YÂˆYˆ›İ
+—Ü›Ùš[Kœ›ÛHH[JØ[İÙYÜ›Û\ÊJH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÛWÙ›Ü˜šY[‰IËØXİ[ÛÈ[™YÂˆYˆÜ™\]Z\™WØX[ˆ[™ÛØ[\ØÙJ—ØÛZ[\ËO‰ØX[	Ë	ØX[IÊHˆ	ØX[‰È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØX[—Ü™\]Z\™Y‰IËØXİ[ÛÂˆ[™YÂ‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	İ\Ù\—ÚY	Ë—İ\Ù\—ÚYˆ	Ü›ÛIË—Ü›Ùš[Kœ›ÛKˆ	ØX[	ËÛØ[\ØÙJ—ØÛZ[\ËO‰ØX[	Ë	ØX[IÊKˆ	ÜÙ\ÜÚ[Û—ÚY	Ë—ØÛZ[\ËO‰ÜÙ\ÜÚ[Û—ÚY	Âˆ
+NÂ™[™Â‰ÙXšÛÚÉÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Ûˆ^ˆØ[İÙYÜ›Û\ÈX›XË˜YZ[—Ü›ÛV×HY˜][\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KˆÜ™\]Z\™WØX[ˆ›ÛÛX[ˆY˜][YKˆØ[İ×ÜÙ\šXÙWÜ›ÛH›ÛÛX[ˆY˜][˜[ÙBŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂˆ—ØÛZ[\ÈœÛÛ˜ˆHÛØ[\ØÙJ]]šİ
+
+K	ŞßIÎšœÛÛ˜ŠNÂˆ—ØXİÜˆœÛÛ˜Â˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ÙØ]Bˆœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	Âˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™ˆÜˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÂˆÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY‰IËØXİ[ÛÂˆ[™YÂ‚ˆYˆØ[İ×ÜÙ\šXÙWÜ›ÛH[™—ØÛZ[\ËO‰Ü›ÛIÈH	ÜÙ\šXÙWÜ›ÛIÈ[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØXİÜ—İ\IË	ÜÙ\šXÙWÜ›ÛIËˆ	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹ˆ	ØXİ[Û‰ËØXİ[Û‚ˆ
+NÂˆ[™YÂ‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠØXİ[Û‹Ø[İÙYÜ›Û\ËÜ™\]Z\™WØX[ŠNÂˆ™]\›ˆ—ØXİÜˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹	ØXİ[Û‰ËØXİ[ÛŠNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœÙ]Ü\ÙLMÜÙXİ\š]WÙØ]Wİ™\œÚ[ÛŠˆÜØ]\ÙšYYİ™\œÚ[Ûˆ[YÙ\‹ˆÜ™X\ÛÛˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜Âˆ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠˆ	ÜÙXİ\š]WÙØ]WØYZ[š\İ˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYBˆ
+NÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙØ]WÜ™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂ‚ˆ\]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÙ]Ø]\ÙšYYİ™\œÚ[ÛˆHÜØ]\ÙšYYİ™\œÚ[Û‹ˆİ]\ÈHØ\ÙHÚ[ˆÜØ]\ÙšYYİ™\œÚ[ÛˆH™\]Z\™Yİ™\œÚ[Ûˆ[ˆ	ÜØ]\ÙšYY	È[ÙH	İ[œØ]\ÙšYY	È[™ˆØ]\ÙšYYØHH
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆØ]\ÙšYYØ]HØ\ÙHÚ[ˆÜØ]\ÙšYYİ™\œÚ[ÛˆH™\]Z\™Yİ™\œÚ[Ûˆ[ˆ›İÊ
+H[ÙH[[™ˆ™X\ÛÛˆHÜ™X\ÛÛ‹ˆ\]YØ]H›İÊ
+BˆÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	Âˆ™]\›š[™È
+ˆ[È—ÙØ]NÂ‚ˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊˆXİÜ—İ\KXİÜ—İ\Ù\—ÚY[]WİX›KXİ[Û‹Y\—ÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY	Ü\ÙLMÜÙXİ\š]WÙØ]\ÉËˆ	Ü\ÙLMÜÙXİ\š]WÙØ]WØÚ[™ÙY	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\]Z\™Yİ™\œÚ[Û‰Ë—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Û‹	ÜØ]\ÙšYYİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹	Üİ]\ÉË—ÙØ]Kœİ]\Ë	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠBˆ
+NÂˆ™]\›ˆ×ÚœÛÛ˜Š—ÙØ]JNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÛ]]][ÛŠ
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆYˆ™]ËœÙ][™×ÚÙ^H›İ[ˆ
+	Ü\ÙLMØ]]Û›Û[İ\×Ü™\ÜÙ[™Ú[™IË	Ü\ÙLMÙ[]™\WÜÛXŞIÊH[‚ˆ™]\›ˆ™]ÎÂˆ[™YÂˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊHH	ÉÈ[™İ\œ™[İ\Ù\ˆ[ˆ
+	ÜÜİÜ™\ÉË	Üİ\X˜\ÙWØYZ[‰ÊH[‚ˆ™]\›ˆ™]ÎÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù™X]\™WÜÛXŞWØÚ[™ÙIË\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚™›ÜšYÙÙ\ˆYˆ^\İÈ™×ÙİX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÛ]]][ÛˆÛˆX›XË˜\ÜÙ][™ÜÎÂ˜Ü™X]HšYÙÙ\ˆ™×ÙİX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÛ]]][Û‚ˆ™Y›Ü™H[œÙ\Üˆ\]HÛˆX›XË˜\ÜÙ][™ÜÂˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÛ]]][ÛŠ
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË\]WÜ\ÙLMÙ™X]\™WÜÛXŞJˆÜÙ][™×ÚÙ^H^ˆİ˜[YWÚœÛÛˆœÛÛ˜‚ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜Â˜™YÚ[‚ˆYˆÜÙ][™×ÚÙ^H›İ[ˆ
+	Ü\ÙLMØ]]Û›Û[İ\×Ü™\ÜÙ[™Ú[™IË	Ü\ÙLMÙ[]™\WÜÛXŞIÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙ™X]\™WÜÛXŞWÚÙ^WÙ›Ü˜šY[‰ÎÂˆ[™YÂˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù™X]\™WÜÛXŞWØÚ[™ÙIË\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ[œÙ\[ÈX›XË˜\ÜÙ][™ÜÊÙ][™×ÚÙ^K˜[YWÚœÛÛŠBˆ˜[Y\È
+ÜÙ][™×ÚÙ^KÛØ[\ØÙJİ˜[YWÚœÛÛ‹	ŞßIÎšœÛÛ˜ŠJBˆÛˆÛÛ™›Xİ
+Ù][™×ÚÙ^JHÈ\]BˆÙ]˜[YWÚœÛÛˆH^ÛYY˜[YWÚœÛÛ‹\]YØ]H›İÊ
+NÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY[]WİX›KXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY	Ø\ÜÙ][™ÜÉË	Ü\ÙLMÙ™X]\™WÜÛXŞWØÚ[™ÙY	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÜÙ][™×ÚÙ^IËÜÙ][™×ÚÙ^K	İ˜[YWÚœÛÛ‰Ëİ˜[YWÚœÛÛŠJNÂˆ™]\›ˆİ˜[YWÚœÛÛÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WÜ\ÙLMØXİ[ÛŠØXİ[Ûˆ^
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆØ\ÙHØXİ[Û‚ˆÚ[ˆ	Ü™\ÜÙÙ[™\˜][Û‰È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	Ü™\ÜÜ™YÙ[™\˜][Û‰È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	Ü™\ÜÙİÛ›ØY	È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	Ù[XZ[Ù[]™\IÈ[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	Ù[XZ[Ü™\Ù[™	È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÚ[ˆ	ØZWÛ˜\œ˜]]™WÙÙ[™\˜][Û‰È[‚ˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ[ÙBˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØXİ[Û—Û›İÜİ\ÜY‰IËØXİ[ÛÂˆ[™Ø\ÙNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆÛÜ™\—Ü™Y™\™[˜ÙH^ˆÙ^XİYÛÜ™\—ÚY]ZYY˜][[ˆÙ^XİYØ\ÜÙ\ÜÛY[ÚY]ZYY˜][[ˆÙ^XİYÜØÛÜ™WÜ[—ÚY]ZYY˜][[ˆÙ^XİYÚ[œ]Ú\Ú^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—Ø\ÜÙ\ÜÛY[X›XË˜\ÜÙ\ÜÛY[É\›İİ\NÂˆ—ÜØÛÜ™WÜ[ˆX›XËœØÛÜ™WÜ[œÉ\›İİ\NÂˆ—Ü›ÙXİX›XËœ›ÙXİÉ\›İİ\NÂˆ—Ù^XİYÙÛXZ[œÈ[YÙ\Âˆ—ØXİX[ÙÛXZ[œÈ[YÙ\Âˆ—Ù^XİYİ˜XÙ\È[YÙ\Âˆ—ØXİX[İ˜XÙ\È[YÙ\Â˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HÜ™\—Ü™Y™\™[˜ÙHHÛÜ™\—Ü™Y™\™[˜ÙH›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Û›İÙ›İ[™	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ø\ÜÙ\ÜÛY[œ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈÚ\™HYH—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Ø\ÜÙ\ÜÛY[ÛZ\ÛX]Ú	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü›ÙXİœ›ÛHX›XËœ›ÙXİÈÚ\™HYH—ÛÜ™\‹œ›ÙXİÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Ü›ÙXİÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø\ÜÙ\ÜÛY[Û›İÜØÛÜ™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ÜØÛÜ™WÜ[ˆœ›ÛHX›XËœØÛÜ™WÜ[œÈÚ\™HYH—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\œ™[ÜØÛÜ™WÜ[—ÛZ\ÜÚ[™ÉÎÈ[™YÂ‚ˆYˆÙ^XİYÛÜ™\—ÚY\È›İ[[™—ÛÜ™\‹šYˆÙ^XİYÛÜ™\—ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛZ[WÛÜ™\—ØÚ[™ÙY	ÎÈ[™YÂˆYˆÙ^XİYØ\ÜÙ\ÜÛY[ÚY\È›İ[[™—Ø\ÜÙ\ÜÛY[šYˆÙ^XİYØ\ÜÙ\ÜÛY[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛZ[WØ\ÜÙ\ÜÛY[ØÚ[™ÙY	ÎÈ[™YÂˆYˆÙ^XİYÜØÛÜ™WÜ[—ÚY\È›İ[[™—ÜØÛÜ™WÜ[‹šYˆÙ^XİYÜØÛÜ™WÜ[—ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛZ[WÜØÛÜ™WÜ[—ØÚ[™ÙY	ÎÈ[™YÂˆYˆÙ^XİYÚ[œ]Ú\Ú\È›İ[[™—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú\È\İ[˜İœ›ÛHÙ^XİYÚ[œ]Ú\Ú[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛZ[WÚ[œ]Ú\ÚØÚ[™ÙY	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šYÜˆ—ÜØÛÜ™WÜ[‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šY[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—Ü™[][ÛœÚ\ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚYˆ—ÜØÛÜ™WÜ[‹šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Üİ[WØİ\œ™[ÜØÛÜ™WÜ™Y™\™[˜ÙIÎÈ[™YÂˆYˆ—ÛÜ™\‹œİ]\Î^ˆ	Ü^[Y[Ü™XÙZ]™Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—Û›İÜ^[Y[Ü™XÙZ]™Y	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØ]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—ÛZ\ÜÚ[™×İ™\šYšYYØ]	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØH\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛÜ™\—ÛZ\ÜÚ[™×İ™\šYšYYØIÎÈ[™YÂˆYˆ—Ü›ÙXİœ›ÙXİØÛÙHˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü›ÙXİÛ›İÙ\ÜÙ[X[	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜[[İ[ØÙ[ÈˆLÜˆ—Ü›ÙXİœšXÙWØÙ[ÈˆL[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[ÜšXÙWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜İ\œ™[˜ŞHˆ	ÖT‰ÈÜˆ—Ü›ÙXİ˜İ\œ™[˜ŞHˆ	ÖT‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[Øİ\œ™[˜ŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ›İ—Ü›ÙXİ˜Xİ]™H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù\ÜÙ[X[Ü›ÙXİÚ[˜Xİ]™IÎÈ[™YÂˆYˆ›İ—Ü›ÙXİœ™\]Z\™\×Ü^[Y[İ™\šYšXØ][Ûˆ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÛX[X[İ™\šYšXØ][Û—Û›İÜ™\]Z\™Y	ÎÈ[™YÂˆYˆ—Ü›ÙXİ™[]™\WÛ[ÙHˆ	ÛZ×ØÛÛ›ÛYÜ‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[œİ\ÜYÙ[]™\WÛ[ÙIÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹œİ]\Î^ˆ	ØÛÛ\]Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Û›İØÛÛ\]Y	ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹›ØÚÙYØ]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Û›İÛØÚÙY	ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú\È[Üˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Ú[œ]Ú\ÚÚ[˜[Y	ÎÈ[™YÂ‚ˆÙ[XİÛİ[
+
+ŠH[È—Ù^XİYÙÛXZ[œÈœ›ÛHX›XË™ÛXZ[œÈÚ\™HY]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYÂˆÙ[XİÛİ[
+\İ[˜İÙ‹™ÛXZ[—ÚY
+H[È—ØXİX[ÙÛXZ[œÂˆœ›ÛHX›XËœØÛÜ™WÙÛXZ[—Ü™\İ[ÈÙˆ›Ú[ˆX›XË™ÛXZ[œÈÛˆšYHÙ‹™ÛXZ[—ÚYˆÚ\™HÙ‹œØÛÜ™WÜ[—ÚYH—ÜØÛÜ™WÜ[‹šY[™›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYÂˆYˆ—Ù^XİYÙÛXZ[œÈHÜˆ—ØXİX[ÙÛXZ[œÈˆ—Ù^XİYÙÛXZ[œÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—ÙÛXZ[—Ü™\İ[×Ú[˜ÛÛ\]N‰KÉIË—ØXİX[ÙÛXZ[œË—Ù^XİYÙÛXZ[œÎÂˆ[™YÂ‚ˆÙ[XİÛİ[
+
+ŠH[È—Ù^XİYİ˜XÙ\Èœ›ÛHX›XËœ]Y\İ[ÛœÂˆÚ\™HY]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚY[™Xİ]™NÂˆÙ[XİÛİ[
+\İ[˜İÜ]œ]Y\İ[Û—ÚY
+H[È—ØXİX[İ˜XÙ\Âˆœ›ÛHX›XËœØÛÜ™WÜ]Y\İ[Û—İ˜XÙ\ÈÜ]›Ú[ˆX›XËœ]Y\İ[ÛœÈHÛˆKšYHÜ]œ]Y\İ[Û—ÚYˆÚ\™HÜ]œØÛÜ™WÜ[—ÚYH—ÜØÛÜ™WÜ[‹šY[™K›Y]ÙÛÙŞWİ™\œÚ[Û—ÚYH—ÜØÛÜ™WÜ[‹›Y]ÙÛÙŞWİ™\œÚ[Û—ÚY[™K˜Xİ]™NÂˆYˆ—Ù^XİYİ˜XÙ\ÈHÜˆ—ØXİX[İ˜XÙ\Èˆ—Ù^XİYİ˜XÙ\È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ÜØÛÜ™WÜ[—Ü]Y\İ[Û—İ˜XÙ\×Ú[˜ÛÛ\]N‰KÉIË—ØXİX[İ˜XÙ\Ë—Ù^XİYİ˜XÙ\ÎÂˆ[™YÂ‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ÛÜ™\—ÚY	Ë—ÛÜ™\‹šY	Ø\ÜÙ\ÜÛY[ÚY	Ë—Ø\ÜÙ\ÜÛY[šYˆ	ÜØÛÜ™WÜ[—ÚY	Ë—ÜØÛÜ™WÜ[‹šY	ÜØÛÜ™WÚ[œ]Ú\Ú	Ë—ÜØÛÜ™WÜ[‹š[œ]Ú\Úˆ	Ü›ÙXİÚY	Ë—Ü›ÙXİšY	Ù^XİYÙÛXZ[—ØÛİ[	Ë—Ù^XİYÙÛXZ[œËˆ	ØXİX[ÙÛXZ[—ØÛİ[	Ë—ØXİX[ÙÛXZ[œË	Ù^XİYİ˜XÙWØÛİ[	Ë—Ù^XİYİ˜XÙ\Ëˆ	ØXİX[İ˜XÙWØÛİ[	Ë—ØXİX[İ˜XÙ\Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙH^
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ™]\›ˆX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙJNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠˆÛÜ™\—Ü™Y™\™[˜ÙH^ˆØÛZ[WÛİÛ™\ˆ^ˆÙ[š[Y[ÚY]ZYY˜][[ˆÜ™\Üİ\HX›XËœ™\Üİ\HY˜][	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	ÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛÛ^œÛÛ˜Âˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—İ™\œÚ[Ûˆ[YÙ\Âˆ—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH^Âˆ—Øİ\œ™[X›XËœ™\ÜÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÛØ[\ØÙJš[JØÛZ[WÛİÛ™\ŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛİÛ™\—Ü™\]Z\™Y	ÎÈ[™YÂˆYˆÜ™\Üİ\Hˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[œİ\ÜYÜ™\Üİ\IÎÈ[™YÂˆ—ØÛÛ^HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙJNÂˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊH	Î‰ÈÜ™\Üİ\N^
+JNÂ‚ˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY[™™\Üİ\HHÜ™\Üİ\Bˆ›Üˆ\]NÂˆYˆ›İ[™[‚ˆYˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]H›İÊ
+H[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	Ë—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\‹ˆ	ØÛZ[WİÚÙ[‰ËØ\ÙHÚ[ˆ—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\ˆ[ˆ—ØÛZ[K˜ÛZ[WİÚÙ[ˆ[ÙH[[™ˆ	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙKˆ	Ü™\ÜÚY	Ë—ØÛZ[Kœ™\ÜÚY	Üİ]IË—ØÛZ[Kœİ]Kˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]ˆ	Ü™X\ÛÛ‰ËØ\ÙHÚ[ˆ—ØÛZ[K˜ÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\ˆ[ˆ	ÜØ[YWÛİÛ™\—Ü™\İ[YIÈ[ÙH	ÙÙ[™\˜][Û—Ú[—Ü›ÙÜ™\ÜÉÈ[™ˆ
+NÂˆ[™YÂˆYˆ—ØÛZ[Kœİ]HH	ØÛÛ[Z]Y	È[™—ØÛZ[Kœ™\ÜÚY\È›İ[[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	Ë˜[ÙK	Ü™XÛİ™\˜X›IËYK	ØÛZ[WİÚÙ[‰Ë[ˆ	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙKˆ	Ü™\ÜÚY	Ë—ØÛZ[Kœ™\ÜÚY	Üİ]IË—ØÛZ[Kœİ]Kˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]	Ü™X\ÛÛ‰Ë	ØÛÛ[Z]YÙ˜YÜ™XÛİ™\WÜ™\]Z\™Y	Âˆ
+NÂˆ[™YÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]ÛZ[WİÚÙ[ˆHÙ[—Ü˜[™ÛWİ]ZY
+
+KÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\‹ˆÜ™\—ÚYH
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZYˆØÛÜ™WÜ[—ÚYH
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆØÛÜ™WÚ[œ]Ú\ÚH—ØÛÛ^O‰ÜØÛÜ™WÚ[œ]Ú\Ú	Ë[š[Y[ÚYHÙ[š[Y[ÚYˆİ]HH	ØÛZ[YY	ËX\ÙWÙ^\™\×Ø]H›İÊ
+H
+È[\˜[	ÌŒZ[]\ÉËˆ\İÚX\™X]Ø]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™H\ÜÙ\ÜÛY[ÚYH—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY[™™\Üİ\HH—ØÛZ[Kœ™\Üİ\Bˆ™]\›š[™È
+ˆ[È—ØÛZ[NÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	ËYK	ØÛZ[WİÚÙ[‰Ë—ØÛZ[K˜ÛZ[WİÚÙ[‹	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙK	Ü™\ÜÚY	Ë[	Üİ]IË—ØÛZ[Kœİ]Kˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]	Ü™X\ÛÛ‰Ë	Ù^\™YØÛZ[WİZÙ[İ™\‰Âˆ
+NÂˆ[™YÂ‚ˆÙ[Xİ
+ˆ[È—Øİ\œ™[œ›ÛHX›XËœ™\ÜÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY[™™\Üİ\HHÜ™\Üİ\Bˆ[™İ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH™\œÚ[Û—Û[X™\ˆ\ØÈ[Z]H›Üˆ\]NÂˆÙ[XİÛØ[\ØÙJX^
+™\œÚ[Û—Û[X™\ŠK
+H
+ÈH[È—İ™\œÚ[Ûˆœ›ÛHX›XËœ™\ÜÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY[™™\Üİ\HHÜ™\Üİ\NÂˆÙ[Xİ\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH[È—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙHœ›ÛHX›XË˜\ÜÙ\ÜÛY[ÂˆÚ\™HYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYÂ‚ˆ[œÙ\[ÈX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\Êˆ\ÜÙ\ÜÛY[ÚY™\Üİ\KÜ™\—ÚYØÛÜ™WÜ[—ÚYØÛÜ™WÚ[œ]Ú\Ú[š[Y[ÚYˆÛZ[WÛİÛ™\‹™\œÚ[Û—Û[X™\‹™\ÜÜ™Y™\™[˜ÙKX\ÙWÙ^\™\×Ø]İ]Bˆ
+H˜[Y\È
+ˆ
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYÜ™\Üİ\K
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZYˆ
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZY—ØÛÛ^O‰ÜØÛÜ™WÚ[œ]Ú\Ú	ËÙ[š[Y[ÚYˆØÛZ[WÛİÛ™\‹—İ™\œÚ[Û‹	Ô”IÈ—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH	ËU‰È—İ™\œÚ[Û‹ˆ›İÊ
+H
+È[\˜[	ÌŒZ[]\ÉË	ØÛZ[YY	Âˆ
+H™]\›š[™È
+ˆ[È—ØÛZ[NÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	ËYK	ØÛZ[WİÚÙ[‰Ë—ØÛZ[K˜ÛZ[WİÚÙ[‹	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙK	Ü™\ÜÚY	Ë[ˆ	Øİ\œ™[Ü™\ÜÚY	Ë—Øİ\œ™[šY	Üİ]IË—ØÛZ[Kœİ]Kˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]	Ü™X\ÛÛ‰Ë	ØÛZ[YY	Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙJØÛZ[WİÚÙ[ˆ]ZY
+Bœ™]\›œÈ[Y\İ[\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ù^\H[Y\İ[\Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]X\ÙWÙ^\™\×Ø]H›İÊ
+H
+È[\˜[	ÌŒZ[]\ÉË\İÚX\™X]Ø]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ[™İ]H[ˆ
+	ØÛZ[YY	Ë	ØÛÛ[Z]Y	ÊH[™X\ÙWÙ^\™\×Ø]H›İÊ
+Bˆ™]\›š[™ÈX\ÙWÙ^\™\×Ø][È—Ù^\NÂˆYˆ—Ù^\H\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛ›İÜ™[™]ØX›IÎÈ[™YÂˆ™]\›ˆ—Ù^\NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[JˆÛÜ™\—Ü™Y™\™[˜ÙH^ˆØÛZ[WÛİÛ™\ˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ØÛÛ^œÛÛ˜È—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÜ™YÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÛØ[\ØÙJš[JØÛZ[WÛİÛ™\ŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛİÛ™\—Ü™\]Z\™Y	ÎÈ[™YÂˆ—ØÛÛ^HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙJNÂˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊH	Î™\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	Ë
+JNÂˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY[™™\Üİ\HH	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	Âˆ›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—ØÛZ[Kœİ]Hˆ	ØÛÛ[Z]Y	ÈÜˆ—ØÛZ[Kœ™\ÜÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛÛ[Z]YÙ˜YÛ›İÜ™XÛİ™\˜X›IÎÈ[™YÂˆYˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]H›İÊ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÜİ[ØXİ]™IÎÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆÛÜ™\—Ü™Y™\™[˜ÙK—ØÛZ[K›Ü™\—ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÚ[œ]Ú\Úˆ
+NÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]ÛZ[WİÚÙ[ˆHÙ[—Ü˜[™ÛWİ]ZY
+
+KÛZ[WÛİÛ™\ˆHØÛZ[WÛİÛ™\‹ˆX\ÙWÙ^\™\×Ø]H›İÊ
+H
+È[\˜[	ÌŒZ[]\ÉË\İÚX\™X]Ø]H›İÊ
+Kˆ™XÛİ™\™YØ]H›İÊ
+K™XÛİ™\WØÛİ[H™XÛİ™\WØÛİ[
+ÈK\]YØ]H›İÊ
+BˆÚ\™H\ÜÙ\ÜÛY[ÚYH—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY[™™\Üİ\HH—ØÛZ[Kœ™\Üİ\Bˆ™]\›š[™È
+ˆ[È—ØÛZ[NÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÙÙ[™\˜][Û—ØÛZ[\ÉË—ØÛZ[Kœ™\ÜÚYˆ	ØÛÛ[Z]YÜ™\ÜÙ˜YÜ™XÛİ™\™Y	ËœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[WÛİÛ™\‰ËØÛZ[WÛİÛ™\‹	Ü™XÛİ™\WØÛİ[	Ë—ØÛZ[Kœ™XÛİ™\WØÛİ[
+JNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	ËYK	ØÛZ[WİÚÙ[‰Ë—ØÛZ[K˜ÛZ[WİÚÙ[‹	Ü™\ÜÚY	Ë—ØÛZ[Kœ™\ÜÚYˆ	Ü™\ÜÜ™Y™\™[˜ÙIË—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙK	İ™\œÚ[Û—Û[X™\‰Ë—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆ	Üİ]IË—ØÛZ[Kœİ]K	ÛX\ÙWÙ^\™\×Ø]	Ë—ØÛZ[K›X\ÙWÙ^\™\×Ø]ˆ	Ü™X\ÛÛ‰Ë	ØÛÛ[Z]YÙ˜YÜ™XÛİ™\™Y	Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+ˆØÛZ[WİÚÙ[ˆ]ZYˆİ[\]WÚY]ZYˆÜİÜ˜YÙWØXÚÙ]^ˆİ[\ÜİÜ˜YÙWÜ]^ˆØÚXÚÜİ[H^ˆÙÙ[™\˜]YØH]ZYY˜][[ˆÙÙ[™\˜][Û—Ü[—ÚY]ZYY˜][[ŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜÚY]ZYÂˆ—Üİ\\œÙY\È]ZYÂˆ—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH^Âˆ—ÛÜ™\—Ü™Y™\™[˜ÙH^Âˆ—Ùš[˜[Ü]^Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]›İÊ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÙ^\™Y	ÎÈ[™YÂˆÙ[XİÜ™\—Ü™Y™\™[˜ÙH[È—ÛÜ™\—Ü™Y™\™[˜ÙHœ›ÛHX›XË›Ü™\œÈÚ\™HYH—ØÛZ[K›Ü™\—ÚYÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆ—ÛÜ™\—Ü™Y™\™[˜ÙK—ØÛZ[K›Ü™\—ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÚ[œ]Ú\Úˆ
+NÂˆYˆØÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜØÚXÚÜİ[WÚ[˜[Y	ÎÈ[™YÂˆYˆİ[\ÜİÜ˜YÙWÜ]›İZÙH	İ\ÉIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	İ[\Ü˜\WÜİÜ˜YÙWÜ]Ü™\]Z\™Y	ÎÈ[™YÂˆYˆÛØ[\ØÙJš[JÜİÜ˜YÙWØXÚÙ]
+K	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ÜİÜ˜YÙWØXÚÙ]Ü™\]Z\™Y	ÎÈ[™YÂˆYˆ—ØÛZ[Kœ™\ÜÚY\È›İ[[ˆ™]\›ˆ—ØÛZ[Kœ™\ÜÚYÈ[™YÂˆÙ[Xİ\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH[È—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙHœ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈÚ\™HYH—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYÂˆ—Ùš[˜[Ü]H—Ø\ÜÙ\ÜÛY[Ü™Y™\™[˜ÙH	ËÉÈ—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙH	ËIÈØÚXÚÜİ[H	Ëœ‰ÎÂ‚ˆÙ[XİY[È—Üİ\\œÙY\Èœ›ÛHX›XËœ™\ÜÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY[™™\Üİ\HH—ØÛZ[Kœ™\Üİ\Bˆ[™İ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH™\œÚ[Û—Û[X™\ˆ\ØÈ[Z]H›Üˆ\]NÂˆ[œÙ\[ÈX›XËœ™\ÜÊˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚYØÛÜ™WÜ[—ÚY[\]WÚY™\Üİ\Kİ]\Ëˆ™\ÜÜ™Y™\™[˜ÙK™\œÚ[Û—Û[X™\‹İÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]ÚXÚÜİ[KˆÙ[™\˜]YØKÙ[™\˜]YØ]İ\\œÙY\×Ü™\ÜÚY[š[Y[ÚYÙ[™\˜][Û—Ü[—ÚYˆ
+H˜[Y\È
+ˆ—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K›Ü™\—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYİ[\]WÚYˆ—ØÛZ[Kœ™\Üİ\K	Ù˜Y	Ë—ØÛZ[Kœ™\ÜÜ™Y™\™[˜ÙK—ØÛZ[K™\œÚ[Û—Û[X™\‹ˆÜİÜ˜YÙWØXÚÙ]İ[\ÜİÜ˜YÙWÜ]ØÚXÚÜİ[KÙÙ[™\˜]YØK›İÊ
+Kˆ—Üİ\\œÙY\Ë—ØÛZ[K™[š[Y[ÚYÙÙ[™\˜][Û—Ü[—ÚYˆ
+H™]\›š[™ÈY[È—Ü™\ÜÚYÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]™\ÜÚYH—Ü™\ÜÚYİ]HH	ØÛÛ[Z]Y	Ëˆ[\Ü˜\WÜİÜ˜YÙWØXÚÙ]HÜİÜ˜YÙWØXÚÙ][\Ü˜\WÜİÜ˜YÙWÜ]Hİ[\ÜİÜ˜YÙWÜ]ˆš[˜[ÜİÜ˜YÙWØXÚÙ]HÜİÜ˜YÙWØXÚÙ]š[˜[ÜİÜ˜YÙWÜ]H—Ùš[˜[Ü]ˆ^XİYØÚXÚÜİ[HHØÚXÚÜİ[KÛÛ[Z]YØ]H›İÊ
+K\İÚX\™X]Ø]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[Âˆ™]\›ˆ—Ü™\ÜÚYÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]H[˜İ[ÛˆX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠˆØÛZ[WİÚÙ[ˆ]ZYˆÜ™\ÜÚY]ZYŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂˆ—ÛÜ™\—Ü™Y™\™[˜ÙH^Âˆ—ÛØš™Xİ™XÛÜ™Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—ØÛZ[Kœ™\ÜÚYˆÜ™\ÜÚYÜˆ—ØÛZ[Kœİ]Hˆ	ØÛÛ[Z]Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙÙ[™\˜][Û—ØÛZ[WÜ™\ÜÛZ\ÛX]Ú	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ü™\Üœİ]\Èˆ	Ù˜Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÙ˜YÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—Ü™\Ü›Ü™\—ÚYˆ—ØÛZ[K›Ü™\—ÚYÜˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚYˆ—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYˆÜˆ—Ü™\ÜœØÛÜ™WÜ[—ÚYˆ—ØÛZ[KœØÛÜ™WÜ[—ÚYÜˆ—Ü™\Ü™\œÚ[Û—Û[X™\ˆˆ—ØÛZ[K™\œÚ[Û—Û[X™\‚ˆÜˆ—Ü™\Ü˜ÚXÚÜİ[Hˆ—ØÛZ[K™^XİYØÚXÚÜİ[H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜØÛZ[WØš[™[™×ÛZ\ÛX]Ú	ÎÈ[™YÂˆÙ[XİÜ™\—Ü™Y™\™[˜ÙH[È—ÛÜ™\—Ü™Y™\™[˜ÙHœ›ÛHX›XË›Ü™\œÈÚ\™HYH—ØÛZ[K›Ü™\—ÚYÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆ—ÛÜ™\—Ü™Y™\™[˜ÙK—ØÛZ[K›Ü™\—ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÚ[œ]Ú\Úˆ
+NÂˆYˆ—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ZÙH	İ\ÉIÈÜˆÛØ[\ØÙJ—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ùš[˜[ÜİÜ˜YÙWÜ]Ú[˜[Y	ÎÈ[™YÂˆÙ[XİÛË˜XÚÙ]ÚYÛË›˜[YKÛË›Y]Y]H[È—ÛØš™Xİˆœ›ÛHİÜ˜YÙK›Øš™XİÈÛÂˆÚ\™HÛË˜XÚÙ]ÚYH—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ][™ÛË›˜[YHH—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ùš[˜[ÜİÜ˜YÙWÛØš™XİÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÛZ[Y]\IË	ÉÊHˆ	Ø\XØ][Û‹Ü‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ùš[˜[ÜİÜ˜YÙWØÛÛ[İ\WÚ[˜[Y	ÎÈ[™YÂˆYˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÜÚLM‰Ë—ÛØš™Xİ›Y]Y]KO‰ÛY]Y]IËO‰ÜÚLM‰Ë	ÉÊHˆ—ØÛZ[K™^XİYØÚXÚÜİ[H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ùš[˜[ÜİÜ˜YÙWØÚXÚÜİ[WÛY]Y]WÛZ\ÛX]Ú	ÎÈ[™YÂ‚ˆYˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÈH	Üİ\\œÙYY	ÂˆÚ\™HYH—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY[™İ]\È›İ[ˆ
+	İ›ÚYY	Ë	Üİ\\œÙYY	ÊNÂˆ[™YÂˆ\]HX›XËœ™\ÜÂˆÙ]İ]\ÈH	ÙÙ[™\˜]Y	ËİÜ˜YÙWØXÚÙ]H—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆİÜ˜YÙWÜ]H—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]\]YØ]H›İÊ
+BˆÚ\™HYHÜ™\ÜÚYÂˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[Âˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™\ÜÚY	ËÜ™\ÜÚY	Ü™\ÜÜ™Y™\™[˜ÙIË—Ü™\Üœ™\ÜÜ™Y™\™[˜ÙKˆ	İ™\œÚ[Û—Û[X™\‰Ë—Ü™\Ü™\œÚ[Û—Û[X™\‹	Üİ\\œÙYYÜ™\ÜÚY	Ë—Ü™\Üœİ\\œÙY\×Ü™\ÜÚYˆ	Ùš[˜[ÜİÜ˜YÙWØXÚÙ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]	Ùš[˜[ÜİÜ˜YÙWÜ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜X˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[JˆØÛZ[WİÚÙ[ˆ]ZYˆÜ™X\ÛÛˆ^ŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÜ™YÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ™]\›ˆ˜[ÙNÈ[™YÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]İ]HH	ØX˜[™Û™Y	ËX˜[™Û™YØ]H›İÊ
+KX˜[™Û›Y[Ü™X\ÛÛˆHÜ™X\ÛÛ‹ˆX\ÙWÙ^\™\×Ø]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™HÛZ[WİÚÙ[ˆHØÛZ[WİÚÙ[ÂˆYˆ—ØÛZ[Kœ™\ÜÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÈH	İ›ÚYY	Ë\]YØ]H›İÊ
+BˆÚ\™HYH—ØÛZ[Kœ™\ÜÚY[™İ]\ÈH	Ù˜Y	ÎÂˆ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÙÙ[™\˜][Û—ØÛZ[\ÉË—ØÛZ[Kœ™\ÜÚYˆ	Ü™\ÜÙÙ[™\˜][Û—ØÛZ[WØX˜[™Û™Y	ËœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠJNÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\ÊÛÛ\—İ[ˆ[\˜[Y˜][[\˜[	Ìİ\œÉÊBœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü]ÈœÛÛ˜È—ØÛİ[[YÙ\Â˜™YÚ[‚ˆYˆ]]šİ
+
+KO‰Ü›ÛIÈˆ	ÜÙ\šXÙWÜ›ÛIÈ[™İ\œ™[İ\Ù\ˆ›İ[ˆ
+	ÜÜİÜ™\ÉË	Üİ\X˜\ÙWØYZ[‰ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØÛX[\ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÂˆ[™YÂˆÚ][]Y\È
+ˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H™\ÜÚY\È[[™İ]H[ˆ
+	ØÛZ[YY	Ë	ØX˜[™Û™Y	ÊBˆ[™X\ÙWÙ^\™\×Ø]›İÊ
+HHÛÛ\—İ[‚ˆ™]\›š[™È[\Ü˜\WÜİÜ˜YÙWØXÚÙ][\Ü˜\WÜİÜ˜YÙWÜ]ˆ
+BˆÙ[XİÛØ[\ØÙJœÛÛ˜—ØYÙÊœÛÛ˜—ØZ[ÛØš™Xİ
+	ØXÚÙ]	Ë[\Ü˜\WÜİÜ˜YÙWØXÚÙ]	Ü]	Ë[\Ü˜\WÜİÜ˜YÙWÜ]
+JBˆš[\ˆ
+Ú\™H[\Ü˜\WÜİÜ˜YÙWÜ]\È›İ[
+K	Ö×IÎšœÛÛ˜ŠKÛİ[
+
+ŠBˆ[È—Ü]Ë—ØÛİ[œ›ÛH[]YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù[]YØÛZ[\ÉË—ØÛİ[	İ[\Ü˜\WÛØš™Xİ×Ù[YÚX›WÙ›Ü—Ø\WØÛX[\	Ë—Ü]ÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+ˆÜ™\ÜÚY]ZYˆÜ™XÚ\Y[^ˆØ[İ×İ\İÛİ™\œšYH›ÛÛX[ˆY˜][˜[ÙKˆÜ\œÜÙH^Y˜][	Ù[XZ[Ù[]™\IÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÈ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÈ—Ü›ÙXİX›XËœ›ÙXİÉ\›İİ\NÂˆ—Ø\ÜÙ\ÜÛY[X›XË˜\ÜÙ\ÜÛY[É\›İİ\NÈ—ÜØÛÜ™WÜ[ˆX›XËœØÛÜ™WÜ[œÉ\›İİ\NÂˆ—Øİ\İÛY\—Ù[XZ[^È—Øİ\œ™[Ü™\ÜÚY]ZYÈ—ÛØš™Xİ™XÛÜ™Â˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÛ›İÙ›İ[™	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HYH—Ü™\Ü›Ü™\—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÛÜ™\—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü›ÙXİœ›ÛHX›XËœ›ÙXİÈÚ\™HYH—ÛÜ™\‹œ›ÙXİÚY›ÜˆÚ\™NÂˆÙ[Xİ
+ˆ[È—Ø\ÜÙ\ÜÛY[œ›ÛHX›XË˜\ÜÙ\ÜÛY[ÈÚ\™HYH—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY›ÜˆÚ\™NÂˆÙ[Xİ
+ˆ[È—ÜØÛÜ™WÜ[ˆœ›ÛHX›XËœØÛÜ™WÜ[œÈÚ\™HYH—Ü™\ÜœØÛÜ™WÜ[—ÚY›ÜˆÚ\™NÂˆÙ[XİY[È—Øİ\œ™[Ü™\ÜÚYœ›ÛHX›XËœ™\ÜÂˆÚ\™H\ÜÙ\ÜÛY[ÚYH—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY[™™\Üİ\HH—Ü™\Üœ™\Üİ\Bˆ[™İ]\È›İ[ˆ
+	Üİ\\œÙYY	Ë	İ›ÚYY	Ë	Ù˜Y	ÊBˆÜ™\ˆH™\œÚ[Û—Û[X™\ˆ\ØÈ[Z]NÂ‚ˆYˆ—Ü™\Üœ™\Üİ\Hˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	ÈÜˆ—Ü›ÙXİœ›ÙXİØÛÙHˆ	Ù\ÜÙ[X[ÜÙ[—Ø\ÜÙ\ÜÛY[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™\Üİ\WÚ[™[YÚX›IÎÈ[™YÂˆYˆ—ÛÜ™\‹˜[[İ[ØÙ[ÈˆLÜˆ—Ü›ÙXİœšXÙWØÙ[ÈˆL[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜšXÙWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹˜İ\œ™[˜ŞHˆ	ÖT‰ÈÜˆ—Ü›ÙXİ˜İ\œ™[˜ŞHˆ	ÖT‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØİ\œ™[˜ŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ÛÜ™\‹œİ]\Î^ˆ	Ü^[Y[Ü™XÙZ]™Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÛÜ™\—Û›İÜZY	ÎÈ[™YÂˆYˆ—ÛÜ™\‹™\šYšYYØ]\È[Üˆ—ÛÜ™\‹™\šYšYYØH\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÛX[X[İ™\šYšXØ][Û—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ›İ—Ü›ÙXİ˜Xİ]™HÜˆ›İ—Ü›ÙXİœ™\]Z\™\×Ü^[Y[İ™\šYšXØ][ÛˆÜˆ—Ü›ÙXİ™[]™\WÛ[ÙHˆ	ÛZ×ØÛÛ›ÛYÜ‰È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›ÙXİÜÛXŞWÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚYˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYÜˆ—ÜØÛÜ™WÜ[‹˜\ÜÙ\ÜÛY[ÚYˆ—Ø\ÜÙ\ÜÛY[šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™[][ÛœÚ\ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—Ø\ÜÙ\ÜÛY[˜İ\œ™[ÜØÛÜ™WÜ[—ÚYˆ—ÜØÛÜ™WÜ[‹šY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜİ[WÜØÛÜ™WÜ[‰ÎÈ[™YÂˆYˆ—ÜØÛÜ™WÜ[‹œİ]\Î^ˆ	ØÛÛ\]Y	ÈÜˆ—ÜØÛÜ™WÜ[‹›ØÚÙYØ]\È[Üˆ—ÜØÛÜ™WÜ[‹š[œ]Ú\Ú_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜØÛÜ™WÜ[—Ú[™[YÚX›IÎÈ[™YÂˆYˆ—Øİ\œ™[Ü™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜšYÜˆ—Ü™\Üœİ]\È[ˆ
+	Ù˜Y	Ë	Üİ\\œÙYY	Ë	İ›ÚYY	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™\ÜÛ›İØİ\œ™[	ÎÈ[™YÂˆYˆÜ\œÜÙHH	Ù[XZ[Ù[]™\IÈ[™—Ü™\Üœİ]\È›İ[ˆ
+	ÙÙ[™\˜]Y	Ë	Ø\›İ™Y	Ë	Ü™[X\ÙY	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™\ÜÜİ]\×Ù›Ü˜šY[‰ÎÈ[™YÂˆYˆÜ\œÜÙHH	ØYZ[—ÙİÛ›ØY	È[™—Ü™\Üœİ]\È›İ[ˆ
+	ÙÙ[™\˜]Y	Ë	İ[™\—Ü™]šY]ÉË	Ø\›İ™Y	Ë	Ü™[X\ÙY	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	ÙİÛ›ØYÜ™\ÜÜİ]\×Ù›Ü˜šY[‰ÎÈ[™YÂˆYˆÛØ[\ØÙJ—Ü™\ÜœİÜ˜YÙWØXÚÙ]	ÉÊHH	ÉÈÜˆÛØ[\ØÙJ—Ü™\ÜœİÜ˜YÙWÜ]	ÉÊHH	ÉÈÜˆ—Ü™\Ü˜ÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜİÜ˜YÙWÛY]Y]WÚ[˜[Y	ÎÈ[™YÂˆÙ[XİXÚÙ]ÚY˜[YKY]Y]H[È—ÛØš™Xİœ›ÛHİÜ˜YÙK›Øš™XİÂˆÚ\™HXÚÙ]ÚYH—Ü™\ÜœİÜ˜YÙWØXÚÙ][™˜[YHH—Ü™\ÜœİÜ˜YÙWÜ]ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÜİÜ˜YÙWÛØš™XİÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÛZ[Y]\IË	ÉÊHˆ	Ø\XØ][Û‹Ü‰ÂˆÜˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÜÚLM‰Ë—ÛØš™Xİ›Y]Y]KO‰ÛY]Y]IËO‰ÜÚLM‰Ë	ÉÊHˆ—Ü™\Ü˜ÚXÚÜİ[H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÜİÜ˜YÙWÛY]Y]WÛZ\ÛX]Ú	ÎÈ[™YÂˆ—Øİ\İÛY\—Ù[XZ[HİÙ\Šš[J—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+JNÂˆYˆ›İØ[İ×İ\İÛİ™\œšYH[™İÙ\Šš[JÜ™XÚ\Y[
+JH\È\İ[˜İœ›ÛH—Øİ\İÛY\—Ù[XZ[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÚ\Y[Ûİ™\œšYWÙ›Ü˜šY[‰ÎÈ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™\ÜÚY	Ë—Ü™\ÜšY	Ü™\ÜÜ™Y™\™[˜ÙIË—Ü™\Üœ™\ÜÜ™Y™\™[˜ÙKˆ	Ü™\ÜÜİ]\ÉË—Ü™\Üœİ]\Ë	Ü™\ÜØÚXÚÜİ[IË—Ü™\Ü˜ÚXÚÜİ[Kˆ	ÜİÜ˜YÙWØXÚÙ]	Ë—Ü™\ÜœİÜ˜YÙWØXÚÙ]	ÜİÜ˜YÙWÜ]	Ë—Ü™\ÜœİÜ˜YÙWÜ]ˆ	ÛÜ™\—ÚY	Ë—ÛÜ™\‹šY	Ø\ÜÙ\ÜÛY[ÚY	Ë—Ø\ÜÙ\ÜÛY[šY	ÜØÛÜ™WÜ[—ÚY	Ë—ÜØÛÜ™WÜ[‹šYˆ	Øİ\İÛY\—Ù[XZ[	Ë—Øİ\İÛY\—Ù[XZ[	Ü™XÚ\Y[	ËİÙ\Šš[JÜ™XÚ\Y[
+JKˆ	İ\İÙ[]™\IËİÙ\Šš[JÜ™XÚ\Y[
+JH\È\İ[˜İœ›ÛH—Øİ\İÛY\—Ù[XZ[ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙ[]™\WÙ[][Y[
+ˆÜ™\ÜÚY]ZYÜ™XÚ\Y[^Ø[İ×İ\İÛİ™\œšYH›ÛÛX[ˆY˜][˜[ÙBŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù[XZ[Ù[]™\IË\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ™]\›ˆX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+Ü™\ÜÚYÜ™XÚ\Y[Ø[İ×İ\İÛİ™\œšYK	Ù[XZ[Ù[]™\IÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙİÛ›ØYÙ[][Y[
+ˆÜ™\ÜÚY]ZYˆÜ\œÜÙH^Y˜][	ØYZ[—ÙİÛ›ØY	ÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÈ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙİÛ›ØY	Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚYÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü™\ÜÛ›İÙ›İ[™	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HYH—Ü™\Ü›Ü™\—ÚYÂˆ™]\›ˆX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+Ü™\ÜÚYİÙ\Šš[J—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+JK˜[ÙKÜ\œÜÙJNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\JˆÜ™\ÜÚY]ZYˆÜ™XÚ\Y[^ˆÙ›Ü˜ÙWÜ™\Ù[™›ÛÛX[ˆY˜][˜[ÙKˆØ[İ×İ\İÛİ™\œšYH›ÛÛX[ˆY˜][˜[ÙKˆÜ›İšY\ˆ^Y˜][	Ü™\Ù[™	ÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—ØÛÛ^œÛÛ˜È—ÙØ]Wİ™\œÚ[Ûˆ[YÙ\È—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÂˆ—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÈ—Ø][\[YÙ\È—ÙY\H^Â˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØ\ÙHÚ[ˆÙ›Ü˜ÙWÜ™\Ù[™[ˆ	Ù[XZ[Ü™\Ù[™	È[ÙH	Ù[XZ[Ù[]™\IÈ[™ˆ\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÛØ[\ØÙJš[JÜ›İšY\ŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›İšY\—Ü™\]Z\™Y	ÎÈ[™YÂˆ\™›Ü›H×ØØ][ÙËœ×ØYš\ÛÜWŞXİÛØÚÊˆ×ØØ][ÙËš\Ú^^[™Y
+ˆ	Ü\ÙLMY[]™\N‰ÈÜ™\ÜÚY^	Î‰ÈİÙ\Šš[JÜ™XÚ\Y[
+JKˆˆ
+Bˆ
+NÂˆ—ØÛÛ^HX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+Ü™\ÜÚYÜ™XÚ\Y[Ø[İ×İ\İÛİ™\œšYK	Ù[XZ[Ù[]™\IÊNÂˆ—ÙØ]Wİ™\œÚ[ÛˆH
+—ØXİÜ‹O‰ÙØ]Wİ™\œÚ[Û‰ÊNš[YÙ\ÂˆYˆ^\İÈ
+ˆÙ[XİHœ›ÛHX›XË™[XZ[Ù]™[ÈÚ\™H™\ÜÚYHÜ™\ÜÚYˆ[™™XÚ\Y[Ù[XZ[HİÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™İ]\È[ˆ
+	ÜÙ[™[™ÉË	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊBˆ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›İšY\—ØXØÙ\[˜ÙWİ[œ™\ÛÛ™Y	ÎÈ[™YÂ‚ˆYˆ›İÙ›Ü˜ÙWÜ™\Ù[™[‚ˆÙ[Xİ
+ˆ[È—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H™\ÜÚYHÜ™\ÜÚY[™™XÚ\Y[Ù[XZ[HİÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™›İYšXØ][Û—İ\HH	Ü™[Z][WÜ™\ÜÜ‰Âˆ[™İ]\È[ˆ
+	ÜÙ[	Ë	Ù[]™\WÙ[^YY	Ë	Ù[]™\™Y	Ë	Ø›İ[˜ÙY	Ë	ØÛÛ\Z[™Y	ÊBˆÜ™\ˆHÜ™X]YØ]\ØÈ[Z]NÂˆYˆ›İ[™[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™]\ÙYÙ^\İ[™×ÜÙ[™	ËYK	Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šYˆ	Ü›İšY\—ÛY\ÜØYÙWÚY	Ë—Ù]™[œ›İšY\—ÛY\ÜØYÙWÚY	Üİ]\ÉË—Ù]™[œİ]\Ëˆ	Ü™XÚ\Y[	ËİÙ\Šš[JÜ™XÚ\Y[
+JK	İ\İÙ[]™\IË
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[ŠNÂˆ[™YÂˆ[™YÂ‚ˆÙ[XİÛİ[
+
+ŠH
+ÈH[È—Ø][\œ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H™\ÜÚYHÜ™\ÜÚY[™™XÚ\Y[Ù[XZ[HİÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™›İYšXØ][Û—İ\HH	Ü™[Z][WÜ™\ÜÜ‰ÎÂˆ—ÙY\HH	Ü™[Z][K\™\ÜY[]™\N‰ÈÜ™\ÜÚY	Î‰ÈİÙ\Šš[JÜ™XÚ\Y[
+JH	Î˜][\IÈ—Ø][\Âˆ[œÙ\[ÈX›XË™[XZ[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY™XÚ\Y[Ù[XZ[[\]WÚÙ^K›İYšXØ][Û—İ\KˆY\WÚÙ^K›İšY\—Ü™\]Y\İÚÙ^K›İšY\—ÚY[\İ[˜ŞWÚÙ^K›İšY\‹İ]\Ëˆ][\Û[X™\‹Y]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZYÜ™\ÜÚYˆİÙ\Šš[JÜ™XÚ\Y[
+JK	Ü™[Z][WÜ™\ÜÜ—İŒIË	Ü™[Z][WÜ™\ÜÜ‰Ë—ÙY\Kˆ—ÙY\K—ÙY\KİÙ\Šš[JÜ›İšY\ŠJK	Ü]Y]YY	Ë—Ø][\ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]XÚY[ØÚXÚÜİ[IË—ØÛÛ^O‰Ü™\ÜØÚXÚÜİ[IË	İ\İÙ[]™\IË
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[ŠBˆ
+H™]\›š[™È
+ˆ[È—Ù]™[Âˆ[œÙ\[ÈX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÊˆ™\ÜÚY™\ÜØÚXÚÜİ[K™XÚ\Y[Ù[XZ[Ü™\—ÚY\ÜÙ\ÜÛY[ÚYØÛÜ™WÜ[—ÚYˆÙXİ\š]WÙØ]Wİ™\œÚ[Û‹]]Üš\ÙYØK]]Üš\ÙYÜÙ\ÜÚ[Û—ÚY›İšY\‹[XZ[Ù]™[ÚY\İÙ[]™\Bˆ
+H˜[Y\È
+ˆÜ™\ÜÚY—ØÛÛ^O‰Ü™\ÜØÚXÚÜİ[IËİÙ\Šš[JÜ™XÚ\Y[
+JKˆ
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZY
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZY—ÙØ]Wİ™\œÚ[Û‹
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆ[YŠ—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	Ë	ÉÊN]ZYİÙ\Šš[JÜ›İšY\ŠJK—Ù]™[šYˆ
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[‚ˆ
+H™]\›š[™È
+ˆ[È—Ø]]Âˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™]\ÙYÙ^\İ[™×ÜÙ[™	Ë˜[ÙK	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šYˆ	Ü›İšY\—Ü™\]Y\İÚÙ^IË—Ù]™[œ›İšY\—Ü™\]Y\İÚÙ^K	Ø][\Û[X™\‰Ë—Ù]™[˜][\Û[X™\‹ˆ	Ü™XÚ\Y[	Ë—Ø]]œ™XÚ\Y[Ù[XZ[	İ\İÙ[]™\IË—Ø]]\İÙ[]™\K	Üİ]\ÉË—Ø]]œİ]\Âˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\JØ]]Üš^˜][Û—ÚY]ZY
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÜÙXİ\š]HœÛÛ˜È—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÈ—ØÛÛ^œÛÛ˜È—ÛX\ÙH]ZYÂ˜™YÚ[‚ˆ—ÜÙXİ\š]HHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ø]]ÛX]X×Ù[]™\IË\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYBˆ
+NÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÚ\™HYHØ]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ]]Üš^˜][Û—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—Ø]]œİ]\Èˆ	Ü]Y]YY	È[ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	Ë˜[ÙK	Üİ]\ÉË—Ø]]œİ]\ÊNÈ[™YÂˆYˆ—Ø]]œÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆˆ
+—ÜÙXİ\š]KO‰ÙØ]Wİ™\œÚ[Û‰ÊNš[YÙ\ˆ[‚ˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÙ]İ]\ÈH	Ü™]›ÚÙY	Ë™]›ÚÙYÜ™X\ÛÛˆH	ÜÙXİ\š]WÙØ]Wİ™\œÚ[Û—ØÚ[™ÙY	Ë\]YØ]H›İÊ
+HÚ\™HYH—Ø]]šYÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë\œ›Ü—ÛY\ÜØYÙHH	Ñ[]™\H]]Üš^˜][ÛˆØ]H™\œÚ[ÛˆÚ[™ÙY‰ÈÚ\™HYH—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÈH	Ü]Y]YY	ÎÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	Ë˜[ÙK	Üİ]\ÉË	Ü™]›ÚÙY	Ë	Ü™X\ÛÛ‰Ë	ÜÙXİ\š]WÙØ]Wİ™\œÚ[Û—ØÚ[™ÙY	ÊNÂˆ[™YÂˆ™YÚ[‚ˆ—ØÛÛ^HX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+—Ø]]œ™\ÜÚY—Ø]]œ™XÚ\Y[Ù[XZ[^—Ø]]\İÙ[]™\K	Ù[XZ[Ù[]™\IÊNÂˆYˆ—ØÛÛ^O‰Ü™\ÜØÚXÚÜİ[IÈˆ—Ø]]œ™\ÜØÚXÚÜİ[BˆÜˆ
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZYˆ—Ø]]›Ü™\—ÚYˆÜˆ
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆ—Ø]]œØÛÜ™WÜ[—ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ]]Üš^˜][Û—Øš[™[™×ØÚ[™ÙY	ÎÈ[™YÂˆ^Ù\[ÛˆÚ[ˆİ\œÈ[‚ˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÙ]İ]\ÈH	Ü™]›ÚÙY	Ë™]›ÚÙYÜ™X\ÛÛˆHÜ[\œ›K\]YØ]H›İÊ
+HÚ\™HYH—Ø]]šYÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë\œ›Ü—ÛY\ÜØYÙHH	Ñ[]™\H]]Üš^˜][Ûˆ™]›ÚÙY™Y›Ü™H\Ü]Úˆ	ÈÜ[\œ›HÚ\™HYH—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÈH	Ü]Y]YY	ÎÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	Ë˜[ÙK	Üİ]\ÉË	Ü™]›ÚÙY	Ë	Ü™X\ÛÛ‰ËÜ[\œ›JNÂˆ[™Âˆ—ÛX\ÙHHÙ[—Ü˜[™ÛWİ]ZY
+
+NÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÈH	ØÛZ[YY	ËX\ÙWİÚÙ[ˆH—ÛX\ÙKX\ÙWÙ^\™\×Ø]H›İÊ
+H
+È[\˜[	ÌLZ[]\ÉËˆÛZ[YYØ]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™HYH—Ø]]šYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØÛZ[YY	ËYK	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	ÛX\ÙWİÚÙ[‰Ë—ÛX\ÙKˆ	Ù[XZ[Ù]™[ÚY	Ë—Ø]]™[XZ[Ù]™[ÚY	Ü™\ÜÚY	Ë—Ø]]œ™\ÜÚYˆ	Ü™XÚ\Y[	Ë—Ø]]œ™XÚ\Y[Ù[XZ[	Ü›İšY\‰Ë—Ø]]œ›İšY\‹ˆ	İ\İÙ[]™\IË—Ø]]\İÙ[]™\K	Ü™\ÜØÚXÚÜİ[IË—Ø]]œ™\ÜØÚXÚÜİ[Bˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË›X\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y
+ˆØ]]Üš^˜][Û—ÚY]ZYˆÛX\ÙWİÚÙ[ˆ]ZYŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	Ø]]ÛX]X×Ù[]™\IË\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYJNÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÚ\™HYHØ]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]œİ]\Èˆ	ØÛZ[YY	ÈÜˆ—Ø]]›X\ÙWİÚÙ[ˆˆÛX\ÙWİÚÙ[ˆÜˆ—Ø]]›X\ÙWÙ^\™\×Ø]›İÊ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ]]Üš^˜][Û—ÛX\ÙWÚ[˜[Y	ÎÂˆ[™YÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÙ]İ]\ÈH	Ù\Ü]Ú[™ÉË\Ü]ÚÜİ\YØ]H›İÊ
+K\]YØ]H›İÊ
+HÚ\™HYH—Ø]]šYÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH	ÜÙ[™[™ÉËÙ[™ÛX\ÙWİÚÙ[ˆHÛX\ÙWİÚÙ[‹ˆÙ[™ÛX\ÙWÙ^\™\×Ø]H—Ø]]›X\ÙWÙ^\™\×Ø][]™\Wİ\]YØ]H›İÊ
+K\œ›Ü—ÛY\ÜØYÙHH[ˆÚ\™HYH—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÈH	Ü]Y]YY	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙ[XZ[Ù]™[Û›İÜ]Y]YY	ÎÈ[™YÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú
+ˆØ]]Üš^˜][Û—ÚY]ZYˆÛX\ÙWİÚÙ[ˆ]ZYˆÜ™X\ÛÛˆ^ŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	Ø]]ÛX]X×Ù[]™\IË\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYJNÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÚ\™HYHØ]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]œİ]\Èˆ	ØÛZ[YY	ÈÜˆ—Ø]]›X\ÙWİÚÙ[ˆˆÛX\ÙWİÚÙ[ˆ[ˆ™]\›ˆ˜[ÙNÈ[™YÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÙ]İ]\ÈH	Ü™]›ÚÙY	Ë™]›ÚÙYÜ™X\ÛÛˆHÜ™X\ÛÛ‹ˆX\ÙWİÚÙ[ˆH[X\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+HÚ\™HYH—Ø]]šYÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë\œ›Ü—ÛY\ÜØYÙHHÜ™X\ÛÛ‹ˆÙ[™ÛX\ÙWİÚÙ[ˆH[Ù[™ÛX\ÙWÙ^\™\×Ø]H[[]™\Wİ\]YØ]H›İÊ
+BˆÚ\™HYH—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÈH	Ü]Y]YY	ÎÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™š[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\JˆØ]]Üš^˜][Û—ÚY]ZYˆÙ[XZ[Ù]™[ÚY]ZYˆÜ›İšY\—ÛY\ÜØYÙWÚY^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÈ—Ù^\İ[™ÈX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÉ\›İİ\NÈ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÈ—Û›İÈ[Y\İ[\ˆH›İÊ
+NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	Ù[]™\WÙš[˜[^˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYJNÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÚ\™HYHØ]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]™[XZ[Ù]™[ÚYˆÙ[XZ[Ù]™[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Øš[™[™×ÛZ\ÛX]Ú	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ù^\İ[™Èœ›ÛHX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÈÚ\™H]]Üš^˜][Û—ÚYHØ]]Üš^˜][Û—ÚYÂˆYˆ›İ[™[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ùš[˜[^™Y	ËYK	ÚY[\İ[Ü™\^IËYK	Ü™\ÜÚY	Ë—Ù^\İ[™Ëœ™\ÜÚY	Ù[XZ[Ù]™[ÚY	Ë—Ù^\İ[™Ë™[XZ[Ù]™[ÚY
+NÂˆ[™YÂˆYˆ—Ø]]œİ]\È›İ[ˆ
+	Ù\Ü]Ú[™ÉË	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Üİ]WÚ[˜[Y‰IË—Ø]]œİ]\ÎÈ[™YÂˆYˆÛØ[\ØÙJš[JÜ›İšY\—ÛY\ÜØYÙWÚY
+K	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü›İšY\—ÛY\ÜØYÙWÚYÜ™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYH—Ø]]œ™\ÜÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Ü™\ÜÛZ\ÜÚ[™ÉÎÈ[™YÂ‚ˆ\]HX›XË™[XZ[Ù]™[ÂˆÙ]İ]\ÈH	ÜÙ[	Ë›İšY\ˆH—Ø]]œ›İšY\‹›İšY\—ÛY\ÜØYÙWÚYHÜ›İšY\—ÛY\ÜØYÙWÚYˆÙ[Ø]HÛØ[\ØÙJÙ[Ø]—Û›İÊK[]™\Wİ\]YØ]H—Û›İËˆÙ[™ÛX\ÙWİÚÙ[ˆH[Ù[™ÛX\ÙWÙ^\™\×Ø]H[\œ›Ü—ÛY\ÜØYÙHH[ˆÚ\™HYHÙ[XZ[Ù]™[ÚY[™İ]\È[ˆ
+	ÜÙ[™[™ÉË	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Ù[XZ[ØØ\×Ù˜Z[Y	ÎÈ[™YÂ‚ˆYˆ›İ—Ø]]\İÙ[]™\H[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÈH	Ü™[X\ÙY	Ë™[X\ÙYØ]HÛØ[\ØÙJ™[X\ÙYØ]—Û›İÊK\]YØ]H—Û›İÂˆÚ\™HYH—Ü™\ÜšY[™İ]\È›İ[ˆ
+	Ù˜Y	Ë	Üİ\\œÙYY	Ë	İ›ÚYY	ÊNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Ü™\ÜØØ\×Ù˜Z[Y	ÎÈ[™YÂˆYˆ—Ü™\Ü™[š[Y[ÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÙ[š[Y[ÂˆÙ]İ]\ÈH	ØÛÛ\]Y	Ëİ\œ™[Üİ\H	Ù[XZ[ÜÙ[	ËÛÛ\]YØ]HÛØ[\ØÙJÛÛ\]YØ]—Û›İÊKˆ™\ÜÚYH—Ü™\ÜšY\]YØ]H—Û›İÂˆÚ\™HYH—Ü™\Ü™[š[Y[ÚY[™İ]\È›İ[ˆ
+	ØØ[˜Ù[Y	Ë	ØÛÛ\]Y	ÊNÂˆ[™YÂˆ[™YÂ‚ˆ[œÙ\[ÈX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœÊ]]Üš^˜][Û—ÚY[XZ[Ù]™[ÚY™\ÜÚY›İšY\‹›İšY\—ÛY\ÜØYÙWÚYš[˜[^™YØ]
+Bˆ˜[Y\È
+—Ø]]šYÙ[XZ[Ù]™[ÚY—Ü™\ÜšY—Ø]]œ›İšY\‹Ü›İšY\—ÛY\ÜØYÙWÚY—Û›İÊNÂˆ[œÙ\[ÈX›XËœ™\ÜÙ]™[Ê™\ÜÚY]™[İ\KXİÜ—İ\Ù\—ÚY›İKY]Y]WÚœÛÛŠBˆ˜[Y\È
+—Ü™\ÜšYØ\ÙHÚ[ˆ—Ø]]\İÙ[]™\H[ˆ	Ù[XZ[İ\İÜÙ[	È[ÙH	Ù[XZ[ÜÙ[	È[™ˆ—Ø]]˜]]Üš\ÙYØK	Ğ]ÛZXÈ›İšY\‹XXØÙ\[˜ÙHš[˜[^˜][Û‹‰ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚY	Ü›İšY\—ÛY\ÜØYÙWÚY	ËÜ›İšY\—ÛY\ÜØYÙWÚY	İ\İÙ[]™\IË—Ø]]\İÙ[]™\JJNÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë—Ø]]˜]]Üš\ÙYØK—Ø]]˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÉË—Ü™\ÜšYˆØ\ÙHÚ[ˆ—Ø]]\İÙ[]™\H[ˆ	Ü™[Z][WÜ™\Üİ\İÙ[]™\WÙš[˜[^™Y	È[ÙH	Ü™[Z][WÜ™\ÜÙ[]™\WÙš[˜[^™Y	È[™ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚY	Ü›İšY\—ÛY\ÜØYÙWÚY	ËÜ›İšY\—ÛY\ÜØYÙWÚY
+JNÂˆYˆ›İ—Ø]]\İÙ[]™\H[‚ˆ[œÙ\[ÈX›XË˜\ÜÙ\ÜÛY[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY]™[İ\KY\WÚÙ^KY]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—Ø]]˜\ÜÙ\ÜÛY[ÚY—Ø]]›Ü™\—ÚY—Ü™\ÜšY	Ü™\ÜÙ[XZ[Yİ×Øİ\İÛY\‰Ëˆ	Ü\ÙLMY[]™\KYš[˜[^˜][Û‰È—Ø]]šYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚY	İ\İÙ[]™\IË˜[ÙJBˆ
+NÂˆ[™YÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÈH	Ùš[˜[^™Y	Ë›İšY\—ÛY\ÜØYÙWÚYHÜ›İšY\—ÛY\ÜØYÙWÚYš[˜[^™YØ]H—Û›İËˆX\ÙWİÚÙ[ˆH[X\ÙWÙ^\™\×Ø]H[\]YØ]H—Û›İÂˆÚ\™HYH—Ø]]šYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ùš[˜[^™Y	ËYK	ÚY[\İ[Ü™\^IË˜[ÙK	Ü™\ÜÚY	Ë—Ü™\ÜšY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚY
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË›X\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y
+ˆØ]]Üš^˜][Û—ÚY]ZYˆÜ›İšY\—ÛY\ÜØYÙWÚY^ˆÜ™X\ÛÛˆ^ŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYJNÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÚ\™HYHØ]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]œİ]\È›İ[ˆ
+	Ù\Ü]Ú[™ÉË	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊH[ˆ™]\›ˆ˜[ÙNÈ[™YÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈÙ]İ]\ÈH	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ëˆ›İšY\—ÛY\ÜØYÙWÚYHÛØ[\ØÙJÜ›İšY\—ÛY\ÜØYÙWÚY›İšY\—ÛY\ÜØYÙWÚY
+K\]YØ]H›İÊ
+BˆÚ\™HYH—Ø]]šYÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ëˆ›İšY\—ÛY\ÜØYÙWÚYHÛØ[\ØÙJÜ›İšY\—ÛY\ÜØYÙWÚY›İšY\—ÛY\ÜØYÙWÚY
+Kˆ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]HÛØ[\ØÙJ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]›İÊ
+JKˆ\œ›Ü—ÛY\ÜØYÙHHÜ™X\ÛÛ‹[]™\Wİ\]YØ]H›İÊ
+BˆÚ\™HYH—Ø]]™[XZ[Ù]™[ÚY[™İ]\È[ˆ
+	ÜÙ[™[™ÉË	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊNÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™XÛİ™\—Üİ[WÜ™[Z][WÜ™\ÜÙ[XZ[ÜÙ[™Ê
+Bœ™]\›œÈ[YÙ\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØÛİ[[YÙ\Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYKYJNÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÈH	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ë\]YØ]H›İÊ
+BˆÚ\™Hİ]\ÈH	Ù\Ü]Ú[™ÉÈ[™X\ÙWÙ^\™\×Ø]›İÊ
+NÂˆ\]HX›XË™[XZ[Ù]™[ÂˆÙ]İ]\ÈH	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ë™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]HÛØ[\ØÙJ™XÛÛ˜Ú[X][Û—Ü™\]Z\™YØ]›İÊ
+JKˆ[]™\Wİ\]YØ]H›İÊ
+K\œ›Ü—ÛY\ÜØYÙHH	Ñ\Ü]ÚX\ÙH^\™YÈ›İšY\ˆXØÙ\[˜ÙH™[XZ[œÈ[œ™\ÛÛ™Y‰ÂˆÚ\™Hİ]\ÈH	ÜÙ[™[™ÉÈ[™Ù[™ÛX\ÙWÙ^\™\×Ø]›İÊ
+NÂˆÙ]XYÛ›ÜİXÜÈ—ØÛİ[H›İ×ØÛİ[Âˆ™]\›ˆ—ØÛİ[Â™[™Â‰[˜İ[Û‰Â‚™È	Ü˜[É™XÛ\™H—ÜÚYÛ˜]\™H^Â˜™YÚ[‚ˆ›Ü™XXÚ—ÜÚYÛ˜]\™H[ˆ\œ˜^H\œ˜^VÂˆ	ÜX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠ^X›XË˜YZ[—Ü›ÛV×K›ÛÛX[ŠIËˆ	ÜX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J^X›XË˜YZ[—Ü›ÛV×K›ÛÛX[‹›ÛÛX[ŠIËˆ	ÜX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+^]ZY]ZY]ZY^
+IËˆ	ÜX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+]ZY^›ÛÛX[‹^
+IËˆ	ÜX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÛ]]][ÛŠ
+IÂˆHÛÜˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ[™ÛÜÂ‚ˆ›Ü™XXÚ—ÜÚYÛ˜]\™H[ˆ\œ˜^H\œ˜^VÂˆ	ÜX›XËœÙ]Ü\ÙLMÜÙXİ\š]WÙØ]Wİ™\œÚ[ÛŠ[YÙ\‹^
+IËˆ	ÜX›XË\]WÜ\ÙLMÙ™X]\™WÜÛXŞJ^œÛÛ˜ŠIËˆ	ÜX›XË˜]]Üš^™WÜ\ÙLMØXİ[ÛŠ^
+IËˆ	ÜX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ù[][Y[
+^
+IËˆ	ÜX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ^^]ZYX›XËœ™\Üİ\JIËˆ	ÜX›XËœ™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙJ]ZY
+IËˆ	ÜX›XËœ™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J^^
+IËˆ	ÜX›XË˜ÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+]ZY]ZY^^^]ZY]ZY
+IËˆ	ÜX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY]ZY
+IËˆ	ÜX›XË˜X˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J]ZY^
+IËˆ	ÜX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙ[]™\WÙ[][Y[
+]ZY^›ÛÛX[ŠIËˆ	ÜX›XË˜\ÜÙ\Ü™[Z][WÜ™\ÜÙİÛ›ØYÙ[][Y[
+]ZY^
+IËˆ	ÜX›XË˜]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY^›ÛÛX[‹›ÛÛX[‹^
+IÂˆHÛÜˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	Èœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛIÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	ÈÈ]][XØ]Y	ÎÂˆ[™ÛÜÂ‚ˆ›Ü™XXÚ—ÜÚYÛ˜]\™H[ˆ\œ˜^H\œ˜^VÂˆ	ÜX›XË˜ÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\Ê[\˜[
+IËˆ	ÜX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY
+IËˆ	ÜX›XË›X\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y
+]ZY]ZY
+IËˆ	ÜX›XË™˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú
+]ZY]ZY^
+IËˆ	ÜX›XË™š[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY]ZY^
+IËˆ	ÜX›XË›X\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y
+]ZY^^
+IËˆ	ÜX›XËœ™XÛİ™\—Üİ[WÜ™[Z][WÜ™\ÜÙ[XZ[ÜÙ[™Ê
+IÂˆHÛÜˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	Èœ›ÛHX›XË[›Û‹]][XØ]Y	ÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[Ûˆ	È—ÜÚYÛ˜]\™H	ÈÈÙ\šXÙWÜ›ÛIÎÂˆ[™ÛÜÂ‚ˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XËœ™[X\ÙWÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J]ZY
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY]ZY^
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊ^^^^[Y\İ[\‹œÛÛ˜ŠHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂ™[™Â‰Ü˜[ÉÂ‚˜ÛÛ[Y[ÛˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\È\Âˆ	Õ™\œÚ[Û™Y]X˜\ÙHÙXİ\š]HØ]KˆHÙYYY\ÙHMØ]H\È[[[Û˜[H[œØ]\ÙšYY[™\È]]Üš]]]™Hİ™\ˆY]X›H”ÓÓˆ›YÜË‰ÎÂ˜ÛÛ[Y[ÛˆX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÈ\Âˆ	Ñ\˜X›H[]™\Hİ]›ŞˆÛZ[Z[™È[ˆX\šÚ[™È\Ü]ÚÜİ\Y\ÈH\œ™]™\œÚX›H›İšY\‹Y\Ü]Ú›İ[™\NÈ]\ˆ\Ú[™\ÜÈÚ[™Ù\ÈØ[››İ[œÙ[™[ˆXØÙ\Y™\]Y\İ‰ÎÂ˜ÛÛ[Y[Ûˆ[˜İ[ÛˆX›XË˜ÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\Ê[\˜[
+H\Âˆ	ĞÛX[\YZ[š\İ˜][ÛˆÜ\˜][Û‹ˆ]Û›H™[[İ™\ÈÛ[˜ÛÛ[Z]YÛZ[\È[™™]\›œÈ[\Ü˜\H]È›ÜˆİÜ˜YÙHTHÛX[\ÈXİ]™H[™ÛÛ[Z]Y™\ÜØš™XİÈ\™H^ÛYY‰ÎÂ‚\]HX›XË˜\ÜÙ][™ÜÂœÙ]˜[YWÚœÛÛˆH˜[YWÚœÛÛˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™[Z][WÜ™\ÜÜ›Û\İ™\œÚ[Û‰Ë	ÛZË\™[Z][K\™\Ü]Œ‹Y]šY[˜ÙK\[‰Ëˆ	Ü™[Z][WÜ™\ÜÜØÚ[XWİ™\œÚ[Û‰Ë	ÛZË\™[Z][KXZKY]šY[˜ÙK\[‹]Œ‰Ëˆ	Ü™[Z][WÜ™\ÜØ]]×Ù[š[Y[Ù[˜X›Y	Ë˜[ÙKˆ	Ü™[Z][WÜ™\ÜØZWÛ˜\œ˜]]™WÙ[˜X›Y	Ë˜[ÙKˆ	Ü™[Z][WÜ™\ÜØ]]×Ù[XZ[Ù[˜X›Y	Ë˜[ÙBˆ
+Kˆ\]YØ]H›İÊ
+BÚ\™HÙ][™×ÚÙ^HH	Ü\ÙLMØ]]Û›Û[İ\×Ü™\ÜÙ[™Ú[™IÎÂ‚\]HX›XË˜\ÜÙ][™ÜÂœÙ]˜[YWÚœÛÛˆH˜[YWÚœÛÛˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ü™[Z][WÜ™\ÜÛX[X[Ù[]™\WÙ[˜X›Y	Ë˜[ÙKˆ	Ü™[Z][WÜ™\Üİ\İÜ™XÚ\Y[Ûİ™\œšYWÙ[˜X›Y	Ë˜[ÙBˆ
+Kˆ\]YØ]H›İÊ
+BÚ\™HÙ][™×ÚÙ^HH	Ü\ÙLMÙ[]™\WÜÛXŞIÎÂ‚‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊˆÜ›İšY\ˆ^ˆÜ›İšY\—Ù]™[ÚY^ˆÜ›İšY\—ÛY\ÜØYÙWÚY^ˆÙ]™[İ\H^ˆÙ]™[ØÜ™X]YØ][Y\İ[\‹ˆÜ^[ØYÙš[™Ù\œš[^ˆÜ^[ØYÚœÛÛˆœÛÛ˜ˆY˜][	ŞßIÎšœÛÛ˜‚ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È		™XÛ\™Bˆ—Ù[XZ[X›XË™[XZ[Ù]™[É\›İİ\NÈ—Ù^\İ[™ÈX›XË™[XZ[Ü›İšY\—Ù]™[É\›İİ\NÂˆ—Ü›İšY\—Ù]™[ÚY]ZYÈ—Üİ]\È^È—Øİ\œ™[Ü˜[šÈ[YÙ\È—Ú[˜ÛÛZ[™×Ü˜[šÈ[YÙ\Âˆ—Ø\YY›ÛÛX[ˆH˜[ÙNÈ—Üİ\ÜY›ÛÛX[È—Ü^[ØYœÛÛ˜È—Ü^[ØYÜÚ^™H[YÙ\Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	İÙXšÛÚ×Û]]][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×K˜[ÙKYJNÂˆYˆ[™İ
+Ü^[ØYÙš[™Ù\œš[
+HˆÜˆÜ^[ØYÙš[™Ù\œš[ˆ	Ö×ŒNXKY—IÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	İÙXšÛÚ×Ü^[ØYÙš[™Ù\œš[Ú[˜[Y	ÎÂˆ[™YÂˆ—Ü^[ØYHœÛÛ˜—Üİš\Û[ÊœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	İ\IËÜ^[ØYÚœÛÛ‹O‰İ\IË	ØÜ™X]YØ]	ËÜ^[ØYÚœÛÛ‹O‰ØÜ™X]YØ]	Ë	Ü™X\ÛÛ‰ËÜ^[ØYÚœÛÛ‹O‰Ü™X\ÛÛ‰Âˆ
+JNÂˆ—Ü^[ØYÜÚ^™HHØİ]Û[™İ
+—Ü^[ØY^
+NÂˆYˆ—Ü^[ØYÜÚ^™HˆMLÍˆ[ˆ˜Z\ÙH^Ù\[Ûˆ	İÙXšÛÚ×ÛZ[š[X[Ü^[ØYİÛ×Û\™ÙIÎÈ[™YÂˆ—Üİ]\ÈHØ\ÙHÙ]™[İ\BˆÚ[ˆ	Ù[XZ[œÙ[	È[ˆ	ÜÙ[	ÈÚ[ˆ	Ù[XZ[™[]™\WÙ[^YY	È[ˆ	Ù[]™\WÙ[^YY	ÂˆÚ[ˆ	Ù[XZ[™[]™\™Y	È[ˆ	Ù[]™\™Y	ÈÚ[ˆ	Ù[XZ[™˜Z[Y	È[ˆ	Ù[]™\WÙ˜Z[Y	ÂˆÚ[ˆ	Ù[XZ[˜›İ[˜ÙY	È[ˆ	Ø›İ[˜ÙY	ÈÚ[ˆ	Ù[XZ[œİ\™\ÜÙY	È[ˆ	Ø›İ[˜ÙY	ÂˆÚ[ˆ	Ù[XZ[˜ÛÛ\Z[™Y	È[ˆ	ØÛÛ\Z[™Y	È[ÙH[[™Âˆ—Üİ\ÜYH—Üİ]\È\È›İ[Â‚ˆÙ[Xİ
+ˆ[È—Ù^\İ[™Èœ›ÛHX›XË™[XZ[Ü›İšY\—Ù]™[ÂˆÚ\™H›İšY\ˆHİÙ\Šš[JÜ›İšY\ŠJH[™›İšY\—Ù]™[ÚYHÜ›İšY\—Ù]™[ÚY›Üˆ\]NÂˆYˆ›İ[™[‚ˆYˆ—Ù^\İ[™Ëœ^[ØYÙš[™Ù\œš[\È\İ[˜İœ›ÛHÜ^[ØYÙš[™Ù\œš[[‚ˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÈÙ]›ØÙ\ÜÚ[™×Ù\œ›ÜˆH	Ü›İšY\—Ù]™[Ü^[ØYØÛÛ™›Xİ	ËÛÛ™›XİÙ]XİYØ]H›İÊ
+BˆÚ\™HYH—Ù^\İ[™ËšYÂˆ[œÙ\[ÈX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\Ê[\ÚÙ^KÙ]™\š]KØ]YÛÜK[XZ[Ù]™[ÚY]Z[ÚœÛÛŠBˆ˜[Y\È
+	Ü›İšY\‹Y]™[XÛÛ™›Xİ‰ÈİÙ\Šš[JÜ›İšY\ŠJH	Î‰ÈÜ›İšY\—Ù]™[ÚYˆ	ØÜš]XØ[	Ë	Ü›İšY\—Ù]™[Ü^[ØYØÛÛ™›Xİ	Ë—Ù^\İ[™Ë™[XZ[Ù]™[ÚYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü›İšY\‰ËİÙ\Šš[JÜ›İšY\ŠJK	Ü›İšY\—Ù]™[ÚY	ËÜ›İšY\—Ù]™[ÚY
+JBˆÛˆÛÛ™›Xİ
+[\ÚÙ^JHÈ›İ[™ÎÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù\XØ]IËYK	ØÛÛ™›Xİ	ËYK	Üİ]Wİ\]Y	Ë˜[ÙJNÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù\XØ]IËYK	ØÛÛ™›Xİ	Ë˜[ÙK	Üİ]Wİ\]Y	Ë˜[ÙJNÂˆ[™YÂ‚ˆYˆÜ›İšY\—ÛY\ÜØYÙWÚY\È›İ[[‚ˆÙ[Xİ
+ˆ[È—Ù[XZ[œ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H›İšY\ˆHİÙ\Šš[JÜ›İšY\ŠJH[™›İšY\—ÛY\ÜØYÙWÚYHÜ›İšY\—ÛY\ÜØYÙWÚYˆ›Üˆ\]NÂˆ[™YÂˆ[œÙ\[ÈX›XË™[XZ[Ü›İšY\—Ù]™[Êˆ[XZ[Ù]™[ÚY›İšY\‹›İšY\—Ù]™[ÚY›İšY\—ÛY\ÜØYÙWÚY]™[İ\Kˆ]™[ØÜ™X]YØ]^[ØYÙš[™Ù\œš[^[ØYÜÚ^™WØ]\Ëİ\ÜYÙ]™[^[ØYÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—Ù[XZ[šYİÙ\Šš[JÜ›İšY\ŠJKÜ›İšY\—Ù]™[ÚYÜ›İšY\—ÛY\ÜØYÙWÚYÙ]™[İ\KˆÙ]™[ØÜ™X]YØ]Ü^[ØYÙš[™Ù\œš[—Ü^[ØYÜÚ^™K—Üİ\ÜY—Ü^[ØYˆ
+H™]\›š[™ÈY[È—Ü›İšY\—Ù]™[ÚYÂˆYˆ›İ—Üİ\ÜY[‚ˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÈÙ]›ØÙ\ÜÙYØ]H›İÊ
+K›ØÙ\ÜÚ[™×Ù\œ›ÜˆH	İ™\šYšYYİ[œİ\ÜYÙ]™[	ÈÚ\™HYH—Ü›İšY\—Ù]™[ÚYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚYÛ›Ü™Y	ËYK	Ü™X\ÛÛ‰Ë	İ[œİ\ÜYÙ]™[	Ë	Ü™XÛÜ™Y	ËYJNÂˆ[™YÂˆYˆ—Ù[XZ[šY\È[[‚ˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÈÙ]›ØÙ\ÜÚ[™×Ù\œ›ÜˆH	İ[šÛ›İÛ—Ü›İšY\—ÛY\ÜØYÙIË›ØÙ\ÜÙYØ]H›İÊ
+HÚ\™HYH—Ü›İšY\—Ù]™[ÚYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚYÛ›Ü™Y	ËYK	Ü™X\ÛÛ‰Ë	İ[šÛ›İÛ—ÛY\ÜØYÙIÊNÂˆ[™YÂ‚ˆ—Øİ\œ™[Ü˜[šÈHØ\ÙH—Ù[XZ[œİ]\ÂˆÚ[ˆ	Ü]Y]YY	È[ˆLÚ[ˆ	ÜÙ[™[™ÉÈ[ˆŒÚ[ˆ	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰È[ˆBˆÚ[ˆ	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	È[ˆˆÚ[ˆ	ÜÙ[	È[ˆÌÚ[ˆ	Ù[]™\WÙ[^YY	È[ˆˆÚ[ˆ	Ù[]™\™Y	È[ˆLÚ[ˆ	Ù[]™\WÙ˜Z[Y	È[ˆŒÚ[ˆ	Ø›İ[˜ÙY	È[ˆŒˆÚ[ˆ	ØÛÛ\Z[™Y	È[ˆÌÚ[ˆ	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰È[ˆ[ÙH[™Âˆ—Ú[˜ÛÛZ[™×Ü˜[šÈHØ\ÙH—Üİ]\ÈÚ[ˆ	ÜÙ[	È[ˆÌÚ[ˆ	Ù[]™\WÙ[^YY	È[ˆˆÚ[ˆ	Ù[]™\™Y	È[ˆLÚ[ˆ	Ù[]™\WÙ˜Z[Y	È[ˆŒÚ[ˆ	Ø›İ[˜ÙY	È[ˆŒÚ[ˆ	ØÛÛ\Z[™Y	È[ˆÌ[ÙH[™ÂˆYˆ—Ú[˜ÛÛZ[™×Ü˜[šÈH—Øİ\œ™[Ü˜[šÂˆ[™
+—Ù[XZ[™[]™\Wİ\]YØ]\È[ÜˆÙ]™[ØÜ™X]YØ]H—Ù[XZ[™[]™\Wİ\]YØ]
+H[‚ˆ\]HX›XË™[XZ[Ù]™[ÈÙ]İ]\ÈH—Üİ]\Ë›İšY\—Ù]™[ÚYHÜ›İšY\—Ù]™[ÚYˆ[]™\™YØ]HØ\ÙHÚ[ˆ—Üİ]\ÈH	Ù[]™\™Y	È[ˆÙ]™[ØÜ™X]YØ][ÙH[]™\™YØ][™ˆ[]™\Wİ\]YØ]HÙ]™[ØÜ™X]YØ]ˆ\œ›Ü—ÛY\ÜØYÙHHØ\ÙHÚ[ˆ—Üİ]\È[ˆ
+	Ø›İ[˜ÙY	Ë	ØÛÛ\Z[™Y	Ë	Ù[]™\WÙ˜Z[Y	ÊH[ˆÛØ[\ØÙJ—Ü^[ØYO‰Ü™X\ÛÛ‰Ë—Üİ]\ÊH[ÙH[[™ˆY]Y]WÚœÛÛˆHÛØ[\ØÙJY]Y]WÚœÛÛ‹	ŞßIÎšœÛÛ˜ŠHœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Û\İÜ›İšY\—Ù]™[İ\IËÙ]™[İ\K	Û\İÜ›İšY\—Ù]™[ØÜ™X]YØ]	ËÙ]™[ØÜ™X]YØ]ˆ
+HÚ\™HYH—Ù[XZ[šYÂˆ—Ø\YYHYNÂˆ[™YÂˆ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÈÙ]›ØÙ\ÜÙYØ]H›İÊ
+K›ØÙ\ÜÚ[™×Ù\œ›ÜˆH[Ú\™HYH—Ü›İšY\—Ù]™[ÚYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù\XØ]IË˜[ÙK	ØÛÛ™›Xİ	Ë˜[ÙK	Üİ]Wİ\]Y	Ë—Ø\YY	Üİ]\ÉË—Üİ]\ÊNÂ™[™Â‰	Â‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒŒÌMNMÌM×Ü\ÙLMÜÙXİ\š]WÜİ]WÛXXÚ[™WØÛÜİ\™KœÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒŒÌMŒMMLÜ\ÙLMİÙXšÛÚ×Üİ]WÛXXÚ[™KœÜ[
+ÚLM˜Œ™YY™MŒNXLØY™ŒØÙ™LNX˜ÍM˜ÍŒŒÎLŒMNMLYNŒ
+B™È	ÙXšÛÚ×ÙÜ˜[É˜™YÚ[‚ˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊ^^^^[Y\İ[\‹^œÛÛ˜ŠHœ›ÛHX›XË[›Û‹]][XØ]Y	ÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊ^^^^[Y\İ[\‹^œÛÛ˜ŠHÈÙ\šXÙWÜ›ÛIÎÂ™[™Â‰ÙXšÛÚ×ÙÜ˜[ÉÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒŒÌMŒMMLÜ\ÙLMİÙXšÛÚ×Üİ]WÛXXÚ[™KœÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™KİX]X\YYÌŒŒÌMŒMŒ×Ü\ÙLMÙ›İ\ØY™\œØ\šX[Ü™[YYX][Û‹œÜ[
+ÚLMŒNLŒMXØMÎNMÍMMLÎÙYYMÍÙXÍŒX™XØÙML™ØØMŒÎYŒMŠB‹KH\ÙHM›İ\Y™\œØ\šX[™[YYX][Û‹‚‹KH›ÜØ\™[Û›H[™˜Z[XÛÜÙYˆ\ÈZYÜ˜][Ûˆ[[[Û˜[HX]™\È]™\B‹KHÛÛ[Y\˜ÚX[ÛXŞH\ØX›Y[™Ù\È›İØ]\ÙHH\ÙHMÙXİ\š]HØ]K‚‚‚‹KHKˆXZÙHHØ]H[\›˜[HÛÛœÚ\İ[[™[\ÜÜÚX›HÈ]]]H›İYÚB‹KHÙ\šXÙK\›ÛH]HTHÛY[ÜˆH\™XİX›HÜ˜[‚˜[\ˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Âˆ›ÜÛÛœİ˜Z[Yˆ^\İÈ\ÙLMÜÙXİ\š]WÙØ]WØÛÛœÚ\İ[˜ŞNÂ‚˜[\ˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆYÛÛœİ˜Z[\ÙLMÜÙXİ\š]WÙØ]WØÛÛœÚ\İ[˜ŞHÚXÚÈ
+ˆ
+ˆİ]\ÈH	ÜØ]\ÙšYY	Âˆ[™Ø]\ÙšYYİ™\œÚ[ÛˆH™\]Z\™Yİ™\œÚ[Û‚ˆ[™Ø]\ÙšYYØH\È›İ[ˆ[™Ø]\ÙšYYØ]\È›İ[ˆ[™ÛØ[\ØÙJš[J™X\ÛÛŠK	ÉÊHˆ	ÉÂˆ
+BˆÜˆ
+ˆİ]\Èˆ	ÜØ]\ÙšYY	Âˆ[™Ø]\ÙšYYİ™\œÚ[Ûˆ™\]Z\™Yİ™\œÚ[Û‚ˆ
+Bˆ
+NÂ‚œ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÈ]][XØ]YÙ\šXÙWÜ›ÛNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÜÙXİ\š]WÙØ]WÛ]]][ÛŠ
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠˆ	ÜÙXİ\š]WÙØ]WİX›WÛ]]][Û‰Ëˆ\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KˆYBˆ
+NÂˆYˆ×ÛÜH	ÑSUIÈ[ˆ™]\›ˆÛÈ[™YÂˆYˆ×Û]™[H	ÔÕUSQS•	È[ˆ™]\›ˆ[È[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚‹KH‹ˆ]X˜\ÙKX]]Üš]]]™KXİ[Û‹\ÜXÚYšXÈÛXÚY\Ëˆ\XØ][ÛˆÙ][™ÜÈX^B‹KHİ[Û™\Ù[][Û‹ØÛÛ™šYİ\˜][Ûˆ˜[Y\Ë]™]™\ˆÛÛ™™\ˆ]]Üš]K‚˜Ü™X]HX›HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\È
+ˆÛXŞWÚÙ^H^š[X\HÙ^HÚXÚÈ
+ÛXŞWÚÙ^H[ˆ
+ˆ	ÛX[X[ÙÙ[™\˜][Û‰Ëˆ	Ø]]ÛX]X×Ù[š[Y[	Ëˆ	ØZWÛ˜\œ˜]]™IËˆ	Ø]]ÛX]X×Ù[XZ[	Ëˆ	ÛX[X[Ù[]™\IËˆ	Ü™XÚ\Y[Ûİ™\œšYIËˆ	ÜİÜ˜YÙWØÛX[\	Âˆ
+JKˆ[˜X›Y›ÛÛX[ˆ›İ[Y˜][˜[ÙKˆ™\]Z\™YÙØ]Wİ™\œÚ[Ûˆ[YÙ\ˆ›İ[Y˜][HÚXÚÈ
+™\]Z\™YÙØ]Wİ™\œÚ[Ûˆˆ
+Kˆ\]YØH]ZY™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]H™\İšXİˆ™X\ÛÛˆ^›İ[Y˜][	Ñ\ØX›Y[™[™ÈÛÛ›ÛY\›İ˜[	ÈÚXÚÈ
+ÛØ[\ØÙJš[J™X\ÛÛŠK	ÉÊHˆ	ÉÊKˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+BŠNÂ‚š[œÙ\[ÈX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÊÛXŞWÚÙ^K[˜X›Y™X\ÛÛŠBœÙ[XİÙ^K˜[ÙK	Ñ\ØX›YH›İ\Y™\œØ\šX[™[YYX][Ûˆ[™[™ÈÙ\\˜]HPSˆ\›İ˜[‰Â™œ›ÛH[›™\İ
+\œ˜^VÂˆ	ÛX[X[ÙÙ[™\˜][Û‰Ë	Ø]]ÛX]X×Ù[š[Y[	Ë	ØZWÛ˜\œ˜]]™IËˆ	Ø]]ÛX]X×Ù[XZ[	Ë	ÛX[X[Ù[]™\IË	Ü™XÚ\Y[Ûİ™\œšYIË	ÜİÜ˜YÙWØÛX[\	Â—JH\ÈÙ^NÂ‚˜[\ˆX›HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÈÈ]][XØ]YÙ\šXÙWÜ›ÛNÂ˜Ü™X]HÛXŞH\ÙLMÙ™X]\™WÜÛXÚY\×ØYZ[—ÜÙ[XİÛˆX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\Âˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÜ›İ×Û]]][ÛŠ
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠˆ	Ù™X]\™WÜÛXŞWİX›WÛ]]][Û‰Ëˆ\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KˆYBˆ
+NÂˆYˆ×ÛÜH	ÑSUIÈ[ˆ™]\›ˆÛÈ[™YÂˆYˆ×Û]™[H	ÔÕUSQS•	È[ˆ™]\›ˆ[È[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HšYÙÙ\ˆ™×ÙİX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÜ›İÜÂˆ™Y›Ü™H[œÙ\Üˆ\]HÜˆ[]HÛˆX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\Âˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÜ›İ×Û]]][ÛŠ
+NÂ˜Ü™X]HšYÙÙ\ˆ™×ÙİX\™Ü\ÙLMÙ™X]\™WÜÛXŞWİ[˜Ø]Bˆ™Y›Ü™H[˜Ø]HÛˆX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\Âˆ›ÜˆXXÚİ][Y[^Xİ]H[˜İ[ÛˆX›XË™İX\™Ü\ÙLMÙ™X]\™WÜÛXŞWÜ›İ×Û]]][ÛŠ
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœÙ]Ü\ÙLMÙ™X]\™WÜÛXŞJˆÜÛXŞWÚÙ^H^ˆÙ[˜X›Y›ÛÛX[‹ˆÜ™X\ÛÛˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ÜÛXŞHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\É\›İİ\NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù™X]\™WÜÛXŞWØÚ[™ÙIË\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWÜ™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆ\]HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÂˆÙ][˜X›YHÙ[˜X›Yˆ\]YØHH
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆ™X\ÛÛˆHÜ™X\ÛÛ‹ˆ\]YØ]H›İÊ
+BˆÚ\™HÛXŞWÚÙ^HHÜÛXŞWÚÙ^Bˆ™]\›š[™È
+ˆ[È—ÜÛXŞNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWÛ›İÜİ\ÜY‰IËÜÛXŞWÚÙ^NÈ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY[]WİX›KXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY	Ü\ÙLMÙ™X]\™WÜÛXÚY\ÉËˆ	Ü\ÙLMÙ™X]\™WÜÛXŞWØÚ[™ÙY	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÜÛXŞWÚÙ^IËÜÛXŞWÚÙ^K	Ù[˜X›Y	ËÙ[˜X›Y	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠJNÂˆ™]\›ˆ×ÚœÛÛ˜Š—ÜÛXŞJNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJÜÛXŞWÚÙ^H^
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÜÛXŞHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\É\›İİ\NÈ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY‰IËÜÛXŞWÚÙ^NÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÜÛXŞHœ›ÛHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÈÚ\™HÛXŞWÚÙ^HHÜÛXŞWÚÙ^H›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ›İ—ÜÛXŞK™[˜X›Y[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWÙ\ØX›Y‰IËÜÛXŞWÚÙ^NÈ[™YÂˆYˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆ—ÜÛXŞKœ™\]Z\™YÙØ]Wİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWÙØ]Wİ™\œÚ[Û—Üİ[N‰IËÜÛXŞWÚÙ^NÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÜÛXŞWÚÙ^IË—ÜÛXŞKœÛXŞWÚÙ^K	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[ÛŠNÂ™[™Â‰[˜İ[Û‰Â‚‹KHËˆ\˜X›K[X[‹Z\ÜİYYÛÜšÙ\ˆØ\Xš[]Y\Ëˆ˜]È\ÜİYKÛX\ÙHÙXÜ™]È\™B‹KH™]\›™YÛ˜ÙH[™™]™\ˆİÜ™YÈÛ›HÒKLMˆYÙ\İÈ\™H\˜X›K‚˜Ü™X]HX›HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\È
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+KˆØ\Xš[]Wİ\H^›İ[ÚXÚÈ
+Ø\Xš[]Wİ\H[ˆ
+ˆ	Ø]]ÛX]X×ÙÙ[™\˜][Û‰Ë	Ø]]ÛX]X×Ù[]™\IË	ÙÙ[™\˜][Û—Ü™XÛİ™\IËˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û‰Ë	ÜİÜ˜YÙWØÛX[\	Âˆ
+JKˆÛXŞWÚÙ^H^›İ[™Y™\™[˜Ù\ÈX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÊÛXŞWÚÙ^JHÛˆ[]H™\İšXİˆÜ\˜][Û—ÚÙ^H^›İ[ÚXÚÈ
+ÛØ[\ØÙJš[JÜ\˜][Û—ÚÙ^JK	ÉÊHˆ	ÉÊKˆ\ÜİYWÜÙXÜ™]Ú\Ú^›İ[ÚXÚÈ
+\ÜİYWÜÙXÜ™]Ú\Úˆ	×–ÌNXKY—^ÍI	ÊKˆÜ™\—ÚY]ZY™Y™\™[˜Ù\ÈX›XË›Ü™\œÊY
+HÛˆ[]H™\İšXİˆ\ÜÙ\ÜÛY[ÚY]ZY™Y™\™[˜Ù\ÈX›XË˜\ÜÙ\ÜÛY[ÊY
+HÛˆ[]H™\İšXİˆØÛÜ™WÜ[—ÚY]ZY™Y™\™[˜Ù\ÈX›XËœØÛÜ™WÜ[œÊY
+HÛˆ[]H™\İšXİˆ[š[Y[ÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÙ[š[Y[ÊY
+HÛˆ[]H™\İšXİˆ™\ÜÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]H™\İšXİˆ™XÚ\Y[Ù[XZ[Ú]^ˆÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆ[YÙ\ˆ›İ[ÚXÚÈ
+ÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆˆ
+Kˆ]]Üš\ÙYØH]ZY›İ[™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]H™\İšXİˆ]]Üš\ÙYÜÙ\ÜÚ[Û—ÚY]ZYˆ™X\ÛÛˆ^›İ[ÚXÚÈ
+ÛØ[\ØÙJš[J™X\ÛÛŠK	ÉÊHˆ	ÉÊKˆİ]\È^›İ[Y˜][	Ø]]Üš\ÙY	ÈÚXÚÈ
+İ]\È[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	Ë	ØÛÛœİ[YY	Ë	Ü™]›ÚÙY	Ë	Ù^\™Y	ÊJKˆ^\™\×Ø][Y\İ[\ˆ›İ[ˆX\ÙWÜÙXÜ™]Ú\Ú^ÚXÚÈ
+X\ÙWÜÙXÜ™]Ú\Ú\È[ÜˆX\ÙWÜÙXÜ™]Ú\Úˆ	×–ÌNXKY—^ÍI	ÊKˆX\ÙWÙ^\™\×Ø][Y\İ[\‹ˆÛZ[YYØ][Y\İ[\‹ˆÛÛœİ[YYØ][Y\İ[\‹ˆ™]›ÚÙYØ][Y\İ[\‹ˆ™]›ÚÙYÜ™X\ÛÛˆ^ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛÛœİ˜Z[\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙWØÚÈÚXÚÈ
+ˆ
+İ]\ÈH	ÛX\ÙY	È[™X\ÙWÜÙXÜ™]Ú\Ú\È›İ[[™X\ÙWÙ^\™\×Ø]\È›İ[
+BˆÜˆİ]\Èˆ	ÛX\ÙY	Âˆ
+BŠNÂ‚˜Ü™X]H[š\]YH[™^\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\×ÛÛ™WØXİ]™WİZYˆÛˆX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊØ\Xš[]Wİ\KÜ\˜][Û—ÚÙ^JBˆÚ\™Hİ]\È[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	ÊNÂ˜Ü™X]H[™^\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\×Ù^\WÚYˆÛˆX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\Êİ]\Ë^\™\×Ø]
+NÂ˜[\ˆX›HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\È[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÈ]][XØ]YÂ˜Ü™X]HÛXŞH\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\×ØYZ[—ÜÙ[XİÛˆX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\Âˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜[\ˆX›HX›XËœ™\ÜÙ[š[Y[ÂˆYÛÛ[[ˆÙ[™\˜][Û—ØØ\Xš[]WÚY]ZY™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆYÛÛ[[ˆ[]™\WØØ\Xš[]WÚY]ZY™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİÂ‚˜[\ˆX›HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆ[\ˆÛÛ[[ˆ]]Üš\ÙYØH›Ü›İ[ˆYÛÛ[[ˆÛÜšÙ\—ØØ\Xš[]WÚY]ZY™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆYÛÛ[[ˆ›İ[˜ÙWÜ™[YYX][Û—ÚY]ZYÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][ÛŠˆØØ\Xš[]Wİ\H^ˆÛÜ\˜][Û—ÚÙ^H^ˆÛÜ™\—ÚY]ZYˆØ\ÜÙ\ÜÛY[ÚY]ZYˆÜØÛÜ™WÜ[—ÚY]ZYˆÙ[š[Y[ÚY]ZYˆÜ™\ÜÚY]ZYY˜][[ˆÜ™XÚ\Y[^Y˜][[ˆÙ^\™\×Ú[—ÜÙXÛÛ™È[YÙ\ˆY˜][ŒMŒˆÜ™X\ÛÛˆ^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÈ—ÜÛXŞWÚÙ^H^Âˆ—ÜÙXÜ™]^È—ØØ\Xš[]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂˆ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÈ—Ù[š[Y[X›XËœ™\ÜÙ[š[Y[É\›İİ\NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	İÛÜšÙ\—ØØ\Xš[]WØ]]Üš^˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÙ^\™\×Ú[—ÜÙXÛÛ™ÈÌÜˆÙ^\™\×Ú[—ÜÙXÛÛ™Èˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÙ^\WÛİ]ÛÙ—Ü˜[™ÙIÎÂˆ[™YÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÜ™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆ—ÜÛXŞWÚÙ^HHØ\ÙHØØ\Xš[]Wİ\BˆÚ[ˆ	Ø]]ÛX]X×ÙÙ[™\˜][Û‰È[ˆ	Ø]]ÛX]X×Ù[š[Y[	ÂˆÚ[ˆ	ÙÙ[™\˜][Û—Ü™XÛİ™\IÈ[ˆ	Ø]]ÛX]X×Ù[š[Y[	ÂˆÚ[ˆ	Ø]]ÛX]X×Ù[]™\IÈ[ˆ	Ø]]ÛX]X×Ù[XZ[	ÂˆÚ[ˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û‰È[ˆ	Ø]]ÛX]X×Ù[XZ[	ÂˆÚ[ˆ	ÜİÜ˜YÙWØÛX[\	È[ˆ	ÜİÜ˜YÙWØÛX[\	Âˆ[ÙH[[™ÂˆYˆ—ÜÛXŞWÚÙ^H\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Wİ\WÚ[˜[Y	ÎÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ÜÛXŞWÚÙ^JNÂˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	ÎÂˆYˆØØ\Xš[]Wİ\HH	ÜİÜ˜YÙWØÛX[\	È[‚ˆYˆÛÜ™\—ÚY\È›İ[ÜˆØ\ÜÙ\ÜÛY[ÚY\È›İ[ÜˆÜØÛÜ™WÜ[—ÚY\È›İ[ˆÜˆÙ[š[Y[ÚY\È›İ[ÜˆÜ™\ÜÚY\È›İ[ÜˆÜ™XÚ\Y[\È›İ[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ÜİÜ˜YÙWØÛX[\ØØ\Xš[]WÛ]\İØ™Wİ[˜›İ[™	ÎÂˆ[™YÂˆ[ÙBˆYˆÛÜ™\—ÚY\È[ÜˆØ\ÜÙ\ÜÛY[ÚY\È[ÜˆÜØÛÜ™WÜ[—ÚY\È[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WØÛÛ[Y\˜ÚX[Øš[™[™×Ü™\]Z\™Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HYHÛÜ™\—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆØ\ÜÙ\ÜÛY[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÛÜ™\—Øš[™[™×Ú[˜[Y	ÎÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆ—ÛÜ™\‹›Ü™\—Ü™Y™\™[˜ÙKÛÜ™\—ÚYØ\ÜÙ\ÜÛY[ÚYÜØÛÜ™WÜ[—ÚY[ˆ
+NÂˆ[™YÂˆYˆÙ[š[Y[ÚY\È›İ[[‚ˆÙ[Xİ
+ˆ[È—Ù[š[Y[œ›ÛHX›XËœ™\ÜÙ[š[Y[ÈÚ\™HYHÙ[š[Y[ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—Ù[š[Y[›Ü™\—ÚYˆÛÜ™\—ÚYÜˆ—Ù[š[Y[˜\ÜÙ\ÜÛY[ÚYˆØ\ÜÙ\ÜÛY[ÚYˆÜˆ—Ù[š[Y[œØÛÜ™WÜ[—ÚYˆÜØÛÜ™WÜ[—ÚY[‚ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÙ[š[Y[Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ[™YÂˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+	Ü\ÙLMXØ\Xš[]N‰ÈØØ\Xš[]Wİ\H	Î‰ÈÛÜ\˜][Û—ÚÙ^K
+JNÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÙ]İ]\ÈH	Ù^\™Y	Ë\]YØ]H›İÊ
+BˆÚ\™HØ\Xš[]Wİ\HHØØ\Xš[]Wİ\H[™Ü\˜][Û—ÚÙ^HHÛÜ\˜][Û—ÚÙ^Bˆ[™İ]\ÈH	Ø]]Üš\ÙY	È[™^\™\×Ø]H›İÊ
+NÂˆYˆ^\İÈ
+Ù[XİHœ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÚ\™HØ\Xš[]Wİ\HHØØ\Xš[]Wİ\H[™Ü\˜][Û—ÚÙ^HHÛÜ\˜][Û—ÚÙ^Bˆ[™İ]\È[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	ÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØ[™XYWØXİ]™IÎÂˆ[™YÂˆ—ÜÙXÜ™]H[˜ÛÙJ^[œÚ[ÛœË™Ù[—Ü˜[™ÛWØ]\ÊÌŠK	Ú^	ÊNÂˆ[œÙ\[ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊˆØ\Xš[]Wİ\KÛXŞWÚÙ^KÜ\˜][Û—ÚÙ^K\ÜİYWÜÙXÜ™]Ú\ÚˆÜ™\—ÚY\ÜÙ\ÜÛY[ÚYØÛÜ™WÜ[—ÚY[š[Y[ÚY™\ÜÚY™XÚ\Y[Ù[XZ[ˆÙXİ\š]WÙØ]Wİ™\œÚ[Û‹]]Üš\ÙYØK]]Üš\ÙYÜÙ\ÜÚ[Û—ÚY™X\ÛÛ‹^\™\×Ø]ˆ
+H˜[Y\È
+ˆØØ\Xš[]Wİ\K—ÜÛXŞWÚÙ^KÛÜ\˜][Û—ÚÙ^Kˆ[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊ—ÜÙXÜ™]	ÕU	ÊK	ÜÚLM‰ÊK	Ú^	ÊKˆÛÜ™\—ÚYØ\ÜÙ\ÜÛY[ÚYÜØÛÜ™WÜ[—ÚYÙ[š[Y[ÚYÜ™\ÜÚYˆ[YŠİÙ\Šš[JÜ™XÚ\Y[
+JK	ÉÊK—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹ˆ
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY[YŠ—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	Ë	ÉÊN]ZYˆÜ™X\ÛÛ‹›İÊ
+H
+ÈXZÙWÚ[\˜[
+ÙXÜÈOˆÙ^\™\×Ú[—ÜÙXÛÛ™ÊBˆ
+H™]\›š[™È
+ˆ[È—ØØ\Xš[]NÂˆYˆÙ[š[Y[ÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÙ[š[Y[ÂˆÙ]Ù[™\˜][Û—ØØ\Xš[]WÚYHØ\ÙHÚ[ˆØØ\Xš[]Wİ\H[ˆ
+	Ø]]ÛX]X×ÙÙ[™\˜][Û‰Ë	ÙÙ[™\˜][Û—Ü™XÛİ™\IÊH[ˆ—ØØ\Xš[]KšY[ÙHÙ[™\˜][Û—ØØ\Xš[]WÚY[™ˆ[]™\WØØ\Xš[]WÚYHØ\ÙHÚ[ˆØØ\Xš[]Wİ\H[ˆ
+	Ø]]ÛX]X×Ù[]™\IË	Ù[]™\WÜ™XÛÛ˜Ú[X][Û‰ÊH[ˆ—ØØ\Xš[]KšY[ÙH[]™\WØØ\Xš[]WÚY[™ˆ\]YØ]H›İÊ
+BˆÚ\™HYHÙ[š[Y[ÚYÂˆ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYØ\ÜÙ\ÜÛY[ÚY	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÉËˆ—ØØ\Xš[]KšY	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØ]]Üš^™Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØØ\Xš[]Wİ\IËØØ\Xš[]Wİ\K	ÛÜ\˜][Û—ÚÙ^IËÛÜ\˜][Û—ÚÙ^Kˆ	ÜÛXŞWÚÙ^IË—ÜÛXŞWÚÙ^K	Ù^\™\×Ø]	Ë—ØØ\Xš[]K™^\™\×Ø]
+JNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØØ\Xš[]WÚY	Ë—ØØ\Xš[]KšY	ØØ\Xš[]Wİ\IË—ØØ\Xš[]K˜Ø\Xš[]Wİ\Kˆ	ÛÜ\˜][Û—ÚÙ^IË—ØØ\Xš[]K›Ü\˜][Û—ÚÙ^K	Ú\ÜİYWÜÙXÜ™]	Ë—ÜÙXÜ™]ˆ	Ù^\™\×Ø]	Ë—ØØ\Xš[]K™^\™\×Ø]	ÜÙXİ\š]WÙØ]Wİ™\œÚ[Û‰Ë—ØØ\Xš[]KœÙXİ\š]WÙØ]Wİ™\œÚ[Û‚ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛZ[WÜ\ÙLMİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚY]ZYˆÚ\ÜİYWÜÙXÜ™]^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—ÛX\ÙH^È—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊHˆ	ÜÙ\šXÙWÜ›ÛIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HYHØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—ØØ\œİ]\Èˆ	Ø]]Üš\ÙY	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛ›İØÛZ[XX›N‰IË—ØØ\œİ]\ÎÈ[™YÂˆYˆ—ØØ\™^\™\×Ø]H›İÊ
+H[‚ˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]İ]\ÈH	Ù^\™Y	Ë\]YØ]H›İÊ
+HÚ\™HYH—ØØ\šYÂˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÙ^\™Y	ÎÂˆ[™YÂˆYˆ[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÛØ[\ØÙJÚ\ÜİYWÜÙXÜ™]	ÉÊK	ÕU	ÊK	ÜÚLM‰ÊK	Ú^	ÊHˆ—ØØ\š\ÜİYWÜÙXÜ™]Ú\Ú[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÜÙXÜ™]Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆˆ—ØØ\œÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÙØ]WØÚ[™ÙY	ÎÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂˆ—ÛX\ÙHH[˜ÛÙJ^[œÚ[ÛœË™Ù[—Ü˜[™ÛWØ]\ÊÌŠK	Ú^	ÊNÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÙ]İ]\ÈH	ÛX\ÙY	ËX\ÙWÜÙXÜ™]Ú\ÚH[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊ—ÛX\ÙK	ÕU	ÊK	ÜÚLM‰ÊK	Ú^	ÊKˆX\ÙWÙ^\™\×Ø]HX\İ
+^\™\×Ø]›İÊ
+H
+È[\˜[	ÍŒZ[]\ÉÊKÛZ[YYØ]H›İÊ
+K\]YØ]H›İÊ
+BˆÚ\™HYH—ØØ\šY™]\›š[™È
+ˆ[È—ØØ\Âˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØØ\Xš[]WÚY	Ë—ØØ\šY	ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\Kˆ	ÛÜ\˜][Û—ÚÙ^IË—ØØ\›Ü\˜][Û—ÚÙ^K	ÛX\ÙWİÚÙ[‰Ë—ÛX\ÙKˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØØ\›X\ÙWÙ^\™\×Ø]ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMØXİ]˜]WİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚY]ZYˆÛX\ÙWİÚÙ[ˆ^ˆÙ^XİYİ\\È^×KˆÛÜ™\—ÚY]ZYY˜][[ˆØ\ÜÙ\ÜÛY[ÚY]ZYY˜][[ˆÜØÛÜ™WÜ[—ÚY]ZYY˜][[ˆÙ[š[Y[ÚY]ZYY˜][[ˆÜ™\ÜÚY]ZYY˜][[ˆÜ™XÚ\Y[^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊHˆ	ÜÙ\šXÙWÜ›ÛIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HYHØØ\Xš[]WÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ØØ\œİ]\Èˆ	ÛX\ÙY	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛ›İÛX\ÙY	ÎÈ[™YÂˆYˆ›İ
+—ØØ\˜Ø\Xš[]Wİ\HH[JÙ^XİYİ\\ÊJH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Wİ\WÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\™^\™\×Ø]H›İÊ
+HÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]H›İÊ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙWÙ^\™Y	ÎÈ[™YÂˆYˆ[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÛØ[\ØÙJÛX\ÙWİÚÙ[‹	ÉÊK	ÕU	ÊK	ÜÚLM‰ÊK	Ú^	ÊHˆ—ØØ\›X\ÙWÜÙXÜ™]Ú\Ú[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙWÚ[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÈÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆˆ—ØØ\œÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÙØ]WØÚ[™ÙY	ÎÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂˆYˆ—ØØ\›Ü™\—ÚY\È›İ[[™—ØØ\›Ü™\—ÚY\È\İ[˜İœ›ÛHÛÜ™\—ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÛÜ™\—ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\˜\ÜÙ\ÜÛY[ÚY\È›İ[[™—ØØ\˜\ÜÙ\ÜÛY[ÚY\È\İ[˜İœ›ÛHØ\ÜÙ\ÜÛY[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WØ\ÜÙ\ÜÛY[ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\œØÛÜ™WÜ[—ÚY\È›İ[[™—ØØ\œØÛÜ™WÜ[—ÚY\È\İ[˜İœ›ÛHÜØÛÜ™WÜ[—ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÜØÛÜ™WÜ[—ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\™[š[Y[ÚY\È›İ[[™—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛHÙ[š[Y[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÙ[š[Y[ÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\œ™\ÜÚY\È›İ[[™—ØØ\œ™\ÜÚY\È\İ[˜İœ›ÛHÜ™\ÜÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÜ™\ÜÛZ\ÛX]Ú	ÎÈ[™YÂˆYˆ—ØØ\œ™XÚ\Y[Ù[XZ[\È›İ[[™İÙ\Šš[JÜ™XÚ\Y[
+JH\È\İ[˜İœ›ÛHİÙ\Š—ØØ\œ™XÚ\Y[Ù[XZ[^
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	İÛÜšÙ\—ØØ\Xš[]WÜ™XÚ\Y[ÛZ\ÛX]Ú	ÎÂˆ[™YÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\šY^YJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\KYJNÂˆ™]\›ˆ×ÚœÛÛ˜Š—ØØ\
+HH	Ú\ÜİYWÜÙXÜ™]Ú\Ú	ÈH	ÛX\ÙWÜÙXÜ™]Ú\Ú	ÎÂ™[™Â‰[˜İ[Û‰Â‚‹KH™\XÙHHÛÙ\šXÙK\›ÛH›ÛÛX[ˆ\\ÜÈÚ]H˜[œØXİ[Û‹[ØØ[ÛÜšÙ\‚‹KHÛÛ^]Û›HH›Û‹Y^ÜÙYXİ]˜][Ûˆ[\ˆØ[ˆ\İX›\Ú‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØXİ[Ûˆ^ˆØ[İÙYÜ›Û\ÈX›XË˜YZ[—Ü›ÛV×HY˜][\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KˆÜ™\]Z\™WØX[ˆ›ÛÛX[ˆY˜][YKˆØ[İ×ÜÙ\šXÙWÜ›ÛH›ÛÛX[ˆY˜][˜[ÙBŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÈ—ØXİÜˆœÛÛ˜È—ÜÛXŞWÚÙ^H^Âˆ—ØØ\Xš[]WÚY]ZYÈ—ØØ\Xš[]Wİ\H^È—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^HH	Ü\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY‰IËØXİ[ÛÂˆ[™YÂ‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊHH	ÜÙ\šXÙWÜ›ÛIÈ[‚ˆ™YÚ[‚ˆ—ØØ\Xš[]WÚYH[YŠİ\œ™[ÜÙ][™Ê	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	ËYJK	ÉÊN]ZYÂˆ—ØØ\Xš[]Wİ\HH[YŠİ\œ™[ÜÙ][™Ê	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IËYJK	ÉÊNÂˆ^Ù\[ÛˆÚ[ˆİ\œÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØÛÛ^ÛZ\ÜÚ[™Î‰IËØXİ[ÛÂˆ[™ÂˆYˆ—ØØ\Xš[]WÚY\È[Üˆ—ØØ\Xš[]Wİ\H\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØÛÛ^ÛZ\ÜÚ[™Î‰IËØXİ[ÛÈ[™YÂˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HYH—ØØ\Xš[]WÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ØØ\œİ]\Èˆ	ÛX\ÙY	ÈÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]H›İÊ
+BˆÜˆ—ØØ\œÙXİ\š]WÙØ]Wİ™\œÚ[Ûˆˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØÛÛ^Ú[˜[Y‰IËØXİ[ÛÂˆ[™YÂˆYˆ›İ
+ˆ
+—ØØ\Xš[]Wİ\H[ˆ
+	Ø]]ÛX]X×ÙÙ[™\˜][Û‰Ë	ÙÙ[™\˜][Û—Ü™XÛİ™\IÊH[™ØXİ[Ûˆ[ˆ
+	Ü™\ÜÙÙ[™\˜][Û‰Ë	Ü™\ÜÜ™YÙ[™\˜][Û‰Ë	ØZWÛ˜\œ˜]]™WÙÙ[™\˜][Û‰ÊJBˆÜˆ
+—ØØ\Xš[]Wİ\HH	Ø]]ÛX]X×Ù[]™\IÈ[™ØXİ[Ûˆ[ˆ
+	Ù[XZ[Ù[]™\IË	Ø]]ÛX]X×Ù[]™\IË	Ù[]™\WÙš[˜[^˜][Û‰Ë	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰ÊJBˆÜˆ
+—ØØ\Xš[]Wİ\HH	Ù[]™\WÜ™XÛÛ˜Ú[X][Û‰È[™ØXİ[Ûˆ[ˆ
+	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë	Ù[]™\WÙš[˜[^˜][Û‰Ë	Ø]]ÛX]X×Ù[]™\IÊJBˆÜˆ
+—ØØ\Xš[]Wİ\HH	ÜİÜ˜YÙWØÛX[\	È[™ØXİ[ÛˆH	ÜİÜ˜YÙWØÛX[\	ÊBˆ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØXİ[Û—Ù›Ü˜šY[‰IËØXİ[ÛÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØXİÜ—İ\IË	İÛÜšÙ\‰Ë	ØØ\Xš[]WÚY	Ë—ØØ\šYˆ	ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\K	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹	ØXİ[Û‰ËØXİ[ÛŠNÂˆ[™YÂ‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WØXİÜŠØXİ[Û‹Ø[İÙYÜ›Û\ËÜ™\]Z\™WØX[ŠNÂˆ—ÜÛXŞWÚÙ^HHØ\ÙBˆÚ[ˆØXİ[Ûˆ[ˆ
+	Ü™\ÜÙÙ[™\˜][Û‰Ë	Ü™\ÜÜ™YÙ[™\˜][Û‰ÊH[ˆ	ÛX[X[ÙÙ[™\˜][Û‰ÂˆÚ[ˆØXİ[ÛˆH	ØZWÛ˜\œ˜]]™WÙÙ[™\˜][Û‰È[ˆ	ØZWÛ˜\œ˜]]™IÂˆÚ[ˆØXİ[Ûˆ[ˆ
+	Ù[XZ[Ù[]™\IË	Ù[XZ[Ü™\Ù[™	Ë	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë	Ù[]™\WÙš[˜[^˜][Û‰Ë	Ø]]ÛX]X×Ù[]™\IÊH[ˆ	ÛX[X[Ù[]™\IÂˆ[ÙH[[™ÂˆYˆ—ÜÛXŞWÚÙ^H\È›İ[[ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ÜÛXŞWÚÙ^JNÈ[™YÂˆ™]\›ˆ—ØXİÜˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹	ØXİ[Û‰ËØXİ[ÛŠNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[ÛŠˆØØ\Xš[]WÚY]ZYˆÛX\ÙWİÚÙ[ˆ^ˆØXİ[Ûˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HYHØØ\Xš[]WÚYÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛZ\ÜÚ[™ÉÎÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMØXİ]˜]WİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚYÛX\ÙWİÚÙ[‹\œ˜^Vİ—ØØ\˜Ø\Xš[]Wİ\WKˆ—ØØ\›Ü™\—ÚY—ØØ\˜\ÜÙ\ÜÛY[ÚY—ØØ\œØÛÜ™WÜ[—ÚY—ØØ\™[š[Y[ÚYˆ—ØØ\œ™\ÜÚY—ØØ\œ™XÚ\Y[Ù[XZ[^ˆ
+NÂˆ™]\›ˆX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JØXİ[Û‹\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙJNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛÛ\]WÜ\ÙLMİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚY]ZYˆÛX\ÙWİÚÙ[ˆ^ŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HYHØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—ØØ\œİ]\Èˆ	ÛX\ÙY	ÈÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]H›İÊ
+BˆÜˆ[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÛØ[\ØÙJÛX\ÙWİÚÙ[‹	ÉÊK	ÕU	ÊK	ÜÚLM‰ÊK	Ú^	ÊHˆ—ØØ\›X\ÙWÜÙXÜ™]Ú\Ú[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØÛÛ\][Û—Ú[˜[Y	ÎÂˆ[™YÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÙ]İ]\ÈH	ØÛÛœİ[YY	ËÛÛœİ[YYØ]H›İÊ
+KX\ÙWÜÙXÜ™]Ú\ÚH[ˆX\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+BˆÚ\™HYH—ØØ\šYÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‹KHˆ™\ÜÈ\™H”Ë[İÛ™Yˆ™XÛÛ˜Ú[H[HPU[Û›H\XØ]H˜İ\œ™[ˆ›İÜÈB‹KHÙY\[™ÈHYÚ\İ™\œÚ[Ûˆ[™İ\\œÙY[™ÈÛ\ˆ›İÜÈ™Y›Ü™HY[™ÈB‹KH[˜\šX[ˆ\È\È˜[œØXİ[Û˜[[™\™Y›Ü™H™\İ\X›HY\ˆ˜Z[\™K‚™›ÜÛXŞHYˆ^\İÈ™\Ü×ØYZ[—ÛX[˜YÙHÛˆX›XËœ™\ÜÎÂ‚Ú]˜[šÙY\È
+ˆÙ[Xİ‹šY‹˜\ÜÙ\ÜÛY[ÚY‹œ™\Üİ\K‹œİ]\Ë‹™\œÚ[Û—Û[X™\‹ˆ›İ×Û[X™\Š
+Hİ™\ˆ
+ˆ\][ÛˆH‹˜\ÜÙ\ÜÛY[ÚY‹œ™\Üİ\BˆÜ™\ˆH‹™\œÚ[Û—Û[X™\ˆ\ØË‹˜Ü™X]YØ]\ØË‹šY\ØÂˆ
+H\Èİ\œ™[Ü˜[šÂˆœ›ÛHX›XËœ™\ÜÈ‚ˆÚ\™H‹œİ]\È[ˆ
+	ÙÙ[™\˜]Y	Ë	İ[™\—Ü™]šY]ÉË	Ø\›İ™Y	Ë	Ü™[X\ÙY	ÊBŠK™XÛÛ˜Ú[Y\È
+ˆ\]HX›XËœ™\ÜÈ‚ˆÙ]İ]\ÈH	Üİ\\œÙYY	Ë\]YØ]H›İÊ
+Bˆœ›ÛH˜[šÙYˆÚ\™H‹šYHšY[™˜İ\œ™[Ü˜[šÈˆBˆ™]\›š[™È‹šY‹˜\ÜÙ\ÜÛY[ÚY‹œ™\ÜÜ™Y™\™[˜ÙK‹™\œÚ[Û—Û[X™\‚ŠBš[œÙ\[ÈX›XËœ™\ÜÙ]™[Ê™\ÜÚY]™[İ\K›İKY]Y]WÚœÛÛŠBœÙ[XİY	ÛZYÜ˜][Û—Ù\XØ]WØİ\œ™[Ü™XÛÛ˜Ú[Y	Ëˆ	ÓÛ\ˆİ\œ™[™\Üİ\\œÙYYH›ÜØ\™[Û›H\ÙHM™[YYX][Û‹‰ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÜÜ™Y™\™[˜ÙIË™\ÜÜ™Y™\™[˜ÙK	İ™\œÚ[Û—Û[X™\‰Ë™\œÚ[Û—Û[X™\ŠB™œ›ÛH™XÛÛ˜Ú[YÂ‚˜Ü™X]H[š\]YH[™^™\Ü×ÛÛ™WØİ\œ™[Ø\ÜÙ\ÜÛY[İ\WİZYˆÛˆX›XËœ™\ÜÊ\ÜÙ\ÜÛY[ÚY™\Üİ\JBˆÚ\™Hİ]\È[ˆ
+	ÙÙ[™\˜]Y	Ë	İ[™\—Ü™]šY]ÉË	Ø\›İ™Y	Ë	Ü™[X\ÙY	ÊNÂ‚œ™]›ÚÙH[ÛˆX›HX›XËœ™\ÜÈœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ™\ÜÈÈ]][XØ]YÙ\šXÙWÜ›ÛNÂ‚‹KHKˆ™\]Y\İYRH›İ][™ÈY[]H[™›İšY\‹\™\ÛÛ™YY[]H\™H\İ[˜İ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\ÂˆYÛÛ[[ˆ™\]Y\İYÜ›İšY\ˆ^ˆYÛÛ[[ˆ™\]Y\İYÛ[Ù[^ˆYÛÛ[[ˆ™\ÛÛ™YÜ›İšY\ˆ^ˆYÛÛ[[ˆ™\ÛÛ™YÛ[Ù[^Â‚\]HX›XËœ™\ÜØZWØ][\ÂœÙ]™\]Y\İYÜ›İšY\ˆHÛØ[\ØÙJ™\]Y\İYÜ›İšY\‹›İšY\ŠKˆ™\]Y\İYÛ[Ù[HÛØ[\ØÙJ™\]Y\İYÛ[Ù[[Ù[
+Kˆ™\ÛÛ™YÜ›İšY\ˆHÛØ[\ØÙJ™\ÛÛ™YÜ›İšY\‹İ]]ÚœÛÛ‹O‰Ü›İšY\‰Ë›İšY\ŠKˆ™\ÛÛ™YÛ[Ù[HÛØ[\ØÙJ™\ÛÛ™YÛ[Ù[İ]]ÚœÛÛ‹O‰Û[Ù[	Ë[Ù[
+NÂ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\Âˆ[\ˆÛÛ[[ˆ™\]Y\İYÜ›İšY\ˆÙ]›İ[ˆ[\ˆÛÛ[[ˆ™\]Y\İYÛ[Ù[Ù]›İ[ˆ›ÜÛÛœİ˜Z[Yˆ^\İÈ™\ÜØZWØ][\×Ù[Ùš[™Ù\œš[İ[š\]YNÂ‚˜[\ˆX›HX›XËœ™\ÜØZWØ][\ÂˆYÛÛœİ˜Z[™\ÜØZWØ][\×Ù[Ùš[™Ù\œš[İ[š\]YH[š\]YH
+ˆÙ[™\˜][Û—ÚY[]K]šY[˜ÙWØÚXÚÜİ[K™\]Y\İYÜ›İšY\‹™\]Y\İYÛ[Ù[ˆ›Û\İ™\œÚ[Û‹ØÚ[XWİ™\œÚ[Û‹][\ÚÚ[™][\Û[X™\‚ˆ
+KˆYÛÛœİ˜Z[™\ÜØZWØ][\×Ü™\ÛÛ™YÚY[]WØÚÈÚXÚÈ
+ˆİ]\È›İ[ˆ
+	ÜİXØÙYYY	Ë	ØXØÛİ[[™×İ[™\šYšYY	ÊBˆÜˆ
+ÛØ[\ØÙJš[J™\ÛÛ™YÜ›İšY\ŠK	ÉÊHˆ	ÉÈ[™ÛØ[\ØÙJš[J™\ÛÛ™YÛ[Ù[
+K	ÉÊHˆ	ÉÊBˆ
+NÂ‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆYÛÛ[[ˆ™\]Y\İYÜ›İšY\ˆ^ˆYÛÛ[[ˆ™\]Y\İYÛ[Ù[^ˆYÛÛ[[ˆ™\ÛÛ™YÜ›İšY\ˆ^ˆYÛÛ[[ˆ™\ÛÛ™YÛ[Ù[^Â‚\]HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂœÙ]™\]Y\İYÜ›İšY\ˆHØ\ÙHÚ[ˆÙ[™\˜][Û—Û[ÙHH	Ù]\›Z[š\İX×Ù˜[˜XÚÉÈ[ˆ[[ÙHÛØ[\ØÙJ™\]Y\İYÜ›İšY\‹›İšY\ŠH[™ˆ™\]Y\İYÛ[Ù[HØ\ÙHÚ[ˆÙ[™\˜][Û—Û[ÙHH	Ù]\›Z[š\İX×Ù˜[˜XÚÉÈ[ˆ[[ÙHÛØ[\ØÙJ™\]Y\İYÛ[Ù[[Ù[
+H[™ˆ™\ÛÛ™YÜ›İšY\ˆHØ\ÙHÚ[ˆÙ[™\˜][Û—Û[ÙHH	Ù]\›Z[š\İX×Ù˜[˜XÚÉÈ[ˆ[[ÙHÛØ[\ØÙJ™\ÛÛ™YÜ›İšY\‹›İšY\ŠH[™ˆ™\ÛÛ™YÛ[Ù[HØ\ÙHÚ[ˆÙ[™\˜][Û—Û[ÙHH	Ù]\›Z[š\İX×Ù˜[˜XÚÉÈ[ˆ[[ÙHÛØ[\ØÙJ™\ÛÛ™YÛ[Ù[[Ù[
+H[™Â‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—Ü[œ×Ü›İ][™×ÚY[]WØÚÈÚXÚÈ
+ˆÙ[™\˜][Û—Û[ÙHH	Ù]\›Z[š\İX×Ù˜[˜XÚÉÂˆÜˆ
+ˆÛØ[\ØÙJš[J™\]Y\İYÜ›İšY\ŠK	ÉÊHˆ	ÉÈ[™ÛØ[\ØÙJš[J™\]Y\İYÛ[Ù[
+K	ÉÊHˆ	ÉÂˆ[™ÛØ[\ØÙJš[J™\ÛÛ™YÜ›İšY\ŠK	ÉÊHˆ	ÉÈ[™ÛØ[\ØÙJš[J™\ÛÛ™YÛ[Ù[
+K	ÉÊHˆ	ÉÂˆ
+Bˆ
+NÂ‚‹KH‹ˆ\˜X›HØš™XİXÛX[\]Y]YKˆH]\È™XÛÜ™Y™Y›Ü™HX›XØ][Ûˆ[™‹KH]™\H[][Ûˆ][\\ÈX\ÙYÛİ[Y[™[\X›K‚˜Ü™X]HX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YH
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+KˆİÜ˜YÙWØXÚÙ]^›İ[ÚXÚÈ
+ÛØ[\ØÙJš[JİÜ˜YÙWØXÚÙ]
+K	ÉÊHˆ	ÉÊKˆİÜ˜YÙWÜ]^›İ[ÚXÚÈ
+İÜ˜YÙWÜ]ZÙH	İ\ÉIÊKˆ^XİYØÚXÚÜİ[H^›İ[ÚXÚÈ
+^XİYØÚXÚÜİ[Hˆ	×–ÌNXKY—^ÍI	ÊKˆÛZ[WİÚÙ[ˆ]ZYˆ™\ÜÚY]ZY™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]H™\İšXİˆİÛ™\—ØYZ[—İ\Ù\—ÚY]ZY™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]H™\İšXİˆİÛ™\—ØØ\Xš[]WÚY]ZY™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆÛX[\Ü™X\ÛÛˆ^›İ[ÚXÚÈ
+ÛØ[\ØÙJš[JÛX[\Ü™X\ÛÛŠK	ÉÊHˆ	ÉÊKˆİ]\È^›İ[Y˜][	Ü[™[™ÉÈÚXÚÈ
+İ]\È[ˆ
+	Ü[™[™ÉË	ÛX\ÙY	Ë	Ù˜Z[Y	Ë	Ù[]Y	Ë	ÙXYÛ]\‰ÊJKˆ][\ØÛİ[[YÙ\ˆ›İ[Y˜][ÚXÚÈ
+][\ØÛİ[H
+KˆX\ÙWÛİÛ™\—ØØ\Xš[]WÚY]ZY™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆX\ÙWİÚÙ[ˆ]ZYˆX\ÙWÙ^\™\×Ø][Y\İ[\‹ˆ\İØ][\Ø][Y\İ[\‹ˆ™^Ø][\Ø][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ[]YØ][Y\İ[\‹ˆ\İÙ\œ›Üˆ^ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÛÛœİ˜Z[\ÙLMÜİÜ˜YÙWØÛX[\ÛİÛ™\—ØÚÈÚXÚÈ
+ˆİÛ™\—ØYZ[—İ\Ù\—ÚY\È›İ[ÜˆİÛ™\—ØØ\Xš[]WÚY\È›İ[ˆ
+KˆÛÛœİ˜Z[\ÙLMÜİÜ˜YÙWØÛX[\ÛX\ÙWØÚÈÚXÚÈ
+ˆ
+İ]\ÈH	ÛX\ÙY	È[™X\ÙWÛİÛ™\—ØØ\Xš[]WÚY\È›İ[[™X\ÙWİÚÙ[ˆ\È›İ[[™X\ÙWÙ^\™\×Ø]\È›İ[
+BˆÜˆİ]\Èˆ	ÛX\ÙY	Âˆ
+Kˆ[š\]YJİÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]
+BŠNÂ˜Ü™X]H[™^\ÙLMÜİÜ˜YÙWØÛX[\İÛÜš×ÚYˆÛˆX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YJİ]\Ë™^Ø][\Ø]Ü™X]YØ]
+BˆÚ\™Hİ]\È[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊNÂ˜[\ˆX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YH[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÈ]][XØ]YÂ˜Ü™X]HÛXŞH\ÙLMÜİÜ˜YÙWØÛX[\ØYZ[—ÜÙ[XİÛˆX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+H[ˆ
+	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÊJNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™YÚ\İ\—Ü\ÙLMÜİÜ˜YÙWØÛX[\
+ˆÜİÜ˜YÙWØXÚÙ]^ˆÜİÜ˜YÙWÜ]^ˆÙ^XİYØÚXÚÜİ[H^ˆØÛZ[WİÚÙ[ˆ]ZYˆÜ™X\ÛÛˆ^ŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ÚY]ZYÈ—ØØ\Xš[]WÚY]ZYÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÜİÜ˜YÙWÜ]›İZÙH	İ\ÉIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\İ[\Ü˜\WÜ]Ü™\]Z\™Y	ÎÈ[™YÂˆYˆÙ^XİYØÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	È[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\ØÚXÚÜİ[WÚ[˜[Y	ÎÈ[™YÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆ—ØØ\Xš[]WÚYH[YŠ—ØXİÜ‹O‰ØØ\Xš[]WÚY	Ë	ÉÊN]ZYÂˆ[œÙ\[ÈX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YJˆİÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]^XİYØÚXÚÜİ[KÛZ[WİÚÙ[‹ˆİÛ™\—ØYZ[—İ\Ù\—ÚYİÛ™\—ØØ\Xš[]WÚYÛX[\Ü™X\ÛÛ‚ˆ
+H˜[Y\È
+ˆÜİÜ˜YÙWØXÚÙ]ÜİÜ˜YÙWÜ]Ù^XİYØÚXÚÜİ[KØÛZ[WİÚÙ[‹ˆ[YŠ—ØXİÜ‹O‰İ\Ù\—ÚY	Ë	ÉÊN]ZY—ØØ\Xš[]WÚYÜ™X\ÛÛ‚ˆ
+BˆÛˆÛÛ™›Xİ
+İÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]
+HÈ\]BˆÙ]\]YØ]H›İÊ
+BˆÚ\™HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YK™^XİYØÚXÚÜİ[HH^ÛYY™^XİYØÚXÚÜİ[Bˆ[™X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YK˜ÛZ[WİÚÙ[ˆ\È›İ\İ[˜İœ›ÛH^ÛYY˜ÛZ[WİÚÙ[‚ˆ™]\›š[™ÈY[È—ÚYÂˆYˆ—ÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü]ÛİÛ™\œÚ\ØÛÛ™›Xİ	ÎÈ[™YÂˆ™]\›ˆ—ÚYÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË›[š×Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\Ü
+ˆØÛX[\ÚY]ZYˆÜ™\ÜÚY]ZYŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü]Y]YHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÈ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂ˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—Ü]Y]YHœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÚ\™HYHØÛX[\ÚY›Üˆ\]NÂˆÙ[Xİ
+ˆ[È—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HYHÜ™\ÜÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü™\ÜÛZ\ÜÚ[™ÉÎÈ[™YÂˆYˆ—Ü]Y]YK˜ÛZ[WİÚÙ[ˆ\È›İ[[™›İ^\İÈ
+ˆÙ[XİHœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÂˆÚ\™HË˜ÛZ[WİÚÙ[ˆH—Ü]Y]YK˜ÛZ[WİÚÙ[ˆ[™Ëœ™\ÜÚYHÜ™\ÜÚYˆ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü™\ÜØÛZ[WØš[™[™×ÛZ\ÛX]Ú	ÎÈ[™YÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]™\ÜÚYHÜ™\ÜÚY\]YØ]H›İÊ
+HÚ\™HYHØÛX[\ÚYÂˆ™]\›ˆYNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™XÛÜ™Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\İ[
+ˆØÛX[\ÚY]ZYˆÙ[]Y›ÛÛX[‹ˆÙ\œ›Üˆ^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—Ü]Y]YHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÈ—Ø][\[YÙ\Â˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆÙ[Xİ
+ˆ[È—Ü]Y]YHœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÚ\™HYHØÛX[\ÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü]Y]YWÚ][WÛZ\ÜÚ[™ÉÎÈ[™YÂˆ—Ø][\H—Ü]Y]YK˜][\ØÛİ[
+ÈNÂˆYˆÙ[]Y[‚ˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÙ]İ]\ÈH	Ù[]Y	Ë][\ØÛİ[H—Ø][\\İØ][\Ø]H›İÊ
+K[]YØ]H›İÊ
+Kˆ\İÙ\œ›ÜˆH[X\ÙWÛİÛ™\—ØØ\Xš[]WÚYH[X\ÙWİÚÙ[ˆH[ˆX\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+BˆÚ\™HYHØÛX[\ÚYÂˆ[ÙBˆYˆÛØ[\ØÙJš[JÙ\œ›ÜŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ù\œ›Ü—Ü™\]Z\™Y	ÎÈ[™YÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÙ]İ]\ÈHØ\ÙHÚ[ˆ—Ø][\HH[ˆ	ÙXYÛ]\‰È[ÙH	Ù˜Z[Y	È[™ˆ][\ØÛİ[H—Ø][\\İØ][\Ø]H›İÊ
+K\İÙ\œ›ÜˆHÙ\œ›Ü‹ˆ™^Ø][\Ø]H›İÊ
+H
+ÈXZÙWÚ[\˜[
+ÙXÜÈOˆX\İ
+ÍŒÌ
+ˆ
+ˆˆX\İ
+—Ø][\ÊJNš[YÙ\ŠJKˆX\ÙWÛİÛ™\—ØØ\Xš[]WÚYH[X\ÙWİÚÙ[ˆH[X\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+BˆÚ\™HYHØÛX[\ÚYÂˆ[œÙ\[ÈX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\Êˆ[\ÚÙ^KÙ]™\š]KØ]YÛÜK™\ÜÚY]Z[ÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ	ÜİÜ˜YÙKXÛX[\‰ÈØÛX[\ÚY^ˆØ\ÙHÚ[ˆ—Ø][\HH[ˆ	ØÜš]XØ[	È[ÙH	İØ\›š[™ÉÈ[™ˆ	Ü™\Üİ[\Ü˜\WÛØš™XİØÛX[\Ù˜Z[Y	Ë—Ü]Y]YKœ™\ÜÚYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	ËØÛX[\ÚY	ØXÚÙ]	Ë—Ü]Y]YKœİÜ˜YÙWØXÚÙ]ˆ	Ü]	Ë—Ü]Y]YKœİÜ˜YÙWÜ]	Ø][\ØÛİ[	Ë—Ø][\	Ù\œ›Ü‰ËÙ\œ›ÜŠBˆ
+HÛˆÛÛ™›Xİ
+[\ÚÙ^JHÈ\]BˆÙ]Ù]™\š]HH^ÛYYœÙ]™\š]K]Z[ÚœÛÛˆH^ÛYY™]Z[ÚœÛÛ‹İ]\ÈH	ÛÜ[‰ÎÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	ËØÛX[\ÚY	Ù[]Y	ËÙ[]Y	Ø][\ØÛİ[	Ë—Ø][\
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\ÊˆÛÛ\—İ[ˆ[\˜[Y˜][[\˜[	Ìİ\œÉÂŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØÛİ[[YÙ\È—Ü]Y]YY[YÙ\Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]J	ÜİÜ˜YÙWØÛX[\	Ë\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙJNÂˆYˆÛÛ\—İ[ˆ[\˜[	ÌHİ\‰ÈÜˆÛÛ\—İ[ˆˆ[\˜[	ÌÌ^\ÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØÛX[\Ü™][[Û—Ûİ]ÛÙ—Ü˜[™ÙIÎÂˆ[™YÂˆÚ]Ø[™Y]\È\È
+ˆÙ[Xİ
+ˆœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™H™\ÜÚY\È[[™İ]H[ˆ
+	ØÛZ[YY	Ë	ØX˜[™Û™Y	ÊBˆ[™X\ÙWÙ^\™\×Ø]›İÊ
+HHÛÛ\—İ[‚ˆ›Üˆ\]Bˆ
+K]Y]YY\È
+ˆ[œÙ\[ÈX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YJˆİÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]^XİYØÚXÚÜİ[KÛZ[WİÚÙ[‹ˆİÛ™\—ØØ\Xš[]WÚYÛX[\Ü™X\ÛÛ‚ˆ
+BˆÙ[Xİ[\Ü˜\WÜİÜ˜YÙWØXÚÙ][\Ü˜\WÜİÜ˜YÙWÜ]ˆÛØ[\ØÙJ^XİYØÚXÚÜİ[K™\X]
+	Ì	Ë
+JKÛZ[WİÚÙ[‹ˆ[YŠİ\œ™[ÜÙ][™Ê	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	ËYJK	ÉÊN]ZYˆ	Ñ^\™YÙ[™\˜][ÛˆÛZ[HÛX[\	Âˆœ›ÛHØ[™Y]\ÂˆÚ\™H[\Ü˜\WÜİÜ˜YÙWØXÚÙ]\È›İ[[™[\Ü˜\WÜİÜ˜YÙWÜ]\È›İ[ˆÛˆÛÛ™›Xİ
+İÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]
+HÈ›İ[™Âˆ™]\›š[™ÈBˆ
+K[]Y\È
+ˆ[]Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÈ\Ú[™ÈØ[™Y]\ÈˆÚ\™HË˜ÛZ[WİÚÙ[ˆH˜ÛZ[WİÚÙ[ˆ™]\›š[™ÈBˆ
+BˆÙ[Xİ
+Ù[XİÛİ[
+
+ŠHœ›ÛH[]Y
+K
+Ù[XİÛİ[
+
+ŠHœ›ÛH]Y]YY
+Bˆ[È—ØÛİ[—Ü]Y]YYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ù[]YØÛZ[\ÉË—ØÛİ[	Ü]Y]YYØÛX[\ÛØš™XİÉË—Ü]Y]YY
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÊˆØØ\Xš[]WÚY]ZYˆÛX\ÙWİÚÙ[ˆ^ˆÛ[Z][YÙ\ˆY˜][LŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—İÛÜš×ÛX\ÙH]ZYHÙ[—Ü˜[™ÛWİ]ZY
+
+NÈ—Ú›ØœÈœÛÛ˜Â˜™YÚ[‚ˆYˆÛ[Z]HÜˆÛ[Z]ˆL[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ú›Ø—Û[Z]Ûİ]ÛÙ—Ü˜[™ÙIÎÈ[™YÂˆ\™›Ü›HX›XËœ\ÙLMØXİ]˜]WİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚYÛX\ÙWİÚÙ[‹\œ˜^VÉÜİÜ˜YÙWØÛX[\	×K[[[[[[ˆ
+NÂˆÚ]Ù[XİY\È
+ˆÙ[XİYœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÚ\™Hİ]\È[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊH[™™^Ø][\Ø]H›İÊ
+H[™][\ØÛİ[BˆÜ™\ˆHÜ™X]YØ]›Üˆ\]HÚÚ\ØÚÙY[Z]Û[Z]ˆ
+KX\ÙY\È
+ˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHBˆÙ]İ]\ÈH	ÛX\ÙY	ËX\ÙWÛİÛ™\—ØØ\Xš[]WÚYHØØ\Xš[]WÚYˆX\ÙWİÚÙ[ˆH—İÛÜš×ÛX\ÙKX\ÙWÙ^\™\×Ø]H›İÊ
+H
+È[\˜[	ÌLZ[]\ÉË\]YØ]H›İÊ
+Bˆœ›ÛHÙ[XİYÈÚ\™HKšYHËšYˆ™]\›š[™ÈKšYKœİÜ˜YÙWØXÚÙ]KœİÜ˜YÙWÜ]K™^XİYØÚXÚÜİ[KK˜][\ØÛİ[ˆ
+BˆÙ[XİÛØ[\ØÙJœÛÛ˜—ØYÙÊ×ÚœÛÛ˜ŠX\ÙY
+JK	Ö×IÎšœÛÛ˜ŠH[È—Ú›ØœÈœ›ÛHX\ÙYÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	İÛÜš×ÛX\ÙWİÚÙ[‰Ë—İÛÜš×ÛX\ÙK	Ú›ØœÉË—Ú›ØœÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜ÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØŠˆØØ\Xš[]WÚY]ZYˆØØ\Xš[]WÛX\ÙWİÚÙ[ˆ^ˆØÛX[\ÚY]ZYˆİÛÜš×ÛX\ÙWİÚÙ[ˆ]ZYˆÙ[]Y›ÛÛX[‹ˆÙ\œ›Üˆ^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü]Y]YHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÈ—Ø][\[YÙ\Â˜™YÚ[‚ˆ\™›Ü›HX›XËœ\ÙLMØXİ]˜]WİÛÜšÙ\—ØØ\Xš[]JˆØØ\Xš[]WÚYØØ\Xš[]WÛX\ÙWİÚÙ[‹\œ˜^VÉÜİÜ˜YÙWØÛX[\	×K[[[[[[ˆ
+NÂˆÙ[Xİ
+ˆ[È—Ü]Y]YHœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÚ\™HYHØÛX[\ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ü]Y]YKœİ]\Èˆ	ÛX\ÙY	ÈÜˆ—Ü]Y]YK›X\ÙWÛİÛ™\—ØØ\Xš[]WÚYˆØØ\Xš[]WÚYˆÜˆ—Ü]Y]YK›X\ÙWİÚÙ[ˆˆİÛÜš×ÛX\ÙWİÚÙ[ˆÜˆ—Ü]Y]YK›X\ÙWÙ^\™\×Ø]H›İÊ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ú›Ø—ÛX\ÙWÚ[˜[Y	ÎÂˆ[™YÂˆ—Ø][\H—Ü]Y]YK˜][\ØÛİ[
+ÈNÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÙ]İ]\ÈHØ\ÙHÚ[ˆÙ[]Y[ˆ	Ù[]Y	ÈÚ[ˆ—Ø][\HH[ˆ	ÙXYÛ]\‰È[ÙH	Ù˜Z[Y	È[™ˆ][\ØÛİ[H—Ø][\\İØ][\Ø]H›İÊ
+Kˆ[]YØ]HØ\ÙHÚ[ˆÙ[]Y[ˆ›İÊ
+H[ÙH[[™ˆ\İÙ\œ›ÜˆHØ\ÙHÚ[ˆÙ[]Y[ˆ[[ÙH[YŠš[JÙ\œ›ÜŠK	ÉÊH[™ˆ™^Ø][\Ø]HØ\ÙHÚ[ˆÙ[]Y[ˆ™^Ø][\Ø][ÙH›İÊ
+H
+ÈXZÙWÚ[\˜[
+ÙXÜÈOˆX\İ
+ÍŒÌ
+ˆ
+ˆˆX\İ
+—Ø][\ÊJNš[YÙ\ŠJH[™ˆX\ÙWÛİÛ™\—ØØ\Xš[]WÚYH[X\ÙWİÚÙ[ˆH[X\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+BˆÚ\™HYHØÛX[\ÚYÂˆYˆ›İÙ[]Y[‚ˆYˆÛØ[\ØÙJš[JÙ\œ›ÜŠK	ÉÊHH	ÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ù\œ›Ü—Ü™\]Z\™Y	ÎÈ[™YÂˆ[œÙ\[ÈX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\Ê[\ÚÙ^KÙ]™\š]KØ]YÛÜK™\ÜÚY]Z[ÚœÛÛŠBˆ˜[Y\È
+	ÜİÜ˜YÙKXÛX[\‰ÈØÛX[\ÚY^ˆØ\ÙHÚ[ˆ—Ø][\HH[ˆ	ØÜš]XØ[	È[ÙH	İØ\›š[™ÉÈ[™ˆ	Ü™\Üİ[\Ü˜\WÛØš™XİØÛX[\Ù˜Z[Y	Ë—Ü]Y]YKœ™\ÜÚYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	ËØÛX[\ÚY	ØXÚÙ]	Ë—Ü]Y]YKœİÜ˜YÙWØXÚÙ]ˆ	Ü]	Ë—Ü]Y]YKœİÜ˜YÙWÜ]	Ø][\ØÛİ[	Ë—Ø][\	Ù\œ›Ü‰ËÙ\œ›ÜŠJBˆÛˆÛÛ™›Xİ
+[\ÚÙ^JHÈ\]BˆÙ]Ù]™\š]OY^ÛYYœÙ]™\š]K]Z[ÚœÛÛY^ÛYY™]Z[ÚœÛÛ‹İ]\ÏIÛÜ[‰ÎÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	ËØÛX[\ÚY	Ù[]Y	ËÙ[]Y	Ø][\ØÛİ[	Ë—Ø][\
+NÂ™[™Â‰[˜İ[Û‰Â‚‹KHËˆÛÛ\Z[[™›İ[˜ÙHİ]ÛÛY\È\™HÙ\\˜]KˆÛÛ\Z[È\™H\›X[™[B‹KH›Û‹\™]šXX›NÈH›İ[˜ÙH™\]Z\™\ÈHœ™\ÚPSˆ™[YYX][Ûˆ™XÛÜ™Ú]]šY[˜ÙK‚˜Ü™X]HX›HX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÈ
+ˆY]ZYš[X\HÙ^HY˜][Ù[—Ü˜[™ÛWİ]ZY
+
+Kˆš[Ü—Ù[XZ[Ù]™[ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË™[XZ[Ù]™[ÊY
+HÛˆ[]H™\İšXİˆ™\ÜÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ™\ÜÊY
+HÛˆ[]y×¾|¶‰ËkºwµçXš[]WÚY\È[ˆ[ˆ	ØYZ[‰ÎœX›XË˜]Y]ØXİÜ—İ\H[ÙH	ÜŞ\İ[IÎœX›XË˜]Y]ØXİÜ—İ\H[™ˆ—Ø]]˜]]Üš\ÙYØK—Ø]]˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÉË—Ü™\ÜšYˆØ\ÙHÚ[ˆ—Ø]]\İÙ[]™\H[ˆ	Ü™[Z][WÜ™\Üİ\İÙ[]™\WÙš[˜[^™Y	Âˆ[ÙH	Ü™[Z][WÜ™\ÜÙ[]™\WÙš[˜[^™Y	È[™ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚYˆ	Ü›İšY\—ÛY\ÜØYÙWÚY	ËÜ›İšY\—ÛY\ÜØYÙWÚY	İÛÜšÙ\—ØØ\Xš[]WÚY	Ë—Ø]]ÛÜšÙ\—ØØ\Xš[]WÚY
+JNÂˆYˆ›İ—Ø]]\İÙ[]™\H[‚ˆ[œÙ\[ÈX›XË˜\ÜÙ\ÜÛY[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY]™[İ\KY\WÚÙ^KY]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—Ø]]˜\ÜÙ\ÜÛY[ÚY—Ø]]›Ü™\—ÚY—Ü™\ÜšY	Ü™\ÜÙ[XZ[Yİ×Øİ\İÛY\‰Ëˆ	Ü\ÙLMY[]™\KYš[˜[^˜][Û‰È—Ø]]šYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚYˆ	İ\İÙ[]™\IË˜[ÙJBˆ
+NÂˆ[™YÂˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÏIÙš[˜[^™Y	Ë›İšY\—ÛY\ÜØYÙWÚY\Ü›İšY\—ÛY\ÜØYÙWÚYš[˜[^™YØ]]—Û›İËˆX\ÙWİÚÙ[[[X\ÙWÙ^\™\×Ø][[\]YØ]]—Û›İÂˆÚ\™HY]—Ø]]šY[™İ]\È[ˆ
+	Ù\Ü]Ú[™ÉË	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÙš[˜[^˜][Û—Ø]]Üš^˜][Û—ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ùš[˜[^™Y	ËYK	ÚY[\İ[Ü™\^IË˜[ÙKˆ	Ü™\ÜÚY	Ë—Ü™\ÜšY	Ù[XZ[Ù]™[ÚY	ËÙ[XZ[Ù]™[ÚY
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™\ÛÛ™WÜ™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][ÛŠˆØ]]Üš^˜][Û—ÚY]ZYˆÜ™\ÛÛ][Ûˆ^ˆØ]\İ][Û—ÚY]ZYˆÛÜ\˜]Ü—Ûİ™\œšYH›ÛÛX[ˆY˜][˜[ÙKˆÜ™X\ÛÛˆ^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂˆ—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÈ—Ø]X›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÉ\›İİ\NÂˆ—Ü™\İ[œÛÛ˜Â˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÜ™\ÛÛ][Ûˆ›İ[ˆ
+	ØXØÙ\Y	Ë	Û›İØXØÙ\Y	ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\ÛÛ][Û—Ú[˜[Y	ÎÂˆ[™YÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÚ\™HY\Ø]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]œİ]\Èˆ	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Üİ]WÚ[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÈÚ\™HY]—Ø]]™[XZ[Ù]™[ÚY›Üˆ\]NÂˆÙ[Xİ
+ˆ[È—Ø]œ›ÛHX›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÂˆÚ\™HY\Ø]\İ][Û—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—Ø]˜]\İ][Û—ÜÛİ\˜ÙHˆ	Ü›İšY\—ÛÛÚİ\	ÂˆÜˆ—Ø]œ›İšY\ˆˆ—Ø]]œ›İšY\‚ˆÜˆ—Ø]˜]]Üš^˜][Û—ÚY\È\İ[˜İœ›ÛH—Ø]]šYˆÜˆ—Ø]™[XZ[Ù]™[ÚY\È\İ[˜İœ›ÛH—Ø]]™[XZ[Ù]™[ÚYˆÜˆ—Ø]œ›İšY\—Ü™\]Y\İÚÙ^H\È\İ[˜İœ›ÛH—Ù]™[œ›İšY\—Ü™\]Y\İÚÙ^BˆÜˆ—Ø]œ™XÛÜ™YØ]—Ø]]™\Ü]ÚÜİ\YØ][‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]\İ][Û—Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ^\İÈ
+Ù[XİHœ›ÛHX›XËœ\ÙLMÜ›İšY\—Ø]\İ][Û—ØÛÛœİ[\[ÛœÂˆÚ\™H]\İ][Û—ÚY]—Ø]šY
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]\İ][Û—Ø[™XYWØÛÛœİ[YY	ÎÂˆ[™YÂˆYˆÜ™\ÛÛ][ÛIØXØÙ\Y	È[‚ˆYˆ—Ø]œ›İšY\—Üİ]Hˆ	ØXØÙ\Y	ÂˆÜˆÛØ[\ØÙJš[J—Ø]œ›İšY\—ÛY\ÜØYÙWÚY
+K	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—ØXØÙ\[˜ÙWÛ›İØ]\İY	ÎÂˆ[™YÂˆ[ÙBˆYˆ›İÛÜ\˜]Ü—Ûİ™\œšYH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—ÛÜ\˜]Ü—Ûİ™\œšYWÜ™\]Z\™Y	ÎÈ[™YÂˆYˆ—Ø]œ›İšY\—Üİ]Hˆ	Û›İÙ›İ[™	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Û›Û—ØXØÙ\[˜ÙWÛ›İØ]\İY	ÎÂˆ[™YÂˆ[™YÂˆ[œÙ\[ÈX›XËœ\ÙLMÜ›İšY\—Ø]\İ][Û—ØÛÛœİ[\[ÛœÊˆ]\İ][Û—ÚY]]Üš^˜][Û—ÚYÛÛœİ[YYØKÛÛœİ[YYÜÙ\ÜÚ[Û—ÚYˆ
+H˜[Y\È
+ˆ—Ø]šY—Ø]]šY
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY
+—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	ÊN]ZYˆ
+NÂˆYˆÜ™\ÛÛ][ÛIØXØÙ\Y	È[‚ˆ—Ü™\İ[HX›XË™š[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\Jˆ—Ø]]šY—Ø]]™[XZ[Ù]™[ÚY—Ø]œ›İšY\—ÛY\ÜØYÙWÚYˆ
+NÂˆ[ÙBˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÏIÜ™]›ÚÙY	Ë™]›ÚÙYÜ™X\ÛÛ\Ü™X\ÛÛ‹X\ÙWİÚÙ[[[X\ÙWÙ^\™\×Ø][[\]YØ][›İÊ
+BˆÚ\™HY]—Ø]]šY[™İ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]]Üš^˜][Û—ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\]HX›XË™[XZ[Ù]™[ÂˆÙ]İ]\ÏIÙ˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë\œ›Ü—ÛY\ÜØYÙO\Ü™X\ÛÛ‹™XÛÛ˜Ú[X][Û—Ø][\YØ][›İÊ
+Kˆ™XÛÛ˜Ú[X][Û—Ü™\İ[ÚœÛÛZœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]\İ][Û—ÚY	Ë—Ø]šYˆ	Ü›İšY\—Üİ]IË—Ø]œ›İšY\—Üİ]JK[]™\Wİ\]YØ][›İÊ
+BˆÚ\™HY]—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ù[XZ[ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ—Ü™\İ[HœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÛÛ™Y	ËYK	Ü™\ÛÛ][Û‰Ë	Û›İØXØÙ\Y	Ëˆ	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY
+NÂˆ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚYˆ[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—Ø]]˜\ÜÙ\ÜÛY[ÚYˆ	Ü™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉË—Ø]]šYˆ	Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\ÛÛ™Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÛÛ][Û‰ËÜ™\ÛÛ][Û‹	Ø]\İ][Û—ÚY	Ë—Ø]šYˆ	Ü›İšY\—ÛY\ÜØYÙWÚY	Ë—Ø]œ›İšY\—ÛY\ÜØYÙWÚY	ÛÜ\˜]Ü—Ûİ™\œšYIËÛÜ\˜]Ü—Ûİ™\œšYKˆ	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠJNÂˆ™]\›ˆ—Ü™\İ[Â™[™Â‰[˜İ[Û‰Â‚‹KHˆ›İ[˜ÙH™[YYX][Ûˆ›İ™\È[ˆXİX[Y™\ÜÈÛÜœ™Xİ[Ûˆ[™\Y\ÈB‹KH™\šYšYYİ\İÛY\‹ÛÜ™\ˆ\]H]ÛZXØ[H™Y›Ü™HH™]HØ[ˆ™H]]Üš\ÙY‚˜[\ˆX›HX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÂˆYÛÛ[[ˆ™]š[İ\×Ü™XÚ\Y[Ù[XZ[Ú]^ˆYÛÛ[[ˆÛÜœ™XİYÜ™XÚ\Y[Ù[XZ[Ú]^ˆYÛÛ[[ˆİ\İÛY\—İ\]WØ\YYØ][Y\İ[\‹ˆYÛÛ[[ˆ]]Üš\ÙYÜÙ\ÜÚ[Û—ÚY]ZYÂ‚\]HX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÂœÙ]™]š[İ\×Ü™XÚ\Y[Ù[XZ[\™XÚ\Y[Ù[XZ[Ú\™H™]š[İ\×Ü™XÚ\Y[Ù[XZ[\È[Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\JˆÜš[Ü—Ù[XZ[Ù]™[ÚY]ZYˆØÛÜœ™XİYÜ™XÚ\Y[^ˆÜ™X\ÛÛˆ^ˆÙ]šY[˜ÙHœÛÛ˜‚ŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÈ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—ØÛÜœ™XİYX›XË˜Ú]^È—ÚY]ZYÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù[XZ[Ü™\Ù[™	Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ—ØÛÜœ™XİYHİÙ\Šš[JØÛÜœ™XİYÜ™XÚ\Y[
+JNœX›XË˜Ú]^ÂˆYˆ—ØÛÜœ™XİY^_ˆ	×–×–ÎœÜXÙN—PJĞ×–ÎœÜXÙN—PJ×–×–ÎœÜXÙN—PJÉ	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—ØÛÜœ™XİYÜ™XÚ\Y[Ú[˜[Y	ÎÂˆ[™YÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈÜˆÛØ[\ØÙJÙ]šY[˜ÙK	ŞßIÎšœÛÛ˜ŠOIŞßIÎšœÛÛ˜‚ˆÜˆÛØ[\ØÙJš[JÙ]šY[˜ÙKO‰İ™\šYšXØ][Û—ÛY]Ù	ÊK	ÉÊOIÉÂˆÜˆÛØ[\ØÙJš[JÙ]šY[˜ÙKO‰İ™\šYšYYØ]	ÊK	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—İ™\šYšYYÙ]šY[˜ÙWÜ™\]Z\™Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™HY\Üš[Ü—Ù[XZ[Ù]™[ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ù]™[œİ]\Èˆ	Ø›İ[˜ÙY	ÈÜˆ—Ù]™[›Ü™\—ÚY\È[ˆÜˆ—Ù]™[œ™\ÜÚY\È[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—Ù]™[Ú[™[YÚX›IÎÂˆ[™YÂˆYˆ—ØÛÜœ™XİYH—Ù]™[œ™XÚ\Y[Ù[XZ[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—Ü™XÚ\Y[Û›İØÛÜœ™XİY	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HY]—Ù]™[›Ü™\—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™ÜˆİÙ\Š—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+HˆİÙ\Š—Ù]™[œ™XÚ\Y[Ù[XZ[^
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—ÛÜ™\—Ü™XÚ\Y[ØÚ[™ÙY	ÎÂˆ[™YÂˆ\]HX›XË›Ü™\œÂˆÙ]İ\İÛY\—Ù[XZ[]—ØÛÜœ™XİY\]YØ][›İÊ
+BˆÚ\™HY]—ÛÜ™\‹šY[™İ\İÛY\—Ù[XZ[]—Ù]™[œ™XÚ\Y[Ù[XZ[ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—Øİ\İÛY\—İ\]WØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ[œÙ\[ÈX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÊˆš[Ü—Ù[XZ[Ù]™[ÚY™\ÜÚY™XÚ\Y[Ù[XZ[™]š[İ\×Ü™XÚ\Y[Ù[XZ[ˆÛÜœ™XİYÜ™XÚ\Y[Ù[XZ[™[YYX][Û—İ\K™X\ÛÛ‹]šY[˜ÙWÚœÛÛ‹]]Üš\ÙYØKˆ]]Üš\ÙYÜÙ\ÜÚ[Û—ÚYİ\İÛY\—İ\]WØ\YYØ]ˆ
+H˜[Y\È
+ˆ—Ù]™[šY—Ù]™[œ™\ÜÚY—ØÛÜœ™XİY—Ù]™[œ™XÚ\Y[Ù[XZ[ˆ—ØÛÜœ™XİY	Ø›İ[˜ÙWÜ™]IËÜ™X\ÛÛ‹Ù]šY[˜ÙK
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆ
+—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	ÊN]ZY›İÊ
+Bˆ
+H™]\›š[™ÈY[È—ÚYÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚYˆ[]WİX›K[]WÚYXİ[Û‹™Y›Ü™WÚœÛÛ‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—Ù]™[˜\ÜÙ\ÜÛY[ÚYˆ	Ü™\ÜÙ[]™\WÜ™[YYX][ÛœÉË—ÚY	Ü™[Z][WÜ™\ÜØ›İ[˜ÙWÜ™]WØ]]Üš^™Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™]š[İ\×Ü™XÚ\Y[	Ë—Ù]™[œ™XÚ\Y[Ù[XZ[
+KˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Üš[Ü—Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šYˆ	ØÛÜœ™XİYÜ™XÚ\Y[	Ë—ØÛÜœ™XİY	Ü™X\ÛÛ‰ËÜ™X\ÛÛ‹ˆ	İ™\šYšXØ][Û—ÛY]Ù	ËÙ]šY[˜ÙKO‰İ™\šYšXØ][Û—ÛY]Ù	ÊJNÂˆ™]\›ˆ—ÚYÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\JˆÜ™\ÜÚY]ZYˆÜ™XÚ\Y[^ˆÙ[]™\WÛ[ÙH^Y˜][	Ú[š]X[	ËˆØ[İ×İ\İÛİ™\œšYH›ÛÛX[ˆY˜][˜[ÙKˆÜ›İšY\ˆ^Y˜][	Ü™\Ù[™	ËˆØ›İ[˜ÙWÜ™[YYX][Û—ÚY]ZYY˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—ØÛÛ^œÛÛ˜È—ÙØ]Wİ™\œÚ[Ûˆ[YÙ\È—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÂˆ—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÈ—Ø][\[YÙ\È—ÙY\H^Âˆ—Üš[Ü—Ø›İ[˜ÙHX›XË™[XZ[Ù]™[É\›İİ\NÈ—Ü™[YYX][ÛˆX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÉ\›İİ\NÂˆ—İÛÜšÙ\—ØØ\Xš[]WÚY]ZYÂ˜™YÚ[‚ˆYˆÙ[]™\WÛ[ÙH›İ[ˆ
+	Ú[š]X[	Ë	Ø›İ[˜ÙWÜ™]IÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÛ[ÙWÚ[˜[Y	ÎÈ[™YÂˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]JˆØ\ÙHÚ[ˆÙ[]™\WÛ[ÙOIØ›İ[˜ÙWÜ™]IÈ[ˆ	Ù[XZ[Ü™\Ù[™	È[ÙH	Ù[XZ[Ù[]™\IÈ[™ˆ\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆØ[İ×İ\İÛİ™\œšYH[ˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ	Ü™XÚ\Y[Ûİ™\œšYIÊNÈ[™YÂˆYˆÛØ[\ØÙJš[JÜ›İšY\ŠK	ÉÊOIÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›İšY\—Ü™\]Z\™Y	ÎÈ[™YÂˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+ˆ	Ü\ÙLMY[]™\N‰ÈÜ™\ÜÚY	Î‰ÈİÙ\Šš[JÜ™XÚ\Y[
+JKˆ
+JNÂˆ—ØÛÛ^HX›XËœ\ÙLMÙ[]™\WÙ[][Y[
+ˆÜ™\ÜÚYÜ™XÚ\Y[Ø[İ×İ\İÛİ™\œšYK	Ù[XZ[Ù[]™\IÂˆ
+NÂˆ—ÙØ]Wİ™\œÚ[ÛˆH
+—ØXİÜ‹O‰ÙØ]Wİ™\œÚ[Û‰ÊNš[YÙ\Âˆ—İÛÜšÙ\—ØØ\Xš[]WÚYH[YŠ—ØXİÜ‹O‰ØØ\Xš[]WÚY	Ë	ÉÊN]ZYÂˆYˆ^\İÈ
+Ù[XİHœ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H™\ÜÚY\Ü™\ÜÚY[™İ]\ÏIØÛÛ\Z[™Y	ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØÛÛ\Z[Ü\›X[™[WÛ›Û—Ü™]šXX›IÎÂˆ[™YÂˆYˆ^\İÈ
+Ù[XİHœ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H™\ÜÚY\Ü™\ÜÚYˆ[™İ]\È[ˆ
+	ÜÙ[™[™ÉË	Ü›İšY\—ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ›İšY\—ØXØÙ\[˜ÙWİ[œ™\ÛÛ™Y	ÎÂˆ[™YÂˆYˆÙ[]™\WÛ[ÙOIØ›İ[˜ÙWÜ™]IÈ[‚ˆÙ[Xİ
+ˆ[È—Ü™[YYX][Ûˆœ›ÛHX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÂˆÚ\™HY\Ø›İ[˜ÙWÜ™[YYX][Û—ÚY[™™\ÜÚY\Ü™\ÜÚYˆ[™ÛÜœ™XİYÜ™XÚ\Y[Ù[XZ[[İÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™™XÚ\Y[Ù[XZ[[İÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™™[YYX][Û—İ\OIØ›İ[˜ÙWÜ™]IÈ[™İ]\ÏIØ]]Üš\ÙY	Âˆ[™İ\İÛY\—İ\]WØ\YYØ]\È›İ[ˆ›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ›İ[˜ÙWÜ™[YYX][Û—Ü™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Üš[Ü—Ø›İ[˜ÙHœ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™HY]—Ü™[YYX][Û‹œš[Ü—Ù[XZ[Ù]™[ÚY[™™\ÜÚY\Ü™\ÜÚYˆ[™™XÚ\Y[Ù[XZ[]—Ü™[YYX][Û‹œ™]š[İ\×Ü™XÚ\Y[Ù[XZ[ˆ[™›İYšXØ][Û—İ\OIÜ™[Z][WÜ™\ÜÜ‰È[™İ]\ÏIØ›İ[˜ÙY	Âˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ›İ[˜ÙWÜ™[YYX][Û—Üš[Ü—Ù]™[Ú[˜[Y	ÎÈ[™YÂˆ[ÚYˆØ›İ[˜ÙWÜ™[YYX][Û—ÚY\È›İ[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ›İ[˜ÙWÜ™[YYX][Û—Û›İØ\XØX›IÎÂˆ[™YÂˆYˆÙ[]™\WÛ[ÙOIÚ[š]X[	È[‚ˆÙ[Xİ
+ˆ[È—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÂˆÚ\™H™\ÜÚY\Ü™\ÜÚY[™™XÚ\Y[Ù[XZ[[İÙ\Šš[JÜ™XÚ\Y[
+JBˆ[™›İYšXØ][Û—İ\OIÜ™[Z][WÜ™\ÜÜ‰Âˆ[™İ]\È[ˆ
+	ÜÙ[	Ë	Ù[]™\WÙ[^YY	Ë	Ù[]™\™Y	Ë	Ø›İ[˜ÙY	Ë	ØÛÛ\Z[™Y	ÊBˆÜ™\ˆHÜ™X]YØ]\ØÈ[Z]NÂˆYˆ›İ[™[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™]\ÙYÙ^\İ[™×ÜÙ[™	ËYK	Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šYˆ	Ü›İšY\—ÛY\ÜØYÙWÚY	Ë—Ù]™[œ›İšY\—ÛY\ÜØYÙWÚY	Üİ]\ÉË—Ù]™[œİ]\Ëˆ	Ü™XÚ\Y[	ËİÙ\Šš[JÜ™XÚ\Y[
+JK	İ\İÙ[]™\IË
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[ŠNÂˆ[™YÂˆ[™YÂˆÙ[XİÛİ[
+
+ŠJÌH[È—Ø][\œ›ÛHX›XË™[XZ[Ù]™[ÈÚ\™H™\ÜÚY\Ü™\ÜÚYÂˆ—ÙY\HH	Ü™[Z][K\™\ÜY[]™\N‰ÈÜ™\ÜÚY	Î‰ÈİÙ\Šš[JÜ™XÚ\Y[
+JBˆ	Î˜][\IÈ—Ø][\Âˆ[œÙ\[ÈX›XË™[XZ[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY™XÚ\Y[Ù[XZ[[\]WÚÙ^K›İYšXØ][Û—İ\KˆY\WÚÙ^K›İšY\—Ü™\]Y\İÚÙ^K›İšY\—ÚY[\İ[˜ŞWÚÙ^K›İšY\‹İ]\Ëˆ][\Û[X™\‹Y]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZYÜ™\ÜÚYˆİÙ\Šš[JÜ™XÚ\Y[
+JK	Ü™[Z][WÜ™\ÜÜ—İŒIË	Ü™[Z][WÜ™\ÜÜ‰Ë—ÙY\Kˆ—ÙY\K—ÙY\KİÙ\Šš[JÜ›İšY\ŠJK	Ü]Y]YY	Ë—Ø][\ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]XÚY[ØÚXÚÜİ[IË—ØÛÛ^O‰Ü™\ÜØÚXÚÜİ[IËˆ	İ\İÙ[]™\IË
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[‹ˆ	Ø›İ[˜ÙWÜ™[YYX][Û—ÚY	ËØ›İ[˜ÙWÜ™[YYX][Û—ÚY
+Bˆ
+H™]\›š[™È
+ˆ[È—Ù]™[Âˆ[œÙ\[ÈX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÊˆ™\ÜÚY™\ÜØÚXÚÜİ[K™XÚ\Y[Ù[XZ[Ü™\—ÚY\ÜÙ\ÜÛY[ÚYØÛÜ™WÜ[—ÚYˆÙXİ\š]WÙØ]Wİ™\œÚ[Û‹]]Üš\ÙYØK]]Üš\ÙYÜÙ\ÜÚ[Û—ÚYÛÜšÙ\—ØØ\Xš[]WÚYˆ›İšY\‹[XZ[Ù]™[ÚY\İÙ[]™\K›İ[˜ÙWÜ™[YYX][Û—ÚYˆ
+H˜[Y\È
+ˆÜ™\ÜÚY—ØÛÛ^O‰Ü™\ÜØÚXÚÜİ[IËİÙ\Šš[JÜ™XÚ\Y[
+JKˆ
+—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZY
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZYˆ
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZY—ÙØ]Wİ™\œÚ[Û‹[YŠ—ØXİÜ‹O‰İ\Ù\—ÚY	Ë	ÉÊN]ZYˆ[YŠ—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	Ë	ÉÊN]ZY—İÛÜšÙ\—ØØ\Xš[]WÚYˆİÙ\Šš[JÜ›İšY\ŠJK—Ù]™[šY
+—ØÛÛ^O‰İ\İÙ[]™\IÊN˜›ÛÛX[‹ˆØ›İ[˜ÙWÜ™[YYX][Û—ÚYˆ
+H™]\›š[™È
+ˆ[È—Ø]]ÂˆYˆØ›İ[˜ÙWÜ™[YYX][Û—ÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÂˆÙ]İ]\ÏIØÛÛœİ[YY	ËÛÛœİ[YYØ][›İÊ
+BˆÚ\™HY\Ø›İ[˜ÙWÜ™[YYX][Û—ÚY[™İ]\ÏIØ]]Üš\ÙY	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WØ›İ[˜ÙWÜ™[YYX][Û—ØÛÛœİ[YWØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™]\ÙYÙ^\İ[™×ÜÙ[™	Ë˜[ÙK	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šYˆ	Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šY	Ü›İšY\—Ü™\]Y\İÚÙ^IË—Ù]™[œ›İšY\—Ü™\]Y\İÚÙ^Kˆ	Ø][\Û[X™\‰Ë—Ù]™[˜][\Û[X™\‹	Ü™XÚ\Y[	Ë—Ø]]œ™XÚ\Y[Ù[XZ[ˆ	İ\İÙ[]™\IË—Ø]]\İÙ[]™\K	Üİ]\ÉË—Ø]]œİ]\ÊNÂ™[™Â‰[˜İ[Û‰Â‚‹KHLKˆ[[YHÜ˜[[™[ÜNˆÙ[™\šXÈÙ\šXÙHÛY[ÈØ[ˆ™XYÛ›HÚ\™B‹KH^XÚ]H™YYY[™]]]HÛÛ[H›İYÚH™]šY]ÙY˜XØY\Ë‚™È	\ÙLMÙÜ˜[É™XÛ\™H—Ù[˜İ[Ûˆ™XÛÜ™Â˜™YÚ[‚ˆ›Üˆ—Ù[˜İ[Ûˆ[‚ˆÙ[Xİ‹›œÜ˜[YKœ›Û˜[YK×ÙÙ]Ù[˜İ[Û—ÚY[]WØ\™İ[Y[Ê›ÚY
+H\È\™ÜÂˆœ›ÛH×Ü›ØÈ›Ú[ˆ×Û˜[Y\ÜXÙHˆÛˆ‹›ÚY\œ›Û˜[Y\ÜXÙBˆÚ\™H‹›œÜ˜[YOIÜX›XÉÈ[™œ›Û˜[YOX[J\œ˜^VÂˆ	Ø]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\IË	Ø]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[Û‰Ëˆ	Ø]]Üš^™WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ë	Ø]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\IËˆ	ØÛZ[WÜ\ÙLMØZWØ][\	Ë	ØÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÉËˆ	ØÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ë	ØÛZ[WÜ™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	Ëˆ	ØÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\ÉË	ØÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›Ø‰Ëˆ	ØÛÛ\]WÜ\ÙLMÙÙ[™\˜][Û—ÛÜ\˜][Û‰Ë	ØÛÛ\]WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ëˆ	Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\IË	ÙÙ]Ü\ÙLMÜ›İšY\—Ø]\İ][Û‰Ëˆ	Ú[™Ù\İÜ\ÙLMÜ›İšY\—İÙXšÛÚÉË	Û[š×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[‰Ëˆ	Ü\ÙLMØXİ]˜]WİÛÜšÙ\—ÛÜ\˜][Û‰Ëˆ	Ü]Y]YWÜ™[Z][WÜ™\ÜÙ[š[Y[	Ë	Ü™XÛÜ™Ü\ÙLMÛÜ\˜][Û˜[Ø[\	Ëˆ	Ü™XÛÜ™Ü\ÙLMÜ›İšY\—ÛÛÚİ\Ø]\İ][Û‰Ë	Ü™XÛÜ™Ü\ÙLMÜ™\ÜÙİÛ›ØY	Ëˆ	Ü™XÛÜ™Ü\ÙLMÜ™\ÜÙÙ[™\˜]Y	Ë	Ü™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[‰Ëˆ	Ü™XÛÜ™Ü™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	Ë	Ü™[™]×Ü\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ëˆ	Ü™\ÛÛ™WÜ™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û‰Ë	ÜÙ]Ü\ÙLMØZWÜ›İ]WÜÛXŞIËˆ	ÜÙ]Ü\ÙLMÙ™X]\™WÜÛXŞIË	ÜÙ]Ü\ÙLMÜ[[YWÜÙXÜ™]	Ëˆ	ÜÙ]Ü\ÙLMÜÙXİ\š]WÙØ]Wİ™\œÚ[Û‰Ëˆ	ÜÙ]WÜ\ÙLMØZWØ][\	Ë	Üİ\Ü[™Ü\ÙLMÜÙXİ\š]WÙØ]IËˆ	İ˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[	Ë	İÛÜšÙ\—ØX˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[IËˆ	İÛÜšÙ\—Ø]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\IË	İÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\IËˆ	İÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û‰Ë	İÛÜšÙ\—ØÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\ÉËˆ	İÛÜšÙ\—ØÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y	Ë	İÛÜšÙ\—Ù˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú	Ëˆ	İÛÜšÙ\—Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\IË	İÛÜšÙ\—Û[š×Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\Ü	Ëˆ	İÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y	Ëˆ	İÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ëˆ	İÛÜšÙ\—ÜX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û‰Ë	İÛÜšÙ\—Ü™XÛÜ™Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\İ[	Ëˆ	İÛÜšÙ\—Ü™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[IËˆ	İÛÜšÙ\—Ü™XÛİ™\—Üİ[WÜ™[Z][WÜ™\ÜÙ[XZ[ÜÙ[™	Ë	İÛÜšÙ\—Ü™YÚ\İ\—Ü\ÙLMÜİÜ˜YÙWØÛX[\	Ëˆ	İÛÜšÙ\—Ü™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙIÂˆJBˆÛÜˆ^Xİ]H›Ü›X]
+	Ü™]›ÚÙH[Ûˆ[˜İ[Ûˆ	RK‰RJ	\ÊHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIËˆ—Ù[˜İ[Û‹›œÜ˜[YK—Ù[˜İ[Û‹œ›Û˜[YK—Ù[˜İ[Û‹˜\™ÜÊNÂˆ[™ÛÜÂˆ^Xİ]H	Ü™]›ÚÙH[œÙ\\]K[]K[˜Ø]HÛˆX›XËœ™\ÜÙ[š[Y[ËˆX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œËX›XËœ™\ÜØZWØ][\ËX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ËˆX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœËX›XËœ™\ÜÙ[]™\WÙš[˜[^˜][ÛœËˆX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\ËˆX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YKX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœËˆX›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœËX›XËœ\ÙLMÜ›İšY\—Ø]\İ][Û—ØÛÛœİ[\[ÛœÂˆœ›ÛHÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH[˜Ø]HÛˆX›XË˜]Y]ÛÙÜËX›XËœ™\ÜÙ]™[ËˆX›XË˜\ÜÙ\ÜÛY[Ù]™[ËX›XË™[XZ[Ù]™[ËX›XË™[XZ[Ü›İšY\—Ù]™[Âˆœ›ÛHÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛZ[WÜ\ÙLMİÛÜšÙ\—ØØ\Xš[]J]ZY^
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜ\ÙLMİÛÜšÙ\—ØØ\Xš[]J]ZY^
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜\WÙ[XZ[Ü›İšY\—Ù]™[Ø]ÛZXÊ^^^^[Y\İ[\‹^œÛÛ˜ŠHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÊ]ZY^[YÙ\ŠHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØŠ]ZY^]ZY]ZY›ÛÛX[‹^
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XËœ™\ÛÛ™WÜ™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][ÛŠ]ZY^^œÛÛ˜‹›ÛÛX[‹^
+Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	Ü™]›ÚÙH^Xİ]HÛˆ[˜İ[ÛˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\J]ZY^œÛÛ˜ŠHœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜ÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][ÛŠ]ZY^
+KˆX›XËœ™[™]×Ü\ÙLMİÛÜšÙ\—ÛÜ\˜][ÛŠ]ZY^
+KX›XË˜ÛÛ\]WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][ÛŠ]ZY
+KˆX›XË˜]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[ÛŠ]ZY^
+KˆX›XË˜ÛZ[WÜ™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\
+]ZY]ZY
+KˆX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\
+]ZY]ZY›ÛÛX[‹^^
+KˆX›XËÛÜšÙ\—ØÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\Ê]ZY[\˜[
+KˆX›XË˜ÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÊ]ZY[YÙ\ŠKˆX›XË˜ÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØŠ]ZY]ZY]ZY^^^›ÛÛX[‹›ÛÛX[‹^
+KˆX›XËš[™Ù\İÜ\ÙLMÜ›İšY\—İÙXšÛÚÊ^^^^^^œÛÛ˜‹šYÚ[]ZY^
+KˆX›XË™Ù]Ü\ÙLMÜ›İšY\—Ø]\İ][ÛŠ]ZY
+KˆX›XËœ™XÛÜ™Ü\ÙLMÜ›İšY\—ÛÛÚİ\Ø]\İ][ÛŠ^^]ZY]ZY^^^œÛÛ˜‹šYÚ[]ZY^
+KˆX›XË˜ÛZ[WÜ\ÙLMØZWØ][\
+]ZYœÛÛ˜ŠKX›XËœÙ]WÜ\ÙLMØZWØ][\
+]ZY]ZYœÛÛ˜ŠKˆX›XË˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[
+]ZY]ZY^^^]ZY›ÛÛX[‹^^
+KˆX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZYœÛÛ˜ŠKˆX›XË›[š×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZY]ZY
+KˆX›XËœ™XÛÜ™Ü\ÙLMÜ™\ÜÙÙ[™\˜]Y
+]ZY]ZY]ZY^^œÛÛ˜ŠKˆX›XË˜ÛÛ\]WÜ\ÙLMÙÙ[™\˜][Û—ÛÜ\˜][ÛŠ]ZY]ZY]ZY]ZY^]ZY^^œÛÛ˜ŠKˆX›XËœ™XÛÜ™Ü\ÙLMÛÜ\˜][Û˜[Ø[\
+^^]ZY]ZYœÛÛ˜‹^
+KˆX›XËÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY^^]ZYX›XËœ™\Üİ\JKˆX›XËÛÜšÙ\—Ü™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙJ]ZY]ZY
+KˆX›XËÛÜšÙ\—Ü™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J]ZY^^]ZY
+KˆX›XËÛÜšÙ\—ØÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+]ZY]ZY]ZY^^^]ZY
+KˆX›XËÛÜšÙ\—ÜX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY]ZY]ZY
+KˆX›XËÛÜšÙ\—ØX˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J]ZY]ZY^
+KˆX›XËÛÜšÙ\—Ü™YÚ\İ\—Ü\ÙLMÜİÜ˜YÙWØÛX[\
+]ZY^^^]ZY^
+KˆX›XËÛÜšÙ\—Û[š×Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\Ü
+]ZY]ZY]ZY
+KˆX›XËÛÜšÙ\—Ü™XÛÜ™Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\İ[
+]ZY]ZY›ÛÛX[‹^
+KˆX›XËÛÜšÙ\—Ø]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY]ZY^^
+KˆX›XËÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY]ZY
+KˆX›XËÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y
+]ZY]ZY]ZY
+KˆX›XËÛÜšÙ\—Ù˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú
+]ZY]ZY]ZY^
+KˆX›XËÛÜšÙ\—Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY]ZY]ZY^
+KˆX›XËÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y
+]ZY]ZY^^
+BˆÈÙ\šXÙWÜ›ÛIÎÂˆ^Xİ]H	ÙÜ˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœÙ]Ü\ÙLMØZWÜ›İ]WÜÛXŞJ^›ÛÛX[ŠKˆX›XËœÙ]Ü\ÙLMÙ™X]\™WÜÛXŞJ^›ÛÛX[‹^
+KˆX›XËœÙ]Ü\ÙLMÜÙXİ\š]WÙØ]Wİ™\œÚ[ÛŠ[YÙ\‹^
+KˆX›XËœİ\Ü[™Ü\ÙLMÜÙXİ\š]WÙØ]J^
+KˆX›XËœÙ]Ü\ÙLMÜ[[YWÜÙXÜ™]
+^^
+KˆX›XË˜]]Üš^™WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][ÛŠ^^]ZY]ZY]ZY]ZY]ZY^[YÙ\‹^
+KˆX›XËœ]Y]YWÜ™[Z][WÜ™\ÜÙ[š[Y[
+^^
+KˆX›XË˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[
+]ZY]ZY^^^]ZY›ÛÛX[‹^^
+KˆX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZYœÛÛ˜ŠKˆX›XË›[š×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZY]ZY
+KˆX›XËœ™XÛÜ™Ü\ÙLMÜ™\ÜÙÙ[™\˜]Y
+]ZY]ZY]ZY^^œÛÛ˜ŠKˆX›XËœ™XÛÜ™Ü\ÙLMÜ™\ÜÙİÛ›ØY
+]ZY›ÛÛX[‹œÛÛ˜ŠKˆX›XË˜]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY^^›ÛÛX[‹^]ZY
+KˆX›XË™š[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\J]ZY]ZY^
+KˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\J]ZY^^œÛÛ˜ŠKˆX›XËœ™\ÛÛ™WÜ™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][ÛŠ]ZY^]ZY›ÛÛX[‹^
+BˆÈ]][XØ]Y	ÎÂ™[™Â‰\ÙLMÙÜ˜[ÉÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™Kİ[œX›\ÚY\™[YYX][Û‹ÌŒŒÌMLŒŒM—Ü\ÙLMÙšYØY™\œØ\šX[Ü™[YYX][Û‹œÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™Kİ[œX›\ÚY\™[YYX][Û‹ÌŒŒÌMLÌÍŒL×Ü\ÙLMÜÚ^ØY™\œØ\šX[Ü™[YYX][Û‹œÜ[
+ÚLM™MNXLYNLÌMÎLLŒYMÍXLYLŒN™XMÎLÍ˜Ì˜LX™™ŒN
+B‹KH\ÙHMÚ^Y™\œØ\šX[™[YYX][Û‹‚‹KB‹KH\ÈZYÜ˜][Ûˆ\È[X™\˜][H\ØX›YXKYY˜][ˆ]Ü™X]\È›ÈÙXÜ™]‹KH[˜X›\È›ÈØ]HÜˆÛXŞK[™\™›Ü›\È›È›İšY\ˆÜˆİÜ˜YÙHÜ\˜][Û‹‚‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KHKˆ[[]]X›HİÛ™\œÚ\›Üˆ\ÙHM›İÜÈ[ˆÚ\™Y]™[Ø]Y]X›\Ë‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜[\ˆX›HX›XË˜]Y]ÛÙÜÈYÛÛ[[ˆ\ÙLMÛÜ\˜][Û—Ü™Yˆ^Â˜[\ˆX›HX›XËœ™\ÜÙ]™[ÈYÛÛ[[ˆ\ÙLMÛÜ\˜][Û—Ü™Yˆ^Â˜[\ˆX›HX›XË˜\ÜÙ\ÜÛY[Ù]™[ÈYÛÛ[[ˆ\ÙLMÛÜ\˜][Û—Ü™Yˆ^Â˜[\ˆX›HX›XË™[XZ[Ù]™[ÈYÛÛ[[ˆ\ÙLMÛÜ\˜][Û—Ü™Yˆ^Â˜[\ˆX›HX›XË™[XZ[Ü›İšY\—Ù]™[ÈYÛÛ[[ˆ\ÙLMÛÜ\˜][Û—Ü™Yˆ^Â‚˜[\ˆX›HX›XË˜]Y]ÛÙÜÈYÛÛœİ˜Z[]Y]ÛÙÜ×Ü\ÙLMÛÜ\˜][Û—Ü™Y—ØÚÂˆÚXÚÈ
+\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[Üˆ\ÙLMÛÜ\˜][Û—Ü™Yˆˆ	×œ\ÙLM–ØK^ŒNWË‹WJÉ	ÊNÂ˜[\ˆX›HX›XËœ™\ÜÙ]™[ÈYÛÛœİ˜Z[™\ÜÙ]™[×Ü\ÙLMÛÜ\˜][Û—Ü™Y—ØÚÂˆÚXÚÈ
+\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[Üˆ\ÙLMÛÜ\˜][Û—Ü™Yˆˆ	×œ\ÙLM–ØK^ŒNWË‹WJÉ	ÊNÂ˜[\ˆX›HX›XË˜\ÜÙ\ÜÛY[Ù]™[ÈYÛÛœİ˜Z[\ÜÙ\ÜÛY[Ù]™[×Ü\ÙLMÛÜ\˜][Û—Ü™Y—ØÚÂˆÚXÚÈ
+\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[Üˆ\ÙLMÛÜ\˜][Û—Ü™Yˆˆ	×œ\ÙLM–ØK^ŒNWË‹WJÉ	ÊNÂ˜[\ˆX›HX›XË™[XZ[Ù]™[ÈYÛÛœİ˜Z[[XZ[Ù]™[×Ü\ÙLMÛÜ\˜][Û—Ü™Y—ØÚÂˆÚXÚÈ
+\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[Üˆ\ÙLMÛÜ\˜][Û—Ü™Yˆˆ	×œ\ÙLM–ØK^ŒNWË‹WJÉ	ÊNÂ˜[\ˆX›HX›XË™[XZ[Ü›İšY\—Ù]™[ÈYÛÛœİ˜Z[[XZ[Ü›İšY\—Ù]™[×Ü\ÙLMÛÜ\˜][Û—Ü™Y—ØÚÂˆÚXÚÈ
+\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[Üˆ\ÙLMÛÜ\˜][Û—Ü™Yˆˆ	×œ\ÙLM–ØK^ŒNWË‹WJÉ	ÊNÂ‚‹KH™]šY]ÙY]\›Z[š\İXÈ˜XÚÙš[ˆ]™[ØXİ[Ûˆ˜[Y\È\™H\ÙYÛ˜ÙHÈØØ]B‹KH\İÜšXØ[›İÜÎÈY\ˆ\Èİ][Y[İÛ™\œÚ\\ÈØ\œšYYH[ˆ[[]]X›B‹KHÜ\˜][Ûˆ™Y™\™[˜ÙH[™\È[™\[™[ÙˆH›İÉÜÈİ\œ™[Ú\K‚œÙ[XİÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	ÛZYÜ˜][Û‰ËYJNÂ\]HX›XË˜]Y]ÛÙÜÂœÙ]\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLM˜]Y]‰ÈY^Ú\™H\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[™
+ˆXİ[Ûˆˆ	×Š\ÙLMß™[Z][WÜ™\Üß™\ÜÊÙ[™\˜]Y™YÙ[™\˜]YİÛ›ØYÊJIÂˆÜˆ[]WİX›H[ˆ
+ˆ	Ü\ÙLMÜÙXİ\š]WÙØ]\ÉË	Ü\ÙLMÙ™X]\™WÜÛXÚY\ÉË	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÉËˆ	Ü™\ÜÙ[š[Y[ÉË	Ü™\ÜÙÙ[™\˜][Û—Ü[œÉË	Ü™\ÜØZWØ][\ÉËˆ	Ü™\ÜÙÙ[™\˜][Û—ØÛZ[\ÉË	Ü™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉËˆ	Ü™\ÜÙ[]™\WÙš[˜[^˜][ÛœÉË	Ü™\ÜÙ[]™\WÜ™[YYX][ÛœÉËˆ	Ü\ÙLMÜ›İšY\—Ø]\İ][ÛœÉË	Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YIÂˆ
+BŠNÂ\]HX›XËœ™\ÜÙ]™[ÂœÙ]\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLMœ™\ÜY]™[‰ÈY^Ú\™H\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[™]™[İ\H[ˆ
+ˆ	ÙÙ[™\˜]Y	Ë	Ü™YÙ[™\˜]Y	Ë	Ù[XZ[ÜÙ[	Ë	Ù[XZ[İ\İÜÙ[	Ë	ÙİÛ›ØYÜ™\]Y\İY	ÂŠNÂ\]HX›XË˜\ÜÙ\ÜÛY[Ù]™[ÂœÙ]\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLM˜\ÜÙ\ÜÛY[Y]™[‰ÈY^Ú\™H\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[™]™[İ\H[ˆ
+ˆ	Ü™\ÜÙÙ[™\˜]Y	Ë	ØYZ[—Ü™\ÜÙİÛ›ØYY	Ë	Ü™\ÜÙ[XZ[Yİ×Øİ\İÛY\‰ÂŠNÂ\]HX›XË™[XZ[Ù]™[ÂœÙ]\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLM™[XZ[Y]™[‰ÈY^Ú\™H\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[™
+ˆ›İYšXØ][Û—İ\HH	Ü™[Z][WÜ™\ÜÜ‰ÈÜˆ›İšY\—Ü™\]Y\İÚÙ^H\È›İ[ŠNÂ\]HX›XË™[XZ[Ü›İšY\—Ù]™[ÈœÙ]\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLMœ›İšY\‹Y]™[‰ÈšY^Ú\™Hœ\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[™^\İÈ
+ˆÙ[XİHœ›ÛHX›XË™[XZ[Ù]™[ÈBˆÚ\™HKšYH™[XZ[Ù]™[ÚY[™Kœ\ÙLMÛÜ\˜][Û—Ü™Yˆ\È›İ[ŠNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜÚ\™YÜ›İ×İØ\×ÛİÛ™Y
+ˆİX›WÛ˜[YH^ˆÜ›İÈœÛÛ˜‚ŠH™]\›œÈ›ÛÛX[‚›[™İXYÙHÜ[š[[]]X›BœÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰ˆÙ[XİØ\ÙHİX›WÛ˜[YBˆÚ[ˆ	Ø]Y]ÛÙÜÉÈ[‚ˆÛØ[\ØÙJÜ›İËO‰Ü\ÙLMÛÜ\˜][Û—Ü™Y‰Ë	ÉÊHZÙH	Ü\ÙLM‰IÂˆÜˆÛØ[\ØÙJÜ›İËO‰ØXİ[Û‰Ë	ÉÊHˆ	×Š\ÙLMß™[Z][WÜ™\Üß™\ÜÊÙ[™\˜]Y™YÙ[™\˜]YİÛ›ØYÊJIÂˆÜˆÛØ[\ØÙJÜ›İËO‰Ù[]WİX›IË	ÉÊH[ˆ
+ˆ	Ü\ÙLMÜÙXİ\š]WÙØ]\ÉË	Ü\ÙLMÙ™X]\™WÜÛXÚY\ÉË	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÉËˆ	Ü™\ÜÙ[š[Y[ÉË	Ü™\ÜÙÙ[™\˜][Û—Ü[œÉË	Ü™\ÜØZWØ][\ÉËˆ	Ü™\ÜÙÙ[™\˜][Û—ØÛZ[\ÉË	Ü™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉËˆ	Ü™\ÜÙ[]™\WÙš[˜[^˜][ÛœÉË	Ü™\ÜÙ[]™\WÜ™[YYX][ÛœÉËˆ	Ü\ÙLMÜ›İšY\—Ø]\İ][ÛœÉË	Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YIÂˆ
+BˆÚ[ˆ	Ü™\ÜÙ]™[ÉÈ[‚ˆÛØ[\ØÙJÜ›İËO‰Ü\ÙLMÛÜ\˜][Û—Ü™Y‰Ë	ÉÊHZÙH	Ü\ÙLM‰IÂˆÜˆÛØ[\ØÙJÜ›İËO‰Ù]™[İ\IË	ÉÊH[ˆ
+ˆ	ÙÙ[™\˜]Y	Ë	Ü™YÙ[™\˜]Y	Ë	Ù[XZ[ÜÙ[	Ë	Ù[XZ[İ\İÜÙ[	Ë	ÙİÛ›ØYÜ™\]Y\İY	Âˆ
+BˆÚ[ˆ	Ø\ÜÙ\ÜÛY[Ù]™[ÉÈ[‚ˆÛØ[\ØÙJÜ›İËO‰Ü\ÙLMÛÜ\˜][Û—Ü™Y‰Ë	ÉÊHZÙH	Ü\ÙLM‰IÂˆÜˆÛØ[\ØÙJÜ›İËO‰Ù]™[İ\IË	ÉÊH[ˆ
+ˆ	Ü™\ÜÙÙ[™\˜]Y	Ë	ØYZ[—Ü™\ÜÙİÛ›ØYY	Ë	Ü™\ÜÙ[XZ[Yİ×Øİ\İÛY\‰Âˆ
+BˆÚ[ˆ	Ù[XZ[Ù]™[ÉÈ[‚ˆÛØ[\ØÙJÜ›İËO‰Ü\ÙLMÛÜ\˜][Û—Ü™Y‰Ë	ÉÊHZÙH	Ü\ÙLM‰IÂˆÜˆÛØ[\ØÙJÜ›İËO‰Û›İYšXØ][Û—İ\IË	ÉÊHH	Ü™[Z][WÜ™\ÜÜ‰ÂˆÜˆÛØ[\ØÙJÜ›İËO‰Ü›İšY\—Ü™\]Y\İÚÙ^IË	ÉÊHˆ	ÉÂˆÚ[ˆ	Ù[XZ[Ü›İšY\—Ù]™[ÉÈ[‚ˆÛØ[\ØÙJÜ›İËO‰Ü\ÙLMÛÜ\˜][Û—Ü™Y‰Ë	ÉÊHZÙH	Ü\ÙLM‰IÂˆ[ÙH˜[ÙBˆ[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™İX\™Ü\ÙLMØ]]Üš]]]™WÛ]]][ÛŠ
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ÛÛœÛÛ˜ˆHØ\ÙHÚ[ˆ×ÛÜ[ˆ
+	ÕTUIË	ÑSUIÊH[ˆ×ÚœÛÛ˜ŠÛ
+H[ÙH	ŞßIÎšœÛÛ˜ˆ[™Âˆ—Û™]ÈœÛÛ˜ˆHØ\ÙHÚ[ˆ×ÛÜ[ˆ
+	ÒS”ÑT•	Ë	ÕTUIÊH[ˆ×ÚœÛÛ˜Š™]ÊH[ÙH	ŞßIÎšœÛÛ˜ˆ[™Âˆ—ÛÛÛİÛ™Y›ÛÛX[ˆH˜[ÙNÂˆ—Û™]×ÛİÛ™Y›ÛÛX[ˆH˜[ÙNÂˆ—ØÛÛ^^H[YŠİ\œ™[ÜÙ][™Ê	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰ËYJK	ÉÊNÂˆ—İ˜[œÚ][Û—ÛİÛ™\ˆ˜[YNÂ˜™YÚ[‚ˆYˆ×İX›WÛ˜[YHH	Ü\ÙLMÛÜ\˜][Û˜[Ø[\ÉÈ[‚ˆ—ÛÛÛİÛ™YH×ÛÜ[ˆ
+	ÕTUIË	ÑSUIÊNÂˆ—Û™]×ÛİÛ™YH×ÛÜ[ˆ
+	ÒS”ÑT•	Ë	ÕTUIÊNÂˆ[ÙBˆ—ÛÛÛİÛ™YHX›XËœ\ÙLMÜÚ\™YÜ›İ×İØ\×ÛİÛ™Y
+×İX›WÛ˜[YK—ÛÛ
+NÂˆ—Û™]×ÛİÛ™YHX›XËœ\ÙLMÜÚ\™YÜ›İ×İØ\×ÛİÛ™Y
+×İX›WÛ˜[YK—Û™]ÊNÂˆ[™YÂˆYˆ×İX›WÛ˜[YOIÙ[XZ[Ü›İšY\—Ù]™[ÉÈ[™×ÛÜ[ˆ
+	ÒS”ÑT•	Ë	ÕTUIÊBˆ[™›İ—Û™]×ÛİÛ™Y[™[YŠ—Û™]ËO‰Ù[XZ[Ù]™[ÚY	Ë	ÉÊH\È›İ[[‚ˆ—Û™]×ÛİÛ™YY^\İÊÙ[XİHœ›ÛHX›XË™[XZ[Ù]™[ÈBˆÚ\™HKšYJ—Û™]ËO‰Ù[XZ[Ù]™[ÚY	ÊN]ZY[™Kœ\ÙLMÛÜ\˜][Û—Ü™Yˆ\È›İ[
+NÂˆ[™YÂ‚ˆÙ[Xİ×ÙÙ]İ\Ù\˜ZY
+œ›ÛİÛ™\ŠH[È—İ˜[œÚ][Û—ÛİÛ™\‚ˆœ›ÛH×Ü›ØÈ›Ú[ˆ×Û˜[Y\ÜXÙHˆÛˆ‹›ÚYHœ›Û˜[Y\ÜXÙBˆÚ\™H‹›œÜ˜[YHH	ÜX›XÉÈ[™œ›Û˜[YHH	Ü\ÙLMÜ™\]Z\™WÜÙXİ\š]IÂˆÜ™\ˆH›ÚY[Z]NÂ‚ˆYˆ—ÛÛÛİÛ™YÜˆ—Û™]×ÛİÛ™Y[‚ˆYˆİ\œ™[İ\Ù\ˆ\È\İ[˜İœ›ÛH—İ˜[œÚ][Û—ÛİÛ™\‚ˆÜˆÛØ[\ØÙJ—ØÛÛ^	ÉÊH›İ[ˆ
+ˆ	Ø]][XØ]YÜœÉË	Ù[š[Y[Ü]Y]YWÜœÉË	Ù[š[Y[İ˜[œÚ][Û—ÜœÉËˆ	ÙØ]WØYZ[š\İ˜][Û‰Ë	ÙØ]WÚ[˜[Y][Û‰Ë	ÛZYÜ˜][Û‰Ë	ÛÜ\˜][Û˜[Ø[\ÜœÉËˆ	ÜÛXŞWØ\›İ˜[	Ë	Ü[[YWÜÙXÜ™]Ü›İ][Û‰Ë	İ\İYÜ›İšY\—Ø]\İ][Û‰Ëˆ	İÛÜšÙ\—Ø]]Üš^˜][Û‰Ë	İÛÜšÙ\—Ø]\İYÜœÉË	İÛÜšÙ\—ÜœÉË	İÛÜšÙ\—ØÛÛ\][Û‰Âˆ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØ]]Üš]]]™WÜœ×Ü™\]Z\™Y‰N‰IË×İX›WÛ˜[YK×ÛÜÂˆ[™YÂˆ[™YÂ‚ˆYˆ×İX›WÛ˜[YHˆ	Ü\ÙLMÛÜ\˜][Û˜[Ø[\ÉÈ[™×ÛÜH	ÕTUIÈ[™—ÛÛÛİÛ™Y[‚ˆYˆÛœ\ÙLMÛÜ\˜][Û—Ü™Yˆ\È\İ[˜İœ›ÛH™]Ëœ\ÙLMÛÜ\˜][Û—Ü™Yˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛÜ\˜][Û—Ü™Y—Ú[[]]X›N‰IË×İX›WÛ˜[YNÂˆ[™YÂˆ[™YÂ‚ˆYˆ×İX›WÛ˜[YHˆ	Ü\ÙLMÛÜ\˜][Û˜[Ø[\ÉÈ[‚ˆYˆ×ÛÜ[ˆ
+	ÒS”ÑT•	Ë	ÕTUIÊH[™—Û™]×ÛİÛ™Yˆ[™™]Ëœ\ÙLMÛÜ\˜][Û—Ü™Yˆ\È[[‚ˆ™]Ëœ\ÙLMÛÜ\˜][Û—Ü™YˆH	Ü\ÙLM‰È™\XÙJ×İX›WÛ˜[YK	×ÉË	ËIÊH	Î‰È™]ËšY^Âˆ[™YÂˆ[™YÂˆYˆ×ÛÜH	ÑSUIÈ[ˆ™]\›ˆÛÈ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚‹KHÜ\˜][Û˜[[\È\™H[ˆ]]Üš]]]™HX›HÚ]›È[[YHSÜ˜[ÎÂ‹KH[›ZÙHHš]™HÚ\™YX›\Ë^HÈ›İ™YYHÚ\™Y\›İÈX\šÙ\ˆİX\™‚™›ÜšYÙÙ\ˆYˆ^\İÈ™×Ü\ÙLMØ]]Üš]]]™WÛ]]][ÛˆÛˆX›XËœ\ÙLMÛÜ\˜][Û˜[Ø[\ÎÂ‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KH‹ˆ[Û›İÛšXÈ]]Üš]H\ØÚ[™[˜[Y][Û‹‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜[\ˆX›HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆYÛÛ[[ˆ]]Üš]WÙ\ØÚšYÚ[›İ[Y˜][HÚXÚÈ
+]]Üš]WÙ\ØÚˆ
+NÂ˜[\ˆX›HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÂˆYÛÛ[[ˆ\›İ™YØ]]Üš]WÙ\ØÚšYÚ[ÚXÚÈ
+\›İ™YØ]]Üš]WÙ\ØÚ\È[Üˆ\›İ™YØ]]Üš]WÙ\ØÚˆ
+NÂ˜[\ˆX›HX›XËœ\ÙLMØZWÜ›İ]WÜÛXÚY\ÂˆYÛÛ[[ˆ\›İ™YØ]]Üš]WÙ\ØÚšYÚ[ÚXÚÈ
+\›İ™YØ]]Üš]WÙ\ØÚ\È[Üˆ\›İ™YØ]]Üš]WÙ\ØÚˆ
+NÂ˜[\ˆX›HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆYÛÛ[[ˆ]]Üš]WÙ\ØÚšYÚ[›İ[Y˜][HÚXÚÈ
+]]Üš]WÙ\ØÚˆ
+KˆYÛÛ[[ˆ^XİYÜİ\^›İ[Y˜][	ØÛZ[IËˆYÛÛ[[ˆÛÜšÙ›İ×Ù^Xİ][Û—ÚY^Â˜[\ˆX›HX›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÂˆYÛÛ[[ˆ]]Üš]WÙ\ØÚšYÚ[›İ[Y˜][HÚXÚÈ
+]]Üš]WÙ\ØÚˆ
+KˆYÛÛ[[ˆ]]Üš^˜][Û—Üİ]\È^ˆYÛÛ[[ˆ]]Üš^˜][Û—İ\]YØ][Y\İ[\Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜[\Ü\ÙLMØ]]Üš]WÙ\ØÚ
+
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆYˆÛœ™\]Z\™Yİ™\œÚ[Ûˆ\È\İ[˜İœ›ÛH™]Ëœ™\]Z\™Yİ™\œÚ[Û‚ˆÜˆÛœØ]\ÙšYYİ™\œÚ[Ûˆ\È\İ[˜İœ›ÛH™]ËœØ]\ÙšYYİ™\œÚ[Û‚ˆÜˆÛœİ]\È\È\İ[˜İœ›ÛH™]Ëœİ]\È[‚ˆ™]Ë˜]]Üš]WÙ\ØÚHÛ˜]]Üš]WÙ\ØÚ
+ÈNÂˆ[ÚYˆ™]Ë˜]]Üš]WÙ\ØÚ\È\İ[˜İœ›ÛHÛ˜]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMØ]]Üš]WÙ\ØÚÛX[˜YÙY	ÎÂˆ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚™›ÜšYÙÙ\ˆYˆ^\İÈ™×Ü\ÙLMÙØ]WØ[\Ø]]Üš]WÙ\ØÚÛˆX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÎÂ˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMÙØ]WØ[\Ø]]Üš]WÙ\ØÚˆ™Y›Ü™H\]HÛˆX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Âˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË˜[\Ü\ÙLMØ]]Üš]WÙ\ØÚ
+
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËš[˜[Y]WÜ\ÙLMØ]]Üš]WÛÛ—ÙØ]WØÚ[™ÙJ
+Bœ™]\›œÈšYÙÙ\‚›[™İXYÙHÜÜ[œÙXİ\š]HYš[™\‚œÙ]ÙX\˜ÚÜ]H	ÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆYˆÛ˜]]Üš]WÙ\ØÚ\È\İ[˜İœ›ÛH™]Ë˜]]Üš]WÙ\ØÚ[‚ˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	ÙØ]WÚ[˜[Y][Û‰ËYJNÂˆ\]HX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÂˆÙ][˜X›YH˜[ÙK\›İ™YÙØ]Wİ™\œÚ[ÛˆH[ˆ\›İ™YØ]]Üš]WÙ\ØÚH[\›İ™YØ]H[ˆ™X\ÛÛˆH	Ğ]]ÛX]XØ[H\ØX›Y™XØ]\ÙHH\ÙHM]]Üš]H\ØÚÚ[™ÙY‰Ëˆ\]YØ]H›İÊ
+NÂˆ\]HX›XËœ\ÙLMØZWÜ›İ]WÜÛXÚY\ÂˆÙ][˜X›YH˜[ÙK\›İ™YÙØ]Wİ™\œÚ[ÛˆH[ˆ\›İ™YØ]]Üš]WÙ\ØÚH[\›İ™YØHH[ˆ\›İ™YÜÙ\ÜÚ[Û—ÚYH[\›İ™YØ]H[\]YØ]H›İÊ
+NÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÙ]İ]\ÈH	Ü™]›ÚÙY	Ë™]›ÚÙYØ]H›İÊ
+Kˆ™]›ÚÙYÜ™X\ÛÛˆH	Ô\ÙHM]]Üš]H\ØÚÚ[™ÙY‰ËˆX\ÙWÜÙXÜ™]Ú\ÚH[X\ÙWÙ^\™\×Ø]H[\]YØ]H›İÊ
+BˆÚ\™Hİ]\È[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	ÊNÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\K[]WİX›KXİ[Û‹™Y›Ü™WÚœÛÛ‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ÜŞ\İ[IË	Ü\ÙLMÜÙXİ\š]WÙØ]\ÉË	Ü\ÙLMØ]]Üš]WÙ\ØÚØÚ[™ÙY	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš]WÙ\ØÚ	ËÛ˜]]Üš]WÙ\ØÚ	Üİ]\ÉËÛœİ]\Ëˆ	Ü™\]Z\™Yİ™\œÚ[Û‰ËÛœ™\]Z\™Yİ™\œÚ[Û‹	ÜØ]\ÙšYYİ™\œÚ[Û‰ËÛœØ]\ÙšYYİ™\œÚ[ÛŠKˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]]Üš]WÙ\ØÚ	Ë™]Ë˜]]Üš]WÙ\ØÚ	Üİ]\ÉË™]Ëœİ]\Ëˆ	Ü™\]Z\™Yİ™\œÚ[Û‰Ë™]Ëœ™\]Z\™Yİ™\œÚ[Û‹	ÜØ]\ÙšYYİ™\œÚ[Û‰Ë™]ËœØ]\ÙšYYİ™\œÚ[ÛŠJNÂˆ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â‚™›ÜšYÙÙ\ˆYˆ^\İÈ™×Ü\ÙLMÙØ]WÚ[˜[Y]WØ]]Üš]HÛˆX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÎÂ˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMÙØ]WÚ[˜[Y]WØ]]Üš]BˆY\ˆ\]HÛˆX›XËœ\ÙLMÜÙXİ\š]WÙØ]\Âˆ›ÜˆXXÚ›İÂˆÚ[ˆ
+Û˜]]Üš]WÙ\ØÚ\È\İ[˜İœ›ÛH™]Ë˜]]Üš]WÙ\ØÚ
+Bˆ^Xİ]H[˜İ[ÛˆX›XËš[˜[Y]WÜ\ÙLMØ]]Üš]WÛÛ—ÙØ]WØÚ[™ÙJ
+NÂ‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KHËˆš]˜]HÛÜšÙ\ˆ]\İ][ÛˆÙ^H›İ[™\H[™›Û˜ÙHYÙ\‹‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜Ü™X]HØÚ[XHYˆ›İ^\İÈ\ÙLMÜš]˜]NÂœ™]›ÚÙH[ÛˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ‚˜Ü™X]HX›H\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\È
+ˆÙ^WÚY^š[X\HÙ^HÚXÚÈ
+Ù^WÚYˆ	×–ØK^KVŒNK—Î‹W^ÌKI	ÊKˆ˜][ÜÙXÜ™]ÚY]ZY›İ[[š\]YKˆİ]\È^›İ[ÚXÚÈ
+İ]\È[ˆ
+	Øİ\œ™[	Ë	Ü™]š[İ\ÉË	Ü™]\™Y	ÊJKˆ˜[YÙœ›ÛH[Y\İ[\ˆ›İ[ˆ˜[Yİ[[[Y\İ[\‹ˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÚXÚÈ
+˜[Yİ[[\È[Üˆ˜[Yİ[[ˆ˜[YÙœ›ÛJBŠNÂ˜Ü™X]H[š\]YH[™^\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÛÛ™WØİ\œ™[ÚYˆÛˆ\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\Êİ]\ÊHÚ\™Hİ]\ÈH	Øİ\œ™[	ÎÂ‚˜Ü™X]HX›H\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—Û›Û˜Ù\È
+ˆ›Û˜ÙH]ZYš[X\HÙ^KˆØ\Xš[]WÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆXİ[Ûˆ^›İ[ˆX\ÙWÙÙ[™\˜][Ûˆ[YÙ\ˆ›İ[ˆ™\]Y\İÜ^[ØYÚ\Ú^›İ[ÚXÚÈ
+™\]Y\İÜ^[ØYÚ\Úˆ	×–ÌNXKY—^ÍI	ÊKˆ\ÜİYYØ][Y\İ[\ˆ›İ[ˆ^\™\×Ø][Y\İ[\ˆ›İ[ˆÛÛœİ[YYØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+BŠNÂœ™]›ÚÙH[Ûˆ[X›\È[ˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ˜[\ˆY˜][š]š[YÙ\È[ˆØÚ[XH\ÙLMÜš]˜]H™]›ÚÙH[ÛˆX›\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KHˆ\˜X›HÛÜšÙ›İË\İ\İ]›Ş‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜Ü™X]HX›HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş
+ˆY]ZYš[X\HÙ^HY˜][^[œÚ[ÛœË™Ù[—Ü˜[™ÛWİ]ZY
+
+Kˆ[š[Y[ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ™\ÜÙ[š[Y[ÊY
+HÛˆ[]H™\İšXİˆØ\Xš[]WÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆÜ\˜][Û—ÚÙ^H^›İ[ˆ^\›˜[ÚY[\İ[˜ŞWÚÙ^H^›İ[ˆ][\Û[X™\ˆ[YÙ\ˆ›İ[Y˜][HÚXÚÈ
+][\Û[X™\ˆˆ
+KˆX\ÙWÛİÛ™\ˆ^ˆX\ÙWÙÙ[™\˜][Ûˆ[YÙ\ˆ›İ[Y˜][ÚXÚÈ
+X\ÙWÙÙ[™\˜][ÛˆH
+KˆX\ÙWÙ^\™\×Ø][Y\İ[\‹ˆİ]\È^›İ[Y˜][	Ü[™[™ÉÈÚXÚÈ
+İ]\È[ˆ
+ˆ	Ü[™[™ÉË	ÛX\ÙY	Ë	ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Üİ\Y	Ë	Ù˜Z[YØ™Y›Ü™WÜ›İšY\‰Ëˆ	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ë	ØØ[˜Ù[Y	Âˆ
+JKˆ[—ÚY^ˆ™\]Y\İYØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆXØÙ\YØ][Y\İ[\‹ˆ\İÙ\œ›Üˆ^ˆ™XÛÛ˜Ú[X][Û—Üİ]\È^›İ[Y˜][	Û›İÜ™\]Z\™Y	ÈÚXÚÈ
+™XÛÛ˜Ú[X][Û—Üİ]\È[ˆ
+ˆ	Û›İÜ™\]Z\™Y	Ë	Ü™\]Z\™Y	Ë	Ú[—Ü›ÙÜ™\ÜÉË	Ü™\ÛÛ™Y	Ë	Ù˜Z[Y	Âˆ
+JKˆ]]Üš]WÙ\ØÚšYÚ[›İ[ÚXÚÈ
+]]Üš]WÙ\ØÚˆ
+KˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ\]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+Kˆ[š\]YH
+Ø\Xš[]WÚY
+Kˆ[š\]YH
+Ü\˜][Û—ÚÙ^JKˆ[š\]YH
+^\›˜[ÚY[\İ[˜ŞWÚÙ^JKˆÚXÚÈ
+
+İ]\ÈH	Üİ\Y	È[™[—ÚY\È›İ[[™XØÙ\YØ]\È›İ[
+BˆÜˆİ]\Èˆ	Üİ\Y	ÊBŠNÂ˜Ü™X]H[™^\ÙLMİÛÜšÙ›İ×Üİ\İZÙ[İ™\—ÚYˆÛˆX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş
+İ]\ËX\ÙWÙ^\™\×Ø]
+BˆÚ\™Hİ]\È[ˆ
+	Ü[™[™ÉË	ÛX\ÙY	ÊNÂ˜[\ˆX›HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Şœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞÈ]][XØ]YÂ˜Ü™X]HÛXŞH\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞØYZ[—ÜÙ[XİˆÛˆX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+HH[J\œ˜^VÂˆ	Ü]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰ÂˆNœX›XË˜YZ[—Ü›ÛV×JJNÂ‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KHKˆ[[]]X›Hİ\İÛY\ˆÛÛXİ™\šYšXØ][Û‹‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜Ü™X]HX›HX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÈ
+ˆY]ZYš[X\HÙ^HY˜][^[œÚ[ÛœË™Ù[—Ü˜[™ÛWİ]ZY
+
+KˆÜ™\—ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË›Ü™\œÊY
+HÛˆ[]H™\İšXİˆ\ÜÙ\ÜÛY[ÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XË˜\ÜÙ\ÜÛY[ÊY
+HÛˆ[]H™\İšXİˆİ\İÛY\—ÚY[]H^›İ[ˆ™]š[İ\×Ù[XZ[X›XË˜Ú]^›İ[ˆÛÜœ™XİYÙ[XZ[X›XË˜Ú]^›İ[ˆ™\šYšXØ][Û—ÛY]Ù^›İ[ÚXÚÈ
+™\šYšXØ][Û—ÛY]Ù[ˆ
+ˆ	İ™\šYšYYÙ[XZ[Û[šÉË	Üİ\ÜØØ[˜XÚÉË	ÚY[]WÜ›İšY\‰Ë	Ú[—Ü\œÛÛ‰Âˆ
+JKˆ]šY[˜ÙWÜ™Y™\™[˜ÙH^›İ[ˆ™\šYšYYØ][Y\İ[\ˆ›İ[ˆ™\šYšYYØWØXİÜˆ]ZY™Y™\™[˜Ù\ÈX›XË˜YZ[—Ü›Ùš[\ÊY
+HÛˆ[]H™\İšXİˆ™\šYšYYØWÜŞ\İ[H^ˆ^\™\×Ø][Y\İ[\ˆ›İ[ˆİ]\È^›İ[Y˜][	İ™\šYšYY	ÈÚXÚÈ
+İ]\È[ˆ
+	İ™\šYšYY	Ë	ØÛÛœİ[YY	Ë	Ù^\™Y	Ë	Ü™]›ÚÙY	ÊJKˆÛÛœİ[YYØ][Y\İ[\‹ˆÛÛœİ[YYØWÜ™[YYX][Û—ÚY]ZYˆÜ™X]YØ][Y\İ[\ˆ›İ[Y˜][›İÊ
+KˆÚXÚÈ
+İÙ\Š™]š[İ\×Ù[XZ[^
+HˆİÙ\ŠÛÜœ™XİYÙ[XZ[^
+JKˆÚXÚÈ
+ÛØ[\ØÙJš[Jİ\İÛY\—ÚY[]JK	ÉÊHˆ	ÉÊKˆÚXÚÈ
+ÛØ[\ØÙJš[J]šY[˜ÙWÜ™Y™\™[˜ÙJK	ÉÊHˆ	ÉÊKˆÚXÚÈ
+
+™\šYšYYØWØXİÜˆ\È›İ[
+Hˆ
+™\šYšYYØWÜŞ\İ[H\È›İ[
+JKˆÚXÚÈ
+^\™\×Ø]ˆ™\šYšYYØ]
+KˆÚXÚÈ
+
+İ]\ÈH	ØÛÛœİ[YY	È[™ÛÛœİ[YYØ]\È›İ[[™ÛÛœİ[YYØWÜ™[YYX][Û—ÚY\È›İ[
+BˆÜˆİ]\Èˆ	ØÛÛœİ[YY	ÊBŠNÂ˜Ü™X]H[™^İ\İÛY\—ØÛÛXİİ™\šYšXØ][Ûœ×ØXİ]™WÚYˆÛˆX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÊÜ™\—ÚYİ]\Ë^\™\×Ø]
+NÂ˜[\ˆX›HX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÈ[˜X›H›İÈ]™[ÙXİ\š]NÂœ™]›ÚÙH[ÛˆX›HX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÈœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[XİÛˆX›HX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÈÈ]][XØ]YÂ˜Ü™X]HÛXŞHİ\İÛY\—ØÛÛXİİ™\šYšXØ][Ûœ×ØYZ[—ÜÙ[XİˆÛˆX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÈ›ÜˆÙ[XİÈ]][XØ]Yˆ\Ú[™È
+X›XË˜İ\œ™[ØYZ[—Ü›ÛJ
+HH[J\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰Ë	Ü™XYÛÛ›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×JJNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™İX\™Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[[]]X›J
+Bœ™]\›œÈšYÙÙ\ˆ[™İXYÙHÜÜ[Ù]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆYˆ×ÛÜH	ÑSUIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[[]]X›IÎÈ[™YÂˆYˆÛœİ]\ÈH	İ™\šYšYY	È[™™]Ëœİ]\ÈH	ØÛÛœİ[YY	Âˆ[™ÛšYH™]ËšY[™Û›Ü™\—ÚYH™]Ë›Ü™\—ÚYˆ[™Û˜\ÜÙ\ÜÛY[ÚYH™]Ë˜\ÜÙ\ÜÛY[ÚYˆ[™Û˜İ\İÛY\—ÚY[]HH™]Ë˜İ\İÛY\—ÚY[]Bˆ[™Ûœ™]š[İ\×Ù[XZ[H™]Ëœ™]š[İ\×Ù[XZ[ˆ[™Û˜ÛÜœ™XİYÙ[XZ[H™]Ë˜ÛÜœ™XİYÙ[XZ[ˆ[™Û™\šYšXØ][Û—ÛY]ÙH™]Ë™\šYšXØ][Û—ÛY]Ùˆ[™Û™]šY[˜ÙWÜ™Y™\™[˜ÙHH™]Ë™]šY[˜ÙWÜ™Y™\™[˜ÙBˆ[™Û™\šYšYYØ]H™]Ë™\šYšYYØ]ˆ[™Û™\šYšYYØWØXİÜˆ\È›İ\İ[˜İœ›ÛH™]Ë™\šYšYYØWØXİÜ‚ˆ[™Û™\šYšYYØWÜŞ\İ[H\È›İ\İ[˜İœ›ÛH™]Ë™\šYšYYØWÜŞ\İ[Bˆ[™Û™^\™\×Ø]H™]Ë™^\™\×Ø]ˆ[™™]Ë˜ÛÛœİ[YYØ]\È›İ[[™™]Ë˜ÛÛœİ[YYØWÜ™[YYX][Û—ÚY\È›İ[ˆ[™İ\œ™[İ\Ù\ˆH
+Ù[Xİ×ÙÙ]İ\Ù\˜ZY
+œ›ÛİÛ™\ŠHœ›ÛH×Ü›ØÈˆ›Ú[ˆ×Û˜[Y\ÜXÙHˆÛˆ‹›ÚY\œ›Û˜[Y\ÜXÙBˆÚ\™H‹›œÜ˜[YOIÜX›XÉÈ[™œ›Û˜[YOIØ]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\IÂˆÜ™\ˆH›ÚY\ØÈ[Z]JH[‚ˆ™]\›ˆ™]ÎÂˆ[™YÂˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[[]]X›IÎÂ™[™Â‰[˜İ[Û‰Â˜Ü™X]HšYÙÙ\ˆ™×Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[[]]X›Bˆ™Y›Ü™H\]HÜˆ[]HÛˆX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÂˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË™İX\™Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[[]]X›J
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜Ü™X]WØİ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛŠˆÛÜ™\—ÚY]ZYˆØÛÜœ™XİYÙ[XZ[^ˆİ™\šYšXØ][Û—ÛY]Ù^ˆÙ]šY[˜ÙWÜ™Y™\™[˜ÙH^ˆİ˜[YÙ›Ü—ÜÙXÛÛ™È[YÙ\ˆY˜][NŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÈ—ÚY]ZYÈ—ØÛÜœ™XİYX›XË˜Ú]^Â˜™YÚ[‚ˆ—ØXİÜ\X›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù[XZ[Ü™\Ù[™	Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆİ™\šYšXØ][Û—ÛY]Ù›İ[ˆ
+	İ™\šYšYYÙ[XZ[Û[šÉË	Üİ\ÜØØ[˜XÚÉË	ÚY[]WÜ›İšY\‰Ë	Ú[—Ü\œÛÛ‰ÊBˆÜˆÛØ[\ØÙJš[JÙ]šY[˜ÙWÜ™Y™\™[˜ÙJK	ÉÊOIÉÈÜˆİ˜[YÙ›Ü—ÜÙXÛÛ™ÏÌÜˆİ˜[YÙ›Ü—ÜÙXÛÛ™ÏŒÍŒ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ú[œ]Ú[˜[Y	ÎÂˆ[™YÂˆ—ØÛÜœ™XİY[İÙ\Šš[JØÛÜœ™XİYÙ[XZ[
+JNœX›XË˜Ú]^ÂˆYˆ—ØÛÜœ™XİY^_ˆ	×–×–ÎœÜXÙN—PJĞ×–ÎœÜXÙN—PJ×–×–ÎœÜXÙN—PJÉ	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—Ù[XZ[Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HY\ÛÜ™\—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚY\È[Üˆ—ØÛÜœ™XİY]—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][Û—ÛÜ™\—Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ[œÙ\[ÈX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÊˆÜ™\—ÚY\ÜÙ\ÜÛY[ÚYİ\İÛY\—ÚY[]K™]š[İ\×Ù[XZ[ÛÜœ™XİYÙ[XZ[ˆ™\šYšXØ][Û—ÛY]Ù]šY[˜ÙWÜ™Y™\™[˜ÙK™\šYšYYØ]™\šYšYYØWØXİÜ‹^\™\×Ø]ˆ
+H˜[Y\È
+ˆ—ÛÜ™\‹šY—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYÛØ[\ØÙJ—ÛÜ™\‹˜İ\İÛY\—Û˜[YK—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+Kˆ—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[—ØÛÜœ™XİYİ™\šYšXØ][Û—ÛY]ÙÙ]šY[˜ÙWÜ™Y™\™[˜ÙKˆÛØÚ×İ[Y\İ[\
+
+K
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆÛØÚ×İ[Y\İ[\
+
+JÛXZÙWÚ[\˜[
+ÙXÜÏOœİ˜[YÙ›Ü—ÜÙXÛÛ™ÊBˆ
+H™]\›š[™ÈY[È—ÚYÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆ	Øİ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÉË—ÚY	Ü\ÙLMØİ\İÛY\—ØÛÛXİİ™\šYšYY	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÛÜ™\—ÚY	Ë—ÛÜ™\‹šY	İ™\šYšXØ][Û—ÛY]Ù	Ëİ™\šYšXØ][Û—ÛY]Ùˆ	Ù]šY[˜ÙWÜ™Y™\™[˜ÙIËÙ]šY[˜ÙWÜ™Y™\™[˜ÙK	Ù^\™\×Ú[—ÜÙXÛÛ™ÉËİ˜[YÙ›Ü—ÜÙXÛÛ™ÊJNÂˆ™]\›ˆ—ÚYÂ™[™Â‰[˜İ[Û‰Â‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‹KH‹ˆÛX[\]šY[˜ÙHÛ\ÜÚYšXØ][Ûˆ[™\˜X›Hš[˜[[Øš™XİÜœ[ˆ›ØœË‚‹KHKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKB‚˜[\ˆX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆYÛÛ[[ˆ[][Û—Ü™\]Y\İYØ][Y\İ[\‹ˆYÛÛ[[ˆ[]WØ\WØXØÙ\YØ][Y\İ[\‹ˆYÛÛ[[ˆXœÙ[˜ÙWİ™\šYšYYØ][Y\İ[\‹ˆYÛÛ[[ˆ™\šYšXØ][Û—Ù\œ›Üˆ^ˆYÛÛ[[ˆ›İšY\—Ü™\İ[ØÛ\ÜÈ^ÚXÚÈ
+›İšY\—Ü™\İ[ØÛ\ÜÈ\È[Üˆ›İšY\—Ü™\İ[ØÛ\ÜÈ[ˆ
+ˆ	ÛØš™XİÜ™\Ù[	Ë	ÛØš™XİÛ›İÙ›İ[™	Ë	Ø]][XØ][Û—Ù˜Z[\™IË	Ø]]Üš^˜][Û—Ù˜Z[\™IËˆ	Ü˜]WÛ[Z]Y	Ë	İ[Y[İ]	Ë	Û™]ÛÜš×Ù˜Z[\™IË	Ü›İšY\—Ûİ]YÙIË	ÛX[›Ü›YYÜ™\ÜÛœÙIËˆ	ØÚXÚÜİ[WÜ™XYÙ˜Z[\™IË	İ[šÛ›İÛ—Ü›İšY\—Ù\œ›Ü‰Ë	Ù[]WØXØÙ\Y	Âˆ
+JNÂ˜[\ˆX›HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆ›ÜÛÛœİ˜Z[\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YWÜİ]\×ØÚXÚËˆYÛÛœİ˜Z[\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YWÜİ]\×ØÚXÚÈÚXÚÈ
+İ]\È[ˆ
+ˆ	Ü[™[™ÉË	ÛX\ÙY	Ë	Ù˜Z[Y	Ë	Ù[]Y	Ë	ÙXYÛ]\‰Ë	Ü™]Z[™Y	Âˆ
+JNÂ‚‹KHÛZ[\È\™HÙ]Y›İ[]YÛÈ\›Z[˜[X›XØ][Ûˆ\È\˜X›H™\^B‹KH]šY[˜ÙH[™™[XZ[œÈ™XÛİ™\˜X›H[[]È˜[œØXİ[ÛˆÛÛ[Z]Ë‚˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\È›ÜÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×Üİ]WØÚÎÂ˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×Üİ]WØÚÂˆÚXÚÈ
+İ]H[ˆ
+	ØÛZ[YY	Ë	ØÛÛ[Z]Y	Ë	ÜÙ]Y	Ë	ØX˜[™Û™Y	ÊJNÂ˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\È›ÜÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×ÜİÜ˜YÙWØš[™[™×ØÚÎÂ˜[\ˆX›HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈYÛÛœİ˜Z[™\ÜÙÙ[™\˜][Û—ØÛZ[\×ÜİÜ˜YÙWØš[™[™×ØÚÈÚXÚÈ
+ˆİ]H[ˆ
+	ØÛZ[YY	Ë	ØX˜[™Û™Y	ÊHÜˆİ]H[ˆ
+	ØÛÛ[Z]Y	Ë	ÜÙ]Y	ÊBˆ[™™\ÜÚY\È›İ[[™[\Ü˜\WÜİÜ˜YÙWØXÚÙ]\È›İ[ˆ[™[\Ü˜\WÜİÜ˜YÙWÜ]\È›İ[[™š[˜[ÜİÜ˜YÙWØXÚÙ]\È›İ[ˆ[™š[˜[ÜİÜ˜YÙWÜ]\È›İ[[™^XİYØÚXÚÜİ[Hˆ	×–ÌNXKY—^ÍI	ÂŠNÂ‚‹KHš[™[™]ÛH\›İ™Y]]Üš]HÈHİ\œ™[\ØÚˆ\ÙHšYÙÙ\œÈ[‚‹KH[œÚYHH™]šY]ÙYÑPÕT’UHQ’S‘TˆYZ[š\İ˜][Ûˆ[˜İ[ÛœÎÈ\™XİX›B‹KHS™[XZ[œÈ›ØÚÙYHH™KY^\İ[™È]]][ÛˆİX\™È[™Ü˜[Ë‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜š[™Ü\ÙLMÙ™X]\™WÜÛXŞWÙ\ØÚ
+
+Bœ™]\›œÈšYÙÙ\ˆ[™İXYÙHÜÜ[Ù]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆYˆ™]Ë™[˜X›Y[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY‰IË™]ËœÛXŞWÚÙ^NÂˆ[™YÂˆ™]Ë˜\›İ™YØ]]Üš]WÙ\ØÚH—ÙØ]K˜]]Üš]WÙ\ØÚÂˆ[ÙBˆ™]Ë˜\›İ™YØ]]Üš]WÙ\ØÚH[Âˆ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMÙ™X]\™WÜÛXŞWØš[™Ù\ØÚˆ™Y›Ü™H[œÙ\Üˆ\]HÛˆX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\Âˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË˜š[™Ü\ÙLMÙ™X]\™WÜÛXŞWÙ\ØÚ
+
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜š[™Ü\ÙLMØZWÜ›İ]WÙ\ØÚ
+
+Bœ™]\›œÈšYÙÙ\ˆ[™İXYÙHÜÜ[Ù]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆYˆ™]Ë™[˜X›Y[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY˜ZWÜ›İ]IÎÂˆ[™YÂˆ™]Ë˜\›İ™YØ]]Üš]WÙ\ØÚH—ÙØ]K˜]]Üš]WÙ\ØÚÂˆ[ÙBˆ™]Ë˜\›İ™YØ]]Üš]WÙ\ØÚH[Âˆ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMØZWÜ›İ]WØš[™Ù\ØÚˆ™Y›Ü™H[œÙ\Üˆ\]HÛˆX›XËœ\ÙLMØZWÜ›İ]WÜÛXÚY\Âˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË˜š[™Ü\ÙLMØZWÜ›İ]WÙ\ØÚ
+
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜š[™Ü\ÙLMØØ\Xš[]WÙ\ØÚ
+
+Bœ™]\›œÈšYÙÙ\ˆ[™İXYÙHÜÜ[Ù]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆ™]Ë˜]]Üš]WÙ\ØÚH—ÙØ]K˜]]Üš]WÙ\ØÚÂˆ™]Ë™^XİYÜİ\H	ØÛZ[IÎÂˆ™]ËÛÜšÙ›İ×Ù^Xİ][Û—ÚYH[Âˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMØØ\Xš[]WØš[™Ù\ØÚˆ™Y›Ü™H[œÙ\ÛˆX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\Âˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË˜š[™Ü\ÙLMØØ\Xš[]WÙ\ØÚ
+
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜š[™Ü\ÙLMÜ›İšY\—Ø]\İ][Û—Ù\ØÚ
+
+Bœ™]\›œÈšYÙÙ\ˆ[™İXYÙHÜÜ[Ù]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÈ—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆ™]Ë˜]]Üš]WÙ\ØÚH—ÙØ]K˜]]Üš]WÙ\ØÚÂˆYˆ™]Ë˜]]Üš^˜][Û—ÚY\È›İ[[‚ˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÚ\™HY[™]Ë˜]]Üš^˜][Û—ÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›İšY\—Ø]\İ][Û—Ø]]Üš^˜][Û—ÛZ\ÜÚ[™ÉÎÈ[™YÂˆ™]Ë˜]]Üš^˜][Û—Üİ]\ÈH—Ø]]œİ]\ÎÂˆ™]Ë˜]]Üš^˜][Û—İ\]YØ]H—Ø]]\]YØ]Âˆ[™YÂˆ™]\›ˆ™]ÎÂ™[™Â‰[˜İ[Û‰Â˜Ü™X]HšYÙÙ\ˆ™×Ü\ÙLMÜ›İšY\—Ø]\İ][Û—Øš[™Ù\ØÚˆ™Y›Ü™H[œÙ\ÛˆX›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÂˆ›ÜˆXXÚ›İÈ^Xİ]H[˜İ[ÛˆX›XË˜š[™Ü\ÙLMÜ›İšY\—Ø]\İ][Û—Ù\ØÚ
+
+NÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJÜÛXŞWÚÙ^H^
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ÜÛXŞHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\É\›İİ\NÈ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ÙØ]Kœİ]\Èˆ	ÜØ]\ÙšYY	ÂˆÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Ûˆˆ—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÙXİ\š]WÙØ]Wİ[œØ]\ÙšYY‰IËÜÛXŞWÚÙ^NÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÜÛXŞHœ›ÛHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÂˆÚ\™HÛXŞWÚÙ^O\ÜÛXŞWÚÙ^H›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ›İ—ÜÛXŞK™[˜X›Y[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWÙ\ØX›Y‰IËÜÛXŞWÚÙ^NÈ[™YÂˆYˆ—ÜÛXŞK˜\›İ™YÙØ]Wİ™\œÚ[Ûˆ\È\İ[˜İœ›ÛH—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‚ˆÜˆ—ÜÛXŞKœ™\]Z\™YÙØ]Wİ™\œÚ[Ûˆ\È\İ[˜İœ›ÛH—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Û‚ˆÜˆ—ÜÛXŞK˜\›İ™YØ]]Üš]WÙ\ØÚ\È\İ[˜İœ›ÛH—ÙØ]K˜]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜÛXŞWØ]]Üš]WÙ\ØÚÜİ[N‰IËÜÛXŞWÚÙ^NÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÜÛXŞWÚÙ^IË—ÜÛXŞKœÛXŞWÚÙ^Kˆ	ÙØ]Wİ™\œÚ[Û‰Ë—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‹	Ø]]Üš]WÙ\ØÚ	Ë—ÙØ]K˜]]Üš]WÙ\ØÚˆ	Ø\›İ™YØ]	Ë—ÜÛXŞK˜\›İ™YØ]
+NÂ™[™Â‰[˜İ[Û‰Â‚‹KH›İš\Ú[Ûš[™ËÜ›İ][Ûˆ\È[ˆ^XÚ]PS‹YØ]Y[˜X›[Y[Xİ[Û‹ˆB‹KHZYÜ˜][Ûˆ™]™\ˆØ[È]ˆHPPÈ˜[YH]™\ÈÛ›H[ˆİ\X˜\ÙH˜][[™‹KH\È™]™\ˆ™]\›™YH[ˆ”ËšY]ËÙËÜ\˜][Û˜[›İËÜˆÙ][™Ë‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ›İ]WÜ\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^JˆÚÙ^WÚY^ˆÜÙXÜ™]^ˆÛİ™\›\ÜÙXÛÛ™È[YÙ\‹ˆÜ™X\ÛÛˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ÜÙXÜ™]ÚY]ZYÈ—Û›İÈ[Y\İ[\[›İÊ
+NÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü[[YWÜÙXÜ™]Ü›İ][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÚÙ^WÚY_ˆ	×–ØK^KVŒNK—Î‹W^ÌKI	ÈÜˆ[™İ
+ÜÙXÜ™]
+OÌˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^WÚ[˜[Y	ÎÂˆ[™YÂˆYˆÛİ™\›\ÜÙXÛÛ™ÏÌÜˆÛİ™\›\ÜÙXÛÛ™ÏÜˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—Ü›İ][Û—Ú[˜[Y	ÎÂˆ[™YÂˆ\]H\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\ÂˆÙ]İ]\ÏIÜ™]š[İ\ÉË˜[Yİ[[]—Û›İÊÛXZÙWÚ[\˜[
+ÙXÜÏOœÛİ™\›\ÜÙXÛÛ™ÊBˆÚ\™Hİ]\ÏIØİ\œ™[	ÎÂˆ—ÜÙXÜ™]ÚYH˜][˜Ü™X]WÜÙXÜ™]
+ÜÙXÜ™]ˆ	Ü\ÙLM]ÛÜšÙ\‹X]\İ][Û‹IßÚÙ^WÚYˆ	Ô\ÙHMÛÜšÙ\‹Ù]X˜\ÙH]\İ][Ûˆ™\šYšXØ][ÛˆÙ^IË[
+NÂˆ[œÙ\[È\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\ÊˆÙ^WÚY˜][ÜÙXÜ™]ÚYİ]\Ë˜[YÙœ›ÛBˆ
+H˜[Y\È
+ÚÙ^WÚY—ÜÙXÜ™]ÚY	Øİ\œ™[	Ë—Û›İÊNÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY[]WİX›KXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^\ÉËˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^WÜ›İ]Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚÙ^WÚY	ËÚÙ^WÚY	Ûİ™\›\ÜÙXÛÛ™ÉËÛİ™\›\ÜÙXÛÛ™Ë	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠJNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ÚÙ^WÚY	ËÚÙ^WÚY	ØXİ]˜]YØ]	Ë—Û›İËˆ	Ü™]š[İ\×ÚÙ^Wİ˜[YÙ›Ü—ÜÙXÛÛ™ÉËÛİ™\›\ÜÙXÛÛ™ÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ø]\İ][ÛŠˆØ]\İ][ÛˆœÛÛ˜‹ˆÜÚYÛ˜]\™H^ˆÜ™\]Y\İÜ^[ØY^ˆÙ^XİYØXİ[Ûˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂˆ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂˆ—ÚÙ^H\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\É\›İİ\NÂˆ—ÜÙXÜ™]^È—ØØ[›ÛšXØ[^È—Ù^XİYÜÚYÛ˜]\™H^È—Ü™\]Y\İÚ\Ú^Âˆ—Ú\ÜİYY[Y\İ[\È—Ù^\™\È[Y\İ[\È—Û›Û˜ÙH]ZYÂˆ—ØØ\Xš[]WÚY]ZYÈ—ÛX\ÙWÙÙ[™\˜][Ûˆ[YÙ\È—ØXİ[Ûˆ^È—Üİ\^Â˜™YÚ[‚ˆ—ØXİ[ÛˆHØ]\İ][Û‹O‰ØXİ[Û‰ÎÂˆ—Üİ\HØ]\İ][Û‹O‰Üİ\	ÎÂˆYˆ—ØXİ[Ûˆ\È\İ[˜İœ›ÛHÙ^XİYØXİ[Û‚ˆÜˆ—ØXİ[Ûˆ_ˆ	×–ØK^ŒNW×^ÌKLI	ÂˆÜˆ—Üİ\_ˆ	×–ØK^ŒNW×^ÌKLI	ÂˆÜˆÛØ[\ØÙJØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IË	ÉÊH_ˆ	×–ØK^KVŒNK—Î‹ËW^ÌKI	ÂˆÜˆÛØ[\ØÙJØ]\İ][Û‹O‰Ù^Xİ][Û—ÚY	Ë	ÉÊH_ˆ	×–ØK^KVŒNK—Î‹ËW^ÌKI	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÜÚ\WÚ[˜[Y	ÎÂˆ[™YÂˆ™YÚ[‚ˆ—ØØ\Xš[]WÚYH
+Ø]\İ][Û‹O‰ØØ\Xš[]WÚY	ÊN]ZYÂˆ—ÛX\ÙWÙÙ[™\˜][ÛˆH
+Ø]\İ][Û‹O‰ÛX\ÙWÙÙ[™\˜][Û‰ÊNš[YÙ\Âˆ—Ú\ÜİYYH×İ[Y\İ[\
+
+Ø]\İ][Û‹O‰Ú\ÜİYYØ]Ù\ØÚ	ÊN™İX›H™XÚ\Ú[ÛŠNÂˆ—Ù^\™\ÈH×İ[Y\İ[\
+
+Ø]\İ][Û‹O‰Ù^\™\×Ø]Ù\ØÚ	ÊN™İX›H™XÚ\Ú[ÛŠNÂˆ—Û›Û˜ÙHH
+Ø]\İ][Û‹O‰Û›Û˜ÙIÊN]ZYÂˆ^Ù\[ÛˆÚ[ˆİ\œÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÜÚ\WÚ[˜[Y	ÎÂˆ[™Âˆ—Ü™\]Y\İÚ\ÚH[˜ÛÙJ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÜ™\]Y\İÜ^[ØY	İ]	ÊK	ÜÚLM‰ÊK	Ú^	ÊNÂˆYˆØ]\İ][Û‹O‰Ü™\]Y\İÜ^[ØYÚ\Ú	È\È\İ[˜İœ›ÛH—Ü™\]Y\İÚ\Ú[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—Ü^[ØYÛZ\ÛX]Ú	ÎÂˆ[™YÂˆYˆ—Ú\ÜİYYˆÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHÙXÛÛ™ÉÂˆÜˆ—Ú\ÜİYYÛØÚ×İ[Y\İ[\
+
+KZ[\˜[	ÌˆZ[]\ÉÂˆÜˆ—Ù^\™\ÈHÛØÚ×İ[Y\İ[\
+
+BˆÜˆ—Ù^\™\Èˆ—Ú\ÜİYY
+Ú[\˜[	ÌˆZ[]\ÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—İ[YWÚ[˜[Y	ÎÂˆ[™YÂ‚ˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÚ\™HY]—ØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛZ\ÜÚ[™ÉÎÈ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ—ÙØ]Kœİ]\Ï‰ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Û‚ˆÜˆ—ØØ\œÙXİ\š]WÙØ]Wİ™\œÚ[Û—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‚ˆÜˆ—ØØ\˜]]Üš]WÙ\ØÚ—ÙØ]K˜]]Üš]WÙ\ØÚˆÜˆ
+Ø]\İ][Û‹O‰Ø]]Üš]WÙ\ØÚ	ÊN˜šYÚ[—ÙØ]K˜]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØ]]Üš]WÙ\ØÚÜİ[IÎÂˆ[™YÂˆYˆØ]\İ][Û‹O‰ØØ\Xš[]Wİ\IÈ\È\İ[˜İœ›ÛH—ØØ\˜Ø\Xš[]Wİ\BˆÜˆØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IÈ\È\İ[˜İœ›ÛH—ØØ\›Ü\˜][Û—ÚÙ^H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ØØ\Xš[]WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—ØØ\›Ü™\—ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰ÛÜ™\—ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\˜\ÜÙ\ÜÛY[ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ø\ÜÙ\ÜÛY[ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\œØÛÜ™WÜ[—ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰ÜØÛÜ™WÜ[—ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ù[š[Y[ÚY	Ë	ÉÊN]ZYˆÜˆ
+—ØØ\œ™\ÜÚY\È›İ[[™—ØØ\œ™\ÜÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ü™\ÜÚY	Ë	ÉÊN]ZY
+BˆÜˆ
+—ØØ\œ™XÚ\Y[Ù[XZ[\È›İ[[™İÙ\Š—ØØ\œ™XÚ\Y[Ù[XZ[^
+Bˆ\È\İ[˜İœ›ÛHİÙ\Š[YŠØ]\İ][Û‹O‰Ü™XÚ\Y[	Ë	ÉÊJJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ØÛÛ[Y\˜ÚX[Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—ØXİ[ÛIØÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰È[‚ˆYˆ—ØØ\œİ]\È›İ[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	ÊHÜˆ—ØØ\™^XİYÜİ\‰ØÛZ[IÂˆÜˆ—ÛX\ÙWÙÙ[™\˜][Û—ØØ\›X\ÙWÙÙ[™\˜][Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØÛZ[WÜİ]WÚ[˜[Y	ÎÂˆ[™YÂˆ[ÙBˆYˆ—ØØ\œİ]\Ï‰ÛX\ÙY	ÈÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+BˆÜˆ—ØØ\™^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+BˆÜˆ—ØØ\™^XİYÜİ\—Üİ\ˆÜˆ—ØØ\›X\ÙWÙÙ[™\˜][Û—ÛX\ÙWÙÙ[™\˜][Û‚ˆÜˆ—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚY\È\İ[˜İœ›ÛHØ]\İ][Û‹O‰Ù^Xİ][Û—ÚY	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—Üİ\ÛÜ—ÛX\ÙWÚ[˜[Y	ÎÂˆ[™YÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂ‚ˆÙ[Xİ
+ˆ[È—ÚÙ^Hœ›ÛH\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\ÂˆÚ\™HÙ^WÚY\Ø]\İ][Û‹O‰ÚÙ^WÚY	Âˆ[™İ]\È[ˆ
+	Øİ\œ™[	Ë	Ü™]š[İ\ÉÊBˆ[™˜[YÙœ›ÛOXÛØÚ×İ[Y\İ[\
+
+Bˆ[™
+˜[Yİ[[\È[Üˆ˜[Yİ[[˜ÛØÚ×İ[Y\İ[\
+
+JBˆ›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^WÚ[˜[Y	ÎÈ[™YÂˆÙ[XİXÜ\YÜÙXÜ™][È—ÜÙXÜ™]œ›ÛH˜][™XÜ\YÜÙXÜ™]ÂˆÚ\™HY]—ÚÙ^K˜][ÜÙXÜ™]ÚYÂˆYˆ—ÜÙXÜ™]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^Wİ[˜]˜Z[X›IÎÈ[™YÂ‚ˆ—ØØ[›ÛšXØ[HÛÛ˜Ø]İÜÊ	ß	ËˆØ]\İ][Û‹O‰ÚÙ^WÚY	ËØ]\İ][Û‹O‰ØØ\Xš[]WÚY	ËØ]\İ][Û‹O‰ØØ\Xš[]Wİ\IËˆØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IËØ]\İ][Û‹O‰Ù^Xİ][Û—ÚY	Ë—ØXİ[Û‹—Üİ\ˆÛØ[\ØÙJØ]\İ][Û‹O‰ÛÜ™\—ÚY	Ë	ÉÊKÛØ[\ØÙJØ]\İ][Û‹O‰Ø\ÜÙ\ÜÛY[ÚY	Ë	ÉÊKˆÛØ[\ØÙJØ]\İ][Û‹O‰ÜØÛÜ™WÜ[—ÚY	Ë	ÉÊKÛØ[\ØÙJØ]\İ][Û‹O‰Ù[š[Y[ÚY	Ë	ÉÊKˆÛØ[\ØÙJØ]\İ][Û‹O‰Ü™\ÜÚY	Ë	ÉÊKÛØ[\ØÙJİÙ\ŠØ]\İ][Û‹O‰Ü™XÚ\Y[	ÊK	ÉÊKˆØ]\İ][Û‹O‰ÛX\ÙWÙÙ[™\˜][Û‰ËØ]\İ][Û‹O‰Ü™\]Y\İÜ^[ØYÚ\Ú	ËˆØ]\İ][Û‹O‰Ú\ÜİYYØ]Ù\ØÚ	ËØ]\İ][Û‹O‰Ù^\™\×Ø]Ù\ØÚ	ËˆØ]\İ][Û‹O‰Û›Û˜ÙIËØ]\İ][Û‹O‰Ø]]Üš]WÙ\ØÚ	Âˆ
+NÂˆ—Ù^XİYÜÚYÛ˜]\™HH[˜ÛÙJ^[œÚ[ÛœËšXXÊˆÛÛ™\İÊ—ØØ[›ÛšXØ[	İ]	ÊKÛÛ™\İÊ—ÜÙXÜ™]	İ]	ÊK	ÜÚLM‰Âˆ
+K	Ú^	ÊNÂˆYˆÜÚYÛ˜]\™H_ˆ	×–ÌNXKY—^ÍI	ÂˆÜˆ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÜÚYÛ˜]\™K	İ]	ÊK	ÜÚLM‰ÊBˆˆ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊ—Ù^XİYÜÚYÛ˜]\™K	İ]	ÊK	ÜÚLM‰ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÜÚYÛ˜]\™WÚ[˜[Y	ÎÂˆ[™YÂˆ™YÚ[‚ˆ[œÙ\[È\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—Û›Û˜Ù\Êˆ›Û˜ÙKØ\Xš[]WÚYXİ[Û‹X\ÙWÙÙ[™\˜][Û‹™\]Y\İÜ^[ØYÚ\Ú\ÜİYYØ]^\™\×Ø]ˆ
+H˜[Y\È
+—Û›Û˜ÙK—ØØ\šY—ØXİ[Û‹—ÛX\ÙWÙÙ[™\˜][Û‹—Ü™\]Y\İÚ\Ú—Ú\ÜİYY—Ù^\™\ÊNÂˆ^Ù\[ÛˆÚ[ˆ[š\]YWİš[Û][Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—Ü™\^IÎÂˆ[™Âˆ™]\›ˆ×ÚœÛÛ˜Š—ØØ\
+KIÚ\ÜİYWÜÙXÜ™]Ú\Ú	ËIÛX\ÙWÜÙXÜ™]Ú\Ú	ÎÂ™[™Â‰[˜İ[Û‰Â‚‹KHÛÜšÙ›İË\İ\İ]›Ş[\›˜[ËˆH]›Ü›IÜÈİ\
+
+HTH^ÜÙ\È›Â‹KHİ\ZY[\İ[˜ŞHÜ[Û‹ÛÈHÜİ™\ÜÛœÙH\È[X™\˜][H[˜Ù\Z[ˆ[™‹KHØ[››İØ]\ÙH[ˆ]]ÛX]XÈÙXÛÛ™İ\‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K˜ÛZ[WİÛÜšÙ›İ×Üİ\
+ˆØØ\Xš[]WÚY]ZYÙ[š[Y[ÚY]ZYÙ^Xİ][Û—ÚY^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—Ûİ]X›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş	\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HY\ØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛHÙ[š[Y[ÚY[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ›İ×Üİ\Øš[™[™×Ú[˜[Y	ÎÈ[™YÂˆ[œÙ\[ÈX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş
+ˆ[š[Y[ÚYØ\Xš[]WÚYÜ\˜][Û—ÚÙ^K^\›˜[ÚY[\İ[˜ŞWÚÙ^KˆX\ÙWÛİÛ™\‹X\ÙWÙÙ[™\˜][Û‹X\ÙWÙ^\™\×Ø]İ]\Ë]]Üš]WÙ\ØÚˆ
+H˜[Y\È
+ˆÙ[š[Y[ÚYØØ\Xš[]WÚY—ØØ\›Ü\˜][Û—ÚÙ^Kˆ	Ü\ÙLM]ÛÜšÙ›İË\İ\‰ß—ØØ\›Ü\˜][Û—ÚÙ^KÙ^Xİ][Û—ÚY—ØØ\›X\ÙWÙÙ[™\˜][Û‹ˆX\İ
+—ØØ\™^\™\×Ø]ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHZ[]\ÉÊK	ÛX\ÙY	Ë—ØØ\˜]]Üš]WÙ\ØÚˆ
+HÛˆÛÛ™›Xİ
+Ø\Xš[]WÚY
+HÈ›İ[™ÎÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ûİ]œ›ÛHX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÚ\™HØ\Xš[]WÚY\ØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ—Ûİ]œİ]\ÏIÜİ\Y	È[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	Ë˜[ÙK	Üİ]\ÉË	Üİ\Y	Ë	Ü[—ÚY	Ë—Ûİ]œ[—ÚYˆ	Ûİ]›ŞÚY	Ë—Ûİ]šY	Ù^\›˜[ÚY[\İ[˜ŞWÚÙ^IË—Ûİ]™^\›˜[ÚY[\İ[˜ŞWÚÙ^JNÂˆ[™YÂˆYˆ—Ûİ]œİ]\È[ˆ
+	ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊH[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	Ë˜[ÙK	Üİ]\ÉË—Ûİ]œİ]\Ë	Ü[—ÚY	Ë—Ûİ]œ[—ÚYˆ	Ûİ]›ŞÚY	Ë—Ûİ]šY	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ËYJNÂˆ[™YÂˆYˆ—Ûİ]œİ]\ÏIÛX\ÙY	È[™—Ûİ]›X\ÙWÙ^\™\×Ø]˜ÛØÚ×İ[Y\İ[\
+
+Bˆ[™—Ûİ]›X\ÙWÛİÛ™\ˆ\È\İ[˜İœ›ÛHÙ^Xİ][Û—ÚY[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ›İ×Üİ\Ø[™XYWÛX\ÙY	ÎÂˆ[™YÂˆ\]HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÙ]İ]\ÏIÛX\ÙY	ËX\ÙWÛİÛ™\\Ù^Xİ][Û—ÚYX\ÙWÙÙ[™\˜][Û]—ØØ\›X\ÙWÙÙ[™\˜][Û‹ˆX\ÙWÙ^\™\×Ø][X\İ
+—ØØ\™^\™\×Ø]ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHZ[]\ÉÊKˆ][\Û[X™\X][\Û[X™\ŠØØ\ÙHÚ[ˆX\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[ˆH[ÙH[™ˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ûİ]šY™]\›š[™È
+ˆ[È—Ûİ]Âˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛZ[YY	ËYK	Üİ]\ÉË—Ûİ]œİ]\Ë	Ûİ]›ŞÚY	Ë—Ûİ]šYˆ	Ù^\›˜[ÚY[\İ[˜ŞWÚÙ^IË—Ûİ]™^\›˜[ÚY[\İ[˜ŞWÚÙ^K	Ø][\Û[X™\‰Ë—Ûİ]˜][\Û[X™\ŠNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K›X\š×İÛÜšÙ›İ×Üİ\İ[˜Ù\Z[ŠˆØØ\Xš[]WÚY]ZYÛİ]›ŞÚY]ZYŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ûİ]X›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş	\›İİ\NÂ˜™YÚ[‚ˆ\]HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÙ]İ]\ÏIØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë™XÛÛ˜Ú[X][Û—Üİ]\ÏIÜ™\]Z\™Y	Ë\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY\Ûİ]›ŞÚY[™Ø\Xš[]WÚY\ØØ\Xš[]WÚY[™İ]\ÏIÛX\ÙY	Âˆ™]\›š[™È
+ˆ[È—Ûİ]ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ›İ×Üİ\Ù\Ü]ÚØ›İ[™\WÚ[˜[Y	ÎÈ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ûİ]›ŞÚY	Ë—Ûİ]šY	Üİ]\ÉË—Ûİ]œİ]\ÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]KœÙ]WİÛÜšÙ›İ×Üİ\
+ˆØØ\Xš[]WÚY]ZYÛİ]›ŞÚY]ZYÜ[—ÚY^Ù\œ›Üˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ûİ]X›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›Ş	\›İİ\NÂ˜™YÚ[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—Ûİ]œ›ÛHX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÚ\™HY\Ûİ]›ŞÚY[™Ø\Xš[]WÚY\ØØ\Xš[]WÚY›Üˆ\]NÂˆYˆÛØ[\ØÙJš[JÜ[—ÚY
+K	ÉÊO‰ÉÈ[‚ˆ\]HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÙ]İ]\ÏIÜİ\Y	Ë[—ÚY\Ü[—ÚYXØÙ\YØ]XÛØÚ×İ[Y\İ[\
+
+K\İÙ\œ›Ü[[ˆ™XÛÛ˜Ú[X][Û—Üİ]\ÏIÜ™\ÛÛ™Y	ËX\ÙWÙ^\™\×Ø][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ûİ]šY[™İ]\È[ˆ
+	ØXØÙ\[˜ÙWİ[˜Ù\Z[‰Ë	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊBˆ™]\›š[™È
+ˆ[È—Ûİ]Âˆ\]HX›XËœ™\ÜÙ[š[Y[ÂˆÙ]ÛÜšÙ›İ×Üİ\Üİ]\ÏIÜİ\Y	ËÛÜšÙ›İ×Ü[—ÚY\Ü[—ÚYˆÛÜšÙ›İ×Üİ\YØ]XÛØ[\ØÙJÛÜšÙ›İ×Üİ\YØ]ÛØÚ×İ[Y\İ[\
+
+JKˆÛÜšÙ›İ×Üİ\Ù\œ›Ü[[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ûİ]™[š[Y[ÚYÂˆ[ÙBˆ\]HX›XËœ\ÙLMİÛÜšÙ›İ×Üİ\Ûİ]›ŞˆÙ]İ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ë\İÙ\œ›Ü[Y
+ÛØ[\ØÙJÙ\œ›Ü‹	İÛÜšÙ›İÈİ\™\ÜÛœÙH[˜]˜Z[X›IÊKŒ
+Kˆ™XÛÛ˜Ú[X][Û—Üİ]\ÏIÜ™\]Z\™Y	ËX\ÙWÙ^\™\×Ø][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ûİ]šY[™İ]\ÏIØXØÙ\[˜ÙWİ[˜Ù\Z[‰È™]\›š[™È
+ˆ[È—Ûİ]Âˆ\]HX›XËœ™\ÜÙ[š[Y[ÂˆÙ]ÛÜšÙ›İ×Üİ\Üİ]\ÏIÜİ\[™ÉËˆÛÜšÙ›İ×Üİ\Ù\œ›ÜIÑ^\›˜[ÛÜšÙ›İÈXØÙ\[˜ÙH\È[˜Ù\Z[È™XÛÛ˜Ú[X][Ûˆ\È™\]Z\™Y‰Ëˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ûİ]™[š[Y[ÚYÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ûİ]›ŞÚY	Ë—Ûİ]šY	Üİ]\ÉË—Ûİ]œİ]\Ë	Ü[—ÚY	Ë—Ûİ]œ[—ÚYˆ	Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	Ë—Ûİ]œİ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÊNÂ™[™Â‰[˜İ[Û‰Â‚‹KHİšXİ›İšY\ˆ™\İ[Û\ÜÚYšY\ˆ\ÙYHÛX[\Ù][Y[‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ\ÙLMÜİÜ˜YÙWÜ™\İ[Ú\×İ™\šYšYYØXœÙ[˜ÙJØÛ\ÜÈ^
+Bœ™]\›œÈ›ÛÛX[ˆ[™İXYÙHÜ[[[]]X›HÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰Ù[XİØÛ\ÜÏIÛØš™XİÛ›İÙ›İ[™	ÎÈ	[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]KœÙ]WÜİÜ˜YÙWØÛX[\
+ˆØØ\Xš[]WÚY]ZYØÛX[\ÚY]ZYİÛÜš×ÛX\ÙWİÚÙ[ˆ]ZYˆÙ^XİYØXÚÙ]^Ù^XİYÜ]^Ù^XİYØÚXÚÜİ[H^ˆÙ[][Û—Ü™\]Y\İY›ÛÛX[‹Ù[]WØ\WØXØÙ\Y›ÛÛX[‹ˆÜ›İšY\—Ü™\İ[ØÛ\ÜÈ^Ù\œ›Üˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü]Y]YHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÈ—ØXœÙ[›ÛÛX[Â˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—Ü]Y]YHœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÚ\™HY\ØÛX[\ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ü]Y]YKœİ]\Ï‰ÛX\ÙY	ÈÜˆ—Ü]Y]YK›X\ÙWÛİÛ™\—ØØ\Xš[]WÚYœØØ\Xš[]WÚYˆÜˆ—Ü]Y]YK›X\ÙWİÚÙ[œİÛÜš×ÛX\ÙWİÚÙ[ˆÜˆ—Ü]Y]YK›X\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ú›Ø—ÛX\ÙWÚ[˜[Y	ÎÂˆ[™YÂˆYˆ—Ü]Y]YKœİÜ˜YÙWØXÚÙ]œÙ^XİYØXÚÙ]Üˆ—Ü]Y]YKœİÜ˜YÙWÜ]œÙ^XİYÜ]ˆÜˆ—Ü]Y]YK™^XİYØÚXÚÜİ[OœÙ^XİYØÚXÚÜİ[H[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ú›Ø—ÛØš™XİØš[™[™×Ú[˜[Y	ÎÈ[™YÂˆYˆÜ›İšY\—Ü™\İ[ØÛ\ÜÈ›İ[ˆ
+ˆ	ÛØš™XİÜ™\Ù[	Ë	ÛØš™XİÛ›İÙ›İ[™	Ë	Ø]][XØ][Û—Ù˜Z[\™IË	Ø]]Üš^˜][Û—Ù˜Z[\™IË	Ü˜]WÛ[Z]Y	Ëˆ	İ[Y[İ]	Ë	Û™]ÛÜš×Ù˜Z[\™IË	Ü›İšY\—Ûİ]YÙIË	ÛX[›Ü›YYÜ™\ÜÛœÙIË	ØÚXÚÜİ[WÜ™XYÙ˜Z[\™IËˆ	İ[šÛ›İÛ—Ü›İšY\—Ù\œ›Ü‰Ë	Ù[]WØXØÙ\Y	Âˆ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü›İšY\—Ü™\İ[ØÛ\Ü×Ú[˜[Y	ÎÈ[™YÂˆ—ØXœÙ[HX›XËœ\ÙLMÜİÜ˜YÙWÜ™\İ[Ú\×İ™\šYšYYØXœÙ[˜ÙJÜ›İšY\—Ü™\İ[ØÛ\ÜÊNÂˆYˆ—ØXœÙ[[™›İÙ[][Û—Ü™\]Y\İY[™Ù[]WØ\WØXØÙ\Y[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ù[][Û—Ù]šY[˜ÙWÚ[˜ÛÛœÚ\İ[	ÎÂˆ[™YÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]ˆİ]\ÏXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ	Ù[]Y	ÂˆÚ[ˆ][\ØÛİ[
+ÌOMH[ˆ	ÙXYÛ]\‰È[ÙH	Ù˜Z[Y	È[™ˆ][\ØÛİ[X][\ØÛİ[
+ÌK\İØ][\Ø]XÛØÚ×İ[Y\İ[\
+
+Kˆ[][Û—Ü™\]Y\İYØ]XØ\ÙHÚ[ˆÙ[][Û—Ü™\]Y\İY[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[][Û—Ü™\]Y\İYØ][™ˆ[]WØ\WØXØÙ\YØ]XØ\ÙHÚ[ˆÙ[]WØ\WØXØÙ\Y[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[]WØ\WØXØÙ\YØ][™ˆXœÙ[˜ÙWİ™\šYšYYØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ[][Û—İ™\šYšYYØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ[]YØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ›İšY\—Ü™\İ[ØÛ\ÜÏ\Ü›İšY\—Ü™\İ[ØÛ\ÜËˆ™\šYšXØ][Û—Ù\œ›ÜXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ[[ÙHY
+ÛØ[\ØÙJÙ\œ›Ü‹Ü›İšY\—Ü™\İ[ØÛ\ÜÊKŒ
+H[™ˆ\İÙ\œ›ÜXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ[[ÙHY
+ÛØ[\ØÙJÙ\œ›Ü‹Ü›İšY\—Ü™\İ[ØÛ\ÜÊKŒ
+H[™ˆXYÛ]\™YØ]XØ\ÙHÚ[ˆ›İ—ØXœÙ[[™][\ØÛİ[
+ÌOMH[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ™^Ø][\Ø]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆ™^Ø][\Ø][ÙHÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÌMHZ[]\ÉÈ[™ˆX\ÙWÛİÛ™\—ØØ\Xš[]WÚY[[X\ÙWİÚÙ[[[X\ÙWÙ^\™\×Ø][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü]Y]YKšY™]\›š[™È
+ˆ[È—Ü]Y]YNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	Ë—Ü]Y]YKšY	Üİ]\ÉË—Ü]Y]YKœİ]\Ëˆ	ØXœÙ[˜ÙWİ™\šYšYY	Ë—ØXœÙ[	Ü›İšY\—Ü™\İ[ØÛ\ÜÉËÜ›İšY\—Ü™\İ[ØÛ\ÜÊNÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]KœÙ]WÛİÛ™YÜİÜ˜YÙWØÛX[\
+ˆØØ\Xš[]WÚY]ZYØÛX[\ÚY]ZYÙ[][Û—Ü™\]Y\İY›ÛÛX[‹ˆÙ[]WØ\WØXØÙ\Y›ÛÛX[‹Ü›İšY\—Ü™\İ[ØÛ\ÜÈ^Ù\œ›Üˆ^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü]Y]YHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÈ—ØXœÙ[›ÛÛX[Â˜™YÚ[‚ˆÙ[Xİ
+ˆ[È—Ü]Y]YHœ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÚ\™HY\ØÛX[\ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ü]Y]YK›İÛ™\—ØØ\Xš[]WÚY\È\İ[˜İœ›ÛHØØ\Xš[]WÚYˆÜˆ—Ü]Y]YKœİ]\È›İ[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ú›Ø—ÛİÛ™\—Ú[˜[Y	ÎÂˆ[™YÂˆYˆÜ›İšY\—Ü™\İ[ØÛ\ÜÈ›İ[ˆ
+ˆ	ÛØš™XİÜ™\Ù[	Ë	ÛØš™XİÛ›İÙ›İ[™	Ë	Ø]][XØ][Û—Ù˜Z[\™IË	Ø]]Üš^˜][Û—Ù˜Z[\™IË	Ü˜]WÛ[Z]Y	Ëˆ	İ[Y[İ]	Ë	Û™]ÛÜš×Ù˜Z[\™IË	Ü›İšY\—Ûİ]YÙIË	ÛX[›Ü›YYÜ™\ÜÛœÙIË	ØÚXÚÜİ[WÜ™XYÙ˜Z[\™IËˆ	İ[šÛ›İÛ—Ü›İšY\—Ù\œ›Ü‰Ë	Ù[]WØXØÙ\Y	Âˆ
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	ØÛX[\Ü›İšY\—Ü™\İ[ØÛ\Ü×Ú[˜[Y	ÎÈ[™YÂˆ—ØXœÙ[\X›XËœ\ÙLMÜİÜ˜YÙWÜ™\İ[Ú\×İ™\šYšYYØXœÙ[˜ÙJÜ›İšY\—Ü™\İ[ØÛ\ÜÊNÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]ˆİ]\ÏXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ	Ù[]Y	ÈÚ[ˆ][\ØÛİ[
+ÌOMH[ˆ	ÙXYÛ]\‰È[ÙH	Ù˜Z[Y	È[™ˆ][\ØÛİ[X][\ØÛİ[
+ÌK\İØ][\Ø]XÛØÚ×İ[Y\İ[\
+
+Kˆ[][Û—Ü™\]Y\İYØ]XØ\ÙHÚ[ˆÙ[][Û—Ü™\]Y\İY[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[][Û—Ü™\]Y\İYØ][™ˆ[]WØ\WØXØÙ\YØ]XØ\ÙHÚ[ˆÙ[]WØ\WØXØÙ\Y[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[]WØ\WØXØÙ\YØ][™ˆXœÙ[˜ÙWİ™\šYšYYØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ[][Û—İ™\šYšYYØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ[]YØ]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ›İšY\—Ü™\İ[ØÛ\ÜÏ\Ü›İšY\—Ü™\İ[ØÛ\ÜËˆ™\šYšXØ][Û—Ù\œ›ÜXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ[[ÙHY
+ÛØ[\ØÙJÙ\œ›Ü‹Ü›İšY\—Ü™\İ[ØÛ\ÜÊKŒ
+H[™ˆ\İÙ\œ›ÜXØ\ÙHÚ[ˆ—ØXœÙ[[ˆ[[ÙHY
+ÛØ[\ØÙJÙ\œ›Ü‹Ü›İšY\—Ü™\İ[ØÛ\ÜÊKŒ
+H[™ˆXYÛ]\™YØ]XØ\ÙHÚ[ˆ›İ—ØXœÙ[[™][\ØÛİ[
+ÌOMH[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙH[[™ˆ™^Ø][\Ø]XØ\ÙHÚ[ˆ—ØXœÙ[[ˆ™^Ø][\Ø][ÙHÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÌMHZ[]\ÉÈ[™ˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü]Y]YKšY™]\›š[™È
+ˆ[È—Ü]Y]YNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛX[\ÚY	Ë—Ü]Y]YKšY	Üİ]\ÉË—Ü]Y]YKœİ]\Ëˆ	ØXœÙ[˜ÙWİ™\šYšYY	Ë—ØXœÙ[	Ü›İšY\—Ü™\İ[ØÛ\ÜÉËÜ›İšY\—Ü™\İ[ØÛ\ÜÊNÂ™[™Â‰[˜İ[Û‰Â‚‹KH›İ[˜ÙH™[YYX][ÛˆÛÛœİ[Y\È[™\[™[[[]]X›HÛÛXİ™\šYšXØ][Û‹‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\JˆÜš[Ü—Ù[XZ[Ù]™[ÚY]ZYˆİ™\šYšXØ][Û—ÚY]ZYˆÜ™X\ÛÛˆ^ŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÈ—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—İ™\ˆX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÉ\›İİ\NÈ—ÚY]ZYÂ˜™YÚ[‚ˆ—ØXİÜˆHX›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ù[XZ[Ü™\Ù[™	Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—Ü™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÈÚ\™HY\Üš[Ü—Ù[XZ[Ù]™[ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ù]™[œİ]\Ï‰Ø›İ[˜ÙY	ÈÜˆ—Ù]™[›Ü™\—ÚY\È[Üˆ—Ù]™[œ™\ÜÚY\È[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—Ù]™[Ú[™[YÚX›IÎÂˆ[™YÂˆKHÛÛ\Z[È\™H\›X[™[H›Û‹\™]šXX›H]™[ˆYˆH]\ˆ›İ[˜ÙH^\İË‚ˆYˆ^\İÊÙ[XİHœ›ÛHX›XË™[XZ[Ù]™[ÈHÚ\™HKœ™\ÜÚY]—Ù]™[œ™\ÜÚY[™Kœİ]\ÏIØÛÛ\Z[™Y	ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—ØÛÛ\Z[Ü\›X[™[	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—İ™\ˆœ›ÛHX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÂˆÚ\™HY\İ™\šYšXØ][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—İ™\‹œİ]\Ï‰İ™\šYšYY	ÈÜˆ—İ™\‹™^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+BˆÜˆ—İ™\‹™\šYšYYØ]˜ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHÙXÛÛ™ÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—İ™\šYšXØ][Û—Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HY]—Ù]™[›Ü™\—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—İ™\‹›Ü™\—ÚY—ÛÜ™\‹šYÜˆ—İ™\‹˜\ÜÙ\ÜÛY[ÚY—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚYˆÜˆİÙ\Š—İ™\‹œ™]š[İ\×Ù[XZ[^
+O›İÙ\Š—Ù]™[œ™XÚ\Y[Ù[XZ[^
+BˆÜˆİÙ\Š—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+O›İÙ\Š—İ™\‹œ™]š[İ\×Ù[XZ[^
+BˆÜˆİÙ\Š—İ™\‹˜ÛÜœ™XİYÙ[XZ[^
+O[İÙ\Š—İ™\‹œ™]š[İ\×Ù[XZ[^
+BˆÜˆ—İ™\‹˜İ\İÛY\—ÚY[]O˜ÛØ[\ØÙJ—ÛÜ™\‹˜İ\İÛY\—Û˜[YK—ÛÜ™\‹˜İ\İÛY\—Ù[XZ[^
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—İ™\šYšXØ][Û—Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ[œÙ\[ÈX›XËœ™\ÜÙ[]™\WÜ™[YYX][ÛœÊˆš[Ü—Ù[XZ[Ù]™[ÚY™\ÜÚY™XÚ\Y[Ù[XZ[™[YYX][Û—İ\K™]š[İ\×Ü™XÚ\Y[Ù[XZ[ˆÛÜœ™XİYÜ™XÚ\Y[Ù[XZ[™X\ÛÛ‹]šY[˜ÙWÚœÛÛ‹]]Üš\ÙYØK]]Üš\ÙYÜÙ\ÜÚ[Û—ÚYˆİ\İÛY\—İ\]WØ\YYØ]ˆ
+H˜[Y\È
+ˆ—Ù]™[šY—Ù]™[œ™\ÜÚY—İ™\‹˜ÛÜœ™XİYÙ[XZ[	Ø›İ[˜ÙWÜ™]IË—İ™\‹œ™]š[İ\×Ù[XZ[ˆ—İ™\‹˜ÛÜœ™XİYÙ[XZ[Ü™X\ÛÛ‹ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛÛXİİ™\šYšXØ][Û—ÚY	Ë—İ™\‹šY	İ™\šYšXØ][Û—ÛY]Ù	Ë—İ™\‹™\šYšXØ][Û—ÛY]Ùˆ	Ù]šY[˜ÙWÜ™Y™\™[˜ÙIË—İ™\‹™]šY[˜ÙWÜ™Y™\™[˜ÙK	İ™\šYšYYØ]	Ë—İ™\‹™\šYšYYØ]
+Kˆ
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY
+—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	ÊN]ZYÛØÚ×İ[Y\İ[\
+
+Bˆ
+H™]\›š[™ÈY[È—ÚYÂˆ\]HX›XË˜İ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛœÂˆÙ]İ]\ÏIØÛÛœİ[YY	ËÛÛœİ[YYØ]XÛØÚ×İ[Y\İ[\
+
+KÛÛœİ[YYØWÜ™[YYX][Û—ÚY]—ÚYˆÚ\™HY]—İ™\‹šY[™İ]\ÏIİ™\šYšYY	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—İ™\šYšXØ][Û—ØÛÛœİ[\[Û—Ù˜Z[Y	ÎÈ[™YÂˆ\]HX›XË›Ü™\œÈÙ]İ\İÛY\—Ù[XZ[]—İ™\‹˜ÛÜœ™XİYÙ[XZ[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ÛÜ™\‹šY[™İ\İÛY\—Ù[XZ[]—İ™\‹œ™]š[İ\×Ù[XZ[ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ø›İ[˜ÙWÜ™[YYX][Û—ÛÜ™\—Ü™XÚ\Y[ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÙ[]™\WÜ™[YYX][ÛœÉË—ÚYˆ	Ü™[Z][WÜ™\ÜØ›İ[˜ÙWÜ™[YYX][Û—Ø]]Üš^™Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛÛXİİ™\šYšXØ][Û—ÚY	Ë—İ™\‹šY	Üš[Ü—Ù[XZ[Ù]™[ÚY	Ë—Ù]™[šYˆ	Ü™]š[İ\×Ü™XÚ\Y[	Ë—İ™\‹œ™]š[İ\×Ù[XZ[	ØÛÜœ™XİYÜ™XÚ\Y[	Ë—İ™\‹˜ÛÜœ™XİYÙ[XZ[
+JNÂˆ[œÙ\[ÈX›XË˜\ÜÙ\ÜÛY[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY]™[İ\KY\WÚÙ^KY]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—ÛÜ™\‹˜\ÜÙ\ÜÛY[ÚY—ÛÜ™\‹šY—Ù]™[œ™\ÜÚY	Ü™\ÜÙ[XZ[Yİ×Øİ\İÛY\‰Ëˆ	Ü\ÙLMX›İ[˜ÙK\™[YYX][Û‰ß—ÚYˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™[YYX][Û—ÚY	Ë—ÚY	ØÛÛXİİ™\šYšXØ][Û—ÚY	Ë—İ™\‹šYˆ	Ø]]Üš^˜][Û—ÛÛ›IËYJBˆ
+NÂˆ™]\›ˆ—ÚYÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™\ÛÛ™WÜ™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][ÛŠˆØ]]Üš^˜][Û—ÚY]ZYˆÜ™\ÛÛ][Ûˆ^ˆØ]\İ][Û—ÚY]ZYˆÛÜ\˜]Ü—Ûİ™\œšYH›ÛÛX[ˆY˜][˜[ÙKˆÜ™X\ÛÛˆ^Y˜][[ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—Ø]]X›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉ\›İİ\NÂˆ—Ù]™[X›XË™[XZ[Ù]™[É\›İİ\NÈ—Ø]X›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÉ\›İİ\NÂˆ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÈ—Ü™\İ[œÛÛ˜Â˜™YÚ[‚ˆ—ØXİÜ\X›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü›İšY\—Ü™XÛÛ˜Ú[X][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆYˆÜ™\ÛÛ][Ûˆ›İ[ˆ
+	ØXØÙ\Y	Ë	Û›İØXØÙ\Y	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\ÛÛ][Û—Ú[˜[Y	ÎÈ[™YÂˆYˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™X\ÛÛ—Ü™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆÙ[Xİ
+ˆ[È—Ø]]œ›ÛHX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÚ\™HY\Ø]]Üš^˜][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]]œİ]\Ï‰Ü™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Üİ]WÚ[˜[Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ù]™[œ›ÛHX›XË™[XZ[Ù]™[ÈÚ\™HY]—Ø]]™[XZ[Ù]™[ÚY›Üˆ\]NÂˆÙ[Xİ
+ˆ[È—Ø]œ›ÛHX›XËœ\ÙLMÜ›İšY\—Ø]\İ][ÛœÂˆÚ\™HY\Ø]\İ][Û—ÚY›Üˆ\]NÂˆYˆ›İ›İ[™Üˆ—Ø]˜]\İ][Û—ÜÛİ\˜ÙO‰Ü›İšY\—ÛÛÚİ\	ÂˆÜˆ—Ø]œ›İšY\—Ø]]œ›İšY\‚ˆÜˆ—Ø]˜]]Üš^˜][Û—ÚY\È\İ[˜İœ›ÛH—Ø]]šYˆÜˆ—Ø]™[XZ[Ù]™[ÚY\È\İ[˜İœ›ÛH—Ø]]™[XZ[Ù]™[ÚYˆÜˆ—Ø]œ›İšY\—Ü™\]Y\İÚÙ^H\È\İ[˜İœ›ÛH—Ù]™[œ›İšY\—Ü™\]Y\İÚÙ^BˆÜˆ—Ø]œ™XÛÜ™YØ]—Ø]]™\Ü]ÚÜİ\YØ]ˆÜˆ—Ø]œ™XÛÜ™YØ]˜ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHÙXÛÛ™ÉÂˆÜˆ—Ø]œ™XÛÜ™YØ]ÛØÚ×İ[Y\İ[\
+
+KZ[\˜[	ÌLZ[]\ÉÂˆÜˆ—Ø]˜]]Üš]WÙ\ØÚ—ÙØ]K˜]]Üš]WÙ\ØÚˆÜˆ—Ø]˜]]Üš^˜][Û—Üİ]\È\È\İ[˜İœ›ÛH—Ø]]œİ]\ÂˆÜˆ—Ø]˜]]Üš^˜][Û—İ\]YØ]\È\İ[˜İœ›ÛH—Ø]]\]YØ][‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]\İ][Û—Øš[™[™×ÛÜ—ØYÙWÚ[˜[Y	ÎÂˆ[™YÂˆYˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMÜ›İšY\—Ø]\İ][Û—ØÛÛœİ[\[ÛœÈÚ\™H]\İ][Û—ÚY]—Ø]šY
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]\İ][Û—Ø[™XYWØÛÛœİ[YY	ÎÂˆ[™YÂˆYˆÜ™\ÛÛ][ÛIØXØÙ\Y	È[‚ˆYˆ—Ø]œ›İšY\—Üİ]O‰ØXØÙ\Y	ÈÜˆÛØ[\ØÙJš[J—Ø]œ›İšY\—ÛY\ÜØYÙWÚY
+K	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—ØXØÙ\[˜ÙWÛ›İØ]\İY	ÎÂˆ[™YÂˆ[ÙBˆYˆ›İÛÜ\˜]Ü—Ûİ™\œšYH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—ÛÜ\˜]Ü—Ûİ™\œšYWÜ™\]Z\™Y	ÎÈ[™YÂˆYˆ—Ø]œ›İšY\—Üİ]O‰Û›İÙ›İ[™	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Û›Û—ØXØÙ\[˜ÙWÛ›İØ]\İY	ÎÈ[™YÂˆ[™YÂˆ[œÙ\[ÈX›XËœ\ÙLMÜ›İšY\—Ø]\İ][Û—ØÛÛœİ[\[ÛœÊˆ]\İ][Û—ÚY]]Üš^˜][Û—ÚYÛÛœİ[YYØKÛÛœİ[YYÜÙ\ÜÚ[Û—ÚYˆ
+H˜[Y\È
+—Ø]šY—Ø]]šY
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY
+—ØXİÜ‹O‰ÜÙ\ÜÚ[Û—ÚY	ÊN]ZY
+NÂˆYˆÜ™\ÛÛ][ÛIØXØÙ\Y	È[‚ˆ—Ü™\İ[\X›XË™š[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\J—Ø]]šY—Ø]]™[XZ[Ù]™[ÚY—Ø]œ›İšY\—ÛY\ÜØYÙWÚY
+NÂˆ[ÙBˆ\]HX›XËœ™\ÜÙ[]™\WØ]]Üš^˜][ÛœÂˆÙ]İ]\ÏIÜ™]›ÚÙY	Ë™]›ÚÙYÜ™X\ÛÛ\Ü™X\ÛÛ‹X\ÙWİÚÙ[[[X\ÙWÙ^\™\×Ø][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ø]]šY[™İ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ø]]Üš^˜][Û—ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\]HX›XË™[XZ[Ù]™[ÈÙ]ˆİ]\ÏIÙ˜Z[YØ™Y›Ü™WÜ›İšY\‰Ë\œ›Ü—ÛY\ÜØYÙO\Ü™X\ÛÛ‹™XÛÛ˜Ú[X][Û—Ø][\YØ]XÛØÚ×İ[Y\İ[\
+
+Kˆ™XÛÛ˜Ú[X][Û—Ü™\İ[ÚœÛÛZœÛÛ˜—ØZ[ÛØš™Xİ
+	Ø]\İ][Û—ÚY	Ë—Ø]šY	Ü›İšY\—Üİ]IË—Ø]œ›İšY\—Üİ]JKˆ[]™\Wİ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ø]]™[XZ[Ù]™[ÚY[™İ]\ÏIÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û—Ù[XZ[ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ—Ü™\İ[ZœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÛÛ™Y	ËYK	Ü™\ÛÛ][Û‰Ë	Û›İØXØÙ\Y	Ë	Ø]]Üš^˜][Û—ÚY	Ë—Ø]]šY
+NÂˆ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—Ø]]˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÙ[]™\WØ]]Üš^˜][ÛœÉË—Ø]]šYˆ	Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\ÛÛ™Y	ËˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÛÛ][Û‰ËÜ™\ÛÛ][Û‹	Ø]\İ][Û—ÚY	Ë—Ø]šYˆ	Ü›İšY\—ÛY\ÜØYÙWÚY	Ë—Ø]œ›İšY\—ÛY\ÜØYÙWÚY	ÛÜ\˜]Ü—Ûİ™\œšYIËÛÜ\˜]Ü—Ûİ™\œšYKˆ	Ø]]Üš]WÙ\ØÚ	Ë—ÙØ]K˜]]Üš]WÙ\ØÚ	Ü™X\ÛÛ‰ËÜ™X\ÛÛŠJNÂˆ™]\›ˆ—Ü™\İ[Â™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+Ù˜][ØY\ˆ^ÜÚ[^
+Bœ™]\›œÈ›ÚY[™İXYÙHÜÜ[[[]]X›HÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰˜™YÚ[‚ˆYˆÙ˜][ØY\\ÜÚ[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù˜][‰IËÜÚ[È[™YÂ™[™Â‰[˜İ[Û‰Â‚‹KHÛ™H]\İY\›Z[˜[X›XØ][Ûˆ˜[œØXİ[Û‹ˆİÜ˜YÙHÛÜH\È[[[Û˜[B‹KHİ]ÚYH\È˜[œØXİ[ÛÈH›İ[™š[˜[[Øš™XİÛX[\›İÈ^\İÈ™Y›Ü™B‹KHÛÜH[™\ÈÚ[™ÙYÈ™]Z[™YÛ›HÚ[ˆ]™\H]X˜\ÙHY™™XİÛÛ[Z]Ë‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠˆØ]\İ][ÛˆœÛÛ˜‹ˆÜÚYÛ˜]\™H^ˆÜ™\]Y\İÜ^[ØY^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ü^[ØYœÛÛ˜\Ü™\]Y\İÜ^[ØYšœÛÛ˜Âˆ—ØØ\Xš[]WÚY]ZYJ—Ü^[ØYO‰ØØ\Xš[]WÚY	ÊN]ZYÂˆ—ØÛZ[WİÚÙ[ˆ]ZYJ—Ü^[ØYO‰ØÛZ[WİÚÙ[‰ÊN]ZYÂˆ—Ù[š[Y[ÚY]ZYJ—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZYÂˆ—ÙÙ[™\˜][Û—Ü[—ÚY]ZYJ—Ü^[ØYO‰ÙÙ[™\˜][Û—Ü[—ÚY	ÊN]ZYÂˆ—Ü™\ÜÚY]ZYJ—Ü^[ØYO‰Ü™\ÜÚY	ÊN]ZYÂˆ—ØÛX[\ÚY]ZYJ—Ü^[ØYO‰Ùš[˜[ØÛX[\ÚY	ÊN]ZYÂˆ—Ù˜][ØY\ˆ^[[YŠ—Ü^[ØYO‰Ù˜][ØY\‰Ë	ÉÊNÂˆ—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂˆ—Ù[š[Y[X›XËœ™\ÜÙ[š[Y[É\›İİ\NÂˆ—ØÛX[\X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÂˆ—ÛØš™Xİ™XÛÜ™È—ÛÜ™\—Ü™Y™\™[˜ÙH^È—Ù]™[İ\H^È—ÛY]Y]HœÛÛ˜Â˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊO‰ÜÙ\šXÙWÜ›ÛIÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÂˆ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ø]\İ][ÛŠˆØ]\İ][Û‹ÜÚYÛ˜]\™KÜ™\]Y\İÜ^[ØY	İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][Û‰Âˆ
+NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ø]\İ][Û‰ÊNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\Xš[]WÚY^YJNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØØ\Xš[]WØÛÛ^	ÊNÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÚ\™HY]—ØØ\Xš[]WÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØØ\Xš[]WÛØÚÉÊNÂˆYˆ—ØØ\˜Ø\Xš[]Wİ\H›İ[ˆ
+	Ø]]ÛX]X×ÙÙ[™\˜][Û‰Ë	ÙÙ[™\˜][Û—Ü™XÛİ™\IÊBˆÜˆ—ØØ\™^XİYÜİ\‰İ\›Z[˜[ÜX›XØ][Û‰ÂˆÜˆ—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[ÚY[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØØ\Xš[]WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\KYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	İÛÜšÙ\—Ø]\İYÜœÉËYJNÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[]—ØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛZ[WÛØÚÉÊNÂˆYˆ—ØÛZ[Kœİ]O‰ØÛÛ[Z]Y	ÈÜˆ—ØÛZ[Kœ™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜÚYˆÜˆ—ØÛZ[K™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[ÚYˆÜˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÙÙ[™\˜][Û—ØÛZ[WÚ[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HY]—Ü™\ÜÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÛØÚÉÊNÂˆYˆ—Ü™\Üœİ]\Ï‰Ù˜Y	ÈÜˆ—Ü™\Ü›Ü™\—ÚY—ØÛZ[K›Ü™\—ÚYˆÜˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYˆÜˆ—Ü™\ÜœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYˆÜˆ—Ü™\Ü™\œÚ[Û—Û[X™\—ØÛZ[K™\œÚ[Û—Û[X™\‚ˆÜˆ—Ü™\Ü˜ÚXÚÜİ[O—ØÛZ[K™^XİYØÚXÚÜİ[BˆÜˆ—Ü™\ÜœİÜ˜YÙWØXÚÙ]—ØÛZ[K[\Ü˜\WÜİÜ˜YÙWØXÚÙ]ˆÜˆ—Ü™\ÜœİÜ˜YÙWÜ]—ØÛZ[K[\Ü˜\WÜİÜ˜YÙWÜ][‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ü™\ÜØÛZ[WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ù[š[Y[œ›ÛHX›XËœ™\ÜÙ[š[Y[ÂˆÚ\™HY]—Ù[š[Y[ÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[š[Y[ÛØÚÉÊNÂˆYˆ—Ù[š[Y[›Ü™\—ÚY—ØÛZ[K›Ü™\—ÚYˆÜˆ—Ù[š[Y[˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYˆÜˆ—Ù[š[Y[œØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYˆÜˆ—Ù[š[Y[œİ]\È›İ[ˆ
+	ÜİÜš[™ÉË	Ü™[™\š[™ÉË	ÙÙ[™\˜][™ÉË	İ˜[Y][™ÉË	Ø\ÜÙ[X›[™ÉÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù[š[Y[Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØÛX[\œ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÚ\™HY]—ØÛX[\ÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛX[\ÛØÚÉÊNÂˆYˆ—ØÛX[\œİÜ˜YÙWØXÚÙ]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆÜˆ—ØÛX[\œİÜ˜YÙWÜ]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ˆÜˆ—ØÛX[\™^XİYØÚXÚÜİ[O—ØÛZ[K™^XİYØÚXÚÜİ[BˆÜˆ—ØÛX[\œ™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜšYˆÜˆ—ØÛX[\›İÛ™\—ØØ\Xš[]WÚY\È\İ[˜İœ›ÛH—ØØ\šYˆÜˆ—ØÛX[\œİ]\È›İ[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÛÜœ[—ØÛX[\Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆÙ[XİÜ™\—Ü™Y™\™[˜ÙH[ÈİšXİ—ÛÜ™\—Ü™Y™\™[˜ÙHœ›ÛHX›XË›Ü™\œÂˆÚ\™HY]—ØÛZ[K›Ü™\—ÚYÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÛÜ™\—Ü™XY	ÊNÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆ—ÛÜ™\—Ü™Y™\™[˜ÙK—ØÛZ[K›Ü™\—ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÚ[œ]Ú\Úˆ
+NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[][Y[	ÊNÂˆÙ[XİÛË˜XÚÙ]ÚYÛË›˜[YKÛË›Y]Y]H[ÈİšXİ—ÛØš™Xİˆœ›ÛHİÜ˜YÙK›Øš™XİÈÛÂˆÚ\™HÛË˜XÚÙ]ÚY]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ][™ÛË›˜[YO]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]Âˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÜİÜ˜YÙWØš[™[™ÉÊNÂˆYˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÛZ[Y]\IË	ÉÊO‰Ø\XØ][Û‹Ü‰ÂˆÜˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÜÚLM‰Ë—ÛØš™Xİ›Y]Y]KO‰ÛY]Y]IËO‰ÜÚLM‰Ë	ÉÊBˆ—ØÛZ[K™^XİYØÚXÚÜİ[H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÜİÜ˜YÙWØÚXÚÜİ[WÚ[˜[Y	ÎÂˆ[™YÂˆYˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÏIÜİ\\œÙYY	Ë\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY[™İ]\È›İ[ˆ
+	İ›ÚYY	Ë	Üİ\\œÙYY	ÊNÂˆ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™]š[İ\×Ü™\ÜÜİ\\œÙ\ÜÚ[Û‰ÊNÂˆ\]HX›XËœ™\ÜÈÙ]ˆİ]\ÏIÙÙ[™\˜]Y	ËİÜ˜YÙWØXÚÙ]]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆİÜ˜YÙWÜ]]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]Ù[™\˜][Û—Ü[—ÚY]—ÙÙ[™\˜][Û—Ü[—ÚYˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü™\ÜšY[™İ]\ÏIÙ˜Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ü™\ÜØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÜX›XØ][Û‰ÊNÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÈÙ]™\ÜÚY]—Ü™\ÜšYİ]\ÏIİ\ÙY	ÂˆÚ\™HY]—ÙÙ[™\˜][Û—Ü[—ÚY[™[š[Y[ÚY]—Ù[š[Y[šYˆ[™
+™\ÜÚY\È[Üˆ™\ÜÚY]—Ü™\ÜšY
+NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÙÙ[™\˜][Û—Ü[—Û[š×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÙÙ[™\˜][Û—Ü[—Û[šÉÊNÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÙ]İ]OIÜÙ]Y	Ë\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+K\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HÛZ[WİÚÙ[]—ØÛZ[K˜ÛZ[WİÚÙ[ˆ[™İ]OIØÛÛ[Z]Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØÛZ[WÜÙ][Y[Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛZ[WÜÙ][Y[	ÊNÂˆ\]HX›XËœ™\ÜÙ[š[Y[ÈÙ]ˆİ]\ÏIÜ™XYWÙ›Ü—Ù[]™\IËİ\œ™[Üİ\IÜ™XYWÙ›Ü—Ù[XZ[Ù[]™\IËˆÙ[™\˜][Û—Û[ÙO]—Ü^[ØYO‰ÙÙ[™\˜][Û—Û[ÙIË™\ÜÚY]—Ü™\ÜšYˆ\İÙ\œ›Ü—ØÛÙO[[\İÙ\œ›Ü—ÛY\ÜØYÙO[[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ù[š[Y[šY[™İ]\Ï]—Ù[š[Y[œİ]\ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù[š[Y[ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[š[Y[İ˜[œÚ][Û‰ÊNÂˆ—Ù]™[İ\NXØ\ÙHÚ[ˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È[[ˆ	ÙÙ[™\˜]Y	È[ÙH	Ü™YÙ[™\˜]Y	È[™Âˆ—ÛY]Y]NXÛØ[\ØÙJ—Ü^[ØYO‰ÛY]Y]IË	ŞßIÎšœÛÛ˜Š_œÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	İÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\šY	Ø]]Üš]WÙ\ØÚ	Ë—ØØ\˜]]Üš]WÙ\ØÚˆ	ÙÙ[™\˜][Û—Ü[—ÚY	Ë—ÙÙ[™\˜][Û—Ü[—ÚY	Ù[š[Y[ÚY	Ë—Ù[š[Y[šYˆ
+NÂˆ[œÙ\[ÈX›XËœ™\ÜÙ]™[Ê™\ÜÚY]™[İ\KXİÜ—İ\Ù\—ÚY›İKY]Y]WÚœÛÛŠBˆ˜[Y\È
+—Ü™\ÜšY—Ù]™[İ\K[	Ğ]ÛZXÈ\›Z[˜[Ù[™\˜][ÛˆX›XØ][Û‹‰Ë—ÛY]Y]JNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÙ]™[	ÊNÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\K\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ÜŞ\İ[IË—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÉË—Ü™\ÜšYˆØ\ÙHÚ[ˆ—Ù]™[İ\OIÙÙ[™\˜]Y	È[ˆ	Ü™[Z][WÜ™\ÜÙÙ[™\˜]Y	È[ÙH	Ü™[Z][WÜ™\ÜÜ™YÙ[™\˜]Y	È[™ˆ—ÛY]Y]_œÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÜÜ™Y™\™[˜ÙIË—Ü™\Üœ™\ÜÜ™Y™\™[˜ÙJJNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ø]Y]Ù]™[	ÊNÂˆ[œÙ\[ÈX›XË˜\ÜÙ\ÜÛY[Ù]™[Êˆ\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY]™[İ\KY\WÚÙ^KY]Y]WÚœÛÛ‚ˆ
+H˜[Y\È
+ˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY—Ü™\Ü›Ü™\—ÚY—Ü™\ÜšY	Ü™\ÜÙÙ[™\˜]Y	Ëˆ	Ü\ÙLM]\›Z[˜[YÙ[™\˜][Û‰ß—ØÛZ[K˜ÛZ[WİÚÙ[‹—ÛY]Y]Bˆ
+NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ø\ÜÙ\ÜÛY[Ù]™[	ÊNÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]ˆİ]\ÏIÜ™]Z[™Y	Ë\İÙ\œ›Ü[[™\šYšXØ][Û—Ù\œ›Ü[[ˆX\ÙWÛİÛ™\—ØØ\Xš[]WÚY[[X\ÙWİÚÙ[[[X\ÙWÙ^\™\×Ø][[ˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØÛX[\šY[™İ]\È[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØÛX[\İ˜[œÚ][Û—Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛX[\İ˜[œÚ][Û‰ÊNÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]ˆİ]\ÏIØÛÛœİ[YY	ËÛÛœİ[YYØ]XÛØÚ×İ[Y\İ[\
+
+KX\ÙWÛİÛ™\[[ˆX\ÙWÜÙXÜ™]Ú\Ú[[X\ÙWÙ^\™\×Ø][[\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+KˆX\ÙWÙÙ[™\˜][Û[X\ÙWÙÙ[™\˜][ÛŠÌK^XİYÜİ\IØÛÛœİ[YY	Ë\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØØ\šY[™İ]\ÏIÛX\ÙY	È[™X\ÙWÙÙ[™\˜][Û]—ØØ\›X\ÙWÙÙ[™\˜][ÛÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØØ\Xš[]WØÛÛœİ[\[Û—Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØØ\Xš[]WØÛÛœİ[\[Û‰ÊNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛÛ\]Y	ËYK	Ü™\ÜÚY	Ë—Ü™\ÜšYˆ	Ù[š[Y[ÚY	Ë—Ù[š[Y[šY	ÙÙ[™\˜][Û—Ü[—ÚY	Ë—ÙÙ[™\˜][Û—Ü[—ÚYˆ	Ùš[˜[ÜİÜ˜YÙWØXÚÙ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆ	Ùš[˜[ÜİÜ˜YÙWÜ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]	ØÚXÚÜİ[IË—ØÛZ[K™^XİYØÚXÚÜİ[Kˆ	İ™\œÚ[Û—Û[X™\‰Ë—Ü™\Ü™\œÚ[Û—Û[X™\‹	Üİ\\œÙYYÜ™\ÜÚY	Ë—Ü™\Üœİ\\œÙY\×Ü™\ÜÚYˆ	ÛX\ÙWÙÙ[™\˜][Û‰Ë—ØØ\›X\ÙWÙÙ[™\˜][ÛŠÌK	Ù^XİYÜİ\	Ë	ØÛÛœİ[YY	ÊNÂ™[™Â‰[˜İ[Û‰Â‚‹KH[›Û‹]\›Z[˜[ÛÜšÙ\ˆ˜[œÚ][ÛœÈ[\ˆ›İYÚ\ÈÚ[™ÛH]\İY‹KH\Ü]Ú\‹ˆYØXŞHÛÜšÙ\ˆ˜XØY\È™[XZ[ˆØ[X›HÛ›HHZ\ˆİÛ™\ˆ[™‹KH\™H™]™\ˆÜ˜[YÈH[[YH›ÛK‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™^Xİ]WÜ\ÙLMİÛÜšÙ\—Üİ\
+ˆØ]\İ][ÛˆœÛÛ˜‹ˆÜÚYÛ˜]\™H^ˆÜ™\]Y\İÜ^[ØY^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ü^[ØYœÛÛ˜\Ü™\]Y\İÜ^[ØYšœÛÛ˜È—ØXİ[Ûˆ^\Ø]\İ][Û‹O‰ØXİ[Û‰ÎÂˆ—ØØ\Xš[]WÚY]ZYJØ]\İ][Û‹O‰ØØ\Xš[]WÚY	ÊN]ZYÂˆ—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—Ü™\İ[œÛÛ˜È—Û™^^Âˆ—İ\›Z[˜[›ÛÛX[Y˜[ÙNÂ˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊO‰ÜÙ\šXÙWÜ›ÛIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ø]\İ][ÛŠØ]\İ][Û‹ÜÚYÛ˜]\™KÜ™\]Y\İÜ^[ØY—ØXİ[ÛŠNÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HY]—ØØ\Xš[]WÚY›Üˆ\]NÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\šY^YJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\KYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	İÛÜšÙ\—Ø]\İYÜœÉËYJNÂ‚ˆØ\ÙH—ØXİ[Û‚ˆÚ[ˆ	ØÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰È[‚ˆYˆ—ØØ\œİ]\ÏIÛX\ÙY	È[™—ØØ\›X\ÙWÙ^\™\×Ø]˜ÛØÚ×İ[Y\İ[\
+
+Bˆ[™—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚY\È\İ[˜İœ›ÛHØ]\İ][Û‹O‰Ù^Xİ][Û—ÚY	È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØ[™XYWÛX\ÙY	ÎÂˆ[™YÂˆ—Û™^XØ\ÙH—ØØ\˜Ø\Xš[]Wİ\BˆÚ[ˆ	Ø]]ÛX]X×ÙÙ[™\˜][Û‰È[ˆ	İÛÜšÙ›İ×Üİ\ØÛZ[IÂˆÚ[ˆ	ÙÙ[™\˜][Û—Ü™XÛİ™\IÈ[ˆ	ÙÙ[™\˜][Û—ØÛZ[IÂˆÚ[ˆ	Ø]]ÛX]X×Ù[]™\IÈ[ˆ	Ù[]™\WØ]]Üš^™IÂˆÚ[ˆ	Ù[]™\WÜ™XÛÛ˜Ú[X][Û‰È[ˆ	Ù[]™\WÜ™XÛÛ˜Ú[IÂˆÚ[ˆ	ÜİÜ˜YÙWØÛX[\	È[ˆ	ØÛX[\Ù^\™IÈ[™Âˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]ˆİ]\ÏIÛX\ÙY	ËÛÜšÙ›İ×Ù^Xİ][Û—ÚY\Ø]\İ][Û‹O‰Ù^Xİ][Û—ÚY	ËˆX\ÙWÛİÛ™\\Ø]\İ][Û‹O‰Ù^Xİ][Û—ÚY	ËX\ÙWÙ^\™\×Ø][X\İ
+^\™\×Ø]ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍŒZ[]\ÉÊKˆX\ÙWÙÙ[™\˜][Û[X\ÙWÙÙ[™\˜][ÛŠÌK^XİYÜİ\]—Û™^ˆZÙ[İ™\—ØÛİ[]ZÙ[İ™\—ØÛİ[
+ØØ\ÙHÚ[ˆİ]\ÏIÛX\ÙY	È[™X\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[ˆH[ÙH[™ˆÛZ[YYØ]XÛØ[\ØÙJÛZ[YYØ]ÛØÚ×İ[Y\İ[\
+
+JK\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+K\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØØ\šY™]\›š[™È
+ˆ[È—ØØ\Âˆ—Ü™\İ[ZœÛÛ˜—ØZ[ÛØš™Xİ
+	ØØ\Xš[]WÚY	Ë—ØØ\šY	ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\Kˆ	ÛÜ\˜][Û—ÚÙ^IË—ØØ\›Ü\˜][Û—ÚÙ^K	Ù^Xİ][Û—ÚY	Ë—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚYˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØØ\›X\ÙWÙ^\™\×Ø]	Ø]]Üš]WÙ\ØÚ	Ë—ØØ\˜]]Üš]WÙ\ØÚ
+NÂˆÚ[ˆ	ØÛZ[WÜ™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰İÛÜšÙ›İ×Üİ\ØÛZ[IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\\ÙLMÜš]˜]K˜ÛZ[WİÛÜšÙ›İ×Üİ\
+—ØØ\šY
+—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZY—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚY
+NÂˆ—Û™^IİÛÜšÙ›İ×Üİ\Ù\Ü]Ú	ÎÂˆÚ[ˆ	ÛX\š×Ü\ÙLMİÛÜšÙ›İ×Üİ\Ù\Ü]Ú[™ÉÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰İÛÜšÙ›İ×Üİ\Ù\Ü]Ú	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\\ÙLMÜš]˜]K›X\š×İÛÜšÙ›İ×Üİ\İ[˜Ù\Z[Š—ØØ\šY
+—Ü^[ØYO‰Ûİ]›ŞÚY	ÊN]ZY
+NÂˆ—Û™^IİÛÜšÙ›İ×Üİ\ÜÙ]IÎÂˆÚ[ˆ	Ü™XÛÜ™Ü™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰İÛÜšÙ›İ×Üİ\ÜÙ]IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\\ÙLMÜš]˜]KœÙ]WİÛÜšÙ›İ×Üİ\
+—ØØ\šY
+—Ü^[ØYO‰Ûİ]›ŞÚY	ÊN]ZYˆ[YŠ—Ü^[ØYO‰Ü[—ÚY	Ë	ÉÊK[YŠ—Ü^[ØYO‰Ù\œ›Ü‰Ë	ÉÊJNÂˆ—Û™^XØ\ÙHÚ[ˆÛØ[\ØÙJ—Ü™\İ[O‰Üİ]\ÉË	ÉÊOIÜİ\Y	È[ˆ	ÙÙ[™\˜][Û—ØÛZ[IÈ[ÙH	İÛÜšÙ›İ×Üİ\Ü™XÛÛ˜Ú[IÈ[™ÂˆÚ[ˆ	İÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û‰È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ÙÙ[™\˜][Û—ØÛZ[IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ—ØØ\šYˆ—Ü^[ØYO‰ÛÜ™\—Ü™Y™\™[˜ÙIË—Ü^[ØYO‰ØÛZ[WÛİÛ™\‰Ë
+—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZYˆ
+—Ü^[ØYO‰Ü™\Üİ\IÊNœX›XËœ™\Üİ\JNÂˆ—Û™^IÙ[š[Y[Ø\ÜÙ[X›[™ÉÎÂˆÚ[ˆ	İÛÜšÙ\—Ü™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[IÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰ÙÙ[™\˜][Û—ØÛZ[IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—Ü™XÛİ™\—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J—ØØ\šYˆ—Ü^[ØYO‰ÛÜ™\—Ü™Y™\™[˜ÙIË—Ü^[ØYO‰ØÛZ[WÛİÛ™\‰Ë
+—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZY
+NÂˆ—Û™^IØÛX[\Ü™YÚ\İ\—Ü™XÛİ™\Wİ[\	ÎÂˆÚ[ˆ	İ˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[	È[‚ˆYˆ
+—ØØ\™^XİYÜİ\IÙ[š[Y[Ø\ÜÙ[X›[™ÉÈ[™—Ü^[ØYO‰Üİ]\ÉÏIØ\ÜÙ[X›[™ÉÊH[‚ˆ—Û™^IÛ˜\œ˜]]™WÙXÚ\Ú[Û‰ÎÂˆ[ÚYˆ
+—ØØ\™^XİYÜİ\IÛ˜\œ˜]]™WÙXÚ\Ú[Û‰È[™—Ü^[ØYO‰Üİ]\ÉÈ[ˆ
+	ÙÙ[™\˜][™ÉË	İ˜[Y][™ÉÊJH[‚ˆ—Û™^XØ\ÙHÚ[ˆ—Ü^[ØYO‰Üİ]\ÉÏIÙÙ[™\˜][™ÉÈ[ˆ	ØZWØÚXÚÜÚ[	È[ÙH	ÙÙ[™\˜][Û—ÛX\ÙWÜ™[™]ÉÈ[™Âˆ[ÚYˆ
+—ØØ\™^XİYÜİ\IÙ[š[Y[Ü™[™\š[™ÉÈ[™—Ü^[ØYO‰Üİ]\ÉÏIÜ™[™\š[™ÉÊH[‚ˆ—Û™^IØÛX[\Ü™YÚ\İ\—İ[\	ÎÂˆ[ÚYˆ
+—ØØ\™^XİYÜİ\IÙ[š[Y[ÜİÜš[™ÉÈ[™—Ü^[ØYO‰Üİ]\ÉÏIÜİÜš[™ÉÊH[‚ˆ—Û™^IÙ˜YØÛÛ[Z]	ÎÂˆ[ÙH˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XË˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[
+—ØØ\šYˆ
+—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZY—Ü^[ØYO‰Üİ]\ÉË—Ü^[ØYO‰Øİ\œ™[Üİ\	Ëˆ[YŠ—Ü^[ØYO‰ÙÙ[™\˜][Û—Û[ÙIË	ÉÊK[YŠ—Ü^[ØYO‰Ü™\ÜÚY	Ë	ÉÊN]ZYˆÛØ[\ØÙJ
+—Ü^[ØYO‰Ú[˜Ü™[Y[Ø][\	ÊN˜›ÛÛX[‹˜[ÙJK[YŠ—Ü^[ØYO‰Ù\œ›Ü—ØÛÙIË	ÉÊKˆ[YŠ—Ü^[ØYO‰Ù\œ›Ü—ÛY\ÜØYÙIË	ÉÊJNÂˆÚ[ˆ	Ø]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[Û‰È[‚ˆYˆ—ØØ\™^XİYÜİ\›İ[ˆ
+	ØZWØÚXÚÜÚ[	Ë	ØZWÛÜ—Ü™[™]ÉÊBˆÜˆ—Ü^[ØYO‰ØXİ[Û‰Ï‰ØZWÛ˜\œ˜]]™WÙÙ[™\˜][Û‰È[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XË˜]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[ÛŠ—ØØ\šY	ØZWÛ˜\œ˜]]™WÙÙ[™\˜][Û‰ÊNÂˆ—Û™^IØZWØ][\ØÛZ[IÎÂˆÚ[ˆ	ØÛZ[WÜ\ÙLMØZWØ][\	È[‚ˆYˆ—ØØ\™^XİYÜİ\›İ[ˆ
+	ØZWØ][\ØÛZ[IË	ØZWÛÜ—Ü™[™]ÉÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XË˜ÛZ[WÜ\ÙLMØZWØ][\
+—ØØ\šYÛØ[\ØÙJ—Ü^[ØYO‰Ø][\	Ë	ŞßIÎšœÛÛ˜ŠJNÂˆ—Û™^IØZWØ][\ÜÙ]IÎÂˆÚ[ˆ	ÜÙ]WÜ\ÙLMØZWØ][\	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØZWØ][\ÜÙ]IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËœÙ]WÜ\ÙLMØZWØ][\
+—ØØ\šY
+—Ü^[ØYO‰Ø][\ÚY	ÊN]ZYˆÛØ[\ØÙJ—Ü^[ØYO‰Ü™\İ[	Ë	ŞßIÎšœÛÛ˜ŠJNÂˆ—Û™^IØZWÛÜ—Ü™[™]ÉÎÂˆÚ[ˆ	İÛÜšÙ\—Ü™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙIÈ[‚ˆYˆ—ØØ\™^XİYÜİ\›İ[ˆ
+	ÙÙ[™\˜][Û—ÛX\ÙWÜ™[™]ÉË	ØZWÛÜ—Ü™[™]ÉÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—Ü™[™]×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ÛX\ÙJ—ØØ\šYˆ
+—Ü^[ØYO‰ØÛZ[WİÚÙ[‰ÊN]ZY
+JNÂˆ—Û™^IÙÙ[™\˜][Û—Ü[—Ü™XÛÜ™	ÎÂˆÚ[ˆ	Ü™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[‰È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ÙÙ[™\˜][Û—Ü[—Ü™XÛÜ™	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š—ØØ\šYˆ
+—Ü^[ØYO‰Ù[š[Y[ÚY	ÊN]ZYÛØ[\ØÙJ—Ü^[ØYO‰Ü[‰Ë	ŞßIÎšœÛÛ˜ŠJJNÂˆ—Û™^IÙ[š[Y[Ü™[™\š[™ÉÎÂˆÚ[ˆ	İÛÜšÙ\—Ü™YÚ\İ\—Ü\ÙLMÜİÜ˜YÙWØÛX[\	È[‚ˆYˆ—ØØ\™^XİYÜİ\IØÛX[\Ü™YÚ\İ\—İ[\	È[ˆ—Û™^IÙ[š[Y[ÜİÜš[™ÉÎÂˆ[ÚYˆ—ØØ\™^XİYÜİ\IØÛX[\Ü™YÚ\İ\—Ü™XÛİ™\Wİ[\	È[ˆ—Û™^IØÛX[\Û[š×İ[\	ÎÂˆ[ÚYˆ—ØØ\™^XİYÜİ\IØÛX[\Ü™YÚ\İ\—Ùš[˜[	È[ˆ—Û™^IØÛX[\İ[\ÜÙ]IÎÂˆ[ÙH˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—Ü™YÚ\İ\—Ü\ÙLMÜİÜ˜YÙWØÛX[\
+—ØØ\šYˆ—Ü^[ØYO‰ÜİÜ˜YÙWØXÚÙ]	Ë—Ü^[ØYO‰ÜİÜ˜YÙWÜ]	Ë—Ü^[ØYO‰Ù^XİYØÚXÚÜİ[IËˆ[YŠ—Ü^[ØYO‰ØÛZ[WİÚÙ[‰Ë	ÉÊN]ZY—Ü^[ØYO‰Ü™X\ÛÛ‰ÊJNÂˆYˆ—ØØ\™^XİYÜİ\IØÛX[\Ü™YÚ\İ\—Ùš[˜[	È[‚ˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]™\ÜÚYJ—Ü^[ØYO‰Ü™\ÜÚY	ÊN]ZYˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HYJ—Ü™\İ[Ï‰ŞßIÊN]ZY[™İÛ™\—ØØ\Xš[]WÚY]—ØØ\šY[™™\ÜÚY\È[ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙš[˜[ØÛX[\Ü™\ÜØš[™[™×Ù˜Z[Y	ÎÈ[™YÂˆ[™YÂˆÚ[ˆ	İÛÜšÙ\—ØÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù˜YØÛÛ[Z]	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—ØÛÛ[Z]Ü™[Z][WÜ™\ÜÙ˜Y
+—ØØ\šYˆ
+—Ü^[ØYO‰ØÛZ[WİÚÙ[‰ÊN]ZY
+—Ü^[ØYO‰İ[\]WÚY	ÊN]ZYˆ—Ü^[ØYO‰ÜİÜ˜YÙWØXÚÙ]	Ë—Ü^[ØYO‰İ[\ÜİÜ˜YÙWÜ]	Ë—Ü^[ØYO‰ØÚXÚÜİ[IËˆ
+—Ü^[ØYO‰ÙÙ[™\˜][Û—Ü[—ÚY	ÊN]ZY
+JNÂˆ—Û™^IØÛX[\Û[š×İ[\	ÎÂˆÚ[ˆ	İÛÜšÙ\—Û[š×Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\Ü	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØÛX[\Û[š×İ[\	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—Û[š×Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\Ü
+—ØØ\šYˆ
+—Ü^[ØYO‰ØÛX[\ÚY	ÊN]ZY
+—Ü^[ØYO‰Ü™\ÜÚY	ÊN]ZY
+JNÂˆ—Û™^IØÛX[\Ü™YÚ\İ\—Ùš[˜[	ÎÂˆÚ[ˆ	İÛÜšÙ\—Ü™XÛÜ™Ü\ÙLMÜİÜ˜YÙWØÛX[\Ü™\İ[	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØÛX[\İ[\ÜÙ]IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\\ÙLMÜš]˜]KœÙ]WÛİÛ™YÜİÜ˜YÙWØÛX[\
+—ØØ\šYˆ
+—Ü^[ØYO‰ØÛX[\ÚY	ÊN]ZY
+—Ü^[ØYO‰Ù[][Û—Ü™\]Y\İY	ÊN˜›ÛÛX[‹ˆ
+—Ü^[ØYO‰Ù[]WØ\WØXØÙ\Y	ÊN˜›ÛÛX[‹—Ü^[ØYO‰Ü›İšY\—Ü™\İ[ØÛ\ÜÉËˆ[YŠ—Ü^[ØYO‰Ù\œ›Ü‰Ë	ÉÊJNÂˆ—Û™^Iİ\›Z[˜[ÜX›XØ][Û‰ÎÂˆÚ[ˆ	İÛÜšÙ\—ØX˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[IÈ[‚ˆYˆ—ØØ\™^XİYÜİ\›İ[ˆ
+	Ù[š[Y[Ø\ÜÙ[X›[™ÉË	Û˜\œ˜]]™WÙXÚ\Ú[Û‰Ë	ØZWØÚXÚÜÚ[	Ë	ØZWØ][\ØÛZ[IËˆ	ØZWØ][\ÜÙ]IË	ØZWÛÜ—Ü™[™]ÉË	ÙÙ[™\˜][Û—ÛX\ÙWÜ™[™]ÉË	ÙÙ[™\˜][Û—Ü[—Ü™XÛÜ™	Ë	Ù[š[Y[Ü™[™\š[™ÉËˆ	ØÛX[\Ü™YÚ\İ\—İ[\	Ë	Ù[š[Y[ÜİÜš[™ÉË	Ù˜YØÛÛ[Z]	ÊH[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—ØX˜[™Û—Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—ØÛZ[J—ØØ\šYˆ
+—Ü^[ØYO‰ØÛZ[WİÚÙ[‰ÊN]ZY—Ü^[ØYO‰Ü™X\ÛÛ‰ÊJNÂˆ—Û™^IØÛÛœİ[YY	ÎÈ—İ\›Z[˜[]YNÂˆÚ[ˆ	İÛÜšÙ\—Ø]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\IÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\WØ]]Üš^™IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—Ø]]Üš^™WÜ™[Z][WÜ™\ÜÙ[]™\J—ØØ\šY
+—Ü^[ØYO‰Ü™\ÜÚY	ÊN]ZYˆ—Ü^[ØYO‰Ü™XÚ\Y[	Ë—Ü^[ØYO‰Ü›İšY\‰ÊNÈ—Û™^IÙ[]™\WØÛZ[IÎÂˆÚ[ˆ	İÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\IÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\WØÛZ[IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—ØÛZ[WÜ™[Z][WÜ™\ÜÙ[]™\J—ØØ\šY
+—Ü^[ØYO‰Ø]]Üš^˜][Û—ÚY	ÊN]ZY
+NÂˆ—Û™^IÙ[]™\WÙ\Ü]ÚÜİ\	ÎÂˆÚ[ˆ	İÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\WÙ\Ü]ÚÜİ\	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÙ\Ü]ÚÜİ\Y
+—ØØ\šYˆ
+—Ü^[ØYO‰Ø]]Üš^˜][Û—ÚY	ÊN]ZY
+—Ü^[ØYO‰Ù[]™\WÛX\ÙWİÚÙ[‰ÊN]ZY
+JNÂˆ—Û™^IÙ[]™\Wİ\›Z[˜[	ÎÂˆÚ[ˆ	İÛÜšÙ\—Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\IÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\Wİ\›Z[˜[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\J—ØØ\šYˆ
+—Ü^[ØYO‰Ø]]Üš^˜][Û—ÚY	ÊN]ZY
+—Ü^[ØYO‰Ù[XZ[Ù]™[ÚY	ÊN]ZYˆ—Ü^[ØYO‰Ü›İšY\—ÛY\ÜØYÙWÚY	ÊNÈ—Û™^IØÛÛœİ[YY	ÎÈ—İ\›Z[˜[]YNÂˆÚ[ˆ	İÛÜšÙ\—Ù˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\WÙ\Ü]ÚÜİ\	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—Ù˜Z[Ü™[Z][WÜ™\ÜÙ[]™\WØ™Y›Ü™WÙ\Ü]Ú
+—ØØ\šYˆ
+—Ü^[ØYO‰Ø]]Üš^˜][Û—ÚY	ÊN]ZY
+—Ü^[ØYO‰Ù[]™\WÛX\ÙWİÚÙ[‰ÊN]ZY—Ü^[ØYO‰Ü™X\ÛÛ‰ÊJNÂˆ—Û™^IØÛÛœİ[YY	Îİ—İ\›Z[˜[]YNÂˆÚ[ˆ	İÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y	È[‚ˆYˆ—ØØ\™^XİYÜİ\‰Ù[]™\Wİ\›Z[˜[	È[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[]×ÚœÛÛ˜ŠX›XËÛÜšÙ\—ÛX\š×Ü™[Z][WÜ™\ÜÙ[]™\WÜ™XÛÛ˜Ú[X][Û—Ü™\]Z\™Y
+—ØØ\šYˆ
+—Ü^[ØYO‰Ø]]Üš^˜][Û—ÚY	ÊN]ZY[YŠ—Ü^[ØYO‰Ü›İšY\—ÛY\ÜØYÙWÚY	Ë	ÉÊK—Ü^[ØYO‰Ü™X\ÛÛ‰ÊJNÂˆ—Û™^IÙ[]™\WÜ™XÛÛ˜Ú[IÎÂˆÚ[ˆ	İÛÜšÙ\—ØÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\ÉÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØÛX[\Ù^\™IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XËÛÜšÙ\—ØÛX[\Ù^\™YÜ™[Z][WÜ™\ÜØÛZ[\Ê—ØØ\šY
+—Ü^[ØYO‰ÛÛ\—İ[‰ÊNš[\˜[
+NÂˆ—Û™^IØÛX[\ØÛZ[WÚ›ØœÉÎÂˆÚ[ˆ	ØÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÉÈ[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØÛX[\ØÛZ[WÚ›ØœÉÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\X›XË˜ÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÊ—ØØ\šY
+—Ü^[ØYO‰Û[Z]	ÊNš[YÙ\ŠNÂˆ—Û™^IØÛX[\ÜÙ]IÎÂˆÚ[ˆ	ØÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›Ø‰È[‚ˆYˆ—ØØ\™^XİYÜİ\‰ØÛX[\ÜÙ]IÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[\\ÙLMÜš]˜]KœÙ]WÜİÜ˜YÙWØÛX[\
+—ØØ\šY
+—Ü^[ØYO‰ØÛX[\ÚY	ÊN]ZYˆ
+—Ü^[ØYO‰İÛÜš×ÛX\ÙWİÚÙ[‰ÊN]ZY—Ü^[ØYO‰Ù^XİYØXÚÙ]	Ë—Ü^[ØYO‰Ù^XİYÜ]	Ëˆ—Ü^[ØYO‰Ù^XİYØÚXÚÜİ[IË
+—Ü^[ØYO‰Ù[][Û—Ü™\]Y\İY	ÊN˜›ÛÛX[‹ˆ
+—Ü^[ØYO‰Ù[]WØ\WØXØÙ\Y	ÊN˜›ÛÛX[‹—Ü^[ØYO‰Ü›İšY\—Ü™\İ[ØÛ\ÜÉËˆ[YŠ—Ü^[ØYO‰Ù\œ›Ü‰Ë	ÉÊJNÂˆ—Û™^IØÛX[\ÜÙ]IÎÂˆÚ[ˆ	Ü™[™]×Ü\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰È[‚ˆYˆ—ØØ\˜Ø\Xš[]Wİ\O‰ÜİÜ˜YÙWØÛX[\	ÈÜˆ—ØØ\™^XİYÜİ\‰ØÛX[\ÜÙ]IÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\Ûİ]ÛÙ—ÛÜ™\‰ÎÈ[™YÂˆ—Ü™\İ[ZœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™[™]ÙY	ËYJNÂˆ—Û™^IØÛX[\Ù^\™IÎÂˆ[ÙH˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØXİ[Û—İ[šÛ›İÛ‰IË—ØXİ[ÛÂˆ[™Ø\ÙNÂ‚ˆYˆ—ØXİ[Û‰ØÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰È[‚ˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]ˆİ]\ÏXØ\ÙHÚ[ˆ—İ\›Z[˜[[ˆ	ØÛÛœİ[YY	È[ÙHİ]\È[™ˆÛÛœİ[YYØ]XØ\ÙHÚ[ˆ—İ\›Z[˜[[ˆÛØÚ×İ[Y\İ[\
+
+H[ÙHÛÛœİ[YYØ][™ˆX\ÙWÛİÛ™\XØ\ÙHÚ[ˆ—İ\›Z[˜[[ˆ[[ÙHX\ÙWÛİÛ™\ˆ[™ˆX\ÙWÙ^\™\×Ø]XØ\ÙHÚ[ˆ—İ\›Z[˜[[ˆ[[ÙHX\İ
+^\™\×Ø]ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍŒZ[]\ÉÊH[™ˆX\ÙWÙÙ[™\˜][Û[X\ÙWÙÙ[™\˜][ÛŠÌK^XİYÜİ\]—Û™^ˆ\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+K\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØØ\šY[™İ]\ÏXØ\ÙHÚ[ˆ—İ\›Z[˜[[™—ØXİ[ÛIİÛÜšÙ\—Ùš[˜[^™WÜ™[Z][WÜ™\ÜÙ[]™\IÂˆ[ˆ	ØÛÛœİ[YY	È[ÙH	ÛX\ÙY	È[™ˆ™]\›š[™È
+ˆ[È—ØØ\ÂˆKH[]™\Hš[˜[^˜][Û‰ÜÈYØXŞH[\›˜[ÛÛœİ[Y\ÈHØ\Xš[]H]Ù[‹‚ˆYˆ›İ›İ[™[™›İ
+—İ\›Z[˜[[™^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÚ\™HY]—ØØ\Xš[]WÚY[™İ]\ÏIØÛÛœİ[YY	ÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Üİ\ØY˜[˜ÙWØØ\×Ù˜Z[Y	ÎÂˆ[™YÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\İ[	Ë—Ü™\İ[	ØØ\Xš[]WÚY	Ë—ØØ\Xš[]WÚYˆ	ÛX\ÙWÙÙ[™\˜][Û‰Ë—ØØ\›X\ÙWÙÙ[™\˜][Û‹	Ù^XİYÜİ\	Ë—Û™^ˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØØ\›X\ÙWÙ^\™\×Ø]	Ø]]Üš]WÙ\ØÚ	Ë—ØØ\˜]]Üš]WÙ\ØÚ
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™Ù]Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ØÛÛ^
+ØØ\Xš[]WÚY]ZY
+Bœ™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂ˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊO‰ÜÙ\šXÙWÜ›ÛIÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÈ[™YÂˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HY\ØØ\Xš[]WÚY›ÜˆÚ\™NÂˆYˆ›İ›İ[™Üˆ—ØØ\œİ]\È›İ[ˆ
+	Ø]]Üš\ÙY	Ë	ÛX\ÙY	ÊHÜˆ—ØØ\™^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØÛÛ^İ[˜]˜Z[X›IÎÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ—ÙØ]Kœİ]\Ï‰ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Û‚ˆÜˆ—ØØ\˜]]Üš]WÙ\ØÚ—ÙØ]K˜]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WØ]]Üš]WÙ\ØÚÜİ[IÎÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØØ\Xš[]WÚY	Ë—ØØ\šY	ØØ\Xš[]Wİ\IË—ØØ\˜Ø\Xš[]Wİ\Kˆ	ÛÜ\˜][Û—ÚÙ^IË—ØØ\›Ü\˜][Û—ÚÙ^K	Ù^Xİ][Û—ÚY	ËÛØ[\ØÙJ—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚY—ØØ\›Ü\˜][Û—ÚÙ^JKˆ	Ù^XİYÜİ\	Ë—ØØ\™^XİYÜİ\	ÛX\ÙWÙÙ[™\˜][Û‰Ë—ØØ\›X\ÙWÙÙ[™\˜][Û‹ˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—ØØ\›X\ÙWÙ^\™\×Ø]	Ù^\™\×Ø]	Ë—ØØ\™^\™\×Ø]ˆ	Ø]]Üš]WÙ\ØÚ	Ë—ØØ\˜]]Üš]WÙ\ØÚ	ÛÜ™\—ÚY	Ë—ØØ\›Ü™\—ÚYˆ	Ø\ÜÙ\ÜÛY[ÚY	Ë—ØØ\˜\ÜÙ\ÜÛY[ÚY	ÜØÛÜ™WÜ[—ÚY	Ë—ØØ\œØÛÜ™WÜ[—ÚYˆ	Ù[š[Y[ÚY	Ë—ØØ\™[š[Y[ÚY	Ü™\ÜÚY	Ë—ØØ\œ™\ÜÚYˆ	Ü™XÚ\Y[	Ë—ØØ\œ™XÚ\Y[Ù[XZ[ˆ
+NÂ™[™Â‰[˜İ[Û‰Â‚‹KHHØ[\‹X]]Ü™Y]šY[˜ÙHİ™\›ØY\È™]Z[™YÛ›H›ÜˆZYÜ˜][Ûˆ™\^B‹KHY[]H[™\È[œ™XXÚX›HH]™\H[[YH›ÛK‚œ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\J]ZY^^œÛÛ˜ŠBˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜]]Üš^™WØ›İ[˜ÙYÜ™\ÜÜ™Y[]™\J]ZY]ZY^
+HÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË˜Ü™X]WØİ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛŠ]ZY^^^[YÙ\ŠBˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜Ü™X]WØİ\İÛY\—ØÛÛXİİ™\šYšXØ][ÛŠ]ZY^^^[YÙ\ŠBˆÈ]][XØ]YÂ‚™È	\ÙLMÜ™]›ÚÙWÛYØXŞWİÛÜšÙ\—Üİ\™˜XÙI™XÛ\™Hˆ™XÛÜ™Â˜™YÚ[‚ˆ›Üˆˆ[‚ˆÙ[Xİ›ÚYœ™YÜ›ØÙY\™H\ÈÚYÛ˜]\™Bˆœ›ÛH×Ü›ØÈ›Ú[ˆ×Û˜[Y\ÜXÙHˆÛˆ‹›ÚY\œ›Û˜[Y\ÜXÙBˆÚ\™H‹›œÜ˜[YOIÜX›XÉÈ[™
+ˆœ›Û˜[YHZÙH	İÛÜšÙ\—ÉIÈ\ØØ\H	×	ÂˆÜˆœ›Û˜[YH[ˆ
+ˆ	ØÛZ[WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ë	Ü™[™]×Ü\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ëˆ	ØÛÛ\]WÜ\ÙLMİÛÜšÙ\—ÛÜ\˜][Û‰Ë	Ø]]Üš^™WÜ\ÙLMİÛÜšÙ\—ØXİ[Û‰Ëˆ	ØÛZ[WÜ™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	Ë	Ü™XÛÜ™Ü™[Z][WÜ™\ÜİÛÜšÙ›İ×Üİ\	Ëˆ	ØÛZ[WÜ\ÙLMØZWØ][\	Ë	ÜÙ]WÜ\ÙLMØZWØ][\	Ëˆ	ØÛÛ\]WÜ\ÙLMÙÙ[™\˜][Û—ÛÜ\˜][Û‰Ë	ÜX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][Û‰Ëˆ	ØÛZ[WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›ØœÉË	ØÛÛ\]WÜ\ÙLMÜİÜ˜YÙWØÛX[\Ú›Ø‰Âˆ
+Bˆ
+BˆÛÜˆ^Xİ]H›Ü›X]
+	Ü™]›ÚÙH[Ûˆ[˜İ[Ûˆ	\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛIË‹œÚYÛ˜]\™JNÂˆ[™ÛÜÂ™[™Â‰\ÙLMÜ™]›ÚÙWÛYØXŞWİÛÜšÙ\—Üİ\™˜XÙIÂ‚œ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[
+]ZY]ZY^^^]ZY›ÛÛX[‹^^
+Bˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜[œÚ][Û—Ü™[Z][WÜ™\ÜÙ[š[Y[
+]ZY]ZY^^^]ZY›ÛÛX[‹^^
+BˆÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZYœÛÛ˜ŠBˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœ™XÛÜ™Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZYœÛÛ˜ŠHÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË™^Xİ]WÜ\ÙLMİÛÜšÙ\—Üİ\
+œÛÛ˜‹^^
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜‹^^
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË™^Xİ]WÜ\ÙLMİÛÜšÙ\—Üİ\
+œÛÛ˜‹^^
+HÈÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜‹^^
+HÈÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË™Ù]Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ØÛÛ^
+]ZY
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË™Ù]Ü\ÙLMİÛÜšÙ\—Ø]\İ][Û—ØÛÛ^
+]ZY
+HÈÙ\šXÙWÜ›ÛNÂ™Ü˜[Ù[Xİ[œÙ\\]K[]HÛˆX›BˆX›XË˜]Y]ÛÙÜËX›XËœ™\ÜÙ]™[ËX›XË˜\ÜÙ\ÜÛY[Ù]™[ËˆX›XË™[XZ[Ù]™[ËX›XË™[XZ[Ü›İšY\—Ù]™[ÈÈÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[˜Ø]HÛˆX›BˆX›XË˜]Y]ÛÙÜËX›XËœ™\ÜÙ]™[ËX›XË˜\ÜÙ\ÜÛY[Ù]™[ËˆX›XË™[XZ[Ù]™[ËX›XË™[XZ[Ü›İšY\—Ù]™[Èœ›ÛHÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœ›İ]WÜ\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^J^^[YÙ\‹^
+Bˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœ›İ]WÜ\ÙLMİÛÜšÙ\—Ø]\İ][Û—ÚÙ^J^^[YÙ\‹^
+HÈ]][XØ]YÂ‚œ™]›ÚÙH[Ûˆ[[˜İ[ÛœÈ[ˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[ÛˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™Kİ[œX›\ÚY\™[YYX][Û‹ÌŒŒÌMLÌÍŒL×Ü\ÙLMÜÚ^ØY™\œØ\šX[Ü™[YYX][Û‹œÜ[‚‹KH‘QÒSˆ“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™Kİ[œX›\ÚY\™[YYX][Û‹ÌŒŒÌMLÌÍŒMÜ\ÙLMÜÚ^Ú[™Ù™—ØÛÜœ™Xİ[ÛœËœÜ[
+ÚLM™˜XÍÎÙÍ™Y˜YLÍÌ˜ÌNMÙMMØÌÍXXÍYÌMÙØLLMÎÌÊB‹KH\ÙHMÚ^\™[YYX][Ûˆ[™Ù™ˆÛÜœ™Xİ[ÛœË‚‹KH\Èš[H™[XZ[œÈ[œX›\ÚYˆ]\È›ÛY[ÈØ[›ÛšXØ[ZYÜ˜][ÛˆMÂ‹KH[™[ÈH[š\›Û›Y[\ÜXÚYšXÈ™XÛÛ˜Ú[X][Ûˆ\Y˜XİË‚‚‚‹KHHX[X[™\]Y\İ™XÙZ]™\ÈHØ[YH\˜X›H[š[Y[Y[]H\ÈHÛÜšÙ\‚‹KH™\]Y\İˆHÙ^HÚ[™Ù\ÈY\ˆXXÚİXØÙ\ÜÙ[HX›\ÚY™\ÜÚ[HB‹KH˜Z[Y™K\X›XØ][Ûˆ][\Ø[ˆØY™[H™\İ[YH]È™]š[İ\ÈY[]K‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË™[œİ\™WÛX[X[Ü™[Z][WÜ™\ÜÙ[š[Y[
+ˆÛÜ™\—Ü™Y™\™[˜ÙH^ˆİšYÙÙ\—ÜÛİ\˜ÙH^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØXİÜˆœÛÛ˜È—ØÛÛ^œÛÛ˜È—ÛÜ™\ˆX›XË›Ü™\œÉ\›İİ\NÂˆ—Ù[š[Y[X›XËœ™\ÜÙ[š[Y[É\›İİ\NÈ—ÚÙ^H^Â˜™YÚ[‚ˆ—ØXİÜ\X›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ	ÛX[X[ÙÙ[™\˜][Û‰ÊNÂˆYˆİšYÙÙ\—ÜÛİ\˜ÙH›İ[ˆ
+	ØYZ[—ÙÙ[™\˜]IË	ØYZ[—Ü™]IË	ØYZ[—Ü™YÙ[™\˜]IÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛX[X[Ù[š[Y[İšYÙÙ\—Ú[˜[Y	ÎÂˆ[™YÂˆ—ØÛÛ^\X›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ÛÜ™\—Ü™Y™\™[˜ÙJNÂˆÙ[Xİ
+ˆ[ÈİšXİ—ÛÜ™\ˆœ›ÛHX›XË›Ü™\œÈÚ\™HYJ—ØÛÛ^O‰ÛÜ™\—ÚY	ÊN]ZY›ÜˆÚ\™NÂˆ\™›Ü›H×ØYš\ÛÜWŞXİÛØÚÊ\Ú^^[™Y
+	Ü\ÙLM[X[X[‰ß—ÛÜ™\‹šY^
+JNÂˆÙ[Xİ
+ˆ[È—Ù[š[Y[œ›ÛHX›XËœ™\ÜÙ[š[Y[ÂˆÚ\™HÜ™\—ÚY]—ÛÜ™\‹šYˆ[™ØÛÜ™WÜ[—ÚYJ—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆ[™šYÙÙ\—ÜÛİ\˜ÙH[ˆ
+	ØYZ[—ÙÙ[™\˜]IË	ØYZ[—Ü™]IË	ØYZ[—Ü™YÙ[™\˜]IÊBˆ[™İ]\È[ˆ
+	Ü]Y]YY	Ë	Ø\ÜÙ[X›[™ÉË	ÙÙ[™\˜][™ÉË	İ˜[Y][™ÉË	Ü™[™\š[™ÉË	ÜİÜš[™ÉÊBˆÜ™\ˆHÜ™X]YØ]\ØÈ[Z]H›Üˆ\]NÂˆYˆ›İ[™[‚ˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÜ™X]Y	Ë˜[ÙK	Ù[š[Y[	Ë×ÚœÛÛ˜Š—Ù[š[Y[
+K	ØÛÛ^	Ë—ØÛÛ^
+NÂˆ[™YÂˆYˆ^\İÊÙ[XİHœ›ÛHX›XËœ™\ÜÙ[š[Y[ÂˆÚ\™HÜ™\—ÚY]—ÛÜ™\‹šY[™ØÛÜ™WÜ[—ÚYJ—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆ[™šYÙÙ\—ÜÛİ\˜ÙH[ˆ
+	ØYZ[—ÙÙ[™\˜]IË	ØYZ[—Ü™]IË	ØYZ[—Ü™YÙ[™\˜]IÊBˆ[™İ]\ÏIÜ™XYWÙ›Ü—Ù[]™\IÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛX[X[Ù[š[Y[Ø[™XYWÜ™XYIÎÂˆ[™YÂˆYˆ^\İÊÙ[XİHœ›ÛHX›XËœ™\ÜÙ[š[Y[ÂˆÚ\™HÜ™\—ÚY]—ÛÜ™\‹šY[™ØÛÜ™WÜ[—ÚYJ—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆ[™šYÙÙ\—ÜÛİ\˜ÙOIÜ^[Y[ØÛÛ™š\›X][Û‰Âˆ[™İ]\È[ˆ
+	Ü]Y]YY	Ë	Ø\ÜÙ[X›[™ÉË	ÙÙ[™\˜][™ÉË	İ˜[Y][™ÉË	Ü™[™\š[™ÉË	ÜİÜš[™ÉË	Ü™XYWÙ›Ü—Ù[]™\IÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛX[X[Ù[š[Y[ØÛÛ™›Xİ×İÚ]İÛÜšÙ\‰ÎÂˆ[™YÂˆ—ÚÙ^NXÛÛ˜Ø]
+	Ü\ÙLM[X[X[‰Ë—ÛÜ™\‹šY	Î‰Ë—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	Ë	Î‰ËˆÛØ[\ØÙJ
+Ù[XİY^œ›ÛHX›XËœ™\ÜÈÚ\™HÜ™\—ÚY]—ÛÜ™\‹šY[™İ]\ÏIÙÙ[™\˜]Y	ÂˆÜ™\ˆH™\œÚ[Û—Û[X™\ˆ\ØÈ[Z]JK	Ú[š]X[	ÊK	Î‰ËİšYÙÙ\—ÜÛİ\˜ÙJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	Ù[š[Y[Ü]Y]YWÜœÉËYJNÂˆ[œÙ\[ÈX›XËœ™\ÜÙ[š[Y[ÊˆÜ™\—ÚY\ÜÙ\ÜÛY[ÚYØÛÜ™WÜ[—ÚYY[\İ[˜ŞWÚÙ^KšYÙÙ\—ÜÛİ\˜ÙKİ]\Ëİ\œ™[Üİ\ˆ™\]Y\İYØWØYZ[—İ\Ù\—ÚYˆ
+H˜[Y\È
+ˆ—ÛÜ™\‹šY
+—ØÛÛ^O‰Ø\ÜÙ\ÜÛY[ÚY	ÊN]ZY
+—ØÛÛ^O‰ÜØÛÜ™WÜ[—ÚY	ÊN]ZYˆ—ÚÙ^KİšYÙÙ\—ÜÛİ\˜ÙK	Ü]Y]YY	Ë	ÛX[X[ÙÙ[™\˜][Û—Ü™\]Y\İY	Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYˆ
+HÛˆÛÛ™›Xİ
+Y[\İ[˜ŞWÚÙ^JHÈ\]HÙ]ˆİ]\ÏIÜ]Y]YY	Ëİ\œ™[Üİ\IÛX[X[ÙÙ[™\˜][Û—Ü™\]Y\İY	Ë\İÙ\œ›Ü—ØÛÙO[[ˆ\İÙ\œ›Ü—ÛY\ÜØYÙO[[˜Z[YØ][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HX›XËœ™\ÜÙ[š[Y[Ëœİ]\È[ˆ
+	Ù˜Z[Y	Ë	ØØ[˜Ù[Y	ÊBˆ™]\›š[™È
+ˆ[È—Ù[š[Y[ÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÛX[X[Ù[š[Y[ÚY[]WØÛÛ™›Xİ	ÎÈ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ØYZ[‰Ë
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZY—Ù[š[Y[˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÙ[š[Y[ÉËˆ—Ù[š[Y[šY	Ü\ÙLMÛX[X[Ù[š[Y[ØÜ™X]Y	ËœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ÛÜ™\—Ü™Y™\™[˜ÙIËÛÜ™\—Ü™Y™\™[˜ÙK	İšYÙÙ\—ÜÛİ\˜ÙIËİšYÙÙ\—ÜÛİ\˜ÙKˆ	ÜØÛÜ™WÜ[—ÚY	Ë—Ù[š[Y[œØÛÜ™WÜ[—ÚY	ÚY[\İ[˜ŞWÚÙ^IË—Ù[š[Y[šY[\İ[˜ŞWÚÙ^JJNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÜ™X]Y	ËYK	Ù[š[Y[	Ë×ÚœÛÛ˜Š—Ù[š[Y[
+K	ØÛÛ^	Ë—ØÛÛ^
+NÂ™[™Â‰[˜İ[Û‰Â‚‹KHHš[˜[[Øš™XİÜœ[ˆ™XÛÜ™]\İ^\İ™Y›Ü™HHØš™XİÛÜH›ÜˆX[X[‹KHÙ[™\˜][Ûˆ\ÈÙ[\ÈÛÜšÙ\ˆÙ[™\˜][Û‹‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™YÚ\İ\—Ü\ÙLMÛX[X[Ùš[˜[ÜİÜ˜YÙWØÛX[\
+ˆÜİÜ˜YÙWØXÚÙ]^ˆÜİÜ˜YÙWÜ]^ˆÙ^XİYØÚXÚÜİ[H^ˆØÛZ[WİÚÙ[ˆ]ZYˆÜ™X\ÛÛˆ^ˆÜ™\ÜÚY]ZYŠH™]\›œÈ]ZY›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜È—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÈ—ÚY]ZYÂ˜™YÚ[‚ˆ—ØXİÜ\X›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ	ÛX[X[ÙÙ[™\˜][Û‰ÊNÂˆYˆÜİÜ˜YÙWÜ]ZÙH	İ\ÉIÈÜˆÛØ[\ØÙJš[JÜİÜ˜YÙWÜ]
+K	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙš[˜[ØÛX[\Ü]Ú[˜[Y	ÎÂˆ[™YÂˆYˆÙ^XİYØÚXÚÜİ[H_ˆ	×–ÌNXKY—^ÍI	ÈÜˆÛØ[\ØÙJš[JÜ™X\ÛÛŠK	ÉÊOIÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙš[˜[ØÛX[\Ú[œ]Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[\ØÛZ[WİÚÙ[ˆ›ÜˆÚ\™NÂˆYˆ—ØÛZ[Kœ™\ÜÚY\È\İ[˜İœ›ÛHÜ™\ÜÚYˆÜˆ—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]\È\İ[˜İœ›ÛHÜİÜ˜YÙWØXÚÙ]ˆÜˆ—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]\È\İ[˜İœ›ÛHÜİÜ˜YÙWÜ]ˆÜˆ—ØÛZ[K™^XİYØÚXÚÜİ[H\È\İ[˜İœ›ÛHÙ^XİYØÚXÚÜİ[H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙš[˜[ØÛX[\ØÛZ[WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	Ø]][XØ]YÜœÉËYJNÂˆ[œÙ\[ÈX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YJˆİÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]^XİYØÚXÚÜİ[KÛZ[WİÚÙ[‹™\ÜÚYˆİÛ™\—ØYZ[—İ\Ù\—ÚYÛX[\Ü™X\ÛÛ‚ˆ
+H˜[Y\È
+ˆÜİÜ˜YÙWØXÚÙ]ÜİÜ˜YÙWÜ]Ù^XİYØÚXÚÜİ[KØÛZ[WİÚÙ[‹Ü™\ÜÚYˆ
+—ØXİÜ‹O‰İ\Ù\—ÚY	ÊN]ZYÜ™X\ÛÛ‚ˆ
+HÛˆÛÛ™›Xİ
+İÜ˜YÙWØXÚÙ]İÜ˜YÙWÜ]
+HÈ\]HÙ]\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YK™^XİYØÚXÚÜİ[OY^ÛYY™^XİYØÚXÚÜİ[Bˆ[™X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YK˜ÛZ[WİÚÙ[Y^ÛYY˜ÛZ[WİÚÙ[‚ˆ[™X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YKœ™\ÜÚYY^ÛYYœ™\ÜÚYˆ[™X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YK›İÛ™\—ØYZ[—İ\Ù\—ÚYY^ÛYY›İÛ™\—ØYZ[—İ\Ù\—ÚYˆ™]\›š[™ÈY[È—ÚYÂˆYˆ—ÚY\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÙš[˜[ØÛX[\ÛİÛ™\œÚ\ØÛÛ™›Xİ	ÎÈ[™YÂˆ™]\›ˆ—ÚYÂ™[™Â‰[˜İ[Û‰Â‚‹KH›İİ]\ˆ[HÚ[È[YØ]H[\›Z[˜[\Ú[™\ÜÈY™™XİÈÈ\ÈÛ™B‹KHš]˜]H˜[œØXİ[ÛˆÛÜ™KˆÙ[WØÛÛ^\ÈÜ™X]YÛ›HHHÜ˜\\‹‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K\›Z[˜[ÙÙ[™\˜][Û—ØÛÜ™JˆÙ[WØÛÛ^œÛÛ˜‹ˆÜ^[ØYœÛÛ˜‚ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—Ù[H^\Ù[WØÛÛ^O‰Ù[IÎÂˆ—ØØ\Xš[]WÚY]ZY[[YŠÙ[WØÛÛ^O‰ØØ\Xš[]WÚY	Ë	ÉÊN]ZYÂˆ—ØXİÜ—İ\Ù\—ÚY]ZY[[YŠÙ[WØÛÛ^O‰ØXİÜ—İ\Ù\—ÚY	Ë	ÉÊN]ZYÂˆ—Ø]]Üš]WÙ\ØÚšYÚ[[[YŠÙ[WØÛÛ^O‰Ø]]Üš]WÙ\ØÚ	Ë	ÉÊN˜šYÚ[Âˆ—ØÛZ[WİÚÙ[ˆ]ZYJÜ^[ØYO‰ØÛZ[WİÚÙ[‰ÊN]ZYÂˆ—Ù[š[Y[ÚY]ZYJÜ^[ØYO‰Ù[š[Y[ÚY	ÊN]ZYÂˆ—ÙÙ[™\˜][Û—Ü[—ÚY]ZYJÜ^[ØYO‰ÙÙ[™\˜][Û—Ü[—ÚY	ÊN]ZYÂˆ—Ü™\ÜÚY]ZYJÜ^[ØYO‰Ü™\ÜÚY	ÊN]ZYÂˆ—ØÛX[\ÚY]ZYJÜ^[ØYO‰Ùš[˜[ØÛX[\ÚY	ÊN]ZYÂˆ—Ù˜][ØY\ˆ^[[YŠÜ^[ØYO‰Ù˜][ØY\‰Ë	ÉÊNÂˆ—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÂˆ—ØÛZ[HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\É\›İİ\NÂˆ—Ü™\ÜX›XËœ™\ÜÉ\›İİ\NÂˆ—Ù[š[Y[X›XËœ™\ÜÙ[š[Y[É\›İİ\NÂˆ—Ü[ˆX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÉ\›İİ\NÂˆ—ØÛX[\X›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YI\›İİ\NÂˆ—ÛØš™Xİ™XÛÜ™È—ÛÜ™\—Ü™Y™\™[˜ÙH^È—Ù]™[İ\H^È—ÛY]Y]HœÛÛ˜Â˜™YÚ[‚ˆYˆ—Ù[H›İ[ˆ
+	İÛÜšÙ\‰Ë	ÛX[X[	ÊHÜˆ
+—Ù[OIİÛÜšÙ\‰ÊOJ—ØXİÜ—İ\Ù\—ÚY\È›İ[
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù[WØÛÛ^Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—Ù[OIİÛÜšÙ\‰È[‚ˆÙ[Xİ
+ˆ[ÈİšXİ—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÂˆÚ\™HY]—ØØ\Xš[]WÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØØ\Xš[]WÛØÚÉÊNÂˆYˆ—ØØ\˜Ø\Xš[]Wİ\H›İ[ˆ
+	Ø]]ÛX]X×ÙÙ[™\˜][Û‰Ë	ÙÙ[™\˜][Û—Ü™XÛİ™\IÊBˆÜˆ—ØØ\™^XİYÜİ\‰İ\›Z[˜[ÜX›XØ][Û‰ÂˆÜˆ—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[ÚYˆÜˆ—ØØ\˜]]Üš]WÙ\ØÚ\È\İ[˜İœ›ÛH—Ø]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØØ\Xš[]WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØÛZ[Hœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÂˆÚ\™HÛZ[WİÚÙ[]—ØÛZ[WİÚÙ[ˆ›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛZ[WÛØÚÉÊNÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ü™\Üœ›ÛHX›XËœ™\ÜÈÚ\™HY]—Ü™\ÜÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÛØÚÉÊNÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ù[š[Y[œ›ÛHX›XËœ™\ÜÙ[š[Y[ÂˆÚ\™HY]—Ù[š[Y[ÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[š[Y[ÛØÚÉÊNÂˆÙ[Xİ
+ˆ[ÈİšXİ—Ü[ˆœ›ÛHX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆÚ\™HY]—ÙÙ[™\˜][Û—Ü[—ÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÙÙ[™\˜][Û—Ü[—ÛØÚÉÊNÂˆÙ[Xİ
+ˆ[ÈİšXİ—ØÛX[\œ›ÛHX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YBˆÚ\™HY]—ØÛX[\ÚY›Üˆ\]NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛX[\ÛØÚÉÊNÂˆYˆ—ØÛZ[Kœİ]O‰ØÛÛ[Z]Y	ÈÜˆ—ØÛZ[Kœ™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜÚYˆÜˆ—ØÛZ[K™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[ÚYˆÜˆ—ØÛZ[K›X\ÙWÙ^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÙÙ[™\˜][Û—ØÛZ[WÚ[˜[Y	ÎÂˆ[™YÂˆYˆ—Ü™\Üœİ]\Ï‰Ù˜Y	ÈÜˆ—Ü™\Ü›Ü™\—ÚY—ØÛZ[K›Ü™\—ÚYˆÜˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYÜˆ—Ü™\ÜœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYˆÜˆ—Ü™\Ü™\œÚ[Û—Û[X™\—ØÛZ[K™\œÚ[Û—Û[X™\ˆÜˆ—Ü™\Ü˜ÚXÚÜİ[O—ØÛZ[K™^XİYØÚXÚÜİ[BˆÜˆ—Ü™\ÜœİÜ˜YÙWØXÚÙ]—ØÛZ[K[\Ü˜\WÜİÜ˜YÙWØXÚÙ]ˆÜˆ—Ü™\ÜœİÜ˜YÙWÜ]—ØÛZ[K[\Ü˜\WÜİÜ˜YÙWÜ]ˆÜˆ—Ü™\Ü™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[ÚY[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ü™\ÜØÛZ[WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—Ù[š[Y[›Ü™\—ÚY—ØÛZ[K›Ü™\—ÚYÜˆ—Ù[š[Y[˜\ÜÙ\ÜÛY[ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚYˆÜˆ—Ù[š[Y[œØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚYˆÜˆ—Ù[š[Y[œİ]\È›İ[ˆ
+	ÜİÜš[™ÉË	Ü™[™\š[™ÉË	ÙÙ[™\˜][™ÉË	İ˜[Y][™ÉË	Ø\ÜÙ[X›[™ÉÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù[š[Y[Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—Ü[‹™[š[Y[ÚY\È\İ[˜İœ›ÛH—Ù[š[Y[šYˆÜˆ
+—Ü[‹œ™\ÜÚY\È›İ[[™—Ü[‹œ™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜšY
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÙÙ[™\˜][Û—Ü[—Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—ØÛX[\œİÜ˜YÙWØXÚÙ]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆÜˆ—ØÛX[\œİÜ˜YÙWÜ]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ˆÜˆ—ØÛX[\™^XİYØÚXÚÜİ[O—ØÛZ[K™^XİYØÚXÚÜİ[BˆÜˆ—ØÛX[\œ™\ÜÚY\È\İ[˜İœ›ÛH—Ü™\ÜšYˆÜˆ—ØÛX[\œİ]\È›İ[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊBˆÜˆ
+—Ù[OIİÛÜšÙ\‰È[™—ØÛX[\›İÛ™\—ØØ\Xš[]WÚY\È\İ[˜İœ›ÛH—ØØ\šY
+BˆÜˆ
+—Ù[OIÛX[X[	È[™—ØÛX[\›İÛ™\—ØYZ[—İ\Ù\—ÚY\È\İ[˜İœ›ÛH—ØXİÜ—İ\Ù\—ÚY
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÛÜœ[—ØÛX[\Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆÙ[XİÜ™\—Ü™Y™\™[˜ÙH[ÈİšXİ—ÛÜ™\—Ü™Y™\™[˜ÙHœ›ÛHX›XË›Ü™\œÈÚ\™HY]—ØÛZ[K›Ü™\—ÚYÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÛÜ™\—Ü™XY	ÊNÂˆ\™›Ü›HX›XËœ\ÙLMÙÙ[™\˜][Û—Ù[][Y[
+ˆ—ÛÜ™\—Ü™Y™\™[˜ÙK—ØÛZ[K›Ü™\—ÚY—ØÛZ[K˜\ÜÙ\ÜÛY[ÚY—ØÛZ[KœØÛÜ™WÜ[—ÚY—ØÛZ[KœØÛÜ™WÚ[œ]Ú\Úˆ
+NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[][Y[	ÊNÂˆÙ[XİÛË˜XÚÙ]ÚYÛË›˜[YKÛË›Y]Y]H[ÈİšXİ—ÛØš™Xİœ›ÛHİÜ˜YÙK›Øš™XİÈÛÂˆÚ\™HÛË˜XÚÙ]ÚY]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ][™ÛË›˜[YO]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]Âˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÜİÜ˜YÙWØš[™[™ÉÊNÂˆYˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÛZ[Y]\IË	ÉÊO‰Ø\XØ][Û‹Ü‰ÂˆÜˆÛØ[\ØÙJ—ÛØš™Xİ›Y]Y]KO‰ÜÚLM‰Ë—ÛØš™Xİ›Y]Y]KO‰ÛY]Y]IËO‰ÜÚLM‰Ë	ÉÊBˆ—ØÛZ[K™^XİYØÚXÚÜİ[H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÜİÜ˜YÙWØÚXÚÜİ[WÚ[˜[Y	ÎÂˆ[™YÂˆYˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È›İ[[‚ˆ\]HX›XËœ™\ÜÈÙ]İ]\ÏIÜİ\\œÙYY	Ë\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY[™İ]\È›İ[ˆ
+	İ›ÚYY	Ë	Üİ\\œÙYY	ÊNÂˆ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™]š[İ\×Ü™\ÜÜİ\\œÙ\ÜÚ[Û‰ÊNÂˆ\]HX›XËœ™\ÜÈÙ]İ]\ÏIÙÙ[™\˜]Y	ËİÜ˜YÙWØXÚÙ]]—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]ˆİÜ˜YÙWÜ]]—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]Ù[™\˜][Û—Ü[—ÚY]—ÙÙ[™\˜][Û—Ü[—ÚYˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ü™\ÜšY[™İ]\ÏIÙ˜Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ü™\ÜØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÜX›XØ][Û‰ÊNÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÈÙ]™\ÜÚY]—Ü™\ÜšYİ]\ÏIİ\ÙY	ÂˆÚ\™HY]—ÙÙ[™\˜][Û—Ü[—ÚY[™[š[Y[ÚY]—Ù[š[Y[šYˆ[™
+™\ÜÚY\È[Üˆ™\ÜÚY]—Ü™\ÜšY
+NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ÙÙ[™\˜][Û—Ü[—Û[š×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ÙÙ[™\˜][Û—Ü[—Û[šÉÊNÂˆ\]HX›XËœ™\ÜÙÙ[™\˜][Û—ØÛZ[\ÈÙ]İ]OIÜÙ]Y	Ë\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+Kˆ\]YØ]XÛØÚ×İ[Y\İ[\
+
+HÚ\™HÛZ[WİÚÙ[]—ØÛZ[K˜ÛZ[WİÚÙ[ˆ[™İ]OIØÛÛ[Z]Y	ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØÛZ[WÜÙ][Y[Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛZ[WÜÙ][Y[	ÊNÂˆ\]HX›XËœ™\ÜÙ[š[Y[ÈÙ]İ]\ÏIÜ™XYWÙ›Ü—Ù[]™\IËˆİ\œ™[Üİ\IÜ™XYWÙ›Ü—Ù[XZ[Ù[]™\IËÙ[™\˜][Û—Û[ÙO\Ü^[ØYO‰ÙÙ[™\˜][Û—Û[ÙIËˆ™\ÜÚY]—Ü™\ÜšY\İÙ\œ›Ü—ØÛÙO[[\İÙ\œ›Ü—ÛY\ÜØYÙO[[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—Ù[š[Y[šY[™İ]\Ï]—Ù[š[Y[œİ]\ÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[Ù[š[Y[ØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ù[š[Y[İ˜[œÚ][Û‰ÊNÂˆ\]HX›XËœ\ÙLMÜİÜ˜YÙWØÛX[\Ü]Y]YHÙ]İ]\ÏIÜ™]Z[™Y	Ë\İÙ\œ›Ü[[ˆ™\šYšXØ][Û—Ù\œ›Ü[[X\ÙWÛİÛ™\—ØØ\Xš[]WÚY[[X\ÙWİÚÙ[[[ˆX\ÙWÙ^\™\×Ø][[\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØÛX[\šY[™İ]\È[ˆ
+	Ü[™[™ÉË	Ù˜Z[Y	ÊNÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØÛX[\İ˜[œÚ][Û—Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØÛX[\İ˜[œÚ][Û‰ÊNÂˆ—Ù]™[İ\NXØ\ÙHÚ[ˆ—Ü™\Üœİ\\œÙY\×Ü™\ÜÚY\È[[ˆ	ÙÙ[™\˜]Y	È[ÙH	Ü™YÙ[™\˜]Y	È[™Âˆ—ÛY]Y]NXÛØ[\ØÙJÜ^[ØYO‰ÛY]Y]IË	ŞßIÎšœÛÛ˜Š_œÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ù[WÜÚ[	Ë—Ù[K	İÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\Xš[]WÚY	ØXİÜ—İ\Ù\—ÚY	Ë—ØXİÜ—İ\Ù\—ÚYˆ	Ø]]Üš]WÙ\ØÚ	Ë—Ø]]Üš]WÙ\ØÚ	ÙÙ[™\˜][Û—Ü[—ÚY	Ë—ÙÙ[™\˜][Û—Ü[—ÚYˆ	Ù[š[Y[ÚY	Ë—Ù[š[Y[šYˆ
+NÂˆ[œÙ\[ÈX›XËœ™\ÜÙ]™[Ê™\ÜÚY]™[İ\KXİÜ—İ\Ù\—ÚY›İKY]Y]WÚœÛÛŠBˆ˜[Y\È
+—Ü™\ÜšY—Ù]™[İ\K—ØXİÜ—İ\Ù\—ÚY	Ğ]ÛZXÈ\›Z[˜[Ù[™\˜][ÛˆX›XØ][Û‹‰Ë—ÛY]Y]JNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ü™\ÜÙ]™[	ÊNÂˆ[œÙ\[ÈX›XË˜\ÜÙ\ÜÛY[Ù]™[Ê\ÜÙ\ÜÛY[ÚYÜ™\—ÚY™\ÜÚY]™[İ\KY\WÚÙ^KY]Y]WÚœÛÛŠBˆ˜[Y\È
+—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY—Ü™\Ü›Ü™\—ÚY—Ü™\ÜšY	Ü™\ÜÙÙ[™\˜]Y	Ëˆ	Ü\ÙLM]\›Z[˜[YÙ[™\˜][Û‰ß—ØÛZ[K˜ÛZ[WİÚÙ[‹—ÛY]Y]JNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ø\ÜÙ\ÜÛY[Ù]™[	ÊNÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\KXİÜ—İ\Ù\—ÚY\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+
+Ø\ÙHÚ[ˆ—Ù[OIİÛÜšÙ\‰È[ˆ	ÜŞ\İ[IÈ[ÙH	ØYZ[‰È[™
+NœX›XË˜]Y]ØXİÜ—İ\K—ØXİÜ—İ\Ù\—ÚYˆ—Ü™\Ü˜\ÜÙ\ÜÛY[ÚY	Ü™\ÜÉË—Ü™\ÜšYˆØ\ÙHÚ[ˆ—Ù]™[İ\OIÙÙ[™\˜]Y	È[ˆ	Ü™[Z][WÜ™\ÜÙÙ[™\˜]Y	È[ÙH	Ü™[Z][WÜ™\ÜÜ™YÙ[™\˜]Y	È[™ˆ—ÛY]Y]_œÛÛ˜—ØZ[ÛØš™Xİ
+	Ü™\ÜÜ™Y™\™[˜ÙIË—Ü™\Üœ™\ÜÜ™Y™\™[˜ÙJJNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—Ø]Y]Ù]™[	ÊNÂˆYˆ—Ù[OIİÛÜšÙ\‰È[‚ˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]İ]\ÏIØÛÛœİ[YY	ËÛÛœİ[YYØ]XÛØÚ×İ[Y\İ[\
+
+KˆX\ÙWÛİÛ™\[[X\ÙWÜÙXÜ™]Ú\Ú[[X\ÙWÙ^\™\×Ø][[\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+KˆX\ÙWÙÙ[™\˜][Û[X\ÙWÙÙ[™\˜][ÛŠÌK^XİYÜİ\IØÛÛœİ[YY	Ë\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HY]—ØØ\šY[™İ]\ÏIÛX\ÙY	È[™X\ÙWÙÙ[™\˜][Û]—ØØ\›X\ÙWÙÙ[™\˜][ÛÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİ\›Z[˜[ØØ\Xš[]WØÛÛœİ[\[Û—Ù˜Z[Y	ÎÈ[™YÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+—Ù˜][ØY\‹	ØY\—ØØ\Xš[]WØÛÛœİ[\[Û‰ÊNÂˆ[™YÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØÛÛ\]Y	ËYK	Ù[WÜÚ[	Ë—Ù[K	Ü™\ÜÚY	Ë—Ü™\ÜšYˆ	Ù[š[Y[ÚY	Ë—Ù[š[Y[šY	ÙÙ[™\˜][Û—Ü[—ÚY	Ë—ÙÙ[™\˜][Û—Ü[—ÚYˆ	Ùš[˜[ÜİÜ˜YÙWØXÚÙ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWØXÚÙ]	Ùš[˜[ÜİÜ˜YÙWÜ]	Ë—ØÛZ[K™š[˜[ÜİÜ˜YÙWÜ]ˆ	ØÚXÚÜİ[IË—ØÛZ[K™^XİYØÚXÚÜİ[K	İ™\œÚ[Û—Û[X™\‰Ë—Ü™\Ü™\œÚ[Û—Û[X™\‹ˆ	Üİ\\œÙYYÜ™\ÜÚY	Ë—Ü™\Üœİ\\œÙY\×Ü™\ÜÚYˆ	ÛX\ÙWÙÙ[™\˜][Û‰ËØ\ÙHÚ[ˆ—Ù[OIİÛÜšÙ\‰È[ˆ—ØØ\›X\ÙWÙÙ[™\˜][ÛŠÌH[ÙH[[™ˆ	Ù^XİYÜİ\	ËØ\ÙHÚ[ˆ—Ù[OIİÛÜšÙ\‰È[ˆ	ØÛÛœİ[YY	È[ÙH	Ü™XYWÙ›Ü—Ù[XZ[Ù[]™\IÈ[™
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠˆØ]\İ][ÛˆœÛÛ˜‹ÜÚYÛ˜]\™H^Ü™\]Y\İÜ^[ØY^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—Ü^[ØYœÛÛ˜\Ü™\]Y\İÜ^[ØYšœÛÛ˜È—ØØ\œÛÛ˜Â˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊO‰ÜÙ\šXÙWÜ›ÛIÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÂˆ[™YÂˆ—ØØ\\\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ø]\İ][ÛŠˆØ]\İ][Û‹ÜÚYÛ˜]\™KÜ™\]Y\İÜ^[ØY	İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][Û‰Âˆ
+NÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+[YŠ—Ü^[ØYO‰Ù˜][ØY\‰Ë	ÉÊK	ØY\—Ø]\İ][Û‰ÊNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\O‰ÚY	ËYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IË—ØØ\O‰ØØ\Xš[]Wİ\IËYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	İÛÜšÙ\—Ø]\İYÜœÉËYJNÂˆ™]\›ˆ\ÙLMÜš]˜]K\›Z[˜[ÙÙ[™\˜][Û—ØÛÜ™JœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ù[IË	İÛÜšÙ\‰Ë	ØØ\Xš[]WÚY	Ë—ØØ\O‰ÚY	Ë	Ø]]Üš]WÙ\ØÚ	Ë—ØØ\O‰Ø]]Üš]WÙ\ØÚ	Âˆ
+K—Ü^[ØY
+NÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠˆÜ™\]Y\İÜ^[ØYœÛÛ˜‚ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØXİÜˆœÛÛ˜Â˜™YÚ[‚ˆ—ØXİÜ\X›XËœ\ÙLMÜ™\]Z\™WÜÙXİ\š]Jˆ	Ü™\ÜÙÙ[™\˜][Û‰Ë\œ˜^VÉÜ]›Ü›WØYZ[‰Ë	Ü™]šY]Ù\‰Ë	Ø\›İ™\‰×NœX›XË˜YZ[—Ü›ÛV×KYK˜[ÙBˆ
+NÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ	ÛX[X[ÙÙ[™\˜][Û‰ÊNÂˆ\™›Ü›H\ÙLMÜš]˜]K™˜][ÚY—Ü™\]Y\İY
+[YŠÜ™\]Y\İÜ^[ØYO‰Ù˜][ØY\‰Ë	ÉÊK	ØY\—ØYZ[š\İ˜]Ü—Ø]]Üš^˜][Û‰ÊNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	Ø]][XØ]YÜœÉËYJNÂˆ™]\›ˆ\ÙLMÜš]˜]K\›Z[˜[ÙÙ[™\˜][Û—ØÛÜ™JœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	Ù[IË	ÛX[X[	Ë	ØXİÜ—İ\Ù\—ÚY	Ë—ØXİÜ‹O‰İ\Ù\—ÚY	Ëˆ	Ø]]Üš]WÙ\ØÚ	Ë—ØXİÜ‹O‰Ø]]Üš]WÙ\ØÚ	Âˆ
+KÜ™\]Y\İÜ^[ØY
+NÂ™[™Â‰[˜İ[Û‰Â‚‹KH™XÛİ™\H\ÈH\İ[˜İÚYÛ™Y[™[ÜH[™›Û˜ÙHÛXZ[‹ˆ]Ø[››İ™B‹KHÛÛ™\ÙYÚ][ˆÜ™[˜\H\Ú[™\ÜË\İ\]\İ][Û‹‚˜Ü™X]HX›HYˆ›İ^\İÈ\ÙLMÜš]˜]KÛÜšÙ\—Ü™XÛİ™\WÛ›Û˜Ù\Êˆ›Û˜ÙH]ZYš[X\HÙ^KˆØ\Xš[]WÚY]ZY›İ[™Y™\™[˜Ù\ÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÊY
+HÛˆ[]H™\İšXİˆÛÙ^Xİ][Û—ÚY^›İ[ˆ›ÜÜÙYÙ^Xİ][Û—ÚY^›İ[ˆX\ÙWÙÙ[™\˜][Ûˆ[YÙ\ˆ›İ[ˆ™X\ÛÛˆ^›İ[ˆ\ÜİYYØ][Y\İ[\ˆ›İ[ˆ^\™\×Ø][Y\İ[\ˆ›İ[ˆÛÛœİ[YYØ][Y\İ[\ˆ›İ[Y˜][ÛØÚ×İ[Y\İ[\
+
+BŠNÂœ™]›ÚÙH[ÛˆX›H\ÙLMÜš]˜]KÛÜšÙ\—Ü™XÛİ™\WÛ›Û˜Ù\Èœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ‚˜Ü™X]HÜˆ™\XÙH[˜İ[Ûˆ\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][ÛŠˆØ]\İ][ÛˆœÛÛ˜‹ÜÚYÛ˜]\™H^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™Bˆ—ØØ\X›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—ÙØ]HX›XËœ\ÙLMÜÙXİ\š]WÙØ]\É\›İİ\NÂˆ—ÚÙ^H\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\É\›İİ\NÂˆ—ÜÙXÜ™]^È—ØØ[›ÛšXØ[^È—Ù^XİY^È—Ú\ÜİYY[Y\İ[\È—Ù^\™\È[Y\İ[\Âˆ—Û›Û˜ÙH]ZYÈ—ØØ\Xš[]WÚY]ZYÈ—ÙÙ[™\˜][Ûˆ[YÙ\È—Ü™X\ÛÛˆ^Â˜™YÚ[‚ˆ—Ü™X\ÛÛ]š[JÛØ[\ØÙJØ]\İ][Û‹O‰Ü™X\ÛÛ‰Ë	ÉÊJNÂˆYˆÛØ[\ØÙJØ]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	Ë	ÉÊH_ˆ	×–ØK^KVŒNK—Î‹ËW^ÌKI	ÂˆÜˆÛØ[\ØÙJØ]\İ][Û‹O‰Ü›ÜÜÙYÙ^Xİ][Û—ÚY	Ë	ÉÊH_ˆ	×–ØK^KVŒNK—Î‹ËW^ÌKI	ÂˆÜˆÛØ[\ØÙJØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IË	ÉÊH_ˆ	×–ØK^KVŒNK—Î‹ËW^ÌKI	ÂˆÜˆÛØ[\ØÙJØ]\İ][Û‹O‰Ù^XİYÜİ\	Ë	ÉÊH_ˆ	×–ØK^ŒNW×^ÌKLI	ÂˆÜˆ[™İ
+—Ü™X\ÛÛŠH›İ™]ÙY[ˆH[™L[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][Û—ÜÚ\WÚ[˜[Y	ÎÂˆ[™YÂˆ™YÚ[‚ˆ—ØØ\Xš[]WÚYJØ]\İ][Û‹O‰ØØ\Xš[]WÚY	ÊN]ZYÂˆ—ÙÙ[™\˜][ÛJØ]\İ][Û‹O‰ÛX\ÙWÙÙ[™\˜][Û‰ÊNš[YÙ\Âˆ—Ú\ÜİYY]×İ[Y\İ[\
+
+Ø]\İ][Û‹O‰Ú\ÜİYYØ]Ù\ØÚ	ÊN™İX›H™XÚ\Ú[ÛŠNÂˆ—Ù^\™\Î]×İ[Y\İ[\
+
+Ø]\İ][Û‹O‰Ù^\™\×Ø]Ù\ØÚ	ÊN™İX›H™XÚ\Ú[ÛŠNÂˆ—Û›Û˜ÙNJØ]\İ][Û‹O‰Û›Û˜ÙIÊN]ZYÂˆ^Ù\[ÛˆÚ[ˆİ\œÈ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][Û—ÜÚ\WÚ[˜[Y	ÎÈ[™ÂˆYˆ—Ú\ÜİYY˜ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍHÙXÛÛ™ÉÈÜˆ—Ú\ÜİYYÛØÚ×İ[Y\İ[\
+
+KZ[\˜[	ÌˆZ[]\ÉÂˆÜˆ—Ù^\™\ÏXÛØÚ×İ[Y\İ[\
+
+HÜˆ—Ù^\™\Ï—Ú\ÜİYY
+Ú[\˜[	ÌˆZ[]\ÉÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][Û—İ[YWÚ[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ØØ\œ›ÛHX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÚ\™HY]—ØØ\Xš[]WÚY›Üˆ\]NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛZ\ÜÚ[™ÉÎÈ[™YÂˆÙ[Xİ
+ˆ[ÈİšXİ—ÙØ]Hœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™HØ]WÚÙ^OIÜ\ÙLM\™[Z][K\™\Ü	È›ÜˆÚ\™NÂˆYˆ—ØØ\œİ]\Ï‰ÛX\ÙY	ÈÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]\È[ˆÜˆ—ØØ\›X\ÙWÙ^\™\×Ø]˜ÛØÚ×İ[Y\İ[\
+
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WÛX\ÙWÛ›İÙ^\™Y	ÎÂˆ[™YÂˆYˆ—ØØ\™^\™\×Ø]XÛØÚ×İ[Y\İ[\
+
+H[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØØ\Xš[]WÙ^\™Y	ÎÈ[™YÂˆYˆ—ÙØ]Kœİ]\Ï‰ÜØ]\ÙšYY	ÈÜˆ—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û—ÙØ]Kœ™\]Z\™Yİ™\œÚ[Û‚ˆÜˆ—ØØ\œÙXİ\š]WÙØ]Wİ™\œÚ[Û—ÙØ]KœØ]\ÙšYYİ™\œÚ[Û‚ˆÜˆ—ØØ\˜]]Üš]WÙ\ØÚ—ÙØ]K˜]]Üš]WÙ\ØÚˆÜˆ
+Ø]\İ][Û‹O‰Ø]]Üš]WÙ\ØÚ	ÊN˜šYÚ[—ÙØ]K˜]]Üš]WÙ\ØÚ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØ]]Üš]WÙ\ØÚÜİ[IÎÂˆ[™YÂˆ\™›Ü›HX›XËœ\ÙLMÜ™\]Z\™WÜÛXŞJ—ØØ\œÛXŞWÚÙ^JNÂˆYˆØ]\İ][Û‹O‰ØØ\Xš[]Wİ\IÈ\È\İ[˜İœ›ÛH—ØØ\˜Ø\Xš[]Wİ\BˆÜˆØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IÈ\È\İ[˜İœ›ÛH—ØØ\›Ü\˜][Û—ÚÙ^BˆÜˆØ]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	È\È\İ[˜İœ›ÛH—ØØ\ÛÜšÙ›İ×Ù^Xİ][Û—ÚYˆÜˆØ]\İ][Û‹O‰Ù^XİYÜİ\	È\È\İ[˜İœ›ÛH—ØØ\™^XİYÜİ\ˆÜˆ—ÙÙ[™\˜][Û—ØØ\›X\ÙWÙÙ[™\˜][Ûˆ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WÜİ]WØš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆYˆ—ØØ\›Ü™\—ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰ÛÜ™\—ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\˜\ÜÙ\ÜÛY[ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ø\ÜÙ\ÜÛY[ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\œØÛÜ™WÜ[—ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰ÜØÛÜ™WÜ[—ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\™[š[Y[ÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ù[š[Y[ÚY	Ë	ÉÊN]ZYˆÜˆ—ØØ\œ™\ÜÚY\È\İ[˜İœ›ÛH[YŠØ]\İ][Û‹O‰Ü™\ÜÚY	Ë	ÉÊN]ZYˆÜˆİÙ\ŠÛØ[\ØÙJ—ØØ\œ™XÚ\Y[Ù[XZ[^	ÉÊJH\È\İ[˜İœ›ÛHİÙ\ŠÛØ[\ØÙJØ]\İ][Û‹O‰Ü™XÚ\Y[	Ë	ÉÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØÛÛ[Y\˜ÚX[Øš[™[™×Ú[˜[Y	ÎÂˆ[™YÂˆÙ[Xİ
+ˆ[È—ÚÙ^Hœ›ÛH\ÙLMÜš]˜]KÛÜšÙ\—Ø]\İ][Û—ÚÙ^\ÂˆÚ\™HÙ^WÚY\Ø]\İ][Û‹O‰ÚÙ^WÚY	È[™İ]\È[ˆ
+	Øİ\œ™[	Ë	Ü™]š[İ\ÉÊBˆ[™˜[YÙœ›ÛOXÛØÚ×İ[Y\İ[\
+
+H[™
+˜[Yİ[[\È[Üˆ˜[Yİ[[˜ÛØÚ×İ[Y\İ[\
+
+JH›ÜˆÚ\™NÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WÚÙ^WÚ[˜[Y	ÎÈ[™YÂˆÙ[XİXÜ\YÜÙXÜ™][È—ÜÙXÜ™]œ›ÛH˜][™XÜ\YÜÙXÜ™]ÈÚ\™HY]—ÚÙ^K˜][ÜÙXÜ™]ÚYÂˆYˆ—ÜÙXÜ™]\È[[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WÚÙ^Wİ[˜]˜Z[X›IÎÈ[™YÂˆ—ØØ[›ÛšXØ[XÛÛ˜Ø]İÜÊ	ß	ËØ]\İ][Û‹O‰ÚÙ^WÚY	ËØ]\İ][Û‹O‰ØØ\Xš[]WÚY	ËˆØ]\İ][Û‹O‰ØØ\Xš[]Wİ\IËØ]\İ][Û‹O‰ÛÜ\˜][Û—ÚÙ^IËˆØ]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	ËØ]\İ][Û‹O‰Ü›ÜÜÙYÙ^Xİ][Û—ÚY	ËˆØ]\İ][Û‹O‰Ù^XİYÜİ\	ËØ]\İ][Û‹O‰ÛX\ÙWÙÙ[™\˜][Û‰ËˆÛØ[\ØÙJØ]\İ][Û‹O‰ÛÜ™\—ÚY	Ë	ÉÊKÛØ[\ØÙJØ]\İ][Û‹O‰Ø\ÜÙ\ÜÛY[ÚY	Ë	ÉÊKˆÛØ[\ØÙJØ]\İ][Û‹O‰ÜØÛÜ™WÜ[—ÚY	Ë	ÉÊKÛØ[\ØÙJØ]\İ][Û‹O‰Ù[š[Y[ÚY	Ë	ÉÊKˆÛØ[\ØÙJØ]\İ][Û‹O‰Ü™\ÜÚY	Ë	ÉÊKÛØ[\ØÙJİÙ\ŠØ]\İ][Û‹O‰Ü™XÚ\Y[	ÊK	ÉÊKˆØ]\İ][Û‹O‰Ø]]Üš]WÙ\ØÚ	Ë—Ü™X\ÛÛ‹Ø]\İ][Û‹O‰Ú\ÜİYYØ]Ù\ØÚ	ËˆØ]\İ][Û‹O‰Ù^\™\×Ø]Ù\ØÚ	ËØ]\İ][Û‹O‰Û›Û˜ÙIÊNÂˆ—Ù^XİYY[˜ÛÙJ^[œÚ[ÛœËšXXÊÛÛ™\İÊ—ØØ[›ÛšXØ[	İ]	ÊKÛÛ™\İÊ—ÜÙXÜ™]	İ]	ÊK	ÜÚLM‰ÊK	Ú^	ÊNÂˆYˆÜÚYÛ˜]\™H_ˆ	×–ÌNXKY—^ÍI	ÂˆÜˆ^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊÜÚYÛ˜]\™K	İ]	ÊK	ÜÚLM‰ÊBˆ™^[œÚ[ÛœË™YÙ\İ
+ÛÛ™\İÊ—Ù^XİY	İ]	ÊK	ÜÚLM‰ÊH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WÜÚYÛ˜]\™WÚ[˜[Y	ÎÂˆ[™YÂˆ™YÚ[‚ˆ[œÙ\[È\ÙLMÜš]˜]KÛÜšÙ\—Ü™XÛİ™\WÛ›Û˜Ù\Êˆ›Û˜ÙKØ\Xš[]WÚYÛÙ^Xİ][Û—ÚY›ÜÜÙYÙ^Xİ][Û—ÚYX\ÙWÙÙ[™\˜][Û‹™X\ÛÛ‹\ÜİYYØ]^\™\×Ø]ˆ
+H˜[Y\È
+—Û›Û˜ÙK—ØØ\šYØ]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	ËˆØ]\İ][Û‹O‰Ü›ÜÜÙYÙ^Xİ][Û—ÚY	Ë—ÙÙ[™\˜][Û‹—Ü™X\ÛÛ‹—Ú\ÜİYY—Ù^\™\ÊNÂˆ^Ù\[ÛˆÚ[ˆ[š\]YWİš[Û][Ûˆ[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][Û—Ü™\^IÎÈ[™Âˆ™]\›ˆ×ÚœÛÛ˜Š—ØØ\
+KIÚ\ÜİYWÜÙXÜ™]Ú\Ú	ËIÛX\ÙWÜÙXÜ™]Ú\Ú	ÎÂ™[™Â‰[˜İ[Û‰Â‚˜Ü™X]HÜˆ™\XÙH[˜İ[ÛˆX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJˆØ]\İ][ÛˆœÛÛ˜‹ÜÚYÛ˜]\™H^ŠH™]\›œÈœÛÛ˜‚›[™İXYÙHÜÜ[ÙXİ\š]HYš[™\ˆÙ]ÙX\˜ÚÜ]IÉÂ˜\È	[˜İ[Û‰™XÛ\™H—ØØ\œÛÛ˜È—Ü›İÈX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\É\›İİ\NÈ—Û™]×Ù^Xİ][Ûˆ^Â˜™YÚ[‚ˆYˆÛØ[\ØÙJ]]šİ
+
+KO‰Ü›ÛIË	ÉÊO‰ÜÙ\šXÙWÜ›ÛIÈ[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—ÜÙ\šXÙWÜ›ÛWÜ™\]Z\™Y	ÎÂˆ[™YÂˆ—ØØ\\\ÙLMÜš]˜]K™\šYWİÛÜšÙ\—Ü™XÛİ™\WØ]\İ][ÛŠØ]\İ][Û‹ÜÚYÛ˜]\™JNÂˆ—Û™]×Ù^Xİ][Û\Ø]\İ][Û‹O‰Ü›ÜÜÙYÙ^Xİ][Û—ÚY	ÎÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]WÚY	Ë—ØØ\O‰ÚY	ËYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLMÛÜšÙ\—ØØ\Xš[]Wİ\IË—ØØ\O‰ØØ\Xš[]Wİ\IËYJNÂˆ\™›Ü›HÙ]ØÛÛ™šYÊ	Ü\ÙLM˜]]Üš]]]™Wİ˜[œÚ][Û‰Ë	İÛÜšÙ\—Ø]\İYÜœÉËYJNÂˆ\]HX›XËœ\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÈÙ]ÛÜšÙ›İ×Ù^Xİ][Û—ÚY]—Û™]×Ù^Xİ][Û‹ˆX\ÙWÛİÛ™\]—Û™]×Ù^Xİ][Û‹X\ÙWÙÙ[™\˜][Û[X\ÙWÙÙ[™\˜][ÛŠÌKˆX\ÙWÙ^\™\×Ø][X\İ
+^\™\×Ø]ÛØÚ×İ[Y\İ[\
+
+JÚ[\˜[	ÍŒZ[]\ÉÊKˆZÙ[İ™\—ØÛİ[]ZÙ[İ™\—ØÛİ[
+ÌK\İÚX\™X]Ø]XÛØÚ×İ[Y\İ[\
+
+K\]YØ]XÛØÚ×İ[Y\İ[\
+
+BˆÚ\™HYJ—ØØ\O‰ÚY	ÊN]ZY[™İ]\ÏIÛX\ÙY	Âˆ[™X\ÙWÙÙ[™\˜][ÛJ—ØØ\O‰ÛX\ÙWÙÙ[™\˜][Û‰ÊNš[YÙ\‚ˆ[™ÛÜšÙ›İ×Ù^Xİ][Û—ÚY\Ø]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	Âˆ[™^XİYÜİ\\Ø]\İ][Û‹O‰Ù^XİYÜİ\	Âˆ™]\›š[™È
+ˆ[È—Ü›İÎÂˆYˆ›İ›İ[™[ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMİÛÜšÙ\—Ü™XÛİ™\WØØ\×Ù˜Z[Y	ÎÈ[™YÂˆ[œÙ\[ÈX›XË˜]Y]ÛÙÜÊXİÜ—İ\K\ÜÙ\ÜÛY[ÚY[]WİX›K[]WÚYXİ[Û‹Y\—ÚœÛÛŠBˆ˜[Y\È
+	ÜŞ\İ[IË—Ü›İË˜\ÜÙ\ÜÛY[ÚY	Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]Y\ÉË—Ü›İËšYˆ	Ü\ÙLMİÛÜšÙ\—Ù^\™YÛX\ÙWÜ™XÛİ™\™Y	ËœÛÛ˜—ØZ[ÛØš™Xİ
+ˆ	ØØ\Xš[]Wİ\IË—Ü›İË˜Ø\Xš[]Wİ\K	ÛÜ\˜][Û—ÚÙ^IË—Ü›İË›Ü\˜][Û—ÚÙ^Kˆ	ÛÛÙ^Xİ][Û—ÚY	ËØ]\İ][Û‹O‰ÛÛÙ^Xİ][Û—ÚY	Ë	Û™]×Ù^Xİ][Û—ÚY	Ë—Û™]×Ù^Xİ][Û‹ˆ	Ù^XİYÜİ\	Ë—Ü›İË™^XİYÜİ\	Ü™]š[İ\×ÛX\ÙWÙÙ[™\˜][Û‰Ë
+—ØØ\O‰ÛX\ÙWÙÙ[™\˜][Û‰ÊNš[YÙ\‹ˆ	ÛX\ÙWÙÙ[™\˜][Û‰Ë—Ü›İË›X\ÙWÙÙ[™\˜][Û‹	ÛX\ÙWÙ^\™\×Ø]	Ë—Ü›İË›X\ÙWÙ^\™\×Ø]ˆ	İZÙ[İ™\—ØÛİ[	Ë—Ü›İËZÙ[İ™\—ØÛİ[	Ø]]Üš]WÙ\ØÚ	Ë—Ü›İË˜]]Üš]WÙ\ØÚˆ	Ü™X\ÛÛ‰ËØ]\İ][Û‹O‰Ü™X\ÛÛ‰ÊJNÂˆ™]\›ˆœÛÛ˜—ØZ[ÛØš™Xİ
+	ØØ\Xš[]WÚY	Ë—Ü›İËšY	ØØ\Xš[]Wİ\IË—Ü›İË˜Ø\Xš[]Wİ\Kˆ	ÛÜ\˜][Û—ÚÙ^IË—Ü›İË›Ü\˜][Û—ÚÙ^K	Ù^Xİ][Û—ÚY	Ë—Ü›İËÛÜšÙ›İ×Ù^Xİ][Û—ÚYˆ	Ù^XİYÜİ\	Ë—Ü›İË™^XİYÜİ\	ÛX\ÙWÙÙ[™\˜][Û‰Ë—Ü›İË›X\ÙWÙÙ[™\˜][Û‹ˆ	ÛX\ÙWÙ^\™\×Ø]	Ë—Ü›İË›X\ÙWÙ^\™\×Ø]	Ù^\™\×Ø]	Ë—Ü›İË™^\™\×Ø]ˆ	İZÙ[İ™\—ØÛİ[	Ë—Ü›İËZÙ[İ™\—ØÛİ[	Ø]]Üš]WÙ\ØÚ	Ë—Ü›İË˜]]Üš]WÙ\ØÚˆ	ÛÜ™\—ÚY	Ë—Ü›İË›Ü™\—ÚY	Ø\ÜÙ\ÜÛY[ÚY	Ë—Ü›İË˜\ÜÙ\ÜÛY[ÚY	ÜØÛÜ™WÜ[—ÚY	Ë—Ü›İËœØÛÜ™WÜ[—ÚYˆ	Ù[š[Y[ÚY	Ë—Ü›İË™[š[Y[ÚY	Ü™\ÜÚY	Ë—Ü›İËœ™\ÜÚY	Ü™XÚ\Y[	Ë—Ü›İËœ™XÚ\Y[Ù[XZ[
+NÂ™[™Â‰[˜İ[Û‰Â‚œ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË™[œİ\™WÛX[X[Ü™[Z][WÜ™\ÜÙ[š[Y[
+^^
+Bˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË™[œİ\™WÛX[X[Ü™[Z][WÜ™\ÜÙ[š[Y[
+^^
+HÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœ™YÚ\İ\—Ü\ÙLMÛX[X[Ùš[˜[ÜİÜ˜YÙWØÛX[\
+^^^]ZY^]ZY
+Bˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœ™YÚ\İ\—Ü\ÙLMÛX[X[Ùš[˜[ÜİÜ˜YÙWØÛX[\
+^^^]ZY^]ZY
+BˆÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠBˆœ›ÛHX›XË[›Û‹Ù\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠHÈ]][XØ]YÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+HÈÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜‹^^
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜‹^^
+HÈÙ\šXÙWÜ›ÛNÂ‚‹KH›Ü›X[^™HH^XİX\›K\›ÙXİ[ÛˆPÓØÛÛœİ˜Z[ÜİÜ˜YÙH˜\šX[ÈÈB‹KHØ[›ÛšXØ[\ØX›Y›İ[™][ÛˆÚ]İ]İXÚ[™ÈİÜ™YØš™XİÈÜˆ›İÜË‚œ™]›ÚÙH[œÙ\Ù[Xİ\]K[]HÛˆX›HX›XË˜\ÜÙ][™ÜÂˆœ›ÛH[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[œÙ\Ù[Xİ\]K[]HÛˆX›HX›XË™[XZ[Ù]™[Âˆœ›ÛH[›Û‹]][XØ]YÂœ™]›ÚÙHÙ[XİÛˆX›HX›XËœ™\ÜÙ[š[Y[ËX›XËœ™\ÜÙÙ[™\˜][Û—Ü[œÂˆœ›ÛHÙ\šXÙWÜ›ÛNÂ™Ü˜[^Xİ]HÛˆ[˜İ[ÛˆX›XËœÙ]İ\]YØ]
+
+HÈX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ™È	\ÙLMÜ›ÙXİ[Û—ØÛÛœİ˜Z[Û˜[YWØÛÛ™\™Ù[˜ÙI˜™YÚ[‚ˆYˆ^\İÊÙ[XİHœ›ÛH×ØÛÛœİ˜Z[Ú\™HÛÛœ™[YIÜX›XËœ™\ÜÙ[š[Y[ÉÎœ™YØÛ\ÜÂˆ[™ÛÛ›˜[YOIÜ™\ÜÙ[š[Y[×ÚY[\İ[˜ŞWÚÙ^WÚÙ^IÊBˆ[™›İ^\İÊÙ[XİHœ›ÛH×ØÛÛœİ˜Z[Ú\™HÛÛœ™[YIÜX›XËœ™\ÜÙ[š[Y[ÉÎœ™YØÛ\ÜÂˆ[™ÛÛ›˜[YOIÜ™\ÜÙ[š[Y[×ÚY[\İ[˜ŞWÚÙ^Wİ[š\]YIÊH[‚ˆ[\ˆX›HX›XËœ™\ÜÙ[š[Y[È™[˜[YHÛÛœİ˜Z[ˆ™\ÜÙ[š[Y[×ÚY[\İ[˜ŞWÚÙ^WÚÙ^HÈ™\ÜÙ[š[Y[×ÚY[\İ[˜ŞWÚÙ^Wİ[š\]YNÂˆ[™YÂ™[™Â‰\ÙLMÜ›ÙXİ[Û—ØÛÛœİ˜Z[Û˜[YWØÛÛ™\™Ù[˜ÙIÂ\]HİÜ˜YÙK˜XÚÙ]ÈÙ]š[WÜÚ^™WÛ[Z]LMMÌˆ[İÙYÛZ[YWİ\\ÏX\œ˜^VÉØ\XØ][Û‹Ü‰×N^×HÚ\™HYIÙÙ[™\˜]Y\™\ÜÉÎÂ‚‹KHÜ]X›XØ][Ûˆ[™Üİ\X›XØ][Ûˆ]šY[˜ÙHT\È\™H›İ[[YH›İ]\Ë‚œ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœX›\ÚÜ™[Z][WÜ™\ÜÙÙ[™\˜][ÛŠ]ZY]ZY
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XË›[š×Ü™[Z][WÜ™\ÜÙÙ[™\˜][Û—Ü[Š]ZY]ZY]ZY
+Bˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[˜İ[ÛˆX›XËœ™XÛÜ™Ü\ÙLMÜ™\ÜÙÙ[™\˜]Y
+]ZY]ZY]ZY^^œÛÛ˜ŠBˆœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[[˜İ[ÛœÈ[ˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[Ûˆ[X›\È[ˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂœ™]›ÚÙH[ÛˆØÚ[XH\ÙLMÜš]˜]Hœ›ÛHX›XË[›Û‹]][XØ]YÙ\šXÙWÜ›ÛNÂ‹KHS‘“ÑPÕSÓˆSHÓÕTÑNˆØÜËİŒKÜ\ÙLMÛZYÜ˜][Û‹X]Y]X\˜Ú]™Kİ[œX›\ÚY\™[YYX][Û‹ÌŒŒÌMLÌÍŒMÜ\ÙLMÜÚ^Ú[™Ù™—ØÛÜœ™Xİ[ÛœËœÜ[—[ÙB—XÚÈ	Ñš[˜[ØÚ[XH\È™\Ù[Ú]İ]Ø[›ÛšXØ[YÙ\ˆXÚÛ›İÛYÙ[Y[È\™›Ü›Z[™ÈYÙ\‹[Û›H™XÛİ™\K‰Â—[™Y‚‚™[]Hœ›ÛHİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÈÚ\™H™\œÚ[Ûˆ[ˆ
+ˆ	ÌŒŒÌLŒNÌÉË	ÌŒŒÌLŒNÌMÉË	ÌŒŒÌLŒNÌIË	ÌŒŒÌLŒNÍ‰Ëˆ	ÌŒŒÌLŒNŒÉË	ÌŒŒÌLŒNLIÂŠNÂš[œÙ\[Èİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÊ™\œÚ[Û‹˜[YKİ][Y[ÊB˜[Y\È
+	ÌMÉË	Ü\ÙLMØØ[›ÛšXØ[Ù\ØX›YÙ›İ[™][Û‰Ë\œ˜^VÂˆ	ĞÛÛ›ÛY›ÙXİ[Ûˆ™XÛÛ˜Ú[X][ÛÈÛİ\˜ÙHÒKLMˆØ™XXÍÎÌMÍM™™XÍYÍMÌØÍLÍÌ˜ØM™LMÍYÌL™NNY™™Y™YYÌØŒN
+ÈX˜ÙMYÌYŒÍY˜Ì˜˜ŒŒÌYMŒÌM™ØÍ™NNLXÍŒØMØXÌÍŒŒÈ
+ÈÍNYMXYLÍÌXNÌÙÍYÍ˜ÍŒÍ˜˜™ŒMÎMÌØŒLÍÙMXY˜MLLÙMÎNH
+ÈLÍØÍNXŒ˜XØXŒYYLXÍNÍ˜ÎLMÍŒ˜LXØÍLŒÌÌ˜MÌYÙLXLÈ
+È˜Œ™YY™MŒNXLØY™ŒØÙ™LNX˜ÍM˜ÍŒŒÎLŒMNMLYNŒ
+ÈNLŒMXØMÎNMÍMMLÎÙYYMÍÙXÍŒX™XØÙML™ØØMŒÎYŒMˆ
+ÈMÌ™NXNLÌL˜ÎMLY™XÌXØÌ˜˜ÎMØM˜ØLY˜˜NMÙÙ™XM™ŒML™˜Xˆ
+ÈMNXLYNLÌMÎLLŒYMÍXLYLŒN™XMÎLÍ˜Ì˜LX™™ŒN
+È˜XÍÎÙÍ™Y˜YLÍÌ˜ÌNMÙMMØÌÍXXÍYÌMÙØLLMÎÌÉÂ—JB›ÛˆÛÛ™›Xİ
+™\œÚ[ÛŠHÈ\]HÙ]˜[YOY^ÛYY›˜[YKİ][Y[ÏY^ÛYYœİ][Y[ÎÂ‚™È	Üİ›YÚ	˜™YÚ[‚ˆYˆ×Ü™YÜ›ØÙY\™J	ÜX›XË˜YZ[—İ\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜ŠIÊH\È[ˆÜˆ×Ü™YÜ›ØÙY\™J	ÜX›XË\›Z[˜[Ü\ÙLMÙÙ[™\˜][Û—ÜX›XØ][ÛŠœÛÛ˜‹^^
+IÊH\È[ˆÜˆ×Ü™YÜ›ØÙY\™J	ÜX›XËœ™XÛİ™\—Ü\ÙLMİÛÜšÙ\—ØØ\Xš[]WÛX\ÙJœÛÛ˜‹^
+IÊH\È[ˆÜˆ×Ü™YÜ›ØÙY\™J	Ü\ÙLMÜš]˜]K\›Z[˜[ÙÙ[™\˜][Û—ØÛÜ™JœÛÛ˜‹œÛÛ˜ŠIÊH\È[[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—Ü™XÛÛ˜Ú[X][Û—ÜÜİ›YÚÙ[˜İ[Û—ÛZ\ÜÚ[™ÉÎÂˆ[™YÂˆYˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMÙ™X]\™WÜÛXÚY\ÈÚ\™H[˜X›Y
+BˆÜˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMØZWÜ›İ]WÜÛXÚY\ÈÚ\™H[˜X›Y
+BˆÜˆ^\İÊÙ[XİHœ›ÛHX›XËœ\ÙLMÜÙXİ\š]WÙØ]\ÂˆÚ\™Hİ]\Ï‰İ[œØ]\ÙšYY	ÈÜˆØ]\ÙšYYİ™\œÚ[ÛŒ
+H[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—Ü™XÛÛ˜Ú[X][Û—Ù[˜X›YÜ[[YWØÛÛ›Û	ÎÂˆ[™YÂˆYˆ
+Ù[XİÛİ[
+
+ŠHœ›ÛHİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÂˆÚ\™H™\œÚ[ÛIÌMÉÈ[™˜[YOIÜ\ÙLMØØ[›ÛšXØ[Ù\ØX›YÙ›İ[™][Û‰ÊOŒBˆÜˆ^\İÊÙ[XİHœ›ÛHİ\X˜\ÙWÛZYÜ˜][ÛœËœØÚ[XWÛZYÜ˜][ÛœÈÚ\™H™\œÚ[Ûˆ[ˆ
+ˆ	ÌŒŒÌLŒNÌÉË	ÌŒŒÌLŒNÌMÉË	ÌŒŒÌLŒNÌIË	ÌŒŒÌLŒNÍ‰Ëˆ	ÌŒŒÌLŒNŒÉË	ÌŒŒÌLŒNLIÊJH[‚ˆ˜Z\ÙH^Ù\[Ûˆ	Ü\ÙLMÜ›ÙXİ[Û—ØØ[›ÛšXØ[ÛYÙ\—Ü™XÛÛ˜Ú[X][Û—Ù˜Z[Y	ÎÂˆ[™YÂ™[™Â‰Üİ›YÚ	Â˜ÛÛ[Z]Â—[™Y‚œÙ[Xİ×ØYš\ÛÜWİ[›ØÚÊ\Ú^^[™Y
+	Ü\ÙLM\›ÙXİ[Û‹XØ[›ÛšXØ[\™XÛÛ˜Ú[X][Û‰Ë
+JNÂ

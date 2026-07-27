@@ -126,6 +126,11 @@ select (
 
 begin;
 select set_config('lock_timeout','10s',true);
+-- Replay-order compatibility: the Production Phase 10 migration owns this
+-- column, while this controller-only reconciliation may run against the
+-- earlier historical boundary before that migration was acknowledged.
+alter table public.report_events
+  add column if not exists metadata_json jsonb default '{}'::jsonb;
 \\if :phase14_production_delta_required
 ${sourceBlocks}
 \\else
