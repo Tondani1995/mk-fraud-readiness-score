@@ -542,7 +542,7 @@ jobs:
           # while a later archived remediation references it. Apply the same idempotent
           # prerequisite that canonical 0017 owns, but only to the temporary CI copy; never
           # alter the committed historical archive or its ledger identity.
-          uat_canonical_archive='docs/v1/phase14/migration-audit-archive/uat-applied/0017_phase14_autonomous_report_engine.sql'
+          uat_canonical_archive='supabase/migrations/0017_phase14_autonomous_report_engine.sql'
           perl -0pi -e "s/^begin;\\n/begin;\\nalter table public.report_events add column if not exists metadata_json jsonb default '{}'::jsonb;\\n/" "$uat_canonical_archive"
           mkdir -p tmp/migration-replay
           : > "$uat_keep_manifest"
