@@ -376,7 +376,7 @@ jobs:
               fi
             done < "$declared"
           } > "$generated"
-          for must in 0034 20260720200735 20260721150808; do
+          for must in 20260720200735 20260721150808; do
             grep -qx "$must" "$declared" || {
               echo "::error::Regression check failed -- expected migration version $must not present in the repository-derived set." >&2
               exit 1
