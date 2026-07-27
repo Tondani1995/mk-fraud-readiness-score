@@ -869,3 +869,15 @@ external-connection value. The three findings were reviewed at their reported co
 only their exact gitleaks fingerprints were added to `.gitleaksignore`. Dependency audit and CodeQL
 were already green in that run. A new exact-head Security Scans result is required; the failed run is
 not reclassified as green.
+
+The first replacement exact-head replay set then exposed a separate disposable-harness defect:
+three legacy route-integration jobs started the final application without the exact released mode,
+so the gate correctly returned frozen responses. The full 42-migration replay already uses the real
+AAL2 release RPC and now passes the released application mode to its webhook server. The two
+historical 0016-to-0025 compatibility workflows use a loopback-only, non-migration database fixture
+with a restricted, read-only released status solely while running their pre-existing mutation
+suites. Those workflows pin and assert the exact loopback database URL; the fixture separately
+requires explicit local-CI confirmation, database name `postgres`, an exact expected `0016`, `0023`
+or `0025` historical ledger boundary, and absence of the real bootstrap table, RPC and ledger entry.
+It is not a Production bypass and does not weaken the final old-34-schema frozen proof. New
+exact-head results are required; the failed runs remain failed.

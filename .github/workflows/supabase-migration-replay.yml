@@ -533,6 +533,7 @@ jobs:
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
           export RESEND_WEBHOOK_SECRET='whsec_cGhhc2UxNC1yb3V0ZS1zaWduaW5nLWtleS0wMDAwMDAwMDAwMDA='
           export PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET='phase14-route-db-hmac-secret-00000000000000000001'
+          export MK_RC1_OPERATION_FREEZE_MODE='released'
           npm ci
           npm run dev > tmp/migration-replay/webhook-route-next.log 2>&1 &
           next_pid=$!

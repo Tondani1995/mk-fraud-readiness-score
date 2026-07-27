@@ -83,7 +83,13 @@ jobs:
         run: |
           supabase db reset --local --yes --version 0016
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
-          npm start -- --port 3100 > tmp/phase1-migration-replay/pre-0023-server.log 2>&1 &
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0016 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          MK_RC1_OPERATION_FREEZE_MODE=released \
+            npm start -- --port 3100 > tmp/phase1-migration-replay/pre-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do
@@ -107,8 +113,15 @@ jobs:
           # silently fall back to the pre-boundary process that happens to own port 3100.
           post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0023 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
           NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          MK_RC1_OPERATION_FREEZE_MODE=released \
             npm start -- --port "$post_port" > tmp/phase1-migration-replay/post-0023-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
