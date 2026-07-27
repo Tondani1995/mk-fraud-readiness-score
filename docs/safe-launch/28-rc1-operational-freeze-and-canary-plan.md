@@ -1,6 +1,6 @@
 # RC1 Operational Freeze and Canary Plan
 
-**Decision status:** RC1 OPERATIONAL READINESS: IN PROGRESS; RC MIGRATION/DEPLOYMENT: **NO-GO**.
+**Decision status:** RC1 DECISION-PACKAGE STRUCTURE: ACCEPTED; RC1 OPERATIONAL READINESS: **CORRECTIONS REQUIRED**; RC MIGRATION/DEPLOYMENT: **NO-GO**.
 The controller accepted the readiness inventory but has not authorised a Production freeze or cloud
 change. This document designs the required controls; it does not implement them.
 
@@ -69,3 +69,12 @@ The freeze cannot be released until the owner has approved: backup/PITR evidence
 postflight checks, exact-SHA deployment, disabled-state smoke tests, canary closure, an anonymised
 18-order action register and the complete GO evidence bundle. Any missing technical control remains a
 NO-GO; it is not replaced by a written promise that an administrator will remember not to mutate.
+
+
+## RC1A correction reference
+
+The exact route/service/RPC inventory, database-bootstrap recommendation, old-application protection
+model, AAL2 control requirements, canary scope and options analysis are in
+`32-rc1-technical-freeze-implementation-design.md`. The freeze capability is not implemented in
+this cycle. The eventual cutover is therefore eight migrations: one approved freeze bootstrap plus
+the seven behaviour migrations.

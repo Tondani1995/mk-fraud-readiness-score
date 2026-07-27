@@ -1,6 +1,6 @@
 # RC1 GO Evidence Requirements
 
-This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. It is not a
+This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1 DECISION-PACKAGE STRUCTURE is ACCEPTED, but RC1 OPERATIONAL READINESS is **CORRECTIONS REQUIRED**. It is not a
 GO decision and does not authorise any cloud or Production action. Every item must reference one
 exact application SHA and one cutover window. Evidence must be anonymised and must not contain secret
 values, customer identifiers, order references, organisation names, email addresses, report content
@@ -41,3 +41,14 @@ or access tokens.
 3. Keep raw provider or dashboard evidence in the approved restricted evidence store, not git.
 4. Tie every screenshot/log/output to the exact SHA and UTC timestamp.
 5. A missing, contradictory or stale item is a STOP, not an implied approval.
+
+
+## RC1A corrected gate evidence
+
+- [ ] Preflight is executed with the machine-readable `scripts/rc1-production-preflight.manifest.json` and controller-supplied baseline RPC fingerprints, baseline aggregate counts and protected-pair fingerprint; every assertion is PASS or the gate is STOP.
+- [ ] Preflight proves no duplicate current report per order/report type and compares the non-reversible protected-pair and 2/13/3 classification fingerprints.
+- [ ] Postflight proves 41 total ledger rows, final version `20260725150000`, exact seven `(version,name)` pairs, no duplicate or unlisted version, full backlog/token structures, all 14 migration-derived indexes, all 29 RPCs including `recover_expired_fulfilment_leases()` and `record_premium_report_generation_run(...)`, exact grants, RLS/policies and combined fingerprints.
+- [ ] Postflight no-change evidence includes order/report/generation/payment/email/provider/delivery/token/alert/storage aggregates and the exact protected-pair fingerprint supplied by preflight.
+- [ ] Disposable runtime tests prove the baseline and postflight gates pass, then prove STOP for each controller-required defect, including wrong migration name, unlisted migration, missing index/RPC, unsafe search path, PUBLIC EXECUTE, disabled RLS, changed protected fingerprint, worker lease, new order/email event and duplicate current report.
+- [ ] The exact Supabase runner/tool version and real `--help` output are captured. The current workspace has no Supabase CLI, so no dry-run or application command is approved or invented.
+- [ ] The technical-freeze implementation design at `32-rc1-technical-freeze-implementation-design.md` is controller-approved before any freeze implementation; it recommends one bootstrap migration, making the eventual cutover eight migrations.

@@ -108,63 +108,53 @@ the approved baseline; do not investigate by mutating Production.
 
 ## 5. Seven-migration execution order
 
-**Actor:** Codex, technical executor only after Tondani Netili's explicit GO for this step.
+**Status:** No migration command is approved in this RC1A cycle.
 
-**Exact action:** Use the approved Supabase migration runner against the linked Production project,
-constrained to this exact allowlist and no other file:
+The requested installed-tool verification was performed in the available workspace. There is no
+installed `supabase` executable; `supabase --version`, `supabase db push --help` and
+`supabase migration list --help` therefore cannot produce real output here. No CLI version, dry-run
+flag, linked-project flag or allowlist flag is being invented. No cloud command is executed.
 
-1. `20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql` — ledger newest becomes
-   `20260722143000`; adds the Checkpoint E AI-attempt binding columns/index and four manual-AI RPCs.
-2. `20260724150000_release_a_backlog_reconciliation.sql` — ledger newest becomes `20260724150000`;
-   adds `backlog_reconciliation_records`, its two indexes, RLS/policy and classification/queue RPCs.
-3. `20260724160000_release_b_durable_fulfilment.sql` — ledger newest becomes `20260724160000`;
-   adds durable lease/heartbeat/backoff/quality-review columns and indexes, constraints, and the
-   fulfilment/payment/quality RPC definitions.
-4. `20260724170000_release_c_email_secure_delivery.sql` — ledger newest becomes `20260724170000`;
-   adds delivery retry columns/indexes, `customer_report_access_tokens`, its indexes/RLS, delivery,
-   token and quality-review RPC definitions.
-5. `20260724180000_release_c_closure_delivery_exceptions.sql` — ledger newest becomes
-   `20260724180000`; replaces provider-event, recipient-correction and token-reissue RPCs.
-6. `20260725090000_release_c_runtime_secret_admin_provisioning.sql` — ledger newest becomes
-   `20260725090000`; replaces `set_phase14_runtime_secret(text,text,text)` with a required optional
-   reason/audit path while retaining provider mode disabled.
-7. `20260725150000_release_d_operational_alert_lifecycle.sql` — ledger newest becomes
-   `20260725150000`; adds alert lifecycle metadata/indexes and the audited transition RPC.
+The safest executable alternative for a future controller-authorised run is:
 
-### Exact post-step object manifest
+1. Install or expose one controller-approved, pinned Supabase CLI/tool version in the controlled
+   executor, then capture and retain the real output of `supabase --version`,
+   `supabase db push --help`, and `supabase migration list --help`.
+2. Confirm the linked project through that tool's supported command and record only the project
+   reference, region and connection target fingerprint. Do not continue if the linked project
+   is not the intended Production project.
+3. In a disposable staging directory, copy only the seven exact migration files listed below.
+   Verify the directory contains exactly seven `.sql` files, the expected `(version,name)` pairs,
+   and the approved SHA-256 file manifest. Do not place canonical-history files in this staging
+   directory, so a previously applied file cannot be selected for rerun.
+4. Use only the dry-run command and application command printed by that installed tool's help.
+   The exact command strings must be captured in the evidence bundle; this package intentionally
+   leaves them **unapproved** because the executable is absent. If the runner has no supported
+   way to target the linked project while consuming only the seven-file staging directory, STOP.
+5. Before application, require the read-only preflight to prove 34 rows, newest
+   `20260721150808`, no pending seven versions, the approved RPC baseline and the protected-pair
+   fingerprint. After each successful file, require one matching ledger row and the per-step
+   object manifest.
+6. Run with the executor's fail-fast mode, no automatic retry, and a trap that records the first
+   failing file. Never continue after an error and never manually insert a ledger row.
+7. The seven-file staging manifest plus the postflight check for exactly 41 rows, seven exact pairs,
+   no duplicate version and no version beyond the approved preflight boundary prevents an eighth or
+   unlisted migration. If the tool can still read outside the staging directory, or cannot prove
+   that constraint, do not apply anything.
 
-The executor must compare the post-step catalog to this manifest before continuing. The names below
-are the expected additions/replacements; an unexpected object or signature is a STOP.
+**Exact authorised order remains:**
 
-| Migration | Expected tables | Expected columns | Expected indexes | Expected RPC signatures |
-|---|---|---|---|---|
-| `20260722143000` | none | `report_ai_attempts.manual_generation_attempt_id`; `manual_report_generation_attempts.generation_mode`; `report_generation_runs.final_narrative_json` | `report_ai_attempts_manual_generation_idx` | `authorize_manual_report_ai_action(uuid,text)`; `claim_manual_report_ai_attempt(jsonb)`; `settle_manual_report_ai_attempt(uuid,jsonb)`; `record_manual_report_narrative_provenance(uuid,jsonb)`; `record_premium_report_generation_run(uuid,uuid,jsonb)` |
-| `20260724150000` | `backlog_reconciliation_records` | table definition includes `order_id`, `report_id`, `classification`, `resolution_note`, `assigned_owner`, `next_action`, `completion_date`, `evidence_reference`, actor/timestamp audit columns | `backlog_reconciliation_records_classification_idx`; `backlog_reconciliation_records_assigned_owner_idx` | `classify_backlog_order(uuid,uuid,text,text,uuid,text,date,text)`; `backlog_reconciliation_queue()` |
-| `20260724160000` | none | `manual_report_generation_attempts.lease_owner`; `lease_expires_at`; `heartbeat_at`; `next_attempt_at`; `max_attempts`; `quality_reviewed_by`; `quality_reviewed_at`; `quality_review_decision`; `quality_review_reason`; `regenerated_from_attempt_id`; `delivery_queued_at` | `manual_report_generation_attempts_status_next_attempt_idx`; `manual_report_generation_attempts_lease_expiry_idx` | `claim_next_fulfilment_job(text,integer)`; `fail_fulfilment_job(uuid,text,text,text,text)`; `submit_for_quality_review(uuid,text)`; `recover_expired_fulfilment_leases()`; `approve_quality_review(uuid,text)`; `reject_quality_review(uuid,text)`; `retry_fulfilment_job(uuid)`; `recover_fulfilment_job(uuid)`; `claim_payment_report_generation(text,text,text)`; `record_payment_transition(text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text)` |
-| `20260724170000` | `customer_report_access_tokens` | `report_delivery_authorizations.next_attempt_at`; `max_attempts`; `retry_count`; token table includes order/report binding, recipient, hash, purpose, issue/expiry/revocation/access audit fields | `report_delivery_authorizations_status_next_attempt_idx`; `report_delivery_authorizations_lease_expiry_idx`; `customer_report_access_tokens_active_uidx`; `customer_report_access_tokens_order_idx`; `customer_report_access_tokens_expiry_idx` | `claim_next_delivery(text,integer)`; `mark_delivery_dispatch_started(uuid,uuid)`; `finalize_delivery(uuid,uuid,text)`; `fail_delivery(uuid,uuid,text,text,text)`; `retry_delivery(uuid)`; `issue_customer_report_access_token(uuid,uuid,text,integer)`; `revoke_customer_report_access_token(uuid,text)`; `reissue_customer_report_access_token(uuid,uuid,text,text,integer)`; `approve_quality_review(uuid,text)` |
-| `20260724180000` | none | none | none | `apply_email_provider_event_atomic(text,text,text,text,timestamptz,text,jsonb)`; `correct_delivery_recipient_and_queue(uuid,text,text)`; `reissue_customer_report_access_token(uuid,uuid,text,text,integer,boolean)`; replacement definitions for `approve_quality_review(uuid,text)` |
-| `20260725090000` | none | none | none | `set_phase14_runtime_secret(text,text,text)` |
-| `20260725150000` | none | `phase14_operational_alerts.acknowledged_at`; `acknowledged_by`; `resolved_by`; `last_status_changed_at` | `phase14_operational_alerts_severity_created_idx`; `phase14_operational_alerts_list_idx`; `phase14_operational_alerts_open_critical_idx`; `phase14_operational_alerts_category_idx` | `transition_phase14_operational_alert(uuid,text,text)` |
+1. `20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql`
+2. `20260724150000_release_a_backlog_reconciliation.sql`
+3. `20260724160000_release_b_durable_fulfilment.sql`
+4. `20260724170000_release_c_email_secure_delivery.sql`
+5. `20260724180000_release_c_closure_delivery_exceptions.sql`
+6. `20260725090000_release_c_runtime_secret_admin_provisioning.sql`
+7. `20260725150000_release_d_operational_alert_lifecycle.sql`
 
-For every RPC, postflight must confirm the expected `SECURITY DEFINER` posture, explicit controlled
-`search_path`, exact identity arguments and intended grants. The manifest is descriptive evidence,
-not permission to execute any migration outside the seven-file allowlist.
-
-After each file, query the ledger for exactly one matching `(version,name)` row and run that
-migration's schema/RPC postflight assertions before continuing. The runner must stop on the first
-error. Never skip, reorder, edit or manually mark a migration applied.
-
-**Expected result:** Seven successful applications, ledger total 41, newest version
-`20260725150000`, no duplicate version rows and no unlisted version applied.
-
-**Evidence retained:** Per-migration runner output, ledger row/version, migration checksum, CLI
-version, start/end timestamps and post-step assertion output. No SQL payload containing customer data.
-
-**Stop condition:** Any error, ledger mismatch, unexpected object, unexpected function definition,
-or mutation outside the freeze. Do not retry blindly.
-
-**Cloud state:** Yes; this is the first schema-changing step. It is prohibited until all prior gates
-are approved.
+The eventual approved sequence must include the separate freeze-bootstrap migration before this list,
+making the future cutover eight migrations. The seven behaviour migrations are not applied by this
+RC1A correction cycle.
 
 ## 6. Schema and RPC postflight
 
@@ -375,7 +365,40 @@ affected aggregate counts, owner decision and forward-repair record.
 **Cloud state:** Depends on the incident; the freeze remains active and Codex takes no unapproved
 repair action.
 
+## RC1A provider-certification correction
+
+The three secret relationships are separate and must be evidenced separately:
+
+1. `RESEND_WEBHOOK_SECRET` is the provider's signed-webhook verification secret.
+2. `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` is the database-attestation HMAC relationship used
+   by the Resend webhook path.
+3. `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` is the provider-lookup attestation HMAC relationship.
+
+The future certification sequence is exactly:
+
+1. Deploy the integrated approved SHA with provider mode **disabled**.
+2. Keep the Resend webhook disabled.
+3. Confirm/provision all three secret relationships; record names, actors, timestamps and
+   non-reversible fingerprints only.
+4. Redeploy the same SHA with provider mode still disabled.
+5. Verify all three fingerprints and the disabled resting state.
+6. Enable the Resend webhook.
+7. Change `MK_EMAIL_PROVIDER_MODE` to `test`.
+8. Redeploy the same SHA.
+9. Use one preapproved synthetic canary and the designated MK test mailbox only.
+10. Certify payment acknowledgement and secure report-ready delivery.
+11. Require the signed webhook to return HTTP 200.
+12. Prove the provider event correlates to the intended email event.
+13. Prove no unrelated order or job is eligible.
+14. Return `MK_EMAIL_PROVIDER_MODE` to `disabled`.
+15. Redeploy the same SHA.
+16. Disable the Resend webhook.
+17. Independently verify the final disabled resting state, including workers, webhooks, provider mode
+    and no unrelated state changes.
+
+RC1 certification must never set provider mode to `live`. The sequence is design/evidence only in
+this correction cycle; no secret, webhook, provider mode, deployment or canary action is performed.
+
 ## Current decision
 
-This runbook does not issue RC MIGRATION/DEPLOYMENT GO. Supabase backup/PITR evidence, the exact
-freeze controls, the 18-order approvals and all other §1–§16 gates remain owner/controller gates.
+This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1 decision-package structure is accepted, but RC1 operational readiness is **CORRECTIONS REQUIRED**. Supabase PITR/backup evidence, the approved recovery point, the exact technical freeze design, the 18-order approvals, the worker/manual operating-model decision and all other §1–§16 gates remain owner/controller gates.

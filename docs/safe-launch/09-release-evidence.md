@@ -587,3 +587,26 @@ The Supabase backup/PITR gate is intentionally unresolved until the owner confir
 retention, latest recoverable point, backup requirement and restoration authority from the dashboard.
 The active `mk_validated` template limitation remains a documented Production limitation and is not
 invented or filled during RC preparation.
+
+
+---
+
+## RC1A controller review correction
+
+**RC PREPARATION: CODE COMPLETE — CONTROLLER ACCEPTED**
+
+**RC1 DECISION-PACKAGE STRUCTURE: ACCEPTED**
+
+**RC1 OPERATIONAL READINESS: CORRECTIONS REQUIRED**
+
+**RC MIGRATION/DEPLOYMENT: NO-GO**  
+**CLOUD CERTIFICATION: NO-GO**  
+**PUBLIC LAUNCH: NO-GO**
+
+The prior package structure is retained, but it must not be described as operational-readiness
+accepted. This correction cycle hardens the read-only preflight/postflight assertions, adds the
+machine-readable manifest and disposable runtime defect tests, corrects the provider-certification
+sequence, and returns the technical-freeze capability as a design for controller approval only.
+No migration, cloud ledger, Production, Vercel, Resend, worker, customer-data or merge action is
+performed. The unresolved PITR/recovery point, absence cover, 18-order external actions and final
+worker/manual operating-model decision remain owner gates.
