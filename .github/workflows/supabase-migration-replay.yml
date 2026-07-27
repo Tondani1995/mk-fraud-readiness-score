@@ -1018,8 +1018,11 @@ jobs:
             > tmp/migration-replay/exact-production-schema-inventory.txt
           exact_production_inventory_tail=$(tail -n 1 tmp/migration-replay/exact-production-schema-inventory.txt)
           echo "exact_production_inventory_tail=${exact_production_inventory_tail}"
+          # Reviewed archive-boundary digest for the current immutable 0017/0018/0019
+          # production-history snapshot. This is intentionally distinct from the final
+          # canonical schema-equivalence digest checked later in this job.
           test "$exact_production_inventory_tail" = \
-            'ZZ|inventory_sha256|417dfbf2fb7fdea1727d7dc9d84d0463a597db6b545def32de18d2e15d8509cd'
+            'ZZ|inventory_sha256|d083f68765765222b07ca007be68cb3a53ba86434cd6007ddea125a79f4c67f5'
           before_checksum=$(psql "$LOCAL_DB_URL" -XAt --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-preservation-fixture.sql | tail -n 1)
           echo "before_checksum=${before_checksum}"
