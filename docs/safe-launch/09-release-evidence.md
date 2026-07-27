@@ -636,9 +636,12 @@ external actions and the final worker/manual operating-model decision.
 
 ## RC1B correction evidence
 
-**Status:** RC PREPARATION CORE: PREVIOUSLY ACCEPTED; RC1A CORRECTION HEAD: NOT ACCEPTED;
-RC1B CORRECTION: CODE COMPLETE — CONTROLLER REVIEW REQUIRED; RC1 OPERATIONAL READINESS,
+**Status:** RC1B SECURITY AND HARNESS CORRECTION: **ACCEPTED**; RC1B TECHNICAL-FREEZE DESIGN:
+**ACCEPTED IN PRINCIPLE**; RC1C CORRECTION: **IN PROGRESS**; RC1 OPERATIONAL READINESS,
 RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH: **NO-GO**; **DO NOT MERGE**.
+
+The RC1B head `c46fee69164e8746bf0cd6fbf164b3c25fc461a3` is only partially accepted and
+must not be described as controller-accepted overall.
 
 ### Security Scans run 199 classification
 
@@ -698,6 +701,63 @@ performed during RC1B.
 - every required postflight defect emitted `STOP`; and
 - the two protected paid-order/report records retained their full approved-state fingerprint.
 
-The successful replay also verifies the explicit service-role grant and PUBLIC/anon/authenticated
-revocation for `record_premium_report_generation_run(...)` and
-`apply_email_provider_event_atomic(...)`. No customer data or external database was used.
+The successful replay verifies the original accepted grant contracts after the RC1C migration
+payload restoration: `record_premium_report_generation_run(...)` remains authenticated-admin
+executable with PUBLIC/anon denied, while direct execution of
+`apply_email_provider_event_atomic(...)` remains denied to PUBLIC, anon, authenticated and
+service_role; the service-role webhook path uses the separately granted ingestion RPC. No customer
+data or external database was used.
+
+---
+
+## RC1C correction evidence
+
+### Live-compatible email-event baseline
+
+The Production boundary has 75 historical `email_events`: `queued=71`,
+`recorded_disabled=2`, and `sent=2`; `email_provider_events=0`. Preflight no longer treats historical
+email events as forbidden activity. It compares the complete non-PII status-count JSON and its
+deterministic SHA-256 fingerprint
+`76d196fb622eba89ec2c556ea8f65b8a183eee086e722fb43e2d94fa774e6fd2`.
+The total remains part of the broader 14-count baseline. Recipients, provider IDs, order IDs and
+message IDs are never emitted.
+
+The disposable harness seeds the realistic 71/2/2 history and proves baseline PASS. It separately
+proves `email_status_baseline_result|STOP` when one queued event is added, one sent event is added, or
+one event changes status without changing the total. It proves
+`provider_database_activity_result|STOP` when one provider event is added.
+
+### RC1A-to-RC1B migration payload audit and decision
+
+Before RC1C source changes, the exact two-file diff was inspected:
+
+- `20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql`: RC1B added
+  `record_premium_report_generation_run(uuid,uuid,jsonb)` to the adjacent service-role
+  revoke/grant lists. Those two changed list entries altered the established authenticated grant
+  inherited from migration 0017 and were added to satisfy the RC1B postflight harness expectation;
+  they were not required for Production correctness.
+- `20260724180000_release_c_closure_delivery_exceptions.sql`: RC1B inserted a seven-line explicit
+  revoke/grant block for `apply_email_provider_event_atomic(...)`. The same-signature
+  `CREATE OR REPLACE FUNCTION` preserves migration 0017's final no-direct-execute ACL; the service
+  role enters through `ingest_phase14_provider_webhook(...)`. The added direct service-role grant
+  therefore expanded the accepted ACL only to satisfy the RC1B harness expectation and was not
+  required for Production correctness.
+
+Checksum evidence:
+
+| Migration | RC1A `fa2b57c` SHA-256 | RC1B `c46fee6` SHA-256 | RC1C decision |
+|---|---|---|---|
+| `20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql` | `d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25` | `1929a53fc216c94d9e93012b589bcea5f622bfa46e8971923d502479c795572d` | Restore exact RC1A bytes and checksum. |
+| `20260724180000_release_c_closure_delivery_exceptions.sql` | `0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533` | `514348bc09ddfe9fcb96683c8c377a31918a2991aeb54c7f49935d1903b830f3` | Restore exact RC1A bytes and checksum. |
+
+No other accepted migration file is changed.
+
+### Guarded live-boundary dry evaluation
+
+`npm run rc1:dry-evaluate-live-boundary` validates all controller-approved aggregate variables before
+connection, requires `RC1_CONNECTION_MODE=read-only`, injects libpq
+`default_transaction_read_only=on`, and compares the target descriptor fingerprint before invoking
+`psql`. It emits only `PASS`, `STOP` or `NOT_DATABASE_VISIBLE` result lines and suppresses connection
+errors and credentials. The harness tests the procedure only against loopback disposable Postgres,
+including every missing-variable refusal, non-read-only refusal, target mismatch refusal and a full
+PASS evaluation. It is not executed against Production in RC1C.

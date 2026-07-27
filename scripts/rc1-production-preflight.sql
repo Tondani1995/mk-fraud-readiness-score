@@ -8,6 +8,8 @@
 --   rc1_approved_rpc_baseline_json
 --   rc1_expected_baseline_counts_json
 --   rc1_approved_protected_state_fingerprint
+--   rc1_approved_email_status_counts_json
+--   rc1_approved_email_status_fingerprint
 -- The script never emits UUIDs, order references, emails, names, report content or function bodies.
 \if :{?rc1_approved_rpc_baseline_json}
 \else
@@ -22,6 +24,16 @@
 \if :{?rc1_approved_protected_state_fingerprint}
 \else
 \echo STOP|missing_rc1_approved_protected_state_fingerprint
+\quit 3
+\endif
+\if :{?rc1_approved_email_status_counts_json}
+\else
+\echo STOP|missing_rc1_approved_email_status_counts_json
+\quit 3
+\endif
+\if :{?rc1_approved_email_status_fingerprint}
+\else
+\echo STOP|missing_rc1_approved_email_status_fingerprint
 \quit 3
 \endif
 
@@ -177,10 +189,23 @@ select 'provider_mode_database_visibility_result|' || case
   when bool_and(mode='disabled') then 'PASS'
   else 'STOP' end
 from provider_modes;
+with status_counts as (
+  select coalesce(jsonb_object_agg(status, event_count), '{}'::jsonb) as value
+  from (
+    select status, count(*) as event_count
+    from public.email_events
+    group by status
+    order by status
+  ) counts
+)
+select 'email_status_baseline_result|' || case when
+  value = :'rc1_approved_email_status_counts_json'::jsonb
+  and encode(extensions.digest(convert_to(value::text, 'UTF8'), 'sha256'), 'hex') =
+      :'rc1_approved_email_status_fingerprint'
+then 'PASS' else 'STOP' end
+from status_counts;
 select 'provider_database_activity_result|' || case when
   (select count(*) from public.email_provider_events)=0
-  and (select count(*) from public.email_events
-       where status in ('queued','sending','sent','delivered','bounced','complained'))=0
 then 'PASS' else 'STOP' end;
 select 'delivery_state_result|' || case when
   (select count(*) from public.report_delivery_authorizations where status in ('queued','dispatching','ready')) = 0

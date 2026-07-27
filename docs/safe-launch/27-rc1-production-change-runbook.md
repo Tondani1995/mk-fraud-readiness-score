@@ -1,7 +1,8 @@
 # RC1 Production-Change Runbook
 
-**Status:** RC PREPARATION: CODE COMPLETE — CONTROLLER ACCEPTED; RC1 OPERATIONAL READINESS: IN
-PROGRESS; RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
+**Status:** RC1B SECURITY AND HARNESS CORRECTION: **ACCEPTED**; RC1B TECHNICAL-FREEZE DESIGN:
+**ACCEPTED IN PRINCIPLE**; RC1C CORRECTION: **IN PROGRESS**; RC1 OPERATIONAL READINESS:
+**NO-GO**; RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
 **NO-GO**; **DO NOT MERGE**.
 
 **Accepted preparation head:** `19a2d139c702ce6a2cbf767253af62244dec75dc`.
@@ -102,14 +103,35 @@ the freeze cannot be evidenced. Administrator discipline alone is not sufficient
 
 **Actor:** Codex, under Tondani Netili's approval.
 
-**Exact action:** Run `scripts/rc1-production-preflight.sql` against the approved Production target
-using a read-only connection. Compare the output with the accepted readiness inventory: 34 ledger
-rows, newest `20260721150808`, zero pending-seven rows already recorded, 18 payment-received orders,
-2 `CURRENT_VERIFIED`, 13 `CURRENT_NOT_STORED`, 3 `NO_REPORT`, zero active/queued attempts, zero
-payment automation records and no unexpected delivery/fulfilment/alert activity.
+**Exact action:** Run `npm run rc1:dry-evaluate-live-boundary` only after supplying all eight
+controller-approved `RC1_*` variables listed below. The launcher validates every variable before
+connection, sets libpq `default_transaction_read_only=on`, compares the SHA-256 fingerprint of
+`host=<lowercase-host>|port=<resolved-port>|database=<database>` with the separately approved target
+fingerprint, and then runs `scripts/rc1-production-preflight.sql`. It emits only result lines ending
+in `PASS`, `STOP` or `NOT_DATABASE_VISIBLE`.
 
-**Expected result:** Every `*_result` line is `PASS`; RPC definition fingerprints are captured without
-printing function bodies or data.
+Required variables:
+
+- `RC1_READ_ONLY_DATABASE_URL`
+- `RC1_APPROVED_TARGET_FINGERPRINT`
+- `RC1_CONNECTION_MODE=read-only`
+- `RC1_APPROVED_RPC_BASELINE_JSON`
+- `RC1_EXPECTED_BASELINE_COUNTS_JSON`
+- `RC1_APPROVED_PROTECTED_STATE_FINGERPRINT`
+- `RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON`
+- `RC1_APPROVED_EMAIL_STATUS_FINGERPRINT`
+
+Compare the result with the accepted readiness inventory: 34 ledger rows, newest
+`20260721150808`, no pending-seven rows, 18 payment-received orders, classifications 2/13/3, no
+active generation or delivery lease, zero `email_provider_events`, and the complete historical
+`email_events` status aggregate `queued=71`, `recorded_disabled=2`, `sent=2` with total 75 and
+approved deterministic fingerprint. The database-visible provider mode remains a separate
+`PASS`/`STOP`/`NOT_DATABASE_VISIBLE` result; Vercel `MK_EMAIL_PROVIDER_MODE=disabled` remains
+separate deployment evidence.
+
+**Expected result:** Every result is `PASS`, except that provider mode may be
+`NOT_DATABASE_VISIBLE` when both known database keys are absent. No recipient, provider ID, order ID,
+message ID, credential, function body or connection detail is printed.
 
 **Evidence retained:** Redacted aggregate preflight output, connection target fingerprint without
 credentials, timestamp, CLI/client versions and operator approval.
@@ -121,7 +143,7 @@ the approved baseline; do not investigate by mutating Production.
 
 ## 5. Seven-migration execution order
 
-**Status:** No migration command is approved in this RC1B cycle.
+**Status:** No migration command is approved in this RC1C cycle.
 
 The requested installed-tool verification was performed in the available workspace. There is no
 installed `supabase` executable; `supabase --version`, `supabase db push --help` and
@@ -167,7 +189,7 @@ The safest executable alternative for a future controller-authorised run is:
 
 The eventual approved sequence must include the separate freeze-bootstrap migration before this list,
 making the future cutover eight migrations. The seven behaviour migrations are not applied by this
-RC1B correction cycle.
+RC1C correction cycle.
 
 ## 6. Schema and RPC postflight
 
@@ -228,78 +250,51 @@ activity.
 
 **Cloud state:** No intended data mutation; deployment read traffic only.
 
-## 9. Secret provisioning
+## 9. Provider certification: disabled deployment and independent secrets
 
-**Actor:** Tondani Netili approves; Codex executes only the approved provisioning path.
+Sections 9–12 are the execution authority for the complete 19-step provider certification. Every
+step requires its own actor, action, expected result, evidence, stop condition and cloud-state record.
+No step is authorised during RC1C.
 
-**Exact action:** Provision the two runtime HMAC secrets through the approved admin-only RPC and
-matching environment mechanism. Record only secret names, rotation timestamps and fingerprints; keep
-provider mode disabled and do not test a real provider callback.
+| Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
+|---:|---|---|---|---|---|---|
+| 1 | Tondani Netili approves; Codex deploys | Deploy the exact approved RC SHA with `MK_EMAIL_PROVIDER_MODE=disabled`. | READY candidate uses the approved SHA and disabled mode. | Approval, deployment record, SHA, disabled-mode record. | SHA mismatch, non-READY state or mode not disabled. | Yes: Vercel deployment. |
+| 2 | Tondani Netili disables; Codex verifies | Disable the intended Resend webhook endpoint before secret or mode changes. | Provider cannot deliver callbacks. | Endpoint identity, disabled timestamp and actor. | Endpoint remains enabled or identity is uncertain. | Yes: Resend webhook state. |
+| 3 | Tondani Netili confirms; Codex verifies metadata only | Confirm `RESEND_WEBHOOK_SECRET` corresponds to the intended endpoint without exposing its value. | Intended endpoint and secret relationship are established. | Secret name, endpoint fingerprint, rotation timestamp. | Value exposure, endpoint mismatch or stale relationship. | No intended mutation; provider inspection only. |
+| 4 | Tondani Netili approves; Codex provisions | Provision `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` independently through Vercel and the AAL2 admin RPC while mode remains disabled. | Environment and database hold matching webhook-attestation material. | Secret name, two non-reversible fingerprints, AAL2 audit event and timestamp. | Wrong actor, fingerprint mismatch, value exposure or mode drift. | Yes: Vercel environment and database secret state. |
+| 5 | Tondani Netili approves; Codex provisions independently | Provision `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` through Vercel and the AAL2 admin RPC, independently of step 4. | Environment and database hold matching lookup-attestation material distinct from step 4. | Separate secret name, fingerprints, AAL2 audit event and timestamp. | Reused value, fingerprint mismatch, value exposure or mode drift. | Yes: Vercel environment and database secret state. |
 
-**Expected result:** Both secret names exist, are at least the approved length, are auditable and are
-not exposed in logs, git, screenshots or client responses.
+## 10. Provider certification: same-SHA disabled verification and test activation
 
-**Evidence retained:** Secret-name-only inventory, rotation timestamps, non-reversible fingerprints,
-actor and approval record.
+| Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
+|---:|---|---|---|---|---|---|
+| 6 | Tondani Netili approves; Codex deploys | Redeploy the same exact SHA after the three secret relationships are established; keep provider mode disabled. | READY deployment loads the secret metadata without changing SHA or mode. | Before/after deployment IDs, SHA comparison and disabled-mode record. | SHA drift, deployment failure or mode not disabled. | Yes: Vercel deployment. |
+| 7 | Codex verifies; Tondani Netili reviews | Confirm READY and the exact approved SHA through build-info and deployment evidence. | Runtime and deployment records agree on one SHA. | READY status, exact SHA and UTC timestamp. | Any disagreement or unavailable build identity. | No intended mutation; read-only verification. |
+| 8 | Codex verifies; Tondani Netili reviews | Confirm both database-side HMAC fingerprints independently, without printing either value. | Webhook and lookup fingerprints each match their corresponding approved environment relationship. | Two named fingerprints and AAL2 audit references. | Missing, equal-when-required-distinct or mismatched fingerprint. | No intended mutation; read-only verification. |
+| 9 | Tondani Netili approves; Codex enables | Enable only the intended Resend webhook endpoint. | Signed callbacks can reach the frozen test path. | Endpoint identity, enabled timestamp and actor. | Wrong endpoint, unsigned path or freeze bypass. | Yes: Resend webhook state. |
+| 10 | Tondani Netili approves; Codex changes mode | Set `MK_EMAIL_PROVIDER_MODE=test`; never set `live`. | Test mode is the sole enabled provider mode. | Environment change record naming the variable and mode only. | Mode is `live`, absent, ambiguous or applied to the wrong environment. | Yes: Vercel environment state. |
+| 11 | Tondani Netili approves; Codex deploys | Redeploy the same exact SHA to load test mode. | READY deployment retains the approved SHA and reports test mode. | Deployment ID, exact SHA, READY and test-mode evidence. | SHA drift, failed deployment or mode not exactly `test`. | Yes: Vercel deployment. |
 
-**Stop condition:** Any secret value exposure, missing audit record, wrong actor, provider mode change
-or inability to prove the values are not in ordinary output.
+## 11. Provider certification: single-canary evidence
 
-**Cloud state:** Yes; secrets change. This step is currently prohibited.
+| Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
+|---:|---|---|---|---|---|---|
+| 12 | Tondani Netili preapproves; Codex executes once | Use one preapproved synthetic canary and the designated MK test mailbox only. | Exactly one synthetic canary is eligible; no real customer/order is touched. | Approval, anonymised canary reference outside git and mailbox designation. | Second canary, real data, wrong mailbox or worker eligibility. | Yes: controlled synthetic state. |
+| 13 | Codex certifies; Tondani Netili reviews | Certify the payment-acknowledgement message for that canary. | One correct acknowledgement reaches only the designated mailbox. | Template/version, event count, test mailbox evidence and timestamp. | Missing, duplicate, malformed or misdirected message. | Yes: one test email and related synthetic event. |
+| 14 | Codex certifies; Tondani Netili reviews | Certify the secure report-ready message for the same canary. | One secure report-ready message reaches only the designated mailbox with no raw storage path or token exposure. | Template/version, secure-link checks, event count and timestamp. | Duplicate, wrong recipient, insecure content or unrelated report. | Yes: one test email and related synthetic event. |
+| 15 | Codex verifies; Tondani Netili reviews | Submit the genuine signed callback for the approved canary and require HTTP 200. | Signature verification and route processing succeed once. | Redacted request fingerprint, endpoint identity, HTTP 200 and timestamp. | Non-200, unsigned acceptance, replay conflict or secret exposure. | Yes: one provider callback. |
+| 16 | Codex verifies; Tondani Netili reviews | Prove the provider event correlates to the intended synthetic email event. | Exactly one provider event binds to exactly one intended email event. | Aggregate correlation result, event-type result and fingerprints only. | Unknown, duplicate, conflicting or unrelated correlation. | No additional intended mutation beyond step 15 verification. |
+| 17 | Codex verifies; Tondani Netili reviews | Prove no unrelated order or job is eligible before leaving test mode. | Eligibility remains exactly one approved synthetic canary and zero unrelated jobs. | Aggregate eligibility counts and worker-disabled evidence. | Any unrelated eligibility, worker claim or real-order change. | No intended mutation; read-only verification. |
 
-## 10. Same-SHA redeployment after environment changes
+## 12. Provider certification: disabled resting state
 
-**Actor:** Codex; Tondani Netili approves.
+| Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
+|---:|---|---|---|---|---|---|
+| 18 | Tondani Netili approves; Codex executes in order | Return `MK_EMAIL_PROVIDER_MODE` to `disabled`, redeploy the same exact SHA, then disable the Resend webhook. | READY uses the same SHA in disabled mode and callbacks are unavailable. | Environment change, deployment ID, exact SHA, READY and webhook-disabled timestamp. | Wrong order, SHA drift, non-READY deployment, mode not disabled or webhook remains enabled. | Yes: Vercel environment/deployment and Resend webhook state. |
+| 19 | Tondani Netili appoints independent verifier | Independently verify the final disabled resting state, including provider mode, webhook, workers, canary closure and no unrelated state changes. | All controls are disabled; only approved synthetic evidence remains; no unrelated event or job changed. | Independent sign-off, disabled-mode evidence, webhook state, worker checks and no-change aggregates. | Any enabled control, unresolved canary, unrelated mutation or missing independent sign-off. | No intended mutation; final read-only verification. |
 
-**Exact action:** Redeploy/restart the same application SHA after environment changes. Re-run build-info,
-health and provider-mode-disabled checks.
-
-**Expected result:** READY deployment SHA is unchanged; provider mode remains disabled; no worker,
-webhook or email activity occurs.
-
-**Evidence retained:** Before/after deployment records, exact SHA comparison, environment-change
-record naming only, and smoke-test output.
-
-**Stop condition:** Any SHA drift, failed health check, enabled provider, worker claim or event.
-
-**Cloud state:** Yes; Vercel state changes. This step is currently prohibited.
-
-## 11. Controlled synthetic certification
-
-**Actor:** Tondani Netili approves the canary; Codex executes the approved synthetic path.
-
-**Exact action:** Use only the one predesignated synthetic canary and test mailbox. Exercise the
-approved assessment/order/payment-to-report/review/delivery path exactly once, with provider mode and
-workers still disabled unless the controller-approved certification sequence explicitly enables the
-minimum required test mode. Never use a real customer or real mailbox.
-
-**Expected result:** The canary follows the approved state transitions, quality review and recipient
-confirmation; delivery evidence is limited to the designated test mailbox; no real order is touched.
-
-**Evidence retained:** Synthetic canary identifier outside git, approval, state-transition counts,
-quality-review result, recipient confirmation and provider/test evidence with secret values removed.
-
-**Stop condition:** Any real-order mutation, second canary, duplicate generation, wrong mailbox,
-webhook-correlation failure, unresolved alert or unexpected worker claim.
-
-**Cloud state:** Yes; synthetic state and possibly controlled test-provider state change.
-
-## 12. Post-certification return to disabled resting state
-
-**Actor:** Codex; Tondani Netili confirms.
-
-**Exact action:** Disable any temporary provider/test mode, disable the canary path, confirm workers
-and webhooks are unavailable, and redeploy/restart the same SHA if required to load the disabled state.
-
-**Expected result:** Provider mode is disabled, no worker cadence is active, no webhook can mutate,
-and the synthetic canary is the only non-production test residue.
-
-**Evidence retained:** Disabled-state environment confirmation, deployment SHA, no-new-event query,
-worker-disabled evidence and canary closure record.
-
-**Stop condition:** Cannot prove disabled resting state or any non-canary capability remains active.
-
-**Cloud state:** Yes; environment/control state changes.
+Provider mode must never be `live` during certification. Secret values, customer identifiers and raw
+provider payloads must never enter output or git.
 
 ## 13. Existing-order reconciliation
 
@@ -378,43 +373,12 @@ affected aggregate counts, owner decision and forward-repair record.
 **Cloud state:** Depends on the incident; the freeze remains active and Codex takes no unapproved
 repair action.
 
-## RC1B provider-certification correction
-
-The three secret relationships are separate and must be evidenced separately:
-
-1. `RESEND_WEBHOOK_SECRET` is the provider's signed-webhook verification secret.
-2. `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` is the database-attestation HMAC relationship used
-   by the Resend webhook path.
-3. `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` is the provider-lookup attestation HMAC relationship.
-
-The future certification sequence is exactly:
-
-1. Deploy the exact approved RC SHA with `MK_EMAIL_PROVIDER_MODE=disabled`.
-2. Keep the Resend webhook disabled.
-3. Confirm `RESEND_WEBHOOK_SECRET` against the intended Resend endpoint.
-4. Provision the two independent Phase 14 HMAC values through Vercel and the AAL2 admin RPC:
-   `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` and
-   `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET`.
-5. Redeploy the same SHA while provider mode remains disabled.
-6. Verify Vercel READY/exact SHA and both non-reversible database HMAC fingerprints.
-7. Enable the Resend webhook.
-8. Change `MK_EMAIL_PROVIDER_MODE` to `test`.
-9. Redeploy the same SHA.
-10. Use one approved synthetic canary and the designated MK test mailbox only.
-11. Certify the payment-acknowledgement message.
-12. Certify the secure report-ready message.
-13. Require the signed webhook to return HTTP 200.
-14. Prove the provider event correlates to the intended email event.
-15. Prove no unrelated order or job is eligible.
-16. Return `MK_EMAIL_PROVIDER_MODE` to `disabled`.
-17. Redeploy the same SHA.
-18. Disable the Resend webhook.
-19. Independently verify the final disabled resting state, including workers, webhooks, provider
-    mode and no unrelated state changes.
-
-RC1 certification must never set provider mode to `live`. The sequence is design/evidence only in
-this correction cycle; no secret, webhook, provider mode, deployment or canary action is performed.
-
 ## Current decision
 
-This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1 decision-package structure is accepted, but RC1 operational readiness is **CORRECTIONS REQUIRED**. The Supabase backup gate is **CONDITIONAL PASS** under the supplemental owner decision; the eventual scheduled-backup fallback evidence, post-freeze logical-backup evidence, restricted Storage safeguard, exact technical freeze design, 18-order approvals, worker/manual operating-model decision and all other §1–§16 gates remain owner/controller gates.
+This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1B security/harness correction is accepted
+and its technical-freeze design is accepted in principle, but RC1C remains in progress and RC1
+operational readiness is **NO-GO**. The Supabase backup gate is **CONDITIONAL PASS** under the
+supplemental owner decision; the eventual scheduled-backup fallback evidence, post-freeze
+logical-backup evidence, restricted Storage safeguard, technical-freeze implementation, 18-order
+approvals, worker/manual operating-model decision and all other §1–§16 gates remain owner/controller
+gates. RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION, PUBLIC LAUNCH and MERGE remain **NO-GO**.

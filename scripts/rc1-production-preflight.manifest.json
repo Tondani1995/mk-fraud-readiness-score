@@ -1,5 +1,5 @@
 {
-  "manifest_version": 1,
+  "manifest_version": 2,
   "purpose": "Machine-readable RC1 Production preflight expectations; no customer data.",
   "fingerprint_algorithm": "sha256 for aggregate fingerprints; md5(pg_get_functiondef(oid)) for RPC definitions",
   "ledger": {
@@ -48,11 +48,24 @@
     "provider_mode_database_visibility": "NOT_DATABASE_VISIBLE_when_both_app_settings_keys_are_absent",
     "vercel_MK_EMAIL_PROVIDER_MODE": "separate_owner_deployment_evidence_required"
   },
+  "email_event_status_baseline": {
+    "counts": {
+      "queued": 71,
+      "recorded_disabled": 2,
+      "sent": 2
+    },
+    "total": 75,
+    "fingerprint_algorithm": "sha256 of PostgreSQL jsonb text for the complete status-count object",
+    "fingerprint": "76d196fb622eba89ec2c556ea8f65b8a183eee086e722fb43e2d94fa774e6fd2",
+    "required_psql_count_variable": "rc1_approved_email_status_counts_json",
+    "required_psql_fingerprint_variable": "rc1_approved_email_status_fingerprint",
+    "privacy": "aggregate status names and counts only; no recipients, provider IDs, order IDs or message IDs"
+  },
   "baseline_counts": {
     "order_events": "controller-supplied-at-read-only-preflight",
     "report_events": "controller-supplied-at-read-only-preflight",
-    "email_events": "controller-supplied-at-read-only-preflight",
-    "email_provider_events": "controller-supplied-at-read-only-preflight",
+    "email_events": 75,
+    "email_provider_events": 0,
     "report_delivery_authorizations": "controller-supplied-at-read-only-preflight",
     "report_delivery_finalizations": "controller-supplied-at-read-only-preflight",
     "report_delivery_remediations": "controller-supplied-at-read-only-preflight",
@@ -79,6 +92,19 @@
     "source": "controller-approved canonical fingerprints generated from the exact seven migration replay",
     "required_psql_variable": "rc1_approved_postflight_rpc_fingerprints_json",
     "count": 29
+  },
+  "migration_payload_audit": {
+    "decision": "restore both pending migrations byte-for-byte to the RC1A fa2b57c payloads; RC1B edits were harness grant accommodations, not approved Production migration changes",
+    "20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql": {
+      "rc1a_sha256": "d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25",
+      "rc1b_sha256": "1929a53fc216c94d9e93012b589bcea5f622bfa46e8971923d502479c795572d",
+      "rc1c_restored_sha256": "d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25"
+    },
+    "20260724180000_release_c_closure_delivery_exceptions.sql": {
+      "rc1a_sha256": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533",
+      "rc1b_sha256": "514348bc09ddfe9fcb96683c8c377a31918a2991aeb54c7f49935d1903b830f3",
+      "rc1c_restored_sha256": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533"
+    }
   },
   "no_change_state": {
     "active_generation_attempts": 0,

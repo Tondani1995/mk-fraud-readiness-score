@@ -375,14 +375,12 @@ $$;
 revoke all on function public.authorize_manual_report_ai_action(uuid,text),
   public.claim_manual_report_ai_attempt(jsonb),
   public.settle_manual_report_ai_attempt(uuid,jsonb),
-  public.record_manual_report_narrative_provenance(uuid,jsonb),
-  public.record_premium_report_generation_run(uuid,uuid,jsonb)
+  public.record_manual_report_narrative_provenance(uuid,jsonb)
   from public, anon, authenticated;
 grant execute on function public.authorize_manual_report_ai_action(uuid,text),
   public.claim_manual_report_ai_attempt(jsonb),
   public.settle_manual_report_ai_attempt(uuid,jsonb),
-  public.record_manual_report_narrative_provenance(uuid,jsonb),
-  public.record_premium_report_generation_run(uuid,uuid,jsonb)
+  public.record_manual_report_narrative_provenance(uuid,jsonb)
   to service_role;
 
 -- No app setting, feature policy, provider route or environment value is changed by this migration.

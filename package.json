@@ -71,7 +71,8 @@
     "release-c:test-email-secure-delivery": "node scripts/release-c-email-secure-delivery-tests.mjs",
     "release-c:test-runtime-secret-provisioning": "node scripts/release-c-runtime-secret-provisioning-tests.mjs",
     "release-d:test-operational-alerts": "node scripts/release-d-operational-alerts-tests.mjs",
-    "rc1:test-prepostflight": "node scripts/rc1-prepostflight-disposable-tests.mjs"
+    "rc1:test-prepostflight": "node scripts/rc1-prepostflight-disposable-tests.mjs",
+    "rc1:dry-evaluate-live-boundary": "node scripts/rc1-live-boundary-dry-evaluation.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

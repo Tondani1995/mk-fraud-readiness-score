@@ -186,7 +186,7 @@ with expected(name, args, search_path, positive_role) as (
     ('claim_manual_report_ai_attempt','jsonb','""', 'service_role'),
     ('settle_manual_report_ai_attempt','uuid,jsonb','""', 'service_role'),
     ('record_manual_report_narrative_provenance','uuid,jsonb','""', 'service_role'),
-    ('record_premium_report_generation_run','uuid,uuid,jsonb','""', 'service_role'),
+    ('record_premium_report_generation_run','uuid,uuid,jsonb','""', 'authenticated'),
     ('classify_backlog_order','uuid,uuid,text,text,uuid,text,date,text','public, pg_temp','authenticated'),
     ('backlog_reconciliation_queue','','public, pg_temp','authenticated'),
     ('claim_next_fulfilment_job','text,integer','public, pg_temp','service_role'),
@@ -207,7 +207,7 @@ with expected(name, args, search_path, positive_role) as (
     ('revoke_customer_report_access_token','uuid,text','public, pg_temp','authenticated'),
     ('issue_customer_report_access_token','uuid,uuid,text,integer','public, pg_temp','service_role'),
     ('reissue_customer_report_access_token','uuid,uuid,text,text,integer,boolean','public, pg_temp','authenticated'),
-    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','""', 'service_role'),
+    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','""', 'NONE'),
     ('correct_delivery_recipient_and_queue','uuid,text,text','public, pg_temp','authenticated'),
     ('set_phase14_runtime_secret','text,text,text','""', 'authenticated'),
     ('transition_phase14_operational_alert','uuid,text,text','""', 'authenticated')
@@ -218,15 +218,19 @@ with expected(name, args, search_path, positive_role) as (
     and p.proname = e.name and replace(replace(array_to_string(array(select format_type(t, null) from unnest(p.proargtypes) t), ','), 'timestamp with time zone', 'timestamptz'), ' ', '') = e.args
 ), rpc_check as (
   select a.*, md5(pg_get_functiondef(a.oid)) as definition_fingerprint,
-    has_function_privilege(a.positive_role, a.oid, 'EXECUTE') as positive_grant,
+    case when a.positive_role = 'NONE' then true
+         else has_function_privilege(a.positive_role, a.oid, 'EXECUTE') end as positive_grant,
     has_function_privilege('public', a.oid, 'EXECUTE') as public_grant,
-    has_function_privilege('anon', a.oid, 'EXECUTE') as anon_grant
+    has_function_privilege('anon', a.oid, 'EXECUTE') as anon_grant,
+    has_function_privilege('authenticated', a.oid, 'EXECUTE') as authenticated_grant,
+    has_function_privilege('service_role', a.oid, 'EXECUTE') as service_role_grant
   from actual a where a.oid is not null
 )
 select 'rpc_combined_result|' || case when
   (select count(*) from actual) = 29 and (select count(*) from rpc_check) = 29
   and not exists (select 1 from actual where oid is null or not prosecdef or actual_search_path <> search_path)
   and (select count(*) from rpc_check where not positive_grant or public_grant or anon_grant
+       or (positive_role = 'NONE' and (authenticated_grant or service_role_grant))
        or md5(pg_get_functiondef(oid)) <> coalesce((select value from jsonb_each_text(:'rc1_approved_postflight_rpc_fingerprints_json'::jsonb)
            where key = name || '(' || args || ')'), 'MISSING')) = 0
 then 'PASS' else 'STOP' end;

@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
@@ -166,6 +167,20 @@ async function seedOrders(adminId) {
   }
   return { adminId };
 }
+async function seedHistoricalEmailEvents() {
+  await db.query(`
+    insert into public.email_events(
+      order_id, recipient_email, status, provider_mode, template_key
+    )
+    select
+      '00000000-0000-0000-0000-00000000e001',
+      ('rc1-historical-' || lpad(n::text, 3, '0') || '@invalid.test')::citext,
+      case when n <= 71 then 'queued' when n <= 73 then 'recorded_disabled' else 'sent' end,
+      'disabled',
+      'rc1-synthetic-historical'
+    from generate_series(1, 75) n
+  `);
+}
 async function jsonRpcFingerprints(list) {
   const result = {};
   for (const [name, args] of list) {
@@ -193,6 +208,23 @@ async function baselineCounts() {
     'orders',(select count(*)::text from public.orders)
   ) as value`);
   return rows[0].value;
+}
+async function emailStatusBaseline() {
+  const rows = await query(`
+    with status_counts as (
+      select coalesce(jsonb_object_agg(status, event_count), '{}'::jsonb) as value
+      from (
+        select status, count(*) as event_count
+        from public.email_events
+        group by status
+        order by status
+      ) counts
+    )
+    select value,
+      encode(extensions.digest(convert_to(value::text, 'UTF8'), 'sha256'), 'hex') as fingerprint
+    from status_counts
+  `);
+  return rows[0];
 }
 async function protectedStateFingerprint() {
   const rows = await query(`with protected_reports as (
@@ -245,6 +277,34 @@ async function injectLease(adminId) {
 async function cleanLease() { await db.query("delete from public.manual_report_generation_attempts where request_key='RC1-SYNTHETIC-LEASE'"); }
 async function runPre(vars) { return runGate('rc1-production-preflight.sql', vars); }
 async function runPost(vars) { return runGate('rc1-production-postflight.sql', vars); }
+function dryEvaluationEnvironment(overrides = {}) {
+  const targetDescriptor = `host=127.0.0.1|port=${port}|database=testdb`;
+  return {
+    ...process.env,
+    PSQL: psql,
+    RC1_READ_ONLY_DATABASE_URL: `postgresql://postgres:testpass@127.0.0.1:${port}/testdb?sslmode=disable`,
+    RC1_APPROVED_TARGET_FINGERPRINT: crypto.createHash('sha256').update(targetDescriptor).digest('hex'),
+    RC1_CONNECTION_MODE: 'read-only',
+    RC1_APPROVED_RPC_BASELINE_JSON: preVars.rc1_approved_rpc_baseline_json,
+    RC1_EXPECTED_BASELINE_COUNTS_JSON: preVars.rc1_expected_baseline_counts_json,
+    RC1_APPROVED_PROTECTED_STATE_FINGERPRINT: preVars.rc1_approved_protected_state_fingerprint,
+    RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON: preVars.rc1_approved_email_status_counts_json,
+    RC1_APPROVED_EMAIL_STATUS_FINGERPRINT: preVars.rc1_approved_email_status_fingerprint,
+    ...overrides,
+  };
+}
+function runDryEvaluation(env) {
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'rc1-live-boundary-dry-evaluation.mjs'),
+  ], { env, encoding: 'utf8' });
+  return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+function assertRestrictedDryOutput(result, label) {
+  const lines = result.output.trim().split('\n').filter(Boolean);
+  assert(lines.length > 0, `${label} must emit a result line`);
+  assert(lines.every((line) => /^[a-z0-9_]+\|(PASS|STOP|NOT_DATABASE_VISIBLE)$/.test(line)),
+    `${label} emitted non-result output: ${result.output}`);
+}
 async function expectPreStop(label, mutate, cleanup, line) {
   const before = await protectedStateFingerprint();
   await mutate();
@@ -265,15 +325,23 @@ try {
   await replayBaseline();
   const adminId = await ensureAdmin();
   await seedOrders(adminId);
+  await seedHistoricalEmailEvents();
   const baselineCountsJson = JSON.stringify(await baselineCounts());
+  const emailStatus = await emailStatusBaseline();
   const protectedState = await protectedStateFingerprint();
   [protectedReportOriginal] = await query("select storage_path,updated_at::text as updated_at from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
   const baselineRpcJson = await jsonRpcFingerprints(baselineRpc);
   preVars = {
     rc1_approved_rpc_baseline_json: baselineRpcJson,
     rc1_expected_baseline_counts_json: baselineCountsJson,
-    rc1_approved_protected_state_fingerprint: protectedState
+    rc1_approved_protected_state_fingerprint: protectedState,
+    rc1_approved_email_status_counts_json: JSON.stringify(emailStatus.value),
+    rc1_approved_email_status_fingerprint: emailStatus.fingerprint
   };
+  assert(JSON.stringify(emailStatus.value) === JSON.stringify({ sent: 2, queued: 71, recorded_disabled: 2 }),
+    'historical email fixture must match the controller-approved 71/2/2 status baseline');
+  assert(emailStatus.fingerprint === '76d196fb622eba89ec2c556ea8f65b8a183eee086e722fb43e2d94fa774e6fd2',
+    'historical email status fingerprint must match the approved manifest');
   passResult(await runPre(preVars), 'baseline preflight');
 
   await expectPreStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
@@ -286,11 +354,63 @@ try {
     await db.query('alter table public.reports enable trigger trg_reports_updated_at');
   }, 'protected_state_fingerprint_result|STOP');
   await expectPreStop('new order event', async () => { await db.query("insert into public.order_events(order_id,event_type,note,metadata_json) values ('00000000-0000-0000-0000-00000000e001','synthetic','synthetic', '{}'::jsonb)"); }, async () => { await db.query("delete from public.order_events where event_type='synthetic'"); }, 'baseline_counts_result|STOP');
-  await expectPreStop('new email event', async () => { await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-synthetic-event@invalid.test','queued','disabled')"); }, async () => { await db.query("delete from public.email_events where recipient_email='rc1-synthetic-event@invalid.test'"); }, 'baseline_counts_result|STOP');
+  await expectPreStop('one queued email event added', async () => {
+    await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-added-queued@invalid.test','queued','disabled')");
+  }, async () => {
+    await db.query("delete from public.email_events where recipient_email='rc1-added-queued@invalid.test'");
+  }, 'email_status_baseline_result|STOP');
+  await expectPreStop('one sent email event added', async () => {
+    await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-added-sent@invalid.test','sent','disabled')");
+  }, async () => {
+    await db.query("delete from public.email_events where recipient_email='rc1-added-sent@invalid.test'");
+  }, 'email_status_baseline_result|STOP');
+  await expectPreStop('email status changed with total count unchanged', async () => {
+    await db.query("update public.email_events set status='sent' where recipient_email='rc1-historical-001@invalid.test'");
+  }, async () => {
+    await db.query("update public.email_events set status='queued' where recipient_email='rc1-historical-001@invalid.test'");
+  }, 'email_status_baseline_result|STOP');
+  await expectPreStop('one provider event added', async () => {
+    await db.query(`
+      insert into public.email_provider_events(
+        email_event_id, provider, provider_event_id, provider_message_id, event_type,
+        payload_fingerprint, payload_size_bytes, supported_event, payload_json
+      )
+      select id, 'synthetic', 'rc1-provider-event', 'rc1-provider-message', 'email.sent',
+        repeat('a', 64), 2, true, '{}'::jsonb
+      from public.email_events where recipient_email='rc1-historical-075@invalid.test'
+    `);
+  }, async () => {
+    await db.query("delete from public.email_provider_events where provider_event_id='rc1-provider-event'");
+  }, 'provider_database_activity_result|STOP');
   assert(
     (await protectedStateFingerprint()) === protectedState,
     'preflight defect cleanup must restore protected state',
   );
+
+  const dryPass = runDryEvaluation(dryEvaluationEnvironment());
+  assertRestrictedDryOutput(dryPass, 'guarded disposable dry evaluation');
+  passResult(dryPass, 'guarded disposable dry evaluation');
+  const requiredDryVariables = [
+    'RC1_READ_ONLY_DATABASE_URL', 'RC1_APPROVED_TARGET_FINGERPRINT', 'RC1_CONNECTION_MODE',
+    'RC1_APPROVED_RPC_BASELINE_JSON', 'RC1_EXPECTED_BASELINE_COUNTS_JSON',
+    'RC1_APPROVED_PROTECTED_STATE_FINGERPRINT', 'RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON',
+    'RC1_APPROVED_EMAIL_STATUS_FINGERPRINT',
+  ];
+  for (const variable of requiredDryVariables) {
+    const env = dryEvaluationEnvironment();
+    delete env[variable];
+    const result = runDryEvaluation(env);
+    assertRestrictedDryOutput(result, `missing ${variable}`);
+    stopResult(result, `missing ${variable}`, `missing_${variable.toLowerCase()}|STOP`);
+  }
+  const modeStop = runDryEvaluation(dryEvaluationEnvironment({ RC1_CONNECTION_MODE: 'read-write' }));
+  assertRestrictedDryOutput(modeStop, 'non-read-only connection mode');
+  stopResult(modeStop, 'non-read-only connection mode', 'connection_mode_result|STOP');
+  const targetStop = runDryEvaluation(dryEvaluationEnvironment({
+    RC1_APPROVED_TARGET_FINGERPRINT: '0'.repeat(64),
+  }));
+  assertRestrictedDryOutput(targetStop, 'unapproved target');
+  stopResult(targetStop, 'unapproved target', 'target_fingerprint_result|STOP');
 
   const cutoverStartedAt = new Date().toISOString();
   for (const name of pending) await applyMigration(name);

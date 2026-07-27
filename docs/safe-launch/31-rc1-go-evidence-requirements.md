@@ -1,10 +1,12 @@
 # RC1 GO Evidence Requirements
 
-This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1 DECISION-PACKAGE STRUCTURE is ACCEPTED, but RC1 OPERATIONAL READINESS is **CORRECTIONS REQUIRED**. It is not a
-GO decision and does not authorise any cloud or Production action. Every item must reference one
-exact application SHA and one cutover window. Evidence must be anonymised and must not contain secret
-values, customer identifiers, order references, organisation names, email addresses, report content
-or access tokens.
+This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1B security
+and harness correction is **ACCEPTED** and the RC1B technical-freeze design is **ACCEPTED IN
+PRINCIPLE**, but RC1C is **IN PROGRESS** and RC1 OPERATIONAL READINESS remains **NO-GO**. This is not
+a GO decision and does not authorise any cloud or Production action. Every item must reference one
+exact application SHA and one cutover window. Evidence must be anonymised and must not contain
+secret values, customer identifiers, order references, organisation names, email addresses, report
+content or access tokens.
 
 ## Required bundle
 
@@ -52,9 +54,15 @@ or access tokens.
 5. A missing, contradictory or stale item is a STOP, not an implied approval.
 
 
-## RC1B corrected gate evidence
+## RC1B/RC1C corrected gate evidence
 
-- [ ] Preflight is executed with the machine-readable `scripts/rc1-production-preflight.manifest.json` and controller-supplied baseline RPC fingerprints, all 14 baseline aggregate counts and protected-state fingerprint; every assertion is PASS or the gate is STOP.
+- [ ] Preflight is executed through `npm run rc1:dry-evaluate-live-boundary` with the
+      machine-readable manifest, approved target fingerprint, explicit read-only mode,
+      controller-supplied RPC fingerprints, all 14 aggregate counts, protected-state fingerprint,
+      and approved email-status JSON/fingerprint; every assertion is PASS or the gate is STOP.
+- [ ] Historical `email_events` match the full aggregate `queued=71`, `recorded_disabled=2`,
+      `sent=2` (total 75) and approved SHA-256 fingerprint; `email_provider_events=0`; no recipient,
+      provider ID, order ID or message ID is emitted.
 - [ ] Preflight proves the exact current-boundary columns, no duplicate current report per order/report type, and compares the non-reversible protected-state and 2/13/3 classification fingerprints.
 - [ ] Postflight proves 41 total ledger rows, final version `20260725150000`, exact seven `(version,name)` pairs, no duplicate or unlisted version, full backlog/token structures, all 14 migration-derived indexes, all 29 RPCs including `recover_expired_fulfilment_leases()` and `record_premium_report_generation_run(...)`, exact grants, RLS/policies and combined fingerprints.
 - [ ] Postflight no-change evidence includes order/report/generation/payment/email/provider/delivery/token/alert/storage aggregates and the exact protected-state fingerprint supplied by preflight.
@@ -69,22 +77,22 @@ All 19 steps are required in order:
 1. Exact approved RC SHA deployed with `MK_EMAIL_PROVIDER_MODE=disabled`.
 2. Resend webhook disabled.
 3. `RESEND_WEBHOOK_SECRET` confirmed against the intended endpoint.
-4. `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` and
-   `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` provisioned through Vercel plus the AAL2 admin RPC.
-5. Same-SHA redeployment while provider mode remains disabled.
-6. READY/exact-SHA evidence and both database fingerprints verified.
-7. Resend webhook enabled.
-8. `MK_EMAIL_PROVIDER_MODE=test`.
-9. Same-SHA redeployment.
-10. One approved synthetic canary and designated MK test mailbox only.
-11. Payment-acknowledgement message certified.
-12. Secure report-ready message certified.
-13. Signed webhook returns HTTP 200.
-14. Provider event correlates to the intended email event.
-15. No unrelated order or job is eligible.
-16. `MK_EMAIL_PROVIDER_MODE=disabled`.
-17. Same-SHA redeployment.
-18. Resend webhook disabled.
+4. `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` provisioned through Vercel plus the AAL2 admin RPC.
+5. `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` provisioned independently through Vercel plus the AAL2
+   admin RPC.
+6. Same-SHA redeployment while provider mode remains disabled.
+7. READY/exact-SHA evidence verified.
+8. Both database fingerprints independently verified.
+9. Resend webhook enabled.
+10. `MK_EMAIL_PROVIDER_MODE=test`.
+11. Same-SHA redeployment.
+12. One approved synthetic canary and designated MK test mailbox only.
+13. Payment-acknowledgement message certified.
+14. Secure report-ready message certified.
+15. Signed webhook returns HTTP 200.
+16. Provider event correlates to the intended email event.
+17. No unrelated order or job is eligible.
+18. `MK_EMAIL_PROVIDER_MODE=disabled`, same-SHA redeployed, and Resend webhook disabled.
 19. Final disabled resting state independently verified.
 
 Provider mode must never be `live` during certification.
