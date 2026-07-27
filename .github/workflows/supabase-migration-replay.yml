@@ -1039,8 +1039,14 @@ jobs:
           psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql \
             > tmp/migration-replay/production-converged-schema-inventory.txt
-          cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
-            tmp/migration-replay/production-converged-schema-inventory.txt
+          if ! cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/production-converged-schema-inventory.txt; then
+            echo "::error::Production-history schema inventory diverged from the fresh canonical inventory; bounded diff follows." >&2
+            diff -u tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+              tmp/migration-replay/production-converged-schema-inventory.txt \
+              | sed -n '1,200p' >&2 || true
+            exit 1
+          fi
           test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) filter(where version='0017' and name='phase14_canonical_disabled_foundation')||'|'||count(*) filter(where version in ('20260712180303','20260712180317','20260712180329','20260712180346','20260712182003','20260712184501')) from supabase_migrations.schema_migrations")" = '1|0'
           test "$(psql "$LOCAL_DB_URL" -XAtc "select (select count(*) from public.phase14_security_gates where status<>'unsatisfied' or satisfied_version<>0)||'|'||(select count(*) from public.phase14_feature_policies where enabled)||'|'||(select count(*) from public.phase14_ai_route_policies where enabled)")" = '0|0|0'
 
@@ -1055,8 +1061,14 @@ jobs:
           psql "$LOCAL_DB_URL" -X --tuples-only --no-align \
             --file=scripts/phase14-schema-equivalence-inventory.sql \
             > tmp/migration-replay/production-ledger-recovered-schema-inventory.txt
-          cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
-            tmp/migration-replay/production-ledger-recovered-schema-inventory.txt
+          if ! cmp tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+            tmp/migration-replay/production-ledger-recovered-schema-inventory.txt; then
+            echo "::error::Recovered production-history schema inventory diverged from the fresh canonical inventory; bounded diff follows." >&2
+            diff -u tmp/migration-replay/fresh-canonical-schema-inventory.txt \
+              tmp/migration-replay/production-ledger-recovered-schema-inventory.txt \
+              | sed -n '1,200p' >&2 || true
+            exit 1
+          fi
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/phase14-production-canonical-reconciliation.sql \
             | tee tmp/migration-replay/production-safe-restart.txt
