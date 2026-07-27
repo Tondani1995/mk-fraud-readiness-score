@@ -55,3 +55,10 @@ a3d7c144033a156d109c75bca60d8ec44dab2d9a:supabase/migrations/0017_phase14_canoni
 
 # Reviewed non-secret fixed synthetic request key in the disposable RC1 harness; no credential value is present.
 fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-tests.mjs:generic-api-key:199
+
+# RC1D: reviewed non-secret MD5 trigger-definition fingerprints in the machine-readable
+# postflight manifest. These identify database trigger definitions; they are neither credentials
+# nor customer data. Suppression remains limited to the three exact findings.
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:125
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:129
+9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:132

@@ -859,3 +859,13 @@ safest options. CLOUD CERTIFICATION remains **NO-GO**.
 For the next otherwise-authorised commit, remove the duplicated retirement notice appended at the
 end of `supabase/retired-migrations/0011_phase10_pdf_report_engine_additions.sql` while retaining the
 single retirement header at the top. Do not create a standalone commit for this cosmetic change.
+
+### RC1D exact-head security-scan correction
+
+The first RC1D Security Scans run reported three `generic-api-key` findings in the machine-readable
+preflight manifest. Each reported value is an MD5 fingerprint of a database trigger definition used
+for exact postflight comparison. None is a credential, authentication material, customer data, or an
+external-connection value. The three findings were reviewed at their reported commit and line, and
+only their exact gitleaks fingerprints were added to `.gitleaksignore`. Dependency audit and CodeQL
+were already green in that run. A new exact-head Security Scans result is required; the failed run is
+not reclassified as green.
