@@ -173,7 +173,7 @@ function runStaticChecks() {
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'createSignedUrl', 'Report download route must not issue raw storage URLs');
   assertIncludes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', 'Shared access service must expire signed access quickly');
   assertNotIncludes('src/app/score/api/admin/reports/[reportId]/download/route.ts', 'publicUrl', 'Report download route must not expose permanent public URLs');
-  assertIncludes('supabase/migrations/20260708193318_phase9_phase10_private_storage_buckets.sql', "values ('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
+  assertIncludes('supabase/migrations/20260708193318_phase9_phase10_private_storage_buckets.sql', "('generated-reports', 'generated-reports', false", 'Generated reports bucket must be private in migration');
 
   assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', 'validateSnapshotToken', 'Snapshot route must validate private snapshot token');
   assertIncludes('src/app/score/assessment/[assessmentRef]/result/page.tsx', 'Private snapshot link required', 'Legacy result route must not render snapshots by reference only');
