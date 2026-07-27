@@ -12,9 +12,21 @@ declare v_methodology uuid; v_product uuid; v_template uuid;
 begin
   select id into strict v_methodology from public.methodology_versions where status='active';
   select id into strict v_product from public.products where product_code='essential_self_assessment';
-  select id into strict v_template from public.report_templates
+  select id into v_template from public.report_templates
     where report_type='essential_self_assessment' and status='active'
     order by version_number desc limit 1;
+  -- The historical production boundary retains the report_templates table but may
+  -- predate its first active seed row. Keep this fixture self-contained and deterministic
+  -- without changing the archived migration history or any shared environment.
+  if v_template is null then
+    v_template := '27000000-0000-0000-0000-000000000009';
+    insert into public.report_templates(
+      id,template_code,version_number,report_type,status,content_schema_json,created_by,approved_by,approved_at
+    ) values (
+      v_template,'production-history-synthetic',1,'essential_self_assessment','active','{}'::jsonb,
+      '27000000-0000-0000-0000-000000000020','27000000-0000-0000-0000-000000000020',now()
+    ) on conflict (template_code,version_number) do nothing;
+  end if;
   -- Migration 0023 (phase1_manual_fulfilment_recovery) adds
   -- public.reports.organisation_id with a foreign key to public.organisations, and backfills it
   -- from public.assessments.organisation_id for every existing report. This fixture referenced
