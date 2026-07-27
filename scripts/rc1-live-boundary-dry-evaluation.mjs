@@ -14,6 +14,7 @@ const required = [
   'RC1_APPROVED_PROTECTED_STATE_FINGERPRINT',
   'RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON',
   'RC1_APPROVED_EMAIL_STATUS_FINGERPRINT',
+  'RC1_EXPECTED_APPLICATION_FREEZE_MODE',
 ];
 const countKeys = [
   'order_events', 'report_events', 'email_events', 'email_provider_events',
@@ -46,6 +47,9 @@ for (const name of required) {
   if (!process.env[name]) stop(`missing_${name.toLowerCase()}`);
 }
 if (process.env.RC1_CONNECTION_MODE !== 'read-only') stop('connection_mode_result');
+if (process.env.RC1_EXPECTED_APPLICATION_FREEZE_MODE !== 'frozen') {
+  stop('application_freeze_mode_result');
+}
 if (!isSha256(process.env.RC1_APPROVED_TARGET_FINGERPRINT)) stop('target_fingerprint_input_result');
 if (!isSha256(process.env.RC1_APPROVED_PROTECTED_STATE_FINGERPRINT)) stop('protected_state_fingerprint_input_result');
 if (!isSha256(process.env.RC1_APPROVED_EMAIL_STATUS_FINGERPRINT)) stop('email_status_fingerprint_input_result');
@@ -103,6 +107,7 @@ const args = [
   '-v', `rc1_approved_protected_state_fingerprint=${process.env.RC1_APPROVED_PROTECTED_STATE_FINGERPRINT}`,
   '-v', `rc1_approved_email_status_counts_json=${JSON.stringify(emailStatusCounts)}`,
   '-v', `rc1_approved_email_status_fingerprint=${process.env.RC1_APPROVED_EMAIL_STATUS_FINGERPRINT}`,
+  '-v', `rc1_expected_application_freeze_mode=${process.env.RC1_EXPECTED_APPLICATION_FREEZE_MODE}`,
   '-f', path.join(process.cwd(), 'scripts', 'rc1-production-preflight.sql'),
 ];
 const result = spawnSync(process.env.PSQL ?? 'psql', args, {

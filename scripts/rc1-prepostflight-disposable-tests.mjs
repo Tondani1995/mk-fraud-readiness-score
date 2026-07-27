@@ -21,8 +21,13 @@ const cloudConnectionVariables = [
   'DATABASE_URL', 'DIRECT_URL', 'SUPABASE_DB_URL', 'SUPABASE_DATABASE_URL',
   'SUPABASE_ACCESS_TOKEN', 'SUPABASE_SERVICE_ROLE_KEY'
 ];
+const manifest = JSON.parse(fs.readFileSync(
+  path.join(root, 'scripts', 'rc1-production-preflight.manifest.json'),
+  'utf8',
+));
 
 const pending = [
+  '20260722120000_rc1_operational_freeze_bootstrap.sql',
   '20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql',
   '20260724150000_release_a_backlog_reconciliation.sql',
   '20260724160000_release_b_durable_fulfilment.sql',
@@ -55,9 +60,27 @@ const postflightRpc = [
   ['correct_delivery_recipient_and_queue','uuid,text,text'], ['set_phase14_runtime_secret','text,text,text'],
   ['transition_phase14_operational_alert','uuid,text,text']
 ];
+const freezeFunctions = [
+  ['rc1_is_known_operation_surface','text'],
+  ['rc1_surface_for_relation','text,text'],
+  ['rc1_freeze_status',''],
+  ['rc1_require_operation_open','text'],
+  ['rc1_require_platform_admin','boolean'],
+  ['rc1_guard_freeze_state_write',''],
+  ['rc1_activate_freeze','text'],
+  ['rc1_release_freeze','text,text,bigint'],
+  ['rc1_guard_authoritative_mutation',''],
+  ['rc1_install_relation_guard','text,text'],
+  ['rc1_install_new_relation_guards',''],
+];
 
 function assert(condition, message) {
   if (!condition) throw new Error(`RC1 PRE/POST TEST FAILED: ${message}`);
+}
+function canonicalJson(value) {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))),
+  );
 }
 async function query(sql, params = []) { return (await db.query(sql, params)).rows; }
 function migrationFile(name) { return fs.readFileSync(path.join(root, 'supabase', 'migrations', name), 'utf8'); }
@@ -134,6 +157,7 @@ async function replayBaseline() {
 }
 async function ensureAdmin() {
   await db.query(`insert into auth.users(id,email) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test') on conflict do nothing`);
+  await db.query(`insert into auth.sessions(id,user_id,not_after) values ('00000000-0000-0000-0000-00000000a002','00000000-0000-0000-0000-00000000a001',now()+interval '1 hour') on conflict (id) do update set not_after=excluded.not_after`);
   await db.query(`insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test','Synthetic RC1 Admin','platform_admin','active',false) on conflict (id) do nothing`);
   return '00000000-0000-0000-0000-00000000a001';
 }
@@ -189,6 +213,38 @@ async function jsonRpcFingerprints(list) {
     result[`${name}(${args})`] = rows[0].fingerprint;
   }
   return JSON.stringify(result);
+}
+async function freezeObjectFingerprints() {
+  const functions = await jsonRpcFingerprints(freezeFunctions);
+  const tableRows = await query(`
+    select c.relname as key,
+      md5(string_agg(
+        a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
+        || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
+        E'\\n' order by a.attnum
+      )) as value
+    from pg_class c
+    join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
+    left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
+    where c.relnamespace='public'::regnamespace
+      and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
+    group by c.relname
+    order by c.relname
+  `);
+  const triggerRows = await query(`
+    select n.nspname || '.' || c.relname as key,
+      md5(pg_get_triggerdef(t.oid,false)) as value
+    from pg_trigger t
+    join pg_class c on c.oid=t.tgrelid
+    join pg_namespace n on n.oid=c.relnamespace
+    where t.tgname='trg_rc1_operation_freeze' and not t.tgisinternal
+    order by 1
+  `);
+  return {
+    functions,
+    tables: JSON.stringify(Object.fromEntries(tableRows.map((row) => [row.key, row.value]))),
+    triggers: JSON.stringify(Object.fromEntries(triggerRows.map((row) => [row.key, row.value]))),
+  };
 }
 async function baselineCounts() {
   const rows = await query(`select jsonb_build_object(
@@ -290,6 +346,7 @@ function dryEvaluationEnvironment(overrides = {}) {
     RC1_APPROVED_PROTECTED_STATE_FINGERPRINT: preVars.rc1_approved_protected_state_fingerprint,
     RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON: preVars.rc1_approved_email_status_counts_json,
     RC1_APPROVED_EMAIL_STATUS_FINGERPRINT: preVars.rc1_approved_email_status_fingerprint,
+    RC1_EXPECTED_APPLICATION_FREEZE_MODE: 'frozen',
     ...overrides,
   };
 }
@@ -315,7 +372,109 @@ async function expectPreStop(label, mutate, cleanup, line) {
   }
   assert((await protectedStateFingerprint()) === before, `${label} cleanup must restore protected state`);
 }
-async function expectPostStop(label, mutate, cleanup, line, override = {}) { await mutate(); try { stopResult(await runPost({ ...postVars, ...override }), label, line); } finally { await cleanup(); } }
+async function withTriggerBypass(action) {
+  await db.query('set session_replication_role = replica');
+  try {
+    return await action();
+  } finally {
+    await db.query('set session_replication_role = origin');
+  }
+}
+async function expectPostStop(label, mutate, cleanup, line, override = {}) {
+  await withTriggerBypass(mutate);
+  try {
+    stopResult(await runPost({ ...postVars, ...override }), label, line);
+  } finally {
+    await withTriggerBypass(cleanup);
+  }
+}
+async function expectQueryStop(label, action, expectedMessage) {
+  let stopped = false;
+  try {
+    await action();
+  } catch (error) {
+    stopped = true;
+    assert(String(error?.message ?? error).includes(expectedMessage),
+      `${label} stopped for the wrong reason: ${String(error?.message ?? error)}`);
+  }
+  assert(stopped, `${label} did not fail closed`);
+}
+
+async function proveBootstrapEnforcement() {
+  const [status] = await query('select public.rc1_freeze_status() as value');
+  assert(status.value.state === 'frozen', 'bootstrap state must start FROZEN');
+  assert(Number(status.value.freeze_epoch) === 1, 'bootstrap freeze epoch must start at 1');
+  assert(status.value.canary_authorization_active === false, 'bootstrap must not activate canary authorization');
+
+  await expectQueryStop(
+    'unknown operation surface',
+    () => db.query("select public.rc1_require_operation_open('not_authorised')"),
+    'rc1_operation_frozen:unknown_surface',
+  );
+  await expectQueryStop(
+    'direct state write',
+    () => db.query("update public.rc1_operation_freeze_state set updated_at=now()"),
+    'rc1_freeze_control:direct_state_write_forbidden',
+  );
+  await expectQueryStop(
+    'direct report/enquiry request write',
+    () => db.query("insert into public.data_requests(request_type) values ('detailed_report')"),
+    'rc1_operation_frozen:order_create',
+  );
+  await expectQueryStop(
+    'direct legacy delivery write',
+    () => db.query("insert into public.manual_report_delivery_attempts(request_key) values ('rc1-frozen-probe')"),
+    'rc1_operation_frozen:delivery',
+  );
+
+  await db.query('grant update on table public.orders to service_role');
+  await db.query('set role service_role');
+  try {
+    await expectQueryStop(
+      'service_role guard invocation',
+      () => db.query("select public.rc1_require_operation_open('order_create')"),
+      'rc1_operation_frozen:order_create',
+    );
+    await expectQueryStop(
+      'service_role direct business update',
+      () => db.query('update public.orders set updated_at=now()'),
+      'rc1_operation_frozen:order_create',
+    );
+  } finally {
+    await db.query('reset role');
+    await db.query('revoke update on table public.orders from service_role');
+  }
+
+  const claims = JSON.stringify({
+    role: 'authenticated',
+    aal: 'aal1',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    session_id: '00000000-0000-0000-0000-00000000a002',
+  });
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", ['00000000-0000-0000-0000-00000000a001']);
+  await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
+  await expectQueryStop(
+    'AAL1 release',
+    () => db.query("select public.rc1_release_freeze('Synthetic controller release evidence',repeat('a',64),1)"),
+    'rc1_freeze_control:aal2_required',
+  );
+
+  await db.query('begin');
+  try {
+    const aal2Claims = JSON.stringify({ ...JSON.parse(claims), aal: 'aal2' });
+    await db.query("select set_config('request.jwt.claims',$1,true)", [aal2Claims]);
+    const released = await query("select public.rc1_release_freeze('Synthetic controller release evidence',repeat('a',64),1) as value");
+    assert(released[0].value.state === 'released', 'AAL2 exact-epoch release must succeed transactionally');
+    const activated = await query("select public.rc1_activate_freeze('Synthetic controller reactivation evidence') as value");
+    assert(activated[0].value.state === 'frozen', 'AAL2 activation must restore FROZEN transactionally');
+  } finally {
+    await db.query('rollback');
+  }
+
+  const [afterRollback] = await query('select public.rc1_freeze_status() as value');
+  assert(afterRollback.value.state === 'frozen' && Number(afterRollback.value.freeze_epoch) === 1,
+    'control-RPC proof must leave the bootstrap state unchanged');
+}
 
 let preVars;
 let postVars;
@@ -332,6 +491,7 @@ try {
   [protectedReportOriginal] = await query("select storage_path,updated_at::text as updated_at from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
   const baselineRpcJson = await jsonRpcFingerprints(baselineRpc);
   preVars = {
+    rc1_expected_application_freeze_mode: 'frozen',
     rc1_approved_rpc_baseline_json: baselineRpcJson,
     rc1_expected_baseline_counts_json: baselineCountsJson,
     rc1_approved_protected_state_fingerprint: protectedState,
@@ -394,7 +554,7 @@ try {
     'RC1_READ_ONLY_DATABASE_URL', 'RC1_APPROVED_TARGET_FINGERPRINT', 'RC1_CONNECTION_MODE',
     'RC1_APPROVED_RPC_BASELINE_JSON', 'RC1_EXPECTED_BASELINE_COUNTS_JSON',
     'RC1_APPROVED_PROTECTED_STATE_FINGERPRINT', 'RC1_APPROVED_EMAIL_STATUS_COUNTS_JSON',
-    'RC1_APPROVED_EMAIL_STATUS_FINGERPRINT',
+    'RC1_APPROVED_EMAIL_STATUS_FINGERPRINT', 'RC1_EXPECTED_APPLICATION_FREEZE_MODE',
   ];
   for (const variable of requiredDryVariables) {
     const env = dryEvaluationEnvironment();
@@ -413,20 +573,145 @@ try {
   stopResult(targetStop, 'unapproved target', 'target_fingerprint_result|STOP');
 
   const cutoverStartedAt = new Date().toISOString();
-  for (const name of pending) await applyMigration(name);
+  await applyMigration(pending[0]);
+  await proveBootstrapEnforcement();
+  for (const name of pending.slice(1)) await applyMigration(name);
   assert(
     (await protectedStateFingerprint()) === protectedState,
-    'seven migrations must preserve protected state',
+    'bootstrap plus seven migrations must preserve protected state',
   );
   const postRpcJson = await jsonRpcFingerprints(postflightRpc);
+  const freezeFingerprints = await freezeObjectFingerprints();
+  const approvedFreeze = manifest.freeze_bootstrap;
+  assert(
+    canonicalJson(JSON.parse(freezeFingerprints.functions))
+      === canonicalJson(approvedFreeze.function_fingerprints),
+    'freeze function fingerprints must match the fixed manifest',
+  );
+  assert(
+    canonicalJson(JSON.parse(freezeFingerprints.tables))
+      === canonicalJson(approvedFreeze.table_fingerprints),
+    'freeze table fingerprints must match the fixed manifest',
+  );
+  assert(
+    canonicalJson(JSON.parse(freezeFingerprints.triggers))
+      === canonicalJson(approvedFreeze.enforcement_trigger_fingerprints),
+    'freeze trigger fingerprints must match the fixed manifest',
+  );
   postVars = {
     rc1_cutover_started_at: cutoverStartedAt,
     rc1_preflight_newest_version: '20260721150808',
     rc1_preflight_protected_state_fingerprint: protectedState,
     rc1_preflight_baseline_counts_json: baselineCountsJson,
-    rc1_approved_postflight_rpc_fingerprints_json: postRpcJson
+    rc1_approved_postflight_rpc_fingerprints_json: postRpcJson,
+    rc1_expected_application_freeze_mode: 'frozen',
+    rc1_approved_freeze_function_fingerprints_json: JSON.stringify(approvedFreeze.function_fingerprints),
+    rc1_approved_freeze_table_fingerprints_json: JSON.stringify(approvedFreeze.table_fingerprints),
+    rc1_approved_freeze_trigger_fingerprints_json: JSON.stringify(approvedFreeze.enforcement_trigger_fingerprints)
   };
   passResult(await runPost(postVars), 'baseline postflight');
+
+  const [freezeStateOriginal] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreezeState = async () => {
+    await db.query(`
+      insert into public.rc1_operation_freeze_state(
+        singleton,state,freeze_epoch,activated_at,activated_by_fingerprint,
+        activation_reason_fingerprint,released_at,released_by_fingerprint,
+        release_reason_fingerprint,release_evidence_fingerprint,
+        active_canary_authorization_hash,active_canary_expires_at,updated_at
+      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    `, [
+      freezeStateOriginal.singleton, freezeStateOriginal.state, freezeStateOriginal.freeze_epoch,
+      freezeStateOriginal.activated_at, freezeStateOriginal.activated_by_fingerprint,
+      freezeStateOriginal.activation_reason_fingerprint, freezeStateOriginal.released_at,
+      freezeStateOriginal.released_by_fingerprint, freezeStateOriginal.release_reason_fingerprint,
+      freezeStateOriginal.release_evidence_fingerprint,
+      freezeStateOriginal.active_canary_authorization_hash,
+      freezeStateOriginal.active_canary_expires_at, freezeStateOriginal.updated_at,
+    ]);
+  };
+  await expectPostStop(
+    'missing freeze row',
+    async () => { await db.query('delete from public.rc1_operation_freeze_state'); },
+    restoreFreezeState,
+    'freeze_state_result|STOP',
+  );
+  await expectPostStop(
+    'freeze state unexpectedly released',
+    async () => {
+      await db.query(`
+        update public.rc1_operation_freeze_state set
+          state='RELEASED',
+          released_at=now(),
+          released_by_fingerprint=repeat('a',64),
+          release_reason_fingerprint=repeat('b',64),
+          release_evidence_fingerprint=repeat('c',64),
+          updated_at=now()
+      `);
+    },
+    async () => {
+      await db.query('delete from public.rc1_operation_freeze_state');
+      await restoreFreezeState();
+    },
+    'freeze_state_result|STOP',
+  );
+  await expectPostStop(
+    'unsafe freeze-table grant',
+    async () => { await db.query('grant update on public.rc1_operation_freeze_state to service_role'); },
+    async () => { await db.query('revoke update on public.rc1_operation_freeze_state from service_role'); },
+    'freeze_rls_grant_result|STOP',
+  );
+  await expectPostStop(
+    'missing enforcement trigger',
+    async () => { await db.query('drop trigger trg_rc1_operation_freeze on public.orders'); },
+    async () => {
+      await db.query('create trigger trg_rc1_operation_freeze before insert or update or delete on public.orders for each row execute function public.rc1_guard_authoritative_mutation()');
+    },
+    'freeze_trigger_fingerprint_result|STOP',
+  );
+  await expectPostStop(
+    'disabled enforcement trigger',
+    async () => { await db.query('alter table public.reports disable trigger trg_rc1_operation_freeze'); },
+    async () => { await db.query('alter table public.reports enable trigger trg_rc1_operation_freeze'); },
+    'freeze_trigger_fingerprint_result|STOP',
+  );
+  const requireOpenDefinition = (await query(
+    "select pg_get_functiondef('public.rc1_require_operation_open(text)'::regprocedure) as value",
+  ))[0].value;
+  await expectPostStop(
+    'service_role bypass',
+    async () => {
+      await db.query(`
+        create or replace function public.rc1_require_operation_open(surface text)
+        returns void language plpgsql stable security definer set search_path=''
+        as $$ begin return; end $$
+      `);
+    },
+    async () => { await db.query(requireOpenDefinition); },
+    'freeze_function_fingerprint_result|STOP',
+  );
+  const knownSurfaceDefinition = (await query(
+    "select pg_get_functiondef('public.rc1_is_known_operation_surface(text)'::regprocedure) as value",
+  ))[0].value;
+  await expectPostStop(
+    'unknown surface allowed',
+    async () => {
+      await db.query(`
+        create or replace function public.rc1_is_known_operation_surface(p_surface text)
+        returns boolean language sql immutable security definer set search_path=''
+        as $$ select true $$
+      `);
+    },
+    async () => { await db.query(knownSurfaceDefinition); },
+    'freeze_function_fingerprint_result|STOP',
+  );
+  await expectPostStop(
+    'application and database freeze disagreement',
+    async () => {},
+    async () => {},
+    'application_database_freeze_agreement_result|STOP',
+    { rc1_expected_application_freeze_mode: 'released' },
+  );
 
   await expectPostStop('wrong migration name', async () => { await db.query("update supabase_migrations.schema_migrations set name='wrong_name' where version='20260722143000'"); }, async () => { await db.query("update supabase_migrations.schema_migrations set name='checkpoint_e_phase1_ai_attempt_binding' where version='20260722143000'"); }, 'authorised_ledger_pairs_result|STOP');
   await expectPostStop('unlisted migration', async () => { await db.query("insert into supabase_migrations.schema_migrations(version,name,statements) values ('99999999999999','unlisted',array['select 1'])"); }, async () => { await db.query("delete from supabase_migrations.schema_migrations where version='99999999999999'"); }, 'unlisted_post_preflight_result|STOP');

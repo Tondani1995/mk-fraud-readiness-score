@@ -117,6 +117,20 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
+      - name: Prove final application freeze against the old 34-migration schema
+        env:
+          DATABASE_URL: ''
+          DIRECT_URL: ''
+          SUPABASE_DB_URL: ''
+          SUPABASE_DATABASE_URL: ''
+          SUPABASE_ACCESS_TOKEN: ''
+          SUPABASE_SERVICE_ROLE_KEY: ''
+          MK_RC1_OPERATION_FREEZE_MODE: frozen
+        run: npm run rc1:test-old-schema-freeze
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -131,7 +145,7 @@ jobs:
           supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
           supabase db start --help | tee tmp/migration-replay/supabase-db-start-help.txt
 
-      - name: Run required RC1 preflight and postflight disposable harness
+      - name: Run freeze-bootstrap enforcement and RC1 preflight/postflight disposable harness
         env:
           DATABASE_URL: ''
           DIRECT_URL: ''
@@ -330,6 +344,8 @@ jobs:
       - name: Capture final local migration ledger
         run: |
           set -Eeuo pipefail
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations")" = '42'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select max(version) from supabase_migrations.schema_migrations")" = '20260725150000'
           psql "$LOCAL_DB_URL" \
             --set=ON_ERROR_STOP=1 \
             --tuples-only \
@@ -417,6 +433,15 @@ jobs:
             --set=ON_ERROR_STOP=1 \
             --file=tmp/migration-replay/migration-replay-assertions-combined.sql \
             | tee tmp/migration-replay/schema-seed-rls-storage-verification.txt
+
+      - name: Explicitly release only the disposable database for legacy mutation suites
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --file=scripts/rc1-release-disposable-test-database.sql \
+            | tee tmp/migration-replay/rc1-disposable-test-release.txt
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
 
       - name: Prove piped SQL assertion failures remain fatal
         run: |

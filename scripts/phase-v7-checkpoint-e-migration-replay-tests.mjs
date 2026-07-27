@@ -147,6 +147,15 @@ try {
     exp: Math.floor(Date.now() / 1000) + 3600
   })]);
   await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [adminId]);
+  // This is an isolated fixture database. Explicitly release its RC1 guard only after proving
+  // the migration's frozen-state behaviour above; Production and cloud state are never involved.
+  await db.query(
+    `select public.rc1_release_freeze(
+       'Checkpoint E disposable fixture setup',
+       '055e9d9339518627d17865cf1b4fac78be64d6e9db351382e065851d0369d96d',
+       1
+     )`
+  );
   const organisationId = (await db.query(`insert into public.organisations(legal_name) values ('Checkpoint E Test Organisation') returning id`)).rows[0].id;
   const methodologyId = (await db.query(`select id from public.methodology_versions order by created_at limit 1`)).rows[0].id;
   const assessmentId = (await db.query(`

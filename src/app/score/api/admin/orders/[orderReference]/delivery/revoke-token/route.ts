@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { ACCESS_TOKEN_ROLES, revokeAccessToken } from '@/lib/reports/delivery-recovery-service';
 
@@ -9,6 +10,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('customer_token');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   if (!admin || !ACCESS_TOKEN_ROLES.includes(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'forbidden', message: 'You are not authorised to manage customer report access links.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

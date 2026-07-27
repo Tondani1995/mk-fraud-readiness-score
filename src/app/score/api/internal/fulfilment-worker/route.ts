@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { generateManualPhase1Report, Phase1GenerationError } from '@/lib/reports/phase1-manual-fulfilment';
 import { sendEmail } from '@/lib/notifications/email-provider';
@@ -165,6 +166,9 @@ async function tryProcessOneDelivery(db: any): Promise<NextResponse | null> {
 }
 
 export async function GET(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('worker', 'worker');
+  if (frozen) return frozen;
+
   const cronSecret = process.env.CRON_SECRET?.trim();
   if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });

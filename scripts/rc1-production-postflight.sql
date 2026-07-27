@@ -33,6 +33,26 @@
 \echo STOP|missing_rc1_approved_postflight_rpc_fingerprints_json
 \quit 3
 \endif
+\if :{?rc1_expected_application_freeze_mode}
+\else
+\echo STOP|missing_rc1_expected_application_freeze_mode
+\quit 3
+\endif
+\if :{?rc1_approved_freeze_function_fingerprints_json}
+\else
+\echo STOP|missing_rc1_approved_freeze_function_fingerprints_json
+\quit 3
+\endif
+\if :{?rc1_approved_freeze_table_fingerprints_json}
+\else
+\echo STOP|missing_rc1_approved_freeze_table_fingerprints_json
+\quit 3
+\endif
+\if :{?rc1_approved_freeze_trigger_fingerprints_json}
+\else
+\echo STOP|missing_rc1_approved_freeze_trigger_fingerprints_json
+\quit 3
+\endif
 
 set statement_timeout = '30s';
 begin;
@@ -40,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 41 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 42 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'ledger_newest_result|' || case when max(version) = '20260725150000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 7
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 8
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -54,6 +74,7 @@ select 'duplicate_version_result|' || case when not exists (
 
 with authorised(version, name) as (
   values
+    ('20260722120000','rc1_operational_freeze_bootstrap'),
     ('20260722143000','checkpoint_e_phase1_ai_attempt_binding'),
     ('20260724150000','release_a_backlog_reconciliation'),
     ('20260724160000','release_b_durable_fulfilment'),
@@ -67,15 +88,156 @@ with authorised(version, name) as (
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 7 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 8 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations
   where version > :'rc1_preflight_newest_version'
-    and version not in ('20260722143000','20260724150000','20260724160000','20260724170000',
+    and version not in ('20260722120000','20260722143000','20260724150000','20260724160000','20260724170000',
                         '20260724180000','20260725090000','20260725150000')
 ) then 'PASS' else 'STOP' end;
+
+select 'application_database_freeze_agreement_result|' || case when
+  :'rc1_expected_application_freeze_mode' = 'frozen'
+  and (select count(*) from public.rc1_operation_freeze_state) = 1
+  and (select state from public.rc1_operation_freeze_state where singleton) = 'FROZEN'
+then 'PASS' else 'STOP' end;
+
+select 'freeze_state_result|' || case when
+  (select count(*) from public.rc1_operation_freeze_state) = 1
+  and (select state from public.rc1_operation_freeze_state where singleton) = 'FROZEN'
+  and (select freeze_epoch from public.rc1_operation_freeze_state where singleton) = 1
+  and (select active_canary_authorization_hash is null
+       and active_canary_expires_at is null
+       from public.rc1_operation_freeze_state where singleton)
+  and (select count(*) from public.rc1_operation_freeze_audit
+       where event_type='BOOTSTRAP_FROZEN' and freeze_epoch=1) = 1
+  and (select count(*) from public.rc1_operation_freeze_audit) = 1
+then 'PASS' else 'STOP' end;
+
+with expected(key,value) as (
+  select key,value from jsonb_each_text(:'rc1_approved_freeze_table_fingerprints_json'::jsonb)
+), actual(key,value) as (
+  select c.relname,
+    md5(string_agg(
+      a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
+      || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
+      E'\n' order by a.attnum
+    ))
+  from pg_class c
+  join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
+  left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
+  where c.relnamespace='public'::regnamespace
+    and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
+  group by c.relname
+)
+select 'freeze_table_fingerprint_result|' || case when
+  (select count(*) from expected)=2
+  and (select count(*) from actual)=2
+  and not exists (
+    select 1 from expected e full join actual a using(key)
+    where e.value is distinct from a.value
+  )
+then 'PASS' else 'STOP' end;
+
+with expected(key,value) as (
+  select key,value from jsonb_each_text(:'rc1_approved_freeze_function_fingerprints_json'::jsonb)
+), actual(key,value) as (
+  select p.proname || '(' ||
+    replace(replace(array_to_string(array(
+      select format_type(t,null) from unnest(p.proargtypes) t
+    ),','),'timestamp with time zone','timestamptz'),' ','') || ')',
+    md5(pg_get_functiondef(p.oid))
+  from pg_proc p
+  where p.pronamespace='public'::regnamespace and p.proname like 'rc1_%'
+    and p.proname in (
+      'rc1_is_known_operation_surface','rc1_surface_for_relation','rc1_freeze_status',
+      'rc1_require_operation_open','rc1_require_platform_admin','rc1_guard_freeze_state_write',
+      'rc1_activate_freeze','rc1_release_freeze','rc1_guard_authoritative_mutation',
+      'rc1_install_relation_guard','rc1_install_new_relation_guards'
+    )
+), hardened as (
+  select count(*) as matches
+  from pg_proc p
+  where p.pronamespace='public'::regnamespace
+    and p.proname in (
+      'rc1_is_known_operation_surface','rc1_surface_for_relation','rc1_freeze_status',
+      'rc1_require_operation_open','rc1_require_platform_admin','rc1_guard_freeze_state_write',
+      'rc1_activate_freeze','rc1_release_freeze','rc1_guard_authoritative_mutation',
+      'rc1_install_relation_guard','rc1_install_new_relation_guards'
+    )
+    and p.prosecdef
+    and coalesce((select split_part(cfg,'=',2) from unnest(coalesce(p.proconfig,array[]::text[])) cfg
+      where cfg like 'search_path=%' limit 1),'UNSET')='""'
+)
+select 'freeze_function_fingerprint_result|' || case when
+  (select count(*) from expected)=11
+  and (select count(*) from actual)=11
+  and (select matches from hardened)=11
+  and not exists (
+    select 1 from expected e full join actual a using(key)
+    where e.value is distinct from a.value
+  )
+then 'PASS' else 'STOP' end;
+
+with expected(key,value) as (
+  select key,value from jsonb_each_text(:'rc1_approved_freeze_trigger_fingerprints_json'::jsonb)
+), actual(key,value,enabled) as (
+  select n.nspname || '.' || c.relname,
+    md5(pg_get_triggerdef(t.oid,false)),
+    t.tgenabled
+  from pg_trigger t
+  join pg_class c on c.oid=t.tgrelid
+  join pg_namespace n on n.oid=c.relnamespace
+  where t.tgname='trg_rc1_operation_freeze' and not t.tgisinternal
+)
+select 'freeze_trigger_fingerprint_result|' || case when
+  (select count(*) from expected) >= 30
+  and (select count(*) from actual)=(select count(*) from expected)
+  and not exists (
+    select 1 from expected e full join actual a using(key)
+    where e.value is distinct from a.value or a.enabled <> 'O'
+  )
+then 'PASS' else 'STOP' end;
+
+select 'freeze_event_trigger_result|' || case when count(*)=1 and bool_and(
+  evtenabled='O'
+  and evttags @> array['CREATE TABLE','CREATE TABLE AS','SELECT INTO']::text[]
+) then 'PASS' else 'STOP' end
+from pg_event_trigger
+where evtname='trg_rc1_install_new_relation_guards';
+
+with flags as (
+  select c.relname,c.relrowsecurity,c.relforcerowsecurity
+  from pg_class c
+  where c.relnamespace='public'::regnamespace
+    and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
+)
+select 'freeze_rls_grant_result|' || case when
+  (select count(*) from flags)=2
+  and (select count(*) from flags where relrowsecurity and relforcerowsecurity)=2
+  and not exists (select 1 from pg_policies where schemaname='public'
+    and tablename in ('rc1_operation_freeze_state','rc1_operation_freeze_audit'))
+  and not has_table_privilege('public','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('anon','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('authenticated','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('service_role','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('public','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('anon','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('authenticated','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('service_role','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
+  and not has_function_privilege('public','public.rc1_freeze_status()','EXECUTE')
+  and not has_function_privilege('anon','public.rc1_freeze_status()','EXECUTE')
+  and has_function_privilege('authenticated','public.rc1_freeze_status()','EXECUTE')
+  and has_function_privilege('service_role','public.rc1_freeze_status()','EXECUTE')
+  and not has_function_privilege('authenticated','public.rc1_require_operation_open(text)','EXECUTE')
+  and has_function_privilege('service_role','public.rc1_require_operation_open(text)','EXECUTE')
+  and has_function_privilege('authenticated','public.rc1_activate_freeze(text)','EXECUTE')
+  and not has_function_privilege('service_role','public.rc1_activate_freeze(text)','EXECUTE')
+  and has_function_privilege('authenticated','public.rc1_release_freeze(text,text,bigint)','EXECUTE')
+  and not has_function_privilege('service_role','public.rc1_release_freeze(text,text,bigint)','EXECUTE')
+then 'PASS' else 'STOP' end;
 
 with expected(table_name, column_name) as (
   values

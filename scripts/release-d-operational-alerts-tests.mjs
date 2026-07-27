@@ -429,6 +429,17 @@ try {
   const financeRead = await db.query(`select * from public.phase14_operational_alerts`);
   ok(financeRead.rows.length === 0, 'finance_admin (not platform_admin/reviewer/approver/read_only_admin) sees zero rows under RLS');
 
+  // The remaining scenarios intentionally mutate only this disposable database. Release its RC1
+  // guard through the real AAL2 platform-admin control before creating test alerts.
+  await asClaims(platformAdmin.claims('aal2'));
+  await db.query(
+    `select public.rc1_release_freeze(
+       'Release D disposable fixture setup',
+       '6e069f8eff627b266924dd843ba3de1e18c2483b1bfa8b63680257d135c69766',
+       1
+     )`
+  );
+
   console.log('Scenario 3: each permitted admin role can read');
   const readAlertId = await (async () => {
     // Insert as postgres superuser (bypasses RLS) to seed a row all four roles should then be able to see.

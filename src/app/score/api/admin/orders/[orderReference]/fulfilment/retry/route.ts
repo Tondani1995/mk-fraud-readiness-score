@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { canManageFinance, getAdminSession } from '@/lib/auth/admin-route';
 import { retryFulfilmentJob } from '@/lib/fulfilment/fulfilment-service';
 
@@ -10,6 +11,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('generation');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   if (!admin || !canManageFinance(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'forbidden', message: 'You are not authorised to manage fulfilment recovery.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

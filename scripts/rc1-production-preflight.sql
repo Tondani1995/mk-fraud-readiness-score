@@ -36,6 +36,11 @@
 \echo STOP|missing_rc1_approved_email_status_fingerprint
 \quit 3
 \endif
+\if :{?rc1_expected_application_freeze_mode}
+\else
+\echo STOP|missing_rc1_expected_application_freeze_mode
+\quit 3
+\endif
 
 set statement_timeout = '30s';
 begin;
@@ -43,13 +48,18 @@ set transaction read only;
 
 \echo RC1_PREFLIGHT_BEGIN
 
+select 'application_freeze_mode_result|' || case
+  when :'rc1_expected_application_freeze_mode' = 'frozen' then 'PASS'
+  else 'STOP'
+end;
+
 select 'ledger_total_result|' || case when count(*) = 34 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'ledger_newest_result|' || case when max(version) = '20260721150808' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 
 with pending(version) as (
-  values ('20260722143000'), ('20260724150000'), ('20260724160000'),
+  values ('20260722120000'), ('20260722143000'), ('20260724150000'), ('20260724160000'),
          ('20260724170000'), ('20260724180000'), ('20260725090000'),
          ('20260725150000')
 )
@@ -73,6 +83,8 @@ with expected(table_name, column_name, expected_count) as (
 select 'pre_migration_capability_result|' || case when
   count(*)=5 and bool_and(actual_count=expected_count)
   and to_regclass('public.customer_report_access_tokens') is null
+  and to_regclass('public.rc1_operation_freeze_state') is null
+  and to_regprocedure('public.rc1_freeze_status()') is null
 then 'PASS' else 'STOP' end
 from actual;
 

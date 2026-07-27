@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { canManageFinance, getAdminSession } from '@/lib/auth/admin-route';
 import {
   BACKLOG_CLASSIFICATIONS,
@@ -48,6 +49,9 @@ function optionalString(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('backlog');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   if (!admin || !canManageFinance(admin.role)) {
     return respond(request, {

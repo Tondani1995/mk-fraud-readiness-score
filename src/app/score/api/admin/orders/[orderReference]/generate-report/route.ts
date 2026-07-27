@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import {
   generateManualPhase1Report,
@@ -42,6 +43,9 @@ async function submittedValues(request: Request) {
 }
 
 export async function POST(request: Request, context: HandlerContext) {
+  const frozen = await getRc1OperationFreezeResponse('generation');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   const { orderReference } = context.params;
   if (!admin || !REPORT_GENERATION_ROLES.has(admin.role)) {

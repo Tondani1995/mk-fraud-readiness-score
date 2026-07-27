@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { grantCustomerReportAccess, CustomerReportAccessError } from '@/lib/reports/customer-report-access';
 
 // Release C secure customer report access -- no admin session, no customer auth (none exists in
@@ -36,6 +37,9 @@ function errorPage(message: string, technicalReference: string, status: number) 
 }
 
 export async function GET(request: Request, { params }: { params: { token: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('customer_token');
+  if (frozen) return frozen;
+
   const rawToken = params.token;
   if (!rawToken || rawToken.length < 16) {
     return errorPage(CUSTOMER_SAFE_MESSAGES.invalid_token, 'no-token', 404);

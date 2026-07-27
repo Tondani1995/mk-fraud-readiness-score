@@ -43,6 +43,8 @@ jobs:
           cache: npm
       - name: Fresh dependency install
         run: npm ci
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.1

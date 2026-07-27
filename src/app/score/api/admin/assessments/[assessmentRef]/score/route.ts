@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { scoreSubmittedAssessment } from '@/lib/scoring/score-assessment';
 
 export async function POST(_request: Request, context: { params: { assessmentRef: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('assessment_score');
+  if (frozen) return frozen;
+
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver']);
   const result = await scoreSubmittedAssessment(context.params.assessmentRef, {
     runType: 'initial',

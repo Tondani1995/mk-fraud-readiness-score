@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { deliverPhase1Report, Phase1DeliveryError } from '@/lib/reports/phase1-manual-delivery';
 
@@ -7,6 +8,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { reportId: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('delivery');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ ok: false, reason: 'permission_denied', message: 'Authentication is required.' }, { status: 401 });
   if (!['platform_admin', 'approver'].includes(admin.role)) {

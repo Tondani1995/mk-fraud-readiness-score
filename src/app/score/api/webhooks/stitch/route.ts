@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getPaymentAutomationCapability } from '@/lib/payments/payment-capability';
 import { processVerifiedPayment } from '@/lib/payments/payment-service';
 import { parseStitchPaymentEvent, verifyStitchWebhook } from '@/lib/payments/stitch-adapter';
@@ -7,6 +8,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('payment_webhook', 'provider_webhook');
+  if (frozen) return frozen;
+
   const rawBody = await request.text();
   const secret = process.env.STITCH_WEBHOOK_SECRET ?? '';
   console.info('stitch_webhook', { outcome: 'received', hasDeliveryReference: Boolean(request.headers.get('svix-id')) });

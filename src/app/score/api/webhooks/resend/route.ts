@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
 import {
@@ -14,6 +15,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('resend_webhook', 'provider_webhook');
+  if (frozen) return frozen;
+
   const receiptTimeMs = Date.now();
   // L5: global volumetric ceiling, checked before any request-body work. Deliberately not
   // per-IP -- see RATE_LIMITS.resendWebhookGlobal's comment in src/lib/security/rate-limit.ts

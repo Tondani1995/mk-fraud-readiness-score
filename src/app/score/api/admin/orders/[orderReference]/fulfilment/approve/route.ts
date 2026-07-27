@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
 import { FULFILMENT_QUALITY_REVIEW_ROLES, approveQualityReview } from '@/lib/fulfilment/fulfilment-service';
 
@@ -11,6 +12,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+  const frozen = await getRc1OperationFreezeResponse('quality_review');
+  if (frozen) return frozen;
+
   const admin = await getAdminSession();
   if (!admin || !FULFILMENT_QUALITY_REVIEW_ROLES.includes(admin.role)) {
     return NextResponse.json({ ok: false, reason: 'forbidden', message: 'You are not authorised to review report quality.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

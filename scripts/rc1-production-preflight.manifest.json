@@ -1,11 +1,12 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "purpose": "Machine-readable RC1 Production preflight expectations; no customer data.",
   "fingerprint_algorithm": "sha256 for aggregate fingerprints; md5(pg_get_functiondef(oid)) for RPC definitions",
   "ledger": {
     "total_rows": 34,
     "newest_version": "20260721150808",
     "pending_versions": [
+      "20260722120000",
       "20260722143000",
       "20260724150000",
       "20260724160000",
@@ -45,6 +46,8 @@
     "report_delivery_authorizations.lease_token": "present",
     "report_delivery_authorizations.lease_expires_at": "present",
     "customer_report_access_tokens": "absent",
+    "rc1_operation_freeze_state": "absent",
+    "rc1_freeze_status": "absent",
     "provider_mode_database_visibility": "NOT_DATABASE_VISIBLE_when_both_app_settings_keys_are_absent",
     "vercel_MK_EMAIL_PROVIDER_MODE": "separate_owner_deployment_evidence_required"
   },
@@ -89,9 +92,77 @@
     ]
   },
   "postflight_rpc_fingerprints": {
-    "source": "controller-approved canonical fingerprints generated from the exact seven migration replay",
+    "source": "controller-approved canonical fingerprints generated from the bootstrap plus exact seven-migration replay",
     "required_psql_variable": "rc1_approved_postflight_rpc_fingerprints_json",
     "count": 29
+  },
+  "freeze_bootstrap": {
+    "version": "20260722120000",
+    "name": "rc1_operational_freeze_bootstrap",
+    "migration_sha256": "aa8f094359957d8313eae74db05bf84d8bbc6d49e62bb63b1af49294273e6bc7",
+    "initial_state": "FROZEN",
+    "initial_epoch": 1,
+    "application_mode_required_during_cutover": "frozen",
+    "canary_bypass": "NOT_IMPLEMENTED_STRICT_STOP",
+    "table_fingerprints": {
+      "rc1_operation_freeze_audit": "f898c5b3c98076a030b4fb6dd2325deb",
+      "rc1_operation_freeze_state": "e3e37b3cc99fa8e5919b870e6338465b"
+    },
+    "function_fingerprints": {
+      "rc1_is_known_operation_surface(text)": "499d8a23e973bd1236aeb1b6a7024681",
+      "rc1_surface_for_relation(text,text)": "e8e936bf67b845f896cad6fd878bfb26",
+      "rc1_freeze_status()": "834d87e78cf34beee98cdbee959b5474",
+      "rc1_require_operation_open(text)": "51f04563d23f46e0a853f4ac98263c49",
+      "rc1_require_platform_admin(boolean)": "76772f17ca0b3e2375231ace97e425df",
+      "rc1_guard_freeze_state_write()": "be3138736cbbd61db333a8e69b3860f1",
+      "rc1_activate_freeze(text)": "ca56aaef210c1ac0fa4b722a1e44ee5a",
+      "rc1_release_freeze(text,text,bigint)": "8f323d159e84fb5a8fccf8d34070405b",
+      "rc1_guard_authoritative_mutation()": "8412b3ae306b3f67baef7be77c12be1b",
+      "rc1_install_relation_guard(text,text)": "b7c4a30e1c3cd697fe29a43868ef849f",
+      "rc1_install_new_relation_guards()": "315a99b25e5812006c86069ad248f361"
+    },
+    "enforcement_trigger_fingerprints": {
+      "phase14_private.runtime_secrets": "bc3686407b53171da4dc1a2d8e9ffc7a",
+      "public.app_settings": "5aca3cb27863ec4913dd4366e1cd7966",
+      "public.assessment_answers": "7c9f4e59a4900d4aadf79f2866db1872",
+      "public.assessment_events": "c332a8c672e0e9eb61cd3f0eae9fb9e1",
+      "public.assessment_tokens": "a86da8da2dfd339efdbf80adce0b5d57",
+      "public.assessments": "c433b7eefe1be134c845669579437951",
+      "public.backlog_reconciliation_records": "b06aa4cd43d9e5f43a7eefb05064b9f4",
+      "public.customer_report_access_tokens": "30a009c70dda59d8b993711368ee5a50",
+      "public.data_requests": "79fcfae6df57e99e0ae52aa8f9739f2a",
+      "public.email_events": "176bac723607b526ef4e7884a0aeba44",
+      "public.email_provider_events": "ea9d3252c1cb50469a6fe64c01713b6f",
+      "public.exposure_answers": "f3a8aa91eda89ef6e36ca0834631efa7",
+      "public.manual_report_delivery_attempts": "161780ff192e8e6976179bba94766840",
+      "public.manual_report_generation_attempts": "7daa81f93d61a9211a64f524cfb4b470",
+      "public.maturity_cap_events": "a2f1ee7e377126bb1eb1e3369cccf6f5",
+      "public.order_events": "e72904930a707d92a0bbf34195aa83c2",
+      "public.orders": "f81e1316c2c807d54c0ae1bbb8b3304c",
+      "public.organisations": "e5e262f7f8195b69b359e08a0beae3b7",
+      "public.payment_automation_records": "ab2745a2ec92efe4cce90e3a0dcf395d",
+      "public.payment_sessions": "68509ddcb900b8fe43a7bf074e02a681",
+      "public.payment_transition_events": "f5c2f01736749c3f7b31a4ec8ee1689f",
+      "public.phase14_ai_route_policies": "102d1b2421e8dcdd78714e55c09be591",
+      "public.phase14_feature_policies": "79d52bff8f40a0d85d10aa7d3b8d1f41",
+      "public.phase14_operational_alerts": "dcdae529602edb39bc1ff2c6feba4c19",
+      "public.phase14_provider_attestations": "59b791f3016acd81db41dfc45c4edae5",
+      "public.phase14_security_gates": "54f9defa2bc541bfdfddd334df2b5d76",
+      "public.phase14_worker_capabilities": "efce089b0dac998f96a92afe25434862",
+      "public.report_ai_attempts": "565a672c9e4df67a3a9530b58a70e250",
+      "public.report_delivery_authorizations": "cd0044c87b31f5037cc0bbe2fdae2292",
+      "public.report_delivery_finalizations": "0bb345caf1277007650950ad3ba299c8",
+      "public.report_delivery_remediations": "054a028ed09d43c4e0293afa1a2057c4",
+      "public.report_events": "28e4ebfb349c8b694944df38500253d9",
+      "public.report_fulfilments": "afae660a4dc7ce543eef9d714bea173f",
+      "public.report_generation_runs": "cee2784bfde4f0022814c04495f49665",
+      "public.reports": "2de7b21aa1b85fb4353ed53e4ffa075c",
+      "public.respondents": "ffe165e5265ac0ab41917d4587bfbe0e",
+      "public.score_domain_results": "dfa7a47e1172a971f4d799e3b8c8834a",
+      "public.score_question_traces": "a8f66d369809869ab3e80ed20bd60b02",
+      "public.score_runs": "209e12aceb8e582532dcec7e024b66d6",
+      "storage.objects": "5e267e45406a7ac954930965c26fecc2"
+    }
   },
   "migration_payload_audit": {
     "decision": "restore both pending migrations byte-for-byte to the RC1A fa2b57c payloads; RC1B edits were harness grant accommodations, not approved Production migration changes",
@@ -104,6 +175,15 @@
       "rc1a_sha256": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533",
       "rc1b_sha256": "514348bc09ddfe9fcb96683c8c377a31918a2991aeb54c7f49935d1903b830f3",
       "rc1c_restored_sha256": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533"
+    },
+    "accepted_behaviour_payload_sha256": {
+      "20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql": "d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25",
+      "20260724150000_release_a_backlog_reconciliation.sql": "4a1c7c88a7f70fb2f50776b140bb26d022aacbbdd41eb46ba160e6a237dc432e",
+      "20260724160000_release_b_durable_fulfilment.sql": "f3d37600a461e646007312c07640a1d49c513385094e98ab633795302c667046",
+      "20260724170000_release_c_email_secure_delivery.sql": "e320ea500bfcfb3b51166cbe957549ddb8189e53a33f6e1d4cd67845e1e18809",
+      "20260724180000_release_c_closure_delivery_exceptions.sql": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533",
+      "20260725090000_release_c_runtime_secret_admin_provisioning.sql": "a0eca9a5426955ea1526362940174b0463f7536131cf74fae938c7bfa105923d",
+      "20260725150000_release_d_operational_alert_lifecycle.sql": "efc3a4317d23316036cd09a7a1b300675cbdad1a6f5c7b798a7957dd092bf6d1"
     }
   },
   "no_change_state": {

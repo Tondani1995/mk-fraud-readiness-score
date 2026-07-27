@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { requireAdmin } from '@/lib/auth/admin-route';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
@@ -17,6 +18,9 @@ const MIN_SECRET_LENGTH = 32;
 // carry it. Next.js does not log route-handler bodies by default; this comment documents that
 // the omission here is deliberate, not accidental, so a future edit doesn't casually add one.
 export async function POST(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('activation_control');
+  if (frozen) return frozen;
+
   await requireAdmin(['platform_admin']);
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {

@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
       - name: Run npm audit (production dependencies only)
         # Dev-tooling advisories are recorded separately below but never block the build --
         # they do not ship to customers. `|| true` because `npm audit` itself exits non-zero

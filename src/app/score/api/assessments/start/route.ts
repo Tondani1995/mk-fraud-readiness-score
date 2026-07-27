@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { parseStartAssessmentInput } from '@/lib/respondent/validation';
 import { startAccountlessAssessment } from '@/lib/respondent/start-assessment';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
@@ -13,6 +14,9 @@ function publicBaseUrlFor(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('assessment_start');
+  if (frozen) return frozen;
+
   let body: unknown;
   try {
     body = await request.json();

@@ -233,6 +233,16 @@ try {
     'a secret value under 32 characters is rejected with phase14_runtime_secret_too_short'
   );
 
+  // The remaining cases intentionally exercise successful mutations in this isolated fixture
+  // database. Release only its RC1 guard through the real AAL2 control RPC.
+  await db.query(
+    `select public.rc1_release_freeze(
+       'Release C disposable fixture setup',
+       '12fcdf887db5ec3936df3a3879fc2eb86a53db78cc19f862c49aca16d6b457ac',
+       1
+     )`
+  );
+
   // --- Fixtures for the end-to-end webhook proof, set up before Scenario 6 provisions the secret
   // so the "fails closed while unprovisioned" check below is genuinely testing an unprovisioned
   // secret, not one already written by a later scenario.

@@ -50,6 +50,9 @@ jobs:
       - name: Fresh dependency install
         run: npm ci
 
+      - name: Verify seven accepted migration payload checksums
+        run: npm run rc1:verify-accepted-migrations
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
