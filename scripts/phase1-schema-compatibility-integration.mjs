@@ -151,10 +151,27 @@ async function createOrder(assessment, admin, product) {
 }
 
 async function createPreviousValidReportFixture(order, admin) {
-  const { data: template, error: templateError } = await service.from('report_templates')
+  const { data: templates, error: templateError } = await service.from('report_templates')
     .select('id').eq('report_type', 'essential_self_assessment').eq('status', 'active')
-    .order('version_number', { ascending: false }).limit(1).single();
+    .order('version_number', { ascending: false }).limit(1);
   assert.ifError(templateError);
+  let template = templates?.[0] ?? null;
+  if (!template) {
+    const { data: syntheticTemplate, error: syntheticTemplateError } = await service.from('report_templates')
+      .insert({
+        template_code: `phase1-disposable-${nonce}`,
+        version_number: 1,
+        report_type: 'essential_self_assessment',
+        status: 'active',
+        content_schema_json: {},
+        created_by: admin.id,
+        approved_by: admin.id,
+        approved_at: new Date().toISOString()
+      })
+      .select('id').single();
+    assert.ifError(syntheticTemplateError);
+    template = syntheticTemplate;
+  }
 
   const reportReference = `RPT-${order.assessment.reference}-V1`;
   const fileName = `${reportReference}.pdf`;
