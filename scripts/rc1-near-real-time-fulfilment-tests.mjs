@@ -446,7 +446,40 @@ await test('notification service dedupes and safely records provider failure', a
   assert.equal(sends.length, 1);
   assert.equal(sends[0].to, 'admin@mkfraud.co.za');
   assert.match(sends[0].text, /Do not mark payment again\./);
-  assert.match(sends[0].text, /https:\/\/mkfraud\.co\.za\/score\/admin\/orders\/RC1-SYNTHETIC-DISPATCH/);
+  const recoveryUrlText = sends[0].text.match(/^Recover: (https?:\/\/\S+)$/m)?.[1];
+  assert.ok(recoveryUrlText, 'notification contains one absolute HTTP(S) recovery URL');
+  const recoveryUrl = new URL(recoveryUrlText);
+  const encodedOrderReference = encodeURIComponent(store.orders[0].order_reference);
+  const expectedRecoveryPath = `/score/admin/orders/${encodedOrderReference}`;
+  assert.equal(recoveryUrl.pathname, expectedRecoveryPath);
+  assert.equal(
+    decodeURIComponent(recoveryUrl.pathname.slice('/score/admin/orders/'.length)),
+    store.orders[0].order_reference,
+  );
+  assert.equal(
+    new URL(expectedRecoveryPath, 'http://localhost:3000').pathname,
+    expectedRecoveryPath,
+  );
+  assert.equal(
+    new URL(expectedRecoveryPath, 'https://mkfraud.co.za').pathname,
+    expectedRecoveryPath,
+  );
+  assert.ok(['http:', 'https:'].includes(recoveryUrl.protocol));
+  assert.equal(recoveryUrl.username, '');
+  assert.equal(recoveryUrl.password, '');
+  assert.equal(recoveryUrl.search, '');
+  assert.equal(recoveryUrl.hash, '');
+  assert.doesNotMatch(
+    recoveryUrl.href,
+    /(?:access[_-]?token|signed[_-]?token|customer[_-]?(?:name|email)|[?&](?:email|token)=)/i,
+  );
+  assert.notEqual(recoveryUrl.pathname, '/score/api/internal/fulfilment-worker');
+  assert.doesNotMatch(recoveryUrl.pathname, /^\/storage\/v1\/object(?:\/|$)/);
+  assert.doesNotMatch(recoveryUrl.pathname, /^\/score\/report\/access(?:\/|$)/);
+  assert.doesNotMatch(
+    recoveryUrl.pathname,
+    /^\/score\/(?:assessment|snapshot|orders?)(?:\/|$)/,
+  );
 
   const providerFailure = await recordAutomaticFulfilmentExceptionAlert({
     ...input,
