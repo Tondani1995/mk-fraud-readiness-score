@@ -62,3 +62,6 @@ fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-te
 9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:125
 9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:129
 9234f7871c079870fc6fc610ccd709610f46b228:scripts/rc1-production-preflight.manifest.json:generic-api-key:132
+
+# RC1E: reviewed non-secret MD5 structural fingerprint of the rc1_certification_secret_write_tokens table definition; it is not a credential, authentication secret, cryptographic key, provider token, customer datum or externally usable value.
+436ad1c309e4310b56e35bbf04a8535b6da7a1d8:scripts/rc1-production-preflight.manifest.json:generic-api-key:108
