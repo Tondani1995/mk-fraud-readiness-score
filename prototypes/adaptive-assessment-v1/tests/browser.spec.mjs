@@ -482,7 +482,11 @@ test('review shows three separate measures, status and comparability', async ({ 
   await completeAll(page);
   await clickAction(page, 'review');
 
+  // J7 is PROVISIONAL (a whole fraud-risk domain is excluded) but still issues a score.
   await expect(page.locator('[data-testid="frs"]')).toBeVisible();
+  await expect(page.locator('[data-testid="frs"]')).toContainText('83.39');
+  await expect(page.locator('[data-testid="report-status"]')).toContainText('Provisional');
+  await expect(page.locator('[data-testid="limitations"]')).toContainText('entire fraud-risk domain');
   await expect(page.locator('[data-testid="coverage"]')).toBeVisible();
   await expect(page.locator('[data-testid="visibility"]')).toBeVisible();
   await expect(page.locator('[data-testid="report-status"]')).toBeVisible();
@@ -501,9 +505,63 @@ test('insufficient visibility is shown prominently and blocks a definitive concl
   await expect(page.locator('[data-testid="report-status"]')).toContainText('Insufficient visibility');
   await expect(page.locator('[data-testid="limitations"]')).toBeVisible();
 
-  const status = await page.evaluate(() => window.__MK_PROTO__.getAssessment().reportStatus);
-  expect(status).toBe('INSUFFICIENT_VISIBILITY');
+  // No customer-facing numeric score anywhere on the screen.
+  await expect(page.locator('[data-testid="score-not-issued"]')).toContainText('Not issued');
+  await expect(page.locator('[data-testid="frs"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="score-withheld-reason"]'))
+    .toContainText('could not issue a defensible overall Fraud Readiness Score');
+
+  // The supporting measures still carry the result.
+  await expect(page.locator('[data-testid="coverage"]')).toBeVisible();
+  await expect(page.locator('[data-testid="visibility"]')).toBeVisible();
+  // Evidence-verification actions are still offered.
+  await expect(page.locator('[data-testid="recommendation-preview"]')).toContainText('verification');
+
+  const gate = await page.evaluate(() => {
+    const a = window.__MK_PROTO__.getAssessment();
+    return { status: a.reportStatus, issued: a.scoreIssued, shown: a.customerFacingScore,
+             diagA: a.scoreOptionA, diagB: a.scoreOptionB };
+  });
+  expect(gate.status).toBe('INSUFFICIENT_VISIBILITY');
+  expect(gate.issued).toBe(false);
+  expect(gate.shown).toBeNull();
+  // Diagnostics remain available to the inspection layer.
+  expect(typeof gate.diagA).toBe('number');
+  expect(gate.diagB).toBe(100);
   await capture(page, '390-14-insufficient-visibility', testInfo);
+});
+
+test('J6 also withholds the score, and the rendered page shows no score number', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J6'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+
+  await expect(page.locator('[data-testid="score-not-issued"]')).toContainText('Not issued');
+  await expect(page.locator('[data-testid="frs"]')).toHaveCount(0);
+
+  // Belt and braces: the diagnostic figure must not be presented as the score.
+  // Scoped to the score card deliberately — the same number can legitimately appear
+  // elsewhere as a percentage (in J8, Control Visibility happens to equal Option A).
+  const leaked = await page.evaluate(() => {
+    const a = window.__MK_PROTO__.getAssessment();
+    const card = document.querySelector('.scorecard__primary');
+    return card ? card.innerText.includes(String(a.fraudReadinessScore)) : true;
+  });
+  expect(leaked, 'the diagnostic score must not be rendered as the score').toBe(false);
+});
+
+test('the review screen does not claim to hide a score it is displaying', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J2'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+
+  const text = await page.locator('#stage').innerText();
+  expect(text).toContain('This is a preview based on your current answers');
+  expect(text).not.toContain('We do not show the calculation here');
 });
 
 test('no recommendation is shown for an excluded control', async ({ page }) => {

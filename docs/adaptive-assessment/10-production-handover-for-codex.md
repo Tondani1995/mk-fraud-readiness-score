@@ -47,7 +47,9 @@ and excluded scope with reasons · WCAG 2.2 AA interaction patterns.
 ### 2.2 Proposed methodology rules *(NOT approved — decisions in `05` §9)*
 
 Five response states and their treatments · three separate measures · Fraud Readiness
-Score Option A · report statuses and all thresholds · the seven recommendation classes ·
+Score Option A · report statuses and all thresholds · **the score-issuance gate (no
+customer-facing score under `INSUFFICIENT_VISIBILITY`)** · **the high-impact /
+whole-domain exclusion escalation to `PROVISIONAL`** · the seven recommendation classes ·
 the twelve integrity signals · the comparability statement · the denominator rules.
 
 ### 2.3 Unapproved content *(see `11`)*
@@ -157,6 +159,9 @@ introduction copy.
 | `assessment_answers` | `skip_reason_code` text | why it was not asked |
 | `assessments` | `graph_version` text | pin in-flight assessments |
 | `assessments` | `report_status` enum | NORMAL / PROVISIONAL / INSUFFICIENT_VISIBILITY |
+| `assessments` | `score_issued` boolean | false under INSUFFICIENT_VISIBILITY; **the report generator must read this, not the score column** |
+| `assessments` | `customer_facing_score` numeric **null** | the only value a customer-facing surface may render |
+| `assessments` | `score_diagnostic_option_a/b` numeric | retained for methodology inspection; never rendered to a customer |
 | `assessments` | `report_limitation_reason` text[] | shown in the report |
 | `assessments` | `assessment_coverage`, `control_visibility` numeric | the two new measures |
 
@@ -203,6 +208,16 @@ Excluded from the denominator: `gateway_declared_absent`, `invalidated_by_upstre
 Carry alongside every score: applicable / excluded / redirected / invalidated counts
 and weights, coverage, visibility, unknown weight share, material exclusion share, and
 the full per-control profile.
+
+**Issuance gate.** Under `INSUFFICIENT_VISIBILITY` no numeric score and no maturity band
+may be issued. The diagnostic Option A and Option B values are still computed and stored
+for methodology inspection, but the report generator must gate on `score_issued` and
+render the withheld wording instead. Modelling this as data rather than as a rendering
+rule is deliberate: a presentation-layer convention would not survive a second consumer.
+
+**Escalation rule.** A fully excluded domain, or any excluded critical or hard-gate
+control, raises the status to at least `PROVISIONAL`.
+*(METHODOLOGY DECISION REQUIRED — NOT APPROVED FOR PRODUCTION.)*
 
 **The score is scope-specific.** Exclusion changes it — measured at +6.46 points in
 J7 vs J7-FULL. The comparability statement must travel with every result.
@@ -297,6 +312,7 @@ structure · payment, email, fulfilment and report generation ·
 | 4 | Score model undecided; Option B reports 100/100 for near-total blindness | **High** | `05` §4.1 recommends Option A on J8 evidence |
 | 5 | Comparability rule for reduced-scope domains undecided | **High** | `05` §6 proposal awaiting approval |
 | 6 | Report could infer absence from uncertainty or silence | Medium | Recommendation contract + 10 tests; must be re-asserted against the real generator |
+| 6a | Report generator ignores `score_issued` and prints the diagnostic score | **High** | Gate modelled as data; the real generator must be tested against it before launch |
 | 7 | Gateway toggling to shed unfavourable answers | Medium | Audit history + `repeated_gateway_toggling` signal |
 | 8 | Migration misreads legacy N/A rows | Medium | `legacy_manual_na` rule + replay test |
 | 9 | No human screen-reader or physical-device testing | Medium | Pre-production gates, stated openly |

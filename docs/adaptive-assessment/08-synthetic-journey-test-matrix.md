@@ -14,12 +14,12 @@ anywhere. Every figure below is generated output.
 |---|---|---|---|---|---|---|---|---|---|---|
 | J1 | Professional-services firm | 67 | 2 | 0 | 0 | 100% | 100% | 56.01 | NORMAL | 41 |
 | J2 | Retail organisation | 68 | 0 | 0 | 0 | 100% | 100% | 48.48 | NORMAL | 42 |
-| J3 | Construction business | 66 | 2 | 0 | 0 | 100% | 100% | 19.32 | NORMAL | 41 |
+| J3 | Construction business | 66 | 2 | 0 | 0 | 100% | 100% | 19.32 | **PROVISIONAL** | 41 |
 | J4 | Online business | **69** | 0 | **4** | 0 | 100% | 100% | 55.59 | NORMAL | 43 |
 | J5 | Small business | **47** | **21** | 0 | 0 | 100% | 100% | 20.00 | **PROVISIONAL** | **29** |
-| J6 | Low-certainty respondent | 68 | 0 | 0 | **45** | 100% | **34.63%** | 6.93 | **INSUFFICIENT_VISIBILITY** | 42 |
-| J7 | Strong controls, weak domain excluded | 56 | **12** | 0 | 0 | 100% | 100% | **83.39** | NORMAL | 34 |
-| J8 | High unknown, high apparent maturity | 68 | 0 | 0 | **55** | 100% | **19.70%** | 19.70 | **INSUFFICIENT_VISIBILITY** | 42 |
+| J6 | Low-certainty respondent | 68 | 0 | 0 | **45** | 100% | **34.63%** | **Not issued** | **INSUFFICIENT_VISIBILITY** | 42 |
+| J7 | Strong controls, weak domain excluded | 56 | **12** | 0 | 0 | 100% | 100% | **83.39** | **PROVISIONAL** | 34 |
+| J8 | High unknown, high apparent maturity | 68 | 0 | 0 | **55** | 100% | **19.70%** | **Not issued** | **INSUFFICIENT_VISIBILITY** | 42 |
 | J7-FULL | *Comparison fixture — J7 declaring suppliers* | 66 | 2 | 0 | 0 | 100% | 100% | **76.93** | NORMAL | 41 |
 
 ## 2. Progressive profiling
@@ -57,10 +57,12 @@ deliberately its weakest area.
 
 | | Active | Applicable weight | Excluded weight | Exclusion share | **Fraud Readiness Score** |
 |---|---|---|---|---|---|
-| J7-FULL — declares suppliers | 66 | 81.50 | 2.25 | 2.69% | **76.93** |
-| J7 — declares no suppliers | 56 | 69.25 | 14.50 | 17.31% | **83.39** |
+| J7-FULL — declares suppliers | 66 | 81.50 | 2.25 | 2.69% | **76.93** (NORMAL) |
+| J7 — declares no suppliers | 56 | 69.25 | 14.50 | 17.31% | **83.39** (**PROVISIONAL**) |
 
-**Excluding the weak domain raised the score by 6.46 points.**
+**Excluding the weak domain raised the score by 6.46 points** — and now also costs the
+result its `NORMAL` status, because an entire fraud-risk domain was excluded. The higher
+number arrives carrying an explicit limitation the honest full-scope result does not.
 
 What the prototype does about it:
 
@@ -72,6 +74,8 @@ What the prototype does about it:
 - Integrity signals raised: `high_impact_gateway_exclusion`,
   `limited_domain_applicability`, `material_domain_exclusion`,
   `profile_specific_comparability_warning`
+- **Report status escalated to `PROVISIONAL`** by the whole-domain/high-impact rule
+  (`05` §5.2), with the exclusion limitation stated on the review screen
 - **Recommendation classes for J7: none.** The weak third-party controls generate no
   findings because the activity was declared absent. J7-FULL generates
   `CONTROL_STRENGTHENING=4, CONTROL_DESIGN=3` for exactly those controls.
@@ -91,10 +95,17 @@ rest.
 | Unknown weight share | 80.30% |
 | Assessment coverage | 100% |
 | Control visibility | **19.70%** |
-| Fraud Readiness Score — **Option A** | **19.70** |
-| Fraud Readiness Score — **Option B** | **100.00** |
+| Fraud Readiness Score shown to the customer | **Not issued** |
+| Diagnostic Option A (inspection only) | 19.70 |
+| Diagnostic Option B (inspection only) | 100.00 |
 | Report status | **INSUFFICIENT_VISIBILITY** |
 | Recommendation classes | `EVIDENCE_VERIFICATION=55` |
+
+**No numeric score and no maturity band are shown.** The review screen displays
+"Not issued" with the reason, and Coverage and Control Visibility carry the result
+instead. The Option A and Option B figures remain computed for methodology inspection
+but are never presented as the customer's score — asserted by tests in the engine
+suite and, on the rendered page, in the browser suite.
 
 **Under Option B this organisation scores a perfect 100** while having confirmed one
 control in five. This is the single strongest argument for Option A, and the reason
@@ -116,7 +127,9 @@ controls. Recommendations: `CONTROL_DESIGN=11`, `CONTROL_STRENGTHENING=24`.
 
 **J3 — Construction.** 2 exclusions (`gateway_no_digital_footprint`). D8-Q01, D8-Q04
 and D8-Q08 are **retained** because the organisation holds personal data — the digital
-domain degrades partially, not wholly. Signals: `high_impact_gateway_exclusion`.
+domain degrades partially, not wholly. Signals: `high_impact_gateway_exclusion`, which
+now also escalates the status to **PROVISIONAL**: one of the two excluded controls is
+critical or hard-gate.
 
 **J4 — Online.** The longest journey: 69 controls, weight 85.00, four redirects
 (`D3-Q03→OV-D3-Q03`, `D7-Q01→OV-D7-Q01`, `D7-Q02→OV-D7-Q02`, `D7-Q04→OV-D7-Q04`) plus
@@ -128,7 +141,8 @@ shorter. Exclusion share 30.15% pushes it to **PROVISIONAL**. D7 excluded entire
 only 10 areas appear. A test forbids collapsing below 30 controls.
 
 **J6 — Low certainty.** All gateways unknown. **Nothing excluded** — coverage 100%,
-visibility 34.63%, score 6.93. `EVIDENCE_VERIFICATION=45`.
+visibility 34.63%. **No score is issued** (diagnostic Option A 6.93).
+`EVIDENCE_VERIFICATION=45`.
 
 **J7 / J8** — see §3 and §4.
 
@@ -136,7 +150,7 @@ visibility 34.63%, score 6.93. `EVIDENCE_VERIFICATION=45`.
 
 | Journey | Signals |
 |---|---|
-| J1 | *(none)* |
+| J1 | *(none)* — 2 exclusions, neither critical nor hard-gate, so no escalation |
 | J2 | *(none)* |
 | J3 | `high_impact_gateway_exclusion`, `profile_specific_comparability_warning` |
 | J4 | `profile_specific_comparability_warning` |
@@ -145,23 +159,24 @@ visibility 34.63%, score 6.93. `EVIDENCE_VERIFICATION=45`.
 | J7 | `high_impact_gateway_exclusion`, `limited_domain_applicability`, `material_domain_exclusion`, `profile_specific_comparability_warning` |
 | J8 | `high_unknown_weight_share`, `low_control_visibility`, `insufficient_visibility` |
 
-## 7. Test coverage — 125 automated tests
+## 7. Test coverage — 139 automated tests
 
-### Engine suite — 44 tests, zero dependencies (`npm test`)
+### Engine suite — 52 tests, zero dependencies (`npm test`)
 
 Structure and provenance (5) · determinism (2) · journey coverage (3) · skip
 integrity (3) · mixed-score exclusion regression (5) · outsourcing (2) ·
 invalidation (3) · dynamic progress (2) · applicability profile (2) ·
-recommendation contract (10) · measures and score models (2) · progressive
-profiling (3) · safety rails (3).
+recommendation contract (10) · measures and score models (2) · **score issuance gate (5)** ·
+**high-impact / whole-domain escalation (3)** · progressive profiling (3) · safety rails (3).
 
-### Browser suite — 27 tests × 3 engines = 81 (`npm run test:browser`)
+### Browser suite — 29 tests × 3 engines = 87 (`npm run test:browser`)
 
 Layout at 320/390/768/1440 (4) · keyboard, focus order and skip link (2) · save
 states and resume (2) · invalidation dialog with focus trap (1) · eight journeys
 end-to-end (6) · desktop capture (1) · domain-complete transition (1) · axe WCAG
 checks (2) · 400% zoom reflow (1) · progressive profiling in the UI (2) · report
-preview and measures (2) · insufficient-visibility presentation (1) · no
+preview and measures (2) · **insufficient-visibility withholds the score (2)** ·
+**preview wording is not self-contradictory (1)** · no
 recommendation leakage for excluded controls (1) · no external network calls (1) ·
 reduced motion (1).
 
@@ -185,6 +200,11 @@ reduced motion (1).
 | No runtime AI branching | `no runtime AI branching…`, `graph JSON is the single source of branching truth` |
 | Mixed-score exclusion regression | §3 tests (5) |
 | Recommendation contract | tests 1–10 |
+| No score issued under insufficient visibility | `J8:…`, `J6:…`, `J6 also withholds the score…` |
+| Diagnostics survive for methodology inspection | `the diagnostic score values survive for methodology inspection` |
+| NORMAL and PROVISIONAL still issue a score | `NORMAL results still issue a score`, `PROVISIONAL results still issue a score…` |
+| Whole-domain/high-impact exclusion escalates | `J7: excluding a whole fraud-risk domain…` |
+| Minor exclusions do not escalate | `ordinary minor exclusions do not escalate at all…` |
 | Progressive profiling equivalence | `progressive ordering yields the SAME applicability profile` |
 | Accessibility | axe (2), zoom reflow (1), reduced motion (1), keyboard (2) |
 
@@ -200,7 +220,13 @@ reduced motion (1).
    guarantee. Caught by the layout tests when J7/J8 were added. *(This round.)*
 5. **Axe reported false contrast failures** — analysis ran mid-fade while `riseIn` was
    still animating. Fixed by waiting for animations to finish. *(This round.)*
-6. **J8 was not exercising its own responder** — the browser helper filled answers with
+6. **A score was displayed where none was defensible.** J6 and J8 rendered a numeric
+   Fraud Readiness Score beside a statement that most of the control environment could
+   not be confirmed. Now withheld as "Not issued". *(This round.)*
+7. **J7 reported `NORMAL` with a whole domain excluded.** Perfect coverage and
+   visibility masked the fact that an entire fraud-risk domain had left scope and seven
+   findings had disappeared. Now `PROVISIONAL`. *(This round.)*
+8. **J8 was not exercising its own responder** — the browser helper filled answers with
    a generic pattern, erasing the uncertainty behaviour the journey exists to test.
    *(This round.)*
 

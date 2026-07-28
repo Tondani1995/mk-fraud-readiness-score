@@ -322,6 +322,13 @@ export function buildAssessment(graph, answers, auditHistory = [], options = {})
 
   /* ------------------------------------------------------- report status */
 
+  // Computed before the status block because high-impact and whole-domain
+  // exclusions now influence the status, not only the integrity signals.
+  const highImpactExcluded = excludedControls.filter((c) => c.is_hard_gate || c.is_critical);
+  const materialDomainExclusions = domains.filter(
+    (d) => d.exclusionShare >= THRESHOLDS.materialDomainExclusionShare && d.excludedCount > 0);
+  const limitedApplicability = domains.filter((d) => d.fullyExcluded);
+
   const limitations = [];
   let reportStatus = REPORT_STATUS.NORMAL;
 
@@ -344,6 +351,17 @@ export function buildAssessment(graph, answers, auditHistory = [], options = {})
       reportStatus = reportStatus === REPORT_STATUS.NORMAL ? REPORT_STATUS.PROVISIONAL : reportStatus;
       limitations.push(`This result is provisional because ${materialExclusionShare}% of the total control weight was excluded from scope by the declared operating profile.`);
     }
+
+    // A high-impact or whole-domain exclusion reshapes the assessment enough that a
+    // "normal" conclusion is not defensible, even when coverage and visibility are
+    // perfect. J7 is the case this exists for: an entire fraud-risk domain excluded,
+    // seven findings removed, and the percentage rising — previously reported NORMAL.
+    //
+    // METHODOLOGY DECISION REQUIRED — NOT APPROVED FOR PRODUCTION.
+    if (limitedApplicability.length > 0 || highImpactExcluded.length > 0) {
+      reportStatus = reportStatus === REPORT_STATUS.NORMAL ? REPORT_STATUS.PROVISIONAL : reportStatus;
+      limitations.push('This result is provisional because the declared operating profile excluded an entire fraud-risk domain or one or more high-impact controls. The excluded scope is listed below and may require confirmation.');
+    }
   }
 
   /* ---------------------------------------------------- integrity signals */
@@ -354,11 +372,6 @@ export function buildAssessment(graph, answers, auditHistory = [], options = {})
   const toggles = auditHistory.filter((h) => h.event === 'gateway_changed');
   const toggleCounts = {};
   for (const t of toggles) toggleCounts[t.question_id] = (toggleCounts[t.question_id] || 0) + 1;
-
-  const highImpactExcluded = excludedControls.filter((c) => c.is_hard_gate || c.is_critical);
-  const materialDomainExclusions = domains.filter(
-    (d) => d.exclusionShare >= THRESHOLDS.materialDomainExclusionShare && d.excludedCount > 0);
-  const limitedApplicability = domains.filter((d) => d.fullyExcluded);
 
   const signals = [];
   const signal = (id, active, detail, blocking = false) => {
@@ -413,11 +426,33 @@ export function buildAssessment(graph, answers, auditHistory = [], options = {})
     items: recommendations.filter((r) => g.classes.includes(r.recommendation_class))
   })).filter((g) => g.items.length > 0);
 
+  /* ------------------------------------------- score issuance (presentation) */
+
+  // A score is only issued to the customer where the assessment can support one.
+  // Under INSUFFICIENT_VISIBILITY the numeric score and any maturity band are
+  // withheld: too much of the applicable control environment is unconfirmed for
+  // the figure to mean what a reader would take it to mean.
+  //
+  // fraudReadinessScore, scoreOptionA and scoreOptionB remain populated for
+  // methodology inspection. They are DIAGNOSTIC ONLY and must never be rendered
+  // as the customer's score — use customerFacingScore, which is null when the
+  // result is not issuable.
+  const scoreIssued = reportStatus !== REPORT_STATUS.INSUFFICIENT_VISIBILITY;
+  const customerFacingScore = scoreIssued ? fraudReadinessScore : null;
+  const scoreWithheldReason = scoreIssued
+    ? null
+    : 'MK could not issue a defensible overall Fraud Readiness Score because too much of the applicable control environment could not be confirmed.';
+
   return {
     scoreModel,
+    // DIAGNOSTIC ONLY — see scoreIssued / customerFacingScore before displaying.
     fraudReadinessScore,
     scoreOptionA: scoreA,
     scoreOptionB: scoreB,
+    // Presentation gate: the only score values a customer-facing surface may show.
+    scoreIssued,
+    customerFacingScore,
+    scoreWithheldReason,
     assessmentCoverage,
     controlVisibility,
     reportStatus,

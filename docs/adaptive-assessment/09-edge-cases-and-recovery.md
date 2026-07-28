@@ -79,10 +79,15 @@ ever advances while the denominator secretly changes.
 
 | Case | Behaviour |
 |---|---|
-| Every applicable control answered "I do not know" | Coverage 100%, visibility ~0%, `INSUFFICIENT_VISIBILITY`, 68 evidence-verification recommendations, **no absence findings** |
-| Strong answers on a minority, unknown on the rest | J8: Option A 19.70, Option B 100.00, status `INSUFFICIENT_VISIBILITY`. The gate is what stops Option B reporting a perfect score |
-| A whole domain excluded | Domain reported `fullyExcluded`; `limited_domain_applicability` and `material_domain_exclusion` raised; no recommendations for it |
-| Exclusion raises the percentage | Expected and unavoidable (J7: 76.93 → 83.39). Mitigated by the comparability statement and the scope schedule, not prevented |
+| Every applicable control answered "I do not know" | Coverage 100%, visibility ~0%, `INSUFFICIENT_VISIBILITY`, **no score issued**, 68 evidence-verification recommendations, **no absence findings** |
+| Strong answers on a minority, unknown on the rest | J8: status `INSUFFICIENT_VISIBILITY`, **score "Not issued"**. Diagnostics (A 19.70, B 100.00) retained for methodology inspection only |
+| A score is withheld | Coverage, visibility, scope schedule, integrity signals and every evidence-verification action still shown. Withholding the score is not withholding the assessment |
+| Diagnostic value coincides with a displayed percentage | Permitted and expected — in J8 Control Visibility is also 19.7%. The leak check is scoped to the score card, not the whole page |
+| A whole domain excluded | Domain reported `fullyExcluded`; `limited_domain_applicability` and `material_domain_exclusion` raised; **status escalated to at least `PROVISIONAL`**; no recommendations for it |
+| Exclusion raises the percentage | Expected and unavoidable (J7: 76.93 → 83.39). Mitigated by the comparability statement, the scope schedule and the `PROVISIONAL` escalation — not prevented |
+| A critical or hard-gate control excluded | Status escalated to at least `PROVISIONAL` with the exclusion limitation stated |
+| Minor exclusions only (none critical, no domain lost) | No escalation — J1 and J7-FULL stay `NORMAL` |
+| Exclusion alone | **Can never reach `INSUFFICIENT_VISIBILITY`.** That status is about what could not be confirmed, not what does not apply. Asserted across every journey |
 | Nothing applicable in a domain | Domain omitted from "areas assessed" and listed in the exclusion schedule |
 | No recommendations at all | Possible for a strong organisation; the recommendation preview section is simply absent |
 | Coverage 100% but visibility low | Distinct measures; status driven by visibility |

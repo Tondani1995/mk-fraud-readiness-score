@@ -1,7 +1,7 @@
 # 12 — Prototype evaluation scorecard
 
 **Status:** Honest self-assessment against the 9.5/10 target.
-**Eight of fourteen categories meet it. Six do not**, and are not rounded up.
+**Nine of fourteen categories meet it. Five do not**, and are not rounded up.
 A score is not increased merely because a document now describes the gap.
 
 ---
@@ -18,13 +18,13 @@ A score is not increased merely because a document now describes the gap.
 | 6 | Adaptive logic clarity | 9.5 | 9.7 | **9.8** | ✅ |
 | 7 | Accessibility | 9.5 | 8.5 | **9.2** | ❌ |
 | 8 | Interaction polish | 9.5 | 9.5 | **9.6** | ✅ |
-| 9 | Trust | 9.5 | 9.0 | **9.0** | ❌ |
+| 9 | Trust | 9.5 | 9.0 | **9.2** | ❌ |
 | 10 | Readiness for owner review | 9.5 | — | **9.5** | ✅ |
 | 11 | Readiness for customer testing | 9.5 | 8.0 | **7.5** | ❌ |
 | 12 | Methodology integrity | 9.5 | — | **9.5** | ✅ |
-| 13 | Report-quality protection | 9.5 | — | **9.4** | ❌ |
+| 13 | Report-quality protection | 9.5 | 9.4 | **9.5** | ✅ |
 | 14 | Product sustainability | 9.5 | — | **8.8** | ❌ |
-| | **Weighted average** | **9.5** | 9.12 | **9.19** | |
+| | **Weighted average** | **9.5** | 9.19 | **9.24** | |
 
 ### 1 · Usability — 9.6 ✅
 Progressive profiling cut the pre-assessment questions from 14 to 5, with domain
@@ -82,19 +82,28 @@ Save states with real timing, advance blocked on unsaved data, invalidation dial
 exact counts and focus trap, domain-complete transitions, resume showing what was
 retained, progressive block introductions.
 
-### 9 · Trust — 9.0 ❌ *(unchanged)*
+### 9 · Trust — 9.2 ❌ *(was 9.0)*
 Strengthened materially: the scoring claim is corrected, exclusion consequences are
 shown, uncertainty is framed as data, the comparability statement appears on review and
 submission, and recommendations never invent findings.
 
-*Held at 9.0 for one reason:* the gateway questions the customer will judge the product
+Raised for the presentation-integrity correction: the product no longer prints a
+readiness score next to an admission that most of the control environment is unconfirmed,
+no longer calls a result "normal" when a whole fraud-risk domain has left scope, no longer
+describes the score inaccurately, and no longer tells the reader it is not showing a
+calculation while showing one.
+
+*Held below 9.5 for one reason:* the gateway questions the customer will judge the product
 by are **still unapproved placeholder content**. The trust the experience earns rests on
 wording that may change.
 
 ### 10 · Readiness for owner review — 9.5 ✅
 All gate conditions met: corrected scoring representation; progressive profiling;
-recommendation-class separation; 125 tests passing; Chromium, Firefox and WebKit
-passing; axe passing; both prototype CodeQL findings fixed; `npm run review` works.
+recommendation-class separation; **139 tests passing**; Chromium, Firefox and WebKit
+passing; axe passing; all prototype CodeQL threads resolved; `npm run review` works.
+The presentation-integrity corrections (no score under insufficient visibility, J7
+provisional, accurate score wording, no self-contradicting preview text) are in place
+and test-asserted.
 
 ### 11 · Readiness for customer testing — 7.5 ❌ *(was 8.0 — lowered)*
 **Lowered deliberately.** The previous 8.0 was too generous, and this round surfaced
@@ -118,14 +127,22 @@ be engineered away — exclusion changing the score, and undetectable false decl
 are stated plainly rather than papered over.
 *Held from 10:* the methodology owner has not ruled on any of the 11 decisions.
 
-### 13 · Report-quality protection — 9.4 ❌
+### 13 · Report-quality protection — 9.5 ✅
 The recommendation contract is the strongest part of this round: seven classes, ten
 contract tests, and a hard guarantee that not-applicable produces no control
 recommendation, unknown produces verification rather than implementation, and unanswered
 produces nothing substantive. J7 proves it end-to-end — the excluded weak domain
 generates zero findings where full scope generates seven.
-*Held from 9.5:* the contract is asserted against the **prototype's** recommendation
-generator, not the real report engine. It must be re-asserted there.
+This round closed the remaining presentation gap: a report can no longer issue a numeric
+readiness score it cannot defend, and a materially reduced scope can no longer be
+presented as an unqualified result. Withholding is now a modelled state
+(`scoreIssued` / `customerFacingScore`), not a rendering convention, so the same gate
+carries into production.
+
+*Caveat that remains:* the contract is asserted against the **prototype's**
+recommendation generator, not the real report engine. It must be re-asserted there —
+tracked as a production gate rather than a scoring deduction, since the prototype
+cannot close it.
 
 ### 14 · Product sustainability — 8.8 ❌
 Versioned, maintainable, tested, extensible, explainable, and implementable without
@@ -144,8 +161,9 @@ undecided.
 3. **Human screen-reader pass (NVDA + VoiceOver) and physical devices** — accessibility to 9.5, readiness up.
 4. **Bundle Poppins and add the two missing tokens** — brand alignment to 9.5.
 5. **Build rule administration in the admin surface** — sustainability to 9.5.
-6. **Re-assert the recommendation contract against the real report generator** — report protection to 9.5.
-7. **Replace invented time constants with observed medians.**
+6. **Replace invented time constants with observed medians.**
+7. **Re-assert the recommendation contract against the real report generator** — a
+   production gate, not a prototype task.
 
 ## 3. GO / NO-GO
 
@@ -157,14 +175,21 @@ undecided.
 
 ## 4. Honest summary
 
-This round fixed a real integrity problem rather than polishing around it. The claim
+These rounds fixed real integrity problems rather than polishing around them. The claim
 that skipping could not improve the score was false, the test that supported it was
-incapable of detecting the effect, and both have been replaced with measured evidence
-that exclusion moved a score from 76.93 to 83.39.
+incapable of detecting the effect, and both were replaced with measured evidence that
+exclusion moved a score from 76.93 to 83.39.
+
+The presentation then had to catch up with the methodology. A prototype that computes a
+defensible position and then prints an indefensible number is not honest, and it was
+doing exactly that in three places: a readiness score displayed beside an admission that
+four controls in five were unconfirmed; a result labelled "normal" with an entire
+fraud-risk domain excluded; and a screen that displayed a score while telling the reader
+it was not showing one. All three are corrected.
 
 The prototype now separates five response states, reports three measures instead of one,
-gates definitive conclusions on visibility, and guarantees the report cannot invent a
-finding from uncertainty or silence. It is stronger and more honest than it was.
+withholds the score where it cannot be defended, qualifies materially reduced scope, and
+guarantees the report cannot invent a finding from uncertainty or silence.
 
 It is still **not** ready for customers, and the reasons are approval and verification,
 not design: the content is unapproved, the scoring model is undecided, and no human has

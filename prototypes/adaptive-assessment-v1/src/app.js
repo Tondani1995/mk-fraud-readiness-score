@@ -540,6 +540,11 @@ function renderSubmitted() {
         <div class="stat"><div class="stat__value">${result.assessmentCoverage}%</div><div class="stat__label">Assessment coverage</div></div>
         <div class="stat"><div class="stat__value">${result.controlVisibility}%</div><div class="stat__label">Control visibility</div></div>
       </div>
+      ${!result.scoreIssued ? `
+      <div class="callout callout--warn" data-testid="submitted-score-withheld">
+        <span class="callout__icon" aria-hidden="true">!</span>
+        <span>${escapeHtml(result.scoreWithheldReason)}</span>
+      </div>` : ''}
       <div class="callout callout--info">
         <span class="callout__icon" aria-hidden="true">i</span>
         <span>${escapeHtml(result.comparabilityStatement)}</span>

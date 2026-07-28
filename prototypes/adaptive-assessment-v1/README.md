@@ -26,6 +26,11 @@ changes the percentage — measured at **+6.46 points** between journeys J7 and 
 The prototype now reports three separate measures and marks every result
 scope-specific. See `docs/adaptive-assessment/05-applicability-and-scoring-integrity.md`.
 
+**No score is issued where it cannot be defended.** Under `INSUFFICIENT_VISIBILITY` the
+review screen shows "Not issued" rather than a number, and Coverage and Control
+Visibility carry the result. The Option A and Option B figures remain computed for
+methodology inspection only — never as the customer's score.
+
 ## What this is NOT
 
 - It does **not** connect to Supabase, the live API, Vercel Production, or any MK service.
@@ -66,8 +71,8 @@ to load any of the eight fabricated organisations:
 | J4 | Online business | Digital payments, customer data, remote staff, platforms |
 | J5 | Small business | Owner-led approvals, no procurement or payroll function |
 | J6 | Low-certainty respondent | Answers "I do not know" throughout |
-| J7 | Strong controls, weak domain excluded | Methodology stress test: exclusion changes the score |
-| J8 | High unknown, high apparent maturity | Methodology stress test: visibility gate |
+| J7 | Strong controls, weak domain excluded | Methodology stress test: exclusion changes the score; escalates to PROVISIONAL |
+| J8 | High unknown, high apparent maturity | Methodology stress test: visibility gate; no score issued |
 
 Selecting a journey pre-fills its **gateway** answers and drops you at the first
 methodology question, so you can see the shape of the resulting path immediately.
@@ -105,8 +110,8 @@ off and press **Retry save** to see recovery.
 
 ```bash
 npm install           # only needed for the browser suite
-npm test              # 44 engine/journey tests, zero dependencies
-npm run test:browser  # 27 browser tests x Chromium, Firefox, WebKit
+npm test              # 52 engine/journey tests, zero dependencies
+npm run test:browser  # 29 browser tests x Chromium, Firefox, WebKit
 npm run test:chromium # a single engine
 npm run journeys      # prints the synthetic journey matrix
 ```

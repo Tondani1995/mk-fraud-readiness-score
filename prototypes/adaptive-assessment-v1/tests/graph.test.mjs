@@ -743,6 +743,100 @@ test('both score models are computed and Option B is the more generous of the tw
   assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
 });
 
+/* --------------------------------------- score issuance (presentation gate) */
+
+test('J8: insufficient visibility issues no customer-facing readiness score', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J8'));
+  assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
+  assert.equal(result.scoreIssued, false, 'no score may be issued');
+  assert.equal(result.customerFacingScore, null, 'the customer-facing score must be null');
+  assert.match(result.scoreWithheldReason, /could not issue a defensible overall Fraud Readiness Score/);
+});
+
+test('J6: insufficient visibility issues no customer-facing readiness score', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J6'));
+  assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
+  assert.equal(result.scoreIssued, false);
+  assert.equal(result.customerFacingScore, null);
+});
+
+test('the diagnostic score values survive for methodology inspection', () => {
+  // Withholding the customer's score must not destroy the figures the methodology
+  // owner needs to compare Option A against Option B.
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J8'));
+  assert.equal(typeof result.scoreOptionA, 'number');
+  assert.equal(typeof result.scoreOptionB, 'number');
+  assert.equal(typeof result.fraudReadinessScore, 'number');
+  assert.equal(result.scoreOptionB, 100, 'the Option B result is exactly why the gate exists');
+  // …but none of them is the customer's score.
+  assert.equal(result.customerFacingScore, null);
+});
+
+test('NORMAL results still issue a score', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J2'));
+  assert.equal(result.reportStatus, REPORT_STATUS.NORMAL);
+  assert.equal(result.scoreIssued, true);
+  assert.equal(result.customerFacingScore, result.fraudReadinessScore);
+  assert.equal(result.scoreWithheldReason, null);
+});
+
+test('PROVISIONAL results still issue a score, alongside prominent limitations', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J5'));
+  assert.equal(result.reportStatus, REPORT_STATUS.PROVISIONAL);
+  assert.equal(result.scoreIssued, true);
+  assert.equal(typeof result.customerFacingScore, 'number');
+  assert.ok(result.reportLimitationReasons.length > 0, 'a provisional result must state why');
+});
+
+/* ------------------------- high-impact / whole-domain exclusion escalation */
+
+test('J7: excluding a whole fraud-risk domain makes the result provisional, not normal', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+  assert.equal(result.reportStatus, REPORT_STATUS.PROVISIONAL,
+    'a fully excluded domain cannot yield a NORMAL conclusion');
+  assert.ok(
+    result.reportLimitationReasons.some((r) => /entire fraud-risk domain or one or more high-impact controls/.test(r)),
+    'the exclusion limitation must be stated');
+});
+
+test('J7: the score, exclusion schedule, comparability and signals all survive escalation', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+  // The score is still shown — provisional means qualified, not withheld.
+  assert.equal(result.scoreIssued, true);
+  assert.equal(result.customerFacingScore, 83.39, 'demonstration score is unchanged');
+  // The full excluded schedule remains visible.
+  assert.equal(result.excludedControls.length, 12);
+  assert.ok(result.excludedControls.every((c) => c.skip_reason_code));
+  // Comparability statement and the high-impact signal both remain.
+  assert.match(result.comparabilityStatement, /should not be compared directly/);
+  const ids = result.signals.map((s) => s.id);
+  assert.ok(ids.includes('high_impact_gateway_exclusion'));
+  assert.ok(ids.includes('limited_domain_applicability'));
+  assert.ok(ids.includes('profile_specific_comparability_warning'));
+});
+
+test('ordinary minor exclusions do not escalate at all, and never to insufficient visibility', () => {
+  // J1 excludes two controls, neither critical nor hard-gate, no domain lost.
+  const j1 = buildFor(JOURNEYS.find((j) => j.id === 'J1'));
+  assert.equal(j1.reportStatus, REPORT_STATUS.NORMAL, 'minor exclusions stay NORMAL');
+  assert.equal(j1.counts.excluded, 2);
+  assert.equal(j1.scoreIssued, true);
+
+  // J7-FULL excludes two controls too and is the honest full-scope comparator.
+  const full = buildFor(J7_FULL_SCOPE);
+  assert.equal(full.reportStatus, REPORT_STATUS.NORMAL);
+
+  // No exclusion-driven path may ever reach INSUFFICIENT_VISIBILITY: that status is
+  // about what could not be confirmed, not about what does not apply.
+  for (const journey of [...JOURNEYS, J7_FULL_SCOPE]) {
+    const r = buildFor(journey);
+    if (r.reportStatus === REPORT_STATUS.INSUFFICIENT_VISIBILITY) {
+      assert.ok(r.controlVisibility < 60 || r.assessmentCoverage < 80,
+        `${journey.id} reached INSUFFICIENT_VISIBILITY without a visibility or coverage failure`);
+    }
+  }
+});
+
 test('progressive profiling asks at most five questions before the assessment begins', () => {
   const profileGateways = graphJson.gateways.filter((g) => g.phase === 'profile');
   assert.ok(profileGateways.length <= 5, `${profileGateways.length} profile gateways, maximum is 5`);

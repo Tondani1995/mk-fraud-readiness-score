@@ -148,7 +148,7 @@ Option B:  denominator = answered-maturity weight only
 
 | | Advantages | Risks |
 |---|---|---|
-| **A — unknown retained, zero credit** | Uncertainty cannot inflate the score; simple to explain; conservative | Can make uncertainty look like confirmed failure unless reporting separates them |
+| **A — unknown retained, zero credit** | Uncertainty cannot inflate the score; simple to explain; conservative | Can make uncertainty look like confirmed failure unless reporting separates them. **Under Option A an unknown control sits in the denominator with zero credit — it is not evidence of a control failure, and the report must not describe it as one.** The `INSUFFICIENT_VISIBILITY` gate in §5.1 is what stops the arithmetic being read that way |
 | **B — unknown excluded** | Does not invent a control failure; reflects only what was assessed | Repeated "I do not know" inflates the score badly without a strong gate |
 
 **Recommendation: adopt Option A, with Control Visibility and the report-status gate
@@ -193,8 +193,64 @@ J6 shows why the two are distinct: coverage **100%**, visibility **34.63%**.
 | `PROVISIONAL` | Score may be shown, but material uncertainty, incompleteness, exclusions or limited applicability restrict the conclusion | Limitation stated prominently |
 | `INSUFFICIENT_VISIBILITY` | Too much of the applicable control environment could not be confirmed | **No definitive overall maturity band.** Explain which material areas could not be confirmed; provide an evidence-verification plan; invite completion |
 
-Observed across the journeys: J1–J4 and J7 `NORMAL`; J5 `PROVISIONAL` (30.15% of
-total weight excluded); J6 and J8 `INSUFFICIENT_VISIBILITY`.
+Observed across the journeys: J1, J2, J4 and J7-FULL `NORMAL`; J3, J5 and J7
+`PROVISIONAL`; J6 and J8 `INSUFFICIENT_VISIBILITY`.
+
+### 5.1 Score issuance — INSUFFICIENT_VISIBILITY issues no score
+
+**A status of `INSUFFICIENT_VISIBILITY` withholds the customer-facing score entirely.**
+Reporting "19.70 / 100" next to "we could not confirm four controls in five" invites the
+reader to treat the figure as a readiness measurement. It is not one.
+
+| Status | Numeric score | Maturity band | Coverage | Visibility | Verification actions |
+|---|---|---|---|---|---|
+| `NORMAL` | shown | shown | shown | shown | as applicable |
+| `PROVISIONAL` | **shown**, with the limitation stated prominently | shown, qualified | shown | shown | as applicable |
+| `INSUFFICIENT_VISIBILITY` | **"Not issued"** | **none** | **shown** | **shown** | **shown** |
+
+Withheld wording:
+
+> *"MK could not issue a defensible overall Fraud Readiness Score because too much of the
+> applicable control environment could not be confirmed."*
+
+The model separates the two concerns explicitly:
+
+- `scoreIssued` (boolean) and `customerFacingScore` (number or **null**) — the only
+  values a customer-facing surface may render.
+- `fraudReadinessScore`, `scoreOptionA`, `scoreOptionB` — retained and always computed,
+  but **diagnostic only**, for methodology inspection. They must never be presented as
+  the customer's score.
+
+Withholding the score does not withhold the assessment. Coverage, visibility, the scope
+schedule, the integrity signals and every evidence-verification action remain in full.
+
+### 5.2 High-impact and whole-domain exclusion escalate to PROVISIONAL
+
+**METHODOLOGY DECISION REQUIRED — NOT APPROVED FOR PRODUCTION**
+
+The status is raised to at least `PROVISIONAL` where either holds:
+
+1. a domain is **fully excluded**; or
+2. one or more **critical or hard-gate** controls are excluded.
+
+J7 is the case this exists for. It has perfect coverage and perfect visibility, so under
+the previous rules it reported `NORMAL` — while an entire fraud-risk domain had been
+excluded, seven findings had disappeared, and the percentage had risen from 76.93 to
+83.39. "Normal" was the wrong word for that result.
+
+Limitation reason:
+
+> *"This result is provisional because the declared operating profile excluded an entire
+> fraud-risk domain or one or more high-impact controls. The excluded scope is listed
+> below and may require confirmation."*
+
+The rule discriminates rather than blanket-escalating: J1 and J7-FULL each exclude two
+controls that are neither critical nor hard-gate and remain `NORMAL`. J3 escalates
+because one of its two exclusions is high-impact.
+
+**Exclusion never reaches `INSUFFICIENT_VISIBILITY`.** That status is about what could
+not be *confirmed*, not about what does not *apply*. A test asserts this across every
+journey.
 
 ### Proposed thresholds
 **METHODOLOGY DECISION REQUIRED — NOT APPROVED FOR PRODUCTION**

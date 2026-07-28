@@ -61,7 +61,9 @@ const results = ALL.map((journey) => {
     excludedWeight: result.weights.excluded,
     assessmentCoverage: result.assessmentCoverage,
     controlVisibility: result.controlVisibility,
-    fraudReadinessScore: result.fraudReadinessScore,
+    scoreIssued: result.scoreIssued,
+    customerFacingScore: result.customerFacingScore,
+    fraudReadinessScoreDiagnostic: result.fraudReadinessScore,
     scoreOptionA: result.scoreOptionA,
     scoreOptionB: result.scoreOptionB,
     unknownWeightShare: result.unknownWeightShare,
@@ -84,14 +86,14 @@ if (process.argv.includes('--json')) {
   const pad = (s, n) => String(s).padEnd(n);
   console.log('\nMK ADAPTIVE ASSESSMENT — SYNTHETIC JOURNEY MATRIX (prototype)\n');
   console.log(pad('ID', 8), pad('Journey', 30), pad('Act', 5), pad('Exc', 5), pad('Rdr', 5),
-    pad('Unk', 5), pad('Cov%', 7), pad('Vis%', 7), pad('FRS', 7), pad('Status', 24), 'Min');
+    pad('Unk', 5), pad('Cov%', 7), pad('Vis%', 7), pad('Score', 7), pad('Status', 24), 'Min');
   console.log('-'.repeat(126));
   for (const r of results) {
     console.log(
       pad(r.id, 8), pad(r.name.slice(0, 29), 30), pad(r.activeControls, 5), pad(r.excludedControls, 5),
       pad(r.redirectedControls, 5), pad(r.unknownControls, 5),
       pad(r.assessmentCoverage, 7), pad(r.controlVisibility, 7),
-      pad(r.fraudReadinessScore === null ? '—' : r.fraudReadinessScore, 7),
+      pad(r.scoreIssued ? r.customerFacingScore : 'n/i', 7),
       pad(r.reportStatus, 24), r.estMinutesAfterProfile);
   }
   console.log('\nProgressive profiling — questions asked before the first control:');
@@ -109,6 +111,8 @@ if (process.argv.includes('--json')) {
   for (const r of results) {
     console.log(`  ${r.id}: ${r.reportLimitationReasons.length ? r.reportLimitationReasons[0] : 'none'}`);
   }
+  console.log('\n"n/i" = not issued: no customer-facing score under INSUFFICIENT_VISIBILITY.');
+  console.log('The Option A / B figures below are DIAGNOSTIC ONLY, for methodology inspection.');
   console.log('\nWeights and score models:');
   for (const r of results) {
     console.log(`  ${r.id}: applicable=${r.applicableWeight} excluded=${r.excludedWeight} ` +

@@ -2,6 +2,9 @@
 
 # ⚠ CONTENT DECISION REQUIRED — NOT APPROVED FOR PRODUCTION
 
+**Five items were added this round (C38–C42)** covering score withholding and the two
+wording corrections. Revised wording is still placeholder wording.
+
 Everything in this document is **prototype placeholder content**, written to make the
 adaptive experience demonstrable. None of it has been reviewed or approved by the
 methodology owner. Revised wording in this round is still placeholder wording — it has
@@ -49,6 +52,11 @@ and a test asserts it. Every placeholder node carries
 | **C28** | NORMAL status copy | "Coverage and control visibility are sufficient for a full conclusion." | unchanged | Report status | review + report | none | status | Methodology | **NOT APPROVED** |
 | **C29** | PROVISIONAL status copy | "A score can be shown, but the conclusion is limited." + generated reason | unchanged | Report status | review + report | none | prominent limitation | Methodology | **NOT APPROVED** |
 | **C30** | INSUFFICIENT_VISIBILITY copy | "Too much of the applicable control environment could not be confirmed for a defensible overall maturity conclusion." | unchanged | Report status | review + report | blocks definitive band | no maturity band | Methodology | **NOT APPROVED** |
+| **C38** | Score withheld | "MK could not issue a defensible overall Fraud Readiness Score because too much of the applicable control environment could not be confirmed." | needs owner review | Shown in place of the number under INSUFFICIENT_VISIBILITY | review + submission + report | no score issued | **no numeric score, no maturity band** | Methodology + Commercial | **NOT APPROVED** |
+| **C39** | Score-withheld label | "Not issued" | needs owner review | The word that replaces the number | review + report | none | must not read as a zero or a failure | Commercial copy | **NOT APPROVED** |
+| **C40** | Fraud Readiness Score note | "Readiness across applicable controls. Under the proposed methodology, controls that could not be confirmed receive no maturity credit and are reported separately through Control Visibility." | needs owner review | **Replaces inaccurate wording.** The previous note said "maturity of the applicable controls you were able to confirm", which is wrong under Option A — unconfirmed controls stay in the denominator | review + report | none | describes the score accurately | Methodology | **NOT APPROVED** |
+| **C41** | Preview framing | "This is a preview based on your current answers. Your final report is generated after submission." | needs owner review | **Replaces a self-contradiction.** The screen previously displayed a score while saying the calculation was not shown | review | none | none | Commercial copy | **NOT APPROVED** |
+| **C42** | High-impact exclusion limitation | "This result is provisional because the declared operating profile excluded an entire fraud-risk domain or one or more high-impact controls. The excluded scope is listed below and may require confirmation." | needs owner review | Carries the new escalation rule | review + report | none | prominent limitation | Methodology | **NOT APPROVED** |
 | **C31** | Evidence-verification template | "The respondent could not confirm how this control operates… identify the process owner and obtain evidence of the current procedure for: {control}" | unchanged | Prevents inventing findings | every unknown | none | verification action | Methodology | **NOT APPROVED** |
 | **C32** | Control-design template | "The organisation confirmed this control is not in place. Design and implement a control covering: {control}" | unchanged | Substantive 0 | every 0 | none | remediation | Methodology | **NOT APPROVED** |
 | **C33** | Strengthening template | "This control exists but is not operating consistently or is not evidenced…" | unchanged | Substantive 1–2 | every 1–2 | none | remediation | Methodology | **NOT APPROVED** |

@@ -169,7 +169,9 @@ replaced by gateway-driven exclusion, which removes a whole class of validation.
 | Invalidation body | …no longer apply to your organisation and will be removed from the assessment. They are kept in the audit history but will not affect your result. |
 | Exclusion framing | Excluded questions are removed from your result entirely. They do not count for you or against you. |
 | Unknown framing (review) | These are treated as uncertainty, not as controls being in place. A high number will be reflected as reduced confidence rather than as a weakness. |
-| Score visibility | Your final score and report are produced after submission. We do not show the calculation here. |
+| Preview framing | This is a preview based on your current answers. Your final report is generated after submission. |
+| Fraud Readiness Score note | Readiness across applicable controls. Under the proposed methodology, controls that could not be confirmed receive no maturity credit and are reported separately through Control Visibility. |
+| Score withheld | MK could not issue a defensible overall Fraud Readiness Score because too much of the applicable control environment could not be confirmed. |
 | Comparability | Your score reflects the controls applicable to the operating profile you declared. It should not be compared directly with an organisation whose fraud exposures and applicable control areas differ materially. |
 | Exclusion (report) | This area was not assessed because the organisation indicated that the underlying activity does not form part of its operating model. |
 | Integrity signals | Several answers materially shaped the applicable assessment scope. These will be recorded in the final report and may require confirmation. |

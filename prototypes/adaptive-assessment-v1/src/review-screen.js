@@ -43,12 +43,24 @@ export function reviewScreenHtml(result, { escapeHtml, escapeAttr, truncate, una
         Check anything marked for attention. You can go back and change any answer.
       </p>
 
-      <!-- Three separate measures. They answer different questions and must not be conflated. -->
+      <!-- Three separate measures. They answer different questions and must not be conflated.
+           The score is shown only when the assessment can support one: under
+           INSUFFICIENT_VISIBILITY the figure and any maturity band are withheld, and the
+           two supporting measures carry the result instead.
+           CONTENT DECISION REQUIRED — NOT APPROVED FOR PRODUCTION. -->
       <div class="scorecard" data-testid="measures">
-        <div class="scorecard__primary">
-          <div class="scorecard__value" data-testid="frs">${result.fraudReadinessScore === null ? '—' : result.fraudReadinessScore}<span class="scorecard__of"> / 100</span></div>
-          <div class="scorecard__label">Fraud Readiness Score</div>
-          <div class="scorecard__note">Maturity of the applicable controls you were able to confirm.</div>
+        <div class="scorecard__primary${result.scoreIssued ? '' : ' scorecard__primary--withheld'}">
+          ${result.scoreIssued ? `
+            <div class="scorecard__value" data-testid="frs">${result.customerFacingScore === null ? '—' : result.customerFacingScore}<span class="scorecard__of"> / 100</span></div>
+            <div class="scorecard__label">Fraud Readiness Score</div>
+            <div class="scorecard__note">Readiness across applicable controls. Under the proposed
+            methodology, controls that could not be confirmed receive no maturity credit and are
+            reported separately through Control Visibility.</div>
+          ` : `
+            <div class="scorecard__value scorecard__value--withheld" data-testid="score-not-issued">Not issued</div>
+            <div class="scorecard__label">Fraud Readiness Score</div>
+            <div class="scorecard__note" data-testid="score-withheld-reason">${escapeHtml(result.scoreWithheldReason)}</div>
+          `}
         </div>
         <div class="scorecard__side">
           <div class="minimetric">
@@ -211,8 +223,8 @@ export function reviewScreenHtml(result, { escapeHtml, escapeAttr, truncate, una
 
       <div class="callout callout--info">
         <span class="callout__icon" aria-hidden="true">i</span>
-        <span>Your final score and report are produced after submission. We do not show the
-        calculation here.</span>
+        <span>This is a preview based on your current answers. Your final report is generated
+        after submission.</span>
       </div>
 
       <div class="actions">
