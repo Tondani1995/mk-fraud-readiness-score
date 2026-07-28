@@ -69,6 +69,7 @@ const freezeFunctions = [
   ['rc1_guard_freeze_state_write',''],
   ['rc1_activate_freeze','text'],
   ['rc1_release_freeze','text,text,bigint'],
+  ['rc1_provision_certification_runtime_secret','text,text,text,bigint'],
   ['rc1_guard_authoritative_mutation',''],
   ['rc1_install_relation_guard','text,text'],
   ['rc1_install_new_relation_guards',''],
@@ -218,17 +219,32 @@ async function freezeObjectFingerprints() {
   const functions = await jsonRpcFingerprints(freezeFunctions);
   const tableRows = await query(`
     select c.relname as key,
-      md5(string_agg(
-        a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
-        || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
-        E'\\n' order by a.attnum
-      )) as value
+      md5(
+        string_agg(
+          a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
+          || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
+          E'\\n' order by a.attnum
+        )
+        || E'\\n--constraints--\\n'
+        || coalesce((
+          select string_agg(
+            con.conname || '|' || pg_get_constraintdef(con.oid, true),
+            E'\\n' order by con.conname
+          )
+          from pg_constraint con
+          where con.conrelid=c.oid
+        ), '')
+      ) as value
     from pg_class c
     join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
     left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
     where c.relnamespace='public'::regnamespace
-      and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
-    group by c.relname
+      and c.relname in (
+        'rc1_operation_freeze_state',
+        'rc1_operation_freeze_audit',
+        'rc1_certification_secret_write_tokens'
+      )
+    group by c.oid,c.relname
     order by c.relname
   `);
   const triggerRows = await query(`
@@ -400,6 +416,162 @@ async function expectQueryStop(label, action, expectedMessage) {
   assert(stopped, `${label} did not fail closed`);
 }
 
+async function proveMalformedStateFailClosed() {
+  const constraintSnapshot = await query(`
+    select conname, pg_get_constraintdef(oid, true) as definition
+    from pg_constraint
+    where conrelid = 'public.rc1_operation_freeze_state'::regclass
+    order by conname
+  `);
+  const notNullSnapshot = await query(`
+    select attname, attnotnull
+    from pg_attribute
+    where attrelid = 'public.rc1_operation_freeze_state'::regclass
+      and attname in ('state', 'freeze_epoch')
+    order by attname
+  `);
+  const releaseBase = `
+    state='RELEASED',
+    freeze_epoch=1,
+    released_at=now(),
+    released_by_fingerprint=repeat('a',64),
+    release_reason_fingerprint=repeat('b',64),
+    release_evidence_fingerprint=repeat('c',64),
+    active_canary_authorization_hash=null,
+    active_canary_expires_at=null
+  `;
+  const rejectedWrites = [
+    ['null released_by_fingerprint', 'released_by_fingerprint=null'],
+    ['null release_reason_fingerprint', 'release_reason_fingerprint=null'],
+    ['null release_evidence_fingerprint', 'release_evidence_fingerprint=null'],
+    ['malformed release evidence fingerprint', "release_evidence_fingerprint='malformed'"],
+    ['all-zero release evidence fingerprint', "release_evidence_fingerprint=repeat('0',64)"],
+    ['inconsistent released_at', 'released_at=null'],
+    ['RELEASED active canary', "active_canary_authorization_hash=repeat('d',64), active_canary_expires_at=now()+interval '1 hour'"],
+    ['mismatched canary fields', "active_canary_authorization_hash=repeat('d',64), active_canary_expires_at=null"],
+    ['invalid state', "state='INVALID'"],
+    ['zero epoch', 'freeze_epoch=0'],
+    ['null epoch', 'freeze_epoch=null'],
+  ];
+
+  await db.query('begin');
+  try {
+    await db.query('set local session_replication_role = replica');
+    for (let i = 0; i < rejectedWrites.length; i += 1) {
+      const [label, assignments] = rejectedWrites[i];
+      await db.query(`savepoint malformed_constraint_${i}`);
+      let rejected = false;
+      try {
+        await db.query(`update public.rc1_operation_freeze_state set ${releaseBase}`);
+        await db.query(`update public.rc1_operation_freeze_state set ${assignments}`);
+      } catch {
+        rejected = true;
+      }
+      await db.query(`rollback to savepoint malformed_constraint_${i}`);
+      assert(rejected, `table constraints must reject ${label}`);
+    }
+  } finally {
+    await db.query('rollback');
+  }
+
+  async function expectFunctionStopAtSavepoint(label, sql, expected) {
+    const savepoint = `malformed_function_${Math.random().toString(16).slice(2)}`;
+    await db.query(`savepoint ${savepoint}`);
+    let stopped = false;
+    try {
+      await db.query(sql);
+    } catch (error) {
+      stopped = true;
+      assert(
+        String(error?.message ?? error).includes(expected),
+        `${label} stopped for the wrong reason: ${String(error?.message ?? error)}`,
+      );
+    }
+    await db.query(`rollback to savepoint ${savepoint}`);
+    assert(stopped, `${label} must fail closed`);
+  }
+
+  await db.query('begin');
+  try {
+    await db.query('set local session_replication_role = replica');
+    await db.query(`
+      alter table public.rc1_operation_freeze_state
+        drop constraint rc1_operation_freeze_state_release_shape,
+        drop constraint rc1_operation_freeze_state_canary_shape,
+        drop constraint rc1_operation_freeze_state_state_check,
+        drop constraint rc1_operation_freeze_state_freeze_epoch_check,
+        alter column state drop not null,
+        alter column freeze_epoch drop not null
+    `);
+
+    const malformedRows = [
+      ['null released_by_fingerprint', 'released_by_fingerprint=null'],
+      ['null release_reason_fingerprint', 'release_reason_fingerprint=null'],
+      ['null release_evidence_fingerprint', 'release_evidence_fingerprint=null'],
+      ['malformed release evidence fingerprint', "release_evidence_fingerprint='malformed'"],
+      ['all-zero release evidence fingerprint', "release_evidence_fingerprint=repeat('0',64)"],
+      ['inconsistent released_at', 'released_at=null'],
+      ['FROZEN inconsistent release fields', "state='FROZEN'"],
+      ['mismatched canary hash/expiry', "state='FROZEN', released_at=null, released_by_fingerprint=null, release_reason_fingerprint=null, release_evidence_fingerprint=null, active_canary_authorization_hash=repeat('d',64), active_canary_expires_at=null"],
+      ['invalid state', "state='INVALID'"],
+      ['missing state', 'state=null'],
+      ['zero epoch', 'freeze_epoch=0'],
+      ['null epoch', 'freeze_epoch=null'],
+    ];
+    for (const [label, assignments] of malformedRows) {
+      await db.query(`update public.rc1_operation_freeze_state set ${releaseBase}`);
+      await db.query(`update public.rc1_operation_freeze_state set ${assignments}`);
+      await expectFunctionStopAtSavepoint(
+        `${label} status`,
+        'select public.rc1_freeze_status()',
+        'rc1_operation_frozen:freeze_row_malformed',
+      );
+      await expectFunctionStopAtSavepoint(
+        `${label} operation-open guard`,
+        "select public.rc1_require_operation_open('order_create')",
+        'rc1_operation_frozen:',
+      );
+    }
+
+    await db.query('delete from public.rc1_operation_freeze_state');
+    await expectFunctionStopAtSavepoint(
+      'missing row status',
+      'select public.rc1_freeze_status()',
+      'rc1_operation_frozen:freeze_row_cardinality',
+    );
+    await expectFunctionStopAtSavepoint(
+      'missing row operation-open guard',
+      "select public.rc1_require_operation_open('order_create')",
+      'rc1_operation_frozen:',
+    );
+  } finally {
+    await db.query('rollback');
+  }
+
+  const restoredConstraints = await query(`
+    select conname, pg_get_constraintdef(oid, true) as definition
+    from pg_constraint
+    where conrelid = 'public.rc1_operation_freeze_state'::regclass
+    order by conname
+  `);
+  const restoredNotNull = await query(`
+    select attname, attnotnull
+    from pg_attribute
+    where attrelid = 'public.rc1_operation_freeze_state'::regclass
+      and attname in ('state', 'freeze_epoch')
+    order by attname
+  `);
+  assert(
+    JSON.stringify(restoredConstraints) === JSON.stringify(constraintSnapshot),
+    'malformed-state tests must restore the exact table constraints',
+  );
+  assert(
+    JSON.stringify(restoredNotNull) === JSON.stringify(notNullSnapshot),
+    'malformed-state tests must restore exact NOT NULL enforcement',
+  );
+  console.log(`PASS malformed RC1 state: ${rejectedWrites.length} constraint cases and 13 defence-in-depth cases`);
+}
+
 async function proveBootstrapEnforcement() {
   const [status] = await query('select public.rc1_freeze_status() as value');
   assert(status.value.state === 'frozen', 'bootstrap state must start FROZEN');
@@ -474,6 +646,233 @@ async function proveBootstrapEnforcement() {
   const [afterRollback] = await query('select public.rc1_freeze_status() as value');
   assert(afterRollback.value.state === 'frozen' && Number(afterRollback.value.freeze_epoch) === 1,
     'control-RPC proof must leave the bootstrap state unchanged');
+}
+
+async function proveFrozenCertificationControlPlane() {
+  const adminId = '00000000-0000-0000-0000-00000000a001';
+  const sessionId = '00000000-0000-0000-0000-00000000a002';
+  const secretA = 'rc1-synthetic-webhook-certification-secret-a';
+  const secretB = 'rc1-synthetic-lookup-certification-secret-b';
+  const claimsFor = (aal) => JSON.stringify({
+    role: 'authenticated',
+    aal,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    session_id: sessionId,
+  });
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [adminId]);
+  await db.query("select set_config('request.jwt.claims',$1,false)", [claimsFor('aal2')]);
+
+  const countsBefore = await baselineCounts();
+  const [stateBefore] = await query('select public.rc1_freeze_status() as value');
+
+  await db.query('set role authenticated');
+  try {
+    await expectQueryStop(
+      'ordinary runtime-secret RPC while frozen',
+      () => db.query(
+        "select public.set_phase14_runtime_secret('provider_webhook_db_hmac',$1,'Synthetic ordinary route attempt')",
+        [secretA],
+      ),
+      'rc1_operation_frozen:activation_control',
+    );
+    await expectQueryStop(
+      'AAL2 certification wrong key',
+      () => db.query(
+        "select public.rc1_provision_certification_runtime_secret('wrong_key',$1,'Synthetic invalid key attempt',1)",
+        [secretA],
+      ),
+      'rc1_certification_secret:key_not_allowed',
+    );
+    await expectQueryStop(
+      'AAL2 certification wrong epoch',
+      () => db.query(
+        "select public.rc1_provision_certification_runtime_secret('provider_webhook_db_hmac',$1,'Synthetic wrong epoch attempt',2)",
+        [secretA],
+      ),
+      'rc1_certification_secret:freeze_epoch_mismatch',
+    );
+    await expectQueryStop(
+      'AAL2 certification missing reason',
+      () => db.query(
+        "select public.rc1_provision_certification_runtime_secret('provider_webhook_db_hmac',$1,'',1)",
+        [secretA],
+      ),
+      'rc1_certification_secret:meaningful_reason_required',
+    );
+
+    await db.query("select set_config('request.jwt.claims',$1,false)", [claimsFor('aal1')]);
+    await expectQueryStop(
+      'AAL1 certification',
+      () => db.query(
+        "select public.rc1_provision_certification_runtime_secret('provider_webhook_db_hmac',$1,'Synthetic AAL1 attempt reason',1)",
+        [secretA],
+      ),
+      'rc1_freeze_control:aal2_required',
+    );
+    await db.query("select set_config('request.jwt.claims',$1,false)", [claimsFor('aal2')]);
+  } finally {
+    await db.query('reset role');
+  }
+
+  await db.query("update public.admin_profiles set role='reviewer' where id=$1", [adminId]);
+  await db.query('set role authenticated');
+  try {
+    await expectQueryStop(
+      'reviewer certification',
+      () => db.query(
+        "select public.rc1_provision_certification_runtime_secret('provider_webhook_db_hmac',$1,'Synthetic reviewer attempt reason',1)",
+        [secretA],
+      ),
+      'rc1_freeze_control:platform_admin_required',
+    );
+  } finally {
+    await db.query('reset role');
+    await db.query("update public.admin_profiles set role='platform_admin' where id=$1", [adminId]);
+  }
+
+  for (const role of ['anon', 'service_role']) {
+    await db.query(`set role ${role}`);
+    try {
+      await expectQueryStop(
+        `${role} certification execution`,
+        () => db.query(
+          "select public.rc1_provision_certification_runtime_secret('provider_webhook_db_hmac',$1,'Synthetic prohibited role attempt',1)",
+          [secretA],
+        ),
+        'permission denied',
+      );
+    } finally {
+      await db.query('reset role');
+    }
+  }
+
+  await db.query('set role authenticated');
+  try {
+    const [first] = await query(`
+      select public.rc1_provision_certification_runtime_secret(
+        'provider_webhook_db_hmac',$1,'Synthetic RC1 webhook certification secret',1
+      ) as value
+    `, [secretA]);
+    assert(
+      JSON.stringify(Object.keys(first.value).sort())
+        === JSON.stringify(['fingerprint', 'rotated_at', 'secret_key']),
+      'certification RPC must return only the safe three-field manifest',
+    );
+    assert(first.value.secret_key === 'provider_webhook_db_hmac', 'first approved secret must provision');
+    assert(JSON.stringify(first.value).includes(secretA) === false, 'secret value must never be returned');
+
+    await expectQueryStop(
+      'identical HMAC values',
+      () => db.query(`
+        select public.rc1_provision_certification_runtime_secret(
+          'provider_lookup_db_hmac',$1,'Synthetic duplicate certification secret',1
+        )
+      `, [secretA]),
+      'rc1_certification_secret:values_must_be_distinct',
+    );
+
+    const [second] = await query(`
+      select public.rc1_provision_certification_runtime_secret(
+        'provider_lookup_db_hmac',$1,'Synthetic RC1 lookup certification secret',1
+      ) as value
+    `, [secretB]);
+    assert(second.value.secret_key === 'provider_lookup_db_hmac', 'second distinct secret must provision');
+    assert(first.value.fingerprint !== second.value.fingerprint, 'secret fingerprints must be distinct');
+  } finally {
+    await db.query('reset role');
+  }
+
+  await expectQueryStop(
+    'direct runtime_secrets DML',
+    () => db.query(`
+      update phase14_private.runtime_secrets
+      set rotated_at=pg_catalog.clock_timestamp()
+      where secret_key='provider_webhook_db_hmac'
+    `),
+    'rc1_operation_frozen:activation_control',
+  );
+  await db.query("select set_config('rc1.certification_secret_write_marker','client-forged-marker',false)");
+  await expectQueryStop(
+    'client-forged control marker',
+    () => db.query(`
+      update phase14_private.runtime_secrets
+      set rotated_at=pg_catalog.clock_timestamp()
+      where secret_key='provider_webhook_db_hmac'
+    `),
+    'rc1_operation_frozen:activation_control',
+  );
+  await expectQueryStop(
+    'control marker against another relation',
+    () => db.query("update public.orders set updated_at=updated_at where id='00000000-0000-0000-0000-00000000e001'"),
+    'rc1_operation_frozen:order_create',
+  );
+  await db.query("select set_config('rc1.certification_secret_write_marker','',false)");
+
+  const [stateAfter] = await query('select public.rc1_freeze_status() as value');
+  assert(
+    stateAfter.value.state === 'frozen'
+      && Number(stateAfter.value.freeze_epoch) === 1
+      && stateAfter.value.canary_authorization_active === false,
+    'certification provisioning must leave the freeze state and epoch unchanged',
+  );
+  assert(
+    JSON.stringify(countsBefore) === JSON.stringify(await baselineCounts()),
+    'certification provisioning must not change any business aggregate or Storage object',
+  );
+  const [evidence] = await query(`
+    select
+      (select count(*) from phase14_private.runtime_secrets
+       where secret_key in ('provider_webhook_db_hmac','provider_lookup_db_hmac')) as secret_count,
+      (select count(distinct encode(extensions.digest(convert_to(secret_value,'UTF8'),'sha256'),'hex'))
+       from phase14_private.runtime_secrets
+       where secret_key in ('provider_webhook_db_hmac','provider_lookup_db_hmac')) as fingerprint_count,
+      (select count(*) from public.rc1_operation_freeze_audit
+       where event_type='CERTIFICATION_SECRET_PROVISIONED' and freeze_epoch=1) as audit_count,
+      (select count(*) from public.rc1_certification_secret_write_tokens) as token_count
+  `);
+  assert(Number(evidence.secret_count) === 2, 'exactly two approved secret names must exist');
+  assert(Number(evidence.fingerprint_count) === 2, 'their fingerprints must be non-null and distinct');
+  assert(Number(evidence.audit_count) === 2, 'each certification write must create RC1 audit evidence');
+  assert(Number(evidence.token_count) === 0, 'one-use write tokens must be consumed');
+  passResult(runGate('rc1-production-post-provisioning-evidence.sql', {
+    rc1_expected_freeze_epoch: '1',
+    rc1_expected_business_counts_json: JSON.stringify(countsBefore),
+  }), 'post-provisioning read-only evidence');
+
+  await db.query('begin');
+  try {
+    await db.query("select set_config('request.jwt.claims',$1,true)", [claimsFor('aal2')]);
+    await db.query('set local role authenticated');
+    const [released] = await query(
+      "select public.rc1_release_freeze('Synthetic two-layer release control',repeat('e',64),1) as value",
+    );
+    assert(released.value.state === 'released', 'exact-epoch release control must release the database');
+    await db.query('reset role');
+    await db.query(
+      "update public.orders set updated_at=updated_at where id='00000000-0000-0000-0000-00000000e001'",
+    );
+    await db.query('set local role authenticated');
+    const [reactivated] = await query(
+      "select public.rc1_activate_freeze('Synthetic two-layer reactivation control') as value",
+    );
+    assert(reactivated.value.state === 'frozen', 'reactivation control must restore the database freeze');
+    await db.query('reset role');
+    await expectQueryStop(
+      'business mutation after reactivation',
+      () => db.query(
+        "update public.orders set updated_at=updated_at where id='00000000-0000-0000-0000-00000000e001'",
+      ),
+      'rc1_operation_frozen:order_create',
+    );
+  } finally {
+    await db.query('rollback');
+  }
+  assert(
+    JSON.stringify((await query('select public.rc1_freeze_status() as value'))[0].value)
+      === JSON.stringify(stateBefore.value),
+    'transactional release/reactivation proof must restore the original frozen status',
+  );
+  console.log('PASS frozen certification control plane: AAL2-only, one-use, and no business-state widening');
 }
 
 let preVars;
@@ -574,6 +973,7 @@ try {
 
   const cutoverStartedAt = new Date().toISOString();
   await applyMigration(pending[0]);
+  await proveMalformedStateFailClosed();
   await proveBootstrapEnforcement();
   for (const name of pending.slice(1)) await applyMigration(name);
   assert(
@@ -586,12 +986,12 @@ try {
   assert(
     canonicalJson(JSON.parse(freezeFingerprints.functions))
       === canonicalJson(approvedFreeze.function_fingerprints),
-    'freeze function fingerprints must match the fixed manifest',
+    `freeze function fingerprints must match the fixed manifest; actual=${freezeFingerprints.functions}; tables=${freezeFingerprints.tables}`,
   );
   assert(
     canonicalJson(JSON.parse(freezeFingerprints.tables))
       === canonicalJson(approvedFreeze.table_fingerprints),
-    'freeze table fingerprints must match the fixed manifest',
+    `freeze table fingerprints must match the fixed manifest; actual=${freezeFingerprints.tables}`,
   );
   assert(
     canonicalJson(JSON.parse(freezeFingerprints.triggers))
@@ -731,6 +1131,7 @@ try {
   await expectPostStop('new email event', async () => { await db.query("insert into public.email_events(order_id,recipient_email,status,provider_mode) values ('00000000-0000-0000-0000-00000000e001','rc1-synthetic-post@invalid.test','queued','disabled')"); }, async () => { await db.query("delete from public.email_events where recipient_email='rc1-synthetic-post@invalid.test'"); }, 'no_change_aggregate_result|STOP');
   await expectPostStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
 
+  await proveFrozenCertificationControlPlane();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});

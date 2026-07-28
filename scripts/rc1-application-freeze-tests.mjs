@@ -59,6 +59,10 @@ async function assertCoreFailClosedRules() {
   }), true);
   assert.equal(await isRc1OperationFrozen({
     mode: 'released',
+    statusResolver: async () => releasedStatus({ release_evidence_fingerprint: '0'.repeat(64) }),
+  }), true);
+  assert.equal(await isRc1OperationFrozen({
+    mode: 'released',
     statusResolver: async () => releasedStatus({ canary_authorization_active: true }),
   }), true);
   assert.equal(await isRc1OperationFrozen({

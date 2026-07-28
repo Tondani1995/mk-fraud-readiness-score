@@ -73,6 +73,7 @@
     "release-d:test-operational-alerts": "node scripts/release-d-operational-alerts-tests.mjs",
     "rc1:verify-accepted-migrations": "node scripts/rc1-accepted-migration-checksums.mjs",
     "rc1:test-application-freeze": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-application-freeze-tests.mjs",
+    "rc1:test-control-plane-routes": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-control-plane-route-tests.mjs",
     "rc1:test-old-schema-freeze": "node scripts/rc1-old-schema-freeze-compatibility-tests.mjs",
     "rc1:test-prepostflight": "node scripts/rc1-prepostflight-disposable-tests.mjs",
     "rc1:dry-evaluate-live-boundary": "node scripts/rc1-live-boundary-dry-evaluation.mjs"

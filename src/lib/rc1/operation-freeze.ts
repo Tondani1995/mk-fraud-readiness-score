@@ -48,6 +48,7 @@ function isReleasedStatus(value: unknown): boolean {
     && Number(status.freeze_epoch) > 0
     && typeof status.release_evidence_fingerprint === 'string'
     && EVIDENCE_FINGERPRINT.test(status.release_evidence_fingerprint)
+    && status.release_evidence_fingerprint !== '0'.repeat(64)
     && status.canary_authorization_active === false;
 }
 

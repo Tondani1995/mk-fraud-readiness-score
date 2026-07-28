@@ -30,14 +30,21 @@ create table public.rc1_operation_freeze_state (
     or
     (state = 'RELEASED'
       and released_at is not null
+      and released_by_fingerprint is not null
       and released_by_fingerprint ~ '^[0-9a-f]{64}$'
+      and release_reason_fingerprint is not null
       and release_reason_fingerprint ~ '^[0-9a-f]{64}$'
-      and release_evidence_fingerprint ~ '^[0-9a-f]{64}$')
+      and release_evidence_fingerprint is not null
+      and release_evidence_fingerprint ~ '^[0-9a-f]{64}$'
+      and release_evidence_fingerprint <> pg_catalog.repeat('0', 64)
+      and active_canary_authorization_hash is null
+      and active_canary_expires_at is null)
   ),
   constraint rc1_operation_freeze_state_canary_shape check (
     (active_canary_authorization_hash is null and active_canary_expires_at is null)
     or
-    (active_canary_authorization_hash ~ '^[0-9a-f]{64}$'
+    (active_canary_authorization_hash is not null
+      and active_canary_authorization_hash ~ '^[0-9a-f]{64}$'
       and active_canary_expires_at is not null)
   )
 );
@@ -50,7 +57,12 @@ revoke all on table public.rc1_operation_freeze_state
 create table public.rc1_operation_freeze_audit (
   id bigint generated always as identity primary key,
   event_type text not null check (
-    event_type in ('BOOTSTRAP_FROZEN', 'FREEZE_ACTIVATED', 'FREEZE_RELEASED')
+    event_type in (
+      'BOOTSTRAP_FROZEN',
+      'FREEZE_ACTIVATED',
+      'FREEZE_RELEASED',
+      'CERTIFICATION_SECRET_PROVISIONED'
+    )
   ),
   freeze_epoch bigint not null check (freeze_epoch > 0),
   actor_fingerprint text,
@@ -68,6 +80,25 @@ create table public.rc1_operation_freeze_audit (
 alter table public.rc1_operation_freeze_audit enable row level security;
 alter table public.rc1_operation_freeze_audit force row level security;
 revoke all on table public.rc1_operation_freeze_audit
+  from public, anon, authenticated, service_role;
+
+-- A one-use, transaction-bound capability consumed by the authoritative relation trigger.
+-- No API role can read or write this table. A session GUC alone is therefore never authority.
+create table public.rc1_certification_secret_write_tokens (
+  transaction_id xid8 primary key,
+  marker_fingerprint text not null check (marker_fingerprint ~ '^[0-9a-f]{64}$'),
+  secret_key text not null check (
+    secret_key in ('provider_webhook_db_hmac', 'provider_lookup_db_hmac')
+  ),
+  secret_fingerprint text not null check (secret_fingerprint ~ '^[0-9a-f]{64}$'),
+  expected_freeze_epoch bigint not null check (expected_freeze_epoch > 0),
+  actor_fingerprint text not null check (actor_fingerprint ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default pg_catalog.clock_timestamp()
+);
+
+alter table public.rc1_certification_secret_write_tokens enable row level security;
+alter table public.rc1_certification_secret_write_tokens force row level security;
+revoke all on table public.rc1_certification_secret_write_tokens
   from public, anon, authenticated, service_role;
 
 insert into public.rc1_operation_freeze_state (
@@ -217,19 +248,45 @@ begin
   where singleton = true;
 
   if not found
+     or v_state.state is null
      or v_state.state not in ('FROZEN', 'RELEASED')
+     or v_state.freeze_epoch is null
      or v_state.freeze_epoch < 1
+     or v_state.activated_at is null
+     or v_state.activation_reason_fingerprint is null
      or v_state.activation_reason_fingerprint !~ '^[0-9a-f]{64}$'
+     or (
+       v_state.activated_by_fingerprint is not null
+       and v_state.activated_by_fingerprint !~ '^[0-9a-f]{64}$'
+     )
      or (v_state.active_canary_authorization_hash is null)
         <> (v_state.active_canary_expires_at is null)
+     or (
+       v_state.active_canary_authorization_hash is not null
+       and v_state.active_canary_authorization_hash !~ '^[0-9a-f]{64}$'
+     )
+     or (
+       v_state.state = 'FROZEN'
+       and (
+         v_state.released_at is not null
+         or v_state.released_by_fingerprint is not null
+         or v_state.release_reason_fingerprint is not null
+         or v_state.release_evidence_fingerprint is not null
+       )
+     )
      or (
        v_state.state = 'RELEASED'
        and (
          v_state.released_at is null
+         or v_state.released_by_fingerprint is null
          or v_state.released_by_fingerprint !~ '^[0-9a-f]{64}$'
+         or v_state.release_reason_fingerprint is null
          or v_state.release_reason_fingerprint !~ '^[0-9a-f]{64}$'
+         or v_state.release_evidence_fingerprint is null
          or v_state.release_evidence_fingerprint !~ '^[0-9a-f]{64}$'
+         or v_state.release_evidence_fingerprint = pg_catalog.repeat('0', 64)
          or v_state.active_canary_authorization_hash is not null
+         or v_state.active_canary_expires_at is not null
        )
      ) then
     raise exception 'rc1_operation_frozen:freeze_row_malformed';
@@ -257,14 +314,33 @@ as $$
 declare
   v_surface text := pg_catalog.btrim(coalesce(surface, ''));
   v_status jsonb;
+  v_epoch bigint;
+  v_evidence text;
 begin
   if not public.rc1_is_known_operation_surface(v_surface) then
     raise exception 'rc1_operation_frozen:unknown_surface';
   end if;
 
   v_status := public.rc1_freeze_status();
-  if coalesce(v_status->>'state', '') <> 'released'
-     or coalesce((v_status->>'canary_authorization_active')::boolean, true) then
+  begin
+    if v_status is null
+       or pg_catalog.jsonb_typeof(v_status) <> 'object'
+       or pg_catalog.jsonb_typeof(v_status->'freeze_epoch') <> 'number'
+       or pg_catalog.jsonb_typeof(v_status->'canary_authorization_active') <> 'boolean'
+       or coalesce(v_status->>'state', '') <> 'released' then
+      raise exception 'rc1_operation_frozen:%', v_surface;
+    end if;
+    v_epoch := (v_status->>'freeze_epoch')::bigint;
+    v_evidence := v_status->>'release_evidence_fingerprint';
+  exception when others then
+    raise exception 'rc1_operation_frozen:%', v_surface;
+  end;
+
+  if v_epoch < 1
+     or v_evidence is null
+     or v_evidence !~ '^[0-9a-f]{64}$'
+     or v_evidence = pg_catalog.repeat('0', 64)
+     or (v_status->>'canary_authorization_active')::boolean is distinct from false then
     raise exception 'rc1_operation_frozen:%', v_surface;
   end if;
 end;
@@ -500,6 +576,157 @@ begin
 end;
 $$;
 
+create function public.rc1_provision_certification_runtime_secret(
+  p_secret_key text,
+  p_secret_value text,
+  p_reason text,
+  p_expected_freeze_epoch bigint
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_secret_key text := pg_catalog.btrim(coalesce(p_secret_key, ''));
+  v_reason text := pg_catalog.btrim(coalesce(p_reason, ''));
+  v_other_secret_value text;
+  v_reason_fingerprint text;
+  v_secret_fingerprint text;
+  v_marker text;
+  v_marker_fingerprint text;
+  v_rotated_at timestamptz := pg_catalog.clock_timestamp();
+  v_actor jsonb;
+  v_state public.rc1_operation_freeze_state%rowtype;
+begin
+  if v_secret_key not in (
+    'provider_webhook_db_hmac',
+    'provider_lookup_db_hmac'
+  ) then
+    raise exception 'rc1_certification_secret:key_not_allowed';
+  end if;
+  if p_secret_value is null or pg_catalog.char_length(p_secret_value) < 32 then
+    raise exception 'rc1_certification_secret:value_too_short';
+  end if;
+  if pg_catalog.char_length(v_reason) < 10 or pg_catalog.char_length(v_reason) > 500 then
+    raise exception 'rc1_certification_secret:meaningful_reason_required';
+  end if;
+  if p_expected_freeze_epoch is null or p_expected_freeze_epoch < 1 then
+    raise exception 'rc1_certification_secret:expected_epoch_required';
+  end if;
+
+  v_actor := public.rc1_require_platform_admin(true);
+
+  select * into v_state
+  from public.rc1_operation_freeze_state
+  where singleton = true
+  for update;
+  if not found or v_state.state <> 'FROZEN' then
+    raise exception 'rc1_certification_secret:not_frozen';
+  end if;
+  if v_state.freeze_epoch <> p_expected_freeze_epoch then
+    raise exception 'rc1_certification_secret:freeze_epoch_mismatch';
+  end if;
+  if v_state.active_canary_authorization_hash is not null
+     or v_state.active_canary_expires_at is not null then
+    raise exception 'rc1_certification_secret:active_canary_authorization';
+  end if;
+  perform public.rc1_freeze_status();
+
+  select secret_value into v_other_secret_value
+  from phase14_private.runtime_secrets
+  where secret_key = case v_secret_key
+    when 'provider_webhook_db_hmac' then 'provider_lookup_db_hmac'
+    else 'provider_webhook_db_hmac'
+  end;
+  if found and v_other_secret_value = p_secret_value then
+    raise exception 'rc1_certification_secret:values_must_be_distinct';
+  end if;
+
+  v_reason_fingerprint := pg_catalog.encode(
+    extensions.digest(pg_catalog.convert_to(v_reason, 'UTF8'), 'sha256'),
+    'hex'
+  );
+  v_secret_fingerprint := pg_catalog.encode(
+    extensions.digest(pg_catalog.convert_to(p_secret_value, 'UTF8'), 'sha256'),
+    'hex'
+  );
+  v_marker := extensions.gen_random_uuid()::text;
+  v_marker_fingerprint := pg_catalog.encode(
+    extensions.digest(pg_catalog.convert_to(v_marker, 'UTF8'), 'sha256'),
+    'hex'
+  );
+
+  insert into public.rc1_certification_secret_write_tokens (
+    transaction_id,
+    marker_fingerprint,
+    secret_key,
+    secret_fingerprint,
+    expected_freeze_epoch,
+    actor_fingerprint
+  ) values (
+    pg_catalog.pg_current_xact_id(),
+    v_marker_fingerprint,
+    v_secret_key,
+    v_secret_fingerprint,
+    p_expected_freeze_epoch,
+    v_actor->>'actor_fingerprint'
+  );
+  perform pg_catalog.set_config('rc1.certification_secret_write_marker', v_marker, true);
+
+  if exists (
+    select 1 from phase14_private.runtime_secrets where secret_key = v_secret_key
+  ) then
+    update phase14_private.runtime_secrets
+    set secret_value = p_secret_value,
+        rotated_at = v_rotated_at,
+        rotated_by = (v_actor->>'user_id')::uuid
+    where secret_key = v_secret_key;
+  else
+    insert into phase14_private.runtime_secrets (
+      secret_key,
+      secret_value,
+      rotated_at,
+      rotated_by
+    ) values (
+      v_secret_key,
+      p_secret_value,
+      v_rotated_at,
+      (v_actor->>'user_id')::uuid
+    );
+  end if;
+
+  if exists (
+    select 1
+    from public.rc1_certification_secret_write_tokens
+    where transaction_id = pg_catalog.pg_current_xact_id()
+  ) then
+    raise exception 'rc1_certification_secret:write_token_not_consumed';
+  end if;
+  perform pg_catalog.set_config('rc1.certification_secret_write_marker', '', true);
+
+  insert into public.rc1_operation_freeze_audit (
+    event_type,
+    freeze_epoch,
+    actor_fingerprint,
+    reason_fingerprint,
+    evidence_fingerprint
+  ) values (
+    'CERTIFICATION_SECRET_PROVISIONED',
+    p_expected_freeze_epoch,
+    v_actor->>'actor_fingerprint',
+    v_reason_fingerprint,
+    v_secret_fingerprint
+  );
+
+  return pg_catalog.jsonb_build_object(
+    'secret_key', v_secret_key,
+    'rotated_at', v_rotated_at,
+    'fingerprint', v_secret_fingerprint
+  );
+end;
+$$;
+
 create function public.rc1_guard_authoritative_mutation()
 returns trigger
 language plpgsql
@@ -511,10 +738,77 @@ declare
   v_old jsonb;
   v_new jsonb;
   v_expected_backfill timestamptz;
+  v_marker text;
+  v_marker_fingerprint text;
+  v_secret_fingerprint text;
+  v_actor jsonb;
+  v_token public.rc1_certification_secret_write_tokens%rowtype;
+  v_freeze public.rc1_operation_freeze_state%rowtype;
 begin
   v_surface := public.rc1_surface_for_relation(tg_table_schema, tg_table_name);
   if v_surface is null then
     raise exception 'rc1_operation_frozen:unknown_surface';
+  end if;
+
+  -- Consume one exact, unforgeable certification capability. The marker by itself is
+  -- deliberately insufficient: the matching token row is writable only by the dedicated
+  -- SECURITY DEFINER RPC and is deleted before this trigger permits the target row.
+  if tg_table_schema = 'phase14_private'
+     and tg_table_name = 'runtime_secrets'
+     and tg_op in ('INSERT', 'UPDATE') then
+    v_new := pg_catalog.to_jsonb(new);
+    if v_new->>'secret_key' not in (
+      'provider_webhook_db_hmac',
+      'provider_lookup_db_hmac'
+    ) then
+      perform public.rc1_require_operation_open(v_surface);
+    end if;
+    v_marker := coalesce(
+      pg_catalog.current_setting('rc1.certification_secret_write_marker', true),
+      ''
+    );
+    if v_marker <> '' then
+      v_marker_fingerprint := pg_catalog.encode(
+        extensions.digest(pg_catalog.convert_to(v_marker, 'UTF8'), 'sha256'),
+        'hex'
+      );
+      v_secret_fingerprint := pg_catalog.encode(
+        extensions.digest(
+          pg_catalog.convert_to(v_new->>'secret_value', 'UTF8'),
+          'sha256'
+        ),
+        'hex'
+      );
+      v_actor := public.rc1_require_platform_admin(true);
+
+      select * into v_freeze
+      from public.rc1_operation_freeze_state
+      where singleton = true
+      for share;
+      if found
+         and v_freeze.state = 'FROZEN'
+         and v_freeze.freeze_epoch > 0
+         and v_freeze.active_canary_authorization_hash is null
+         and v_freeze.active_canary_expires_at is null then
+        delete from public.rc1_certification_secret_write_tokens
+        where transaction_id = pg_catalog.pg_current_xact_id()
+          and marker_fingerprint = v_marker_fingerprint
+          and secret_key = v_new->>'secret_key'
+          and secret_fingerprint = v_secret_fingerprint
+          and expected_freeze_epoch = v_freeze.freeze_epoch
+          and actor_fingerprint = v_actor->>'actor_fingerprint'
+        returning * into v_token;
+        if found then
+          if tg_op = 'UPDATE' then
+            v_old := pg_catalog.to_jsonb(old);
+            if v_old->>'secret_key' is distinct from v_new->>'secret_key' then
+              raise exception 'rc1_certification_secret:key_immutable';
+            end if;
+          end if;
+          return new;
+        end if;
+      end if;
+    end if;
   end if;
 
   -- Release D contains one accepted, data-preserving lifecycle timestamp backfill before
@@ -713,11 +1007,20 @@ revoke all on function public.rc1_release_freeze(text,text,bigint)
 grant execute on function public.rc1_release_freeze(text,text,bigint)
   to authenticated;
 
+revoke all on function public.rc1_provision_certification_runtime_secret(text,text,text,bigint)
+  from public, anon, authenticated, service_role;
+grant execute on function public.rc1_provision_certification_runtime_secret(text,text,text,bigint)
+  to authenticated;
+
 comment on table public.rc1_operation_freeze_state is
   'RC1 single authoritative operational-freeze row. Initial and fail-closed state is FROZEN.';
+comment on table public.rc1_certification_secret_write_tokens is
+  'Internal one-use transaction capabilities for the exact frozen RC1 certification-secret write; no API role has access.';
 comment on function public.rc1_require_operation_open(text) is
   'Fails closed for unknown surfaces or unless the authoritative RC1 state is valid and RELEASED.';
 comment on function public.rc1_release_freeze(text,text,bigint) is
   'AAL2 platform-admin compare-and-swap release requiring reason, evidence fingerprint, exact epoch, and no active canary authorization.';
+comment on function public.rc1_provision_certification_runtime_secret(text,text,text,bigint) is
+  'AAL2 platform-admin control plane for one approved certification HMAC write while RC1 remains exactly FROZEN.';
 
 commit;
