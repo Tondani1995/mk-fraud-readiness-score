@@ -1,0 +1,547 @@
+{
+  "graph_version": "PROTO-AAX-V1.0",
+  "methodology_version": "MFRS-V1.0",
+  "provenance": {
+    "methodology_source": "supabase/migrations/0003_phase5_methodology_seed.sql",
+    "note": "The 68 methodology questions, 10 domains, weights, critical/hard-gate flags and the 0-5 response scale are reproduced verbatim from the approved MFRS-V1.0 seed. They are NOT modified by this prototype.",
+    "prototype_additions": "Gateway questions (G-*) and outsourced-oversight variants (OV-*) are PROTOTYPE PLACEHOLDERS. They are not approved production content. See docs/adaptive-assessment/11-content-decisions-required.md."
+  },
+
+  "response_scale": [
+    { "responseValue": 0, "label": "Not in place", "operationalMeaning": "The control, process or capability does not exist or is not recognised as required.", "normalisedScore": 0 },
+    { "responseValue": 1, "label": "Initial / ad hoc", "operationalMeaning": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.", "normalisedScore": 20 },
+    { "responseValue": 2, "label": "Partially designed", "operationalMeaning": "Some elements exist, but implementation is incomplete, inconsistent or not evidenced.", "normalisedScore": 40 },
+    { "responseValue": 3, "label": "Implemented", "operationalMeaning": "The capability is established in important areas, but may not operate consistently across the organisation.", "normalisedScore": 60 },
+    { "responseValue": 4, "label": "Consistently operating", "operationalMeaning": "The capability is formally implemented, evidenced and regularly operating.", "normalisedScore": 80 },
+    { "responseValue": 5, "label": "Embedded and improved", "operationalMeaning": "The capability is monitored, measured, governed and continuously improved.", "normalisedScore": 100 }
+  ],
+
+  "uncertainty_option": {
+    "value": "unknown",
+    "label": "I do not know",
+    "helper": "Recorded as uncertainty. This is not treated as a control being absent, and it is not treated as a control being present.",
+    "scoring_status": "unknown",
+    "uncertainty_treatment": "retained_in_denominator_zero_credit_flagged",
+    "excluded_from_denominator_rule": "never"
+  },
+
+  "domains": [
+    { "domainCode": "D1", "name": "Fraud Leadership and Governance", "weightPct": 12.0, "domainType": "core", "isCore": true, "sortOrder": 1, "estMinutesPerQuestion": 0.6 },
+    { "domainCode": "D2", "name": "Fraud Risk Identification", "weightPct": 12.0, "domainType": "core", "isCore": true, "sortOrder": 2, "estMinutesPerQuestion": 0.6 },
+    { "domainCode": "D3", "name": "Operational Fraud Controls", "weightPct": 14.0, "domainType": "core", "isCore": true, "sortOrder": 3, "estMinutesPerQuestion": 0.7 },
+    { "domainCode": "D4", "name": "Fraud Detection Capability", "weightPct": 14.0, "domainType": "core", "isCore": true, "sortOrder": 4, "estMinutesPerQuestion": 0.7 },
+    { "domainCode": "D5", "name": "Fraud Incident Response", "weightPct": 10.0, "domainType": "core", "isCore": true, "sortOrder": 5, "estMinutesPerQuestion": 0.6 },
+    { "domainCode": "D6", "name": "Whistleblowing and Reporting Culture", "weightPct": 6.0, "domainType": "support", "isCore": false, "sortOrder": 6, "estMinutesPerQuestion": 0.5 },
+    { "domainCode": "D7", "name": "Third-Party and Supply Chain Fraud Risk", "weightPct": 10.0, "domainType": "core", "isCore": true, "sortOrder": 7, "estMinutesPerQuestion": 0.7 },
+    { "domainCode": "D8", "name": "Digital and Identity Fraud Risk", "weightPct": 12.0, "domainType": "core", "isCore": true, "sortOrder": 8, "estMinutesPerQuestion": 0.7 },
+    { "domainCode": "D9", "name": "Fraud Culture and Awareness", "weightPct": 5.0, "domainType": "support", "isCore": false, "sortOrder": 9, "estMinutesPerQuestion": 0.5 },
+    { "domainCode": "D10", "name": "Continuous Improvement and Fraud Risk Monitoring", "weightPct": 5.0, "domainType": "support", "isCore": false, "sortOrder": 10, "estMinutesPerQuestion": 0.5 }
+  ],
+
+  "gateways": [
+    {
+      "question_id": "G01",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Organisation profile",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Which best describes what your organisation does?",
+      "display_guidance": "This helps us ask only the questions that apply to how you actually operate.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "professional_services", "label": "Professional or advisory services" },
+        { "value": "retail", "label": "Retail or consumer sales" },
+        { "value": "construction", "label": "Construction, engineering or projects" },
+        { "value": "online", "label": "Primarily online or digital business" },
+        { "value": "manufacturing", "label": "Manufacturing or distribution" },
+        { "value": "other", "label": "Something else" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Sets sector framing for the report narrative.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G02",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Organisation profile",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Roughly how many people work in the organisation?",
+      "display_guidance": "Approximate is fine. Size changes which controls are realistic to expect.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "micro", "label": "1 to 10" },
+        { "value": "small", "label": "11 to 50" },
+        { "value": "medium", "label": "51 to 250" },
+        { "value": "large", "label": "More than 250" },
+        { "value": "unknown", "label": "I do not know" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Calibrates proportionality language in recommendations.",
+      "estMinutes": 0.3
+    },
+    {
+      "question_id": "G03",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Suppliers and third parties",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Does your organisation buy goods or services from external suppliers or contractors?",
+      "display_guidance": "Include regular suppliers, subcontractors, agencies and professional firms you pay.",
+      "auto_advance": false,
+      "high_impact": true,
+      "response_options": [
+        { "value": "internal", "label": "Yes, and we manage those relationships ourselves", "applicability": "activity_exists_internal" },
+        { "value": "outsourced", "label": "Yes, but supplier management is handled by an external provider", "applicability": "activity_outsourced" },
+        { "value": "shared_service", "label": "Yes, and it is handled by a group or shared service function", "applicability": "activity_shared_service" },
+        { "value": "none", "label": "No, we do not use external suppliers or contractors", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Determines whether supplier fraud exposure is assessed directly or as third-party governance.",
+      "estMinutes": 0.6
+    },
+    {
+      "question_id": "G04",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Suppliers and third parties",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "How is buying and procurement handled?",
+      "display_guidance": "We ask because procurement is one of the most common places fraud occurs.",
+      "auto_advance": false,
+      "high_impact": true,
+      "applicability_condition": { "all": [ { "not": { "question_id": "G03", "in": ["none"] } } ] },
+      "response_options": [
+        { "value": "internal_department", "label": "A dedicated procurement or buying function", "applicability": "activity_exists_internal" },
+        { "value": "owner_led", "label": "Owners or managers buy directly, with no formal department", "applicability": "activity_exists_internal" },
+        { "value": "outsourced", "label": "An external provider does it for us", "applicability": "activity_outsourced" },
+        { "value": "shared_service", "label": "A group or shared service function does it", "applicability": "activity_shared_service" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Switches procurement questions between direct control and oversight framing.",
+      "estMinutes": 0.6
+    },
+    {
+      "question_id": "G05",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Money, stock and assets",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Does your organisation handle physical cash?",
+      "display_guidance": "Cash includes till floats, petty cash and cash takings.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "significant", "label": "Yes, regularly and in meaningful amounts", "applicability": "activity_exists_internal" },
+        { "value": "minor", "label": "Occasionally, or only petty cash", "applicability": "activity_exists_internal" },
+        { "value": "none", "label": "No, we handle no cash", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives cash-handling exposure weighting.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G06",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Money, stock and assets",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Does your organisation hold physical stock, inventory or valuable equipment?",
+      "display_guidance": "Include goods for sale, raw materials, tools and site plant.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives asset misappropriation exposure weighting.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G07",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "People and payroll",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "How is payroll handled?",
+      "display_guidance": "Payroll fraud is common, but the control questions differ depending on who runs it.",
+      "auto_advance": false,
+      "high_impact": true,
+      "response_options": [
+        { "value": "internal", "label": "We run payroll ourselves", "applicability": "activity_exists_internal" },
+        { "value": "outsourced", "label": "An external payroll provider runs it", "applicability": "activity_outsourced" },
+        { "value": "shared_service", "label": "A group or shared service function runs it", "applicability": "activity_shared_service" },
+        { "value": "none", "label": "We have no payroll (for example, owner-only)", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Switches payroll integrity between direct control and provider oversight.",
+      "estMinutes": 0.6
+    },
+    {
+      "question_id": "G08",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Digital and customers",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Do you sell online or accept digital or card payments?",
+      "display_guidance": "Include card machines, online checkout, EFT and payment links.",
+      "auto_advance": false,
+      "high_impact": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "platform", "label": "Yes, but only through a third-party platform or marketplace", "applicability": "activity_outsourced" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Determines digital fraud domain applicability and framing.",
+      "estMinutes": 0.5
+    },
+    {
+      "question_id": "G09",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Digital and customers",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Do you hold personal information about customers, clients or employees?",
+      "display_guidance": "Names with contact details, ID numbers, or banking details all count.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives identity and data exposure weighting.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G10",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Operations",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Do you process refunds, credit notes or manual adjustments?",
+      "display_guidance": "These are frequent routes for internal fraud, so we ask about them directly.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes" , "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives sensitive-transaction monitoring applicability.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G11",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Operations",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Does the organisation operate from more than one site, store or project location?",
+      "display_guidance": "Dispersed operations make oversight harder, so we adjust the questions.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No, a single location", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives operational dispersion exposure weighting.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G12",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "People and payroll",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Do you use temporary, seasonal or subcontracted workers?",
+      "display_guidance": "Short-tenure workers change how access and oversight need to work.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives workforce-transience exposure and access-control emphasis.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G13",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Digital and customers",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Do employees work remotely, or do you depend on third-party digital platforms to operate?",
+      "display_guidance": "Examples include cloud accounting, hosted systems and remote access to company systems.",
+      "auto_advance": true,
+      "response_options": [
+        { "value": "yes", "label": "Yes", "applicability": "activity_exists_internal" },
+        { "value": "no", "label": "No", "applicability": "activity_absent" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Drives remote-access and platform-dependency emphasis.",
+      "estMinutes": 0.4
+    },
+    {
+      "question_id": "G14",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "domain": "PROFILE",
+      "section": "Governance",
+      "question_type": "single_select",
+      "gateway_status": "gateway",
+      "prompt": "Who approves payments and significant spending?",
+      "display_guidance": "There is no wrong answer. Owner-led approval is common and we assess it on its own terms.",
+      "auto_advance": false,
+      "high_impact": true,
+      "response_options": [
+        { "value": "formal_delegation", "label": "A formal delegation of authority with defined limits", "applicability": "activity_exists_internal" },
+        { "value": "owner_led", "label": "The owner or a single director approves everything", "applicability": "activity_exists_internal" },
+        { "value": "shared_service", "label": "A group or shared service function approves", "applicability": "activity_shared_service" },
+        { "value": "unknown", "label": "I do not know", "applicability": "unknown" }
+      ],
+      "scoring_status": "profile_only",
+      "report_implication": "Calibrates segregation-of-duties expectations for small organisations.",
+      "estMinutes": 0.5
+    }
+  ],
+
+  "questions": [
+    { "question_id": "D1-Q01", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "A senior executive or leadership function has clear accountability for fraud risk management.", "display_guidance": "Tests whether fraud risk has named leadership ownership.", "evidence_prompt": "Board pack, role profile or delegation of authority naming the fraud risk owner.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "governance_owner_missing" },
+    { "question_id": "D1-Q02", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risk is formally recognised within the organisation's enterprise risk management framework.", "display_guidance": "Tests whether fraud is integrated into the wider risk framework.", "evidence_prompt": "Risk register or ERM framework showing fraud as a named risk.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "erm_integration_gap" },
+    { "question_id": "D1-Q03", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risks and incidents are periodically reported to senior leadership or governance committees.", "display_guidance": "Tests leadership visibility and reporting rhythm.", "evidence_prompt": "Minutes or a standing agenda item covering fraud.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "fraud_reporting_gap" },
+    { "question_id": "D1-Q04", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Responsibility for fraud risk management is clearly distinguished from internal audit's independent assurance role.", "display_guidance": "Tests whether management ownership is confused with assurance.", "evidence_prompt": "Terms of reference distinguishing management and assurance duties.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "audit_ownership_confusion" },
+    { "question_id": "D1-Q05", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation has defined policies or guidance that outline how fraud risks should be prevented, detected and managed.", "display_guidance": "Tests whether there is formal guidance for fraud risk management.", "evidence_prompt": "Fraud policy, code of conduct or equivalent guidance.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "policy_guidance_gap" },
+    { "question_id": "D1-Q06", "domain": "D1", "section": "Fraud Leadership and Governance", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Leadership is informed about emerging fraud risks affecting the organisation's sector or operating environment.", "display_guidance": "Tests whether leadership sees fraud as dynamic and external-facing.", "evidence_prompt": "Briefings, sector alerts or advisory updates shared with leadership.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "emerging_risk_visibility_gap" },
+
+    { "question_id": "D2-Q01", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation has conducted a structured fraud risk assessment within the past two years.", "display_guidance": "Tests whether fraud risk has been deliberately assessed.", "evidence_prompt": "Dated fraud risk assessment output.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "fraud_risk_assessment_missing" },
+    { "question_id": "D2-Q02", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risks have been mapped across key operational processes such as procurement, payments, refunds, claims and supplier management.", "display_guidance": "Tests process-level fraud-risk visibility.", "evidence_prompt": "Process-level fraud risk map or matrix.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "process_risk_mapping_gap" },
+    { "question_id": "D2-Q03", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risks are considered when introducing new products, services or digital platforms.", "display_guidance": "Tests whether change introduces fraud review.", "evidence_prompt": "Change or product approval checklist including fraud review.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "change_fraud_review_gap" },
+    { "question_id": "D2-Q04", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation periodically reviews fraud risks in response to operational changes or new market developments.", "display_guidance": "Tests whether fraud-risk identification is refreshed.", "evidence_prompt": "Review cadence or refreshed risk register versions.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "risk_refresh_gap" },
+    { "question_id": "D2-Q05", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risks related to third-party relationships, suppliers or intermediaries have been assessed.", "display_guidance": "Tests third-party fraud-risk identification.", "evidence_prompt": "Third-party risk assessment or supplier risk register.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "third_party_risk_assessment_gap" },
+    { "question_id": "D2-Q06", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Emerging fraud threats affecting the organisation's industry or sector are actively monitored.", "display_guidance": "Tests external fraud-threat monitoring.", "evidence_prompt": "Threat monitoring subscriptions, alerts or briefings.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "threat_monitoring_gap" },
+    { "question_id": "D2-Q07", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation considers how fraud could occur through misuse of internal authority, system access or operational processes.", "display_guidance": "Tests insider and access-abuse risk thinking.", "evidence_prompt": "Insider risk or access-abuse scenarios in the risk assessment.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "insider_misuse_mapping_gap" },
+    { "question_id": "D2-Q08", "domain": "D2", "section": "Fraud Risk Identification", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation considers how fraud could occur through customer platforms, digital channels, loyalty programmes or service ecosystems.", "display_guidance": "Tests customer/digital ecosystem fraud visibility.", "evidence_prompt": "Digital channel fraud scenarios in the risk assessment.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G09", "in": ["yes", "unknown"] }, { "question_id": "G13", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_digital_footprint", "report_implication": "digital_ecosystem_risk_gap" },
+
+    { "question_id": "D3-Q01", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "High-risk processes such as procurement, payments or refunds include segregation of duties between initiation, approval and reconciliation.", "display_guidance": "Tests core preventive control design.", "evidence_prompt": "Process maps or system roles showing separated duties.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "small_org_note": "If the owner approves everything, answer on how initiation and review are separated in practice.", "report_implication": "segregation_of_duties_gap" },
+    { "question_id": "D3-Q02", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Transactions above defined financial thresholds require independent review or approval.", "display_guidance": "Tests threshold-based independent oversight.", "evidence_prompt": "Delegation of authority or approval matrix.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "independent_approval_gap" },
+    { "question_id": "D3-Q03", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Supplier onboarding processes include background checks, verification of business information or due diligence.", "display_guidance": "Tests supplier legitimacy controls.", "evidence_prompt": "Supplier onboarding checklist or vetting records.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "shared_service", "unknown"] } ] }, "redirect_when": { "condition": { "question_id": "G03", "in": ["outsourced"] }, "redirect_to": "OV-D3-Q03" }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "supplier_due_diligence_gap" },
+    { "question_id": "D3-Q04", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "System access rights are restricted based on job responsibilities and reviewed periodically.", "display_guidance": "Tests access control and periodic review.", "evidence_prompt": "Access review records or role matrix.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "access_rights_review_gap" },
+    { "question_id": "D3-Q05", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Sensitive financial activities such as refunds, credits or manual adjustments are monitored or reviewed.", "display_guidance": "Tests monitoring of high-risk manual activities.", "evidence_prompt": "Refund or adjustment review reports.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G10", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_refunds_or_adjustments", "report_implication": "sensitive_activity_monitoring_gap" },
+    { "question_id": "D3-Q06", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation periodically reviews operational processes to identify control weaknesses or opportunities for manipulation.", "display_guidance": "Tests process-control review discipline.", "evidence_prompt": "Process review notes or internal control testing.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "process_control_review_gap" },
+    { "question_id": "D3-Q07", "domain": "D3", "section": "Operational Fraud Controls", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Individuals involved in high-risk activities are subject to oversight, rotation of duties or secondary review.", "display_guidance": "Tests people-layer oversight in sensitive roles.", "evidence_prompt": "Rotation schedules or secondary review evidence.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G05", "in": ["significant", "minor", "unknown"] }, { "question_id": "G06", "in": ["yes", "unknown"] }, { "question_id": "G10", "in": ["yes", "unknown"] }, { "question_id": "G12", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_high_risk_handling", "report_implication": "high_risk_role_oversight_gap" },
+
+    { "question_id": "D4-Q01", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation monitors transactions or operational activities for unusual patterns or anomalies.", "display_guidance": "Tests active detection capability.", "evidence_prompt": "Monitoring reports or review logs.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "anomaly_monitoring_gap" },
+    { "question_id": "D4-Q02", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Exception reports highlighting unusual transactions or activities are generated and reviewed regularly.", "display_guidance": "Tests exception-report generation and review.", "evidence_prompt": "Exception reports with review sign-off.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "exception_reporting_gap" },
+    { "question_id": "D4-Q03", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Data analytics, monitoring reports or automated rules are used to identify unusual transactions, behavioural anomalies or control exceptions.", "display_guidance": "Tests analytics/rules-based detection maturity.", "evidence_prompt": "Analytics rules, dashboards or alert configurations.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "fraud_analytics_gap" },
+    { "question_id": "D4-Q04", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Detection mechanisms are updated periodically to reflect new fraud risks or emerging threats.", "display_guidance": "Tests detection-refresh discipline.", "evidence_prompt": "Change log for detection rules or reports.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "detection_refresh_gap" },
+    { "question_id": "D4-Q05", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Monitoring processes cover both internal fraud risks and external fraud threats.", "display_guidance": "Tests breadth of monitoring coverage.", "evidence_prompt": "Monitoring scope documentation.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "monitoring_coverage_gap" },
+    { "question_id": "D4-Q06", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Individuals responsible for monitoring suspicious activity have clear authority to escalate concerns.", "display_guidance": "Tests escalation authority.", "evidence_prompt": "Escalation procedure naming authority levels.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "escalation_authority_gap" },
+    { "question_id": "D4-Q07", "domain": "D4", "section": "Fraud Detection Capability", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Internal audit or risk functions periodically review detection mechanisms to assess their effectiveness.", "display_guidance": "Tests independent review of detection controls.", "evidence_prompt": "Audit or assurance reports covering detection.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "detection_effectiveness_review_gap" },
+
+    { "question_id": "D5-Q01", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation has a documented process for responding to suspected fraud incidents.", "display_guidance": "Tests existence of formal response framework.", "evidence_prompt": "Fraud response plan or incident procedure.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "incident_response_missing" },
+    { "question_id": "D5-Q02", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees understand how and where to report suspected fraud or misconduct.", "display_guidance": "Tests practical reporting awareness.", "evidence_prompt": "Communications, posters or induction material.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "reporting_awareness_gap" },
+    { "question_id": "D5-Q03", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "There are defined roles and responsibilities for managing fraud investigations.", "display_guidance": "Tests investigation ownership.", "evidence_prompt": "Named investigation roles or panel terms of reference.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "investigation_role_gap" },
+    { "question_id": "D5-Q04", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud investigations follow structured procedures that ensure fairness, confidentiality and proper documentation.", "display_guidance": "Tests procedural discipline in investigations.", "evidence_prompt": "Investigation procedure or template pack.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "investigation_procedure_gap" },
+    { "question_id": "D5-Q05", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Evidence related to suspected fraud incidents is handled and preserved appropriately.", "display_guidance": "Tests evidence preservation capability.", "evidence_prompt": "Evidence handling or chain-of-custody guidance.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "evidence_handling_gap" },
+    { "question_id": "D5-Q06", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation considers engaging external specialists when incidents require forensic, legal or investigative expertise.", "display_guidance": "Tests escalation to specialist capability.", "evidence_prompt": "Panel arrangements or prior specialist engagements.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "specialist_escalation_gap" },
+    { "question_id": "D5-Q07", "domain": "D5", "section": "Fraud Incident Response", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Lessons learned from fraud incidents are used to improve controls and reduce future risk.", "display_guidance": "Tests post-incident learning.", "evidence_prompt": "Post-incident review notes and resulting control changes.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "post_incident_learning_gap" },
+
+    { "question_id": "D6-Q01", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.", "display_guidance": "Tests reporting-channel availability.", "evidence_prompt": "Hotline details or reporting channel communications.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": false, "applicability_condition": null, "report_implication": "whistleblowing_channel_gap" },
+    { "question_id": "D6-Q02", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees are aware of how to report concerns through the whistleblowing channel.", "display_guidance": "Tests awareness of reporting channel.", "evidence_prompt": "Awareness campaigns or induction records.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "whistleblowing_awareness_gap" },
+    { "question_id": "D6-Q03", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Reports submitted through the whistleblowing channel are reviewed and investigated independently.", "display_guidance": "Tests independence of report handling.", "evidence_prompt": "Case handling procedure showing independence.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "whistleblowing_independence_gap" },
+    { "question_id": "D6-Q04", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation communicates that retaliation against whistleblowers is prohibited.", "display_guidance": "Tests protection message.", "evidence_prompt": "Policy statement prohibiting retaliation.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "retaliation_protection_gap" },
+    { "question_id": "D6-Q05", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Whistleblowing channels are accessible to external stakeholders such as suppliers, contractors or customers.", "display_guidance": "Tests external stakeholder accessibility.", "evidence_prompt": "Public-facing reporting channel details.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "external_whistleblowing_gap" },
+    { "question_id": "D6-Q06", "domain": "D6", "section": "Whistleblowing and Reporting Culture", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees receive guidance or training on recognising and reporting suspicious behaviour.", "display_guidance": "Tests practical reporting and detection awareness.", "evidence_prompt": "Training material and attendance records.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "reporting_training_gap" },
+
+    { "question_id": "D7-Q01", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Suppliers, contractors or vendors are subject to background checks or due diligence before being engaged.", "display_guidance": "Tests third-party onboarding controls.", "evidence_prompt": "Vendor vetting records.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "shared_service", "unknown"] } ] }, "redirect_when": { "condition": { "question_id": "G03", "in": ["outsourced"] }, "redirect_to": "OV-D7-Q01" }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "third_party_due_diligence_gap" },
+    { "question_id": "D7-Q02", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Procurement processes include safeguards designed to reduce risks of collusion or manipulation.", "display_guidance": "Tests procurement integrity controls.", "evidence_prompt": "Tender rules, rotation policy or bid evaluation records.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G04", "in": ["internal_department", "owner_led", "shared_service", "unknown"] } ] }, "redirect_when": { "condition": { "question_id": "G04", "in": ["outsourced"] }, "redirect_to": "OV-D7-Q02" }, "skip_reason_code": "gateway_no_procurement", "report_implication": "procurement_collusion_gap" },
+    { "question_id": "D7-Q03", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation requires employees to disclose conflicts of interest involving suppliers or third parties.", "display_guidance": "Tests conflict-of-interest control.", "evidence_prompt": "Conflict of interest declarations register.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "conflict_of_interest_gap" },
+    { "question_id": "D7-Q04", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Supplier payment processes include verification mechanisms to reduce risks such as invoice manipulation or vendor impersonation.", "display_guidance": "Tests supplier payment verification.", "evidence_prompt": "Bank detail change verification procedure.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "shared_service", "unknown"] } ] }, "redirect_when": { "condition": { "question_id": "G03", "in": ["outsourced"] }, "redirect_to": "OV-D7-Q04" }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "supplier_payment_verification_gap" },
+    { "question_id": "D7-Q05", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "High-risk suppliers or third-party relationships are periodically reviewed or monitored.", "display_guidance": "Tests ongoing supplier monitoring.", "evidence_prompt": "Supplier review schedule and outcomes.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "high_risk_supplier_monitoring_gap" },
+    { "question_id": "D7-Q06", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Procurement or vendor management activities are subject to oversight or periodic review.", "display_guidance": "Tests oversight over procurement/vendor management.", "evidence_prompt": "Procurement audit or management review records.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G04", "in": ["internal_department", "owner_led", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_procurement", "report_implication": "procurement_oversight_gap" },
+    { "question_id": "D7-Q07", "domain": "D7", "section": "Third-Party and Supply Chain Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation considers fraud risks when entering partnerships, distribution arrangements or intermediary relationships.", "display_guidance": "Tests fraud review of partnerships/intermediaries.", "evidence_prompt": "Partnership due diligence records.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G03", "in": ["internal", "outsourced", "shared_service", "unknown"] } ] }, "skip_reason_code": "gateway_no_third_parties", "report_implication": "intermediary_fraud_review_gap" },
+
+    { "question_id": "D8-Q01", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation has processes to verify the identity of customers, users or counterparties where appropriate.", "display_guidance": "Tests identity verification capability.", "evidence_prompt": "Identity verification procedure or system configuration.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G09", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_digital_or_identity_footprint", "report_implication": "identity_verification_gap" },
+    { "question_id": "D8-Q02", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Systems or platforms are monitored for suspicious behaviour such as unusual login activity or account access patterns.", "display_guidance": "Tests account/activity monitoring.", "evidence_prompt": "Login monitoring or alerting configuration.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G13", "in": ["yes", "unknown"] } ] }, "redirect_when": { "condition": { "all": [ { "question_id": "G08", "in": ["platform"] }, { "question_id": "G13", "in": ["no"] } ] }, "redirect_to": "OV-D8-Q02" }, "skip_reason_code": "gateway_no_digital_footprint", "report_implication": "suspicious_login_monitoring_gap" },
+    { "question_id": "D8-Q03", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees receive training on recognising phishing, social engineering and digital impersonation attempts.", "display_guidance": "Tests digital deception awareness.", "evidence_prompt": "Phishing awareness training records.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "phishing_training_gap" },
+    { "question_id": "D8-Q04", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Access to sensitive systems is restricted and regularly reviewed.", "display_guidance": "Tests sensitive-system access governance.", "evidence_prompt": "System access review records.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "sensitive_system_access_gap" },
+    { "question_id": "D8-Q05", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation monitors digital activity to detect potential misuse or unauthorised transactions.", "display_guidance": "Tests digital misuse detection.", "evidence_prompt": "Digital monitoring reports.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G13", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_digital_footprint", "report_implication": "digital_activity_monitoring_gap" },
+    { "question_id": "D8-Q06", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees and users are encouraged to report suspicious digital activity or security concerns.", "display_guidance": "Tests digital reporting pathway.", "evidence_prompt": "Reporting guidance for security concerns.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "digital_reporting_gap" },
+    { "question_id": "D8-Q07", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation periodically reviews emerging digital fraud risks relevant to its operations or sector.", "display_guidance": "Tests digital fraud threat refresh.", "evidence_prompt": "Digital threat review notes.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G09", "in": ["yes", "unknown"] }, { "question_id": "G13", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_digital_footprint", "report_implication": "digital_threat_review_gap" },
+    { "question_id": "D8-Q08", "domain": "D8", "section": "Digital and Identity Fraud Risk", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation has processes to detect identity misuse, account takeover or impersonation risks affecting customers or employees.", "display_guidance": "Tests identity-misuse and account-takeover detection.", "evidence_prompt": "Account takeover detection controls.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": { "any": [ { "question_id": "G08", "in": ["yes", "platform", "unknown"] }, { "question_id": "G09", "in": ["yes", "unknown"] } ] }, "skip_reason_code": "gateway_no_digital_or_identity_footprint", "report_implication": "identity_misuse_detection_gap" },
+
+    { "question_id": "D9-Q01", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees receive periodic training or guidance on recognising fraud risks relevant to the organisation.", "display_guidance": "Tests periodic fraud awareness.", "evidence_prompt": "Training calendar and attendance.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "fraud_training_gap" },
+    { "question_id": "D9-Q02", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud awareness is included as part of employee onboarding or induction processes.", "display_guidance": "Tests onboarding awareness.", "evidence_prompt": "Induction pack contents.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "onboarding_awareness_gap" },
+    { "question_id": "D9-Q03", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Leadership communicates clear expectations regarding ethical conduct and fraud prevention.", "display_guidance": "Tests leadership tone and ethics message.", "evidence_prompt": "Leadership communications on conduct.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "leadership_ethics_message_gap" },
+    { "question_id": "D9-Q04", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees understand the consequences of engaging in fraudulent or unethical behaviour.", "display_guidance": "Tests consequence awareness.", "evidence_prompt": "Disciplinary framework communications.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "consequence_awareness_gap" },
+    { "question_id": "D9-Q05", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation communicates real examples or scenarios to help employees recognise fraud risks.", "display_guidance": "Tests scenario-based fraud awareness.", "evidence_prompt": "Scenario or case-study communications.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "scenario_awareness_gap" },
+    { "question_id": "D9-Q06", "domain": "D9", "section": "Fraud Culture and Awareness", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Employees feel comfortable raising concerns about suspicious behaviour without fear of negative consequences.", "display_guidance": "Tests cultural safety and speak-up confidence.", "evidence_prompt": "Culture survey results or speak-up metrics.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": { "any": [ { "question_id": "G02", "in": ["small", "medium", "large", "unknown"] } ] }, "skip_reason_code": "gateway_no_employee_base", "report_implication": "speak_up_culture_gap" },
+
+    { "question_id": "D10-Q01", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation periodically reviews its fraud risks and control environment.", "display_guidance": "Tests continuous fraud-risk review.", "evidence_prompt": "Review schedule and outputs.", "scoring_weight": 1.5, "is_critical": true, "is_hard_gate": true, "applicability_condition": null, "report_implication": "periodic_review_missing" },
+    { "question_id": "D10-Q02", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud incidents or control failures are analysed to identify underlying causes.", "display_guidance": "Tests root-cause analysis.", "evidence_prompt": "Root cause analysis records.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "root_cause_analysis_gap" },
+    { "question_id": "D10-Q03", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Lessons learned from investigations or incidents are used to improve controls and processes.", "display_guidance": "Tests control-improvement discipline.", "evidence_prompt": "Control change log tied to incidents.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "lessons_to_controls_gap" },
+    { "question_id": "D10-Q04", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "The organisation monitors fraud trends affecting its industry or operating environment.", "display_guidance": "Tests trend-monitoring discipline.", "evidence_prompt": "Sector trend monitoring evidence.", "scoring_weight": 1.0, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "trend_monitoring_gap" },
+    { "question_id": "D10-Q05", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Fraud risks are considered when implementing new systems, products or operational changes.", "display_guidance": "Tests change-control fraud lens.", "evidence_prompt": "Change control checklist with fraud step.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "change_control_fraud_gap" },
+    { "question_id": "D10-Q06", "domain": "D10", "section": "Continuous Improvement and Fraud Risk Monitoring", "question_type": "maturity_scale", "gateway_status": "standard", "prompt": "Leadership periodically evaluates whether existing fraud controls remain effective.", "display_guidance": "Tests executive control-effectiveness review.", "evidence_prompt": "Leadership review of control effectiveness.", "scoring_weight": 1.25, "is_critical": false, "is_hard_gate": false, "applicability_condition": null, "report_implication": "control_effectiveness_review_gap" }
+  ],
+
+  "oversight_variants": [
+    {
+      "question_id": "OV-D3-Q03",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": "D3-Q03",
+      "domain": "D3",
+      "section": "Operational Fraud Controls",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "Your organisation confirms that supplier management is handled by an external provider. The organisation obtains assurance that the provider performs supplier vetting and due diligence to an agreed standard.",
+      "display_guidance": "Outsourcing moves the activity, not the risk. We assess how well you govern the provider.",
+      "evidence_prompt": "Service agreement clauses, provider assurance reports or vetting attestations.",
+      "scoring_weight": 1.5,
+      "is_critical": true,
+      "is_hard_gate": true,
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "supplier_due_diligence_outsourced_oversight_gap"
+    },
+    {
+      "question_id": "OV-D7-Q01",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": "D7-Q01",
+      "domain": "D7",
+      "section": "Third-Party and Supply Chain Fraud Risk",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "The organisation defines and monitors the vetting standard its external provider must apply before third parties are engaged on its behalf.",
+      "display_guidance": "We are assessing your oversight of the provider, not the provider's own controls.",
+      "evidence_prompt": "Contractual vetting standard and monitoring records.",
+      "scoring_weight": 1.5,
+      "is_critical": true,
+      "is_hard_gate": false,
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "third_party_due_diligence_outsourced_oversight_gap"
+    },
+    {
+      "question_id": "OV-D7-Q02",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": "D7-Q02",
+      "domain": "D7",
+      "section": "Third-Party and Supply Chain Fraud Risk",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "Where procurement is performed by an external provider, the organisation retains defined controls over supplier selection, price integrity and conflict-of-interest disclosure.",
+      "display_guidance": "Outsourced procurement concentrates collusion risk at the provider. We assess retained control.",
+      "evidence_prompt": "Retained approval rights, spend analytics or independent price checks.",
+      "scoring_weight": 1.25,
+      "is_critical": false,
+      "is_hard_gate": false,
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "procurement_collusion_outsourced_oversight_gap"
+    },
+    {
+      "question_id": "OV-D7-Q04",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": "D7-Q04",
+      "domain": "D7",
+      "section": "Third-Party and Supply Chain Fraud Risk",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "Where supplier payments are executed by an external provider, the organisation independently verifies changes to supplier banking details before payments are released.",
+      "display_guidance": "Vendor impersonation remains your loss even when a provider processes the payment.",
+      "evidence_prompt": "Independent callback or verification procedure covering provider-executed payments.",
+      "scoring_weight": 1.5,
+      "is_critical": true,
+      "is_hard_gate": true,
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "supplier_payment_verification_outsourced_oversight_gap"
+    },
+    {
+      "question_id": "OV-D8-Q02",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": "D8-Q02",
+      "domain": "D8",
+      "section": "Digital and Identity Fraud Risk",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "Where sales run through a third-party platform, the organisation reviews the fraud, dispute and account-security reporting that the platform provides.",
+      "display_guidance": "You may not control the platform, but you can govern how you use its fraud reporting.",
+      "evidence_prompt": "Platform fraud or dispute reports with evidence of review.",
+      "scoring_weight": 1.5,
+      "is_critical": true,
+      "is_hard_gate": true,
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "platform_monitoring_oversight_gap"
+    },
+    {
+      "question_id": "OV-G07",
+      "methodology_version": "PROTOTYPE_PLACEHOLDER",
+      "replaces": null,
+      "domain": "D7",
+      "section": "Third-Party and Supply Chain Fraud Risk",
+      "question_type": "maturity_scale",
+      "gateway_status": "oversight_variant",
+      "prompt": "Where payroll is processed by an external provider, the organisation independently reviews the payroll register for unknown, duplicate or altered employee records.",
+      "display_guidance": "Ghost-employee fraud survives outsourcing unless someone in your organisation reviews the register.",
+      "evidence_prompt": "Payroll register review records signed by someone independent of the provider.",
+      "scoring_weight": 1.25,
+      "is_critical": false,
+      "is_hard_gate": false,
+      "applicability_condition": { "any": [ { "question_id": "G07", "in": ["outsourced", "shared_service"] } ] },
+      "scoring_status": "scored_as_third_party_governance",
+      "report_implication": "payroll_outsourced_oversight_gap"
+    }
+  ],
+
+  "skip_reason_codes": {
+    "gateway_no_third_parties": "The organisation confirmed it does not engage external suppliers or contractors.",
+    "gateway_no_procurement": "The organisation confirmed it has no procurement or buying activity.",
+    "gateway_no_refunds_or_adjustments": "The organisation confirmed it does not process refunds, credit notes or manual adjustments.",
+    "gateway_no_high_risk_handling": "The organisation confirmed it handles no cash, stock, refunds or temporary workers.",
+    "gateway_no_digital_footprint": "The organisation confirmed it has no online sales, digital payments or platform dependency.",
+    "gateway_no_digital_or_identity_footprint": "The organisation confirmed it has no digital sales channel and holds no personal information.",
+    "gateway_no_employee_base": "The organisation confirmed it has no employees beyond the owner.",
+    "upstream_answer_changed": "A gateway answer was changed and this question is no longer on the active pathway.",
+    "redirected_to_oversight_variant": "The activity is outsourced, so the third-party governance equivalent was asked instead."
+  },
+
+  "applicability_states": [
+    "activity_exists_internal",
+    "activity_outsourced",
+    "activity_shared_service",
+    "activity_absent",
+    "unknown"
+  ],
+
+  "scoring_statuses": [
+    "not_applicable",
+    "outsourced",
+    "unknown",
+    "not_implemented",
+    "partially_implemented",
+    "implemented",
+    "invalidated_by_upstream",
+    "profile_only",
+    "scored_as_third_party_governance"
+  ]
+}
