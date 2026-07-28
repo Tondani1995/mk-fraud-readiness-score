@@ -1,19 +1,18 @@
 # RC1 Technical-Freeze Implementation Design
 
-**Status:** RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**; RC1D OLD-SCHEMA, REPLAY
-AND CHECKSUM EVIDENCE: **ACCEPTED**; RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**; RC1D
-BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**; RC1E CONTROL-PLANE CORRECTION:
-**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS and RC
-MIGRATION/DEPLOYMENT: **NO-GO**; **DO NOT MERGE**.
+**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME AUTOMATIC FULFILMENT:
+**CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS and RC MIGRATION/DEPLOYMENT:
+**NO-GO**; **DO NOT MERGE**.
 
-This document records the design and RC1E corrected code-only control plane. The source contains the
+This document records the accepted code-only control-plane design. The source contains the
 bootstrap migration, application gates, supported operator routes and disposable proofs. Nothing has been applied to Production
 and no cloud action has been performed.
 
 ## 1. Design decision
 
-The eventual schema cutover contains **eight migrations**: one freeze-bootstrap migration followed
-by the seven already-approved behaviour-changing migrations. Before any schema operation, however,
+The eventual schema cutover contains **nine migrations**: one freeze-bootstrap migration, the seven
+already-approved behaviour-changing migrations, and the additive near-real-time automatic
+fulfilment correction. Before any schema operation, however,
 the final RC application SHA must already be deployed with a fail-closed, environment-controlled
 technical freeze active. The current Production application has no common freeze gate and can
 continue calling legacy direct writes/RPCs, so a procedural or administrator-only freeze is rejected.
@@ -168,7 +167,8 @@ require AAL2, reason, audit evidence, exact epoch and release-evidence fingerpri
 The manifest pins the corrected bootstrap SHA-256, three tables including constraints, 12 functions,
 40 relation triggers and one event
 trigger. The accepted seven behaviour migrations are independently checksum-pinned and remain
-byte-identical. Full replay proves exactly 42 migration-ledger rows.
+byte-identical. Full replay proves exactly 43 migration-ledger rows, with the correction migration
+last.
 
 Canary acceptance is not claimed. No bypass function exists in RC1D, and certification remains
 NO-GO until document 33 has a separately accepted and implemented transactional design.
@@ -182,10 +182,11 @@ NO-GO until document 33 has a separately accepted and implemented transactional 
 5. Run final preflight and create the separately authorised logical backup/Storage safeguards.
 6. Apply the freeze-bootstrap migration in frozen state.
 7. Apply the seven behaviour migrations in exact order.
-8. Run postflight.
-9. Run same-SHA disabled-state smoke tests.
-10. Run the separately controlled certification sequence.
-11. Release both database and application freeze layers under named authority.
+8. Apply the additive near-real-time automatic fulfilment correction.
+9. Run postflight.
+10. Run same-SHA disabled-state smoke tests.
+11. Run the separately controlled certification sequence.
+12. Release both database and application freeze layers under named authority.
 
 ## 9. Unresolved owner decisions retained
 
@@ -200,4 +201,5 @@ NO-GO until document 33 has a separately accepted and implemented transactional 
   outside git.
 - Named absence-cover operator.
 - Owner-approved external action for all 18 paid orders.
-- Final worker/manual fulfilment operating-model decision.
+- The final operating-model decision is recorded in documents 29 and 34: manual payment
+  verification, automatic downstream fulfilment, and manual exception management.

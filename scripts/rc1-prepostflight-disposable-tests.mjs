@@ -34,7 +34,8 @@ const pending = [
   '20260724170000_release_c_email_secure_delivery.sql',
   '20260724180000_release_c_closure_delivery_exceptions.sql',
   '20260725090000_release_c_runtime_secret_admin_provisioning.sql',
-  '20260725150000_release_d_operational_alert_lifecycle.sql'
+  '20260725150000_release_d_operational_alert_lifecycle.sql',
+  '20260728120000_rc1_near_real_time_automatic_fulfilment.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -52,6 +53,12 @@ const postflightRpc = [
   ['recover_expired_fulfilment_leases',''], ['approve_quality_review','uuid,text'], ['reject_quality_review','uuid,text'],
   ['retry_fulfilment_job','uuid'], ['recover_fulfilment_job','uuid'], ['claim_payment_report_generation','text,text,text'],
   ['record_payment_transition','text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text'],
+  ['record_fulfilment_dispatch_result','uuid,uuid,text,integer,text'],
+  ['claim_exact_fulfilment_job','uuid,text,integer'],
+  ['record_automatic_fulfilment_exception','uuid,uuid,text,text,text,text'],
+  ['automatic_release_completed_fulfilment','uuid,uuid,text'],
+  ['claim_exact_delivery','uuid,uuid,text,integer'],
+  ['mark_delivery_reconciliation_required','uuid,uuid,text,text'],
   ['claim_next_delivery','text,integer'], ['mark_delivery_dispatch_started','uuid,uuid'],
   ['finalize_delivery','uuid,uuid,text'], ['fail_delivery','uuid,uuid,text,text,text'], ['retry_delivery','uuid'],
   ['revoke_customer_report_access_token','uuid,text'], ['issue_customer_report_access_token','uuid,uuid,text,integer'],
@@ -875,6 +882,430 @@ async function proveFrozenCertificationControlPlane() {
   console.log('PASS frozen certification control plane: AAL2-only, one-use, and no business-state widening');
 }
 
+async function proveNearRealTimeAutomaticFulfilment() {
+  const adminId = '00000000-0000-0000-0000-00000000a001';
+  const claims = JSON.stringify({
+    role: 'authenticated',
+    aal: 'aal2',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    session_id: '00000000-0000-0000-0000-00000000a002',
+  });
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [adminId]);
+  await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
+  const released = await query(
+    "select public.rc1_release_freeze('Synthetic automatic fulfilment verification',repeat('f',64),1) as value",
+  );
+  assert(released[0].value.state === 'released', 'synthetic automatic-fulfilment tests require an audited local release');
+
+  const [method] = await query("select id from public.methodology_versions where status='active' order by created_at desc limit 1");
+  const [product] = await query("select id from public.products where product_code='essential_self_assessment' and active limit 1");
+  const [template] = await query("select id from public.report_templates where report_type='essential_self_assessment' and status='active' order by version_number desc limit 1");
+  assert(method && product && template, 'automatic-fulfilment synthetic seed dependencies must exist');
+
+  let sequence = 0;
+  async function seedPaidAttempt(options = {}) {
+    sequence += 1;
+    const suffix = String(sequence).padStart(2, '0');
+    const organisationId = crypto.randomUUID();
+    const assessmentId = crypto.randomUUID();
+    const scoreId = crypto.randomUUID();
+    const orderId = crypto.randomUUID();
+    const orderReference = `RC1-AUTO-${suffix}`;
+    const recipient = options.recipient === undefined
+      ? `rc1-auto-${suffix}@invalid.test`
+      : options.recipient;
+    await db.query(
+      "insert into public.organisations(id,legal_name,country) values ($1,$2,'South Africa')",
+      [organisationId, `RC1 Automatic Synthetic ${suffix}`],
+    );
+    await db.query(
+      "insert into public.assessments(id,assessment_reference,organisation_id,methodology_version_id,status,submitted_at) values ($1,$2,$3,$4,'scored',now())",
+      [assessmentId, `RC1-AUTO-ASSESSMENT-${suffix}`, organisationId, method.id],
+    );
+    await db.query(
+      "insert into public.score_runs(id,assessment_id,methodology_version_id,run_number,run_type,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,input_hash,locked_at) values ($1,$2,$3,1,'test_fixture','completed',50,'Reactive','Reactive',50,'Low',100,$4,now())",
+      [scoreId, assessmentId, method.id, 'a'.repeat(64)],
+    );
+    await db.query("update public.assessments set current_score_run_id=$1 where id=$2", [scoreId, assessmentId]);
+    await db.query(
+      "insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency,customer_name,customer_email) values ($1,$2,$3,$4,'awaiting_payment',500000,'ZAR','Synthetic Customer',$5)",
+      [orderId, orderReference, assessmentId, product.id, recipient],
+    );
+    const before = await query(
+      'select count(*)::int as n from public.manual_report_generation_attempts where order_id=$1',
+      [orderId],
+    );
+    assert(before[0].n === 0, 'order submission alone creates no fulfilment attempt');
+    const idempotencyKey = `rc1-auto-payment-${suffix}`;
+    const transitionArgs = [
+      orderReference, 'PAID', 'manual_admin', adminId, 500000, 'ZAR', null,
+      `manual:${idempotencyKey}`, new Date().toISOString(), 'Synthetic payment verified.',
+      'authorised_manual_confirmation', idempotencyKey, crypto.randomUUID(), null,
+    ];
+    const payment = await query(
+      'select public.record_payment_transition($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) as value',
+      transitionArgs,
+    );
+    const attemptId = payment[0].value.fulfilment_attempt_id;
+    assert(payment[0].value.fulfilment === 'QUEUED' && attemptId, 'manual payment confirmation returns one queued attempt ID');
+    const duplicate = await query(
+      'select public.record_payment_transition($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) as value',
+      transitionArgs,
+    );
+    const attemptCount = await query(
+      'select count(*)::int as n from public.manual_report_generation_attempts where order_id=$1',
+      [orderId],
+    );
+    assert(duplicate[0].value.duplicate === true && duplicate[0].value.fulfilment_attempt_id === null,
+      'duplicate payment confirmation returns no dispatchable attempt');
+    assert(attemptCount[0].n === 1, 'duplicate payment confirmation creates no second attempt');
+    return {
+      organisationId, assessmentId, scoreId, orderId, orderReference,
+      recipient, attemptId, paymentCreatedAt: new Date(),
+    };
+  }
+
+  async function attachVerifiedReport(fixture, options = {}) {
+    const reportId = crypto.randomUUID();
+    const checksum = (options.checksumCharacter ?? 'b').repeat(64);
+    const storagePath = `rc1-automatic/${fixture.orderId}/${reportId}.pdf`;
+    await db.query("insert into storage.buckets(id,name,public) values ('generated-reports','generated-reports',false) on conflict (id) do nothing");
+    await db.query(
+      "insert into storage.objects(id,bucket_id,name,metadata) values ($1,'generated-reports',$2,$3)",
+      [crypto.randomUUID(), storagePath, { mimetype: 'application/pdf', sha256: checksum }],
+    );
+    await db.query("select set_config('phase14.authoritative_transition','worker_rpc',false)");
+    await db.query(
+      `insert into public.reports(
+        id,assessment_id,organisation_id,order_id,score_run_id,template_id,report_type,status,
+        report_reference,version_number,storage_bucket,storage_path,checksum,file_name,mime_type,
+        file_size_bytes,storage_status,storage_verified_at,generated_at
+      ) values ($1,$2,$3,$4,$5,$6,'essential_self_assessment','generated',$7,1,
+        'generated-reports',$8,$9,$10,'application/pdf',1024,'VERIFIED',now(),now())`,
+      [
+        reportId, fixture.assessmentId, fixture.organisationId, fixture.orderId,
+        fixture.scoreId, template.id, `RPT-${fixture.orderReference}-V1`, storagePath,
+        checksum, `${fixture.orderReference}.pdf`,
+      ],
+    );
+    await db.query(
+      `update public.manual_report_generation_attempts
+       set status='REPORT_READY',output_report_id=$1,completed_at=now(),
+           evidence_checksum=$2,final_validation_json=$3,
+           lease_owner=$4,lease_expires_at=now()+interval '5 minutes'
+       where id=$5`,
+      [
+        reportId,
+        options.includeCommercialEvidence === false ? null : 'c'.repeat(64),
+        options.includeCommercialEvidence === false ? null : { valid: true, blockingViolations: [] },
+        options.leaseOwner ?? 'synthetic-worker',
+        fixture.attemptId,
+      ],
+    );
+    return { reportId, checksum, storagePath };
+  }
+
+  const primary = await seedPaidAttempt();
+  const unrelated = await seedPaidAttempt();
+  const correlation = crypto.randomUUID();
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'started',null,null)",
+    [primary.attemptId, correlation],
+  );
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'succeeded',200,null)",
+    [primary.attemptId, correlation],
+  );
+  const exactClaim = await query(
+    "select public.claim_exact_fulfilment_job($1,'synthetic-worker',300) as value",
+    [primary.attemptId],
+  );
+  assert(exactClaim[0].value.id === primary.attemptId, 'immediate worker claims the exact intended attempt');
+  const [unrelatedState] = await query(
+    'select status,lease_owner from public.manual_report_generation_attempts where id=$1',
+    [unrelated.attemptId],
+  );
+  assert(unrelatedState.status === 'REPORT_QUEUED' && unrelatedState.lease_owner === null,
+    'exact immediate claim leaves unrelated queued work untouched');
+
+  const primaryReport = await attachVerifiedReport(primary);
+  const release = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'synthetic-worker') as value",
+    [primary.attemptId, primaryReport.reportId],
+  );
+  assert(release[0].value.released === true, 'verified generation automatically releases the exact report');
+  const authorizationId = release[0].value.delivery_authorization_id;
+  const releaseCounts = await query(
+    `select
+      (select count(*)::int from public.reports where id=$1 and status='released') as reports,
+      (select count(*)::int from public.report_delivery_authorizations where id=$2) as authorizations,
+      (select count(*)::int from public.email_events where id=$3) as email_events`,
+    [primaryReport.reportId, authorizationId, release[0].value.email_event_id],
+  );
+  assert(releaseCounts[0].reports === 1 && releaseCounts[0].authorizations === 1 && releaseCounts[0].email_events === 1,
+    'automatic release creates exactly one released report, authorization and email event');
+  const replay = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'synthetic-worker') as value",
+    [primary.attemptId, primaryReport.reportId],
+  );
+  assert(replay[0].value.idempotent_replay === true && replay[0].value.delivery_authorization_id === authorizationId,
+    'duplicate automatic release reuses the exact authorization');
+
+  const exactDelivery = await query(
+    "select public.claim_exact_delivery($1,$2,'synthetic-delivery',300) as value",
+    [authorizationId, primary.orderId],
+  );
+  assert(exactDelivery[0].value.id === authorizationId, 'same invocation claims the exact released delivery');
+  const token = await query(
+    'select public.issue_customer_report_access_token($1,$2,$3,604800) as value',
+    [primary.orderId, primaryReport.reportId, primary.recipient],
+  );
+  assert(token[0].value.token_id, 'exact delivery issues one secure access token');
+  await db.query('select public.mark_delivery_dispatch_started($1,$2)', [
+    authorizationId, exactDelivery[0].value.lease_token,
+  ]);
+  await db.query("select public.finalize_delivery($1,$2,'synthetic-provider-accepted')", [
+    authorizationId, exactDelivery[0].value.lease_token,
+  ]);
+  const duplicateDelivery = await query(
+    "select public.claim_exact_delivery($1,$2,'synthetic-duplicate',300) as value",
+    [authorizationId, primary.orderId],
+  );
+  const duplicateCounts = await query(
+    `select
+      (select count(*)::int from public.customer_report_access_tokens where report_id=$1) as tokens,
+      (select count(*)::int from public.report_delivery_authorizations where report_id=$1) as authorizations,
+      (select count(*)::int from public.report_delivery_finalizations where report_id=$1) as finalizations`,
+    [primaryReport.reportId],
+  );
+  assert(duplicateDelivery[0].value === null, 'duplicate delivery invocation cannot reclaim a finalized authorization');
+  assert(duplicateCounts[0].tokens === 1 && duplicateCounts[0].authorizations === 1 && duplicateCounts[0].finalizations === 1,
+    'duplicate invocation creates no second report token, authorization or finalization');
+
+  const missingRecipient = await seedPaidAttempt({ recipient: null });
+  await query("select public.claim_exact_fulfilment_job($1,'missing-recipient-worker',300)", [missingRecipient.attemptId]);
+  const missingReport = await attachVerifiedReport(missingRecipient, { leaseOwner: 'missing-recipient-worker' });
+  const missingRelease = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'missing-recipient-worker') as value",
+    [missingRecipient.attemptId, missingReport.reportId],
+  );
+  assert(missingRelease[0].value.released === false && missingRelease[0].value.category === 'recipient_required',
+    'missing recipient is held for human exception management');
+  const missingSendCount = await query(
+    'select count(*)::int as n from public.report_delivery_authorizations where order_id=$1',
+    [missingRecipient.orderId],
+  );
+  assert(missingSendCount[0].n === 0, 'missing recipient creates no customer delivery authorization');
+
+  const commercialFailure = await seedPaidAttempt();
+  await query("select public.claim_exact_fulfilment_job($1,'commercial-worker',300)", [commercialFailure.attemptId]);
+  const commercialReport = await attachVerifiedReport(commercialFailure, {
+    leaseOwner: 'commercial-worker', includeCommercialEvidence: false,
+  });
+  const commercialRelease = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'commercial-worker') as value",
+    [commercialFailure.attemptId, commercialReport.reportId],
+  );
+  assert(commercialRelease[0].value.released === false
+    && commercialRelease[0].value.category === 'commercial_quality_evidence_missing',
+  'commercial-quality failure prevents automatic release and delivery');
+
+  const storageFailure = await seedPaidAttempt();
+  await query("select public.claim_exact_fulfilment_job($1,'storage-worker',300)", [storageFailure.attemptId]);
+  const storageFailureReport = await attachVerifiedReport(storageFailure, { leaseOwner: 'storage-worker' });
+  await db.query("update public.reports set storage_status='FAILED' where id=$1", [storageFailureReport.reportId]);
+  const storageRelease = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'storage-worker') as value",
+    [storageFailure.attemptId, storageFailureReport.reportId],
+  );
+  assert(storageRelease[0].value.released === false
+    && storageRelease[0].value.category === 'pdf_storage_verification_required',
+  'PDF or Storage verification failure prevents automatic release and delivery');
+
+  const providerFailure = await seedPaidAttempt();
+  await query("select public.claim_exact_fulfilment_job($1,'provider-generation-worker',300)", [providerFailure.attemptId]);
+  const providerFailureReport = await attachVerifiedReport(providerFailure, { leaseOwner: 'provider-generation-worker' });
+  const providerRelease = await query(
+    "select public.automatic_release_completed_fulfilment($1,$2,'provider-generation-worker') as value",
+    [providerFailure.attemptId, providerFailureReport.reportId],
+  );
+  const providerAuthorization = await query(
+    "select public.claim_exact_delivery($1,$2,'provider-delivery-worker',300) as value",
+    [providerRelease[0].value.delivery_authorization_id, providerFailure.orderId],
+  );
+  const providerFailed = await query(
+    "select public.fail_delivery($1,$2,'provider_send_failed','Synthetic provider failure.', $3) as value",
+    [
+      providerRelease[0].value.delivery_authorization_id,
+      providerAuthorization[0].value.lease_token,
+      crypto.randomUUID(),
+    ],
+  );
+  assert(providerFailed[0].value.status === 'retry_scheduled',
+    'provider failure enters the existing retry state with backoff');
+
+  const dispatchFailure = await seedPaidAttempt();
+  const dispatchFailureCorrelation = crypto.randomUUID();
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'started',null,null)",
+    [dispatchFailure.attemptId, dispatchFailureCorrelation],
+  );
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'failed',null,'worker_dispatch_failed')",
+    [dispatchFailure.attemptId, dispatchFailureCorrelation],
+  );
+  const dispatchExceptionArgs = [
+    dispatchFailure.attemptId,
+    null,
+    'immediate_dispatch',
+    'worker_dispatch_failed',
+    dispatchFailureCorrelation,
+    'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.',
+  ];
+  const firstDispatchAlert = await query(
+    'select public.record_automatic_fulfilment_exception($1,$2,$3,$4,$5,$6) as value',
+    dispatchExceptionArgs,
+  );
+  const duplicateDispatchAlert = await query(
+    'select public.record_automatic_fulfilment_exception($1,$2,$3,$4,$5,$6) as value',
+    dispatchExceptionArgs,
+  );
+  const dispatchFailureState = await query(
+    `select
+      (select status::text from public.orders where id=$1) as order_status,
+      (select state from public.payment_automation_records where order_id=$1) as payment_state,
+      (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+      (select lease_owner from public.manual_report_generation_attempts where id=$2) as lease_owner,
+      (select output_report_id from public.manual_report_generation_attempts where id=$2) as output_report_id,
+      (select count(*)::int from public.phase14_operational_alerts
+        where detail_json->>'attempt_id'=$2::text
+          and detail_json->>'stage'='immediate_dispatch'
+          and category='worker_dispatch_failed') as alerts,
+      (select count(*)::int from public.email_events where order_id=$1) as email_events,
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_delivery_authorizations where order_id=$1) as authorizations,
+      (select count(*)::int from public.customer_report_access_tokens t
+        join public.reports r on r.id=t.report_id where r.order_id=$1) as tokens`,
+    [dispatchFailure.orderId, dispatchFailure.attemptId],
+  );
+  assert(
+    firstDispatchAlert[0].value.alert_id === duplicateDispatchAlert[0].value.alert_id
+      && dispatchFailureState[0].alerts === 1,
+    'same attempt, immediate-dispatch stage and category reuse one operational alert',
+  );
+  assert(
+    dispatchFailureState[0].order_status === 'payment_received'
+      && dispatchFailureState[0].payment_state === 'PAID'
+      && dispatchFailureState[0].attempt_status === 'REPORT_QUEUED'
+      && dispatchFailureState[0].lease_owner === null
+      && dispatchFailureState[0].output_report_id === null,
+    'dispatch failure preserves PAID payment and the durable eligible queued attempt',
+  );
+  assert(
+    dispatchFailureState[0].email_events === 0
+      && dispatchFailureState[0].reports === 0
+      && dispatchFailureState[0].authorizations === 0
+      && dispatchFailureState[0].tokens === 0,
+    'dispatch failure creates no customer email, report, delivery authorization or access token',
+  );
+
+  const recoveryClaim = await query(
+    "select public.claim_next_fulfilment_job('synthetic-daily-recovery',300) as value",
+  );
+  assert(recoveryClaim[0].value.id === unrelated.attemptId,
+    'daily recovery invocation can claim a stranded eligible queued attempt');
+
+  const timing = await query(
+    `select
+      extract(epoch from (a.immediate_dispatch_started_at-p.created_at)) as payment_to_dispatch_seconds,
+      extract(epoch from (r.generated_at-p.created_at)) as payment_to_report_seconds,
+      extract(epoch from (d.finalized_at-p.created_at)) as payment_to_provider_seconds,
+      extract(epoch from (d.finalized_at-p.created_at)) as payment_to_delivered_seconds
+     from public.payment_transition_events p
+     join public.manual_report_generation_attempts a on a.id=$1
+     join public.reports r on r.id=$2
+     join public.report_delivery_authorizations d on d.id=$3
+     where p.order_id=$4 and p.new_state='PAID'
+     order by p.created_at desc limit 1`,
+    [primary.attemptId, primaryReport.reportId, authorizationId, primary.orderId],
+  );
+  assert(Number(timing[0].payment_to_dispatch_seconds) <= 10, 'synthetic payment-to-dispatch timing meets 10-second certification target');
+  assert(Number(timing[0].payment_to_report_seconds) <= 120, 'synthetic payment-to-report timing meets 2-minute certification target');
+  assert(Number(timing[0].payment_to_provider_seconds) <= 180, 'synthetic payment-to-provider timing meets 3-minute certification target');
+  assert(Number(timing[0].payment_to_delivered_seconds) <= 180, 'synthetic payment-to-delivered timing meets 3-minute certification target');
+  const alertTiming = await query(
+    `select extract(epoch from (a.created_at-p.created_at)) as seconds
+     from public.phase14_operational_alerts a
+     join public.payment_transition_events p on p.order_id=$1 and p.new_state='PAID'
+     where a.detail_json->>'attempt_id'=$2
+     order by a.created_at desc,p.created_at desc limit 1`,
+    [missingRecipient.orderId, missingRecipient.attemptId],
+  );
+  assert(Number(alertTiming[0].seconds) <= 60, 'synthetic exception evidence meets 1-minute alert target');
+
+  const frozenFixture = await seedPaidAttempt();
+  await db.query("select public.rc1_activate_freeze('Synthetic automatic fulfilment freeze verification')");
+  await expectQueryStop(
+    'frozen dispatch evidence race',
+    () => db.query(
+      "select public.record_fulfilment_dispatch_result($1,$2,'started',null,null)",
+      [frozenFixture.attemptId, crypto.randomUUID()],
+    ),
+    'rc1_operation_frozen:worker',
+  );
+  await expectQueryStop(
+    'frozen dispatch alert race',
+    () => db.query(
+      "select public.record_automatic_fulfilment_exception($1,null,'immediate_dispatch','worker_dispatch_failed',$2,$3)",
+      [
+        frozenFixture.attemptId,
+        crypto.randomUUID(),
+        'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.',
+      ],
+    ),
+    'rc1_operation_frozen:operational_alert',
+  );
+  await expectQueryStop(
+    'frozen exact worker claim',
+    () => db.query("select public.claim_exact_fulfilment_job($1,'frozen-worker',300)", [frozenFixture.attemptId]),
+    'rc1_operation_frozen:worker',
+  );
+  await expectQueryStop(
+    'frozen scheduled worker claim',
+    () => db.query("select public.claim_next_fulfilment_job('frozen-scheduled-worker',300)"),
+    'rc1_operation_frozen:generation',
+  );
+  const frozenRaceState = await query(
+    `select
+      (select status::text from public.orders where id=$1) as order_status,
+      (select state from public.payment_automation_records where order_id=$1) as payment_state,
+      (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+      (select lease_owner from public.manual_report_generation_attempts where id=$2) as lease_owner,
+      (select count(*)::int from public.phase14_operational_alerts
+        where detail_json->>'attempt_id'=$2::text) as alerts,
+      (select count(*)::int from public.email_events where order_id=$1) as email_events,
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_delivery_authorizations where order_id=$1) as authorizations`,
+    [frozenFixture.orderId, frozenFixture.attemptId],
+  );
+  assert(
+    frozenRaceState[0].order_status === 'payment_received'
+      && frozenRaceState[0].payment_state === 'PAID'
+      && frozenRaceState[0].attempt_status === 'REPORT_QUEUED'
+      && frozenRaceState[0].lease_owner === null,
+    'freeze race preserves PAID payment and the durable queued attempt',
+  );
+  assert(
+    frozenRaceState[0].alerts === 0
+      && frozenRaceState[0].email_events === 0
+      && frozenRaceState[0].reports === 0
+      && frozenRaceState[0].authorizations === 0,
+    'freeze race permits no alert, customer email, generation or delivery mutation while frozen',
+  );
+
+  console.log('PASS RC1 near-real-time automatic fulfilment: atomic payment queue, exact claims, fail-closed release, one authorization/event/token/finalization, deduplicated immediate-dispatch alerts, exception hold, delayed recovery, freeze-race preservation and synthetic timing targets.');
+}
+
 let preVars;
 let postVars;
 let protectedReportOriginal;
@@ -1132,6 +1563,7 @@ try {
   await expectPostStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
 
   await proveFrozenCertificationControlPlane();
+  await proveNearRealTimeAutomaticFulfilment();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});

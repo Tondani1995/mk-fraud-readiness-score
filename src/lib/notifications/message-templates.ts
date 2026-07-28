@@ -94,6 +94,7 @@ export type InternalExceptionAlertInput = {
   failedStage: string;
   ageDescription: string;
   technicalReference: string;
+  requiredAction?: string | null;
   ownerHint?: string | null;
   recoveryPath: string; // MK-domain admin route, never a raw Vercel URL
 };
@@ -101,7 +102,8 @@ export type InternalExceptionAlertInput = {
 export function buildInternalExceptionAlertMessage(input: InternalExceptionAlertInput) {
   const recoveryUrl = `${ADMIN_BASE_URL}${input.recoveryPath}`;
   const subject = `[Action needed] ${input.failedStage}: ${input.orderReference}`;
-  const text = `An exception needs attention.\n\nOrder reference: ${input.orderReference}\nFailed stage: ${input.failedStage}\nAge: ${input.ageDescription}\nTechnical reference: ${input.technicalReference}\nAssigned owner: ${input.ownerHint ?? 'Unassigned'}\n\nRecover: ${recoveryUrl}`;
-  const html = `<p>An exception needs attention.</p><ul><li>Order reference: <strong>${escapeHtml(input.orderReference)}</strong></li><li>Failed stage: ${escapeHtml(input.failedStage)}</li><li>Age: ${escapeHtml(input.ageDescription)}</li><li>Technical reference: ${escapeHtml(input.technicalReference)}</li><li>Assigned owner: ${escapeHtml(input.ownerHint ?? 'Unassigned')}</li></ul><p><a href="${escapeHtml(recoveryUrl)}">Recover this order</a></p>`;
+  const requiredAction = input.requiredAction ?? 'Review the order and choose an authorised recovery action.';
+  const text = `An exception needs attention.\n\nOrder reference: ${input.orderReference}\nFailed stage: ${input.failedStage}\nAge: ${input.ageDescription}\nTechnical reference: ${input.technicalReference}\nRequired administrator action: ${requiredAction}\nAssigned owner: ${input.ownerHint ?? 'Unassigned'}\n\nRecover: ${recoveryUrl}`;
+  const html = `<p>An exception needs attention.</p><ul><li>Order reference: <strong>${escapeHtml(input.orderReference)}</strong></li><li>Failed stage: ${escapeHtml(input.failedStage)}</li><li>Age: ${escapeHtml(input.ageDescription)}</li><li>Technical reference: ${escapeHtml(input.technicalReference)}</li><li>Required administrator action: ${escapeHtml(requiredAction)}</li><li>Assigned owner: ${escapeHtml(input.ownerHint ?? 'Unassigned')}</li></ul><p><a href="${escapeHtml(recoveryUrl)}">Recover this order</a></p>`;
   return { subject, text, html };
 }

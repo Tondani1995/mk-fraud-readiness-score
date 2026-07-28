@@ -48,10 +48,12 @@ might otherwise suggest.
 | Gate | Stage | Evidence |
 |---|---|---|
 | Durable worker mechanism (claim/lease/retry/recovery) | Code complete, Locally verified | `12-durable-fulfilment-design.md`, Release B (#42) evidence |
-| Worker runtime measured under real load | **Not done — explicitly deferred to this cycle** | `12-durable-fulfilment-design.md` "Measuring worker runtime (integrated release-candidate cycle, not this cycle)" |
-| Queue safety (no unrelated job claimed by a triggered run) | Not yet exercised against real data | Deferred alongside the controlled-send cycle's own worker-safety-gate step, never reached |
-| Vercel plan and cron-frequency decision | **Not decided** — owner/billing decision | `20-release-d-scope-and-existing-infrastructure-audit.md` §7; `23-vercel-operational-inventory.md` "Cron configuration" |
+| Immediate exact-attempt dispatch and automatic downstream release/delivery | Core flow substantive review passed; immediate-dispatch failure alerting code complete and locally verified; controller review required | `34-rc1-near-real-time-automatic-fulfilment.md`; dedicated 35-check suite and 43-migration replay |
+| Worker runtime measured under real provider load | **Not done — controlled certification required** | Document 34 certification SLOs |
+| Queue safety (no unrelated job or delivery claimed by an immediate run) | Locally verified with synthetic exact-claim isolation; cloud certification outstanding | Document 34; `scripts/rc1-prepostflight-disposable-tests.mjs` |
+| Vercel plan and cron-frequency decision | **Decided for launch:** current daily cron stays enabled as delayed recovery; immediate dispatch is primary; optional Pro minute-level recovery is not launch-required | Documents 29 and 34 |
 | Reconciliation of existing paid orders against post-migration behaviour | **Not done** | `19-release-c-cloud-schema-reconciliation.md` §2, Option C assessment (18 `payment_received` orders at last count) |
+| Exception owner and mailbox | Tondani Netili; `admin@mkfraud.co.za`; operational certification outstanding | Documents 29 and 34 |
 
 ## Operational-readiness gates (Release D)
 
@@ -65,11 +67,12 @@ might otherwise suggest.
 
 ## Overall status
 
-**Production authorised: no.** Every release (A, B, C, D) is, at best, `CODE IMPLEMENTATION COMPLETE
-— CLOUD CERTIFICATION DEFERRED`. The single largest blocking gate is schema reconciliation — nearly
-every other unmet gate above is either downstream of it (external-provider certification, worker
-verification, paid-order reconciliation) or a genuinely independent owner/billing decision (Vercel
-plan, second-admin, monitoring ownership) that no amount of further code work resolves.
+**Production authorised: no.** The accepted RC1 technical base is locked. The near-real-time core
+flow has passed substantive review. Immediate-dispatch failure alerting is code complete and locally
+verified but requires exact-head CI and controller review. Schema reconciliation, backup/cutover
+evidence, controlled provider certification, paid-order dispositions, canary authority and
+remaining operational approvals are still outstanding. RC1 OPERATIONAL READINESS, RC
+MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH remain **NO-GO**; **DO NOT MERGE**.
 
 ## Cross-references
 

@@ -4,7 +4,7 @@ import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
 } from '@/lib/reports/phase1-schema-capability';
-import { sendEmail } from '@/lib/notifications/email-provider';
+import { sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
 import {
   buildAdminNewOrderAlertMessage,
   buildInternalExceptionAlertMessage,
@@ -20,6 +20,11 @@ type NotificationContext = {
   order: any;
   product: any;
   eftSnapshot: any;
+};
+
+type AutomaticExceptionAlertDependencies = {
+  createClient?: typeof createSupabaseServiceClient;
+  sendEmailImpl?: typeof defaultSendEmail;
 };
 
 function displayAmount(cents: number, currency: string) {
@@ -66,12 +71,15 @@ function formatEftAccountSummary(eftSnapshot: any): string {
 // email before either claimed the dedupe slot.
 async function recordNotification(db: any, input: {
   context: NotificationContext;
-  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert';
+  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert' | 'automatic_fulfilment_exception_alert';
   recipient: string | null;
   payload: Record<string, unknown>;
   message: { subject: string; text: string; html: string };
-}) {
-  const dedupeKey = `phase1:${input.notificationType}:${input.context.order.id}`;
+  dedupeKey?: string;
+  safeProviderFailure?: boolean;
+}, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
+  const dedupeKey = input.dedupeKey
+    ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
     .select('id,status,retry_count').eq('dedupe_key', dedupeKey).maybeSingle();
   if (existingError) throw existingError;
@@ -113,6 +121,7 @@ async function recordNotification(db: any, input: {
 
   const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
   const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
+  const sendEmail = dependencies.sendEmailImpl ?? defaultSendEmail;
   const sendResult = await sendEmail({
     from: fromAddress,
     to: input.recipient,
@@ -132,12 +141,23 @@ async function recordNotification(db: any, input: {
     provider_mode: providerMode,
     provider_message_id: sentSuccessfully ? sendResult.providerMessageId : null,
     sent_at: sentSuccessfully ? new Date().toISOString() : null,
-    error_message: sendResult.ok ? null : sendResult.error,
+    error_message: sendResult.ok
+      ? null
+      : input.safeProviderFailure
+        ? 'The operational exception notification provider request failed.'
+        : sendResult.error,
     updated_at: new Date().toISOString()
   }).eq('id', data.id);
 
   if (!sendResult.ok) {
-    console.error('phase1_notification_send_failed', { notificationType: input.notificationType, emailEventId: data.id, mode: sendResult.mode, error: sendResult.error });
+    console.error('phase1_notification_send_failed', {
+      notificationType: input.notificationType,
+      emailEventId: data.id,
+      mode: sendResult.mode,
+      errorCategory: input.safeProviderFailure
+        ? 'operational_exception_notification_send_failed'
+        : sendResult.error
+    });
   }
 
   await db.from('order_events').insert({
@@ -320,6 +340,78 @@ export async function recordDeliveryRecipientRequiredAlert(input: { orderId: str
       recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
     })
   });
+}
+
+export type AutomaticFulfilmentExceptionAlertInput = {
+  orderId: string;
+  reportId: string | null;
+  attemptId: string | null;
+  authorizationId: string | null;
+  category: string;
+  stage: string;
+  technicalReference: string;
+  requiredAction: string;
+};
+
+export async function recordAutomaticFulfilmentExceptionAlert(
+  input: AutomaticFulfilmentExceptionAlertInput,
+  dependencies: AutomaticExceptionAlertDependencies = {}
+) {
+  const db = (dependencies.createClient ?? createSupabaseServiceClient)() as any;
+  const { data: order } = await db
+    .from('orders')
+    .select('id,order_reference')
+    .eq('id', input.orderId)
+    .maybeSingle();
+  if (!order) {
+    return {
+      skipped: true,
+      reason: 'order_not_found',
+      message: 'Order not found.'
+    };
+  }
+
+  const safeIdentity = input.attemptId ?? input.authorizationId ?? input.orderId;
+  return recordNotification(db, {
+    context: {
+      assessment: { id: null },
+      organisation: null,
+      respondent: null,
+      dataRequest: null,
+      order: { id: order.id },
+      product: null,
+      eftSnapshot: null
+    },
+    notificationType: 'automatic_fulfilment_exception_alert',
+    recipient: 'admin@mkfraud.co.za',
+    dedupeKey: [
+      'phase1',
+      'automatic_fulfilment_exception_alert',
+      safeIdentity,
+      input.stage,
+      input.category
+    ].join(':'),
+    safeProviderFailure: true,
+    payload: {
+      order_reference: order.order_reference,
+      report_id: input.reportId,
+      attempt_id: input.attemptId,
+      authorization_id: input.authorizationId,
+      exception_category: input.category,
+      stage: input.stage,
+      technical_reference: input.technicalReference,
+      required_action: input.requiredAction
+    },
+    message: buildInternalExceptionAlertMessage({
+      orderReference: order.order_reference,
+      failedStage: `${input.stage} — ${input.category}`,
+      ageDescription: 'Immediate automatic-fulfilment exception',
+      technicalReference: input.technicalReference,
+      requiredAction: input.requiredAction,
+      ownerHint: 'Tondani / admin@mkfraud.co.za',
+      recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
+    })
+  }, dependencies);
 }
 
 export async function retryPhase1NotificationWithDouble(emailEventId: string, result: 'success' | 'failure') {

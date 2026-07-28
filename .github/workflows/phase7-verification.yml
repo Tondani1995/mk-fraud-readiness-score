@@ -45,6 +45,9 @@ jobs:
       - name: Verify seven accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
 
+      - name: Verify RC1 near-real-time automatic fulfilment
+        run: npm run rc1:test-near-real-time-fulfilment
+
       - name: Run Phase 7 snapshot tests
         run: npm run phase7:test-snapshot
 

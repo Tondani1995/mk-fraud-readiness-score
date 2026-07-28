@@ -1,9 +1,9 @@
 # RC1 GO Evidence Requirements
 
-This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1D
-application freeze/route foundation, old-schema/replay/checksum evidence and canary strict STOP are
-**ACCEPTED**. RC1D bootstrap/control plane required correction; RC1E CONTROL-PLANE CORRECTION is
-**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**. RC1 OPERATIONAL READINESS remains **NO-GO**. This is not a GO decision and
+This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1 TECHNICAL
+BASE is **ACCEPTED** at `6550c05fe866a1880f4fe6e21b8ef2baa43301a8`. RC1 NEAR-REAL-TIME
+AUTOMATIC FULFILMENT is **CONTROLLER REVIEW REQUIRED**. RC1 OPERATIONAL READINESS remains
+**NO-GO**. This is not a GO decision and
 does not authorise any cloud or Production action. Every item must reference one
 exact application SHA and one cutover window. Evidence must be anonymised and must not contain
 secret values, customer identifiers, order references, organisation names, email addresses, report
@@ -11,7 +11,8 @@ content or access tokens.
 
 ## Required bundle
 
-- [ ] Exact approved RC SHA and PR #45 link; PR remains open, draft and DO NOT MERGE.
+- [ ] Exact approved correction SHA and stacked correction PR link; both PRs remain open, draft and
+      DO NOT MERGE; PR #45 and its accepted branch remain unchanged.
 - [ ] All six exact-head CI results: V1 Verification, V7 Report Hardening, Supabase Migration Replay,
       Phase 1 Release Safety, Phase 2-3 Release Safety and Security Scans.
 - [ ] Supabase backup/PITR screenshot or equivalent evidence.
@@ -27,13 +28,14 @@ content or access tokens.
       size totals, and protected recovery artifacts outside git.
 - [ ] Signed operational-freeze activation evidence covering every mutation surface in
       `28-rc1-operational-freeze-and-canary-plan.md`.
-- [ ] Read-only preflight output: 34 ledger rows, newest `20260721150808`, no pending-eight rows,
+- [ ] Read-only preflight output: 34 ledger rows, newest `20260721150808`, no pending-nine rows,
       18 paid orders, classification totals 2/13/3, zero active attempts, zero payment automation
       records, no unexpected activity and RPC fingerprints.
-- [ ] Per-migration results for the bootstrap plus exactly seven accepted behaviour migrations in
-      exact order, with all seven accepted payload checksums unchanged.
-- [ ] Ledger postflight: eight new rows exactly once, 42 rows total, final newest version
-      `20260725150000`, no
+- [ ] Per-migration results for the bootstrap, exactly seven accepted behaviour migrations and the
+      additive near-real-time correction in exact order, with all seven accepted payload checksums
+      unchanged and the correction checksum matching the approved manifest.
+- [ ] Ledger postflight: nine new rows exactly once, 43 rows total, final newest version
+      `20260728120000`, no
       unlisted migration and no duplicate version.
 - [ ] Schema, index, grant, RLS and RPC fingerprints, including security-definer/search-path checks.
 - [ ] Vercel READY deployment evidence with the exact approved SHA.
@@ -47,6 +49,15 @@ content or access tokens.
 - [ ] Confirmation that the environment returned to disabled resting state after certification.
 - [ ] Completed anonymised 18-order disposition totals and owner-approved action register outside git.
 - [ ] Evidence that the 2 `CURRENT_VERIFIED` orders remained excluded and no worker claimed an order.
+- [ ] Near-real-time certification evidence: exact-attempt dispatch start under 10 seconds,
+      report-ready under 2 minutes, provider-accepted/delivered under 3 minutes, and terminal or
+      manual-review alert under 1 minute. Synthetic evidence is not a customer promise.
+- [ ] Proof that immediate dispatch is primary, daily cron remains enabled as delayed recovery, and
+      exact immediate processing cannot claim an unrelated attempt or delivery.
+- [ ] Proof that successful automatic release created one report, one email event, one delivery
+      authorisation, one secure token and one provider send; duplicate invocation created none.
+- [ ] Proof that failed commercial-quality, PDF/Storage, recipient and suppression gates sent no
+      customer delivery and produced the required held/retry/reconciliation evidence.
 - [ ] Named canary approver, freeze activator and freeze-release authority.
 - [ ] Approved abort/forward-repair matrix and named business/technical owners.
 - [ ] Signed final owner/controller decision stating GO, NO-GO or deferred, with timestamp.
@@ -70,12 +81,14 @@ content or access tokens.
       `sent=2` (total 75) and approved SHA-256 fingerprint; `email_provider_events=0`; no recipient,
       provider ID, order ID or message ID is emitted.
 - [ ] Preflight proves the exact current-boundary columns, no duplicate current report per order/report type, and compares the non-reversible protected-state and 2/13/3 classification fingerprints.
-- [ ] Postflight proves 42 total ledger rows, final version `20260725150000`, exact eight
+- [ ] Postflight proves 43 total ledger rows, final version `20260728120000`, exact nine
       `(version,name)` pairs, no duplicate or unlisted version, the bootstrap tables/functions,
       40 relation guards and event trigger, full backlog/token structures, all 14
-      migration-derived indexes, all 29 behaviour RPCs including
+      accepted migration-derived indexes plus the correction index, all 35 behaviour/control RPCs including
       `recover_expired_fulfilment_leases()` and
-      `record_premium_report_generation_run(...)`, exact grants, RLS/policies and combined
+      `record_premium_report_generation_run(...)`,
+      `claim_exact_fulfilment_job(...)`, `automatic_release_completed_fulfilment(...)` and
+      `claim_exact_delivery(...)`, exact grants, RLS/policies and combined
       fingerprints.
 - [ ] Postflight no-change evidence includes order/report/generation/payment/email/provider/delivery/token/alert/storage aggregates and the exact protected-state fingerprint supplied by preflight.
 - [ ] Disposable runtime tests prove the baseline and postflight gates pass, then prove STOP for each controller-required defect, including wrong migration name, unlisted migration, missing index/RPC, unsafe search path, PUBLIC EXECUTE, disabled RLS, changed protected fingerprint, worker lease, new order/email event and duplicate current report.
@@ -123,3 +136,9 @@ All 19 steps are required in order:
 19. Final disabled resting state independently verified.
 
 Provider mode must never be `live` during certification.
+
+For every controlled test or later live-provider certification send, the persisted email-event
+provider mode/status/message evidence and durable delivery evidence must represent the provider path
+actually exercised. A real provider send with a durable event still represented as `disabled` is a
+certification **STOP**, as is any inability to correlate the delivery evidence to that same path.
+This is an evidence requirement only and does not authorise Resend configuration or invocation.

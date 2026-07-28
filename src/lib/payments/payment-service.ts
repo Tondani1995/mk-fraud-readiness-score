@@ -122,7 +122,20 @@ export async function processVerifiedPayment(input: {
     metadata: { source: input.source, payment_state: target.state, duplicate: data.duplicate === true, fulfilment }
   });
   console.info('payment_transition', { orderReference: order.order_reference, state: target.state, source: input.source, duplicate: data.duplicate === true, fulfilment, technicalReference });
-  return { ok: true, duplicate: data.duplicate === true, state: target.state, eventId: data.event_id, fulfilment, message, technicalReference };
+  const fulfilmentAttemptId = fulfilment === 'queued'
+    && typeof data.fulfilment_attempt_id === 'string'
+    ? data.fulfilment_attempt_id
+    : undefined;
+  return {
+    ok: true,
+    duplicate: data.duplicate === true,
+    state: target.state,
+    eventId: data.event_id,
+    fulfilmentAttemptId,
+    fulfilment,
+    message,
+    technicalReference
+  };
 }
 
 export async function confirmManualPayment(input: {
