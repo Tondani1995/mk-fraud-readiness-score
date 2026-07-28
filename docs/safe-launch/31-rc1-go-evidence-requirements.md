@@ -1,8 +1,9 @@
 # RC1 GO Evidence Requirements
 
-This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1C is
-**CONTROLLER ACCEPTED** and the RC1D technical-freeze foundation is **CODE COMPLETE — CONTROLLER
-REVIEW REQUIRED**, but RC1 OPERATIONAL READINESS remains **NO-GO**. This is not a GO decision and
+This is the minimum evidence bundle for a future RC MIGRATION/DEPLOYMENT GO decision. RC1D
+application freeze/route foundation, old-schema/replay/checksum evidence and canary strict STOP are
+**ACCEPTED**. RC1D bootstrap/control plane required correction; RC1E CONTROL-PLANE CORRECTION is
+**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**. RC1 OPERATIONAL READINESS remains **NO-GO**. This is not a GO decision and
 does not authorise any cloud or Production action. Every item must reference one
 exact application SHA and one cutover window. Evidence must be anonymised and must not contain
 secret values, customer identifiers, order references, organisation names, email addresses, report
@@ -38,7 +39,9 @@ content or access tokens.
 - [ ] Vercel READY deployment evidence with the exact approved SHA.
 - [ ] Provider-mode-disabled confirmation before and after deployment/environment changes.
 - [ ] Disabled-state no-send/no-worker evidence and smoke-test results.
-- [ ] Secret provisioning evidence containing names, timestamps and non-reversible fingerprints only.
+- [ ] Frozen certification-secret provisioning evidence from the dedicated AAL2 route/RPC containing
+      only two approved names, timestamps, distinct non-reversible fingerprints, exact epoch,
+      expected RC1 audit events, consumed-token count and unchanged business aggregates.
 - [ ] Controller-approved transactional canary implementation from document 33, followed by
       controlled synthetic-canary approval, result, designated-mailbox evidence and closure record.
 - [ ] Confirmation that the environment returned to disabled resting state after certification.
@@ -57,7 +60,7 @@ content or access tokens.
 5. A missing, contradictory or stale item is a STOP, not an implied approval.
 
 
-## RC1C/RC1D corrected gate evidence
+## RC1C/RC1D/RC1E corrected gate evidence
 
 - [ ] Preflight is executed through `npm run rc1:dry-evaluate-live-boundary` with the
       machine-readable manifest, approved target fingerprint, explicit read-only mode,
@@ -77,11 +80,20 @@ content or access tokens.
 - [ ] Postflight no-change evidence includes order/report/generation/payment/email/provider/delivery/token/alert/storage aggregates and the exact protected-state fingerprint supplied by preflight.
 - [ ] Disposable runtime tests prove the baseline and postflight gates pass, then prove STOP for each controller-required defect, including wrong migration name, unlisted migration, missing index/RPC, unsafe search path, PUBLIC EXECUTE, disabled RLS, changed protected fingerprint, worker lease, new order/email event and duplicate current report.
 - [ ] The exact Supabase runner/tool version and real `--help` output are captured. The current workspace has no Supabase CLI, so no dry-run or application command is approved or invented.
-- [ ] The RC1D technical-freeze foundation and exact bootstrap manifest are controller accepted.
+- [ ] The RC1E corrected bootstrap/control plane and exact manifest are controller accepted.
 - [ ] Old-34-schema compatibility proves health/read-only diagnostics remain available and every
       authoritative application mutation surface is stopped before database access.
 - [ ] Missing, invalid, malformed, timed-out or disagreeing freeze state fails closed; service-role
       direct DML, unknown surface and unsafe control-RPC attempts produce STOP.
+- [ ] Runtime constraint tests reject null actor/reason/evidence, malformed/all-zero evidence,
+      inconsistent release timestamps, RELEASED canary data, canary mismatch, invalid state and
+      zero/null epoch; with exact constraints/NOT NULL deliberately removed, status and operation
+      guards still stop every malformed case and the exact controls are restored.
+- [ ] Dedicated control-route tests prove status/activate/release and certification-secret access
+      require authenticated AAL2 `platform_admin`; AAL1, reviewer, anonymous and service-role
+      attempts fail; the generic Phase 14 secret route remains HTTP 423.
+- [ ] Final release evidence follows the same-SHA two-layer order: application `released` while
+      database `FROZEN` remains closed, then owner AAL2 exact-epoch release, then both `RELEASED`.
 - [ ] Document 33 has an accepted and implemented transactional canary design. RC1D intentionally
       implements no bypass, so this item is currently outstanding and CLOUD CERTIFICATION is NO-GO.
 

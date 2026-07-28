@@ -1,6 +1,8 @@
 # RC1 Production-Change Runbook
 
-**Status:** RC1C CORRECTION: **CONTROLLER ACCEPTED**; RC1D TECHNICAL-FREEZE FOUNDATION:
+**Status:** RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**; RC1D OLD-SCHEMA, REPLAY
+AND CHECKSUM EVIDENCE: **ACCEPTED**; RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**; RC1D
+BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**; RC1E CONTROL-PLANE CORRECTION:
 **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
 RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH: **NO-GO**;
 **DO NOT MERGE**.
@@ -83,7 +85,12 @@ or unavailable. No migration progresses on a conditional pass without those cuto
 
 **Actor:** Tondani Netili activates the freeze; Codex verifies evidence.
 
-**Exact action:** Apply the approved freeze mechanism from `28-rc1-operational-freeze-and-canary-plan.md`.
+**Exact action:** Set `MK_RC1_OPERATION_FREEZE_MODE=frozen`, redeploy the exact approved SHA, prove
+all application mutation probes stop, then invoke
+`POST /score/api/admin/rc1-freeze/activate` as the authenticated AAL2 platform admin with a
+meaningful reason. Verify `GET /score/api/admin/rc1-freeze/status` reports `FROZEN`, the expected
+positive epoch and no canary. Apply the complete mechanism from
+`28-rc1-operational-freeze-and-canary-plan.md`.
 Make public assessment/order intake unavailable; suspend assessment submission, order creation,
 payment confirmation/status changes, manual and backlog generation, quality review, delivery,
 redelivery, recipient correction, payment webhooks, Resend webhook processing and fulfilment workers.
@@ -259,15 +266,15 @@ activity.
 
 Sections 9–12 are the execution authority for the complete 19-step provider certification. Every
 step requires its own actor, action, expected result, evidence, stop condition and cloud-state record.
-No step is authorised during RC1D.
+No step is authorised during RC1E.
 
 | Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
 |---:|---|---|---|---|---|---|
 | 1 | Tondani Netili approves; Codex deploys | Deploy the exact approved RC SHA with `MK_EMAIL_PROVIDER_MODE=disabled`. | READY candidate uses the approved SHA and disabled mode. | Approval, deployment record, SHA, disabled-mode record. | SHA mismatch, non-READY state or mode not disabled. | Yes: Vercel deployment. |
 | 2 | Tondani Netili disables; Codex verifies | Disable the intended Resend webhook endpoint before secret or mode changes. | Provider cannot deliver callbacks. | Endpoint identity, disabled timestamp and actor. | Endpoint remains enabled or identity is uncertain. | Yes: Resend webhook state. |
 | 3 | Tondani Netili confirms; Codex verifies metadata only | Confirm `RESEND_WEBHOOK_SECRET` corresponds to the intended endpoint without exposing its value. | Intended endpoint and secret relationship are established. | Secret name, endpoint fingerprint, rotation timestamp. | Value exposure, endpoint mismatch or stale relationship. | No intended mutation; provider inspection only. |
-| 4 | Tondani Netili approves; Codex provisions | Provision `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` independently through Vercel and the AAL2 admin RPC while mode remains disabled. | Environment and database hold matching webhook-attestation material. | Secret name, two non-reversible fingerprints, AAL2 audit event and timestamp. | Wrong actor, fingerprint mismatch, value exposure or mode drift. | Yes: Vercel environment and database secret state. |
-| 5 | Tondani Netili approves; Codex provisions independently | Provision `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` through Vercel and the AAL2 admin RPC, independently of step 4. | Environment and database hold matching lookup-attestation material distinct from step 4. | Separate secret name, fingerprints, AAL2 audit event and timestamp. | Reused value, fingerprint mismatch, value exposure or mode drift. | Yes: Vercel environment and database secret state. |
+| 4 | Tondani Netili approves; Codex provisions | With application and database still exactly `FROZEN`, provision `PHASE14_PROVIDER_WEBHOOK_DB_HMAC_SECRET` independently through Vercel and `POST /score/api/admin/rc1-certification/runtime-secret` using exact epoch. Never use the ordinary Phase 14 secret route. | Environment and database hold matching webhook-attestation material while the business freeze and epoch remain unchanged. | Secret name, non-reversible fingerprint, AAL2 RC1 audit event, epoch and timestamp. | Wrong actor/epoch, fingerprint mismatch, value exposure, freeze drift or generic route use. | Yes: Vercel environment and one narrow database secret row. |
+| 5 | Tondani Netili approves; Codex provisions independently | Provision `PHASE14_PROVIDER_LOOKUP_DB_HMAC_SECRET` through the same frozen certification route, independently of and distinct from step 4. Run `scripts/rc1-production-post-provisioning-evidence.sql` read-only after both writes. | Two distinct fingerprints and expected RC1 audit events exist; freeze remains `FROZEN` at the same epoch; business aggregates are unchanged. | Safe post-provisioning PASS lines, separate secret names/fingerprints and AAL2 audit references. | Reused value, missing/distinctness failure, value exposure, freeze/epoch drift or business aggregate change. | Yes: Vercel environment and one narrow database secret row; evidence query is read-only. |
 
 ## 10. Provider certification: same-SHA disabled verification and test activation
 
@@ -330,8 +337,12 @@ generation, recipient uncertainty or current-verified change.
 **Actor:** Tondani Netili only.
 
 **Exact action:** Confirm all gates, postflight, disabled resting state, canary closure and existing-
-order approvals. Release the freeze explicitly. Do not release it merely because the deployment is
-READY.
+order approvals. Keep the database `FROZEN`; set `MK_RC1_OPERATION_FREEZE_MODE=released`; redeploy
+the same exact SHA; prove all ordinary mutation routes remain blocked because the database is still
+`FROZEN`; then invoke `POST /score/api/admin/rc1-freeze/release` as Tondani Netili's authenticated
+AAL2 platform-admin session with the exact epoch, meaningful reason and valid nonzero evidence
+fingerprint. Only after `GET .../status` reports `RELEASED` and both layers agree may operations
+open. Do not release merely because the deployment is READY.
 
 **Expected result:** The owner records the release timestamp and the operating model becomes active.
 
@@ -383,9 +394,9 @@ repair action.
 
 ## Current decision
 
-This runbook does not issue RC MIGRATION/DEPLOYMENT GO. RC1C is controller accepted and the RC1D
-technical-freeze foundation is code complete for controller review, but it has not been deployed or
-activated. The Supabase backup gate remains **CONDITIONAL PASS** under the supplemental owner
+This runbook does not issue RC MIGRATION/DEPLOYMENT GO. The three accepted RC1D components remain
+accepted; RC1E corrects the bootstrap/control plane in code and requires controller review. It has
+not been deployed or activated. The Supabase backup gate remains **CONDITIONAL PASS** under the supplemental owner
 decision. The scheduled-backup fallback evidence, post-freeze logical-backup evidence, restricted
 Storage safeguard, controller acceptance of RC1D, viable transactionally constrained canary design,
 18-order approvals, worker/manual operating-model decision and all other §1–§16 gates remain

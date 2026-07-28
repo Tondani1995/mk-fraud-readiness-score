@@ -1,10 +1,13 @@
 # RC1 Technical-Freeze Implementation Design
 
-**Status:** RC1D TECHNICAL-FREEZE FOUNDATION: **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**;
-RC1 OPERATIONAL READINESS: **NO-GO**; RC MIGRATION/DEPLOYMENT: **NO-GO**; **DO NOT MERGE**.
+**Status:** RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**; RC1D OLD-SCHEMA, REPLAY
+AND CHECKSUM EVIDENCE: **ACCEPTED**; RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**; RC1D
+BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**; RC1E CONTROL-PLANE CORRECTION:
+**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS and RC
+MIGRATION/DEPLOYMENT: **NO-GO**; **DO NOT MERGE**.
 
-This document records the design and RC1D as-built code-only foundation. The source now contains the
-bootstrap migration, application gates and disposable proofs. Nothing has been applied to Production
+This document records the design and RC1E corrected code-only control plane. The source contains the
+bootstrap migration, application gates, supported operator routes and disposable proofs. Nothing has been applied to Production
 and no cloud action has been performed.
 
 ## 1. Design decision
@@ -63,8 +66,9 @@ protects legacy code paths that do not yet know about the application gate.
 The RC1D bootstrap migration creates, in one transaction:
 
 1. A single-row `public.rc1_operation_freeze_state` table with a fixed key, state, epoch,
-   activated/released timestamps, actor IDs, mandatory reason, and an explicit canary-ticket hash
-   and expiry. The table is RLS-enabled, has no direct public/anon/authenticated write grants, and
+   activated/released timestamps, actor fingerprints, mandatory reason, and inactive canary fields.
+   RELEASED requires explicit non-null valid fingerprints, nonzero evidence and no canary fields.
+   The table is RLS-enabled, has no direct public/anon/authenticated write grants, and
    is readable only through a non-PII diagnostics RPC.
 2. `public.rc1_require_operation_open(surface text)` as a `SECURITY DEFINER` function with an
    empty controlled `search_path`. Missing row, unknown state, expired state or malformed state
@@ -78,6 +82,12 @@ The RC1D bootstrap migration creates, in one transaction:
    canary record.
 5. A non-PII `rc1_freeze_status()` RPC for evidence. It returns state, epoch, timestamps and
    fingerprints only; never customer IDs, emails, names or ticket values.
+6. `rc1_provision_certification_runtime_secret(text,text,text,bigint)`, authenticated-only and
+   internally AAL2 `platform_admin`, for exactly the two certification HMAC keys while state is
+   exactly `FROZEN` at the expected epoch. A private one-use transaction token binds the exact key,
+   value fingerprint, actor and epoch; the relation trigger consumes it for only that
+   `runtime_secrets` INSERT/UPDATE. A GUC/header, token marker alone, generic RPC or `service_role`
+   cannot authorize a write.
 
 The control RPCs verify AAL2 from the server-side auth context, not from user-editable metadata.
 Canary authorization remains a STOP because the current workflow cannot enforce a genuine
@@ -123,6 +133,17 @@ Before bootstrap, the application/edge gate is the technical isolation authority
 the database trigger/RPC guard becomes the authoritative second layer. Freeze release requires both
 layers to agree and must happen only after postflight, disabled-state smoke and certification.
 
+The supported operator routes are:
+
+- `GET /score/api/admin/rc1-freeze/status`
+- `POST /score/api/admin/rc1-freeze/activate`
+- `POST /score/api/admin/rc1-freeze/release`
+- `POST /score/api/admin/rc1-certification/runtime-secret`
+
+They use the authenticated access token, require active `platform_admin` and AAL2, and call only the
+corresponding narrow RPC. The release route is available only in exact application mode `released`;
+the application still blocks until database state also becomes valid `RELEASED`.
+
 ## 6. Options considered
 
 | Option | Result |
@@ -144,7 +165,8 @@ frozen; the same application stays healthy against the old 34-migration schema; 
 paths and `service_role` cannot bypass relation guards; unknown surfaces fail; and activation/release
 require AAL2, reason, audit evidence, exact epoch and release-evidence fingerprint.
 
-The manifest pins the bootstrap SHA-256, two tables, 11 functions, 40 relation triggers and one event
+The manifest pins the corrected bootstrap SHA-256, three tables including constraints, 12 functions,
+40 relation triggers and one event
 trigger. The accepted seven behaviour migrations are independently checksum-pinned and remain
 byte-identical. Full replay proves exactly 42 migration-ledger rows.
 

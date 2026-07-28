@@ -764,15 +764,22 @@ PASS evaluation. It is not executed against Production in RC1C.
 
 ---
 
-## RC1D technical-freeze foundation evidence
+## RC1E control-plane correction evidence
 
 **Current status:** RC1C CORRECTION: **CONTROLLER ACCEPTED** at
-`5b518d16f42436c608f2c6fb4422482d6b72444d`; RC1D TECHNICAL-FREEZE FOUNDATION:
-**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
+`5b518d16f42436c608f2c6fb4422482d6b72444d`.
+
+- RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**
+- RC1D OLD-SCHEMA, REPLAY AND CHECKSUM EVIDENCE: **ACCEPTED**
+- RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**
+- RC1D BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**
+- RC1E CONTROL-PLANE CORRECTION: **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**
+- RC1 OPERATIONAL READINESS: **NO-GO**
+
 RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
 **NO-GO**; **DO NOT MERGE**.
 
-RC1D is a code-only foundation. No Production preflight, migration, cloud-ledger change, Supabase
+RC1E is a code-only correction. No Production preflight, migration, cloud-ledger change, Supabase
 branch, Vercel change, Resend change, worker invocation, backup, Storage copy, restoration, customer
 data access or merge occurred.
 
@@ -796,14 +803,16 @@ No accepted behaviour migration payload is changed.
 ### Freeze-bootstrap and enforcement manifest
 
 `supabase/migrations/20260722120000_rc1_operational_freeze_bootstrap.sql` has SHA-256
-`aa8f094359957d8313eae74db05bf84d8bbc6d49e62bb63b1af49294273e6bc7`. It applies in one
+`68696811bf71e21a957d961a48d277f93980d0f83b3463d2d495708a15854006`. It applies in one
 transaction and creates:
 
 - `rc1_operation_freeze_state`, initially `FROZEN` at epoch 1, and
-  `rc1_operation_freeze_audit`;
-- 11 controlled `SECURITY DEFINER` functions, including status, fail-closed surface enforcement,
-  AAL2 platform-admin activation/release, direct-state-write protection, relation guard installation
-  and future recognized-relation installation;
+  `rc1_operation_freeze_audit`, plus the inaccessible one-use
+  `rc1_certification_secret_write_tokens` capability table;
+- 12 controlled `SECURITY DEFINER` functions, including status, fail-closed surface enforcement,
+  AAL2 platform-admin activation/release, the frozen certification-secret provisioner,
+  direct-state-write protection, relation guard installation and future recognized-relation
+  installation;
 - 40 authoritative relation-guard triggers, including report/enquiry request state, legacy manual
   delivery, Storage and private runtime-secret state; and
 - one DDL event trigger that adds guards to recognized future relations.
@@ -812,6 +821,28 @@ The state tables use RLS plus forced RLS and expose no direct mutation grant. `s
 older direct-DML paths do not bypass the relation guards. Unknown surfaces fail closed. Release
 requires AAL2, active platform-admin authority, reason, exact epoch, nonzero SHA-256 evidence and no
 active canary record. Postflight pins every object and trigger fingerprint.
+
+RELEASED state is now explicit and fail closed: all release timestamps and fingerprints are
+non-null, all fingerprints have the exact lowercase SHA-256 shape, release evidence is not all
+zeroes, and both canary fields are absent. Runtime tests first prove 11 malformed writes are rejected
+by constraints, then deliberately remove the exact constraints/NOT NULL controls in disposable
+PostgreSQL and prove status plus operation-open enforcement stop for missing row, null/malformed/
+zero release fields, inconsistent timestamps, canary mismatch, invalid/missing state and zero/null
+epoch. The transaction rollback restores the exact constraints.
+
+The dedicated frozen path is
+`rc1_provision_certification_runtime_secret(text,text,text,bigint)` via
+`POST /score/api/admin/rc1-certification/runtime-secret`. It is authenticated-only and internally
+requires active `platform_admin`, AAL2, exact frozen epoch, meaningful reason, no canary, one of two
+approved keys, a value of at least 32 characters and values distinct across the two keys. A
+transaction-bound token is consumed by the exact `phase14_private.runtime_secrets` INSERT/UPDATE;
+the marker alone, `service_role`, another key/relation or the existing
+`set_phase14_runtime_secret` cannot use it. Responses and RC1 audit rows contain fingerprints only.
+
+Supported control routes are `GET /score/api/admin/rc1-freeze/status`, `POST .../activate` and
+`POST .../release`. They require an authenticated AAL2 platform admin and call only their dedicated
+safe RPC. The release route requires explicit application mode `released`, exact epoch, meaningful
+reason and nonzero evidence; the database remains frozen until that call succeeds.
 
 ### Application and compatibility proof
 
@@ -854,11 +885,10 @@ workflow without replacing major workflow components. A superficial header, GUC,
 global-state or service-role bypass is rejected. `33-rc1-canary-transaction-design.md` records the
 safest options. CLOUD CERTIFICATION remains **NO-GO**.
 
-### Non-blocking housekeeping
+### Retired-migration housekeeping reconciliation
 
-For the next otherwise-authorised commit, remove the duplicated retirement notice appended at the
-end of `supabase/retired-migrations/0011_phase10_pdf_report_engine_additions.sql` while retaining the
-single retirement header at the top. Do not create a standalone commit for this cosmetic change.
+`supabase/retired-migrations/0011_phase10_pdf_report_engine_additions.sql` is already correct: it has
+one retirement header at the top and ends at `commit;`. It is unchanged in RC1E.
 
 ### RC1D exact-head security-scan correction
 

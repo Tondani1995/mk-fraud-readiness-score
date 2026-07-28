@@ -114,27 +114,43 @@ select 'freeze_state_result|' || case when
   and (select count(*) from public.rc1_operation_freeze_audit
        where event_type='BOOTSTRAP_FROZEN' and freeze_epoch=1) = 1
   and (select count(*) from public.rc1_operation_freeze_audit) = 1
+  and (select count(*) from public.rc1_certification_secret_write_tokens) = 0
 then 'PASS' else 'STOP' end;
 
 with expected(key,value) as (
   select key,value from jsonb_each_text(:'rc1_approved_freeze_table_fingerprints_json'::jsonb)
 ), actual(key,value) as (
   select c.relname,
-    md5(string_agg(
-      a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
-      || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
-      E'\n' order by a.attnum
-    ))
+    md5(
+      string_agg(
+        a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
+        || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
+        E'\n' order by a.attnum
+      )
+      || E'\n--constraints--\n'
+      || coalesce((
+        select string_agg(
+          con.conname || '|' || pg_get_constraintdef(con.oid, true),
+          E'\n' order by con.conname
+        )
+        from pg_constraint con
+        where con.conrelid=c.oid
+      ), '')
+    )
   from pg_class c
   join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
   left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
   where c.relnamespace='public'::regnamespace
-    and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
-  group by c.relname
+    and c.relname in (
+      'rc1_operation_freeze_state',
+      'rc1_operation_freeze_audit',
+      'rc1_certification_secret_write_tokens'
+    )
+  group by c.oid,c.relname
 )
 select 'freeze_table_fingerprint_result|' || case when
-  (select count(*) from expected)=2
-  and (select count(*) from actual)=2
+  (select count(*) from expected)=3
+  and (select count(*) from actual)=3
   and not exists (
     select 1 from expected e full join actual a using(key)
     where e.value is distinct from a.value
@@ -154,7 +170,8 @@ with expected(key,value) as (
     and p.proname in (
       'rc1_is_known_operation_surface','rc1_surface_for_relation','rc1_freeze_status',
       'rc1_require_operation_open','rc1_require_platform_admin','rc1_guard_freeze_state_write',
-      'rc1_activate_freeze','rc1_release_freeze','rc1_guard_authoritative_mutation',
+      'rc1_activate_freeze','rc1_release_freeze','rc1_provision_certification_runtime_secret',
+      'rc1_guard_authoritative_mutation',
       'rc1_install_relation_guard','rc1_install_new_relation_guards'
     )
 ), hardened as (
@@ -164,7 +181,8 @@ with expected(key,value) as (
     and p.proname in (
       'rc1_is_known_operation_surface','rc1_surface_for_relation','rc1_freeze_status',
       'rc1_require_operation_open','rc1_require_platform_admin','rc1_guard_freeze_state_write',
-      'rc1_activate_freeze','rc1_release_freeze','rc1_guard_authoritative_mutation',
+      'rc1_activate_freeze','rc1_release_freeze','rc1_provision_certification_runtime_secret',
+      'rc1_guard_authoritative_mutation',
       'rc1_install_relation_guard','rc1_install_new_relation_guards'
     )
     and p.prosecdef
@@ -172,9 +190,9 @@ with expected(key,value) as (
       where cfg like 'search_path=%' limit 1),'UNSET')='""'
 )
 select 'freeze_function_fingerprint_result|' || case when
-  (select count(*) from expected)=11
-  and (select count(*) from actual)=11
-  and (select matches from hardened)=11
+  (select count(*) from expected)=12
+  and (select count(*) from actual)=12
+  and (select matches from hardened)=12
   and not exists (
     select 1 from expected e full join actual a using(key)
     where e.value is distinct from a.value
@@ -212,13 +230,21 @@ with flags as (
   select c.relname,c.relrowsecurity,c.relforcerowsecurity
   from pg_class c
   where c.relnamespace='public'::regnamespace
-    and c.relname in ('rc1_operation_freeze_state','rc1_operation_freeze_audit')
+    and c.relname in (
+      'rc1_operation_freeze_state',
+      'rc1_operation_freeze_audit',
+      'rc1_certification_secret_write_tokens'
+    )
 )
 select 'freeze_rls_grant_result|' || case when
-  (select count(*) from flags)=2
-  and (select count(*) from flags where relrowsecurity and relforcerowsecurity)=2
+  (select count(*) from flags)=3
+  and (select count(*) from flags where relrowsecurity and relforcerowsecurity)=3
   and not exists (select 1 from pg_policies where schemaname='public'
-    and tablename in ('rc1_operation_freeze_state','rc1_operation_freeze_audit'))
+    and tablename in (
+      'rc1_operation_freeze_state',
+      'rc1_operation_freeze_audit',
+      'rc1_certification_secret_write_tokens'
+    ))
   and not has_table_privilege('public','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
   and not has_table_privilege('anon','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
   and not has_table_privilege('authenticated','public.rc1_operation_freeze_state','SELECT,INSERT,UPDATE,DELETE')
@@ -227,6 +253,10 @@ select 'freeze_rls_grant_result|' || case when
   and not has_table_privilege('anon','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
   and not has_table_privilege('authenticated','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
   and not has_table_privilege('service_role','public.rc1_operation_freeze_audit','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('public','public.rc1_certification_secret_write_tokens','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('anon','public.rc1_certification_secret_write_tokens','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('authenticated','public.rc1_certification_secret_write_tokens','SELECT,INSERT,UPDATE,DELETE')
+  and not has_table_privilege('service_role','public.rc1_certification_secret_write_tokens','SELECT,INSERT,UPDATE,DELETE')
   and not has_function_privilege('public','public.rc1_freeze_status()','EXECUTE')
   and not has_function_privilege('anon','public.rc1_freeze_status()','EXECUTE')
   and has_function_privilege('authenticated','public.rc1_freeze_status()','EXECUTE')
@@ -237,6 +267,10 @@ select 'freeze_rls_grant_result|' || case when
   and not has_function_privilege('service_role','public.rc1_activate_freeze(text)','EXECUTE')
   and has_function_privilege('authenticated','public.rc1_release_freeze(text,text,bigint)','EXECUTE')
   and not has_function_privilege('service_role','public.rc1_release_freeze(text,text,bigint)','EXECUTE')
+  and has_function_privilege('authenticated','public.rc1_provision_certification_runtime_secret(text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('public','public.rc1_provision_certification_runtime_secret(text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('anon','public.rc1_provision_certification_runtime_secret(text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('service_role','public.rc1_provision_certification_runtime_secret(text,text,text,bigint)','EXECUTE')
 then 'PASS' else 'STOP' end;
 
 with expected(table_name, column_name) as (

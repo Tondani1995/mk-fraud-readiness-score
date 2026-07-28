@@ -1,6 +1,8 @@
 # RC1 Abort and Forward-Repair Matrix
 
-**Status:** Approved as a decision template; no Production change is authorised by this document.
+**Status:** RC1E CONTROL-PLANE CORRECTION: **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**;
+RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH:
+**NO-GO**; **DO NOT MERGE**. No Production change is authorised by this document.
 **Business owner:** Tondani Netili. **Technical executor:** Codex only after explicit owner/controller
 approval. The freeze remains active after every abort.
 
@@ -23,6 +25,8 @@ separately tested restoration procedure is approved by the owner/controller.
 | Cannot return provider mode to disabled | Keep freeze active; do not release | No default rollback | Restore disabled environment/control state forward | Environment state confirmation without secret values | Tondani / Codex after approval | Disabled state independently confirmed |
 | Cannot confirm freeze remains effective | Stop all steps; no canary or worker | No | Repair/add freeze gate before any continuation | Route/RPC/worker gate evidence | Tondani / Codex after approval | Every mutation surface fails closed |
 | Application/database freeze disagreement | Stop all traffic and keep both layers frozen | No | Repair the disagreeing layer and repeat old-schema plus postflight proofs | Application mode, non-PII freeze status, epoch and evidence fingerprint | Tondani / Codex after approval | Both layers report the same approved frozen state |
+| Malformed or missing release state/epoch/evidence | Treat as frozen; stop release and every mutation | No | Forward-correct the control row/function through separately reviewed code; never hand-edit the row or ledger | Constraint failure, safe status error class and exact object fingerprints | Tondani / Codex after approval | Constraint and defence-in-depth runtime suites pass and controller accepts the corrected manifest |
+| Certification-secret control attempts to widen the freeze | Stop provisioning; preserve `FROZEN`; do not retry through the generic route | No | Diagnose the exact one-use token/RPC/trigger path and prepare a reviewed forward fix | Safe RPC error, epoch, audit-event count, token-row count and unchanged business aggregates | Tondani / Codex after approval | Generic route and direct DML remain blocked; one-use path and post-provision evidence pass |
 | Canary cannot be transactionally constrained | Do not authorize or execute a canary; keep certification NO-GO | No | Implement and separately approve one design from document 33 | Design decision, disposable proof, one-use and scope evidence | Tondani / Codex after approval | A genuine transactional single-use boundary passes controller review |
 
 For every abort, record: trigger timestamp, last successful step, aggregate data-state comparison,

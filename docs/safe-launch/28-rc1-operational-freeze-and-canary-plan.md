@@ -1,6 +1,8 @@
 # RC1 Operational Freeze and Canary Plan
 
-**Decision status:** RC1C CORRECTION: **CONTROLLER ACCEPTED**; RC1D TECHNICAL-FREEZE FOUNDATION:
+**Decision status:** RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**; RC1D OLD-SCHEMA,
+REPLAY AND CHECKSUM EVIDENCE: **ACCEPTED**; RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**;
+RC1D BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**; RC1E CONTROL-PLANE CORRECTION:
 **CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
 RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; **DO NOT MERGE**.
 The foundation is implemented in source and disposable tests only. No Production freeze or cloud
@@ -105,3 +107,30 @@ No genuine canary bypass is implemented. The current multi-request application/p
 workflow cannot bind a one-time authorization transactionally across pooled HTTP requests. The
 strict STOP and safest design options are recorded in
 `33-rc1-canary-transaction-design.md`. CLOUD CERTIFICATION remains **NO-GO**.
+
+## RC1E supported freeze-control sequence
+
+The dedicated status, activation and release routes remain reachable while ordinary business
+mutations are frozen. All require an authenticated AAL2 `platform_admin`; they expose only safe
+state, epoch, timestamp and fingerprint fields.
+
+Activation/re-freeze order:
+
+1. Set application mode exactly `frozen` and redeploy the exact approved SHA.
+2. Verify all 34 ordinary mutation routes block.
+3. Invoke `POST /score/api/admin/rc1-freeze/activate` with a meaningful reason.
+4. Verify application and database both report `FROZEN`.
+
+Final release order:
+
+1. Keep the database `FROZEN`.
+2. Set application mode exactly `released` and redeploy the same exact SHA.
+3. Verify operations remain frozen because the database is still `FROZEN`.
+4. Invoke `POST /score/api/admin/rc1-freeze/release` with exact epoch, meaningful reason and valid
+   nonzero evidence.
+5. Verify the database reports `RELEASED`; operations open only when both layers agree.
+
+Certification HMAC provisioning does not release either layer. While both remain frozen, the owner
+uses only `POST /score/api/admin/rc1-certification/runtime-secret`. Its one-use transaction token
+permits one approved runtime-secret row and no other mutation. The ordinary Phase 14 secret route,
+workers, webhooks, canary paths and all business surfaces remain frozen.

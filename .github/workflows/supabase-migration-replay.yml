@@ -131,6 +131,11 @@ jobs:
           MK_RC1_OPERATION_FREEZE_MODE: frozen
         run: npm run rc1:test-old-schema-freeze
 
+      - name: Prove AAL2 RC1 control-plane routes remain narrow
+        env:
+          MK_RC1_OPERATION_FREEZE_MODE: frozen
+        run: npm run rc1:test-control-plane-routes
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -145,7 +150,7 @@ jobs:
           supabase db --help | tee tmp/migration-replay/supabase-db-help.txt
           supabase db start --help | tee tmp/migration-replay/supabase-db-start-help.txt
 
-      - name: Run freeze-bootstrap enforcement and RC1 preflight/postflight disposable harness
+      - name: Run malformed-state, frozen-secret and RC1 pre/postflight disposable harness
         env:
           DATABASE_URL: ''
           DIRECT_URL: ''

@@ -99,25 +99,27 @@
   "freeze_bootstrap": {
     "version": "20260722120000",
     "name": "rc1_operational_freeze_bootstrap",
-    "migration_sha256": "aa8f094359957d8313eae74db05bf84d8bbc6d49e62bb63b1af49294273e6bc7",
+    "migration_sha256": "68696811bf71e21a957d961a48d277f93980d0f83b3463d2d495708a15854006",
     "initial_state": "FROZEN",
     "initial_epoch": 1,
     "application_mode_required_during_cutover": "frozen",
     "canary_bypass": "NOT_IMPLEMENTED_STRICT_STOP",
     "table_fingerprints": {
-      "rc1_operation_freeze_audit": "f898c5b3c98076a030b4fb6dd2325deb",
-      "rc1_operation_freeze_state": "e3e37b3cc99fa8e5919b870e6338465b"
+      "rc1_certification_secret_write_tokens": "35f0ebd75c9f3ebf788b0bf6a314a33e",
+      "rc1_operation_freeze_audit": "a83ca136a9e65dfd976afa7a61c6fd3c",
+      "rc1_operation_freeze_state": "62bc5ad7e94bb9410071d14102535287"
     },
     "function_fingerprints": {
       "rc1_is_known_operation_surface(text)": "499d8a23e973bd1236aeb1b6a7024681",
       "rc1_surface_for_relation(text,text)": "e8e936bf67b845f896cad6fd878bfb26",
-      "rc1_freeze_status()": "834d87e78cf34beee98cdbee959b5474",
-      "rc1_require_operation_open(text)": "51f04563d23f46e0a853f4ac98263c49",
+      "rc1_freeze_status()": "23a9c885e272c9254e41d0e2eac5943b",
+      "rc1_require_operation_open(text)": "0d9eeb53c3e2dda89959b7117675212f",
       "rc1_require_platform_admin(boolean)": "76772f17ca0b3e2375231ace97e425df",
       "rc1_guard_freeze_state_write()": "be3138736cbbd61db333a8e69b3860f1",
       "rc1_activate_freeze(text)": "ca56aaef210c1ac0fa4b722a1e44ee5a",
       "rc1_release_freeze(text,text,bigint)": "8f323d159e84fb5a8fccf8d34070405b",
-      "rc1_guard_authoritative_mutation()": "8412b3ae306b3f67baef7be77c12be1b",
+      "rc1_provision_certification_runtime_secret(text,text,text,bigint)": "a3c89038f9515b10bb1ccfb902da0ede",
+      "rc1_guard_authoritative_mutation()": "c1a338fb73ca017d5021e17e0a254ee9",
       "rc1_install_relation_guard(text,text)": "b7c4a30e1c3cd697fe29a43868ef849f",
       "rc1_install_new_relation_guards()": "315a99b25e5812006c86069ad248f361"
     },
