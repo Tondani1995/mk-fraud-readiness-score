@@ -1,13 +1,11 @@
 # RC1 Production-Change Runbook
 
-**Status:** RC1D APPLICATION FREEZE AND ROUTE FOUNDATION: **ACCEPTED**; RC1D OLD-SCHEMA, REPLAY
-AND CHECKSUM EVIDENCE: **ACCEPTED**; RC1D CANARY STRICT-STOP DECISION: **ACCEPTED**; RC1D
-BOOTSTRAP AND CONTROL PLANE: **CORRECTIONS REQUIRED**; RC1E CONTROL-PLANE CORRECTION:
-**CODE COMPLETE — CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**;
-RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH: **NO-GO**;
-**DO NOT MERGE**.
+**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME AUTOMATIC FULFILMENT:
+**CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**; RC
+MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
+**NO-GO**; **DO NOT MERGE**.
 
-**Accepted RC1C head:** `5b518d16f42436c608f2c6fb4422482d6b72444d`.
+**Accepted and locked RC1 base:** `6550c05fe866a1880f4fe6e21b8ef2baa43301a8`.
 
 This is an executable runbook for a future, separately authorised Production-change event. It is
 not authorisation to execute. Codex has no authority to waive, reinterpret or continue past a
@@ -24,8 +22,9 @@ are satisfied.
 - Forward-repair technical executor: **Codex only after explicit owner/controller approval**.
 - Production and the cloud migration ledger are unchanged by this preparation commit.
 - No customer-identifying data may appear in console output, committed evidence, screenshots or git.
-- The future cutover allowlist contains the freeze bootstrap followed by the seven accepted
-  behaviour migrations listed in §5. The seven accepted payloads remain byte-identical.
+- The future cutover allowlist contains the freeze bootstrap, the seven accepted behaviour
+  migrations and the additive near-real-time fulfilment correction listed in §5. The seven accepted
+  payloads remain byte-identical.
 
 Each step below records: actor, exact action, expected result, retained evidence, stop condition and
 whether it changes cloud state.
@@ -35,15 +34,15 @@ whether it changes cloud state.
 **Actor:** Tondani Netili, then Codex.
 
 **Exact action:** Confirm the PR is open, draft and DO NOT MERGE; confirm the accepted preparation
-SHA; confirm all six established CI workflows are green at that SHA; confirm the eight-file allowlist;
-confirm this runbook, the freeze plan, the manual operating model, the anonymised 18-order register,
+SHA; confirm all six established CI workflows are green at that SHA; confirm the nine-file allowlist;
+confirm this runbook, the freeze plan, the exception-only operating model, the anonymised 18-order register,
 the abort matrix and the evidence requirements are the versions approved for the event.
 
 **Expected result:** The controller records a dated GO to begin only the preflight sequence, not a
 GO to apply migrations.
 
 **Evidence retained:** PR URL, exact SHA, six workflow links/results, signed controller approval,
-runbook version and eight-file allowlist.
+runbook version and nine-file allowlist.
 
 **Stop condition:** Any SHA mismatch, non-green workflow, closed/non-draft PR, missing approval or
 unexpected file in the allowlist.
@@ -132,7 +131,7 @@ Required variables:
 - `RC1_EXPECTED_APPLICATION_FREEZE_MODE=frozen`
 
 Compare the result with the accepted readiness inventory: 34 ledger rows, newest
-`20260721150808`, none of the pending eight rows, 18 payment-received orders, classifications 2/13/3, no
+`20260721150808`, none of the pending nine rows, 18 payment-received orders, classifications 2/13/3, no
 active generation or delivery lease, zero `email_provider_events`, and the complete historical
 `email_events` status aggregate `queued=71`, `recorded_disabled=2`, `sent=2` with total 75 and
 approved deterministic fingerprint. The database-visible provider mode remains a separate
@@ -151,7 +150,7 @@ the approved baseline; do not investigate by mutating Production.
 
 **Cloud state:** No.
 
-## 5. Eight-migration execution order
+## 5. Nine-migration execution order
 
 **Status:** No migration command is approved in this RC1D cycle.
 
@@ -168,22 +167,22 @@ The safest executable alternative for a future controller-authorised run is:
 2. Confirm the linked project through that tool's supported command and record only the project
    reference, region and connection target fingerprint. Do not continue if the linked project
    is not the intended Production project.
-3. In a disposable staging directory, copy only the eight exact migration files listed below.
-   Verify the directory contains exactly eight `.sql` files, the expected `(version,name)` pairs,
+3. In a disposable staging directory, copy only the nine exact migration files listed below.
+   Verify the directory contains exactly nine `.sql` files, the expected `(version,name)` pairs,
    and the approved SHA-256 file manifest. Do not place canonical-history files in this staging
    directory, so a previously applied file cannot be selected for rerun.
 4. Use only the dry-run command and application command printed by that installed tool's help.
    The exact command strings must be captured in the evidence bundle; this package intentionally
    leaves them **unapproved** because the executable is absent. If the runner has no supported
-   way to target the linked project while consuming only the eight-file staging directory, STOP.
+   way to target the linked project while consuming only the nine-file staging directory, STOP.
 5. Before application, require the read-only preflight to prove 34 rows, newest
-   `20260721150808`, no pending eight versions, the approved RPC baseline and the protected-state
+   `20260721150808`, no pending nine versions, the approved RPC baseline and the protected-state
    fingerprint. After each successful file, require one matching ledger row and the per-step
    object manifest.
 6. Run with the executor's fail-fast mode, no automatic retry, and a trap that records the first
    failing file. Never continue after an error and never manually insert a ledger row.
-7. The eight-file staging manifest plus the postflight check for exactly 42 rows, eight exact pairs,
-   no duplicate version and no version beyond the approved preflight boundary prevents a ninth or
+7. The nine-file staging manifest plus the postflight check for exactly 43 rows, nine exact pairs,
+   no duplicate version and no version beyond the approved preflight boundary prevents a tenth or
    unlisted migration. If the tool can still read outside the staging directory, or cannot prove
    that constraint, do not apply anything.
 
@@ -197,20 +196,23 @@ The safest executable alternative for a future controller-authorised run is:
 6. `20260724180000_release_c_closure_delivery_exceptions.sql`
 7. `20260725090000_release_c_runtime_secret_admin_provisioning.sql`
 8. `20260725150000_release_d_operational_alert_lifecycle.sql`
+9. `20260728120000_rc1_near_real_time_automatic_fulfilment.sql`
 
-The bootstrap migration is the only new payload in RC1D. The seven behaviour migrations are guarded
-by fixed SHA-256 checks in local verification and all six established workflows. None is applied by
-this RC1D code-only cycle.
+The seven accepted behaviour migrations remain guarded by fixed SHA-256 checks in local verification
+and all six established workflows. The ninth file is the new additive correction migration, whose
+SHA-256 is recorded in the machine-readable manifest and document 34. None is applied by this
+code-only cycle.
 
 ## 6. Schema and RPC postflight
 
 **Actor:** Codex; Tondani Netili reviews the result.
 
 **Exact action:** Run `scripts/rc1-production-postflight.sql` read-only with the freeze-start timestamp.
-Verify all eight ledger rows exactly once and exactly 42 total rows; verify the bootstrap tables,
-11 functions, 40 relation-guard triggers and event trigger; then verify required tables, columns,
-indexes, RLS/grants, all listed RPC signatures, `SECURITY DEFINER` and explicit search-path controls,
-durable fulfilment, secure customer-access, runtime-secret and operational-alert capabilities.
+Verify all nine ledger rows exactly once and exactly 43 total rows; verify the bootstrap tables,
+the relation-guard controls and event trigger; then verify required tables, 51 migration-derived
+columns, 15 indexes, RLS/grants, all 35 listed RPC signatures, `SECURITY DEFINER` and explicit
+search-path controls, durable fulfilment, exact-attempt dispatch, automatic release, exact delivery,
+secure customer-access, runtime-secret and operational-alert capabilities.
 
 **Expected result:** All object and grant result lines are `PASS`; the two `CURRENT_VERIFIED` orders
 remain protected; no worker lease exists; no duplicate current report exists; no new order, email,
@@ -266,7 +268,7 @@ activity.
 
 Sections 9–12 are the execution authority for the complete 19-step provider certification. Every
 step requires its own actor, action, expected result, evidence, stop condition and cloud-state record.
-No step is authorised during RC1E.
+No step is authorised during this near-real-time correction review cycle.
 
 | Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
 |---:|---|---|---|---|---|---|
@@ -394,11 +396,12 @@ repair action.
 
 ## Current decision
 
-This runbook does not issue RC MIGRATION/DEPLOYMENT GO. The three accepted RC1D components remain
-accepted; RC1E corrects the bootstrap/control plane in code and requires controller review. It has
-not been deployed or activated. The Supabase backup gate remains **CONDITIONAL PASS** under the supplemental owner
+This runbook does not issue RC MIGRATION/DEPLOYMENT GO. The RC1 technical base remains accepted; the
+near-real-time automatic fulfilment correction requires controller review and has not been deployed
+or activated. The Supabase backup gate remains **CONDITIONAL PASS** under the supplemental owner
 decision. The scheduled-backup fallback evidence, post-freeze logical-backup evidence, restricted
-Storage safeguard, controller acceptance of RC1D, viable transactionally constrained canary design,
-18-order approvals, worker/manual operating-model decision and all other §1–§16 gates remain
-owner/controller gates. RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION,
+Storage safeguard, viable transactionally constrained canary design, 18-order approvals and all
+other §1–§16 gates remain owner/controller gates. The final operating-model decision is now recorded
+in documents 29 and 34: manual payment verification, automatic downstream fulfilment, and manual
+exception management. RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION,
 PUBLIC LAUNCH and MERGE remain **NO-GO**.

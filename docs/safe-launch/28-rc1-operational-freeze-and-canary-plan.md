@@ -60,7 +60,7 @@ reviewable.
 3. Public intake, admin mutation, webhook and worker probes are run without submitting data.
 4. Email provider mode is confirmed disabled; Vercel worker cadence is confirmed unavailable.
 5. `scripts/rc1-production-preflight.sql` is run and all result lines are checked.
-6. Only after the freeze evidence is complete may the eight-migration runbook proceed.
+6. Only after the freeze evidence is complete may the nine-migration runbook proceed.
 
 ## Canary sequence
 
@@ -83,7 +83,7 @@ a fresh logical database
 backup created after freeze activation and successful final preflight immediately before migration 1,
 and a restricted safeguard of critical Storage objects including `generated-reports` and
 `payment-proofs`, with logical-backup timestamp/checksum, aggregate bucket object counts/size totals
-and protected recovery artifacts outside git. It also requires all eight ledger postflight checks, exact-SHA deployment,
+and protected recovery artifacts outside git. It also requires all nine ledger postflight checks, exact-SHA deployment,
 disabled-state smoke tests, canary closure, an anonymised 18-order action register and the complete
 GO evidence bundle. PITR remains disabled and no compute upgrade or add-on is approved. Any missing
 technical control remains a NO-GO.
@@ -101,7 +101,8 @@ The bootstrap migration creates an initial `FROZEN` singleton state, AAL2 platfo
 activate/release controls, non-PII audit records, relation-level guards that include `service_role`,
 and an event trigger for recognized future mutation tables. Forty relation guards include
 report/enquiry request state and legacy manual delivery. Disposable replay verifies 34 old-schema
-migrations, then bootstrap plus the seven accepted payloads, for exactly 42 ledger rows.
+migrations, then bootstrap plus the seven accepted payloads and the additive near-real-time
+fulfilment correction, for exactly 43 ledger rows.
 
 No genuine canary bypass is implemented. The current multi-request application/provider/Storage
 workflow cannot bind a one-time authorization transactionally across pooled HTTP requests. The

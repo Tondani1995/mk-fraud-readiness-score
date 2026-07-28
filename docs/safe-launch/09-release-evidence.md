@@ -911,3 +911,68 @@ requires explicit local-CI confirmation, database name `postgres`, an exact expe
 or `0025` historical ledger boundary, and absence of the real bootstrap table, RPC and ledger entry.
 It is not a Production bypass and does not weaken the final old-34-schema frozen proof. New
 exact-head results are required; the failed runs remain failed.
+
+## RC1 near-real-time automatic post-payment fulfilment correction
+
+**Accepted technical base:** `6550c05fe866a1880f4fe6e21b8ef2baa43301a8`.
+
+**Implementation commit:** `ff3a0aefa2abfec2dbcda2d5626eb9f0a5a3c109`, direct parent exactly
+the accepted technical base.
+
+**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME AUTOMATIC FULFILMENT:
+**CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD
+CERTIFICATION and PUBLIC LAUNCH: **NO-GO**; **DO NOT MERGE**.
+
+The final owner operating decision is now manual independent payment verification, automatic
+near-real-time downstream generation/release/delivery, and manual exception management. Marking an
+order paid is the last routine human approval. The once-daily Hobby-compatible Vercel cron remains
+enabled as delayed recovery; no cadence, plan, provider, cloud or Production setting changed.
+
+### Implementation evidence
+
+| Evidence | Result |
+|---|---|
+| Additive migration | `20260728120000_rc1_near_real_time_automatic_fulfilment.sql`; SHA-256 `f98bb7f5187da6f2f06de88d8e69f34877e8e9c3274967e6a8989624cb630668`; no accepted migration changed |
+| Immediate dispatch | Manual non-duplicate PAID confirmation returns the exact new attempt ID; `waitUntil()` invokes the existing worker using only the strictly validated exact `VERCEL_URL` deployment origin, that technical ID and a correlation UUID; no request-derived URL can reach the server-side fetch; dispatch failure preserves payment and queue state |
+| Exact claims | Service-role-only row-locking RPCs claim only the supplied eligible attempt and returned delivery authorisation; scheduled GET retains the accepted global claim RPCs |
+| Automatic release | Worker-owned completed attempt must pass verified payment, locked score, exact relationships, current-report uniqueness, commercial-quality evidence, verified private Storage, entitlement, recipient and suppression checks |
+| Shared delivery | Immediate and scheduled paths use one claim/token/message/provider/finalisation/retry/reconciliation implementation |
+| Exceptions | No customer send on a failed gate; safe deduplicated evidence and `admin@mkfraud.co.za` notification; provider-accepted/finalisation-uncertain state requires reconciliation before resend |
+| Duplicate prevention | Synthetic replay proves one attempt, report, email event, authorisation, token and provider send; duplicate payment/invocation creates no second object |
+| Freeze protection | Both immediate POST and scheduled GET stop at the RC1 worker freeze gate; underlying worker RPCs also require the operation to be open |
+| Protected orders | The synthetic 18-order 2/13/3 fixture and protected fingerprint remain byte-for-byte unchanged through pre/postflight |
+
+### Local verification
+
+- Dedicated near-real-time suite: **PASS, 24/24**.
+- Full disposable replay: **PASS, 43 migrations**, nine exact cutover versions, newest
+  `20260728120000`.
+- Accepted behaviour migration protection: **PASS**, all seven accepted payload checksums and the
+  freeze-bootstrap checksum unchanged.
+- Old-34-schema frozen compatibility, application-freeze routes and control-plane routes:
+  **PASS**.
+- Release B durable-fulfilment and Release C secure-delivery compatibility: **PASS**, with their
+  source checks following the new shared delivery module.
+- Release C runtime-secret and Release D operational-alert full local database replays:
+  **PASS**.
+- Lint, TypeScript and production build: **PASS**.
+- Dependency audit gate: **PASS**, zero unsuppressed Critical/High findings.
+- Local full-history gitleaks binary: unavailable; Security Scans remains an exact-head CI
+  requirement.
+- V7 Checkpoint F local PDF rendering completed, but its pre-existing near-empty-page visual
+  heuristic reported four candidate pages. No report-generation/rendering source was changed by
+  this correction; the authoritative exact-head V7 workflow result is still required and is not
+  presumed green.
+- The legacy worker-schedule certification gate correctly remains red against the intentionally
+  retained daily Hobby cron. This is expected under the owner decision: immediate dispatch is the
+  primary processor, while cron is delayed recovery.
+
+### Synthetic timing evidence
+
+The disposable harness passes the certification SLOs under normal local synthetic conditions:
+dispatch start under 10 seconds, report ready under 2 minutes, provider acceptance and delivered
+record under 3 minutes, and terminal/manual-review alert under 1 minute. These are certification
+targets, not customer promises. Real provider/Production timing remains untested and unauthorised.
+
+All six established GitHub workflows must complete successfully on the exact final documentation
+head before controller acceptance. Earlier-head evidence is not transferable.
