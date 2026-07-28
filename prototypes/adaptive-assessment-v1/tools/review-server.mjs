@@ -8,9 +8,9 @@
  */
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, normalize, resolve, extname } from 'node:path';
+import { dirname, normalize, resolve, extname } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, '..');
@@ -41,13 +41,17 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    const info = await stat(target).catch(() => null);
-    if (!info || !info.isFile()) {
+    // Read directly rather than stat-then-read: checking existence first and acting on
+    // the result afterwards is a time-of-check/time-of-use race. A single read that
+    // handles its own failure is both correct and simpler.
+    let body;
+    try {
+      body = await readFile(target);
+    } catch {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not found');
       return;
     }
 
-    const body = await readFile(target);
     res.writeHead(200, {
       'Content-Type': TYPES[extname(target)] || 'application/octet-stream',
       'Cache-Control': 'no-store',

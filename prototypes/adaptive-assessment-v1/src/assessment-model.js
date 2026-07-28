@@ -196,7 +196,6 @@ export const RECOMMENDATION_GROUPS = [
 export function buildAssessment(graph, answers, auditHistory = [], options = {}) {
   const scoreModel = options.scoreModel || 'A';   // 'A' = unknown scores zero; 'B' = unknown excluded + gate
   const { active, excluded, redirected } = graph.resolvePath(answers);
-  const redirectedFrom = new Set(redirected.map((r) => r.from));
 
   const controls = [];
 

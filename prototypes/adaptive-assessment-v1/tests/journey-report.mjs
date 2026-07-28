@@ -20,7 +20,7 @@ const ALL = [...JOURNEYS, J7_FULL_SCOPE];
 const results = ALL.map((journey) => {
   const graph = new AssessmentGraph(graphJson);
   const { answers, auditHistory } = runJourney(graph, journey);
-  const { active, excluded, redirected } = graph.resolvePath(answers);
+  const { active, redirected } = graph.resolvePath(answers);
   const result = buildAssessment(graph, answers, auditHistory);
 
   const startEstimate = graph.progress({}).minutesRemaining;
