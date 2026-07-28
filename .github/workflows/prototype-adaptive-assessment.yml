@@ -1,0 +1,105 @@
+# PROTOTYPE-ONLY CI for the adaptive assessment design prototype.
+#
+# Scope: prototypes/adaptive-assessment-v1/** and docs/adaptive-assessment/** only.
+# It never touches Production, Supabase, Vercel, migrations or the root security
+# workflows. The root dependency-audit and full-history secret-scan findings are
+# inherited platform issues and are deliberately NOT addressed here.
+name: Prototype — Adaptive Assessment
+
+on:
+  pull_request:
+    paths:
+      - 'prototypes/adaptive-assessment-v1/**'
+      - 'docs/adaptive-assessment/**'
+      - '.github/workflows/prototype-adaptive-assessment.yml'
+  push:
+    paths:
+      - 'prototypes/adaptive-assessment-v1/**'
+      - 'docs/adaptive-assessment/**'
+      - '.github/workflows/prototype-adaptive-assessment.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: prototypes/adaptive-assessment-v1
+
+jobs:
+  engine:
+    name: Engine and journey tests (Node, zero dependencies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run the engine suite
+        run: node --test tests/graph.test.mjs
+
+      - name: Generate the synthetic journey matrix
+        run: |
+          mkdir -p artifacts
+          node tests/journey-report.mjs | tee artifacts/journey-matrix.txt
+          node tests/journey-report.mjs --json > artifacts/journey-matrix.json
+
+      - name: Upload journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prototype-journey-evidence
+          path: prototypes/adaptive-assessment-v1/artifacts
+          if-no-files-found: warn
+
+  browsers:
+    name: Browser, accessibility and viewport tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - name: Check out the exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install nested prototype dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright browser and OS dependencies
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      # Covers, per browser:
+      #   viewports 320 / 390 / 768 / 1440, no horizontal scrolling,
+      #   keyboard navigation, focus order, dialog focus trapping,
+      #   reduced motion, 400% zoom reflow, axe-core WCAG checks,
+      #   save-failure recovery, resume, review and report-preview states.
+      - name: Run the browser suite
+        env:
+          PW_PROJECT: ${{ matrix.browser }}
+        run: npx playwright test --config=playwright.config.mjs
+
+      - name: Upload screenshots, traces and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prototype-browser-evidence-${{ matrix.browser }}
+          path: |
+            prototypes/adaptive-assessment-v1/screenshots
+            prototypes/adaptive-assessment-v1/test-results
+            prototypes/adaptive-assessment-v1/playwright-report
+          if-no-files-found: warn
+          retention-days: 14

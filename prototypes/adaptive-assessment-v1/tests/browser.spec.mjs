@@ -10,6 +10,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const VIEWPORTS = {
   '320': { width: 320, height: 640 },
@@ -20,10 +21,32 @@ const VIEWPORTS = {
 
 const shot = (name) => ({ path: `screenshots/${name}.png`, fullPage: true });
 
-/** Capture after entry animations have settled, so stills are not caught mid-fade. */
-async function capture(page, name) {
+/**
+ * Capture after entry animations have settled, so stills are not caught mid-fade.
+ * Only Chromium writes the canonical screenshot set; Firefox and WebKit run the
+ * same assertions but would otherwise overwrite each other's stills.
+ */
+async function capture(page, name, testInfo) {
   await page.waitForTimeout(420);
+  if (testInfo && testInfo.project.name !== 'chromium') return;
   await page.screenshot(shot(name));
+}
+
+/**
+ * Fail on any serious/critical axe violation.
+ * Waits for the entry animation to finish first: axe computes contrast from the
+ * rendered pixels, and a screen still fading in reports false contrast failures.
+ */
+async function expectNoAxeViolations(page, context) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState === 'finished' || a.playState === 'idle'),
+    null, { timeout: 5000 }).catch(() => {});
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  const serious = results.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
+  const summary = serious.map((v) => `${v.id} (${v.impact}) x${v.nodes.length}: ${v.help}`).join('\n');
+  expect(serious, `axe violations at ${context}:\n${summary}`).toEqual([]);
 }
 
 async function boot(page) {
@@ -32,24 +55,37 @@ async function boot(page) {
   await page.evaluate(() => window.__MK_PROTO__.reset());
 }
 
-/** Fill every active node deterministically, optionally injecting unknowns. */
-async function completeAll(page, { unknownEvery = 0 } = {}) {
-  await page.evaluate(({ unknownEvery }) => {
+/**
+ * Fill every active node.
+ * `useJourneyResponder` applies the loaded journey's own responder profile, which
+ * matters for J6 and J8 — filling them with a generic pattern would erase the very
+ * uncertainty behaviour those journeys exist to demonstrate.
+ */
+async function completeAll(page, { unknownEvery = 0, useJourneyResponder = true } = {}) {
+  await page.evaluate(({ unknownEvery, useJourneyResponder }) => {
     const g = window.__MK_PROTO__.getGraph();
     const s = window.__MK_PROTO__.getState();
+    const responders = window.__MK_PROTO__.responders;
+    const journeyId = s.journeyId;
+    const journey = journeyId
+      ? (window.__MK_PROTO__.journeys || []).find((j) => j.id === journeyId)
+      : null;
+    const responder = useJourneyResponder && journey ? responders[journey.responder] : null;
+
     let i = 0;
     for (;;) {
       i += 1;
       if (i > 400) break;
       const n = g.nextUnanswered(s.answers);
       if (!n) break;
-      const unknown = unknownEvery > 0 && i % unknownEvery === 0;
-      s.answers[n.id] = {
-        value: n.node.gateway_status === 'gateway' ? 'unknown' : (unknown ? 'unknown' : i % 6),
-        answeredAt: 'test'
-      };
+      let value;
+      if (n.node.gateway_status === 'gateway') value = 'unknown';
+      else if (responder) value = responder(n.id);
+      else if (unknownEvery > 0 && i % unknownEvery === 0) value = 'unknown';
+      else value = i % 6;
+      s.answers[n.id] = { value, answeredAt: 'test' };
     }
-  }, { unknownEvery });
+  }, { unknownEvery, useJourneyResponder });
 }
 
 async function clickAction(page, action, id) {
@@ -66,7 +102,7 @@ async function clickAction(page, action, id) {
 /* ------------------------------------------------------------- layout */
 
 for (const [label, size] of Object.entries(VIEWPORTS)) {
-  test(`layout is sound at ${label}px`, async ({ page }) => {
+  test(`layout is sound at ${label}px`, async ({ page }, testInfo) => {
     await page.setViewportSize(size);
     await boot(page);
 
@@ -75,7 +111,7 @@ for (const [label, size] of Object.entries(VIEWPORTS)) {
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `horizontal overflow at ${label}px`).toBeLessThanOrEqual(0);
 
-    await capture(page, `${label}-01-welcome`);
+    await capture(page, `${label}-01-welcome`, testInfo);
 
     await page.click('[data-action="begin"]');
     await page.waitForSelector('#q-title');
@@ -97,13 +133,13 @@ for (const [label, size] of Object.entries(VIEWPORTS)) {
         .filter((x) => x.h < 44));
     expect(tooSmall, `undersized targets at ${label}px`).toEqual([]);
 
-    await capture(page, `${label}-02-gateway-question`);
+    await capture(page, `${label}-02-gateway-question`, testInfo);
   });
 }
 
 /* ----------------------------------------------------------- keyboard */
 
-test('full keyboard operation with visible focus', async ({ page }) => {
+test('full keyboard operation with visible focus', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.click('[data-action="begin"]');
@@ -125,15 +161,31 @@ test('full keyboard operation with visible focus', async ({ page }) => {
   });
   expect(focusRing).not.toBeNull();
 
-  // The skip link is the first tab stop on a freshly-loaded document.
   await page.reload();
   await page.waitForFunction(() => Boolean(window.__MK_PROTO__?.getGraph()));
-  await page.keyboard.press('Tab');
-  const first = await page.evaluate(() => document.activeElement?.className);
-  expect(first).toContain('skip-link');
+
+  // The skip link must be the first focusable element in DOM order. This is the
+  // part the page controls, and it holds on every engine.
+  const firstFocusable = await page.evaluate(() => {
+    const f = document.querySelector(
+      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    return f ? String(f.className) : null;
+  });
+  expect(firstFocusable, 'skip link must be first in DOM order').toContain('skip-link');
+
+  // Whether Tab actually *reaches* it is a platform preference, not a page property.
+  // Safari's default keyboard model moves Tab between form controls only and skips
+  // links and buttons unless "Full Keyboard Access" is enabled, so this assertion is
+  // scoped to the engines that include links in the tab sequence.
+  // Real-Safari keyboard verification remains a pre-production gate — see doc 07.
+  if (testInfo.project.name !== 'webkit') {
+    await page.keyboard.press('Tab');
+    const focused = await page.evaluate(() => document.activeElement?.className);
+    expect(focused).toContain('skip-link');
+  }
 });
 
-test('unknown option is reachable by keyboard shortcut', async ({ page }) => {
+test('unknown option is reachable by keyboard shortcut', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.click('[data-action="begin"]');
@@ -153,7 +205,7 @@ test('unknown option is reachable by keyboard shortcut', async ({ page }) => {
 
 /* --------------------------------------------------------- save states */
 
-test('save-in-progress and save-failed states are presented', async ({ page }) => {
+test('save-in-progress and save-failed states are presented', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.click('[data-action="begin"]');
@@ -165,7 +217,7 @@ test('save-in-progress and save-failed states are presented', async ({ page }) =
   await expect(page.locator('#savebar')).toHaveAttribute('data-state', 'error', { timeout: 4000 });
   await expect(page.locator('#savebar-text')).toContainText('Not saved');
   await expect(page.locator('[data-action="retry-save"]')).toBeVisible();
-  await capture(page, '390-08-save-failed');
+  await capture(page, '390-08-save-failed', testInfo);
 
   // Recovery
   await page.click('#btn-simulate-fail');
@@ -173,7 +225,7 @@ test('save-in-progress and save-failed states are presented', async ({ page }) =
   await expect(page.locator('#savebar')).toHaveAttribute('data-state', 'saved', { timeout: 4000 });
 });
 
-test('answers survive a page refresh and resume at the same question', async ({ page }) => {
+test('answers survive a page refresh and resume at the same question', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.click('[data-action="begin"]');
@@ -185,7 +237,7 @@ test('answers survive a page refresh and resume at the same question', async ({ 
   await page.reload();
   await page.waitForFunction(() => Boolean(window.__MK_PROTO__?.getGraph()));
   await expect(page.locator('h1')).toContainText('exactly where you left it');
-  await capture(page, '390-07-resume');
+  await capture(page, '390-07-resume', testInfo);
 
   await page.click('[data-action="resume-continue"]');
   await page.waitForSelector('#q-title');
@@ -195,7 +247,7 @@ test('answers survive a page refresh and resume at the same question', async ({ 
 
 /* -------------------------------------------------------- invalidation */
 
-test('gateway change warns, requires confirmation and traps focus', async ({ page }) => {
+test('gateway change warns, requires confirmation and traps focus', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.evaluate(() => window.__MK_PROTO__.loadJourney('J2'));
@@ -208,7 +260,7 @@ test('gateway change warns, requires confirmation and traps focus', async ({ pag
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute('role', 'alertdialog');
   await expect(dialog.locator('#dlg-title')).toContainText(/remove \d+ answers?/);
-  await capture(page, '390-06-invalidation-warning');
+  await capture(page, '390-06-invalidation-warning', testInfo);
 
   // Escape cancels without destroying answers.
   const answersBefore = await page.evaluate(() => Object.keys(window.__MK_PROTO__.getState().answers).length);
@@ -230,7 +282,7 @@ test('gateway change warns, requires confirmation and traps focus', async ({ pag
 const JOURNEY_IDS = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'];
 
 for (const id of JOURNEY_IDS) {
-  test(`journey ${id} completes end to end in the browser`, async ({ page }) => {
+  test(`journey ${id} completes end to end in the browser`, async ({ page }, testInfo) => {
     await page.setViewportSize(VIEWPORTS['390']);
     await boot(page);
     await page.evaluate((j) => window.__MK_PROTO__.loadJourney(j), id);
@@ -247,38 +299,39 @@ for (const id of JOURNEY_IDS) {
     expect(summary.coveragePct).toBe(100);
     expect(summary.applicableCount).toBeGreaterThan(0);
 
-    if (id === 'J5') await capture(page, '390-09-review-excluded-areas');
-    if (id === 'J4') await capture(page, '390-10-review-outsourced');
+    if (id === 'J5') await capture(page, '390-09-review-excluded-areas', testInfo);
+    if (id === 'J4') await capture(page, '390-10-review-outsourced', testInfo);
 
     await page.locator('[data-action="submit"]').click();
     await expect(page.locator('h1')).toContainText('Thank you');
-    if (id === 'J2') await capture(page, '390-11-submitted');
+    if (id === 'J2') await capture(page, '390-11-submitted', testInfo);
   });
 }
 
 /* -------------------------------------------------------- desktop shots */
 
-test('desktop review and question capture', async ({ page }) => {
+test('desktop review and question capture', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['1440']);
   await boot(page);
   await page.evaluate(() => window.__MK_PROTO__.loadJourney('J4'));
   await page.waitForTimeout(400);
-  await capture(page, '1440-03-question');
+  await capture(page, '1440-03-question', testInfo);
   await completeAll(page, { unknownEvery: 7 });
   await clickAction(page, 'review');
   await expect(page.locator('h1')).toContainText('here is what we assessed');
-  await capture(page, '1440-04-review');
+  await capture(page, '1440-04-review', testInfo);
 });
 
-test('domain-complete transition is shown between areas', async ({ page }) => {
+test('domain-complete transition is shown between areas', async ({ page }, testInfo) => {
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);
   await page.evaluate(() => window.__MK_PROTO__.loadJourney('J5'));
   await page.waitForTimeout(300);
 
-  // Answer until a domain-complete screen appears.
+  // Answer until a domain-complete screen appears. The loop exits via `break`,
+  // so the header condition is the iteration cap only.
   let seen = false;
-  for (let i = 0; i < 120 && !seen; i += 1) {
+  for (let i = 0; i < 120; i += 1) {
     const screen = await page.evaluate(() => window.__MK_PROTO__.getState().screen);
     if (screen === 'domain-complete') { seen = true; break; }
     const has = await page.locator('.option').first().isVisible().catch(() => false);
@@ -287,12 +340,12 @@ test('domain-complete transition is shown between areas', async ({ page }) => {
     await page.waitForTimeout(560);
   }
   expect(seen, 'a domain-complete transition should occur').toBe(true);
-  await capture(page, '390-05-domain-complete');
+  await capture(page, '390-05-domain-complete', testInfo);
 });
 
 /* ------------------------------------------------------------- safety */
 
-test('prototype makes no network calls to production hosts', async ({ page }) => {
+test('prototype makes no network calls to production hosts', async ({ page }, testInfo) => {
   const external = [];
   page.on('request', (request) => {
     const url = request.url();
@@ -308,7 +361,165 @@ test('prototype makes no network calls to production hosts', async ({ page }) =>
   expect(external, `unexpected external requests: ${external.join(', ')}`).toEqual([]);
 });
 
-test('reduced motion is respected', async ({ page }) => {
+/* --------------------------------------------------------------- axe */
+
+test('axe: no serious or critical violations on the key screens', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await expectNoAxeViolations(page, 'welcome');
+
+  await page.click('[data-action="begin"]');
+  await page.waitForSelector('#q-title');
+  await expectNoAxeViolations(page, 'gateway question');
+
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J4'));
+  await completeAll(page, { unknownEvery: 7 });
+  await clickAction(page, 'review');
+  await expect(page.locator('h1')).toContainText('here is what we assessed');
+  await expectNoAxeViolations(page, 'review / report preview');
+
+  await page.locator('[data-action="submit"]').click();
+  await expect(page.locator('h1')).toContainText('Thank you');
+  await expectNoAxeViolations(page, 'submission confirmation');
+});
+
+test('axe: the invalidation dialog is accessible', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J2'));
+  await completeAll(page);
+  await clickAction(page, 'jump', 'G03');
+  await page.waitForSelector('#q-title');
+  await page.locator('input[value="none"]').click({ force: true });
+  await expect(page.locator('.dialog')).toBeVisible();
+  await expectNoAxeViolations(page, 'invalidation dialog');
+});
+
+/* ------------------------------------------------------ zoom / reflow */
+
+test('reflow at 400% zoom equivalent (320 CSS px wide) without horizontal scroll', async ({ page }) => {
+  // WCAG 1.4.10: content at 1280px zoomed to 400% must reflow into 320 CSS px
+  // with no two-dimensional scrolling.
+  await page.setViewportSize({ width: 320, height: 512 });
+  await boot(page);
+
+  const check = async (label) => {
+    const overflow = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `horizontal scrolling at 400% zoom on ${label}`).toBeLessThanOrEqual(0);
+  };
+
+  await check('welcome');
+  await page.click('[data-action="begin"]');
+  await page.waitForSelector('#q-title');
+  await check('question');
+
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J7'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+  await expect(page.locator('h1')).toContainText('here is what we assessed');
+  await check('review');
+
+  // Wide content (the scorecard) must not force the page to scroll sideways.
+  const bodyWidth = await page.evaluate(() => document.body.getBoundingClientRect().width);
+  expect(bodyWidth).toBeLessThanOrEqual(320);
+});
+
+/* ------------------------------------------- progressive profiling (UI) */
+
+test('at most five profile questions precede the first control question', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.click('[data-action="begin"]');
+  await page.waitForSelector('#q-title');
+
+  const seen = [];
+  for (let i = 0; i < 12; i += 1) {
+    const id = await page.evaluate(() => window.__MK_PROTO__.getState().currentId);
+    if (!id || !/^G\d+$/.test(id)) break;
+    seen.push(id);
+    await page.locator('.option').first().click();
+    await page.waitForTimeout(600);
+    const stillGateway = await page.evaluate(() => window.__MK_PROTO__.getState().currentId);
+    if (stillGateway === id) {           // high-impact gateway needs explicit Continue
+      await page.locator('[data-action="continue"]').click();
+      await page.waitForTimeout(500);
+    }
+  }
+  expect(seen.length, `profile phase asked ${seen.join(', ')}`).toBeLessThanOrEqual(5);
+
+  const current = await page.evaluate(() => window.__MK_PROTO__.getState().currentId);
+  expect(current).toMatch(/^D\d/);
+});
+
+test('domain gateway blocks introduce themselves before their domain', async ({ page }, testInfo) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J2'));
+  await page.waitForTimeout(400);
+
+  // Walk to the D3 gateway block and confirm the intro renders.
+  await page.evaluate(() => {
+    const s = window.__MK_PROTO__.getState();
+    s.currentId = 'G05'; s.screen = 'question';
+    if (!s.visited.includes('G05')) s.visited.push('G05');
+  });
+  await clickAction(page, 'jump', 'G05');
+  await page.waitForSelector('#q-title');
+  await expect(page.locator('[data-testid="gateway-block-intro"]')).toBeVisible();
+  await expect(page.locator('[data-testid="gateway-block-intro"]')).toContainText('operational fraud controls');
+  await capture(page, '390-12-domain-gateway-intro', testInfo);
+});
+
+/* ---------------------------------------- report preview presentation */
+
+test('review shows three separate measures, status and comparability', async ({ page }, testInfo) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J7'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+
+  await expect(page.locator('[data-testid="frs"]')).toBeVisible();
+  await expect(page.locator('[data-testid="coverage"]')).toBeVisible();
+  await expect(page.locator('[data-testid="visibility"]')).toBeVisible();
+  await expect(page.locator('[data-testid="report-status"]')).toBeVisible();
+  await expect(page.locator('[data-testid="comparability"]')).toContainText('should not be compared directly');
+  await expect(page.locator('[data-testid="exclusion-schedule"]')).toBeVisible();
+  await capture(page, '390-13-review-scope-and-measures', testInfo);
+});
+
+test('insufficient visibility is shown prominently and blocks a definitive conclusion', async ({ page }, testInfo) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J8'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+
+  await expect(page.locator('[data-testid="report-status"]')).toContainText('Insufficient visibility');
+  await expect(page.locator('[data-testid="limitations"]')).toBeVisible();
+
+  const status = await page.evaluate(() => window.__MK_PROTO__.getAssessment().reportStatus);
+  expect(status).toBe('INSUFFICIENT_VISIBILITY');
+  await capture(page, '390-14-insufficient-visibility', testInfo);
+});
+
+test('no recommendation is shown for an excluded control', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS['390']);
+  await boot(page);
+  await page.evaluate(() => window.__MK_PROTO__.loadJourney('J5'));
+  await completeAll(page);
+  await clickAction(page, 'review');
+
+  const leak = await page.evaluate(() => {
+    const a = window.__MK_PROTO__.getAssessment();
+    const excluded = new Set(a.excludedControls.map((c) => c.question_id));
+    return a.recommendations.filter((r) => excluded.has(r.question_id)).map((r) => r.question_id);
+  });
+  expect(leak).toEqual([]);
+});
+
+test('reduced motion is respected', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize(VIEWPORTS['390']);
   await boot(page);

@@ -145,8 +145,68 @@ export const JOURNEYS = [
       G14: 'unknown'
     },
     responder: 'uncertain'
+  },
+  {
+    id: 'J7',
+    name: 'Strong controls, one materially excluded weak domain',
+    blurb: 'Methodology stress test: good visible controls everywhere, but the whole third-party domain is declared out of scope.',
+    organisationName: 'Ridgeway Consulting (synthetic)',
+    gateways: {
+      G01: 'professional_services',
+      G02: 'medium',
+      G03: 'none',          // removes the entire D7 third-party domain from scope
+      G05: 'none',
+      G06: 'no',
+      G07: 'internal',
+      G08: 'yes',
+      G09: 'yes',
+      G10: 'no',
+      G11: 'no',
+      G12: 'no',
+      G13: 'yes',
+      G14: 'formal_delegation'
+    },
+    responder: 'strong',
+    purpose: 'Demonstrates that exclusion changes assessed scope and can change the percentage score. Compare against J7-FULL.'
+  },
+  {
+    id: 'J8',
+    name: 'High unknown, high apparent maturity',
+    blurb: 'Methodology stress test: answers strongly on a few controls and "I do not know" on the rest.',
+    organisationName: 'Kestrel Group (synthetic)',
+    gateways: {
+      G01: 'retail',
+      G02: 'medium',
+      G03: 'internal',
+      G04: 'internal_department',
+      G05: 'significant',
+      G06: 'yes',
+      G07: 'internal',
+      G08: 'yes',
+      G09: 'yes',
+      G10: 'yes',
+      G11: 'yes',
+      G12: 'yes',
+      G13: 'yes',
+      G14: 'formal_delegation'
+    },
+    responder: 'confidentButBlind',
+    purpose: 'Demonstrates that strong answers on a minority of controls cannot buy a definitive conclusion when visibility is low.'
   }
 ];
+
+/**
+ * Comparison fixture for J7: the SAME organisation answering honestly that it does
+ * use suppliers. Used by the mixed-score regression test to show what exclusion
+ * actually does to the percentage.
+ */
+export const J7_FULL_SCOPE = {
+  id: 'J7-FULL',
+  name: 'Ridgeway Consulting — full scope (comparison fixture)',
+  organisationName: 'Ridgeway Consulting (synthetic)',
+  gateways: { ...JOURNEYS.find((j) => j.id === 'J7').gateways, G03: 'internal', G04: 'internal_department' },
+  responder: 'strong'
+};
 
 /**
  * Deterministic responder profiles. Given a question id, return a maturity answer.
@@ -164,9 +224,16 @@ export const RESPONDERS = {
   weak: (qid) => [0, 1, 1, 2, 0, 2][stableHash(qid) % 6],
   moderate: (qid) => [2, 3, 3, 4, 2, 3][stableHash(qid) % 6],
   mixed: (qid) => [1, 4, 2, 5, 0, 3][stableHash(qid) % 6],
-  strong: (qid) => [4, 5, 4, 5, 3, 4][stableHash(qid) % 6],
+  // Strong everywhere EXCEPT the third-party domain, which is deliberately weak.
+  // This is what makes J7 a meaningful exclusion test: the domain that disappears
+  // is the one dragging the average down.
+  strong: (qid) => (/^(OV-)?D7/.test(qid) ? [0, 1, 0, 1, 2, 0][stableHash(qid) % 6]
+    : [4, 5, 4, 5, 3, 4][stableHash(qid) % 6]),
   // Answers "I do not know" for two out of every three questions.
-  uncertain: (qid) => (stableHash(qid) % 3 === 0 ? [1, 2, 0][stableHash(qid) % 3] : 'unknown')
+  uncertain: (qid) => (stableHash(qid) % 3 === 0 ? [1, 2, 0][stableHash(qid) % 3] : 'unknown'),
+  // Answers 5 on roughly one control in five and "I do not know" on the rest —
+  // the profile of a respondent trying to look mature without visibility.
+  confidentButBlind: (qid) => (stableHash(qid) % 5 === 0 ? 5 : 'unknown')
 };
 
 export function getJourney(id) {

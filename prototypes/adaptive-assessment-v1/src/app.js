@@ -10,6 +10,8 @@
 
 import { AssessmentGraph, whyAsking } from './engine.js';
 import { JOURNEYS, RESPONDERS } from './journeys.js';
+import { buildAssessment } from './assessment-model.js';
+import { reviewScreenHtml } from './review-screen.js';
 
 const STORAGE_KEY = 'mk-adaptive-assessment-prototype-v1';
 const SAVE_LATENCY_MS = 420;
@@ -34,6 +36,7 @@ const el = {
 let graph;
 let state;
 let simulateSaveFailure = false;
+let lastAssessment = null;   // most recent buildAssessment(), exposed for tests
 
 /* ------------------------------------------------------------------- state */
 
@@ -264,6 +267,12 @@ function renderQuestion() {
   const why = whyAsking(graph, node, state.answers);
   const current = state.answers[state.currentId]?.value;
 
+  // Progressive profiling: show the block intro on the first gateway of a block.
+  const block = isGateway ? graph.graph.gateway_blocks.find((b) => b.phase === node.phase) : null;
+  const firstOfBlock = block && graph.gateways
+    .filter((g) => g.phase === node.phase)
+    .findIndex((g) => g.question_id === node.question_id) === 0;
+
   const options = isGateway
     ? node.response_options.map((o) => optionHtml(o.value, o.label, null, current, o.value === 'unknown'))
     : [
@@ -286,6 +295,12 @@ function renderQuestion() {
         ${isGateway ? '<span class="proto-flag">Sets what we ask next</span>' : ''}
         ${isVariant ? '<span class="proto-flag">Third-party oversight</span>' : ''}
       </p>
+
+      ${firstOfBlock ? `
+        <div class="blockintro" data-testid="gateway-block-intro">
+          <span class="blockintro__title">${escapeHtml(block.title)}</span>
+          ${escapeHtml(block.intro)}
+        </div>` : ''}
 
       <h1 id="q-title" class="question__prompt">${escapeHtml(node.prompt)}</h1>
 
@@ -481,148 +496,53 @@ function renderDomainComplete(domainCode) {
 
 /* ------------------------------------------------- 19-20. final review */
 
+/* ------------------------------------------------- 19-20. final review */
+
 function renderReview() {
-  const { active, excluded, redirected } = graph.resolvePath(state.answers);
-  const profile = graph.applicabilityProfile(state.answers, state.auditHistory);
+  const result = buildAssessment(graph, state.answers, state.auditHistory);
+  const { active } = graph.resolvePath(state.answers);
 
   const scoredActive = active.filter((n) => n.node.gateway_status !== 'gateway');
-  const unanswered = scoredActive.filter((n) => state.answers[n.id]?.value === undefined);
-  const unknowns = scoredActive.filter((n) => state.answers[n.id]?.value === 'unknown');
-  const scoredExcluded = excluded.filter((e) => e.node.gateway_status !== 'gateway');
+  const decorate = (n) => ({
+    id: n.id,
+    node: n.node,
+    domainName: (graph.domainByCode.get(n.node.domain) || {}).name || ''
+  });
+  const unansweredNodes = scoredActive
+    .filter((n) => state.answers[n.id]?.value === undefined).map(decorate);
+  const unknownNodes = scoredActive
+    .filter((n) => state.answers[n.id]?.value === 'unknown').map(decorate);
 
-  // Group exclusions by reason so the customer sees *why*, not just *what*.
-  const byReason = new Map();
-  for (const e of scoredExcluded) {
-    if (!byReason.has(e.skip_reason_code)) byReason.set(e.skip_reason_code, { reason: e.reason, items: [] });
-    byReason.get(e.skip_reason_code).items.push(e);
-  }
+  lastAssessment = result;
 
-  const areas = graph.progress(state.answers).areas.filter((a) => a.code !== 'PROFILE');
-
-  setStage(`
-    <section aria-labelledby="review-title">
-      <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>Final review</p>
-      <h1 id="review-title" class="question__prompt">Before you submit, here is what we assessed.</h1>
-      <p class="question__guidance">
-        Check anything marked for attention. You can go back and change any answer.
-      </p>
-
-      <div class="statgrid">
-        <div class="stat"><div class="stat__value">${profile.applicableCount}</div><div class="stat__label">Questions that applied</div></div>
-        <div class="stat"><div class="stat__value">${profile.excludedCount}</div><div class="stat__label">Not applicable to you</div></div>
-        <div class="stat"><div class="stat__value">${unknowns.length}</div><div class="stat__label">"I do not know" answers</div></div>
-        <div class="stat"><div class="stat__value">${profile.coveragePct}%</div><div class="stat__label">Estimated completeness</div></div>
-      </div>
-
-      ${unanswered.length > 0 ? `
-        <div class="callout callout--error">
-          <span class="callout__icon" aria-hidden="true">!</span>
-          <span><strong>${unanswered.length} question${unanswered.length === 1 ? '' : 's'} still need${unanswered.length === 1 ? 's' : ''} an answer.</strong>
-          You can submit only once these are complete.</span>
-        </div>` : ''}
-
-      ${unknowns.length > 0 ? `
-        <div class="callout callout--warn">
-          <span class="callout__icon" aria-hidden="true">?</span>
-          <span><strong>${unknowns.length} answer${unknowns.length === 1 ? '' : 's'} recorded as "I do not know".</strong>
-          These are treated as uncertainty, not as controls being in place. A high number of these
-          will be reflected in your report as reduced confidence rather than as a weakness.</span>
-        </div>` : ''}
-
-      <div class="review__group">
-        <h2 class="review__heading">Areas assessed</h2>
-        ${areas.map((a) => `
-          <div class="rowitem">
-            <div class="rowitem__main">
-              <div class="rowitem__label">${escapeHtml(a.name)}</div>
-              <div class="rowitem__meta">${a.answered} of ${a.total} questions answered</div>
-            </div>
-            <span class="tag ${a.complete ? 'tag--ok' : 'tag--missing'}">${a.complete ? 'Complete' : 'Incomplete'}</span>
-          </div>`).join('')}
-      </div>
-
-      ${redirected.length > 0 ? `
-        <div class="review__group">
-          <h2 class="review__heading">Activities you outsource</h2>
-          <p class="question__guidance" style="font-size:0.8125rem">
-            Outsourcing moves the activity, not the risk. For these areas we assessed how you govern
-            the provider instead of assuming the risk no longer applies.
-          </p>
-          ${redirected.map((r) => {
-            const v = graph.get(r.to);
-            return `<div class="rowitem">
-              <div class="rowitem__main">
-                <div class="rowitem__label">${escapeHtml(truncate(v.prompt, 110))}</div>
-                <div class="rowitem__meta">Replaced the in-house equivalent (${escapeHtml(r.from)})</div>
-              </div>
-              <span class="tag tag--outsourced">Oversight</span>
-            </div>`;
-          }).join('')}
-        </div>` : ''}
-
-      ${byReason.size > 0 ? `
-        <div class="review__group">
-          <h2 class="review__heading">Areas excluded, and why</h2>
-          ${[...byReason.entries()].map(([code, group]) => `
-            <div class="rowitem">
-              <div class="rowitem__main">
-                <div class="rowitem__label">${escapeHtml(group.reason)}</div>
-                <div class="rowitem__meta">${group.items.length} question${group.items.length === 1 ? '' : 's'} not asked · reason code <code>${escapeHtml(code)}</code></div>
-              </div>
-              <span class="tag tag--excluded">Excluded</span>
-            </div>`).join('')}
-          <p class="question__guidance" style="font-size:0.8125rem;margin-top:0.75rem">
-            Excluded questions are removed from your result entirely. They do not count for you or
-            against you. If any of these are wrong, go back and correct the answer that caused them.
-          </p>
-        </div>` : ''}
-
-      ${unknowns.length > 0 ? `
-        <div class="review__group">
-          <h2 class="review__heading">Worth confirming before you submit</h2>
-          ${unknowns.slice(0, 8).map((n) => `
-            <div class="rowitem">
-              <div class="rowitem__main">
-                <div class="rowitem__label">${escapeHtml(truncate(n.node.prompt, 110))}</div>
-                <div class="rowitem__meta">${escapeHtml((graph.domainByCode.get(n.node.domain) || {}).name || '')}</div>
-              </div>
-              <button class="btn btn--quiet" data-action="jump" data-id="${escapeAttr(n.id)}" style="min-height:36px;padding:0.3rem 0.5rem">Revisit</button>
-            </div>`).join('')}
-          ${unknowns.length > 8 ? `<p class="rowitem__meta">…and ${unknowns.length - 8} more</p>` : ''}
-        </div>` : ''}
-
-      <div class="callout callout--info">
-        <span class="callout__icon" aria-hidden="true">i</span>
-        <span>Your score is calculated after submission and appears in your report. We do not show
-        the calculation here.</span>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn--ghost" data-action="back-to-questions">Back to questions</button>
-        <div class="actions__spacer"></div>
-        <button class="btn btn--primary" data-action="submit" ${unanswered.length > 0 ? 'disabled' : ''}>Submit assessment</button>
-      </div>
-    </section>
-  `);
+  setStage(reviewScreenHtml(result, {
+    escapeHtml, escapeAttr, truncate, unansweredNodes, unknownNodes
+  }));
 }
+
 
 /* ------------------------------------------------- 21. submission confirmed */
 
 function renderSubmitted() {
-  const profile = graph.applicabilityProfile(state.answers, state.auditHistory);
+  const result = buildAssessment(graph, state.answers, state.auditHistory);
+  lastAssessment = result;
   setStage(`
     <section aria-labelledby="done-title">
       <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>Submitted</p>
       <h1 id="done-title" class="question__prompt">Thank you. Your assessment is complete.</h1>
       <p class="question__guidance">
         We have everything we need. Your Essential Self-Assessment Report will be prepared from
-        these answers and the applicability profile below.
+        these answers and the assessed-scope schedule below.
       </p>
       <div class="statgrid">
-        <div class="stat"><div class="stat__value">${profile.applicableCount}</div><div class="stat__label">Questions assessed</div></div>
-        <div class="stat"><div class="stat__value">${profile.excludedCount}</div><div class="stat__label">Excluded as not applicable</div></div>
-        <div class="stat"><div class="stat__value">${profile.redirectedCount}</div><div class="stat__label">Assessed as third-party oversight</div></div>
-        <div class="stat"><div class="stat__value">${profile.coveragePct}%</div><div class="stat__label">Coverage</div></div>
+        <div class="stat"><div class="stat__value">${result.counts.applicable}</div><div class="stat__label">Controls assessed</div></div>
+        <div class="stat"><div class="stat__value">${result.counts.excluded}</div><div class="stat__label">Excluded as not applicable</div></div>
+        <div class="stat"><div class="stat__value">${result.assessmentCoverage}%</div><div class="stat__label">Assessment coverage</div></div>
+        <div class="stat"><div class="stat__value">${result.controlVisibility}%</div><div class="stat__label">Control visibility</div></div>
+      </div>
+      <div class="callout callout--info">
+        <span class="callout__icon" aria-hidden="true">i</span>
+        <span>${escapeHtml(result.comparabilityStatement)}</span>
       </div>
       <div class="callout callout--success">
         <span class="callout__icon" aria-hidden="true">✓</span>
@@ -877,7 +797,10 @@ async function boot() {
   JOURNEYS.forEach((j) => {
     const option = document.createElement('option');
     option.value = j.id;
-    option.textContent = `${j.id} — ${j.name}`;
+    // Kept short: a <select> sizes to its longest option and would otherwise
+    // overflow a 320px viewport.
+    option.textContent = `${j.id} — ${truncate(j.name, 34)}`;
+    option.title = j.name;
     el.journeySelect.append(option);
   });
   el.journeySelect.value = state.journeyId || '';
@@ -914,9 +837,12 @@ function truncate(value, max) {
 window.__MK_PROTO__ = {
   getState: () => state,
   getGraph: () => graph,
+  getAssessment: () => buildAssessment(graph, state.answers, state.auditHistory),
+  getLastAssessment: () => lastAssessment,
   loadJourney,
   reset: resetAll,
-  responders: RESPONDERS
+  responders: RESPONDERS,
+  journeys: JOURNEYS
 };
 
 boot();

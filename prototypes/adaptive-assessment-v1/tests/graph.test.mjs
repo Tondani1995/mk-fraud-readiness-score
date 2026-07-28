@@ -13,14 +13,53 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
-import { AssessmentGraph, evaluateCondition, SCORING_STATUS } from '../src/engine.js';
-import { JOURNEYS, runJourney } from '../src/journeys.js';
+import { AssessmentGraph, evaluateCondition, conditionDependencies, SCORING_STATUS } from '../src/engine.js';
+import { JOURNEYS, J7_FULL_SCOPE, RESPONDERS, runJourney } from '../src/journeys.js';
+import {
+  buildAssessment, classifyResponse, FINDING_CLASS, RECOMMENDATION_CLASS, REPORT_STATUS
+} from '../src/assessment-model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const graphJson = JSON.parse(readFileSync(join(root, 'data', 'question-graph.json'), 'utf8'));
 
 const newGraph = () => new AssessmentGraph(graphJson);
+
+const conditionDeps = (node) => [...conditionDependencies(node)];
+
+/** Run a journey to completion and build the full assessment result. */
+function buildFor(journey, options = {}) {
+  const graph = newGraph();
+  const { answers, auditHistory } = runJourney(graph, journey);
+  return buildAssessment(graph, answers, auditHistory, options);
+}
+
+/** Build an assessment from an explicit partial answer set (no auto-completion). */
+function buildPartial(gateways, answerOverrides = {}) {
+  const graph = newGraph();
+  const answers = {};
+  Object.entries(gateways).forEach(([k, v]) => { answers[k] = { value: v }; });
+  let guard = 0;
+  for (;;) {
+    guard += 1;
+    if (guard > 500) throw new Error('loop');
+    const next = graph.nextUnanswered(answers);
+    if (!next) break;
+    if (next.node.gateway_status === 'gateway') { answers[next.id] = { value: 'unknown' }; continue; }
+    if (Object.prototype.hasOwnProperty.call(answerOverrides, next.id)) {
+      const v = answerOverrides[next.id];
+      if (v === '__LEAVE_UNANSWERED__') break;
+      answers[next.id] = { value: v };
+    } else {
+      answers[next.id] = { value: 3 };
+    }
+  }
+  Object.entries(answerOverrides).forEach(([k, v]) => {
+    if (v === '__LEAVE_UNANSWERED__') delete answers[k];
+    else if (answers[k]) answers[k] = { value: v };
+  });
+  return { graph, answers, result: buildAssessment(graph, answers, []) };
+}
 
 /* ---------------------------------------------------------------- structure */
 
@@ -199,38 +238,91 @@ test('uncertainty is not treated as a control, and is retained in the denominato
   assert.ok(profile.provisionalScore < 40, `unknown-heavy score too generous: ${profile.provisionalScore}`);
 });
 
-test('skipping does not improve the score relative to answering honestly', () => {
-  const graph = newGraph();
-  // Same organisation, but one claims no suppliers to shorten the journey.
-  const base = { G01: { value: 'retail' }, G02: { value: 'small' }, G03: { value: 'internal' }, G04: { value: 'owner_led' },
-    G05: { value: 'minor' }, G06: { value: 'yes' }, G07: { value: 'internal' }, G08: { value: 'yes' },
-    G09: { value: 'yes' }, G10: { value: 'yes' }, G11: { value: 'no' }, G12: { value: 'no' },
-    G13: { value: 'no' }, G14: { value: 'owner_led' } };
-  const dodger = { ...base, G03: { value: 'none' }, G04: undefined };
+/* ------------------------------------------- mixed-score exclusion regression */
 
-  const fill = (ans) => {
-    const g = newGraph();
-    const filled = { ...ans };
-    Object.keys(filled).forEach((k) => { if (filled[k] === undefined) delete filled[k]; });
-    let guard = 0;
-    for (;;) {
-      guard += 1;
-      if (guard > 500) throw new Error('loop');
-      const next = g.nextUnanswered(filled);
-      if (!next) break;
-      filled[next.id] = { value: next.node.gateway_status === 'gateway' ? 'unknown' : 0 };
-    }
-    return g.applicabilityProfile(filled);
-  };
+/*
+ * These tests replace an earlier test that scored every control 0 and claimed this
+ * proved "exclusion cannot improve the score". That test proved nothing: with a
+ * uniform 0 the percentage is 0 either way, so it was insensitive to the very
+ * effect it claimed to rule out.
+ *
+ * The honest contract is: exclusion creates no control credit and no control
+ * penalty, but it CHANGES THE ASSESSED SCOPE, and the percentage can move as a
+ * result. These tests assert that, and assert the safeguards around it.
+ */
 
-  const honest = fill(base);
-  const evasive = fill(dodger);
+test('excluding a weak domain CHANGES the percentage score — the score is scope-specific', () => {
+  const fullScope = buildFor(J7_FULL_SCOPE);
+  const excludedScope = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
 
-  // Both answered 0 everywhere: the evasive path must not yield a better score.
-  assert.ok(evasive.provisionalScore <= honest.provisionalScore + 0.01,
-    `exclusion improved the score: ${evasive.provisionalScore} vs ${honest.provisionalScore}`);
-  // And the exclusion must be visible.
-  assert.ok(evasive.excludedCount > honest.excludedCount, 'exclusions must be counted and surfaced');
+  // The organisation is identical apart from declaring it has no suppliers.
+  // D7 is its weakest domain, so removing it MOVES the percentage upward.
+  assert.ok(excludedScope.fraudReadinessScore > fullScope.fraudReadinessScore,
+    `expected exclusion to raise the percentage (full ${fullScope.fraudReadinessScore}, excluded ${excludedScope.fraudReadinessScore})`);
+
+  // This is exactly why the score must never be presented as comparable.
+  assert.ok(excludedScope.signals.some((s) => s.id === 'profile_specific_comparability_warning'),
+    'a scope-specific result must raise the comparability warning');
+});
+
+test('exclusion creates no control credit and no control penalty', () => {
+  const excludedScope = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+
+  // No excluded control contributes weight to either side of the ratio.
+  for (const c of excludedScope.excludedControls) {
+    assert.equal(c.finding_class, FINDING_CLASS.NOT_APPLICABLE);
+    assert.equal(c.control_absence_confirmed, false,
+      `${c.question_id}: an absent ACTIVITY must never be recorded as an absent CONTROL`);
+    assert.equal(c.recommendation_class, RECOMMENDATION_CLASS.NONE_SCOPE_EXCLUSION);
+  }
+  // The applicable denominator genuinely shrank.
+  const fullScope = buildFor(J7_FULL_SCOPE);
+  assert.ok(excludedScope.weights.applicable < fullScope.weights.applicable,
+    'the applicable denominator must decrease when scope is excluded');
+  assert.ok(excludedScope.weights.excluded > 0, 'excluded weight must be recorded, not discarded');
+});
+
+test('material exclusions are visible, counted and raise an integrity signal', () => {
+  const excludedScope = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+
+  assert.ok(excludedScope.counts.excluded >= 7, 'the whole third-party domain should be excluded');
+  assert.ok(excludedScope.materialExclusionShare > 0);
+
+  const ids = excludedScope.signals.map((s) => s.id);
+  assert.ok(ids.includes('material_domain_exclusion') || ids.includes('material_exclusion_share'),
+    `expected a material-exclusion signal, got: ${ids.join(', ')}`);
+  assert.ok(ids.includes('high_impact_gateway_exclusion'),
+    'excluding critical/hard-gate controls must raise a signal');
+
+  // D7 must appear in the domain schedule as fully excluded, not silently vanish.
+  const d7 = excludedScope.domains.find((d) => d.domainCode === 'D7');
+  assert.equal(d7.fullyExcluded, true);
+  assert.ok(d7.excludedCount > 0);
+});
+
+test('no excluded control silently disappears from the review profile', () => {
+  for (const journey of JOURNEYS) {
+    const result = buildFor(journey);
+    const seen = new Set(result.controls.map((c) => c.replaces || c.question_id));
+    const missing = graphJson.questions.map((q) => q.question_id).filter((id) => !seen.has(id));
+    assert.deepEqual(missing, [], `${journey.id} lost: ${missing.join(', ')}`);
+  }
+});
+
+test('a false factual declaration cannot be fully prevented — but it is recorded', () => {
+  // This documents an accepted limit of self-assessment. An organisation that
+  // falsely declares "no suppliers" gets a smaller scope. The prototype cannot
+  // detect the lie; it CAN make the consequence inspectable.
+  const excludedScope = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+  const gatewayAnswer = excludedScope.controls.length > 0;
+  assert.ok(gatewayAnswer);
+
+  // The declaration that caused it is preserved and the affected controls are listed.
+  const causedByG03 = excludedScope.excludedControls.filter((c) => c.skip_reason_code === 'gateway_no_third_parties');
+  assert.ok(causedByG03.length > 0, 'the exclusions must be attributable to the gateway that caused them');
+  for (const c of causedByG03) {
+    assert.ok(c.skip_reason && c.skip_reason.length > 10, 'each exclusion carries a customer-facing reason');
+  }
 });
 
 /* ------------------------------------------------------------- outsourcing */
@@ -475,6 +567,250 @@ test('no runtime AI branching: the engine performs no network calls', () => {
   const engineSource = readFileSync(join(root, 'src', 'engine.js'), 'utf8');
   for (const pattern of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /import\s*\(/, /eval\s*\(/, /new\s+Function/]) {
     assert.equal(pattern.test(engineSource), false, `engine must not use ${pattern}`);
+  }
+});
+
+/* ------------------------------------- recommendation-generation contract */
+
+test('1. not applicable creates no control-improvement recommendation', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J5'));
+  const excludedIds = new Set(result.excludedControls.map((c) => c.question_id));
+  assert.ok(excludedIds.size > 0);
+  for (const rec of result.recommendations) {
+    assert.ok(!excludedIds.has(rec.question_id),
+      `${rec.question_id} is excluded but produced a recommendation: ${rec.recommendation_class}`);
+  }
+});
+
+test('2. unknown creates a verification recommendation, never an implementation one', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J6'));
+  const unknowns = result.controls.filter((c) => c.finding_class === FINDING_CLASS.UNKNOWN_OR_UNCONFIRMED);
+  assert.ok(unknowns.length > 0);
+
+  for (const c of unknowns) {
+    assert.equal(c.recommendation_class, RECOMMENDATION_CLASS.EVIDENCE_VERIFICATION);
+    assert.equal(c.control_absence_confirmed, false, 'uncertainty must never confirm absence');
+    assert.equal(c.evidence_required, true);
+    assert.equal(c.control_visibility_status, 'not_visible');
+  }
+  const unknownRecs = result.recommendations.filter((r) => unknowns.some((u) => u.question_id === r.question_id));
+  for (const rec of unknownRecs) {
+    assert.match(rec.body, /could not confirm|obtain evidence/i);
+    assert.doesNotMatch(rec.body, /Design and implement/i,
+      'an unknown answer must not produce an implementation recommendation');
+  }
+});
+
+test('3. unanswered creates no substantive fraud-control recommendation', () => {
+  const { result } = buildPartial(
+    { G01: 'retail', G02: 'small', G03: 'internal', G08: 'yes', G09: 'yes' },
+    { 'D1-Q01': '__LEAVE_UNANSWERED__' }
+  );
+  const unanswered = result.controls.filter((c) => c.finding_class === FINDING_CLASS.UNANSWERED);
+  assert.ok(unanswered.length > 0, 'fixture should leave controls unanswered');
+
+  for (const c of unanswered) {
+    assert.equal(c.recommendation_class, RECOMMENDATION_CLASS.COMPLETION_REQUIRED);
+    assert.equal(c.control_absence_confirmed, false, 'silence must never become a finding');
+  }
+  const recs = result.recommendations.filter((r) => unanswered.some((u) => u.question_id === r.question_id));
+  for (const rec of recs) {
+    assert.match(rec.body, /was not answered|Complete it/i);
+    assert.doesNotMatch(rec.body, /Design and implement|Strengthen its design/i);
+  }
+});
+
+test('4. not implemented creates a control-design recommendation', () => {
+  const { result } = buildPartial(
+    { G01: 'retail', G02: 'small', G03: 'internal', G08: 'yes', G09: 'yes' },
+    { 'D1-Q01': 0 }
+  );
+  const c = result.controls.find((x) => x.question_id === 'D1-Q01');
+  assert.equal(c.finding_class, FINDING_CLASS.NOT_IMPLEMENTED);
+  assert.equal(c.recommendation_class, RECOMMENDATION_CLASS.CONTROL_DESIGN);
+  assert.equal(c.control_absence_confirmed, true, 'a substantive 0 DOES confirm absence');
+
+  const rec = result.recommendations.find((r) => r.question_id === 'D1-Q01');
+  assert.match(rec.body, /Design and implement/i);
+});
+
+test('5. partially implemented creates a strengthening recommendation', () => {
+  const { result } = buildPartial(
+    { G01: 'retail', G02: 'small', G03: 'internal', G08: 'yes', G09: 'yes' },
+    { 'D1-Q02': 2 }
+  );
+  const c = result.controls.find((x) => x.question_id === 'D1-Q02');
+  assert.equal(c.finding_class, FINDING_CLASS.PARTIALLY_IMPLEMENTED);
+  assert.equal(c.recommendation_class, RECOMMENDATION_CLASS.CONTROL_STRENGTHENING);
+  assert.equal(c.control_absence_confirmed, false);
+
+  const rec = result.recommendations.find((r) => r.question_id === 'D1-Q02');
+  assert.match(rec.body, /Strengthen/i);
+});
+
+test('6. outsourced routes to oversight recommendations, not in-house ones', () => {
+  const { result } = buildPartial(
+    { G01: 'online', G02: 'small', G03: 'outsourced', G08: 'yes', G09: 'yes' },
+    { 'OV-D7-Q04': 1 }
+  );
+  const ov = result.controls.find((c) => c.question_id === 'OV-D7-Q04');
+  assert.ok(ov, 'the oversight variant must be assessed');
+  assert.equal(ov.recommendation_class, RECOMMENDATION_CLASS.PROVIDER_GOVERNANCE);
+
+  const rec = result.recommendations.find((r) => r.question_id === 'OV-D7-Q04');
+  assert.match(rec.body, /external provider/i);
+
+  // The in-house question it replaced must not appear as an active control.
+  assert.ok(!result.controls.some((c) => c.question_id === 'D7-Q04' && c.value !== undefined));
+});
+
+test('7. excessive uncertainty prevents a definitive conclusion', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J8'));
+  assert.ok(result.controlVisibility < 60,
+    `J8 visibility should be low, got ${result.controlVisibility}`);
+  assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
+  assert.ok(result.signals.some((s) => s.id === 'insufficient_visibility' && s.blocking));
+  assert.ok(result.reportLimitationReasons.length > 0);
+
+  // Crucially: no false "control absent" findings anywhere.
+  const falseAbsence = result.controls.filter(
+    (c) => c.finding_class === FINDING_CLASS.UNKNOWN_OR_UNCONFIRMED && c.control_absence_confirmed);
+  assert.deepEqual(falseAbsence, []);
+});
+
+test('8. low coverage prevents definitive report issuance', () => {
+  const graph = newGraph();
+  const answers = {};
+  ['G01', 'G02', 'G03', 'G08', 'G09'].forEach((g) => { answers[g] = { value: 'unknown' }; });
+  // Answer only a handful of controls; leave the rest blank.
+  let count = 0;
+  for (const node of graph.resolvePath(answers).active) {
+    if (node.node.gateway_status === 'gateway') continue;
+    if (count >= 5) break;
+    answers[node.id] = { value: 4 };
+    count += 1;
+  }
+  const result = buildAssessment(graph, answers, []);
+  assert.ok(result.assessmentCoverage < 80, `coverage should be low, got ${result.assessmentCoverage}`);
+  assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
+  assert.ok(result.signals.some((s) => s.id === 'low_assessment_coverage'));
+});
+
+test('9. material exclusions trigger a comparability statement', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J7'));
+  assert.ok(result.signals.some((s) => s.id === 'profile_specific_comparability_warning'));
+  assert.match(result.comparabilityStatement, /should not be compared directly/i);
+});
+
+test('10. every finding class maps to exactly one recommendation class', () => {
+  const node = graphJson.questions[0];
+  const cases = [
+    [{ node, value: undefined, isExcluded: true }, FINDING_CLASS.NOT_APPLICABLE, RECOMMENDATION_CLASS.NONE_SCOPE_EXCLUSION],
+    [{ node, value: undefined }, FINDING_CLASS.UNANSWERED, RECOMMENDATION_CLASS.COMPLETION_REQUIRED],
+    [{ node, value: 'unknown' }, FINDING_CLASS.UNKNOWN_OR_UNCONFIRMED, RECOMMENDATION_CLASS.EVIDENCE_VERIFICATION],
+    [{ node, value: 0 }, FINDING_CLASS.NOT_IMPLEMENTED, RECOMMENDATION_CLASS.CONTROL_DESIGN],
+    [{ node, value: 2 }, FINDING_CLASS.PARTIALLY_IMPLEMENTED, RECOMMENDATION_CLASS.CONTROL_STRENGTHENING],
+    [{ node, value: 5 }, FINDING_CLASS.IMPLEMENTED, RECOMMENDATION_CLASS.NONE_MAINTAIN],
+    [{ node, value: 0, isRedirected: true }, FINDING_CLASS.NOT_IMPLEMENTED, RECOMMENDATION_CLASS.PROVIDER_GOVERNANCE],
+    [{ node, value: undefined, isInvalidated: true }, FINDING_CLASS.INVALIDATED, RECOMMENDATION_CLASS.NONE_SCOPE_EXCLUSION]
+  ];
+  for (const [input, findingClass, recClass] of cases) {
+    const out = classifyResponse(input);
+    assert.equal(out.finding_class, findingClass, JSON.stringify(input));
+    assert.equal(out.recommendation_class, recClass, JSON.stringify(input));
+  }
+});
+
+/* ------------------------------------------------- measures and statuses */
+
+test('three measures are distinct and behave correctly', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J6'));
+  // J6 answers everything "I do not know": full coverage, near-zero visibility.
+  assert.equal(result.assessmentCoverage, 100, 'an unknown IS a valid response for coverage');
+  assert.ok(result.controlVisibility < 40, 'but it does NOT count towards visibility');
+  assert.notEqual(result.assessmentCoverage, result.controlVisibility);
+});
+
+test('both score models are computed and Option B is the more generous of the two', () => {
+  const result = buildFor(JOURNEYS.find((j) => j.id === 'J8'));
+  assert.ok(result.scoreOptionA !== null && result.scoreOptionB !== null);
+  // Option A retains unknown at zero credit; Option B removes it entirely.
+  assert.ok(result.scoreOptionB >= result.scoreOptionA,
+    `Option B (${result.scoreOptionB}) should be >= Option A (${result.scoreOptionA})`);
+  // Which is precisely why Option B needs the visibility gate to be safe.
+  assert.equal(result.reportStatus, REPORT_STATUS.INSUFFICIENT_VISIBILITY);
+});
+
+test('progressive profiling asks at most five questions before the assessment begins', () => {
+  const profileGateways = graphJson.gateways.filter((g) => g.phase === 'profile');
+  assert.ok(profileGateways.length <= 5, `${profileGateways.length} profile gateways, maximum is 5`);
+  for (const g of graphJson.gateways) {
+    assert.ok(g.phase, `${g.question_id} has no phase`);
+    assert.match(g.phase, /^(profile|domain:D\d{1,2})$/);
+  }
+});
+
+test('every gateway is asked before the first question that depends on it', () => {
+  const graph = newGraph();
+  // Use a fully-answering state so the whole path is realised.
+  const { answers } = runJourney(newGraph(), JOURNEYS.find((j) => j.id === 'J2'));
+  const order = graph.resolvePath(answers).active.map((n) => n.id);
+  const position = new Map(order.map((id, i) => [id, i]));
+
+  for (const q of [...graphJson.questions, ...graphJson.oversight_variants]) {
+    const qPos = position.get(q.question_id);
+    if (qPos === undefined) continue;
+    for (const gid of conditionDeps(q.applicability_condition)) {
+      const gPos = position.get(gid);
+      assert.ok(gPos !== undefined && gPos < qPos,
+        `${gid} must be asked before ${q.question_id} (gateway ${gPos}, question ${qPos})`);
+    }
+  }
+});
+
+test('progressive ordering yields the SAME applicability profile as gateways-first', () => {
+  // Simulate the previous ordering by answering every gateway up front, then
+  // compare the resolved applicability profile with the progressive walk.
+  for (const journey of JOURNEYS) {
+    const progressive = buildFor(journey);
+
+    const graph = newGraph();
+    const upfront = {};
+    Object.entries(journey.gateways).forEach(([k, v]) => { upfront[k] = { value: v }; });
+
+    // Legacy ordering: answer every APPLICABLE gateway before any methodology
+    // question. Gateways that are themselves excluded (for example G04 when the
+    // organisation has no suppliers) must stay unanswered — force-answering them
+    // would fabricate an applicability state the respondent never declared.
+    for (;;) {
+      const pending = graph.resolvePath(upfront).active
+        .find((n) => n.node.gateway_status === 'gateway' && upfront[n.id] === undefined);
+      if (!pending) break;
+      upfront[pending.id] = { value: 'unknown' };
+    }
+
+    let guard = 0;
+    for (;;) {
+      guard += 1;
+      if (guard > 500) throw new Error('loop');
+      const next = graph.nextUnanswered(upfront);
+      if (!next) break;
+      upfront[next.id] = { value: RESPONDERS[journey.responder](next.id) };
+    }
+    const legacy = buildAssessment(graph, upfront, []);
+
+    assert.deepEqual(
+      progressive.excludedControls.map((c) => c.question_id).sort(),
+      legacy.excludedControls.map((c) => c.question_id).sort(),
+      `${journey.id}: exclusion set differs between orderings`
+    );
+    assert.deepEqual(
+      progressive.redirected.map((r) => `${r.from}->${r.to}`).sort(),
+      legacy.redirected.map((r) => `${r.from}->${r.to}`).sort(),
+      `${journey.id}: redirect set differs between orderings`
+    );
+    assert.equal(progressive.weights.applicable, legacy.weights.applicable,
+      `${journey.id}: applicable weight differs between orderings`);
   }
 });
 

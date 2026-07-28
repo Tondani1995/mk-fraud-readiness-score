@@ -8,58 +8,73 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { AssessmentGraph } from '../src/engine.js';
-import { JOURNEYS, runJourney } from '../src/journeys.js';
+import { JOURNEYS, J7_FULL_SCOPE, runJourney } from '../src/journeys.js';
+import { buildAssessment } from '../src/assessment-model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const graphJson = JSON.parse(readFileSync(join(root, 'data', 'question-graph.json'), 'utf8'));
 
-const results = JOURNEYS.map((journey) => {
+const ALL = [...JOURNEYS, J7_FULL_SCOPE];
+
+const results = ALL.map((journey) => {
   const graph = new AssessmentGraph(graphJson);
-  const { answers } = runJourney(graph, journey);
+  const { answers, auditHistory } = runJourney(graph, journey);
   const { active, excluded, redirected } = graph.resolvePath(answers);
-  const progress = graph.progress({});                 // estimate before any answers
-  const finalProgress = graph.progress(answers);
-  const profile = graph.applicabilityProfile(answers);
+  const result = buildAssessment(graph, answers, auditHistory);
 
-  const scoredActive = active.filter((n) => n.node.gateway_status !== 'gateway');
-  const scoredExcluded = excluded.filter((e) => e.node.gateway_status !== 'gateway');
-
-  // Estimate the journey duration from the gateway answers alone (what the
-  // respondent would have been shown once the profile was complete).
+  const startEstimate = graph.progress({}).minutesRemaining;
   const gatewayOnly = {};
   Object.entries(journey.gateways).forEach(([k, v]) => { gatewayOnly[k] = { value: v }; });
-  const midEstimate = graph.progress(gatewayOnly);
+  const afterProfile = graph.progress(gatewayOnly).minutesRemaining;
 
-  const unknownCount = Object.entries(answers)
-    .filter(([, a]) => a.value === 'unknown').length;
+  const profileFirst = active
+    .filter((n) => n.node.gateway_status === 'gateway' && n.node.phase === 'profile')
+    .map((n) => n.id);
+  const domainGateways = active
+    .filter((n) => n.node.gateway_status === 'gateway' && n.node.phase !== 'profile')
+    .map((n) => `${n.id}@${n.node.phase}`);
 
   const bySkipReason = {};
-  for (const e of scoredExcluded) {
-    bySkipReason[e.skip_reason_code] = (bySkipReason[e.skip_reason_code] || 0) + 1;
+  for (const c of result.excludedControls) {
+    const k = c.skip_reason_code || 'unknown';
+    bySkipReason[k] = (bySkipReason[k] || 0) + 1;
   }
-
-  const invalidationProbe = graph.invalidationPreview(answers, 'G03', 'none');
+  const recClasses = {};
+  for (const r of result.recommendations) {
+    recClasses[r.recommendation_class] = (recClasses[r.recommendation_class] || 0) + 1;
+  }
 
   return {
     id: journey.id,
     name: journey.name,
     organisation: journey.organisationName,
-    presented: scoredActive.length,
-    excluded: scoredExcluded.length,
-    redirected: redirected.length,
-    unknownResponses: unknownCount,
-    estMinutesAtStart: progress.minutesRemaining,
-    estMinutesAfterProfile: midEstimate.minutesRemaining,
-    areasAssessed: finalProgress.areasTotal,
-    coveragePct: profile.coveragePct,
-    provisionalScore: profile.provisionalScore,
-    unknownWeightShare: profile.unknownWeightShare,
-    denominator: profile.denominator,
+    purpose: journey.purpose || null,
+    profileQuestionsFirst: profileFirst,
+    domainGateways,
+    activeControls: result.counts.applicable,
+    excludedControls: result.counts.excluded,
+    redirectedControls: result.counts.redirected,
+    unknownControls: result.counts.unknown,
+    unansweredControls: result.counts.unanswered,
+    applicableWeight: result.weights.applicable,
+    excludedWeight: result.weights.excluded,
+    assessmentCoverage: result.assessmentCoverage,
+    controlVisibility: result.controlVisibility,
+    fraudReadinessScore: result.fraudReadinessScore,
+    scoreOptionA: result.scoreOptionA,
+    scoreOptionB: result.scoreOptionB,
+    unknownWeightShare: result.unknownWeightShare,
+    materialExclusionShare: result.materialExclusionShare,
+    reportStatus: result.reportStatus,
+    reportLimitationReasons: result.reportLimitationReasons,
+    integritySignals: result.signals.map((s) => s.id),
+    recommendationClasses: recClasses,
+    estMinutesAtStart: startEstimate,
+    estMinutesAfterProfile: afterProfile,
     skipReasons: bySkipReason,
-    excludedIds: scoredExcluded.map((e) => e.id),
-    redirectedPairs: redirected.map((r) => `${r.from} -> ${r.to}`),
-    invalidatedIfSuppliersRemoved: invalidationProbe.invalidatedCount
+    excludedIds: result.excludedControls.map((c) => c.question_id),
+    redirectedPairs: redirected.map((r) => `${r.from} -> ${r.to}`)
   };
 });
 
@@ -68,23 +83,37 @@ if (process.argv.includes('--json')) {
 } else {
   const pad = (s, n) => String(s).padEnd(n);
   console.log('\nMK ADAPTIVE ASSESSMENT — SYNTHETIC JOURNEY MATRIX (prototype)\n');
-  console.log(pad('ID', 4), pad('Journey', 34), pad('Asked', 7), pad('Skip', 6), pad('Redir', 7), pad('Unk', 5), pad('Est(min)', 10), pad('Score', 7), 'Unk%');
-  console.log('-'.repeat(104));
+  console.log(pad('ID', 8), pad('Journey', 30), pad('Act', 5), pad('Exc', 5), pad('Rdr', 5),
+    pad('Unk', 5), pad('Cov%', 7), pad('Vis%', 7), pad('FRS', 7), pad('Status', 24), 'Min');
+  console.log('-'.repeat(126));
   for (const r of results) {
     console.log(
-      pad(r.id, 4), pad(r.name, 34), pad(r.presented, 7), pad(r.excluded, 6),
-      pad(r.redirected, 7), pad(r.unknownResponses, 5),
-      pad(`${r.estMinutesAfterProfile}`, 10), pad(r.provisionalScore, 7), r.unknownWeightShare
-    );
+      pad(r.id, 8), pad(r.name.slice(0, 29), 30), pad(r.activeControls, 5), pad(r.excludedControls, 5),
+      pad(r.redirectedControls, 5), pad(r.unknownControls, 5),
+      pad(r.assessmentCoverage, 7), pad(r.controlVisibility, 7),
+      pad(r.fraudReadinessScore === null ? '—' : r.fraudReadinessScore, 7),
+      pad(r.reportStatus, 24), r.estMinutesAfterProfile);
   }
-  console.log('\nSkip reasons per journey:');
+  console.log('\nProgressive profiling — questions asked before the first control:');
+  for (const r of results) console.log(`  ${r.id}: ${r.profileQuestionsFirst.join(', ') || 'none'}`);
+  console.log('\nDomain gateways (asked immediately before their domain):');
+  for (const r of results) console.log(`  ${r.id}: ${r.domainGateways.join(', ') || 'none'}`);
+  console.log('\nIntegrity signals:');
+  for (const r of results) console.log(`  ${r.id}: ${r.integritySignals.join(', ') || 'none'}`);
+  console.log('\nRecommendation classes:');
   for (const r of results) {
-    const reasons = Object.entries(r.skipReasons).map(([k, v]) => `${k} x${v}`).join(', ') || 'none';
-    console.log(`  ${r.id}: ${reasons}`);
+    const rc = Object.entries(r.recommendationClasses).map(([k, v]) => `${k}=${v}`).join(' ');
+    console.log(`  ${r.id}: ${rc || 'none'}`);
   }
-  console.log('\nOutsourcing redirects:');
+  console.log('\nReport limitations:');
   for (const r of results) {
-    console.log(`  ${r.id}: ${r.redirectedPairs.join(', ') || 'none'}`);
+    console.log(`  ${r.id}: ${r.reportLimitationReasons.length ? r.reportLimitationReasons[0] : 'none'}`);
+  }
+  console.log('\nWeights and score models:');
+  for (const r of results) {
+    console.log(`  ${r.id}: applicable=${r.applicableWeight} excluded=${r.excludedWeight} ` +
+      `exclShare=${r.materialExclusionShare}% unkShare=${r.unknownWeightShare}% ` +
+      `A=${r.scoreOptionA} B=${r.scoreOptionB}`);
   }
   console.log('');
 }

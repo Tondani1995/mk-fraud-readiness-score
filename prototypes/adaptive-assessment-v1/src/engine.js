@@ -7,9 +7,16 @@
  *  - No AI at runtime. Every branching decision is a pure function of
  *    (question-graph JSON, answer state). Same inputs => same outputs, always.
  *  - Applicability is a SEPARATE axis from maturity score.
- *  - Skipping never improves the score: excluded questions leave the denominator,
- *    but exclusion is only reachable through an explicit gateway statement of fact.
- *  - "I do not know" is retained in the denominator with zero credit and flagged.
+ *  - Exclusion creates no control credit and no control penalty, but it CHANGES
+ *    THE ASSESSED SCOPE. Because excluded controls leave the denominator, removing
+ *    a weakly-controlled area can and often does change the remaining percentage.
+ *    The resulting score is valid only for the declared applicability profile and
+ *    must never be compared directly against an organisation with materially
+ *    different exposures. See docs/adaptive-assessment/05.
+ *  - "I do not know" keeps the control applicable. It is never read as the control
+ *    being absent and never as the control being present; it reduces Control
+ *    Visibility and drives evidence-verification recommendations.
+ *  - Unanswered reduces Assessment Coverage. It is never a finding.
  *  - Outsourcing redirects to a third-party governance question; it never removes risk.
  */
 
@@ -115,16 +122,22 @@ export class AssessmentGraph {
    * Resolve the active pathway for a given answer state.
    * Returns an ordered list of node descriptors plus exclusion records.
    * Pure: no mutation of `answers`.
+   *
+   * PROGRESSIVE PROFILING: gateways are interleaved with the domains they serve.
+   * Five broad profile questions come first; every other gateway is emitted in the
+   * block immediately before the earliest domain that depends on it. The resulting
+   * APPLICABILITY PROFILE is identical to the previous all-gateways-first ordering,
+   * because a gateway is always emitted before any question whose condition reads it.
+   * That equivalence is asserted by a test.
    */
   resolvePath(answers) {
     const active = [];
     const excluded = [];
     const redirected = [];
 
-    // Phase 1: gateways, in declared order, each gated by its own condition.
-    for (const g of this.gateways) {
+    const pushGateway = (g) => {
       if (evaluateCondition(g.applicability_condition, answers)) {
-        active.push({ id: g.question_id, kind: 'gateway', node: g });
+        active.push({ id: g.question_id, kind: 'gateway', node: g, phase: g.phase });
       } else {
         excluded.push({
           id: g.question_id,
@@ -134,9 +147,12 @@ export class AssessmentGraph {
           reason: this.graph.skip_reason_codes[g.skip_reason_code] || 'A previous answer made this question unnecessary.'
         });
       }
-    }
+    };
 
-    // Phase 2: methodology questions in domain order, then declared order.
+    // Phase 1: the five broad organisation-profile gateways.
+    for (const g of this.gateways.filter((x) => x.phase === 'profile')) pushGateway(g);
+
+    // Phase 2: for each domain in order — its gateway block, then its questions.
     const ordered = [...this.questions].sort((a, b) => {
       const da = this.domainByCode.get(a.domain);
       const db = this.domainByCode.get(b.domain);
@@ -144,7 +160,12 @@ export class AssessmentGraph {
       return a.question_id.localeCompare(b.question_id, 'en');
     });
 
+    let currentDomain = null;
     for (const q of ordered) {
+      if (q.domain !== currentDomain) {
+        currentDomain = q.domain;
+        for (const g of this.gateways.filter((x) => x.phase === `domain:${currentDomain}`)) pushGateway(g);
+      }
       // Redirect takes precedence: outsourced activity switches to the oversight variant.
       if (q.redirect_when && evaluateCondition(q.redirect_when.condition, answers)) {
         const variant = this.get(q.redirect_when.redirect_to);
