@@ -1,7 +1,9 @@
 # 07 — Mobile and accessibility specification
 
-**Status:** Proposed for approval. All claims below are verified by automated test,
-not asserted.
+**Status:** Proposed for approval. Claims below are verified by automated test in
+**Chromium, Firefox and WebKit**, not asserted. **Full WCAG 2.2 AA conformance is not
+claimed** — automated checks catch only part of the standard, and no human
+screen-reader or physical-device testing has been done.
 
 ---
 
@@ -43,10 +45,11 @@ guidance, all six options and the Continue button within the viewport.
 - Every control reachable and operable by keyboard. Radio groups use native inputs,
   so arrow-key roving works without custom code.
 - Shortcuts: `1`–`9` select the nth option, `u` selects "I do not know".
-- Skip link (`.skip-link`) is the **first tab stop** and jumps to `#main`.
-  *Verified by test.* This required a fix: the app originally moved focus to the
-  screen heading on first paint, which pushed focus past the skip link. Focus is now
-  moved only on subsequent screen changes.
+- Skip link (`.skip-link`) is the **first focusable element in DOM order** and jumps to
+  `#main`. *Verified by test on all three engines.* This required a fix: the app
+  originally moved focus to the screen heading on first paint, which pushed focus past
+  the skip link. Focus is now moved only on subsequent screen changes.
+  See §4.1 for Safari's differing Tab behaviour.
 - Dialogs trap focus (Tab and Shift+Tab cycle within), close on Escape, and restore
   focus to the triggering element.
 
@@ -136,23 +139,51 @@ focused heading and live regions.
 | 3.3.7 Redundant Entry | Nothing is asked twice; gateway answers are reused, not re-requested |
 | 3.3.8 Accessible Authentication | No authentication in the prototype |
 
-## 4. Known gaps and limitations
+## 4. Automated evidence
 
-Stated honestly:
+Everything below runs in CI on the exact PR head, in all three engines.
 
-1. **No screen-reader user testing.** Semantics are correct and automated checks
-   pass, but no NVDA/JAWS/VoiceOver session has been run. Recommended before
-   customer testing.
-2. **No automated axe/Lighthouse audit in CI.** The Playwright suite asserts
-   specific behaviours rather than running a general rule engine. Adding
-   `@axe-core/playwright` is a low-cost improvement.
-3. **Contrast ratios are computed, not instrument-measured** on a calibrated display.
-4. **Poppins is referenced but not bundled.** The prototype falls back to a system
-   sans stack. Production must load the brand font with `font-display: swap` and
-   verify the fallback does not shift layout.
-5. **No RTL support.** Not required for the South African market in V1.
-6. **Zoom to 400%** (WCAG 1.4.10) is expected to pass given fluid type and no fixed
-   widths, but is not explicitly asserted by a test.
+| Check | Method | Result |
+|---|---|---|
+| axe-core WCAG 2.0/2.1/2.2 A + AA | `@axe-core/playwright` on welcome, gateway question, review/report preview, submission, invalidation dialog | **No serious or critical violations**, all three engines |
+| 400% zoom reflow (WCAG 1.4.10) | 320 CSS px viewport across welcome, question and review | **No two-dimensional scrolling** |
+| No horizontal scroll | `scrollWidth - clientWidth <= 0` at 320/390/768/1440 | Pass |
+| Touch targets | every `.option` and `.btn` ≥ 44px | Pass |
+| Keyboard operation | number keys, `u`, Tab, Enter, Escape | Pass |
+| Skip link | first focusable in DOM order | Pass, all engines |
+| Focus trapping | Tab cycles inside dialog; Escape closes; focus restored | Pass |
+| Reduced motion | `prefers-reduced-motion` collapses animation | Pass |
+| Save-failure recovery | error state, retry, recovery | Pass |
 
-Items 1, 2 and 6 are recommended before customer testing; none block prototype
-evaluation.
+Two measurement artefacts were found and fixed while building this evidence: axe
+initially reported false contrast failures because it analysed screens mid-fade, and a
+horizontal-overflow regression at 320px was introduced by the prototype's own journey
+`<select>` sizing itself to its longest option.
+
+### 4.1 Known engine difference — Safari keyboard model
+
+In WebKit the skip link **is** the first focusable element in DOM order, but pressing
+Tab does not reach it. Safari's default keyboard model moves Tab between form controls
+only and skips links and buttons unless the user enables Full Keyboard Access.
+
+This is a platform preference, not a page defect — it applies to every skip link on
+every website in Safari, and keyboard-dependent Safari users typically enable the
+setting. VoiceOver users navigate by rotor and landmarks rather than Tab.
+
+The test therefore asserts DOM order on every engine, and Tab reachability only on
+Chromium and Firefox. **Real-Safari keyboard verification remains a pre-production gate.**
+
+## 5. Remaining gaps
+
+Stated honestly. None block owner review; items 1 and 2 block customer testing.
+
+1. **No human screen-reader testing.** NVDA, JAWS and VoiceOver have not been run.
+   Semantics are correct and automated checks pass, but that is not the same thing.
+2. **No physical-device testing.** All viewport evidence is emulated.
+3. **Automated checks cover roughly a third of WCAG success criteria.** Conformance
+   is not claimed on this evidence alone.
+4. **Contrast ratios are computed**, not instrument-measured on a calibrated display.
+5. **Poppins is referenced but not bundled.** Production must load the brand font with
+   `font-display: swap` and verify the fallback does not shift layout.
+6. **No RTL support.** Not required for the South African market in V1.
+7. **Samsung Internet is untested** — worth adding for the SA Android market.

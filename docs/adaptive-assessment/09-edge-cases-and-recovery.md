@@ -75,6 +75,19 @@ Because progress is always derived from the *current* active path, it can move
 backwards when a branch opens. This is honest and preferable to a counter that only
 ever advances while the denominator secretly changes.
 
+## 5a. Measures, statuses and recommendations
+
+| Case | Behaviour |
+|---|---|
+| Every applicable control answered "I do not know" | Coverage 100%, visibility ~0%, `INSUFFICIENT_VISIBILITY`, 68 evidence-verification recommendations, **no absence findings** |
+| Strong answers on a minority, unknown on the rest | J8: Option A 19.70, Option B 100.00, status `INSUFFICIENT_VISIBILITY`. The gate is what stops Option B reporting a perfect score |
+| A whole domain excluded | Domain reported `fullyExcluded`; `limited_domain_applicability` and `material_domain_exclusion` raised; no recommendations for it |
+| Exclusion raises the percentage | Expected and unavoidable (J7: 76.93 → 83.39). Mitigated by the comparability statement and the scope schedule, not prevented |
+| Nothing applicable in a domain | Domain omitted from "areas assessed" and listed in the exclusion schedule |
+| No recommendations at all | Possible for a strong organisation; the recommendation preview section is simply absent |
+| Coverage 100% but visibility low | Distinct measures; status driven by visibility |
+| Unanswered controls at review | Submit disabled; error callout with the count; no findings generated |
+
 ## 6. Versioning and migration
 
 | Case | Recommended production behaviour | Status |
@@ -95,6 +108,15 @@ ever advances while the denominator secretly changes.
 | 4 | Abandonment threshold for cleanup? | Product decision; interacts with data-retention policy |
 | 5 | Cap on gateway changes? | **No hard cap**, but log the count — repeated toggling of the same gateway is a review signal |
 | 6 | Show invalidated answers back to the respondent at review? | Recommend **no** in the customer view, **yes** in the admin view |
+
+## 7a. Progressive-profiling edge cases
+
+| Case | Behaviour |
+|---|---|
+| Respondent reaches a domain whose gateway block is empty | No intro shown; straight into the domain |
+| A domain gateway is itself excluded (G04 when G03 = none) | Not asked; its dependents fall back to their own conditions and are excluded with their own reason codes |
+| Gateway changed after its domain was passed | Normal invalidation flow; the block is not re-shown |
+| All of a block's gateways already answered (journey loader) | Block intro suppressed; the walk continues |
 
 ## 8. Not handled by the prototype
 

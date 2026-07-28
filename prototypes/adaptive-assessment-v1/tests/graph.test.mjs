@@ -2,9 +2,11 @@
  * Prototype-only test suite for the adaptive assessment engine.
  * Pure Node, zero dependencies:  node --test prototypes/adaptive-assessment-v1/tests/
  *
- * Covers: six synthetic journeys, deterministic branching, reachability,
+ * Covers: eight synthetic journeys, deterministic branching, reachability,
  * loop-freedom, skip reasons, downstream invalidation, dynamic progress,
- * time recalculation, scoring integrity, and the no-production-endpoint guarantee.
+ * time recalculation, the five response states, the three measures, report status,
+ * the recommendation contract, progressive-profiling equivalence, mixed-score
+ * exclusion regression, and the no-production-endpoint guarantee.
  */
 
 import test from 'node:test';
@@ -155,7 +157,7 @@ test('condition grammar evaluates predictably', () => {
 
 /* ---------------------------------------------------------- journey coverage */
 
-test('all six synthetic journeys terminate without loops', () => {
+test('all synthetic journeys terminate without loops', () => {
   for (const journey of JOURNEYS) {
     const graph = newGraph();
     const result = runJourney(graph, journey);

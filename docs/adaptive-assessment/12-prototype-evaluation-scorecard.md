@@ -1,222 +1,171 @@
 # 12 — Prototype evaluation scorecard
 
-**Status:** Honest self-assessment. The target was 9.5/10 across ten categories.
-**Six categories meet it. Four do not.** Those four are stated plainly with what
-would close each gap, rather than rounded up.
+**Status:** Honest self-assessment against the 9.5/10 target.
+**Eight of fourteen categories meet it. Six do not**, and are not rounded up.
+A score is not increased merely because a document now describes the gap.
 
 ---
 
 ## 1. Scores
 
-| # | Category | Target | Score | Meets |
-|---|---|---|---|---|
-| 1 | Usability | 9.5 | **9.5** | ✅ |
-| 2 | Mobile experience | 9.5 | **9.5** | ✅ |
-| 3 | Visual hierarchy | 9.5 | **9.5** | ✅ |
-| 4 | Perceived professionalism | 9.5 | **9.5** | ✅ |
-| 5 | Brand alignment | 9.5 | **8.5** | ❌ |
-| 6 | Adaptive logic clarity | 9.5 | **9.7** | ✅ |
-| 7 | Accessibility | 9.5 | **8.5** | ❌ |
-| 8 | Interaction polish | 9.5 | **9.5** | ✅ |
-| 9 | Trust | 9.5 | **9.0** | ❌ |
-| 10 | Readiness for customer testing | 9.5 | **8.0** | ❌ |
-| | **Weighted average** | **9.5** | **9.12** | |
+| # | Category | Target | Previous | Now | Meets |
+|---|---|---|---|---|---|
+| 1 | Usability | 9.5 | 9.5 | **9.6** | ✅ |
+| 2 | Mobile experience | 9.5 | 9.5 | **9.6** | ✅ |
+| 3 | Visual hierarchy | 9.5 | 9.5 | **9.5** | ✅ |
+| 4 | Perceived professionalism | 9.5 | 9.5 | **9.5** | ✅ |
+| 5 | Brand alignment | 9.5 | 8.5 | **8.5** | ❌ |
+| 6 | Adaptive logic clarity | 9.5 | 9.7 | **9.8** | ✅ |
+| 7 | Accessibility | 9.5 | 8.5 | **9.2** | ❌ |
+| 8 | Interaction polish | 9.5 | 9.5 | **9.6** | ✅ |
+| 9 | Trust | 9.5 | 9.0 | **9.0** | ❌ |
+| 10 | Readiness for owner review | 9.5 | — | **9.5** | ✅ |
+| 11 | Readiness for customer testing | 9.5 | 8.0 | **7.5** | ❌ |
+| 12 | Methodology integrity | 9.5 | — | **9.5** | ✅ |
+| 13 | Report-quality protection | 9.5 | — | **9.4** | ❌ |
+| 14 | Product sustainability | 9.5 | — | **8.8** | ❌ |
+| | **Weighted average** | **9.5** | 9.12 | **9.19** | |
 
-### 1 · Usability — 9.5
+### 1 · Usability — 9.6 ✅
+Progressive profiling cut the pre-assessment questions from 14 to 5, with domain
+gateways introduced in context. One decision per screen, keyboard shortcuts,
+auto-advance only where a mis-tap is cheap, honest progress, always-safe back.
+*Held from 10:* no real respondent has completed it.
 
-One decision per screen, consistent anatomy, keyboard shortcuts, auto-advance where
-safe, explicit Continue where consequential. Progress is honest and the time estimate
-moves with the branch. Back is always available and never destructive without warning.
+### 2 · Mobile experience — 9.6 ✅
+320/390/768/1440 asserted in three engines. 400% zoom reflow asserted. A real
+horizontal-overflow regression (the journey select at 377px) was caught by these tests
+and fixed. 48px targets, bottom-sheet dialogs, safe-area insets.
+*Held from 10:* emulated viewports only, no physical devices.
 
-*Held back from 10:* 14 gateway questions before the assessment "starts" is a real
-cost that has not been validated with users. No real respondent has completed it.
+### 3 · Visual hierarchy — 9.5 ✅
+Strict, repeated order on every screen. The new scorecard leads with one number and
+subordinates the two supporting measures. Uncertainty is visually separated from the
+maturity scale so it cannot read as "worst score".
 
-### 2 · Mobile experience — 9.5
+### 4 · Perceived professionalism — 9.5 ✅
+Restrained motion, no gamification, advisory tone. The report preview reads like a
+professional statement of work performed and its limits.
 
-Mobile-first throughout. At 320 px the tightest screen fits eyebrow, prompt, guidance,
-six options and the action without scrolling. No horizontal scroll at any width
-(test-asserted). 48 px targets. Bottom-sheet dialogs. Safe-area insets. Landscape
-handling. Option meanings collapse at 320 to protect the primary decision.
+### 5 · Brand alignment — 8.5 ❌ *(unchanged)*
+Correct `mk.*` token values, but **Poppins is still not bundled** (renders in a system
+fallback), two tokens remain invented (`#16294a` brass hover, `#8a6410` uncertainty
+amber) because `mk.brassDark` duplicates `mk.brass` and no warning colour exists, and
+there is no MK logo or wordmark.
+*To reach 9.5:* bundle Poppins, add the two tokens to `tailwind.config.ts`, apply real
+brand assets.
 
-*Held back from 10:* not tested on physical devices — only emulated viewports.
+### 6 · Adaptive logic clarity — 9.8 ✅
+Entirely data-driven; the engine contains no question identifiers (test-asserted).
+Four-node condition grammar. Conditions may only reference gateways, so cycles are
+structurally impossible. Progressive placement proven equivalent to the previous
+ordering. Every skip carries a code and customer-facing prose. The inspector prints the
+full evaluation including the three measures.
+*Held from 10:* still no admin UI for editing rules.
 
-### 3 · Visual hierarchy — 9.5
+### 7 · Accessibility — 9.2 ❌ *(was 8.5)*
+Now evidenced rather than asserted: **axe-core WCAG 2.2 AA checks pass with no serious
+or critical violations** on welcome, gateway, review, submission and the invalidation
+dialog, **in Chromium, Firefox and WebKit**. 400% zoom reflow asserted. Keyboard, focus
+order, focus trapping, reduced motion, live regions and target sizes all asserted.
 
-Strict order on every screen: location → question → guidance → rationale → controls →
-meaning → navigation. One accent colour. Type scale spans 0.6875–2 rem with a capped
-measure. Progress is deliberately subordinate. The uncertainty option is visually
-separated from the maturity scale so it cannot read as "worst score".
+Remaining gaps, which is why this is not 9.5:
+- **No human screen-reader testing.** NVDA and VoiceOver have not been run.
+- Automated checks catch roughly a third of WCAG issues. **Full WCAG 2.2 AA conformance
+  is not claimed** on automated evidence alone.
+- Safari's default keyboard model skips links and buttons in the Tab sequence, so the
+  skip link is only Tab-reachable there with Full Keyboard Access enabled. The link is
+  first in DOM order on every engine, but real-Safari behaviour is unverified.
 
-### 4 · Perceived professionalism — 9.5
+### 8 · Interaction polish — 9.6 ✅
+Save states with real timing, advance blocked on unsaved data, invalidation dialog with
+exact counts and focus trap, domain-complete transitions, resume showing what was
+retained, progressive block introductions.
 
-Restrained motion (320 ms, opacity + 8 px, no bounce, no celebration). No
-gamification. Advisory tone. The review screen reads like a professional summary of
-work performed. It looks like an instrument, not a survey.
+### 9 · Trust — 9.0 ❌ *(unchanged)*
+Strengthened materially: the scoring claim is corrected, exclusion consequences are
+shown, uncertainty is framed as data, the comparability statement appears on review and
+submission, and recommendations never invent findings.
 
-### 5 · Brand alignment — 8.5 ❌
+*Held at 9.0 for one reason:* the gateway questions the customer will judge the product
+by are **still unapproved placeholder content**. The trust the experience earns rests on
+wording that may change.
 
-Uses the real `mk.*` tokens with correct values. But:
+### 10 · Readiness for owner review — 9.5 ✅
+All gate conditions met: corrected scoring representation; progressive profiling;
+recommendation-class separation; 125 tests passing; Chromium, Firefox and WebKit
+passing; axe passing; both prototype CodeQL findings fixed; `npm run review` works.
 
-- **Poppins is referenced, not bundled.** The prototype renders in a system fallback,
-  so the actual brand typography has not been seen in this design.
-- **Two invented tokens:** `#16294a` (brass hover) and `#8a6410` (uncertainty amber)
-  because `mk.brassDark` duplicates `mk.brass` and no warning colour exists.
-- No MK logo, wordmark or photography — the header is a text "MK".
+### 11 · Readiness for customer testing — 7.5 ❌ *(was 8.0 — lowered)*
+**Lowered deliberately.** The previous 8.0 was too generous, and this round surfaced
+more of what customer testing would expose:
+- Gateway and oversight content unapproved (37 items in `11`).
+- The score model is undecided, and the two options differ by **80 points** on J8.
+- The comparability rule for reduced-scope domains is undecided.
+- Time estimates shown to customers are invented.
+- No brand typography or assets.
+- No human screen-reader or physical-device testing.
 
-*To reach 9.5:* bundle Poppins, add the two missing tokens to
-`tailwind.config.ts`, apply real brand assets.
+Putting this in front of paying customers would test wording and numbers that MK has
+not agreed.
 
-### 6 · Adaptive logic clarity — 9.7 ✅
+### 12 · Methodology integrity — 9.5 ✅
+The false claim is corrected everywhere and replaced with a contract the evidence
+supports. Five response states are separated and test-enforced. Uncertainty and silence
+can never become findings. Outsourcing cannot reduce exposure. Both score models are
+computed so the decision rests on evidence, not assertion. The two limits that cannot
+be engineered away — exclusion changing the score, and undetectable false declarations —
+are stated plainly rather than papered over.
+*Held from 10:* the methodology owner has not ruled on any of the 11 decisions.
 
-The strongest category. Branching is entirely data-driven; the engine contains no
-question identifiers (test-asserted). The condition grammar is four node types.
-Conditions may only reference gateways, making cycles structurally impossible. Every
-skip carries a code and customer-facing prose. The inspector prints the full
-evaluation. Every one of the 68 questions is provably accounted for in every state.
+### 13 · Report-quality protection — 9.4 ❌
+The recommendation contract is the strongest part of this round: seven classes, ten
+contract tests, and a hard guarantee that not-applicable produces no control
+recommendation, unknown produces verification rather than implementation, and unanswered
+produces nothing substantive. J7 proves it end-to-end — the excluded weak domain
+generates zero findings where full scope generates seven.
+*Held from 9.5:* the contract is asserted against the **prototype's** recommendation
+generator, not the real report engine. It must be re-asserted there.
 
-*Held back from 10:* no admin UI for editing rules — production still needs one.
+### 14 · Product sustainability — 8.8 ❌
+Versioned, maintainable, tested, extensible, explainable, and implementable without
+Claude — the handover specifies schema, state model, denominator rules and acceptance
+criteria. Prototype CI is path-filtered and runs three engines on the exact PR head.
 
-### 7 · Accessibility — 8.5 ❌
+*Held from 9.5:* **there is still no admin UI for editing branching rules.** Rules are
+data, but changing a branch today means editing JSON and deploying. `/score/admin/config/questions`
+is the natural home. Graph versioning and pinning for in-flight assessments also remain
+undecided.
 
-Strong foundations, verified rather than asserted: skip link as first tab stop,
-keyboard operation, focus trapping with restore, `aria-valuetext` on progress,
-polite/assertive live regions, 48 px targets, no colour-only signalling, reduced
-motion, forced-colors support. Two real defects were found and fixed by tests.
+## 2. What would move the average to 9.5
 
-But three genuine gaps:
+1. **Approve gateway, oversight and copy content** (`11`) — unblocks trust and customer testing.
+2. **Rule on the score model and comparability** (`05` §9) — the largest open risk.
+3. **Human screen-reader pass (NVDA + VoiceOver) and physical devices** — accessibility to 9.5, readiness up.
+4. **Bundle Poppins and add the two missing tokens** — brand alignment to 9.5.
+5. **Build rule administration in the admin surface** — sustainability to 9.5.
+6. **Re-assert the recommendation contract against the real report generator** — report protection to 9.5.
+7. **Replace invented time constants with observed medians.**
 
-- **No screen-reader user testing.** Semantics look right; nobody has run NVDA, JAWS
-  or VoiceOver against it.
-- **No axe/Lighthouse audit in CI.** Tests assert specific behaviours, not general
-  rule conformance.
-- **Zoom to 400% (WCAG 1.4.10) not explicitly tested.**
+## 3. GO / NO-GO
 
-*To reach 9.5:* add `@axe-core/playwright`, run a screen-reader pass, add a zoom test.
-Until then, claiming AA conformance would be overstating the evidence.
+| Gate | Recommendation | Basis |
+|---|---|---|
+| **Owner review** | **GO** | All gate conditions met (§1.10). The prototype runs, is stable, and the corrected methodology is demonstrable |
+| **Customer testing** | **NO-GO** | Content unapproved; score model undecided; no human screen-reader or device testing |
+| **Production implementation** | **NO-GO** | Methodology approval, content approval and Codex architecture review all outstanding |
 
-### 8 · Interaction polish — 9.5
+## 4. Honest summary
 
-Save states with real timing. Advance blocked on unsaved data. Invalidation dialog
-with exact counts, named questions, Escape and backdrop cancel. Domain-complete
-transitions. Resume showing what was retained. Keyboard shortcuts. Auto-advance only
-after a successful save.
+This round fixed a real integrity problem rather than polishing around it. The claim
+that skipping could not improve the score was false, the test that supported it was
+incapable of detecting the effect, and both have been replaced with measured evidence
+that exclusion moved a score from 76.93 to 83.39.
 
-### 9 · Trust — 9.0 ❌
+The prototype now separates five response states, reports three measures instead of one,
+gates definitive conclusions on visibility, and guarantees the report cannot invent a
+finding from uncertainty or silence. It is stronger and more honest than it was.
 
-Deliberately engineered: exclusions shown with reasons, outsourcing explained,
-uncertainty framed as data, invalidation warned and audited, score calculation not
-exposed, prototype status disclosed prominently.
-
-*Held back:* the gateway questions the customer will judge the product by are
-**unapproved placeholder content**. Until methodology signs them off, the trust the
-experience earns rests on wording that may change.
-
-### 10 · Readiness for customer testing — 8.0 ❌
-
-The prototype runs, is stable, and demonstrates every required state. It is not ready
-to put in front of paying customers because:
-
-1. Gateway and oversight content is unapproved (doc 11).
-2. Chromium-only verification — no Safari/iOS run, which is a large share of the
-   target market.
-3. No screen-reader testing.
-4. Time-estimate constants are invented and shown to customers as fact.
-5. No real brand typography or assets.
-
-*To reach 9.5:* items 1–3 are mandatory; 4–5 are strongly recommended.
-
----
-
-## 2. Review A — Customer experience
-
-**As a small-business owner (J5).** The journey shortens from 68 to 47 questions and
-from ~42 to ~29 minutes, and it says so. "Because you told us you have no external
-suppliers, we did not ask about supplier fraud" is exactly the reassurance that
-prevents the "this isn't for a business like mine" reaction. G14 ("the owner approves
-everything") is offered without judgement, and D3-Q01 carries a note that owner-led
-approval will be assessed on its own terms. **Concern:** excluding eight fraud-culture
-questions for micro organisations may feel like the product decided they do not have
-a culture. Flagged in doc 11 §A.3.
-
-**As a CFO or risk executive (J2/J4).** The applicability profile is the credibility
-test, and it holds: 68 questions, nothing excluded, exclusions and redirects counted
-and explained. The outsourcing behaviour is the standout — a CFO who outsources
-procurement and sees the assessment get *longer*, with questions about retained
-control over price integrity and bank-detail verification, will conclude the
-instrument understands third-party risk. Evidence prompts signal what a real review
-would ask for. **Concern:** no way to delegate individual questions to a colleague;
-a CFO will not know every operational detail.
-
-**As an operations manager.** Questions are concrete and answerable. "I do not know"
-removes the pressure to guess, which is the main source of bad data from this role.
-Save-and-resume with an exact return position matches a working day full of
-interruptions. **Concern:** 14 profiling questions before the substance may feel like
-admin to someone expecting to start immediately.
-
-**As a mobile-only user.** This is where the design is strongest. One question per
-screen suits a phone far better than the current domain-scrolling model. No
-horizontal scroll, 48 px targets, reachable actions, bottom-sheet dialogs, quiet
-progress. **Concern:** a 29–43 minute journey on a phone will span multiple sessions;
-resume works locally but production must make it work across devices.
-
-**Verdict:** the experience would justify R5,000 *if* the content is approved and the
-report delivers on what the review screen promises. The journey now sets an
-expectation of precision that the report must meet.
-
-## 3. Review B — Fraud methodology integrity
-
-| Failure mode | Assessment |
-|---|---|
-| **Hides relevant risks** | **Contained.** Exclusion requires a gateway assertion of absence. 45 of 68 questions are unconditional. J5 floors at 47 questions and a test forbids dropping below 30. *Residual:* a respondent who lies at a gateway hides risk — unavoidable in self-assessment, mitigated by audit trail and admin review. |
-| **Rewards non-applicability** | **Contained by design and test.** The load-bearing test builds two identical organisations answering 0 throughout, one falsely claiming no suppliers, and asserts the evasive path does not score better. *Residual:* the underlying engine still removes weight from the denominator; the guard is that exclusion needs a stated fact, is counted, and is reported. |
-| **Confuses outsourcing with absence of risk** | **Resolved.** Outsourcing redirects to oversight at identical weight and hard-gate status. J4 answers *more* questions with a *larger* denominator (85.00) than the in-house retailer (83.75). Outsourced payroll adds a question. Test-asserted. |
-| **Treats uncertainty as control strength** | **Resolved.** Unknown earns zero credit and stays in the denominator. It can never exclude — every condition allow-list includes `unknown`. J6 answers all 68 with 65.37% unknown weight and scores 6.93. |
-| **Makes scores incomparable without explanation** | **Partially resolved.** Every result carries applicable/excluded/redirected/invalidated counts, coverage and unknown share. **But** the product does not yet state how a 47-question result compares to a 68-question one. Open decision `05` §9.6 recommends "limited applicability" domain reporting. **This is the largest outstanding methodology risk.** |
-
-**Verdict:** four of five failure modes are closed and test-enforced. The fifth —
-comparability — is a reporting decision this workstream cannot make alone.
-
-## 4. Review C — Product sustainability
-
-| Requirement | Assessment |
-|---|---|
-| **Versioned** | Graph carries `graph_version` and `methodology_version`; every node carries its own version. Pinning in-flight assessments is specified (`09` §6) but not implemented. **Adequate, with a decision outstanding.** |
-| **Maintained** | Adding a conditional question is one `applicability_condition` plus one `skip_reason_code` — no engine change. The engine contains no question identifiers. Structural invariants (gateway-only conditions) make whole classes of error impossible. **Strong.** |
-| **Tested** | 44 automated tests across integrity, determinism, reachability, loop-freedom, invalidation, progress, accessibility and safety. Two real defects caught. **Strong**, though production needs a combinatorial gateway sweep. |
-| **Extended** | New gateways, questions, redirects and domains need data only. Because conditions reference only gateways, adding a question cannot create a cycle or orphan another. **Strong.** |
-| **Explained to customers** | Every skip has customer-facing prose; the review screen groups exclusions by reason; the outsourcing rationale is explicit. **Strong.** |
-| **Integrated without dependence on Claude** | The prototype is plain HTML, CSS and ES modules with no framework and no build step. The handover specifies schema, state model, denominator rules, migrations and acceptance criteria. Any competent engineer can implement from doc 10. **Strong.** |
-| **Administered without editing code per branch** | **The weakest point.** Rules are data, but there is no admin UI to edit them. Today a branch change means editing JSON and deploying. `/score/admin/config/questions` exists and is the natural home. **Specified as a production decision, not built.** |
-
-**Verdict:** sustainable, with one real gap — rule administration. Everything else is
-data-driven, tested and documented.
-
-## 5. What would move the average from 9.12 to 9.5
-
-In priority order:
-
-1. **Approve gateway and oversight content** (doc 11) — unblocks trust and readiness.
-2. **Add `@axe-core/playwright` and run a screen-reader pass** — accessibility to 9.5.
-3. **Cross-browser verification, especially Safari/iOS** — readiness.
-4. **Bundle Poppins and add the two missing design tokens** — brand alignment to 9.5.
-5. **Decide the comparability/"limited applicability" reporting rule** (`05` §9.6) —
-   the largest methodology risk.
-6. **Replace invented time constants with observed medians.**
-7. **Build rule administration in the admin surface** — sustainability.
-
-Items 1–3 are prerequisites for customer testing. Items 4–7 are prerequisites for
-production.
-
-## 6. Honest summary
-
-This prototype does what it set out to do: it demonstrates a premium, adaptive,
-one-question-at-a-time assessment that shortens for simple organisations without
-becoming easier to manipulate, and it proves that claim with tests rather than
-assertions.
-
-It is **not** ready for customers, for three reasons that are about approval and
-verification rather than design: the content is unapproved, the accessibility
-evidence is incomplete, and it has only been run in one browser engine.
-
-The design is sound. The evidence is not yet complete enough to put it in front of
-someone about to spend R5,000.
+It is still **not** ready for customers, and the reasons are approval and verification,
+not design: the content is unapproved, the scoring model is undecided, and no human has
+tested it with a screen reader or on a real phone.

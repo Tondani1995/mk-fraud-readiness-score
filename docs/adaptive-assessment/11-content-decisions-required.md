@@ -2,152 +2,92 @@
 
 # ⚠ CONTENT DECISION REQUIRED — NOT APPROVED FOR PRODUCTION
 
-Everything in this document is **prototype placeholder content**. It was written to
-make the adaptive experience demonstrable. It has **not** been reviewed or approved
-by the methodology owner, and none of it may ship without explicit sign-off.
+Everything in this document is **prototype placeholder content**, written to make the
+adaptive experience demonstrable. None of it has been reviewed or approved by the
+methodology owner. Revised wording in this round is still placeholder wording — it has
+**not** become approved methodology by being improved.
 
-No existing approved content was altered. All 68 MFRS-V1.0 questions, their prompts,
-weights, critical and hard-gate flags, domain assignments, domain weights and the 0–5
-response scale are reproduced **verbatim** from
-`supabase/migrations/0003_phase5_methodology_seed.sql`. A test asserts this.
-
-Every placeholder node carries `"methodology_version": "PROTOTYPE_PLACEHOLDER"`.
-A test asserts that approved questions never carry that marker and that every
-prototype-authored node does.
+No approved content was altered. All 68 MFRS-V1.0 questions, prompts, weights,
+critical and hard-gate flags, domain assignments, domain weights and the 0–5 scale are
+reproduced **verbatim** from `supabase/migrations/0003_phase5_methodology_seed.sql`,
+and a test asserts it. Every placeholder node carries
+`"methodology_version": "PROTOTYPE_PLACEHOLDER"`, also test-asserted in both directions.
 
 ---
 
-## A. Gateway questions (14) — NOT APPROVED
+## 1. Decision table
 
-These do not exist in MFRS-V1.0. The entire adaptive experience depends on them.
-They establish operational facts and drive every exclusion and redirect.
+| ID | Item | Current placeholder | Proposed final wording | Why needed | Affects | Scoring implication | Report implication | Owner | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| **C1** | G01 organisation type | "Which best describes what your organisation does?" | unchanged | Sector framing | narrative only | none | sector language | Methodology | **NOT APPROVED** |
+| **C2** | G02 size | "Roughly how many people work in the organisation?" | unchanged | Proportionality | D6, D8, D9 (8 controls) | `micro` excludes 8 controls | exclusion schedule | Methodology | **NOT APPROVED** |
+| **C3** | G03 third parties | "Does your organisation buy goods or services from external suppliers or contractors?" | unchanged | Largest single branch | D2, D3, D6, D7 (8 controls, 3 redirects) | up to 8 exclusions or 3 redirects | scope + oversight | Methodology | **NOT APPROVED** |
+| **C4** | G04 procurement | "How is buying and procurement handled?" | unchanged | Procurement fraud is a primary vector | D7-Q02, D7-Q06 | 2 exclusions or 1 redirect | scope | Methodology | **NOT APPROVED** |
+| **C5** | G05 cash | "Does your organisation handle physical cash?" | unchanged | Cash exposure | D3-Q07 | contributes | exposure weighting | Methodology | **NOT APPROVED** |
+| **C6** | G06 stock | "Does your organisation hold physical stock, inventory or valuable equipment?" | unchanged | Asset misappropriation | D3-Q07 | contributes | exposure weighting | Methodology | **NOT APPROVED** |
+| **C7** | G07 payroll | "How is payroll handled?" | unchanged | Ghost-employee risk survives outsourcing | adds `OV-G07` | +1 control when outsourced | oversight finding | Methodology | **NOT APPROVED** |
+| **C8** | G08 digital payments | "Do you sell online or accept digital or card payments?" | unchanged | Digital fraud applicability | D2, D8 (6 controls) | up to 6 exclusions or 1 redirect | scope | Methodology | **NOT APPROVED** |
+| **C9** | G09 personal information | "Do you hold personal information about customers, clients or employees?" | unchanged | Identity risk independent of sales channel | D2-Q08, D8-Q01, D8-Q08 | retains identity controls | scope | Methodology | **NOT APPROVED** |
+| **C10** | G10 refunds | "Do you process refunds, credit notes or manual adjustments?" | unchanged | Common internal-fraud route | D3-Q05, D3-Q07 | 1 exclusion | scope | Methodology | **NOT APPROVED** |
+| **C11** | G11 sites | "Does the organisation operate from more than one site, store or project location?" | unchanged | Dispersion | none currently | none | narrative | Methodology | **NOT APPROVED** |
+| **C12** | G12 temporary workers | "Do you use temporary, seasonal or subcontracted workers?" | unchanged | Access and oversight | D3-Q07 | contributes | narrative | Methodology | **NOT APPROVED** |
+| **C13** | G13 remote / platforms | "Do employees work remotely, or do you depend on third-party digital platforms?" | unchanged | Platform dependency | D2-Q08, D8-Q02/05/07 | contributes | scope | Methodology | **NOT APPROVED** |
+| **C14** | G14 approvals | "Who approves payments and significant spending?" | unchanged | Small-org calibration | none currently | none | proportionality language | Methodology | **NOT APPROVED** |
+| **C15** | OV-D3-Q03 | Provider supplier-vetting assurance | unchanged | Outsourced vetting | replaces D3-Q03 | weight 1.5, hard gate | oversight gap | Methodology | **NOT APPROVED** |
+| **C16** | OV-D7-Q01 | Vetting standard defined and monitored | unchanged | Retained control | replaces D7-Q01 | weight 1.5 | oversight gap | Methodology | **NOT APPROVED** |
+| **C17** | OV-D7-Q02 | Retained procurement controls | unchanged | Collusion risk at provider | replaces D7-Q02 | weight 1.25 | oversight gap | Methodology | **NOT APPROVED** |
+| **C18** | OV-D7-Q04 | Independent bank-detail verification | unchanged | Vendor impersonation | replaces D7-Q04 | weight 1.5, hard gate | oversight gap | Methodology | **NOT APPROVED** |
+| **C19** | OV-D8-Q02 | Platform fraud reporting reviewed | unchanged | Marketplace dependency | replaces D8-Q02 | weight 1.5, hard gate | oversight gap | Methodology | **NOT APPROVED** |
+| **C20** | OV-G07 | Payroll register independently reviewed | unchanged | Ghost employees | **adds** a control | weight 1.25 | oversight gap | Methodology | **NOT APPROVED** |
+| **C21** | Uncertainty option | "I do not know — Recorded as uncertainty. This is not treated as a control being absent, and it is not treated as a control being present." | unchanged | No equivalent exists today | all 68 + most gateways | zero credit, reduces visibility | reduced-confidence language | Methodology | **NOT APPROVED** |
+| **C22** | Profile block intro | "First, five short questions about how your organisation operates…" | unchanged | Progressive profiling | opening screen | none | none | Commercial copy | **NOT APPROVED** |
+| **C23** | D2 block intro | "Before we assess how your organisation identifies fraud risk, we need to understand how much of your operation depends on remote working and third-party digital platforms." | unchanged | Explains the gateway | before D2 | none | none | Commercial copy | **NOT APPROVED** |
+| **C24** | D3 block intro | "Before we assess your operational fraud controls, we need to understand where money, stock and people actually move through your business." | unchanged | Explains the gateway | before D3 | none | none | Commercial copy | **NOT APPROVED** |
+| **C25** | D7 block intro | "Before we assess supplier and procurement controls, we need to understand how your organisation purchases goods and services, and how payroll is run." | unchanged | Explains the gateway | before D7 | none | none | Commercial copy | **NOT APPROVED** |
+| **C26** | Exclusion explanation | "This area was not assessed because the organisation indicated that the underlying activity does not form part of its operating model." | unchanged | Scope transparency | review + report | none | scope schedule | Methodology + Commercial | **NOT APPROVED** |
+| **C27** | Comparability statement | "Your score reflects the controls applicable to the operating profile you declared. It should not be compared directly with an organisation whose fraud exposures and applicable control areas differ materially." | unchanged | **Required by the corrected scoring contract** | review, submission, report | none | mandatory qualifier | Methodology + Commercial | **NOT APPROVED** |
+| **C28** | NORMAL status copy | "Coverage and control visibility are sufficient for a full conclusion." | unchanged | Report status | review + report | none | status | Methodology | **NOT APPROVED** |
+| **C29** | PROVISIONAL status copy | "A score can be shown, but the conclusion is limited." + generated reason | unchanged | Report status | review + report | none | prominent limitation | Methodology | **NOT APPROVED** |
+| **C30** | INSUFFICIENT_VISIBILITY copy | "Too much of the applicable control environment could not be confirmed for a defensible overall maturity conclusion." | unchanged | Report status | review + report | blocks definitive band | no maturity band | Methodology | **NOT APPROVED** |
+| **C31** | Evidence-verification template | "The respondent could not confirm how this control operates… identify the process owner and obtain evidence of the current procedure for: {control}" | unchanged | Prevents inventing findings | every unknown | none | verification action | Methodology | **NOT APPROVED** |
+| **C32** | Control-design template | "The organisation confirmed this control is not in place. Design and implement a control covering: {control}" | unchanged | Substantive 0 | every 0 | none | remediation | Methodology | **NOT APPROVED** |
+| **C33** | Strengthening template | "This control exists but is not operating consistently or is not evidenced…" | unchanged | Substantive 1–2 | every 1–2 | none | remediation | Methodology | **NOT APPROVED** |
+| **C34** | Provider-governance template | "Oversight of the external provider is not adequate…" | unchanged | Outsourced weakness | oversight variants | none | provider action | Methodology | **NOT APPROVED** |
+| **C35** | Completion template | "This question was not answered. Complete it so the assessment can reach a conclusion on: {control}" | unchanged | Silence is not a finding | every unanswered | none | completion request | Methodology | **NOT APPROVED** |
+| **C36** | Evidence prompts (68) | e.g. D7-Q04 → "Bank detail change verification procedure" | individual review required | Makes the scale concrete | all 68 | none | may inform report | Methodology | **NOT APPROVED** |
+| **C37** | Time constants (10) | 0.5–0.7 min per question per domain | replace with observed medians | Drives the visible estimate | all screens | none | none | Product + Data | **NOT APPROVED** |
 
-| ID | Prompt | Options | Drives |
-|---|---|---|---|
-| **G01** | Which best describes what your organisation does? | professional services / retail / construction / online / manufacturing / other | Sector framing only |
-| **G02** | Roughly how many people work in the organisation? | 1–10 / 11–50 / 51–250 / 250+ / don't know | Excludes 8 employee-dependent questions when `micro` |
-| **G03** | Does your organisation buy goods or services from external suppliers or contractors? | manage ourselves / handled by external provider / group or shared service / no / don't know | **8 exclusions or 3 redirects** |
-| **G04** | How is buying and procurement handled? | dedicated function / owner-led / external provider / shared service / don't know | 2 exclusions or 1 redirect |
-| **G05** | Does your organisation handle physical cash? | regularly / occasionally / no / don't know | Contributes to D3-Q07 |
-| **G06** | Does your organisation hold physical stock, inventory or valuable equipment? | yes / no / don't know | Contributes to D3-Q07 |
-| **G07** | How is payroll handled? | in-house / external provider / shared service / no payroll / don't know | Adds `OV-G07` |
-| **G08** | Do you sell online or accept digital or card payments? | yes / only via a third-party platform / no / don't know | Up to 6 exclusions or 1 redirect |
-| **G09** | Do you hold personal information about customers, clients or employees? | yes / no / don't know | Retains identity questions independently of G08 |
-| **G10** | Do you process refunds, credit notes or manual adjustments? | yes / no / don't know | 1 exclusion |
-| **G11** | Does the organisation operate from more than one site, store or project location? | yes / no / don't know | Dispersion framing |
-| **G12** | Do you use temporary, seasonal or subcontracted workers? | yes / no / don't know | Contributes to D3-Q07 |
-| **G13** | Do employees work remotely, or do you depend on third-party digital platforms? | yes / no / don't know | Contributes to digital exclusions |
-| **G14** | Who approves payments and significant spending? | formal delegation / owner or single director / shared service / don't know | Small-organisation calibration |
+## 2. Specific decisions that change behaviour
 
-### Decisions required
+Beyond wording, these need explicit rulings:
 
-1. **Approve, amend or replace each prompt.** Wording matters — these determine what
-   is not asked.
-2. **Confirm the applicability semantics of every option.** Specifically: does
-   "handled by an external provider" mean the same thing to a customer as it does in
-   the methodology?
-3. **Confirm G02 `micro` should exclude the eight employee-dependent questions**
-   (D6-Q02, D6-Q06, D8-Q03, D9-Q01, D9-Q02, D9-Q04, D9-Q05, D9-Q06). This is the
-   largest single block of exclusions and it is the most contestable: an owner-only
-   business still has fraud-culture exposure through its own conduct.
-4. **Confirm G14 is worth asking.** It currently calibrates tone rather than driving
-   exclusions. If it drives nothing, it should be cut.
-5. **Decide whether these belong in the methodology or in a separate profiling
-   instrument** with its own version lifecycle.
-6. **Relationship to the existing 8 exposure factors (EXP-01…08).** Overlap is
-   substantial: G03/G04 ≈ EXP-02, G08/G09/G13 ≈ EXP-03/04, G05/G06 ≈ EXP-05,
-   G11 ≈ EXP-06, G10 ≈ EXP-07. **Recommendation:** derive exposure bands from the
-   gateway answers rather than asking both, so the respondent is not asked the same
-   thing twice in different words. This needs methodology approval and would change
-   how exposure points are captured.
+1. **C2 / G02 `micro` excludes 8 fraud-culture and awareness controls**
+   (D6-Q02, D6-Q06, D8-Q03, D9-Q01/02/04/05/06). This is the largest single block of
+   exclusions and the most contestable — an owner-only business still has fraud-culture
+   exposure through the owner's own conduct. **Recommend narrowing or removing this
+   exclusion.**
 
-## B. Oversight variants (6) — NOT APPROVED
+2. **C11 / G11 and C14 / G14 currently drive nothing.** They are asked but affect no
+   applicability. Either wire them to controls or cut them. Asking a question that
+   changes nothing costs respondent goodwill.
 
-Asked **instead of** the in-house question when an activity is outsourced. Each
-carries the weight and hard-gate status of the question it replaces.
+3. **C20 / OV-G07 is additive.** Outsourcing payroll makes the assessment one control
+   *longer*. Confirm this is intended.
 
-| ID | Replaces | Prompt (abridged) | Weight | Hard gate |
-|---|---|---|---|---|
-| **OV-D3-Q03** | D3-Q03 | Obtains assurance that the provider performs supplier vetting to an agreed standard | 1.5 | yes |
-| **OV-D7-Q01** | D7-Q01 | Defines and monitors the vetting standard the provider must apply | 1.5 | no |
-| **OV-D7-Q02** | D7-Q02 | Retains defined controls over supplier selection, price integrity and conflict disclosure | 1.25 | no |
-| **OV-D7-Q04** | D7-Q04 | Independently verifies changes to supplier banking details before payments are released | 1.5 | yes |
-| **OV-D8-Q02** | D8-Q02 | Reviews the fraud, dispute and account-security reporting the platform provides | 1.5 | yes |
-| **OV-G07** | *(adds)* | Independently reviews the payroll register for unknown, duplicate or altered records | 1.25 | no |
+4. **`shared_service` currently behaves like in-house except for payroll.** A group
+   shared service is arguably closer to in-house than to a third party, but it still
+   introduces a governance boundary. Needs an explicit ruling.
 
-### Decisions required
+5. **Overlap with the 8 existing exposure factors (EXP-01…08).** G03/G04 ≈ EXP-02,
+   G08/G09/G13 ≈ EXP-03/04, G05/G06 ≈ EXP-05, G11 ≈ EXP-06, G10 ≈ EXP-07.
+   **Recommendation: derive exposure bands from gateway answers rather than asking both**,
+   so the respondent is not asked the same thing twice in different words. This changes
+   how exposure points are captured and needs methodology approval.
 
-1. **Approve or rewrite each prompt.**
-2. **Confirm weight parity.** The prototype assumes an oversight failure is as
-   serious as an in-house control failure. This is a methodology position, not a
-   design one.
-3. **Confirm hard-gate parity.** OV-D3-Q03, OV-D7-Q04 and OV-D8-Q02 retain hard-gate
-   status, so an outsourced organisation can still trip a maturity cap. Intended, but
-   must be explicit.
-4. **`OV-G07` is additive, not a replacement** — MFRS-V1.0 has no base payroll
-   question, so outsourcing payroll makes the assessment one question longer. Confirm
-   this is desired.
-5. **Decide whether `shared_service` should behave identically to `outsourced`.**
-   Currently it mostly follows the in-house path except for payroll. A group shared
-   service is arguably closer to in-house than to a third party, but it still
-   introduces a governance boundary.
+6. **C37 / time constants are invented** and shown to customers as fact. This is a small
+   but real honesty gap until replaced with observed medians.
 
-## C. Uncertainty option — NOT APPROVED
-
-Appears on every maturity question and most gateways. No equivalent exists today.
-
-> **I do not know**
-> *Recorded as uncertainty. This is not treated as a control being absent, and it is
-> not treated as a control being present.*
-
-### Decisions required
-
-1. Approve the label and helper text.
-2. **Confirm the scoring treatment**: retained in the denominator, zero credit,
-   flagged separately (`05` §3.1). This is the single most consequential methodology
-   decision in the workstream.
-3. Define `unknownWeightShare` thresholds for provisional or invalid results.
-4. Decide the report language for a high-uncertainty result — the intent is
-   *"limited visibility"*, not *"weak controls"*.
-
-## D. Framing copy — NOT APPROVED
-
-| Context | Proposed copy |
-|---|---|
-| Why we are asking | Because you indicated "{option}", this question applies to your organisation. |
-| Outsourcing rationale | Because you told us this activity is handled by an external provider, we are asking how you oversee that provider rather than assuming the risk has gone away. |
-| Exclusion framing | Excluded questions are removed from your result entirely. They do not count for you or against you. If any of these are wrong, go back and correct the answer that caused them. |
-| Unknown framing (review) | These are treated as uncertainty, not as controls being in place. A high number will be reflected in your report as reduced confidence rather than as a weakness. |
-| Invalidation warning | Changing this will remove {n} answers… They are kept in the audit history but will not affect your result. |
-| Welcome honesty prompt | Answer as things genuinely are today, not as they should be. |
-| Score visibility | Your score is calculated after submission and appears in your report. We do not show the calculation here. |
-
-**Decision required:** approve, amend, or route to the commercial copy owner. The
-exclusion and uncertainty framing in particular sets customer expectations about what
-a R5,000 report will contain.
-
-## E. Evidence prompts (68) — NOT APPROVED
-
-Every question gained a "Typical evidence" line (for example, D7-Q04 → *"Bank detail
-change verification procedure"*). These are **new content**, written for the
-prototype to make the maturity scale concrete.
-
-They are advisory, do not affect scoring, and could be dropped without changing
-behaviour.
-
-**Decisions required:** approve the concept; review all 68 individually; decide
-whether they belong in the assessment UI, the report, or both.
-
-## F. Estimated-time constants — NOT APPROVED
-
-Per-domain `estMinutesPerQuestion` of 0.5–0.7 minutes drives the visible time
-estimate (29–43 minutes across the six journeys).
-
-These are **invented**. They should be replaced with observed medians once real
-respondent telemetry exists. Until then the estimate is a plausible guess presented
-to the customer as a fact — a small but real honesty gap.
-
-## G. Summary
+## 3. Summary
 
 | Category | Count | Status |
 |---|---|---|
@@ -156,8 +96,10 @@ to the customer as a fact — a small but real honesty gap.
 | **Gateway questions** | **14** | **NOT APPROVED** |
 | **Oversight variants** | **6** | **NOT APPROVED** |
 | **Uncertainty option** | **1** | **NOT APPROVED** |
-| **Framing copy strings** | **7** | **NOT APPROVED** |
+| **Progressive block introductions** | **4** | **NOT APPROVED** |
+| **Framing / status / comparability copy** | **8** | **NOT APPROVED** |
+| **Recommendation templates** | **5** | **NOT APPROVED** |
 | **Evidence prompts** | **68** | **NOT APPROVED** |
 | **Time-estimate constants** | **10** | **NOT APPROVED** |
 
-**Nothing in sections A–F may reach production without methodology sign-off.**
+**Nothing in this document may reach production without methodology sign-off.**

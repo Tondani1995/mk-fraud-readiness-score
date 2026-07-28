@@ -1,6 +1,6 @@
 # 06 — Screen and interaction specification
 
-**Status:** Proposed for approval. Implementation-ready.
+**Status:** Proposed for approval. **Methodology and content approval required before implementation.**
 Screenshots referenced live in `prototypes/adaptive-assessment-v1/screenshots/`.
 
 ---
@@ -33,6 +33,9 @@ All 22 required screens and states, with where each is implemented and captured.
 | 20 | Final review | `renderReview()` | `1440-04-review` |
 | 21 | Submission confirmation | `renderSubmitted()` | `390-11-submitted` |
 | 22 | Mobile navigation and recovery | sticky progress, bottom-sheet dialog, retry | `320-*`, `390-*` |
+| 23 | Progressive domain gateway intro | `.blockintro` from `gateway_blocks` | `390-12-domain-gateway-intro` |
+| 24 | Report preview: three measures + status | `reviewScreenHtml()` | `390-13-review-scope-and-measures` |
+| 25 | Insufficient-visibility presentation | `statusbar--error` + limitation list | `390-14-insufficient-visibility` |
 
 ## 2. Component inventory
 
@@ -53,6 +56,11 @@ For the production build. Names are proposals.
 | `ReviewScreen` | Areas, exclusions, outsourcing, unknowns | `profile, onJump, onSubmit` |
 | `SubmissionScreen` | Confirmation + applicability summary | `profile, reference` |
 | `ResumeScreen` | What was retained | `progress, currentNode, onContinue` |
+| `GatewayBlockIntro` | Progressive-profiling block introduction | `title, intro` |
+| `MeasureScorecard` | Fraud Readiness Score + coverage + visibility | `result` |
+| `ReportStatusBar` | NORMAL / PROVISIONAL / INSUFFICIENT_VISIBILITY | `status, limitations` |
+| `ScopeSchedule` | Applicable, excluded, redirected, unknown, unanswered | `result` |
+| `RecommendationPreview` | Grouped by recommendation class | `groups` |
 
 Reuse existing `src/components/ui/` (`Button`, `Card`, `Badge`) where they fit.
 
@@ -76,6 +84,12 @@ type AssessmentUiState = {
   submittedAt: string | null;
 };
 ```
+
+Derived per control by `buildAssessment()` and required by the report:
+`finding_class`, `recommendation_class`, `evidence_required`, `conclusion_confidence`,
+`control_absence_confirmed`, `control_visibility_status`. Derived per assessment:
+`report_status`, `report_limitation_reason`, `assessment_coverage`,
+`control_visibility`, and the twelve integrity signals.
 
 `currentId` and `visited` are **part of saved state**. Omitting them was a real
 defect found by the resume test: the respondent returned to the previously-saved
@@ -155,7 +169,10 @@ replaced by gateway-driven exclusion, which removes a whole class of validation.
 | Invalidation body | …no longer apply to your organisation and will be removed from the assessment. They are kept in the audit history but will not affect your result. |
 | Exclusion framing | Excluded questions are removed from your result entirely. They do not count for you or against you. |
 | Unknown framing (review) | These are treated as uncertainty, not as controls being in place. A high number will be reflected as reduced confidence rather than as a weakness. |
-| Score visibility | Your score is calculated after submission and appears in your report. We do not show the calculation here. |
+| Score visibility | Your final score and report are produced after submission. We do not show the calculation here. |
+| Comparability | Your score reflects the controls applicable to the operating profile you declared. It should not be compared directly with an organisation whose fraud exposures and applicable control areas differ materially. |
+| Exclusion (report) | This area was not assessed because the organisation indicated that the underlying activity does not form part of its operating model. |
+| Integrity signals | Several answers materially shaped the applicable assessment scope. These will be recorded in the final report and may require confirmation. |
 
 ## 6. Visual specification
 

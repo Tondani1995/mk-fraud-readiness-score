@@ -1,148 +1,180 @@
 # 08 — Synthetic journey test matrix
 
-**Status:** Test evidence. Reproduce with
-`npm run journeys` (table) or `npm run journeys --json` (machine-readable),
-from `prototypes/adaptive-assessment-v1/`.
+**Status:** Test evidence. Reproduce with `npm run journeys` (table) or
+`npm run journeys:json`, from `prototypes/adaptive-assessment-v1/`.
 
-All six organisations are **fabricated**. No real customer, person or company
-appears anywhere. All figures below are generated output, not estimates.
+All organisations are **fabricated**. No real customer, person or company appears
+anywhere. Every figure below is generated output.
 
 ---
 
-## 1. Summary
+## 1. Summary — eight journeys plus one comparison fixture
 
-| ID | Organisation | Asked | Excluded | Redirected | "Don't know" | Est. min (after profile) | Areas | Coverage | Provisional score | Unknown weight share |
+| ID | Journey | Active | Excluded | Redirected | Unknown | Coverage | Visibility | Score | Report status | Est. min |
 |---|---|---|---|---|---|---|---|---|---|---|
-| J1 | Professional-services firm | 67 | 2 | 0 | 0 | 41 | 11 | 100% | 56.01 | 0% |
-| J2 | Retail organisation | 68 | 0 | 0 | 0 | 42 | 11 | 100% | 48.48 | 0% |
-| J3 | Construction business | 66 | 2 | 0 | 0 | 41 | 11 | 100% | 19.32 | 0% |
-| J4 | Online business | 69 | 0 | 4 | 0 | 43 | 11 | 100% | 55.59 | 0% |
-| J5 | Small business | **47** | **21** | 0 | 0 | **29** | 10 | 100% | 20.00 | 0% |
-| J6 | Low-certainty respondent | 68 | **0** | 0 | **58** | 42 | 11 | 100% | **6.93** | **65.37%** |
+| J1 | Professional-services firm | 67 | 2 | 0 | 0 | 100% | 100% | 56.01 | NORMAL | 41 |
+| J2 | Retail organisation | 68 | 0 | 0 | 0 | 100% | 100% | 48.48 | NORMAL | 42 |
+| J3 | Construction business | 66 | 2 | 0 | 0 | 100% | 100% | 19.32 | NORMAL | 41 |
+| J4 | Online business | **69** | 0 | **4** | 0 | 100% | 100% | 55.59 | NORMAL | 43 |
+| J5 | Small business | **47** | **21** | 0 | 0 | 100% | 100% | 20.00 | **PROVISIONAL** | **29** |
+| J6 | Low-certainty respondent | 68 | 0 | 0 | **45** | 100% | **34.63%** | 6.93 | **INSUFFICIENT_VISIBILITY** | 42 |
+| J7 | Strong controls, weak domain excluded | 56 | **12** | 0 | 0 | 100% | 100% | **83.39** | NORMAL | 34 |
+| J8 | High unknown, high apparent maturity | 68 | 0 | 0 | **55** | 100% | **19.70%** | 19.70 | **INSUFFICIENT_VISIBILITY** | 42 |
+| J7-FULL | *Comparison fixture — J7 declaring suppliers* | 66 | 2 | 0 | 0 | 100% | 100% | **76.93** | NORMAL | 41 |
 
-Estimate before any answers: **32 minutes** for every journey — the estimate cannot
-differentiate until gateway facts exist, then it moves to between 29 and 43 minutes.
+## 2. Progressive profiling
 
-Provisional scores come from deterministic synthetic responders, not from real
-organisations. They exist to prove denominator behaviour, not to characterise sectors.
+Every journey asks exactly **five** broad profile questions before the first control
+question: **G01** (organisation type), **G02** (size), **G03** (third parties),
+**G08** (digital payments), **G09** (personal information).
 
-## 2. Journey detail
+Domain gateways are then asked immediately before the domain they serve:
 
-### J1 — Professional-services firm (Meridian Advisory, synthetic)
+| Block | Gateways | Introduction |
+|---|---|---|
+| Before **D2** | G13 | "Before we assess how your organisation identifies fraud risk, we need to understand how much of your operation depends on remote working and third-party digital platforms." |
+| Before **D3** | G05, G06, G10, G11, G12, G14 | "Before we assess your operational fraud controls, we need to understand where money, stock and people actually move through your business." |
+| Before **D7** | G04, G07 | "Before we assess supplier and procurement controls, we need to understand how your organisation purchases goods and services, and how payroll is run." |
 
-*No stock, no cash, limited suppliers, outsourced payroll, office-based.*
+Two tests guarantee the restructure is safe:
 
-- **Asked 67 · excluded 2 · denominator 82.75**
-- Excluded: `D3-Q05` (`gateway_no_refunds_or_adjustments`), `D3-Q07`
-  (`gateway_no_high_risk_handling`)
-- Outsourced payroll (`G07 = outsourced`) **adds** `OV-G07` — the journey is one
-  question *longer* than the base 68 minus exclusions. Outsourcing is not a shortcut.
-- All 10 domains assessed.
+- `every gateway is asked before the first question that depends on it` — walks the
+  realised path and asserts gateway position < dependent position for every condition.
+- `progressive ordering yields the SAME applicability profile as gateways-first` —
+  builds each journey under both orderings and asserts identical exclusion sets,
+  redirect sets and applicable weight.
 
-### J2 — Retail organisation (Kopano Retail Group, synthetic)
+Note the second test's legacy fixture only answers gateways that are themselves
+applicable. Force-answering an excluded gateway (for example G04 when the
+organisation has no suppliers) fabricates an applicability state the respondent never
+declared — an error caught while building this test.
 
-*Multiple stores, cash, cards, inventory, refunds, temporary employees.*
+## 3. The exclusion evidence — J7 against J7-FULL
 
-- **Asked 68 · excluded 0 · denominator 83.75**
-- Nothing excluded: every gateway returns an operating activity. This is the control
-  case — maximum applicability.
-- Used as the invalidation fixture: changing `G03` to "no suppliers" would invalidate
-  **9** answered questions.
+Same synthetic organisation, same responder, same answers. The only difference is
+whether it declares that it uses external suppliers. Its third-party domain is
+deliberately its weakest area.
 
-### J3 — Construction business (Sentinel Civils, synthetic)
+| | Active | Applicable weight | Excluded weight | Exclusion share | **Fraud Readiness Score** |
+|---|---|---|---|---|---|
+| J7-FULL — declares suppliers | 66 | 81.50 | 2.25 | 2.69% | **76.93** |
+| J7 — declares no suppliers | 56 | 69.25 | 14.50 | 17.31% | **83.39** |
 
-*Subcontractors, procurement, project sites, plant, invoice and variation exposure.*
+**Excluding the weak domain raised the score by 6.46 points.**
 
-- **Asked 66 · excluded 2 · denominator 81.00**
-- Excluded: `D8-Q02`, `D8-Q05` (`gateway_no_digital_footprint` — no online sales, no
-  remote/platform dependency)
-- Note `D8-Q01`, `D8-Q04`, `D8-Q08` are **retained** because the organisation holds
-  personal information (`G09 = yes`). Absence of a sales channel does not remove
-  identity risk — the digital domain degrades partially, not wholly.
+What the prototype does about it:
 
-### J4 — Online business (Nandi Digital, synthetic)
+- No excluded control receives credit or penalty — all carry
+  `finding_class: NOT_APPLICABLE`, `control_absence_confirmed: false`
+- The applicable denominator visibly shrinks (81.50 → 69.25)
+- All 12 exclusions appear in the scope schedule with reason codes
+- D7 is reported as `fullyExcluded`, not silently dropped
+- Integrity signals raised: `high_impact_gateway_exclusion`,
+  `limited_domain_applicability`, `material_domain_exclusion`,
+  `profile_specific_comparability_warning`
+- **Recommendation classes for J7: none.** The weak third-party controls generate no
+  findings because the activity was declared absent. J7-FULL generates
+  `CONTROL_STRENGTHENING=4, CONTROL_DESIGN=3` for exactly those controls.
 
-*Online sales via a platform, digital payments, customer data, remote staff.*
+That last line is the honest picture: exclusion does not just move a number, it
+removes seven findings the organisation would otherwise have received.
 
-- **Asked 69 · excluded 0 · redirected 4 · denominator 85.00** — the *longest* journey
-- Redirects (all from `G03`/`G04` = outsourced):
-  `D3-Q03 → OV-D3-Q03`, `D7-Q01 → OV-D7-Q01`, `D7-Q02 → OV-D7-Q02`, `D7-Q04 → OV-D7-Q04`
-- Plus `OV-G07` for outsourced payroll.
-- **This is the key methodology result:** an organisation that outsources supplier
-  management and procurement answers *more* questions and carries a *larger*
-  denominator (85.00) than the fully in-house retailer (83.75). Outsourcing relocates
-  risk; the assessment follows it.
+## 4. The uncertainty evidence — J8
 
-### J5 — Small business (Tumelo Studio, synthetic)
+A respondent answering "5" on roughly one control in five and "I do not know" on the
+rest.
 
-*No procurement department, no payroll, few employees, owner-led approvals.*
+| Measure | Value |
+|---|---|
+| Active controls | 68 (nothing excluded — uncertainty cannot shorten) |
+| Unknown controls | 55 |
+| Unknown weight share | 80.30% |
+| Assessment coverage | 100% |
+| Control visibility | **19.70%** |
+| Fraud Readiness Score — **Option A** | **19.70** |
+| Fraud Readiness Score — **Option B** | **100.00** |
+| Report status | **INSUFFICIENT_VISIBILITY** |
+| Recommendation classes | `EVIDENCE_VERIFICATION=55` |
 
-- **Asked 47 · excluded 21 · denominator 58.50 · 29 minutes**
-- Skip reasons: `gateway_no_third_parties` ×8, `gateway_no_employee_base` ×8,
-  `gateway_no_procurement` ×2, `gateway_no_digital_footprint` ×2,
-  `gateway_no_refunds_or_adjustments` ×1
-- Excluded: D2-Q05, D3-Q03, D3-Q05, D6-Q02/Q05/Q06, D7-Q01…Q07 (all seven),
-  D8-Q02/Q03/Q05, D9-Q01/Q02/Q04/Q05/Q06
-- Only **10** areas appear, because D7 (Third-Party) is excluded in full — correctly,
-  for an organisation with no external suppliers.
-- **The journey shrinks by 31% and roughly 13 minutes**, which is the point of the
-  workstream. A test asserts it cannot collapse below 30 questions, so core
-  governance, detection and incident-response coverage always survives.
+**Under Option B this organisation scores a perfect 100** while having confirmed one
+control in five. This is the single strongest argument for Option A, and the reason
+the recommendation in `05` §4.1 is what it is.
 
-### J6 — Low-certainty respondent (Unnamed Holdings, synthetic)
+All 55 unknowns produce evidence-verification recommendations. **None produces an
+implementation recommendation, and none records `control_absence_confirmed`.**
 
-*Answers "I do not know" throughout, including on every gateway.*
+## 5. Per-journey detail
 
-- **Asked 68 · excluded 0 · unknown responses 58 · unknown weight share 65.37% ·
-  provisional score 6.93**
-- **Nothing is excluded.** Every applicability condition includes `unknown` in its
-  allow-list, so uncertainty cannot shorten the assessment.
-- The attempt to use non-applicability as a shortcut fails by construction: the only
-  route to exclusion is a gateway answer asserting an activity does *not exist*, and
-  "I do not know" is not that answer.
-- The pairing of a 6.93 score with a 65.37% unknown share is what a report needs to
-  say *"this reflects limited visibility, not demonstrated absence of controls"*.
+**J1 — Professional services.** 2 exclusions (`gateway_no_refunds_or_adjustments`,
+`gateway_no_high_risk_handling`). Outsourced payroll *adds* `OV-G07`, so the journey
+is longer than 68 − 2. Recommendations: `CONTROL_STRENGTHENING=22`,
+`PROVIDER_GOVERNANCE=1`.
 
-## 3. Invalidation behaviour
+**J2 — Retail.** Control case: nothing excluded, maximum applicability, weight 83.75.
+Also the invalidation fixture — changing G03 to "no suppliers" invalidates 9 answered
+controls. Recommendations: `CONTROL_DESIGN=11`, `CONTROL_STRENGTHENING=24`.
 
-Fixture: J2, fully answered, then `G03` ("do you use external suppliers?") changed
-from `internal` to `none`.
+**J3 — Construction.** 2 exclusions (`gateway_no_digital_footprint`). D8-Q01, D8-Q04
+and D8-Q08 are **retained** because the organisation holds personal data — the digital
+domain degrades partially, not wholly. Signals: `high_impact_gateway_exclusion`.
 
-- **9** answered questions invalidated: `G04`, `D2-Q05`, `D3-Q03`, `D6-Q05`,
-  `D7-Q01`, `D7-Q03`, `D7-Q04`, `D7-Q05`, and one more
-- Each written to audit history with `previous_value` and `cause: G03`
-- All removed from the active path; none contribute to the denominator
-- Re-selecting `internal` restores the original path shape exactly (asserted)
+**J4 — Online.** The longest journey: 69 controls, weight 85.00, four redirects
+(`D3-Q03→OV-D3-Q03`, `D7-Q01→OV-D7-Q01`, `D7-Q02→OV-D7-Q02`, `D7-Q04→OV-D7-Q04`) plus
+`OV-G07`. **Outsourcing produced a larger denominator than the fully in-house
+retailer.** Recommendations include `PROVIDER_GOVERNANCE=2`.
 
-Verified both at engine level (`node --test`) and through the real UI dialog
-(Playwright), including Escape-cancel leaving answers untouched.
+**J5 — Small business.** 47 controls, 21 excluded, weight 58.50, 29 minutes — 31%
+shorter. Exclusion share 30.15% pushes it to **PROVISIONAL**. D7 excluded entirely, so
+only 10 areas appear. A test forbids collapsing below 30 controls.
 
-## 4. Test coverage
+**J6 — Low certainty.** All gateways unknown. **Nothing excluded** — coverage 100%,
+visibility 34.63%, score 6.93. `EVIDENCE_VERIFICATION=45`.
 
-**44 automated tests, all passing.**
+**J7 / J8** — see §3 and §4.
 
-### Engine suite — 25 tests, zero dependencies (`npm test`)
+## 6. Integrity signals raised
 
-Structure (4) · determinism (2) · journey coverage (3) · skip integrity (4) ·
-outsourcing (2) · invalidation (3) · dynamic progress (2) · applicability profile (2) ·
-safety rails (3).
+| Journey | Signals |
+|---|---|
+| J1 | *(none)* |
+| J2 | *(none)* |
+| J3 | `high_impact_gateway_exclusion`, `profile_specific_comparability_warning` |
+| J4 | `profile_specific_comparability_warning` |
+| J5 | `material_exclusion_share`, `high_impact_gateway_exclusion`, `limited_domain_applicability`, `material_domain_exclusion`, `profile_specific_comparability_warning` |
+| J6 | `high_unknown_weight_share`, `low_control_visibility`, `insufficient_visibility` |
+| J7 | `high_impact_gateway_exclusion`, `limited_domain_applicability`, `material_domain_exclusion`, `profile_specific_comparability_warning` |
+| J8 | `high_unknown_weight_share`, `low_control_visibility`, `insufficient_visibility` |
 
-### Browser suite — 19 tests, Playwright (`npm run test:browser`)
+## 7. Test coverage — 125 automated tests
 
-Layout at 320/390/768/1440 (4) · keyboard and focus (2) · save states and resume (2) ·
-invalidation dialog (1) · six journeys end-to-end (6) · desktop capture (1) ·
-domain-complete transition (1) · no external network calls (1) · reduced motion (1).
+### Engine suite — 44 tests, zero dependencies (`npm test`)
+
+Structure and provenance (5) · determinism (2) · journey coverage (3) · skip
+integrity (3) · mixed-score exclusion regression (5) · outsourcing (2) ·
+invalidation (3) · dynamic progress (2) · applicability profile (2) ·
+recommendation contract (10) · measures and score models (2) · progressive
+profiling (3) · safety rails (3).
+
+### Browser suite — 27 tests × 3 engines = 81 (`npm run test:browser`)
+
+Layout at 320/390/768/1440 (4) · keyboard, focus order and skip link (2) · save
+states and resume (2) · invalidation dialog with focus trap (1) · eight journeys
+end-to-end (6) · desktop capture (1) · domain-complete transition (1) · axe WCAG
+checks (2) · 400% zoom reflow (1) · progressive profiling in the UI (2) · report
+preview and measures (2) · insufficient-visibility presentation (1) · no
+recommendation leakage for excluded controls (1) · no external network calls (1) ·
+reduced motion (1).
 
 ### Requirements traceability
 
 | Required coverage | Test |
 |---|---|
-| All six synthetic journeys | `journey J1…J6 completes end to end` + engine journey tests |
+| All eight synthetic journeys | engine journey tests + `journey J1…J8 completes end to end` |
 | Deterministic branching | `branching is deterministic across repeated evaluations` |
 | No unreachable required questions | `no unreachable required question` |
-| No infinite loops | `all six synthetic journeys terminate without loops` (500-iteration guard) |
+| No infinite loops | 500-iteration guard, never reached |
 | Correct skip reasons | `skipping requires an explicit gateway statement of fact` |
-| Correct downstream invalidation | `changing a gateway invalidates…`, `invalidated answers leave the active path…` |
+| Downstream invalidation | `changing a gateway invalidates…`, `invalidated answers leave the active path…` |
 | Save/resume state | `answers survive a page refresh and resume at the same question` |
 | Dynamic progress | `progress never presents a misleading fixed denominator` |
 | Estimated-time recalculation | `estimated time recalculates as branches open and close` |
@@ -150,26 +182,35 @@ domain-complete transition (1) · no external network calls (1) · reduced motio
 | Mobile viewport layout | `layout is sound at {320,390,768,1440}px` |
 | Frozen / failed-save presentation | `save-in-progress and save-failed states are presented` |
 | No customer data or production endpoints | `prototype contains no production endpoints…`, `makes no network calls to production hosts` |
-| No runtime AI branching | `no runtime AI branching: the engine performs no network calls`, `graph JSON is the single source of branching truth` |
+| No runtime AI branching | `no runtime AI branching…`, `graph JSON is the single source of branching truth` |
+| Mixed-score exclusion regression | §3 tests (5) |
+| Recommendation contract | tests 1–10 |
+| Progressive profiling equivalence | `progressive ordering yields the SAME applicability profile` |
+| Accessibility | axe (2), zoom reflow (1), reduced motion (1), keyboard (2) |
 
-## 5. Defects found and fixed during testing
+## 8. Defects found by these tests
 
-1. **Navigation position was not persisted.** After answering and auto-advancing, a
-   refresh returned the respondent to the *previously saved* question, not the active
-   one — because `goToNext()` mutated `currentId` without persisting. Found by
-   `answers survive a page refresh…`. Fixed by persisting on every navigation.
-2. **Skip link was unreachable.** Focusing the screen heading on first paint pushed
-   focus past the skip link, so the first Tab landed on a button. Found by
-   `full keyboard operation with visible focus`. Fixed by suppressing heading focus
-   on the first render only.
+1. **Navigation position was not persisted** — a refresh returned the respondent to
+   the previously-saved question, not the active one. *(Previous round.)*
+2. **Skip link unreachable** — first-paint heading focus jumped past it. *(Previous round.)*
+3. **The anti-gaming test proved nothing** — scored every control 0, so it could not
+   detect the effect it claimed to rule out. Replaced by §3. *(This round.)*
+4. **Horizontal overflow at 320px and 390px** — the journey `<select>` sized itself to
+   its longest option (377px in a 320px viewport), breaking the no-horizontal-scroll
+   guarantee. Caught by the layout tests when J7/J8 were added. *(This round.)*
+5. **Axe reported false contrast failures** — analysis ran mid-fade while `riseIn` was
+   still animating. Fixed by waiting for animations to finish. *(This round.)*
+6. **J8 was not exercising its own responder** — the browser helper filled answers with
+   a generic pattern, erasing the uncertainty behaviour the journey exists to test.
+   *(This round.)*
 
-Both were real accessibility/recovery defects that manual review had not surfaced.
+## 9. Limits of this evidence
 
-## 6. Limitations of this evidence
-
-- Responders are deterministic synthetic profiles, not real respondents. Scores show
-  denominator mechanics; they say nothing about actual sector maturity.
-- Six journeys is a design sample, not statistical coverage. A production graph
-  should add a combinatorial reachability sweep over gateway permutations.
-- No real user has completed the prototype. Usability claims in
-  `12-prototype-evaluation-scorecard.md` are expert judgement pending customer testing.
+- Responders are deterministic synthetic profiles. Scores demonstrate denominator and
+  visibility mechanics; they say nothing about real sector maturity.
+- Eight journeys is a design sample, not statistical coverage. Production should add a
+  combinatorial sweep over gateway permutations.
+- No real user has completed the prototype. Usability claims in `12` are expert
+  judgement pending owner review and customer testing.
+- Browser evidence is Playwright-driven Chromium, Firefox and WebKit. **Physical
+  devices and human screen-reader testing remain pre-production gates.**

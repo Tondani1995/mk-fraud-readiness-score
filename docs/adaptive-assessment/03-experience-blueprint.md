@@ -12,7 +12,8 @@
   │          │   │ profile      │   │  assessment  │   │        │   │           │
   │ expect-  │   │ (gateways    │   │  (adaptive,  │   │ what   │   │ what      │
   │ ation    │   │  G01–G14)    │   │  D1→D10)     │   │ we did │   │ happens   │
-  │ setting  │   │              │   │              │   │ & why  │   │ next      │
+  │ setting  │   │              │   │  gateway     │   │ & why  │   │ next      │
+  │          │   │              │   │  blocks)     │   │        │   │           │
   └──────────┘   └──────────────┘   └──────────────┘   └────────┘   └───────────┘
                         │                   ▲                │
                         │  determines       │                │
@@ -25,9 +26,14 @@
 answer honestly, "I do not know" is acceptable, you can pause. Four facts, no wall
 of text.
 
-**Phase 2 — Organisation profile.** 14 gateway questions establishing operational
-facts. This is where the journey is shaped. Feels like the opening of a consultation:
-"tell me how you operate" before "tell me what you control".
+**Phase 2 — Organisation profile.** **Five** broad gateway questions (G01 type, G02
+size, G03 third parties, G08 digital payments, G09 personal information). Only
+information needed across several domains is asked here.
+
+**Phase 2a — Domain gateway blocks.** The remaining nine gateways are asked immediately
+before the domain they serve, each with a short introduction: G13 before D2;
+G05/G06/G10/G11/G12/G14 before D3; G04/G07 before D7. This keeps the opening short
+while preserving an identical applicability profile — proven by test.
 
 **Phase 3 — Domain assessment.** The 68 approved methodology questions, filtered to
 those that apply, in domain order D1→D10, one per screen, with a transition when
@@ -38,22 +44,28 @@ and how they were assessed instead, unknowns, completeness.
 
 **Phase 5 — Submission.** Confirmation, applicability profile summary, what happens next.
 
-## 2. Why gateways come first
+## 2. Why five broad questions come first
 
 Alternatives considered:
 
 | Option | Verdict |
 |---|---|
-| Gateways interleaved into each domain | Rejected — the time estimate could not stabilise; respondent re-orients constantly |
+| All 14 gateways up front | **Rejected on review** — too long a hurdle before the assessment appears to start |
 | Gateways at the end | Rejected — cannot skip what has already been asked |
-| **Gateways up front as a distinct phase** | **Adopted** |
+| **Five broad questions up front, the rest in domain blocks** | **Adopted** |
+
+The binding constraint is that a gateway must be asked before the first question that
+reads it. That, not preference, determines which five are broad: G03, G08, G09 and G13
+all have dependents in D2, and G02's earliest dependent is D6.
 
 Gathering facts first mirrors how an adviser actually opens an engagement, gives an
 honest time estimate before the long stretch begins, and makes the branch visible
 ("because you told us X…") rather than retroactive.
 
-Cost: 14 questions before the assessment "starts". Mitigated by keeping them short,
-concrete, mostly auto-advancing, and framed as profiling rather than testing.
+Cost: five questions before the assessment "starts", down from fourteen. Mitigated by
+keeping them short, concrete, mostly auto-advancing, and framed as profiling rather
+than testing. Domain gateways then arrive in context, introduced by a line that says
+why they are being asked.
 
 ## 3. Screen anatomy
 

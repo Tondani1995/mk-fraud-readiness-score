@@ -4,9 +4,11 @@
  *
  *   npx playwright test --config=playwright.config.mjs
  *
- * Covers keyboard interaction, viewport layout at 320/390/768/1440, focus
- * visibility, save-failure presentation, resume-after-refresh, and the
- * no-horizontal-scroll guarantee. Screenshots land in ./screenshots.
+ * Runs in Chromium, Firefox and WebKit. Covers keyboard interaction, viewport layout
+ * at 320/390/768/1440, focus visibility and dialog focus trapping, axe-core WCAG
+ * checks, 400% zoom reflow, save-failure presentation, resume-after-refresh,
+ * progressive profiling, the report preview, and the no-horizontal-scroll guarantee.
+ * Screenshots land in ./screenshots (Chromium writes the canonical set).
  */
 
 import { test, expect } from '@playwright/test';

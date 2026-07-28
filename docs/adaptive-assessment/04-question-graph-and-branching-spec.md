@@ -1,6 +1,6 @@
 # 04 — Question graph and branching specification
 
-**Status:** Proposed for approval. Implementation-ready.
+**Status:** Proposed for approval. **Methodology and content approval required before implementation.**
 **Source of truth:** `prototypes/adaptive-assessment-v1/data/question-graph.json`
 **Graph version:** `PROTO-AAX-V1.0` · **Methodology version:** `MFRS-V1.0`
 
@@ -91,14 +91,45 @@ Bold = `high_impact`, requiring explicit Continue.
 G04 is itself conditional (`not G03 in [none]`) — a gateway gating a gateway, which
 the grammar supports.
 
+## 4a. Progressive profiling
+
+Gateways are **not** all asked up front. Each carries a `phase`:
+
+| Phase | Gateways | Asked |
+|---|---|---|
+| `profile` | G01, G02, G03, G08, G09 | Before the assessment begins — **maximum five** |
+| `domain:D2` | G13 | Immediately before D2 |
+| `domain:D3` | G05, G06, G10, G11, G12, G14 | Immediately before D3 |
+| `domain:D7` | G04, G07 | Immediately before D7 |
+
+The `gateway_blocks` array carries an introduction for each block, shown once on the
+first gateway of that block.
+
+**The ordering constraint that makes this safe:** a gateway must be emitted before the
+first question whose condition reads it. The phase assignment above was derived by
+computing, for every gateway, the earliest domain containing a dependent question:
+
+| Gateway | Earliest dependent domain | Domains affected |
+|---|---|---|
+| G03 | D2 | D2, D3, D6, D7 |
+| G08, G09, G13 | D2 | D2, D8 |
+| G02 | D6 | D6, D8, D9 |
+| G05, G06, G10, G12 | D3 | D3 |
+| G04, G07 | D7 | D7 |
+| G01, G11, G14 | — | none |
+
+Two tests enforce it: `every gateway is asked before the first question that depends on
+it`, and `progressive ordering yields the SAME applicability profile as gateways-first`.
+
 ## 5. Path resolution
 
 `resolvePath(answers)` is a pure function returning `{active, excluded, redirected}`:
 
-1. **Gateways** in declared order, each gated by its own condition.
-2. **Methodology questions** sorted by `domain.sortOrder` then `question_id`.
-   For each: if `redirect_when` matches → emit the variant (record the redirect);
-   else if `applicability_condition` passes → emit the question;
+1. **Profile gateways** (`phase: "profile"`), each gated by its own condition.
+2. **For each domain in `sortOrder`:** first that domain's gateway block
+   (`phase: "domain:<code>"`), then its questions sorted by `question_id`.
+   For each question: if `redirect_when` matches → emit the variant (record the
+   redirect); else if `applicability_condition` passes → emit the question;
    else → exclude with its `skip_reason_code`.
 3. **Standalone variants** (`replaces: null`, e.g. `OV-G07`) whose condition passes.
 
@@ -177,12 +208,12 @@ redirect tree, so invalidation is O(dependents) rather than a full graph re-walk
 | 68 questions, 19 critical, 17 hard-gate, weights = 100% | `graph reproduces the approved MFRS-V1.0 methodology exactly` |
 | Prototype content is labelled; approved content is not relabelled | `every prototype-authored node is explicitly labelled` |
 | Every redirect target exists; conditions reference only gateways | `every redirect target and condition dependency resolves` |
-| No unreachable question across the six journeys | `no unreachable required question` |
-| No infinite loops (500-iteration guard, never reached) | `all six synthetic journeys terminate without loops` |
+| No unreachable question across the eight journeys | `no unreachable required question` |
+| No infinite loops (500-iteration guard, never reached) | `all synthetic journeys terminate without loops` |
 | Every skip carries a defined, human-readable reason | `skipping requires an explicit gateway statement of fact` |
 | Uncertainty never excludes | `"I do not know" never excludes a question` |
-| Exclusion never improves the score | `skipping does not improve the score` |
-| Outsourcing never improves the score | `outsourced organisations are not scored more leniently` |
+| Exclusion changes assessed scope and can change the score; it creates no credit or penalty | `excluding a weak domain CHANGES the percentage score`, `exclusion creates no control credit and no control penalty` |
+| Outsourcing cannot reduce exposure | `outsourced organisations are not scored more leniently` |
 | Restoring a gateway restores the path | `re-selecting the original gateway value restores applicability` |
 | Nothing silently vanishes | accounting identity in `every journey produces a complete profile` |
 

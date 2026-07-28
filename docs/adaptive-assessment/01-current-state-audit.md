@@ -136,9 +136,13 @@ From `scoring-engine.ts`:
 **The most important finding in this audit:** because N/A removes weight from the
 denominator rather than scoring zero, *every* exclusion is score-neutral-to-positive.
 An organisation that excludes its weakest areas raises its average. Today the only
-brakes are the exposure-profile gate and a post-hoc admin flag. Any move to adaptive
-skipping multiplies this exposure and must be designed against it deliberately —
-see `05-applicability-and-scoring-integrity.md`.
+brakes are the exposure-profile gate and a post-hoc admin flag.
+
+This is a property of the existing engine, and it **cannot be engineered away** while
+excluded controls leave the denominator. Adaptive skipping multiplies the exposure. The
+response adopted in `05` is therefore transparency and comparability control rather than
+a claim of immunity: the exclusion, its cause, its weight and its effect on scope are
+recorded and reported, and the result is explicitly marked profile-specific.
 
 ### 3.8 How answers reach the report
 
