@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 42 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 43 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260725150000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260728120000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 8
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 9
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -81,21 +81,22 @@ with authorised(version, name) as (
     ('20260724170000','release_c_email_secure_delivery'),
     ('20260724180000','release_c_closure_delivery_exceptions'),
     ('20260725090000','release_c_runtime_secret_admin_provisioning'),
-    ('20260725150000','release_d_operational_alert_lifecycle')
+    ('20260725150000','release_d_operational_alert_lifecycle'),
+    ('20260728120000','rc1_near_real_time_automatic_fulfilment')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 8 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 9 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations
   where version > :'rc1_preflight_newest_version'
     and version not in ('20260722120000','20260722143000','20260724150000','20260724160000','20260724170000',
-                        '20260724180000','20260725090000','20260725150000')
+                        '20260724180000','20260725090000','20260725150000','20260728120000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
@@ -291,6 +292,16 @@ with expected(table_name, column_name) as (
     ('manual_report_generation_attempts','quality_reviewed_at'), ('manual_report_generation_attempts','quality_review_decision'),
     ('manual_report_generation_attempts','quality_review_reason'), ('manual_report_generation_attempts','regenerated_from_attempt_id'),
     ('manual_report_generation_attempts','delivery_queued_at'),
+    ('manual_report_generation_attempts','immediate_dispatch_correlation_reference'),
+    ('manual_report_generation_attempts','immediate_dispatch_started_at'),
+    ('manual_report_generation_attempts','immediate_dispatch_completed_at'),
+    ('manual_report_generation_attempts','immediate_dispatch_outcome'),
+    ('manual_report_generation_attempts','immediate_dispatch_http_status'),
+    ('manual_report_generation_attempts','immediate_dispatch_error_category'),
+    ('manual_report_generation_attempts','commercial_quality_verified_at'),
+    ('manual_report_generation_attempts','storage_readback_verified_at'),
+    ('manual_report_generation_attempts','automatic_released_at'),
+    ('manual_report_generation_attempts','automatic_delivery_authorization_id'),
     ('report_generation_runs','final_narrative_json'), ('report_generation_runs','initial_validation_json'),
     ('report_generation_runs','repair_validation_json'),
     ('report_delivery_authorizations','next_attempt_at'), ('report_delivery_authorizations','max_attempts'),
@@ -303,7 +314,7 @@ with expected(table_name, column_name) as (
     on c.table_schema = 'public' and c.table_name = e.table_name and c.column_name = e.column_name
   group by e.table_name, e.column_name
 )
-select 'introduced_columns_result|' || case when count(*) = 41 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'introduced_columns_result|' || case when count(*) = 51 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 with expected(table_name, column_name, type_name, not_null) as (
@@ -366,14 +377,15 @@ with expected(index_name) as (
     ('phase14_operational_alerts_severity_created_idx'),
     ('phase14_operational_alerts_list_idx'),
     ('phase14_operational_alerts_open_critical_idx'),
-    ('phase14_operational_alerts_category_idx')
+    ('phase14_operational_alerts_category_idx'),
+    ('manual_report_generation_attempts_automatic_delivery_idx')
 ), found as (
   select e.index_name, count(c.oid) as matches
   from expected e left join pg_class c on c.relname = e.index_name
     and c.relnamespace = 'public'::regnamespace and c.relkind = 'i'
   group by e.index_name
 )
-select 'derived_index_list_result|' || case when count(*) = 14 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'derived_index_list_result|' || case when count(*) = 15 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 with expected(name, args, search_path, positive_role) as (
@@ -394,7 +406,13 @@ with expected(name, args, search_path, positive_role) as (
     ('retry_fulfilment_job','uuid','public, pg_temp','authenticated'),
     ('recover_fulfilment_job','uuid','public, pg_temp','authenticated'),
     ('claim_payment_report_generation','text,text,text','public, pg_temp','service_role'),
-    ('record_payment_transition','text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text','public, pg_temp','service_role'),
+    ('record_payment_transition','text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text','""','service_role'),
+    ('record_fulfilment_dispatch_result','uuid,uuid,text,integer,text','""','service_role'),
+    ('claim_exact_fulfilment_job','uuid,text,integer','""','service_role'),
+    ('record_automatic_fulfilment_exception','uuid,uuid,text,text,text,text','""','service_role'),
+    ('automatic_release_completed_fulfilment','uuid,uuid,text','""','service_role'),
+    ('claim_exact_delivery','uuid,uuid,text,integer','""','service_role'),
+    ('mark_delivery_reconciliation_required','uuid,uuid,text,text','""','service_role'),
     ('claim_next_delivery','text,integer','public, pg_temp','service_role'),
     ('mark_delivery_dispatch_started','uuid,uuid','public, pg_temp','service_role'),
     ('finalize_delivery','uuid,uuid,text','public, pg_temp','service_role'),
@@ -423,7 +441,7 @@ with expected(name, args, search_path, positive_role) as (
   from actual a where a.oid is not null
 )
 select 'rpc_combined_result|' || case when
-  (select count(*) from actual) = 29 and (select count(*) from rpc_check) = 29
+  (select count(*) from actual) = 35 and (select count(*) from rpc_check) = 35
   and not exists (select 1 from actual where oid is null or not prosecdef or actual_search_path <> search_path)
   and (select count(*) from rpc_check where not positive_grant or public_grant or anon_grant
        or (positive_role = 'NONE' and (authenticated_grant or service_role_grant))

@@ -1,48 +1,44 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { processOneDelivery } from '@/lib/fulfilment/delivery-worker';
+import { recordAutomaticFulfilmentExceptionAlert } from '@/lib/notifications/phase1-order-notifications';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
+import {
+  generateManualPhase1Report,
+  Phase1GenerationError
+} from '@/lib/reports/phase1-manual-fulfilment';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { generateManualPhase1Report, Phase1GenerationError } from '@/lib/reports/phase1-manual-fulfilment';
-import { sendEmail } from '@/lib/notifications/email-provider';
-import { buildReportReadyMessage } from '@/lib/notifications/message-templates';
-import { getNumberEnv } from '@/lib/env/server';
 
-// Release B durable fulfilment worker (docs/safe-launch/12-durable-fulfilment-design.md,
-// "Worker execution model"). Bearer-token authenticated exactly like the existing (currently
-// unreachable) internal/phase14-storage-cleanup/route.ts -- same CRON_SECRET pattern, not a
-// new auth mechanism. Invoked by the vercel.json cron entry, and equally callable on demand
-// (used directly by the Release B live-database integration tests in this work cycle, and
-// available as an admin "process queue now" fallback independent of cron timing).
-//
-// On each call it claims at most one eligible job via claim_next_fulfilment_job() (for
-// update skip locked -- see the migration), then runs the EXISTING, unmodified
-// generateManualPhase1Report() exactly as the synchronous admin/payment paths already do.
-// That function internally calls the existing complete_manual_report_generation() RPC on
-// success (verified by reading src/lib/reports/phase1-manual-fulfilment.ts -- it is not
-// re-implemented or re-called here). On a successful return, this route calls the new
-// submit_for_quality_review() RPC to move the row to AWAITING_QUALITY_REVIEW. On a thrown
-// error, it calls the new fail_fulfilment_job() RPC with a categorised, customer-safe
-// message -- never a stack trace or raw SQL error text.
-//
-// No PII in the response body or in any log line here: only order/attempt ids (both
-// internal technical references, not customer-identifying), status strings and error
-// categories are ever included.
+// One authenticated worker route, two invocation modes:
+// - POST with an exact technical attempt ID is the primary post-payment path.
+// - GET retains the accepted global claim behaviour for the once-daily recovery cron.
+// Both modes use the same generator, automatic release transaction, delivery claim/dispatch,
+// token, provider, finalisation and failure logic. Responses and logs contain technical IDs and
+// safe categories only; request Authorization and customer-identifying values are never logged.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_LEASE_SECONDS = 300;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ClaimedJob = {
   id: string;
   order_id: string;
   request_key: string;
-  report_version: number;
-  trigger_source: string;
-  retry_count: number;
+  report_version?: number;
+  trigger_source?: string;
+  retry_count?: number;
+  already_complete?: boolean;
+  automatic_delivery_authorization_id?: string;
 };
 
-function categoriseError(error: unknown): { category: string; safeMessage: string; technicalReference: string } {
+function categoriseGenerationError(error: unknown): {
+  category: string;
+  safeMessage: string;
+  technicalReference: string;
+} {
   if (error instanceof Phase1GenerationError) {
     return {
       category: error.reason,
@@ -50,145 +46,139 @@ function categoriseError(error: unknown): { category: string; safeMessage: strin
       technicalReference: error.technicalReference ?? crypto.randomUUID()
     };
   }
-  // Never surface the raw error message (may contain internal SQL/driver detail) to the
-  // customer-safe field -- only a fixed, generic operational message, matching the split
-  // already used by manual_report_generation_attempts.safe_operational_error /
-  // technical_reference elsewhere in this codebase.
   return {
     category: 'generation_failed',
-    safeMessage: 'Report generation failed. The fulfilment worker will retry automatically.',
+    safeMessage:
+      'Report generation failed. The fulfilment worker will retry automatically.',
     technicalReference: crypto.randomUUID()
   };
 }
 
-// Release C: second claim phase on the SAME worker route, per docs/safe-launch/
-// 15-email-and-secure-delivery-design.md ("Delivery-worker integration") -- one worker, one
-// route, two claim kinds, not a second worker platform. Runs only when the generation-claim
-// phase found nothing to do.
-async function tryProcessOneDelivery(db: any): Promise<NextResponse | null> {
-  const leaseOwner = `delivery-worker:${crypto.randomUUID()}`;
-  const { data: claimed, error: claimError } = await db.rpc('claim_next_delivery', {
-    p_lease_owner: leaseOwner,
-    p_lease_seconds: DEFAULT_LEASE_SECONDS
-  });
-  if (claimError) {
-    console.error('delivery_worker', { outcome: 'claim_failed', code: claimError.code ?? null });
-    return NextResponse.json({ ok: false, error: 'delivery_claim_failed' }, { status: 500 });
+function isAuthorised(request: Request) {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (
+    !cronSecret
+    || request.headers.get('authorization') !== `Bearer ${cronSecret}`
+  ) {
+    return false;
   }
-  const authorization = claimed as {
-    id: string; report_id: string; order_id: string; recipient_email: string; email_event_id: string; lease_token: string;
-  } | null;
-  if (!authorization) return null;
-  const leaseToken = authorization.lease_token;
-
-  const technicalReference = crypto.randomUUID();
-  try {
-    const { data: report, error: reportError } = await db
-      .from('reports').select('id,report_reference,order_id').eq('id', authorization.report_id).maybeSingle();
-    const { data: order, error: orderError } = await db
-      .from('orders').select('order_reference,customer_name').eq('id', authorization.order_id).maybeSingle();
-    if (reportError || !report || orderError || !order) {
-      throw new Error('delivery_report_or_order_lookup_failed');
-    }
-
-    const ttlSeconds = getNumberEnv('CUSTOMER_REPORT_ACCESS_TOKEN_TTL_SECONDS', 7 * 24 * 60 * 60);
-    const { data: tokenResult, error: tokenError } = await db.rpc('issue_customer_report_access_token', {
-      p_order_id: authorization.order_id,
-      p_report_id: authorization.report_id,
-      p_recipient_email: authorization.recipient_email,
-      p_ttl_seconds: ttlSeconds
-    });
-    if (tokenError || !tokenResult?.token) {
-      throw new Error('delivery_access_token_issuance_failed');
-    }
-
-    const { error: dispatchError } = await db.rpc('mark_delivery_dispatch_started', {
-      p_authorization_id: authorization.id,
-      p_lease_token: leaseToken
-    });
-    if (dispatchError) {
-      throw new Error(`delivery_dispatch_mark_failed: ${dispatchError.message ?? dispatchError.code ?? 'unknown'}`);
-    }
-
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://mkfraud.co.za').replace(/\/$/, '');
-    const accessUrl = `${appUrl}/score/report/access/${encodeURIComponent(tokenResult.token)}`;
-    const message = buildReportReadyMessage({
-      customerName: order.customer_name ?? null,
-      orderReference: order.order_reference,
-      accessUrl,
-      expiresAtIso: tokenResult.expires_at
-    });
-
-    const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
-    const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
-    const sendResult = await sendEmail({
-      from: fromAddress,
-      to: authorization.recipient_email,
-      replyTo,
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-      idempotencyKey: authorization.email_event_id
-    });
-
-    if (!sendResult.ok) {
-      throw new Error(`delivery_send_failed: ${sendResult.error}`);
-    }
-
-    const { error: finalizeError } = await db.rpc('finalize_delivery', {
-      p_authorization_id: authorization.id,
-      p_lease_token: leaseToken,
-      p_provider_message_id: sendResult.providerMessageId ?? `disabled:${technicalReference}`
-    });
-    if (finalizeError) {
-      console.error('delivery_worker', { outcome: 'finalize_persistence_failed', authorizationId: authorization.id, code: finalizeError.code ?? null });
-    }
-
-    console.info('delivery_worker', { outcome: 'delivered', authorizationId: authorization.id, mode: sendResult.mode });
-    return NextResponse.json({ ok: true, claimed: true, authorizationId: authorization.id, outcome: 'delivered', mode: sendResult.mode });
-  } catch (error) {
-    console.error('delivery_worker', {
-      outcome: 'delivery_failed', authorizationId: authorization.id, technicalReference,
-      errorCategory: error instanceof Error ? error.message : 'unknown_error'
-    });
-    const { error: failError } = await db.rpc('fail_delivery', {
-      p_authorization_id: authorization.id,
-      p_lease_token: leaseToken,
-      p_error_category: 'delivery_failed',
-      p_safe_operational_error: 'Report delivery failed. The delivery worker will retry automatically.',
-      p_technical_reference: technicalReference
-    });
-    if (failError) {
-      console.error('delivery_worker', { outcome: 'fail_persistence_failed', authorizationId: authorization.id, code: failError.code ?? null });
-    }
-    return NextResponse.json({ ok: true, claimed: true, authorizationId: authorization.id, outcome: 'failed' });
-  }
+  return true;
 }
 
-export async function GET(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('worker', 'worker');
-  if (frozen) return frozen;
+async function notifyException(data: any) {
+  if (!data?.order_id) return;
+  await recordAutomaticFulfilmentExceptionAlert({
+    orderId: data.order_id,
+    reportId: data.report_id ?? null,
+    attemptId: data.attempt_id ?? null,
+    authorizationId: data.authorization_id ?? null,
+    category: data.category ?? 'automatic_fulfilment_exception',
+    stage: data.stage ?? 'automatic_fulfilment',
+    technicalReference: data.technical_reference ?? crypto.randomUUID(),
+    requiredAction:
+      data.required_action
+      ?? 'Review the order and choose an authorised recovery action.'
+  }).catch(() => {
+    console.error('fulfilment_worker', {
+      outcome: 'exception_notification_failed',
+      attemptId: data.attempt_id ?? null,
+      authorizationId: data.authorization_id ?? null,
+      errorCategory: 'exception_notification_failed'
+    });
+  });
+}
 
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+async function recordGenerationException(db: any, input: {
+  attemptId: string;
+  category: string;
+  stage: string;
+  technicalReference: string;
+  requiredAction: string;
+}) {
+  const { data, error } = await db.rpc(
+    'record_automatic_fulfilment_exception',
+    {
+      p_attempt_id: input.attemptId,
+      p_authorization_id: null,
+      p_stage: input.stage,
+      p_category: input.category,
+      p_technical_reference: input.technicalReference,
+      p_required_action: input.requiredAction
+    }
+  );
+  if (error) {
+    console.error('fulfilment_worker', {
+      outcome: 'exception_evidence_failed',
+      attemptId: input.attemptId,
+      errorCategory: 'exception_evidence_persistence_failed'
+    });
+    return;
   }
+  await notifyException(data);
+}
 
+async function processWorkerInvocation(exactAttemptId?: string) {
   const db = createSupabaseServiceClient() as any;
   const leaseOwner = `fulfilment-worker:${crypto.randomUUID()}`;
+  const exact = Boolean(exactAttemptId);
 
-  const { data: claimed, error: claimError } = await db.rpc('claim_next_fulfilment_job', {
-    p_lease_owner: leaseOwner,
-    p_lease_seconds: DEFAULT_LEASE_SECONDS
-  });
+  const claim = exact
+    ? db.rpc('claim_exact_fulfilment_job', {
+        p_attempt_id: exactAttemptId,
+        p_lease_owner: leaseOwner,
+        p_lease_seconds: DEFAULT_LEASE_SECONDS
+      })
+    : db.rpc('claim_next_fulfilment_job', {
+        p_lease_owner: leaseOwner,
+        p_lease_seconds: DEFAULT_LEASE_SECONDS
+      });
+  const { data: claimed, error: claimError } = await claim;
   if (claimError) {
-    console.error('fulfilment_worker', { outcome: 'claim_failed', code: claimError.code ?? null });
-    return NextResponse.json({ ok: false, error: 'claim_failed' }, { status: 500 });
+    console.error('fulfilment_worker', {
+      outcome: 'claim_failed',
+      claimMode: exact ? 'exact' : 'scheduled',
+      errorCode: claimError.code ?? null
+    });
+    return NextResponse.json(
+      { ok: false, error: 'claim_failed' },
+      { status: 500 }
+    );
   }
   const job = claimed as ClaimedJob | null;
   if (!job) {
-    const deliveryResult = await tryProcessOneDelivery(db);
-    return deliveryResult ?? NextResponse.json({ ok: true, claimed: false });
+    if (exact) {
+      return NextResponse.json({
+        ok: true,
+        claimed: false,
+        claimMode: 'exact'
+      });
+    }
+    const deliveryResult = await processOneDelivery(db);
+    return NextResponse.json({
+      ok: deliveryResult.outcome !== 'claim_failed',
+      ...deliveryResult
+    }, {
+      status: deliveryResult.outcome === 'claim_failed' ? 500 : 200
+    });
+  }
+
+  if (
+    job.already_complete
+    && job.automatic_delivery_authorization_id
+  ) {
+    const deliveryResult = await processOneDelivery(db, {
+      authorizationId: job.automatic_delivery_authorization_id,
+      expectedOrderId: job.order_id
+    });
+    return NextResponse.json({
+      ok: deliveryResult.outcome !== 'claim_failed',
+      claimed: false,
+      attemptId: job.id,
+      idempotentReplay: true,
+      delivery: deliveryResult
+    }, {
+      status: deliveryResult.outcome === 'claim_failed' ? 500 : 200
+    });
   }
 
   const { data: order, error: orderError } = await db
@@ -197,44 +187,112 @@ export async function GET(request: Request) {
     .eq('id', job.order_id)
     .maybeSingle();
   if (orderError || !order) {
-    console.error('fulfilment_worker', { outcome: 'order_lookup_failed', attemptId: job.id });
-    await db.rpc('fail_fulfilment_job', {
+    const technicalReference = crypto.randomUUID();
+    const { data: failed } = await db.rpc('fail_fulfilment_job', {
       p_attempt_id: job.id,
       p_lease_owner: leaseOwner,
       p_error_category: 'order_not_found',
-      p_safe_operational_error: 'The order for this report could not be found.',
-      p_technical_reference: crypto.randomUUID()
+      p_safe_operational_error:
+        'The order for this report could not be found.',
+      p_technical_reference: technicalReference
     });
-    return NextResponse.json({ ok: true, claimed: true, attemptId: job.id, outcome: 'failed' });
+    if (failed?.status === 'MANUAL_REVIEW_REQUIRED') {
+      await recordGenerationException(db, {
+        attemptId: job.id,
+        category: 'order_not_found',
+        stage: 'generation_order_lookup',
+        technicalReference,
+        requiredAction:
+          'Reconcile the attempt/order relationship before retrying generation.'
+      });
+    }
+    return NextResponse.json({
+      ok: true,
+      claimed: true,
+      attemptId: job.id,
+      outcome: failed?.status ?? 'failed'
+    });
   }
 
   try {
-    // action: 'payment_confirmation' is deliberate for every trigger_source this worker
-    // processes (payment_confirmed, quality_rejected_regenerate, or an admin-requeued job) --
-    // it is the one existing ManualGenerationAction that requires no human requestedBy actor,
-    // and (per the redefined claim_payment_report_generation in this release's migration)
-    // recognises a row already lease-owned by this claim as the job to resume rather than a
-    // duplicate request. See the migration header comment for the full reasoning.
-    await generateManualPhase1Report({
+    const generated = await generateManualPhase1Report({
       orderReference: order.order_reference,
       requestedBy: null,
       requestKey: job.request_key,
       action: 'payment_confirmation'
     });
-
-    const { error: submitError } = await db.rpc('submit_for_quality_review', {
-      p_attempt_id: job.id,
-      p_lease_owner: leaseOwner
-    });
-    if (submitError) {
-      console.error('fulfilment_worker', { outcome: 'submit_for_review_failed', attemptId: job.id, code: submitError.code ?? null });
-      return NextResponse.json({ ok: false, claimed: true, attemptId: job.id, outcome: 'submit_failed' }, { status: 500 });
+    if (!generated.reportId) {
+      throw new Phase1GenerationError(
+        'report_persistence_failed',
+        'The verified PDF could not be linked to the order.',
+        500,
+        crypto.randomUUID()
+      );
     }
 
-    console.info('fulfilment_worker', { outcome: 'ready_for_review', attemptId: job.id, orderId: job.order_id });
-    return NextResponse.json({ ok: true, claimed: true, attemptId: job.id, outcome: 'ready_for_review' });
+    const { data: release, error: releaseError } = await db.rpc(
+      'automatic_release_completed_fulfilment',
+      {
+        p_attempt_id: job.id,
+        p_report_id: generated.reportId,
+        p_lease_owner: leaseOwner
+      }
+    );
+    if (releaseError) {
+      const technicalReference = crypto.randomUUID();
+      await recordGenerationException(db, {
+        attemptId: job.id,
+        category: 'automatic_release_failed',
+        stage: 'automatic_quality_release',
+        technicalReference,
+        requiredAction:
+          'Review release-gate evidence and use the existing human approve or reject control.'
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          claimed: true,
+          attemptId: job.id,
+          outcome: 'automatic_release_failed'
+        },
+        { status: 500 }
+      );
+    }
+    if (!release?.released) {
+      await notifyException(release);
+      return NextResponse.json({
+        ok: true,
+        claimed: true,
+        attemptId: job.id,
+        outcome: 'manual_review_required',
+        errorCategory: release?.category ?? 'release_gate_failed'
+      });
+    }
+
+    const deliveryResult = await processOneDelivery(db, {
+      authorizationId: release.delivery_authorization_id,
+      expectedOrderId: release.order_id
+    });
+    console.info('fulfilment_worker', {
+      outcome: 'automatic_release_complete',
+      attemptId: job.id,
+      reportId: generated.reportId,
+      authorizationId: release.delivery_authorization_id,
+      deliveryOutcome: deliveryResult.outcome ?? 'not_claimed'
+    });
+    return NextResponse.json({
+      ok: deliveryResult.outcome !== 'claim_failed',
+      claimed: true,
+      attemptId: job.id,
+      reportId: generated.reportId,
+      authorizationId: release.delivery_authorization_id,
+      outcome: 'automatic_release_complete',
+      delivery: deliveryResult
+    }, {
+      status: deliveryResult.outcome === 'claim_failed' ? 500 : 200
+    });
   } catch (error) {
-    const mapped = categoriseError(error);
+    const mapped = categoriseGenerationError(error);
     console.error('fulfilment_worker', {
       outcome: 'generation_failed',
       attemptId: job.id,
@@ -242,16 +300,101 @@ export async function GET(request: Request) {
       errorCategory: mapped.category,
       technicalReference: mapped.technicalReference
     });
-    const { error: failError } = await db.rpc('fail_fulfilment_job', {
-      p_attempt_id: job.id,
-      p_lease_owner: leaseOwner,
-      p_error_category: mapped.category,
-      p_safe_operational_error: mapped.safeMessage,
-      p_technical_reference: mapped.technicalReference
-    });
+    const { data: failed, error: failError } = await db.rpc(
+      'fail_fulfilment_job',
+      {
+        p_attempt_id: job.id,
+        p_lease_owner: leaseOwner,
+        p_error_category: mapped.category,
+        p_safe_operational_error: mapped.safeMessage,
+        p_technical_reference: mapped.technicalReference
+      }
+    );
     if (failError) {
-      console.error('fulfilment_worker', { outcome: 'fail_persistence_failed', attemptId: job.id, code: failError.code ?? null });
+      console.error('fulfilment_worker', {
+        outcome: 'fail_persistence_failed',
+        attemptId: job.id,
+        errorCategory: 'generation_failure_persistence_failed'
+      });
     }
-    return NextResponse.json({ ok: true, claimed: true, attemptId: job.id, outcome: 'failed', errorCategory: mapped.category });
+    if (failed?.status === 'MANUAL_REVIEW_REQUIRED') {
+      await recordGenerationException(db, {
+        attemptId: job.id,
+        category: mapped.category,
+        stage: 'report_generation',
+        technicalReference: mapped.technicalReference,
+        requiredAction:
+          'Review the terminal generation exception before any authorised retry.'
+      });
+    }
+    return NextResponse.json({
+      ok: true,
+      claimed: true,
+      attemptId: job.id,
+      outcome: failed?.status ?? 'failed',
+      errorCategory: mapped.category
+    });
   }
+}
+
+async function guardWorker(request: Request) {
+  const frozen = await getRc1OperationFreezeResponse('worker', 'worker');
+  if (frozen) return frozen;
+  if (!isAuthorised(request)) {
+    return NextResponse.json(
+      { ok: false, error: 'forbidden' },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+export async function GET(request: Request) {
+  const blocked = await guardWorker(request);
+  if (blocked) return blocked;
+  return processWorkerInvocation();
+}
+
+export async function POST(request: Request) {
+  const blocked = await guardWorker(request);
+  if (blocked) return blocked;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: 'invalid_request' },
+      { status: 400 }
+    );
+  }
+  const attemptId = (
+    body
+    && typeof body === 'object'
+    && !Array.isArray(body)
+    && typeof (body as Record<string, unknown>).attemptId === 'string'
+  )
+    ? String((body as Record<string, unknown>).attemptId)
+    : '';
+  const correlationReference = (
+    body
+    && typeof body === 'object'
+    && !Array.isArray(body)
+    && typeof (body as Record<string, unknown>).correlationReference === 'string'
+  )
+    ? String((body as Record<string, unknown>).correlationReference)
+    : '';
+  if (
+    !UUID_PATTERN.test(attemptId)
+    || !UUID_PATTERN.test(correlationReference)
+    || Object.keys(body as Record<string, unknown>).some(
+      (key) => !['attemptId', 'correlationReference'].includes(key)
+    )
+  ) {
+    return NextResponse.json(
+      { ok: false, error: 'invalid_request' },
+      { status: 400 }
+    );
+  }
+  return processWorkerInvocation(attemptId);
 }

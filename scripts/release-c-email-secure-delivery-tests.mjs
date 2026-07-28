@@ -110,7 +110,8 @@ assertIncludes(phase1Notifications, 'await sendEmail(', 'phase1-order-notificati
 assertIncludes(phase1Notifications, 'recordPaymentConfirmedNotification', 'payment-confirmed notification function is exported');
 assertIncludes(paymentService, 'recordPaymentConfirmedNotification', 'payment-service.ts calls the payment-confirmed notification');
 assertIncludes(paymentService, '.catch(', 'Payment confirmation notification failure cannot fail payment recording (wrapped in .catch)');
-assertIncludes(workerRoute, 'await sendEmail(', 'Worker route calls sendEmail() for report-ready delivery');
+assertIncludes(workerRoute, 'processOneDelivery', 'Worker route delegates report-ready delivery to the shared delivery worker');
+assertIncludes('src/lib/fulfilment/delivery-worker.ts', 'await sendEmail(', 'Shared delivery worker calls sendEmail() for report-ready delivery');
 assertNotIncludes(phase1Notifications, "status: 'recorded_disabled',\n    request_id: requestId,\n    provider_mode: 'disabled',", 'Notification status/provider_mode are no longer hardcoded to disabled at insert time');
 
 console.log('--- 5. Message templates: no assessment content, no storage paths, no permanent URLs ---');
@@ -126,7 +127,8 @@ assertNotIncludes(customerAccessRoute, 'requireAdmin', 'Customer access route do
 assertIncludes(customerAccessService, 'checksum', 'Customer access route re-verifies the report checksum');
 
 console.log('--- 7. Worker route: second claim phase for delivery, one route not a second worker platform ---');
-assertIncludes(workerRoute, 'claim_next_delivery', 'Worker route claims delivery jobs via claim_next_delivery()');
+assertIncludes(workerRoute, 'processOneDelivery', 'Worker route uses the shared delivery phase');
+assertIncludes('src/lib/fulfilment/delivery-worker.ts', 'claim_next_delivery', 'Shared delivery phase claims scheduled delivery jobs via claim_next_delivery()');
 assertIncludes(workerRoute, 'claim_next_fulfilment_job', 'Same worker route still claims generation jobs via claim_next_fulfilment_job()');
 
 console.log('--- 8. Admin recovery: retry/revoke/reissue are role-gated before calling the service layer, matching the RPCs\' own internal checks ---');

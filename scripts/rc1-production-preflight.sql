@@ -61,7 +61,7 @@ from supabase_migrations.schema_migrations;
 with pending(version) as (
   values ('20260722120000'), ('20260722143000'), ('20260724150000'), ('20260724160000'),
          ('20260724170000'), ('20260724180000'), ('20260725090000'),
-         ('20260725150000')
+         ('20260725150000'), ('20260728120000')
 )
 select 'pending_versions_result|' || case when count(m.version) = 0 then 'PASS' else 'STOP' end
 from pending p left join supabase_migrations.schema_migrations m using (version);

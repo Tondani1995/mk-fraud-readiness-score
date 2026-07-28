@@ -66,12 +66,15 @@ function formatEftAccountSummary(eftSnapshot: any): string {
 // email before either claimed the dedupe slot.
 async function recordNotification(db: any, input: {
   context: NotificationContext;
-  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert';
+  notificationType: 'customer_order_confirmation' | 'admin_new_order_notification' | 'payment_confirmed' | 'delivery_recipient_required_alert' | 'automatic_fulfilment_exception_alert';
   recipient: string | null;
   payload: Record<string, unknown>;
   message: { subject: string; text: string; html: string };
+  dedupeKey?: string;
+  safeProviderFailure?: boolean;
 }) {
-  const dedupeKey = `phase1:${input.notificationType}:${input.context.order.id}`;
+  const dedupeKey = input.dedupeKey
+    ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
     .select('id,status,retry_count').eq('dedupe_key', dedupeKey).maybeSingle();
   if (existingError) throw existingError;
@@ -132,12 +135,23 @@ async function recordNotification(db: any, input: {
     provider_mode: providerMode,
     provider_message_id: sentSuccessfully ? sendResult.providerMessageId : null,
     sent_at: sentSuccessfully ? new Date().toISOString() : null,
-    error_message: sendResult.ok ? null : sendResult.error,
+    error_message: sendResult.ok
+      ? null
+      : input.safeProviderFailure
+        ? 'The operational exception notification provider request failed.'
+        : sendResult.error,
     updated_at: new Date().toISOString()
   }).eq('id', data.id);
 
   if (!sendResult.ok) {
-    console.error('phase1_notification_send_failed', { notificationType: input.notificationType, emailEventId: data.id, mode: sendResult.mode, error: sendResult.error });
+    console.error('phase1_notification_send_failed', {
+      notificationType: input.notificationType,
+      emailEventId: data.id,
+      mode: sendResult.mode,
+      errorCategory: input.safeProviderFailure
+        ? 'operational_exception_notification_send_failed'
+        : sendResult.error
+    });
   }
 
   await db.from('order_events').insert({
@@ -317,6 +331,77 @@ export async function recordDeliveryRecipientRequiredAlert(input: { orderId: str
       failedStage: 'Report ready for delivery, but no customer email on file',
       ageDescription: `${ageHours} hour(s) since order creation`,
       technicalReference: input.reportId ?? order.id,
+      recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
+    })
+  });
+}
+
+export type AutomaticFulfilmentExceptionAlertInput = {
+  orderId: string;
+  reportId: string | null;
+  attemptId: string | null;
+  authorizationId: string | null;
+  category: string;
+  stage: string;
+  technicalReference: string;
+  requiredAction: string;
+};
+
+export async function recordAutomaticFulfilmentExceptionAlert(
+  input: AutomaticFulfilmentExceptionAlertInput
+) {
+  const db = createSupabaseServiceClient() as any;
+  const { data: order } = await db
+    .from('orders')
+    .select('id,order_reference')
+    .eq('id', input.orderId)
+    .maybeSingle();
+  if (!order) {
+    return {
+      skipped: true,
+      reason: 'order_not_found',
+      message: 'Order not found.'
+    };
+  }
+
+  const safeIdentity = input.attemptId ?? input.authorizationId ?? input.orderId;
+  return recordNotification(db, {
+    context: {
+      assessment: { id: null },
+      organisation: null,
+      respondent: null,
+      dataRequest: null,
+      order: { id: order.id },
+      product: null,
+      eftSnapshot: null
+    },
+    notificationType: 'automatic_fulfilment_exception_alert',
+    recipient: 'admin@mkfraud.co.za',
+    dedupeKey: [
+      'phase1',
+      'automatic_fulfilment_exception_alert',
+      safeIdentity,
+      input.stage,
+      input.category
+    ].join(':'),
+    safeProviderFailure: true,
+    payload: {
+      order_reference: order.order_reference,
+      report_id: input.reportId,
+      attempt_id: input.attemptId,
+      authorization_id: input.authorizationId,
+      exception_category: input.category,
+      stage: input.stage,
+      technical_reference: input.technicalReference,
+      required_action: input.requiredAction
+    },
+    message: buildInternalExceptionAlertMessage({
+      orderReference: order.order_reference,
+      failedStage: `${input.stage} — ${input.category}`,
+      ageDescription: 'Immediate automatic-fulfilment exception',
+      technicalReference: input.technicalReference,
+      requiredAction: input.requiredAction,
+      ownerHint: 'Tondani / admin@mkfraud.co.za',
       recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
     })
   });

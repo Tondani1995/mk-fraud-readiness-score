@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
   "purpose": "Machine-readable RC1 Production preflight expectations; no customer data.",
   "fingerprint_algorithm": "sha256 for aggregate fingerprints; md5(pg_get_functiondef(oid)) for RPC definitions",
   "ledger": {
@@ -13,7 +13,8 @@
       "20260724170000",
       "20260724180000",
       "20260725090000",
-      "20260725150000"
+      "20260725150000",
+      "20260728120000"
     ]
   },
   "classification": {
@@ -92,9 +93,18 @@
     ]
   },
   "postflight_rpc_fingerprints": {
-    "source": "controller-approved canonical fingerprints generated from the bootstrap plus exact seven-migration replay",
+    "source": "canonical fingerprints generated from the exact nine-migration RC1 cutover replay",
     "required_psql_variable": "rc1_approved_postflight_rpc_fingerprints_json",
-    "count": 29
+    "count": 35
+  },
+  "near_real_time_fulfilment_correction": {
+    "version": "20260728120000",
+    "name": "rc1_near_real_time_automatic_fulfilment",
+    "migration_sha256": "f98bb7f5187da6f2f06de88d8e69f34877e8e9c3274967e6a8989624cb630668",
+    "primary_trigger": "post-payment exact-attempt dispatch",
+    "recovery_trigger": "existing once-daily fulfilment cron",
+    "automatic_release": "commercial-quality and storage-verification gates must pass",
+    "human_review": "exception_only"
   },
   "freeze_bootstrap": {
     "version": "20260722120000",
