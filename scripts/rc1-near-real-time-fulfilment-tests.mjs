@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
   dispatchImmediateFulfilment,
   immediateFulfilmentDispatchPayload,
 } from '../src/lib/fulfilment/immediate-dispatch.ts';
+import {
+  recordAutomaticFulfilmentExceptionAlert,
+} from '../src/lib/notifications/phase1-order-notifications.ts';
 
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -27,6 +31,211 @@ async function test(name, fn) {
 }
 function includes(source, value, message) {
   assert.ok(source.includes(value), message);
+}
+
+const syntheticOrderId = '99999999-9999-4999-8999-999999999999';
+const dispatchRequiredAction =
+  'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.';
+
+function createDispatchFailureHarness(options = {}) {
+  const state = {
+    payment: 'PAID',
+    order: 'payment_received',
+    attempt: 'REPORT_QUEUED',
+    reports: 0,
+    authorizations: 0,
+    accessTokens: 0,
+    customerEmails: 0,
+  };
+  const rpcCalls = [];
+  const fetchCalls = [];
+  const operationalAlerts = new Map();
+  const adminEmailEvents = new Map();
+  const adminProviderAttempts = [];
+  const db = {
+    rpc: async (name, args) => {
+      rpcCalls.push({ name, args });
+      if (
+        name === 'record_fulfilment_dispatch_result'
+        && args.p_outcome === 'started'
+        && options.dispatchEvidenceStartFailure
+      ) {
+        return { data: null, error: { code: 'synthetic_start_failure' } };
+      }
+      if (name === 'record_fulfilment_dispatch_result') {
+        return { data: { ok: true }, error: null };
+      }
+      if (name === 'record_automatic_fulfilment_exception') {
+        if (options.exceptionEvidenceFailure) {
+          throw new Error('synthetic frozen operational-alert gate');
+        }
+        const key = [
+          args.p_attempt_id,
+          args.p_stage,
+          args.p_category,
+        ].join(':');
+        if (!operationalAlerts.has(key)) {
+          operationalAlerts.set(key, { ...args });
+        }
+        return {
+          data: {
+            order_id: syntheticOrderId,
+            report_id: null,
+            attempt_id: args.p_attempt_id,
+          },
+          error: null,
+        };
+      }
+      throw new Error(`unexpected RPC ${name}`);
+    },
+  };
+  const recordExceptionAlert = async (input) => {
+    const key = [
+      input.attemptId,
+      input.stage,
+      input.category,
+    ].join(':');
+    if (adminEmailEvents.has(key)) {
+      return { ...adminEmailEvents.get(key), reused: true };
+    }
+    const event = {
+      id: `admin-event-${adminEmailEvents.size + 1}`,
+      recipient: 'admin@mkfraud.co.za',
+      status: options.alertProviderFailure ? 'send_failed' : 'recorded_disabled',
+      input,
+    };
+    adminEmailEvents.set(key, event);
+    adminProviderAttempts.push({ recipient: event.recipient, key });
+    if (options.alertProviderFailure) {
+      throw new Error('synthetic provider detail must not escape');
+    }
+    return { ...event, reused: false };
+  };
+  const fetchImpl = async (url, init) => {
+    fetchCalls.push({ url, init });
+    if (options.networkFailure) {
+      throw new Error('synthetic network detail must not escape');
+    }
+    return new Response('{}', { status: options.httpStatus ?? 200 });
+  };
+  return {
+    state,
+    rpcCalls,
+    fetchCalls,
+    operationalAlerts,
+    adminEmailEvents,
+    adminProviderAttempts,
+    db,
+    recordExceptionAlert,
+    fetchImpl,
+  };
+}
+
+async function runDispatchFailure(options, expectedCategory, expectedFetches) {
+  const harness = createDispatchFailureHarness(options);
+  const result = await dispatchImmediateFulfilment({
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    correlationReference: '44444444-4444-4444-8444-444444444444'
+  }, {
+    createClient: () => harness.db,
+    env: {
+      NODE_ENV: 'production',
+      VERCEL_URL: 'exact-deployment.example.vercel.app',
+      CRON_SECRET: 'synthetic-secret-never-logged',
+      ...options.env,
+    },
+    fetchImpl: harness.fetchImpl,
+    recordExceptionAlert: harness.recordExceptionAlert,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCategory, expectedCategory);
+  assert.equal(harness.fetchCalls.length, expectedFetches);
+  assert.equal(harness.operationalAlerts.size, 1);
+  assert.equal(harness.adminEmailEvents.size, 1);
+  assert.equal(harness.adminProviderAttempts.length, 1);
+  assert.equal(harness.adminProviderAttempts[0].recipient, 'admin@mkfraud.co.za');
+  assert.equal(harness.state.payment, 'PAID');
+  assert.equal(harness.state.order, 'payment_received');
+  assert.equal(harness.state.attempt, 'REPORT_QUEUED');
+  assert.equal(harness.state.reports, 0);
+  assert.equal(harness.state.authorizations, 0);
+  assert.equal(harness.state.accessTokens, 0);
+  assert.equal(harness.state.customerEmails, 0);
+  const [alert] = harness.operationalAlerts.values();
+  assert.equal(alert.p_stage, 'immediate_dispatch');
+  assert.equal(alert.p_category, expectedCategory);
+  assert.equal(alert.p_required_action, dispatchRequiredAction);
+  return { harness, result };
+}
+
+function createNotificationStore() {
+  const store = {
+    orders: [{
+      id: syntheticOrderId,
+      order_reference: 'RC1-SYNTHETIC-DISPATCH',
+    }],
+    emailEvents: [],
+    orderEvents: [],
+  };
+  const matching = (row, filters) =>
+    Object.entries(filters).every(([key, value]) => row[key] === value);
+  const db = {
+    from(table) {
+      const filters = {};
+      const rows = table === 'orders'
+        ? store.orders
+        : table === 'email_events'
+          ? store.emailEvents
+          : store.orderEvents;
+      const query = {
+        select() {
+          return query;
+        },
+        eq(column, value) {
+          filters[column] = value;
+          return query;
+        },
+        async maybeSingle() {
+          return {
+            data: rows.find((row) => matching(row, filters)) ?? null,
+            error: null,
+          };
+        },
+        insert(payload) {
+          const row = {
+            id: payload.id ?? crypto.randomUUID(),
+            ...payload,
+          };
+          rows.push(row);
+          const result = { data: row, error: null };
+          const insertion = {
+            select() {
+              return insertion;
+            },
+            async single() {
+              return result;
+            },
+            then(resolve, reject) {
+              return Promise.resolve(result).then(resolve, reject);
+            },
+          };
+          return insertion;
+        },
+        update(payload) {
+          return {
+            async eq(column, value) {
+              for (const row of rows.filter((candidate) => candidate[column] === value)) {
+                Object.assign(row, payload);
+              }
+              return { data: null, error: null };
+            },
+          };
+        },
+      };
+      return query;
+    },
+  };
+  return { store, db };
 }
 
 const calls = [];
@@ -75,43 +284,194 @@ await test('payment response does not await PDF generation', async () => {
   assert.doesNotMatch(paymentRoute, /await\s+dispatchImmediateFulfilment/);
   assert.doesNotMatch(payment, /import\s+\{[^}]*generateManualPhase1Report/);
 });
-await test('dispatch failure preserves durable payment and queue', async () => {
-  const failureCalls = [];
-  const result = await dispatchImmediateFulfilment({
+await test('missing VERCEL_URL alerts once without reaching the worker', async () => {
+  await runDispatchFailure(
+    { env: { VERCEL_URL: undefined } },
+    'exact_deployment_url_unavailable',
+    0,
+  );
+});
+await test('invalid VERCEL_URL alerts once without reaching the worker', async () => {
+  await runDispatchFailure(
+    { env: { VERCEL_URL: '127.0.0.1' } },
+    'exact_deployment_url_unavailable',
+    0,
+  );
+});
+await test('missing CRON_SECRET alerts once without reaching the worker', async () => {
+  await runDispatchFailure(
+    { env: { CRON_SECRET: undefined } },
+    'cron_secret_unavailable',
+    0,
+  );
+});
+await test('dispatch-evidence start failure alerts without changing payment or queue', async () => {
+  await runDispatchFailure(
+    { dispatchEvidenceStartFailure: true },
+    'dispatch_evidence_start_failed',
+    0,
+  );
+});
+await test('network failure preserves payment and queue and alerts once', async () => {
+  await runDispatchFailure(
+    { networkFailure: true },
+    'worker_dispatch_failed',
+    1,
+  );
+  assert.doesNotMatch(migration, /record_fulfilment_dispatch_result[\s\S]*set status = 'GENERATION_FAILED'/);
+});
+await test('worker HTTP 4xx preserves the queue and alerts once', async () => {
+  const { result } = await runDispatchFailure(
+    { httpStatus: 400 },
+    'worker_rejected_dispatch',
+    1,
+  );
+  assert.equal(result.status, 400);
+});
+await test('worker HTTP 5xx preserves the queue and alerts once', async () => {
+  const { result } = await runDispatchFailure(
+    { httpStatus: 503 },
+    'worker_rejected_dispatch',
+    1,
+  );
+  assert.equal(result.status, 503);
+});
+await test('duplicate handling creates one alert and one admin event', async () => {
+  const harness = createDispatchFailureHarness({ networkFailure: true });
+  const input = {
     attemptId: '33333333-3333-4333-8333-333333333333',
-    correlationReference: '44444444-4444-4444-8444-444444444444'
-  }, {
-    createClient: () => ({
-      rpc: async (_name, args) => {
-        failureCalls.push(args);
-        return { data: {}, error: null };
-      },
-    }),
+    correlationReference: '44444444-4444-4444-8444-444444444444',
+  };
+  const dependencies = {
+    createClient: () => harness.db,
     env: {
       NODE_ENV: 'production',
       VERCEL_URL: 'exact-deployment.example.vercel.app',
       CRON_SECRET: 'synthetic-secret-never-logged',
     },
-    fetchImpl: async () => { throw new Error('synthetic network failure'); },
-  });
+    fetchImpl: harness.fetchImpl,
+    recordExceptionAlert: harness.recordExceptionAlert,
+  };
+  await dispatchImmediateFulfilment(input, dependencies);
+  await dispatchImmediateFulfilment(input, dependencies);
+  assert.equal(harness.operationalAlerts.size, 1);
+  assert.equal(harness.adminEmailEvents.size, 1);
+  assert.equal(harness.adminProviderAttempts.length, 1);
+});
+await test('alert-provider failure remains handled after alert persistence', async () => {
+  const { harness, result } = await runDispatchFailure(
+    { networkFailure: true, alertProviderFailure: true },
+    'worker_dispatch_failed',
+    1,
+  );
   assert.equal(result.ok, false);
-  assert.equal(failureCalls.at(-1).p_outcome, 'failed');
-  assert.doesNotMatch(migration, /record_fulfilment_dispatch_result[\s\S]*set status = 'GENERATION_FAILED'/);
-
-  const invalidOrigin = await dispatchImmediateFulfilment({
-    attemptId: '77777777-7777-4777-8777-777777777777',
-    correlationReference: '88888888-8888-4888-8888-888888888888'
+  assert.equal(harness.operationalAlerts.size, 1);
+  assert.equal([...harness.adminEmailEvents.values()][0].status, 'send_failed');
+});
+await test('post-payment freeze race returns safely with queued state preserved', async () => {
+  const harness = createDispatchFailureHarness({
+    dispatchEvidenceStartFailure: true,
+    exceptionEvidenceFailure: true,
+  });
+  const result = await dispatchImmediateFulfilment({
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    correlationReference: '44444444-4444-4444-8444-444444444444',
   }, {
-    createClient: fakeClient,
+    createClient: () => harness.db,
     env: {
       NODE_ENV: 'production',
-      VERCEL_URL: '127.0.0.1',
+      VERCEL_URL: 'exact-deployment.example.vercel.app',
       CRON_SECRET: 'synthetic-secret-never-logged',
     },
-    fetchImpl: async () => { throw new Error('invalid origin must not be fetched'); },
+    fetchImpl: harness.fetchImpl,
+    recordExceptionAlert: harness.recordExceptionAlert,
   });
-  assert.equal(invalidOrigin.ok, false);
-  assert.equal(invalidOrigin.errorCategory, 'exact_deployment_url_unavailable');
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCategory, 'dispatch_evidence_start_failed');
+  assert.equal(harness.state.payment, 'PAID');
+  assert.equal(harness.state.order, 'payment_received');
+  assert.equal(harness.state.attempt, 'REPORT_QUEUED');
+  assert.equal(harness.operationalAlerts.size, 0);
+  assert.equal(harness.adminEmailEvents.size, 0);
+  assert.equal(harness.state.reports, 0);
+  assert.equal(harness.state.authorizations, 0);
+});
+await test('successful dispatch creates no failure alert', async () => {
+  const harness = createDispatchFailureHarness();
+  const result = await dispatchImmediateFulfilment({
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    correlationReference: '44444444-4444-4444-8444-444444444444',
+  }, {
+    createClient: () => harness.db,
+    env: {
+      NODE_ENV: 'production',
+      VERCEL_URL: 'exact-deployment.example.vercel.app',
+      CRON_SECRET: 'synthetic-secret-never-logged',
+    },
+    fetchImpl: harness.fetchImpl,
+    recordExceptionAlert: harness.recordExceptionAlert,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(harness.operationalAlerts.size, 0);
+  assert.equal(harness.adminEmailEvents.size, 0);
+});
+await test('notification service dedupes and safely records provider failure', async () => {
+  const { store, db } = createNotificationStore();
+  const sends = [];
+  const input = {
+    orderId: syntheticOrderId,
+    reportId: null,
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    authorizationId: null,
+    category: 'worker_dispatch_failed',
+    stage: 'immediate_dispatch',
+    technicalReference: '44444444-4444-4444-8444-444444444444',
+    requiredAction: dispatchRequiredAction,
+  };
+  const sendEmailImpl = async (message) => {
+    sends.push(message);
+    return { ok: true, mode: 'disabled', providerMessageId: null };
+  };
+  const first = await recordAutomaticFulfilmentExceptionAlert(input, {
+    createClient: () => db,
+    sendEmailImpl,
+  });
+  const duplicate = await recordAutomaticFulfilmentExceptionAlert(input, {
+    createClient: () => db,
+    sendEmailImpl,
+  });
+  assert.equal(first.reused, false);
+  assert.equal(duplicate.reused, true);
+  assert.equal(store.emailEvents.length, 1);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].to, 'admin@mkfraud.co.za');
+  assert.match(sends[0].text, /Do not mark payment again\./);
+  assert.match(sends[0].text, /https:\/\/mkfraud\.co\.za\/score\/admin\/orders\/RC1-SYNTHETIC-DISPATCH/);
+
+  const providerFailure = await recordAutomaticFulfilmentExceptionAlert({
+    ...input,
+    category: 'worker_rejected_dispatch',
+  }, {
+    createClient: () => db,
+    sendEmailImpl: async (message) => {
+      sends.push(message);
+      return {
+        ok: false,
+        mode: 'test',
+        error: 'synthetic provider detail must not persist',
+      };
+    },
+  });
+  assert.equal(providerFailure.status, 'send_failed');
+  assert.equal(store.emailEvents.length, 2);
+  assert.equal(
+    store.emailEvents[1].error_message,
+    'The operational exception notification provider request failed.',
+  );
+  assert.doesNotMatch(
+    JSON.stringify(store.emailEvents[1]),
+    /synthetic provider detail must not persist/,
+  );
 });
 await test('immediate worker claims the exact intended attempt', async () => {
   includes(worker, "db.rpc('claim_exact_fulfilment_job'", 'POST uses exact claim RPC');
@@ -211,8 +571,8 @@ await test('protected 18-order fixtures remain guarded and timing SLOs pass synt
   }
 });
 
-assert.equal(results.length, 24);
+assert.equal(results.length, 35);
 assert.equal(calls[0].args.p_outcome, 'started');
 assert.equal(calls[1].args.p_outcome, 'succeeded');
 assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/score/api/internal/fulfilment-worker');
-console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/24.`);
+console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/35.`);

@@ -1,9 +1,9 @@
 # RC1 Exception-Only Fulfilment Operating Model
 
 **Status:** The previous routine manual generation/review/delivery model is superseded by the final
-owner decision in `34-rc1-near-real-time-automatic-fulfilment.md`. RC1 NEAR-REAL-TIME AUTOMATIC
-FULFILMENT remains **CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS and RC
-MIGRATION/DEPLOYMENT remain **NO-GO**.
+owner decision in `34-rc1-near-real-time-automatic-fulfilment.md`. RC1 NEAR-REAL-TIME CORE FLOW has
+**SUBSTANTIVE REVIEW PASSED**; RC1 IMMEDIATE-DISPATCH FAILURE ALERTING remains **CONTROLLER REVIEW
+REQUIRED**; RC1 OPERATIONAL READINESS and RC MIGRATION/DEPLOYMENT remain **NO-GO**.
 
 **Named owner:** Tondani Netili. **Technical executor:** Codex only under the approved runbook and
 explicit owner/controller approval. This model changes no Vercel billing or cron configuration and
@@ -26,6 +26,8 @@ authorises no Production, Supabase, Resend or migration-ledger action.
 ## Exception procedure
 
 1. Review the safe operational alert and technical reference through supported admin controls.
+   For an `immediate_dispatch` alert, confirm that payment is still PAID and the attempt is still
+   queued, then use the authorised recovery procedure. Do not mark payment again.
 2. Confirm the affected order's authorised treatment; for any of the existing 18 paid orders, also
    confirm its owner-approved disposition in the restricted external register.
 3. Never regenerate or redeliver either `CURRENT_VERIFIED` order.
@@ -37,6 +39,11 @@ authorises no Production, Supabase, Resend or migration-ledger action.
 8. Verify aggregate no-duplicate/no-unexpected-event evidence after the action.
 9. Escalate unresolved critical, terminal, suppression or integrity exceptions immediately to
    Tondani Netili.
+
+If payment commits immediately before a freeze activates, the accepted freeze model may block both
+dispatch evidence and the alert. While frozen, do not bypass the gate or invoke the worker. Use the
+supported admin order view to identify the preserved paid/queued order; after Tondani Netili's
+authorised release, use the authorised recovery control or allow scheduled recovery to process it.
 
 ## Recovery cadence
 

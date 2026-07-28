@@ -136,3 +136,9 @@ All 19 steps are required in order:
 19. Final disabled resting state independently verified.
 
 Provider mode must never be `live` during certification.
+
+For every controlled test or later live-provider certification send, the persisted email-event
+provider mode/status/message evidence and durable delivery evidence must represent the provider path
+actually exercised. A real provider send with a durable event still represented as `disabled` is a
+certification **STOP**, as is any inability to correlate the delivery evidence to that same path.
+This is an evidence requirement only and does not authorise Resend configuration or invocation.

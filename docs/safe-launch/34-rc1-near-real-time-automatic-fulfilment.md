@@ -1,10 +1,11 @@
 # RC1 Near-Real-Time Automatic Fulfilment
 
 **Status:** RC1 TECHNICAL BASE: **ACCEPTED** at
-`6550c05fe866a1880f4fe6e21b8ef2baa43301a8`; RC1 NEAR-REAL-TIME AUTOMATIC
-FULFILMENT: **CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS:
-**NO-GO**; RC MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION:
-**NO-GO**; PUBLIC LAUNCH: **NO-GO**; **DO NOT MERGE**.
+`6550c05fe866a1880f4fe6e21b8ef2baa43301a8`; RC1 NEAR-REAL-TIME CORE FLOW:
+**SUBSTANTIVE REVIEW PASSED**; RC1 IMMEDIATE-DISPATCH FAILURE ALERTING:
+**CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**; RC
+MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC
+LAUNCH: **NO-GO**; **DO NOT MERGE**.
 
 This document records the final owner operating decision and the code-only correction implemented
 from the accepted technical base. It authorises no cloud or Production action.
@@ -48,7 +49,26 @@ this launch path and are not authorised by this correction.
 
 A failed immediate HTTP dispatch cannot roll back the already committed payment or remove the
 durable queued attempt. Dispatch start, success and failure are recorded with technical evidence.
-The bearer secret and Authorization header are never included in payloads, logs or responses.
+The same failure path records one operational alert through
+`record_automatic_fulfilment_exception(...)` and one deduplicated exception notification through
+`recordAutomaticFulfilmentExceptionAlert(...)`. The alert uses stage `immediate_dispatch`, the
+attempt/correlation references, one closed safe error category and the supported admin order
+recovery link. It instructs the owner to confirm the queued state and use the authorised recovery
+procedure without marking payment again. Missing/invalid deployment origin, missing cron secret,
+dispatch-evidence start failure, network/invocation failure and worker HTTP rejection are covered.
+Alert-provider failure leaves the database alert and queued attempt intact and cannot escape into
+the payment response.
+
+The bearer secret, Authorization header, customer identity, report content, signed URL, access token,
+raw SQL and provider error are never included in the alert, logs or dispatch response.
+
+If the platform becomes frozen after payment commits but before dispatch evidence or alert
+recording, the accepted freeze gates block worker, dispatch-evidence and operational-alert
+mutations. The PAID payment and durable `REPORT_QUEUED` attempt remain preserved; no report,
+delivery authorisation, access token or email is created. After the owner performs the separately
+authorised freeze release, the owner identifies the queued order through the supported admin order
+view and uses the authorised recovery procedure or allows the retained recovery cron to claim it.
+Payment must not be marked again, and no freeze bypass is permitted.
 
 ## Fail-closed automatic release
 
@@ -101,8 +121,15 @@ No accepted migration was modified.
 
 Local synthetic evidence includes:
 
-- the dedicated 24-check near-real-time suite;
+- the dedicated 35-check near-real-time and dispatch-alert suite;
 - the full 43-migration pre/postflight replay;
+- missing/invalid deployment origin, missing secret, evidence-start, network, worker 4xx/5xx,
+  duplicate alert, alert-provider-failure and successful no-alert application paths;
+- disposable-database proof that dispatch failure preserves PAID/payment-received/queued state,
+  creates one deduplicated operational alert and creates no report, authorisation, token or customer
+  email;
+- frozen post-payment race proof that all additional mutation is blocked and the queued state is
+  recoverable after authorised release;
 - exact-attempt and exact-delivery isolation;
 - duplicate-payment, duplicate-invocation, report, authorisation, event, token and provider-send
   prevention;

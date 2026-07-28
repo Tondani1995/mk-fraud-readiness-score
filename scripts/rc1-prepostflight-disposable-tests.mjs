@@ -1144,6 +1144,71 @@ async function proveNearRealTimeAutomaticFulfilment() {
   assert(providerFailed[0].value.status === 'retry_scheduled',
     'provider failure enters the existing retry state with backoff');
 
+  const dispatchFailure = await seedPaidAttempt();
+  const dispatchFailureCorrelation = crypto.randomUUID();
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'started',null,null)",
+    [dispatchFailure.attemptId, dispatchFailureCorrelation],
+  );
+  await db.query(
+    "select public.record_fulfilment_dispatch_result($1,$2,'failed',null,'worker_dispatch_failed')",
+    [dispatchFailure.attemptId, dispatchFailureCorrelation],
+  );
+  const dispatchExceptionArgs = [
+    dispatchFailure.attemptId,
+    null,
+    'immediate_dispatch',
+    'worker_dispatch_failed',
+    dispatchFailureCorrelation,
+    'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.',
+  ];
+  const firstDispatchAlert = await query(
+    'select public.record_automatic_fulfilment_exception($1,$2,$3,$4,$5,$6) as value',
+    dispatchExceptionArgs,
+  );
+  const duplicateDispatchAlert = await query(
+    'select public.record_automatic_fulfilment_exception($1,$2,$3,$4,$5,$6) as value',
+    dispatchExceptionArgs,
+  );
+  const dispatchFailureState = await query(
+    `select
+      (select status::text from public.orders where id=$1) as order_status,
+      (select state from public.payment_automation_records where order_id=$1) as payment_state,
+      (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+      (select lease_owner from public.manual_report_generation_attempts where id=$2) as lease_owner,
+      (select output_report_id from public.manual_report_generation_attempts where id=$2) as output_report_id,
+      (select count(*)::int from public.phase14_operational_alerts
+        where detail_json->>'attempt_id'=$2::text
+          and detail_json->>'stage'='immediate_dispatch'
+          and category='worker_dispatch_failed') as alerts,
+      (select count(*)::int from public.email_events where order_id=$1) as email_events,
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_delivery_authorizations where order_id=$1) as authorizations,
+      (select count(*)::int from public.customer_report_access_tokens t
+        join public.reports r on r.id=t.report_id where r.order_id=$1) as tokens`,
+    [dispatchFailure.orderId, dispatchFailure.attemptId],
+  );
+  assert(
+    firstDispatchAlert[0].value.alert_id === duplicateDispatchAlert[0].value.alert_id
+      && dispatchFailureState[0].alerts === 1,
+    'same attempt, immediate-dispatch stage and category reuse one operational alert',
+  );
+  assert(
+    dispatchFailureState[0].order_status === 'payment_received'
+      && dispatchFailureState[0].payment_state === 'PAID'
+      && dispatchFailureState[0].attempt_status === 'REPORT_QUEUED'
+      && dispatchFailureState[0].lease_owner === null
+      && dispatchFailureState[0].output_report_id === null,
+    'dispatch failure preserves PAID payment and the durable eligible queued attempt',
+  );
+  assert(
+    dispatchFailureState[0].email_events === 0
+      && dispatchFailureState[0].reports === 0
+      && dispatchFailureState[0].authorizations === 0
+      && dispatchFailureState[0].tokens === 0,
+    'dispatch failure creates no customer email, report, delivery authorization or access token',
+  );
+
   const recoveryClaim = await query(
     "select public.claim_next_fulfilment_job('synthetic-daily-recovery',300) as value",
   );
@@ -1181,6 +1246,26 @@ async function proveNearRealTimeAutomaticFulfilment() {
   const frozenFixture = await seedPaidAttempt();
   await db.query("select public.rc1_activate_freeze('Synthetic automatic fulfilment freeze verification')");
   await expectQueryStop(
+    'frozen dispatch evidence race',
+    () => db.query(
+      "select public.record_fulfilment_dispatch_result($1,$2,'started',null,null)",
+      [frozenFixture.attemptId, crypto.randomUUID()],
+    ),
+    'rc1_operation_frozen:worker',
+  );
+  await expectQueryStop(
+    'frozen dispatch alert race',
+    () => db.query(
+      "select public.record_automatic_fulfilment_exception($1,null,'immediate_dispatch','worker_dispatch_failed',$2,$3)",
+      [
+        frozenFixture.attemptId,
+        crypto.randomUUID(),
+        'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.',
+      ],
+    ),
+    'rc1_operation_frozen:operational_alert',
+  );
+  await expectQueryStop(
     'frozen exact worker claim',
     () => db.query("select public.claim_exact_fulfilment_job($1,'frozen-worker',300)", [frozenFixture.attemptId]),
     'rc1_operation_frozen:worker',
@@ -1190,8 +1275,35 @@ async function proveNearRealTimeAutomaticFulfilment() {
     () => db.query("select public.claim_next_fulfilment_job('frozen-scheduled-worker',300)"),
     'rc1_operation_frozen:generation',
   );
+  const frozenRaceState = await query(
+    `select
+      (select status::text from public.orders where id=$1) as order_status,
+      (select state from public.payment_automation_records where order_id=$1) as payment_state,
+      (select status from public.manual_report_generation_attempts where id=$2) as attempt_status,
+      (select lease_owner from public.manual_report_generation_attempts where id=$2) as lease_owner,
+      (select count(*)::int from public.phase14_operational_alerts
+        where detail_json->>'attempt_id'=$2::text) as alerts,
+      (select count(*)::int from public.email_events where order_id=$1) as email_events,
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_delivery_authorizations where order_id=$1) as authorizations`,
+    [frozenFixture.orderId, frozenFixture.attemptId],
+  );
+  assert(
+    frozenRaceState[0].order_status === 'payment_received'
+      && frozenRaceState[0].payment_state === 'PAID'
+      && frozenRaceState[0].attempt_status === 'REPORT_QUEUED'
+      && frozenRaceState[0].lease_owner === null,
+    'freeze race preserves PAID payment and the durable queued attempt',
+  );
+  assert(
+    frozenRaceState[0].alerts === 0
+      && frozenRaceState[0].email_events === 0
+      && frozenRaceState[0].reports === 0
+      && frozenRaceState[0].authorizations === 0,
+    'freeze race permits no alert, customer email, generation or delivery mutation while frozen',
+  );
 
-  console.log('PASS RC1 near-real-time automatic fulfilment: atomic payment queue, exact claims, fail-closed release, one authorization/event/token/finalization, exception hold, delayed recovery, freeze and synthetic timing targets.');
+  console.log('PASS RC1 near-real-time automatic fulfilment: atomic payment queue, exact claims, fail-closed release, one authorization/event/token/finalization, deduplicated immediate-dispatch alerts, exception hold, delayed recovery, freeze-race preservation and synthetic timing targets.');
 }
 
 let preVars;

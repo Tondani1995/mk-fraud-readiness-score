@@ -4,7 +4,7 @@ import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
 } from '@/lib/reports/phase1-schema-capability';
-import { sendEmail } from '@/lib/notifications/email-provider';
+import { sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
 import {
   buildAdminNewOrderAlertMessage,
   buildInternalExceptionAlertMessage,
@@ -20,6 +20,11 @@ type NotificationContext = {
   order: any;
   product: any;
   eftSnapshot: any;
+};
+
+type AutomaticExceptionAlertDependencies = {
+  createClient?: typeof createSupabaseServiceClient;
+  sendEmailImpl?: typeof defaultSendEmail;
 };
 
 function displayAmount(cents: number, currency: string) {
@@ -72,7 +77,7 @@ async function recordNotification(db: any, input: {
   message: { subject: string; text: string; html: string };
   dedupeKey?: string;
   safeProviderFailure?: boolean;
-}) {
+}, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
   const dedupeKey = input.dedupeKey
     ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
@@ -116,6 +121,7 @@ async function recordNotification(db: any, input: {
 
   const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
   const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
+  const sendEmail = dependencies.sendEmailImpl ?? defaultSendEmail;
   const sendResult = await sendEmail({
     from: fromAddress,
     to: input.recipient,
@@ -348,9 +354,10 @@ export type AutomaticFulfilmentExceptionAlertInput = {
 };
 
 export async function recordAutomaticFulfilmentExceptionAlert(
-  input: AutomaticFulfilmentExceptionAlertInput
+  input: AutomaticFulfilmentExceptionAlertInput,
+  dependencies: AutomaticExceptionAlertDependencies = {}
 ) {
-  const db = createSupabaseServiceClient() as any;
+  const db = (dependencies.createClient ?? createSupabaseServiceClient)() as any;
   const { data: order } = await db
     .from('orders')
     .select('id,order_reference')
@@ -404,7 +411,7 @@ export async function recordAutomaticFulfilmentExceptionAlert(
       ownerHint: 'Tondani / admin@mkfraud.co.za',
       recoveryPath: `/score/admin/orders/${encodeURIComponent(order.order_reference)}`
     })
-  });
+  }, dependencies);
 }
 
 export async function retryPhase1NotificationWithDouble(emailEventId: string, result: 'success' | 'failure') {

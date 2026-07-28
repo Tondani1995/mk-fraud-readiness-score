@@ -1,9 +1,10 @@
 # RC1 Production-Change Runbook
 
-**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME AUTOMATIC FULFILMENT:
+**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME CORE FLOW:
+**SUBSTANTIVE REVIEW PASSED**; RC1 IMMEDIATE-DISPATCH FAILURE ALERTING:
 **CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS: **NO-GO**; RC
-MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC LAUNCH:
-**NO-GO**; **DO NOT MERGE**.
+MIGRATION/DEPLOYMENT: **NO-GO**; CLOUD CERTIFICATION: **NO-GO**; PUBLIC
+LAUNCH: **NO-GO**; **DO NOT MERGE**.
 
 **Accepted and locked RC1 base:** `6550c05fe866a1880f4fe6e21b8ef2baa43301a8`.
 
@@ -294,11 +295,18 @@ No step is authorised during this near-real-time correction review cycle.
 **Current STOP:** Steps 12–17 cannot begin. RC1D has no canary bypass; document 33 requires a
 separately approved and implemented transactional design first.
 
+**Provider-path evidence STOP:** During controlled test and any later live-provider certification,
+the persisted `email_events` provider mode/status/message evidence and the durable delivery evidence
+must accurately represent the provider path actually exercised. A real provider send is not
+certified if its durable email event remains represented as `disabled`, or if delivery evidence
+cannot be correlated to that same provider path. This assertion authorises no provider configuration
+or send in the current cycle.
+
 | Step | Actor | Exact action | Expected result | Evidence retained | Stop condition | Cloud-state impact |
 |---:|---|---|---|---|---|---|
 | 12 | Tondani Netili preapproves; Codex executes once | Use one preapproved synthetic canary and the designated MK test mailbox only. | Exactly one synthetic canary is eligible; no real customer/order is touched. | Approval, anonymised canary reference outside git and mailbox designation. | Second canary, real data, wrong mailbox or worker eligibility. | Yes: controlled synthetic state. |
-| 13 | Codex certifies; Tondani Netili reviews | Certify the payment-acknowledgement message for that canary. | One correct acknowledgement reaches only the designated mailbox. | Template/version, event count, test mailbox evidence and timestamp. | Missing, duplicate, malformed or misdirected message. | Yes: one test email and related synthetic event. |
-| 14 | Codex certifies; Tondani Netili reviews | Certify the secure report-ready message for the same canary. | One secure report-ready message reaches only the designated mailbox with no raw storage path or token exposure. | Template/version, secure-link checks, event count and timestamp. | Duplicate, wrong recipient, insecure content or unrelated report. | Yes: one test email and related synthetic event. |
+| 13 | Codex certifies; Tondani Netili reviews | Certify the payment-acknowledgement message for that canary and reconcile its durable event with the provider path actually exercised. | One correct acknowledgement reaches only the designated mailbox; persisted mode/status/message evidence represents that provider path. | Template/version, event count, persisted provider mode/status/message evidence, test mailbox evidence and timestamp. | Missing, duplicate, malformed or misdirected message; real provider send represented as disabled; provider path and durable event disagree. | Yes: one test email and related synthetic event. |
+| 14 | Codex certifies; Tondani Netili reviews | Certify the secure report-ready message for the same canary and reconcile its email/delivery evidence with the provider path actually exercised. | One secure report-ready message reaches only the designated mailbox with no raw storage path or token exposure; durable email and delivery records agree with the provider path. | Template/version, secure-link checks, event count, provider-mode/status/message and delivery-correlation evidence, and timestamp. | Duplicate, wrong recipient, insecure content, unrelated report, real provider send represented as disabled, or email/delivery evidence disagreement. | Yes: one test email and related synthetic event. |
 | 15 | Codex verifies; Tondani Netili reviews | Submit the genuine signed callback for the approved canary and require HTTP 200. | Signature verification and route processing succeed once. | Redacted request fingerprint, endpoint identity, HTTP 200 and timestamp. | Non-200, unsigned acceptance, replay conflict or secret exposure. | Yes: one provider callback. |
 | 16 | Codex verifies; Tondani Netili reviews | Prove the provider event correlates to the intended synthetic email event. | Exactly one provider event binds to exactly one intended email event. | Aggregate correlation result, event-type result and fingerprints only. | Unknown, duplicate, conflicting or unrelated correlation. | No additional intended mutation beyond step 15 verification. |
 | 17 | Codex verifies; Tondani Netili reviews | Prove no unrelated order or job is eligible before leaving test mode. | Eligibility remains exactly one approved synthetic canary and zero unrelated jobs. | Aggregate eligibility counts and worker-disabled evidence. | Any unrelated eligibility, worker claim or real-order change. | No intended mutation; read-only verification. |

@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordAutomaticFulfilmentExceptionAlert } from '@/lib/notifications/phase1-order-notifications';
 
 export type ImmediateFulfilmentDispatchInput = {
   attemptId: string;
@@ -11,7 +12,11 @@ type DispatchDependencies = {
   fetchImpl?: typeof fetch;
   createClient?: typeof createSupabaseServiceClient;
   env?: NodeJS.ProcessEnv;
+  recordExceptionAlert?: typeof recordAutomaticFulfilmentExceptionAlert;
 };
+
+const DISPATCH_FAILURE_REQUIRED_ACTION =
+  'Immediate automatic fulfilment did not start. Confirm the queued order state and use the authorised recovery procedure. Do not mark payment again.';
 
 function exactDeploymentOrigin(env: NodeJS.ProcessEnv): string {
   const deploymentHost = env.VERCEL_URL?.trim();
@@ -51,6 +56,8 @@ export async function dispatchImmediateFulfilment(
   const db = (dependencies.createClient ?? createSupabaseServiceClient)() as any;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const env = dependencies.env ?? process.env;
+  const recordExceptionAlert =
+    dependencies.recordExceptionAlert ?? recordAutomaticFulfilmentExceptionAlert;
 
   async function record(
     outcome: DispatchEvidenceOutcome,
@@ -64,6 +71,54 @@ export async function dispatchImmediateFulfilment(
       p_http_status: httpStatus,
       p_error_category: errorCategory
     });
+  }
+
+  async function recordFailureAlert(errorCategory: string) {
+    let exceptionData: any;
+    try {
+      const { data, error } = await db.rpc(
+        'record_automatic_fulfilment_exception',
+        {
+          p_attempt_id: input.attemptId,
+          p_authorization_id: null,
+          p_stage: 'immediate_dispatch',
+          p_category: errorCategory,
+          p_technical_reference: input.correlationReference,
+          p_required_action: DISPATCH_FAILURE_REQUIRED_ACTION
+        }
+      );
+      if (error || !data?.order_id) {
+        throw new Error('exception_evidence_persistence_failed');
+      }
+      exceptionData = data;
+    } catch {
+      console.error('immediate_fulfilment_dispatch', {
+        outcome: 'exception_evidence_failed',
+        attemptId: input.attemptId,
+        correlationReference: input.correlationReference,
+        errorCategory: 'exception_evidence_persistence_failed'
+      });
+      return;
+    }
+    try {
+      await recordExceptionAlert({
+        orderId: exceptionData.order_id,
+        reportId: exceptionData.report_id ?? null,
+        attemptId: input.attemptId,
+        authorizationId: null,
+        category: errorCategory,
+        stage: 'immediate_dispatch',
+        technicalReference: input.correlationReference,
+        requiredAction: DISPATCH_FAILURE_REQUIRED_ACTION
+      });
+    } catch {
+      console.error('immediate_fulfilment_dispatch', {
+        outcome: 'exception_notification_failed',
+        attemptId: input.attemptId,
+        correlationReference: input.correlationReference,
+        errorCategory: 'exception_notification_failed'
+      });
+    }
   }
 
   let responseStatus: number | null = null;
@@ -105,6 +160,7 @@ export async function dispatchImmediateFulfilment(
     const failed = await record('failed', responseStatus, errorCategory).catch(
       () => ({ error: true })
     );
+    await recordFailureAlert(errorCategory);
     console.error('immediate_fulfilment_dispatch', {
       outcome: 'failed',
       attemptId: input.attemptId,

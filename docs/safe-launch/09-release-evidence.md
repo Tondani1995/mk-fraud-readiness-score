@@ -919,7 +919,8 @@ exact-head results are required; the failed runs remain failed.
 **Implementation commit:** `ff3a0aefa2abfec2dbcda2d5626eb9f0a5a3c109`, direct parent exactly
 the accepted technical base.
 
-**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME AUTOMATIC FULFILMENT:
+**Status:** RC1 TECHNICAL BASE: **ACCEPTED**; RC1 NEAR-REAL-TIME CORE FLOW:
+**SUBSTANTIVE REVIEW PASSED**; RC1 IMMEDIATE-DISPATCH FAILURE ALERTING:
 **CONTROLLER REVIEW REQUIRED**; RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD
 CERTIFICATION and PUBLIC LAUNCH: **NO-GO**; **DO NOT MERGE**.
 
@@ -934,17 +935,18 @@ enabled as delayed recovery; no cadence, plan, provider, cloud or Production set
 |---|---|
 | Additive migration | `20260728120000_rc1_near_real_time_automatic_fulfilment.sql`; SHA-256 `f98bb7f5187da6f2f06de88d8e69f34877e8e9c3274967e6a8989624cb630668`; no accepted migration changed |
 | Immediate dispatch | Manual non-duplicate PAID confirmation returns the exact new attempt ID; `waitUntil()` invokes the existing worker using only the strictly validated exact `VERCEL_URL` deployment origin, that technical ID and a correlation UUID; no request-derived URL can reach the server-side fetch; dispatch failure preserves payment and queue state |
+| Dispatch-failure alert | Every closed failure category attempts one `immediate_dispatch` operational-alert upsert and one deduplicated safe notification to `admin@mkfraud.co.za`; alert/provider failure is swallowed after safe evidence and cannot affect payment or queue state |
 | Exact claims | Service-role-only row-locking RPCs claim only the supplied eligible attempt and returned delivery authorisation; scheduled GET retains the accepted global claim RPCs |
 | Automatic release | Worker-owned completed attempt must pass verified payment, locked score, exact relationships, current-report uniqueness, commercial-quality evidence, verified private Storage, entitlement, recipient and suppression checks |
 | Shared delivery | Immediate and scheduled paths use one claim/token/message/provider/finalisation/retry/reconciliation implementation |
 | Exceptions | No customer send on a failed gate; safe deduplicated evidence and `admin@mkfraud.co.za` notification; provider-accepted/finalisation-uncertain state requires reconciliation before resend |
 | Duplicate prevention | Synthetic replay proves one attempt, report, email event, authorisation, token and provider send; duplicate payment/invocation creates no second object |
-| Freeze protection | Both immediate POST and scheduled GET stop at the RC1 worker freeze gate; underlying worker RPCs also require the operation to be open |
+| Freeze protection | Both immediate POST and scheduled GET stop at the RC1 worker freeze gate; underlying worker RPCs also require the operation to be open; a post-payment freeze race preserves PAID plus `REPORT_QUEUED` and permits no dispatch evidence, alert, report, authorisation, token or email mutation until authorised release |
 | Protected orders | The synthetic 18-order 2/13/3 fixture and protected fingerprint remain byte-for-byte unchanged through pre/postflight |
 
 ### Local verification
 
-- Dedicated near-real-time suite: **PASS, 24/24**.
+- Dedicated near-real-time and dispatch-alert suite: **PASS, 35/35**.
 - Full disposable replay: **PASS, 43 migrations**, nine exact cutover versions, newest
   `20260728120000`.
 - Accepted behaviour migration protection: **PASS**, all seven accepted payload checksums and the

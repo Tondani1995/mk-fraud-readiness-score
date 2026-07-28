@@ -48,7 +48,7 @@ might otherwise suggest.
 | Gate | Stage | Evidence |
 |---|---|---|
 | Durable worker mechanism (claim/lease/retry/recovery) | Code complete, Locally verified | `12-durable-fulfilment-design.md`, Release B (#42) evidence |
-| Immediate exact-attempt dispatch and automatic downstream release/delivery | Code complete, Locally verified; controller review required | `34-rc1-near-real-time-automatic-fulfilment.md`; dedicated 24-check suite and 43-migration replay |
+| Immediate exact-attempt dispatch and automatic downstream release/delivery | Core flow substantive review passed; immediate-dispatch failure alerting code complete and locally verified; controller review required | `34-rc1-near-real-time-automatic-fulfilment.md`; dedicated 35-check suite and 43-migration replay |
 | Worker runtime measured under real provider load | **Not done — controlled certification required** | Document 34 certification SLOs |
 | Queue safety (no unrelated job or delivery claimed by an immediate run) | Locally verified with synthetic exact-claim isolation; cloud certification outstanding | Document 34; `scripts/rc1-prepostflight-disposable-tests.mjs` |
 | Vercel plan and cron-frequency decision | **Decided for launch:** current daily cron stays enabled as delayed recovery; immediate dispatch is primary; optional Pro minute-level recovery is not launch-required | Documents 29 and 34 |
@@ -67,12 +67,12 @@ might otherwise suggest.
 
 ## Overall status
 
-**Production authorised: no.** The accepted RC1 technical base is locked. The near-real-time
-automatic-fulfilment correction is code complete and locally verified but requires exact-head CI and
-controller review. Schema reconciliation, backup/cutover evidence, controlled provider
-certification, paid-order dispositions, canary authority and remaining operational approvals are
-still outstanding. RC1 OPERATIONAL READINESS, RC MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and
-PUBLIC LAUNCH remain **NO-GO**; **DO NOT MERGE**.
+**Production authorised: no.** The accepted RC1 technical base is locked. The near-real-time core
+flow has passed substantive review. Immediate-dispatch failure alerting is code complete and locally
+verified but requires exact-head CI and controller review. Schema reconciliation, backup/cutover
+evidence, controlled provider certification, paid-order dispositions, canary authority and
+remaining operational approvals are still outstanding. RC1 OPERATIONAL READINESS, RC
+MIGRATION/DEPLOYMENT, CLOUD CERTIFICATION and PUBLIC LAUNCH remain **NO-GO**; **DO NOT MERGE**.
 
 ## Cross-references
 
