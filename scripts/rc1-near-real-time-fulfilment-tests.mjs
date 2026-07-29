@@ -256,6 +256,7 @@ const successfulDispatch = await dispatchImmediateFulfilment({
     NODE_ENV: 'production',
     VERCEL_URL: 'exact-deployment.example.vercel.app',
     CRON_SECRET: 'synthetic-secret-never-logged',
+    VERCEL_AUTOMATION_BYPASS_SECRET: 'synthetic-bypass-never-logged',
   },
   fetchImpl: async (url, init) => {
     capturedRequest = { url, init };
@@ -414,6 +415,46 @@ await test('successful dispatch creates no failure alert', async () => {
   assert.equal(result.ok, true);
   assert.equal(harness.operationalAlerts.size, 0);
   assert.equal(harness.adminEmailEvents.size, 0);
+});
+await test('Preview automation bypass is sent only when configured', async () => {
+  const withBypass = createDispatchFailureHarness();
+  await dispatchImmediateFulfilment({
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    correlationReference: '44444444-4444-4444-8444-444444444444',
+  }, {
+    createClient: () => withBypass.db,
+    env: {
+      NODE_ENV: 'production',
+      VERCEL_URL: 'exact-deployment.example.vercel.app',
+      CRON_SECRET: 'synthetic-secret-never-logged',
+      VERCEL_AUTOMATION_BYPASS_SECRET: 'synthetic-bypass-never-logged',
+    },
+    fetchImpl: withBypass.fetchImpl,
+    recordExceptionAlert: withBypass.recordExceptionAlert,
+  });
+  assert.equal(
+    withBypass.fetchCalls[0].init.headers['x-vercel-protection-bypass'],
+    'synthetic-bypass-never-logged',
+  );
+
+  const withoutBypass = createDispatchFailureHarness();
+  await dispatchImmediateFulfilment({
+    attemptId: '33333333-3333-4333-8333-333333333333',
+    correlationReference: '44444444-4444-4444-8444-444444444444',
+  }, {
+    createClient: () => withoutBypass.db,
+    env: {
+      NODE_ENV: 'production',
+      VERCEL_URL: 'exact-deployment.example.vercel.app',
+      CRON_SECRET: 'synthetic-secret-never-logged',
+    },
+    fetchImpl: withoutBypass.fetchImpl,
+    recordExceptionAlert: withoutBypass.recordExceptionAlert,
+  });
+  assert.equal(
+    withoutBypass.fetchCalls[0].init.headers['x-vercel-protection-bypass'],
+    undefined,
+  );
 });
 await test('notification service dedupes and safely records provider failure', async () => {
   const { store, db } = createNotificationStore();
@@ -575,6 +616,10 @@ await test('dispatch payload and logs contain no customer identity', async () =>
     attemptId: '11111111-1111-4111-8111-111111111111',
     correlationReference: '22222222-2222-4222-8222-222222222222',
   });
+  assert.equal(
+    capturedRequest.init.headers['x-vercel-protection-bypass'],
+    'synthetic-bypass-never-logged',
+  );
   assert.doesNotMatch(paymentRoute, /requestUrl:\s*request\.url/);
   assert.doesNotMatch(dispatch, /customer(Name|Email)|orderReference/);
 });
@@ -604,8 +649,8 @@ await test('protected 18-order fixtures remain guarded and timing SLOs pass synt
   }
 });
 
-assert.equal(results.length, 35);
+assert.equal(results.length, 36);
 assert.equal(calls[0].args.p_outcome, 'started');
 assert.equal(calls[1].args.p_outcome, 'succeeded');
 assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/score/api/internal/fulfilment-worker');
-console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/35.`);
+console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/36.`);
