@@ -82,10 +82,14 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 45, 'canonical migration directory must contain 45 SQL files');
+assert.equal(migrationFiles.length, 46, 'canonical migration directory must contain 46 SQL files');
+assert.equal(
+  migrationFiles.at(-2),
+  '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
+);
 assert.equal(
   migrationFiles.at(-1),
-  '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
+  '20260729113242_rc1_service_role_privilege_contract.sql',
 );
 assert.equal(
   sha256(aclMigration),
@@ -587,4 +591,4 @@ assert(
   'representative delivery plan must be able to use the approved index',
 );
 
-console.log('PASS RC1 staging postflight hardening: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta');
+console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history now has additive migration 46');

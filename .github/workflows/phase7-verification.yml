@@ -48,6 +48,9 @@ jobs:
       - name: Verify RC1 near-real-time automatic fulfilment
         run: npm run rc1:test-near-real-time-fulfilment
 
+      - name: Verify AST-derived service-role privilege contract
+        run: npm run rc1:analyze-service-role-contract
+
       - name: Run Phase 7 snapshot tests
         run: npm run phase7:test-snapshot
 

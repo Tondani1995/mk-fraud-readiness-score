@@ -47,6 +47,8 @@ on:
     paths:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
+      - 'scripts/rc1-service-role-*'
+      - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/v7-report-hardening.yml'
@@ -54,6 +56,8 @@ on:
     paths:
       - 'src/lib/reports/**'
       - 'scripts/phase-v7-**'
+      - 'scripts/rc1-service-role-*'
+      - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/v7-report-hardening.yml'
@@ -79,6 +83,9 @@ jobs:
 
       - name: Verify seven accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
+
+      - name: Verify AST-derived service-role privilege contract
+        run: npm run rc1:analyze-service-role-contract
 
       - name: Install Checkpoint F PDF inspection dependencies
         run: |

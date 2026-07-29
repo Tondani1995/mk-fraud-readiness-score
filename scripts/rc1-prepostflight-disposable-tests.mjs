@@ -41,7 +41,8 @@ const pending = [
   '20260725150000_release_d_operational_alert_lifecycle.sql',
   '20260728120000_rc1_near_real_time_automatic_fulfilment.sql',
   '20260728190000_rc1_staging_postflight_least_privilege.sql',
-  '20260728191000_rc1_launch_required_foreign_key_indexes.sql'
+  '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
+  '20260729113242_rc1_service_role_privilege_contract.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
