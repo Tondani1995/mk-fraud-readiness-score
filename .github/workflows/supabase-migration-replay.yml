@@ -102,7 +102,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      SUPABASE_CLI_VERSION: '2.109.1'
+      SUPABASE_CLI_VERSION: '2.110.0'
       LOCAL_DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 
     steps:
