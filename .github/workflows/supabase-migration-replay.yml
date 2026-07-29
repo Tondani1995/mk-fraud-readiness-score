@@ -233,8 +233,8 @@ jobs:
           before_policies=$(psql "$LOCAL_DB_URL" -XAtc "
             select schemaname||'.'||tablename||'.'||policyname||'|'||roles::text||'|'||cmd||'|'||
               coalesce(qual,'')||'|'||coalesce(with_check,'')
-            from pg_policies where schemaname in ('public','phase14_private') order by 1"
-            | sha256sum | awk '{print $1}')
+            from pg_policies where schemaname in ('public','phase14_private') order by 1" |
+            sha256sum | awk '{print $1}')
 
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$migration" \
             | tee tmp/migration-replay/rc1-service-role-45-to-46.txt
@@ -260,8 +260,8 @@ jobs:
           after_policies=$(psql "$LOCAL_DB_URL" -XAtc "
             select schemaname||'.'||tablename||'.'||policyname||'|'||roles::text||'|'||cmd||'|'||
               coalesce(qual,'')||'|'||coalesce(with_check,'')
-            from pg_policies where schemaname in ('public','phase14_private') order by 1"
-            | sha256sum | awk '{print $1}')
+            from pg_policies where schemaname in ('public','phase14_private') order by 1" |
+            sha256sum | awk '{print $1}')
           test "$before_functions" = "$after_functions"
           test "$before_triggers" = "$after_triggers"
           test "$before_policies" = "$after_policies"
