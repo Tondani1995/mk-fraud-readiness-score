@@ -15,9 +15,11 @@ on:
       - 'supabase/migrations/0025_phase23_assessment_resume.sql'
       - 'supabase/migrations/20260728190000_rc1_staging_postflight_least_privilege.sql'
       - 'supabase/migrations/20260728191000_rc1_launch_required_foreign_key_indexes.sql'
+      - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
       - 'scripts/phase23-*'
       - 'scripts/apply-phase23-*'
       - 'scripts/rc1-staging-postflight-hardening*'
+      - 'scripts/rc1-service-role-*'
       - 'docs/v2/phases-2-3/**'
       - '.github/workflows/phase23-release-safety.yml'
 

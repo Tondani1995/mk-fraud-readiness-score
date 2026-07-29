@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 45 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 46 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260728191000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260729113242' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 11
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 12
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -84,14 +84,15 @@ with authorised(version, name) as (
     ('20260725150000','release_d_operational_alert_lifecycle'),
     ('20260728120000','rc1_near_real_time_automatic_fulfilment'),
     ('20260728190000','rc1_staging_postflight_least_privilege'),
-    ('20260728191000','rc1_launch_required_foreign_key_indexes')
+    ('20260728191000','rc1_launch_required_foreign_key_indexes'),
+    ('20260729113242','rc1_service_role_privilege_contract')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 11 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 12 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -99,7 +100,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
   where version > :'rc1_preflight_newest_version'
     and version not in ('20260722120000','20260722143000','20260724150000','20260724160000','20260724170000',
                         '20260724180000','20260725090000','20260725150000','20260728120000',
-                        '20260728190000','20260728191000')
+                        '20260728190000','20260728191000','20260729113242')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
