@@ -317,8 +317,8 @@ jobs:
             sha256sum | awk '{print $1}')
           before_table_definitions=$(psql "$LOCAL_DB_URL" -XAtc "
             select 'column|'||n.nspname||'.'||c.relname||'|'||a.attnum||'|'||a.attname||'|'||
-              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity||'|'||
-              a.attgenerated||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
+              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity::text||'|'||
+              a.attgenerated::text||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
             from pg_attribute a join pg_class c on c.oid=a.attrelid
             join pg_namespace n on n.oid=c.relnamespace
             left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
@@ -365,8 +365,8 @@ jobs:
             sha256sum | awk '{print $1}')
           after_table_definitions=$(psql "$LOCAL_DB_URL" -XAtc "
             select 'column|'||n.nspname||'.'||c.relname||'|'||a.attnum||'|'||a.attname||'|'||
-              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity||'|'||
-              a.attgenerated||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
+              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity::text||'|'||
+              a.attgenerated::text||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
             from pg_attribute a join pg_class c on c.oid=a.attrelid
             join pg_namespace n on n.oid=c.relnamespace
             left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
