@@ -142,6 +142,9 @@ jobs:
           MK_RC1_OPERATION_FREEZE_MODE: frozen
         run: npm run rc1:test-control-plane-routes
 
+      - name: Verify RC1 synthetic notification contract
+        run: npm run rc1:test-synthetic-notification-contract
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -281,6 +284,143 @@ jobs:
           test "$mismatch_status" -ne 0
           grep -q 'rc1_service_role_contract_missing_table: public.methodology_versions' \
             tmp/migration-replay/rc1-service-role-mismatch.txt
+          supabase db reset --local --yes
+
+      - name: Prove authenticated control-plane 46 to 47 correction
+        run: |
+          set -Eeuo pipefail
+          migration='supabase/migrations/20260729170000_rc1_authenticated_admin_profile_read.sql'
+          supabase db reset --local --yes --version 20260729113242
+          source <(supabase status -o env)
+
+          npm run rc1:test-control-plane-profile-read -- pre \
+            | tee tmp/migration-replay/rc1-control-plane-profile-read-pre.txt
+
+          before_functions=$(psql "$LOCAL_DB_URL" -XAtc "
+            select n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')|'||
+              pg_get_functiondef(p.oid)||'|'||p.prosecdef||'|'||p.proowner||'|'||
+              coalesce(array_to_string(p.proconfig,','),'')||'|'||coalesce(p.proacl::text,'')
+            from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname in ('public','phase14_private')
+              and p.prokind in ('f','p')
+            order by 1" | sha256sum | awk '{print $1}')
+          before_triggers=$(psql "$LOCAL_DB_URL" -XAtc "
+            select n.nspname||'.'||c.relname||'.'||t.tgname||'|'||pg_get_triggerdef(t.oid)
+            from pg_trigger t join pg_class c on c.oid=t.tgrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where not t.tgisinternal and n.nspname in ('public','phase14_private')
+            order by 1" | sha256sum | awk '{print $1}')
+          before_policies=$(psql "$LOCAL_DB_URL" -XAtc "
+            select schemaname||'.'||tablename||'.'||policyname||'|'||roles::text||'|'||cmd||'|'||
+              coalesce(qual,'')||'|'||coalesce(with_check,'')
+            from pg_policies where schemaname in ('public','phase14_private') order by 1" |
+            sha256sum | awk '{print $1}')
+          before_table_definitions=$(psql "$LOCAL_DB_URL" -XAtc "
+            select 'column|'||n.nspname||'.'||c.relname||'|'||a.attnum||'|'||a.attname||'|'||
+              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity||'|'||
+              a.attgenerated||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
+            from pg_attribute a join pg_class c on c.oid=a.attrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+            where n.nspname in ('public','phase14_private') and c.relkind in ('r','p')
+              and a.attnum>0 and not a.attisdropped
+            union all
+            select 'constraint|'||n.nspname||'.'||c.relname||'|'||con.conname||'|'||
+              pg_get_constraintdef(con.oid,true)
+            from pg_constraint con join pg_class c on c.oid=con.conrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname in ('public','phase14_private')
+            union all
+            select 'index|'||n.nspname||'.'||c.relname||'|'||pg_get_indexdef(ix.indexrelid)
+            from pg_index ix join pg_class c on c.oid=ix.indrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname in ('public','phase14_private')
+            order by 1" | sha256sum | awk '{print $1}')
+
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$migration" \
+            | tee tmp/migration-replay/rc1-control-plane-profile-read-46-to-47.txt
+          npm run rc1:test-control-plane-profile-read -- post \
+            | tee tmp/migration-replay/rc1-control-plane-profile-read-post.txt
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$migration" \
+            | tee tmp/migration-replay/rc1-control-plane-profile-read-retry.txt
+
+          after_functions=$(psql "$LOCAL_DB_URL" -XAtc "
+            select n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')|'||
+              pg_get_functiondef(p.oid)||'|'||p.prosecdef||'|'||p.proowner||'|'||
+              coalesce(array_to_string(p.proconfig,','),'')||'|'||coalesce(p.proacl::text,'')
+            from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+            where n.nspname in ('public','phase14_private')
+              and p.prokind in ('f','p')
+            order by 1" | sha256sum | awk '{print $1}')
+          after_triggers=$(psql "$LOCAL_DB_URL" -XAtc "
+            select n.nspname||'.'||c.relname||'.'||t.tgname||'|'||pg_get_triggerdef(t.oid)
+            from pg_trigger t join pg_class c on c.oid=t.tgrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where not t.tgisinternal and n.nspname in ('public','phase14_private')
+            order by 1" | sha256sum | awk '{print $1}')
+          after_policies=$(psql "$LOCAL_DB_URL" -XAtc "
+            select schemaname||'.'||tablename||'.'||policyname||'|'||roles::text||'|'||cmd||'|'||
+              coalesce(qual,'')||'|'||coalesce(with_check,'')
+            from pg_policies where schemaname in ('public','phase14_private') order by 1" |
+            sha256sum | awk '{print $1}')
+          after_table_definitions=$(psql "$LOCAL_DB_URL" -XAtc "
+            select 'column|'||n.nspname||'.'||c.relname||'|'||a.attnum||'|'||a.attname||'|'||
+              format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity||'|'||
+              a.attgenerated||'|'||coalesce(pg_get_expr(d.adbin,d.adrelid),'')
+            from pg_attribute a join pg_class c on c.oid=a.attrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+            where n.nspname in ('public','phase14_private') and c.relkind in ('r','p')
+              and a.attnum>0 and not a.attisdropped
+            union all
+            select 'constraint|'||n.nspname||'.'||c.relname||'|'||con.conname||'|'||
+              pg_get_constraintdef(con.oid,true)
+            from pg_constraint con join pg_class c on c.oid=con.conrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname in ('public','phase14_private')
+            union all
+            select 'index|'||n.nspname||'.'||c.relname||'|'||pg_get_indexdef(ix.indexrelid)
+            from pg_index ix join pg_class c on c.oid=ix.indrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname in ('public','phase14_private')
+            order by 1" | sha256sum | awk '{print $1}')
+
+          test "$before_functions" = "$after_functions"
+          test "$before_triggers" = "$after_triggers"
+          test "$before_policies" = "$after_policies"
+          test "$before_table_definitions" = "$after_table_definitions"
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'frozen'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "
+            select (select count(*) from public.organisations)
+              +(select count(*) from public.respondents)
+              +(select count(*) from public.assessments)
+              +(select count(*) from public.orders)
+              +(select count(*) from public.reports)
+              +(select count(*) from storage.objects)")" = '0'
+
+          supabase db reset --local --yes --version 20260729113242
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --command='alter table public.admin_profiles rename column mfa_required to mfa_required_contract_mismatch'
+          set +e
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$migration" \
+            > tmp/migration-replay/rc1-control-plane-column-mismatch.txt 2>&1
+          column_mismatch_status=$?
+          set -e
+          test "$column_mismatch_status" -ne 0
+          grep -q 'rc1_authenticated_profile_read_column_definition_mismatch' \
+            tmp/migration-replay/rc1-control-plane-column-mismatch.txt
+
+          supabase db reset --local --yes --version 20260729113242
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --command='alter policy admin_profiles_select on public.admin_profiles using (false)'
+          set +e
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file="$migration" \
+            > tmp/migration-replay/rc1-control-plane-policy-mismatch.txt 2>&1
+          policy_mismatch_status=$?
+          set -e
+          test "$policy_mismatch_status" -ne 0
+          grep -q 'rc1_authenticated_profile_read_select_policy_mismatch' \
+            tmp/migration-replay/rc1-control-plane-policy-mismatch.txt
           supabase db reset --local --yes
 
       - name: Verify archived SQL identities and canonical post-commit recovery
@@ -438,8 +578,8 @@ jobs:
       - name: Capture final local migration ledger
         run: |
           set -Eeuo pipefail
-          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations")" = '46'
-          test "$(psql "$LOCAL_DB_URL" -XAtc "select max(version) from supabase_migrations.schema_migrations")" = '20260729113242'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations")" = '47'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select max(version) from supabase_migrations.schema_migrations")" = '20260729170000'
           psql "$LOCAL_DB_URL" \
             --set=ON_ERROR_STOP=1 \
             --tuples-only \
@@ -539,6 +679,12 @@ jobs:
           set -Eeuo pipefail
           npm run rc1:test-service-role-contract \
             | tee tmp/migration-replay/rc1-service-role-privilege-contract-tests.txt
+
+      - name: Verify RC1 authenticated control-plane profile read
+        run: |
+          set -Eeuo pipefail
+          npm run rc1:test-control-plane-profile-read -- post \
+            | tee tmp/migration-replay/rc1-control-plane-profile-read-final.txt
 
       - name: Explicitly release only the disposable database for legacy mutation suites
         run: |

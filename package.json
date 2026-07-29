@@ -74,6 +74,7 @@
     "rc1:verify-accepted-migrations": "node scripts/rc1-accepted-migration-checksums.mjs",
     "rc1:test-application-freeze": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-application-freeze-tests.mjs",
     "rc1:test-control-plane-routes": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-control-plane-route-tests.mjs",
+    "rc1:test-control-plane-profile-read": "node scripts/rc1-control-plane-profile-read-tests.mjs",
     "rc1:test-old-schema-freeze": "node scripts/rc1-old-schema-freeze-compatibility-tests.mjs",
     "rc1:test-prepostflight": "node scripts/rc1-prepostflight-disposable-tests.mjs",
     "rc1:test-staging-postflight-hardening": "node scripts/rc1-staging-postflight-hardening-tests.mjs",
@@ -81,6 +82,7 @@
     "rc1:test-service-role-contract": "node scripts/rc1-service-role-privilege-contract-tests.mjs",
     "rc1:test-service-role-assessment-start": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-service-role-assessment-start-boundary.mjs",
     "rc1:test-near-real-time-fulfilment": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-near-real-time-fulfilment-tests.mjs",
+    "rc1:test-synthetic-notification-contract": "node scripts/rc1-synthetic-notification-contract-tests.mjs",
     "rc1:dry-evaluate-live-boundary": "node scripts/rc1-live-boundary-dry-evaluation.mjs"
   },
   "dependencies": {

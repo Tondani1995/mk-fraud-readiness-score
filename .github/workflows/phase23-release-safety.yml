@@ -16,10 +16,12 @@ on:
       - 'supabase/migrations/20260728190000_rc1_staging_postflight_least_privilege.sql'
       - 'supabase/migrations/20260728191000_rc1_launch_required_foreign_key_indexes.sql'
       - 'supabase/migrations/20260729113242_rc1_service_role_privilege_contract.sql'
+      - 'supabase/migrations/20260729170000_rc1_authenticated_admin_profile_read.sql'
       - 'scripts/phase23-*'
       - 'scripts/apply-phase23-*'
       - 'scripts/rc1-staging-postflight-hardening*'
       - 'scripts/rc1-service-role-*'
+      - 'scripts/rc1-control-plane-*'
       - 'docs/v2/phases-2-3/**'
       - '.github/workflows/phase23-release-safety.yml'
 
