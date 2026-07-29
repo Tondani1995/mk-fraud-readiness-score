@@ -25,6 +25,10 @@ const manifest = JSON.parse(fs.readFileSync(
   path.join(root, 'scripts', 'rc1-production-preflight.manifest.json'),
   'utf8',
 ));
+const freezeTableSemanticSql = fs.readFileSync(
+  path.join(root, 'scripts', 'rc1-freeze-table-semantic-hashes.sql'),
+  'utf8',
+).replace(/\n\\gset\s*$/, ';\n');
 
 const pending = [
   '20260722120000_rc1_operational_freeze_bootstrap.sql',
@@ -35,7 +39,9 @@ const pending = [
   '20260724180000_release_c_closure_delivery_exceptions.sql',
   '20260725090000_release_c_runtime_secret_admin_provisioning.sql',
   '20260725150000_release_d_operational_alert_lifecycle.sql',
-  '20260728120000_rc1_near_real_time_automatic_fulfilment.sql'
+  '20260728120000_rc1_near_real_time_automatic_fulfilment.sql',
+  '20260728190000_rc1_staging_postflight_least_privilege.sql',
+  '20260728191000_rc1_launch_required_foreign_key_indexes.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -224,36 +230,7 @@ async function jsonRpcFingerprints(list) {
 }
 async function freezeObjectFingerprints() {
   const functions = await jsonRpcFingerprints(freezeFunctions);
-  const tableRows = await query(`
-    select c.relname as key,
-      md5(
-        string_agg(
-          a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
-          || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
-          E'\\n' order by a.attnum
-        )
-        || E'\\n--constraints--\\n'
-        || coalesce((
-          select string_agg(
-            con.conname || '|' || pg_get_constraintdef(con.oid, true),
-            E'\\n' order by con.conname
-          )
-          from pg_constraint con
-          where con.conrelid=c.oid
-        ), '')
-      ) as value
-    from pg_class c
-    join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
-    left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
-    where c.relnamespace='public'::regnamespace
-      and c.relname in (
-        'rc1_operation_freeze_state',
-        'rc1_operation_freeze_audit',
-        'rc1_certification_secret_write_tokens'
-      )
-    group by c.oid,c.relname
-    order by c.relname
-  `);
+  const [tableSemanticRow] = await query(freezeTableSemanticSql);
   const triggerRows = await query(`
     select n.nspname || '.' || c.relname as key,
       md5(pg_get_triggerdef(t.oid,false)) as value
@@ -265,7 +242,7 @@ async function freezeObjectFingerprints() {
   `);
   return {
     functions,
-    tables: JSON.stringify(Object.fromEntries(tableRows.map((row) => [row.key, row.value]))),
+    tables: tableSemanticRow.rc1_actual_freeze_table_semantic_hashes_json,
     triggers: JSON.stringify(Object.fromEntries(triggerRows.map((row) => [row.key, row.value]))),
   };
 }
@@ -1409,7 +1386,7 @@ try {
   for (const name of pending.slice(1)) await applyMigration(name);
   assert(
     (await protectedStateFingerprint()) === protectedState,
-    'bootstrap plus seven migrations must preserve protected state',
+    'bootstrap plus ten subsequent migrations must preserve protected state',
   );
   const postRpcJson = await jsonRpcFingerprints(postflightRpc);
   const freezeFingerprints = await freezeObjectFingerprints();
@@ -1421,8 +1398,8 @@ try {
   );
   assert(
     canonicalJson(JSON.parse(freezeFingerprints.tables))
-      === canonicalJson(approvedFreeze.table_fingerprints),
-    `freeze table fingerprints must match the fixed manifest; actual=${freezeFingerprints.tables}`,
+      === canonicalJson(approvedFreeze.table_semantic_contract.postflight_postgres_jsonb_sha256),
+    `freeze table semantics must match the fixed manifest; actual=${freezeFingerprints.tables}`,
   );
   assert(
     canonicalJson(JSON.parse(freezeFingerprints.triggers))
@@ -1437,7 +1414,9 @@ try {
     rc1_approved_postflight_rpc_fingerprints_json: postRpcJson,
     rc1_expected_application_freeze_mode: 'frozen',
     rc1_approved_freeze_function_fingerprints_json: JSON.stringify(approvedFreeze.function_fingerprints),
-    rc1_approved_freeze_table_fingerprints_json: JSON.stringify(approvedFreeze.table_fingerprints),
+    rc1_approved_freeze_table_semantic_hashes_json: JSON.stringify(
+      approvedFreeze.table_semantic_contract.postflight_postgres_jsonb_sha256,
+    ),
     rc1_approved_freeze_trigger_fingerprints_json: JSON.stringify(approvedFreeze.enforcement_trigger_fingerprints)
   };
   passResult(await runPost(postVars), 'baseline postflight');
@@ -1491,6 +1470,20 @@ try {
     async () => { await db.query('grant update on public.rc1_operation_freeze_state to service_role'); },
     async () => { await db.query('revoke update on public.rc1_operation_freeze_state from service_role'); },
     'freeze_rls_grant_result|STOP',
+  );
+  await expectPostStop(
+    'changed freeze-table semantics',
+    async () => {
+      await db.query(
+        'alter table public.rc1_operation_freeze_state add column rc1_disposable_semantic_probe text',
+      );
+    },
+    async () => {
+      await db.query(
+        'alter table public.rc1_operation_freeze_state drop column rc1_disposable_semantic_probe',
+      );
+    },
+    'freeze_table_semantic_result|STOP',
   );
   await expectPostStop(
     'missing enforcement trigger',

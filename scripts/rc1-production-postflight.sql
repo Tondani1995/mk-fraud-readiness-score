@@ -43,9 +43,9 @@
 \echo STOP|missing_rc1_approved_freeze_function_fingerprints_json
 \quit 3
 \endif
-\if :{?rc1_approved_freeze_table_fingerprints_json}
+\if :{?rc1_approved_freeze_table_semantic_hashes_json}
 \else
-\echo STOP|missing_rc1_approved_freeze_table_fingerprints_json
+\echo STOP|missing_rc1_approved_freeze_table_semantic_hashes_json
 \quit 3
 \endif
 \if :{?rc1_approved_freeze_trigger_fingerprints_json}
@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 43 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 45 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260728120000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260728191000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 9
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 11
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -82,21 +82,24 @@ with authorised(version, name) as (
     ('20260724180000','release_c_closure_delivery_exceptions'),
     ('20260725090000','release_c_runtime_secret_admin_provisioning'),
     ('20260725150000','release_d_operational_alert_lifecycle'),
-    ('20260728120000','rc1_near_real_time_automatic_fulfilment')
+    ('20260728120000','rc1_near_real_time_automatic_fulfilment'),
+    ('20260728190000','rc1_staging_postflight_least_privilege'),
+    ('20260728191000','rc1_launch_required_foreign_key_indexes')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 9 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 11 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations
   where version > :'rc1_preflight_newest_version'
     and version not in ('20260722120000','20260722143000','20260724150000','20260724160000','20260724170000',
-                        '20260724180000','20260725090000','20260725150000','20260728120000')
+                        '20260724180000','20260725090000','20260725150000','20260728120000',
+                        '20260728190000','20260728191000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
@@ -118,38 +121,15 @@ select 'freeze_state_result|' || case when
   and (select count(*) from public.rc1_certification_secret_write_tokens) = 0
 then 'PASS' else 'STOP' end;
 
+\ir rc1-freeze-table-semantic-hashes.sql
 with expected(key,value) as (
-  select key,value from jsonb_each_text(:'rc1_approved_freeze_table_fingerprints_json'::jsonb)
+  select key,value
+  from jsonb_each_text(:'rc1_approved_freeze_table_semantic_hashes_json'::jsonb)
 ), actual(key,value) as (
-  select c.relname,
-    md5(
-      string_agg(
-        a.attnum::text || '|' || a.attname || '|' || format_type(a.atttypid,a.atttypmod)
-        || '|' || a.attnotnull::text || '|' || coalesce(pg_get_expr(d.adbin,d.adrelid),''),
-        E'\n' order by a.attnum
-      )
-      || E'\n--constraints--\n'
-      || coalesce((
-        select string_agg(
-          con.conname || '|' || pg_get_constraintdef(con.oid, true),
-          E'\n' order by con.conname
-        )
-        from pg_constraint con
-        where con.conrelid=c.oid
-      ), '')
-    )
-  from pg_class c
-  join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
-  left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum
-  where c.relnamespace='public'::regnamespace
-    and c.relname in (
-      'rc1_operation_freeze_state',
-      'rc1_operation_freeze_audit',
-      'rc1_certification_secret_write_tokens'
-    )
-  group by c.oid,c.relname
+  select key,value
+  from jsonb_each_text(:'rc1_actual_freeze_table_semantic_hashes_json'::jsonb)
 )
-select 'freeze_table_fingerprint_result|' || case when
+select 'freeze_table_semantic_result|' || case when
   (select count(*) from expected)=3
   and (select count(*) from actual)=3
   and not exists (

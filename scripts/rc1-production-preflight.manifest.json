@@ -1,5 +1,5 @@
 {
-  "manifest_version": 4,
+  "manifest_version": 5,
   "purpose": "Machine-readable RC1 Production preflight expectations; no customer data.",
   "fingerprint_algorithm": "sha256 for aggregate fingerprints; md5(pg_get_functiondef(oid)) for RPC definitions",
   "ledger": {
@@ -14,7 +14,9 @@
       "20260724180000",
       "20260725090000",
       "20260725150000",
-      "20260728120000"
+      "20260728120000",
+      "20260728190000",
+      "20260728191000"
     ]
   },
   "classification": {
@@ -93,7 +95,7 @@
     ]
   },
   "postflight_rpc_fingerprints": {
-    "source": "canonical fingerprints generated from the exact nine-migration RC1 cutover replay",
+    "source": "canonical fingerprints generated from the exact eleven-migration RC1 cutover replay",
     "required_psql_variable": "rc1_approved_postflight_rpc_fingerprints_json",
     "count": 35
   },
@@ -114,10 +116,38 @@
     "initial_epoch": 1,
     "application_mode_required_during_cutover": "frozen",
     "canary_bypass": "NOT_IMPLEMENTED_STRICT_STOP",
-    "table_fingerprints": {
+    "deprecated_raw_table_fingerprints": {
       "rc1_certification_secret_write_tokens": "35f0ebd75c9f3ebf788b0bf6a314a33e",
       "rc1_operation_freeze_audit": "a83ca136a9e65dfd976afa7a61c6fd3c",
       "rc1_operation_freeze_state": "62bc5ad7e94bb9410071d14102535287"
+    },
+    "table_semantic_contract": {
+      "classification": "SEMANTIC MATCH — RAW FINGERPRINT CONTRACT IS BRITTLE",
+      "required_psql_variable": "rc1_approved_freeze_table_semantic_hashes_json",
+      "algorithm": "sha256 of PostgreSQL canonical jsonb text for a versioned semantic inventory; excludes OIDs, environment-level default privileges and owned-sequence ACLs",
+      "included_properties": [
+        "columns_and_order",
+        "data_types",
+        "defaults",
+        "nullability",
+        "constraints",
+        "indexes",
+        "triggers",
+        "row_level_security",
+        "policies",
+        "table_grants",
+        "table_properties"
+      ],
+      "accepted_evidence_compact_json_sha256": {
+        "rc1_certification_secret_write_tokens": "e73cb3cc3a30c04f0e64c072196c4d8694eb83c7bb65216ede9c936aa4a67a08",
+        "rc1_operation_freeze_audit": "1bf503cdfbfb5cd4155c182d3586c2ad9a934055d25aa25133bd9f8d7577c3e2",
+        "rc1_operation_freeze_state": "1e2e1572b650c227b693cb59f46ee98196bf91ad649e86b313f9d74ba5c606d6"
+      },
+      "postflight_postgres_jsonb_sha256": {
+        "rc1_certification_secret_write_tokens": "a0034c024ce14d2c552fa9c53a33b7ccad910ce50339f3f60daad275511143ee",
+        "rc1_operation_freeze_audit": "be28ab9ef198fcd774335503ce82ac8e64ab45c2adb4ee69e4230cba9762e45a",
+        "rc1_operation_freeze_state": "858fefadcdbc3bc47a6d1d706a54fb918296dd413e5d9a93dbee399a68883925"
+      }
     },
     "function_fingerprints": {
       "rc1_is_known_operation_surface(text)": "499d8a23e973bd1236aeb1b6a7024681",
