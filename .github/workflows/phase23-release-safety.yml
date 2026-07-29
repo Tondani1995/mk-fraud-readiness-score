@@ -13,8 +13,11 @@ on:
       - 'src/lib/reports/phase1-manual-fulfilment.ts'
       - 'supabase/migrations/0024_phase23_payment_automation.sql'
       - 'supabase/migrations/0025_phase23_assessment_resume.sql'
+      - 'supabase/migrations/20260728190000_rc1_staging_postflight_least_privilege.sql'
+      - 'supabase/migrations/20260728191000_rc1_launch_required_foreign_key_indexes.sql'
       - 'scripts/phase23-*'
       - 'scripts/apply-phase23-*'
+      - 'scripts/rc1-staging-postflight-hardening*'
       - 'docs/v2/phases-2-3/**'
       - '.github/workflows/phase23-release-safety.yml'
 
