@@ -60,6 +60,7 @@
     "v7:test-checkpoint-a-db": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-db-integration-tests.mjs",
     "v7:test-checkpoint-b": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-b-commercial-quality-gate-tests.mjs",
     "v7:test-checkpoint-c": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-c-materiality-playbook-tests.mjs",
+    "rc1:test-playbook-coverage": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-question-playbook-coverage-tests.mjs",
     "v7:test-checkpoint-d": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs",
     "v7:test-checkpoint-e": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-e-ai-narrative-integration-tests.mjs",
     "v7:test-checkpoint-e-migration": "node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs",

@@ -284,7 +284,11 @@ test('P8-P10. material findings use exact playbooks only and a missing playbook 
   const findings = buildMaterialFindings(data);
   assert.ok(findings.every((finding) => finding.fallbackStatus === 'exact_question_playbook'));
   assert.ok(findings.every((finding) => finding.playbookSource === `question-playbooks:${finding.questionCode}`));
-  const unknownTrace = { questionCode: 'D2-Q01', domainCode: 'D2', domainName: DOMAIN_NAMES.D2, prompt: 'Authoritative but deliberately unregistered test question.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false };
+  // RC1: every active MFRS-V1.1 question now has an exact playbook (see
+  // scripts/rc1-question-playbook-coverage-tests.mjs), so this negative case must use a code that
+  // is deliberately outside the active methodology. The fail-closed mechanism itself is unchanged
+  // and still has to fire for any finding whose question has no exact playbook.
+  const unknownTrace = { questionCode: 'D2-Q99', domainCode: 'D2', domainName: DOMAIN_NAMES.D2, prompt: 'Deliberately unregistered, non-methodology test question.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false };
   const missingData = assembledData([unknownTrace]);
   const model = buildAdvisoryEvidenceModel(missingData);
   const gate = checkQualityGates(model, missingData);
