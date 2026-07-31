@@ -5,7 +5,9 @@ import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   createSupabaseAnonServerClient,
   createSupabaseAuthenticatedServerClient,
+  createSupabaseServiceClient,
 } from '@/lib/supabase/server';
+import { classifySupabaseStorageResult } from '@/lib/reports/storage-error-classifier';
 
 const SECRET_KEYS = new Set([
   'provider_webhook_db_hmac',
@@ -369,6 +371,13 @@ const CLEANUP_REFUSAL_REASONS = new Set([
   'rc1_synthetic_cleanup:reference_not_synthetic',
   'rc1_synthetic_cleanup:meaningful_reason_required',
   'rc1_synthetic_cleanup:not_enabled_in_this_environment',
+  'rc1_synthetic_cleanup:storage_proof_required',
+  'rc1_synthetic_cleanup:storage_target_mismatch',
+  'rc1_synthetic_cleanup:storage_objects_remaining',
+  'rc1_synthetic_cleanup:storage_closure_required',
+  'rc1_synthetic_cleanup:unsafe_storage_target',
+  'rc1_synthetic_cleanup:duplicate_storage_target',
+  'rc1_synthetic_cleanup:storage_target_limit_exceeded',
   'rc1_freeze_control:no_session',
   'rc1_freeze_control:malformed_session',
   'rc1_freeze_control:expired_session',
@@ -388,9 +397,117 @@ function safeRefusalReason(error: { message?: string } | null): string {
   return 'unclassified';
 }
 
+/**
+ * Storage side of the cleanup.
+ *
+ * 20260731130000 stopped the prohibited direct `delete from storage.objects` and replaced it with
+ * a count, which left the route deleting the report row that names the PDF while the PDF itself
+ * stayed in a private bucket -- unreferenced and unfindable. SQL genuinely cannot remove the
+ * bytes, so the removal happens here, between two database decisions:
+ *
+ *   1. rc1_prepare_synthetic_storage_cleanup, through the operator's own JWT, decides which exact
+ *      bucket/path pairs may be removed. Nothing in the request body reaches it but the reference.
+ *   2. the Storage API removes precisely those pairs, and only those.
+ *   3. rc1_cleanup_synthetic_certification re-derives the same targets and independently refuses
+ *      to delete a single row while any of them still exists.
+ *
+ * The service role appears only in step 2. It cannot execute either RPC -- both are revoked from
+ * it -- so it can never authorise its own work.
+ */
+const STORAGE_TARGET_LIMIT = 25;
+const SAFE_STORAGE_BUCKET = /^[a-z0-9][a-z0-9._-]{1,62}$/;
+const TARGET_FINGERPRINT = /^[0-9a-f]{64}$/;
+
+export type Rc1StorageTarget = { bucket: string; path: string };
+
+/**
+ * Re-validates the resolved targets in the route as well as the database.
+ *
+ * The database has already applied these rules; repeating them here means a future change that
+ * loosened the RPC still could not turn this route into an arbitrary object deleter.
+ */
+function safeStorageTarget(value: unknown): Rc1StorageTarget | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const target = value as Record<string, unknown>;
+  const bucket = typeof target.bucket === 'string' ? target.bucket : '';
+  const path = typeof target.path === 'string' ? target.path : '';
+  if (!SAFE_STORAGE_BUCKET.test(bucket)) return null;
+  if (path.length === 0 || path.length > 400) return null;
+  if (path.startsWith('/') || path.includes('..') || path.includes('\\')) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(path)) return null;
+  return { bucket, path };
+}
+
+export type Rc1StorageResolution = {
+  targets: Rc1StorageTarget[];
+  fingerprint: string;
+  count: number;
+};
+
+function normalizeStorageResolution(value: unknown, reference: string): Rc1StorageResolution | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const resolution = value as Record<string, unknown>;
+  if (resolution.reference !== reference) return null;
+
+  const fingerprint = typeof resolution.target_fingerprint === 'string'
+    ? resolution.target_fingerprint.trim().toLowerCase()
+    : '';
+  if (!TARGET_FINGERPRINT.test(fingerprint)) return null;
+
+  const count = resolution.target_count;
+  if (!Number.isSafeInteger(count) || Number(count) < 0 || Number(count) > STORAGE_TARGET_LIMIT) {
+    return null;
+  }
+  if (!Array.isArray(resolution.targets)) return null;
+  if (resolution.targets.length !== Number(count)) return null;
+
+  const targets: Rc1StorageTarget[] = [];
+  const seen = new Set<string>();
+  for (const entry of resolution.targets) {
+    const target = safeStorageTarget(entry);
+    if (!target) return null;
+    const key = `${target.bucket}\n${target.path}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    targets.push(target);
+  }
+  return { targets, fingerprint, count: Number(count) };
+}
+
+export type Rc1StorageRemovalOutcome = 'removed' | 'removal_failed' | 'still_present';
+
 export type Rc1SyntheticCleanupDependencies = Rc1ControlPlaneDependencies & {
   freezeResponse?: () => Promise<NextResponse | null>;
+  removeStorageTargets?: (targets: Rc1StorageTarget[]) => Promise<Rc1StorageRemovalOutcome>;
 };
+
+/**
+ * Removes the resolved objects with the service role, then proves each one is gone.
+ *
+ * Absence is established by the established Phase 14 pattern: a download that classifies as
+ * `object_not_found`. A delete the provider merely accepted is not evidence, so anything short of
+ * an explicit not-found leaves the objects reported as still present and the database untouched.
+ */
+async function defaultRemoveStorageTargets(
+  targets: Rc1StorageTarget[],
+): Promise<Rc1StorageRemovalOutcome> {
+  if (targets.length === 0) return 'removed';
+  const db = createSupabaseServiceClient() as any;
+  for (const target of targets) {
+    const { error } = await db.storage.from(target.bucket).remove([target.path]);
+    if (error && classifySupabaseStorageResult(error) !== 'object_not_found') {
+      return 'removal_failed';
+    }
+  }
+  for (const target of targets) {
+    const { data, error } = await db.storage.from(target.bucket).download(target.path);
+    if (!error || classifySupabaseStorageResult(error) !== 'object_not_found' || data) {
+      return 'still_present';
+    }
+  }
+  return 'removed';
+}
 
 /** Keeps only closed-vocabulary table names mapped to non-negative integer counts. */
 function safeDeletedCounts(value: unknown): Record<string, number> {
@@ -429,11 +546,50 @@ export function createRc1SyntheticCleanupPost(
     const reason = meaningfulReason(body.reason);
     if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
 
+    // Step 1 -- the database decides what may be removed. Only `reference` reaches it; a bucket or
+    // path in the request body is read by nothing here and cannot influence the answer.
+    const resolution = await callRpc(
+      dependencies,
+      operator,
+      'rc1_prepare_synthetic_storage_cleanup',
+      { p_reference: reference },
+    );
+    if (resolution.error) {
+      return json(
+        { ok: false, error: 'RC1_CLEANUP_TARGET_RESOLUTION_REFUSED', reason: safeRefusalReason(resolution.error) },
+        409,
+      );
+    }
+    const resolved = normalizeStorageResolution(resolution.data, reference);
+    if (!resolved) {
+      // Resolution failure: no Storage call and no database cleanup.
+      return json({ ok: false, error: 'RC1_CLEANUP_UNSAFE_STORAGE_TARGET' }, 502);
+    }
+
+    // Step 2 -- the Storage API removes exactly those objects, then each is proven gone.
+    const outcome = await (dependencies.removeStorageTargets ?? defaultRemoveStorageTargets)(
+      resolved.targets,
+    );
+    if (outcome === 'removal_failed') {
+      return json({ ok: false, error: 'RC1_CLEANUP_STORAGE_REMOVAL_FAILED' }, 502);
+    }
+    if (outcome !== 'removed') {
+      return json({ ok: false, error: 'RC1_CLEANUP_STORAGE_ABSENCE_UNVERIFIED' }, 502);
+    }
+
+    // Step 3 -- the database re-derives the same targets and refuses while any still exists. The
+    // fingerprint and count are passed so it can prove these are the objects that were authorised,
+    // not merely that some objects are absent.
     const { data, error } = await callRpc(
       dependencies,
       operator,
       'rc1_cleanup_synthetic_certification',
-      { p_reference: reference, p_reason: reason },
+      {
+        p_reference: reference,
+        p_reason: reason,
+        p_expected_target_fingerprint: resolved.fingerprint,
+        p_expected_target_count: resolved.count,
+      },
     );
     if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
       // The database message can quote row detail, so only a classified identifier from the closed
@@ -446,11 +602,13 @@ export function createRc1SyntheticCleanupPost(
       return json({ ok: false, error: 'RC1_CLEANUP_UNEXPECTED_RPC_RESPONSE' }, 502);
     }
 
+    // Counts and a status only: no bucket, no path, no fingerprint, nothing customer-shaped.
     return json({
       ok: true,
       reference,
       already_clean: result.already_clean,
       deleted: safeDeletedCounts(result.deleted),
+      storage: { targets: resolved.count, verified_absent: resolved.count },
     });
   };
 }

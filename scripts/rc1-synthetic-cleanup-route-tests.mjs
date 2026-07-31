@@ -10,6 +10,7 @@
  * no-service-role-bypass and no-self-enablement properties are asserted by static analysis.
  */
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -25,10 +26,35 @@ const cleanupMigration = fs.readFileSync(
   path.join(root, 'supabase', 'migrations', '20260730130000_rc1_synthetic_certification_cleanup.sql'),
   'utf8',
 );
+const storageClosure = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations', '20260731170000_rc1_synthetic_storage_cleanup_closure.sql'),
+  'utf8',
+);
 
 const REFERENCE = 'MKTEST-RC1-20260730-01';
 const REASON = 'Remove the halted RC1 staging certification journey before an authorised clean rerun.';
 const operator = { accessToken: 'synthetic-verified-access-token', role: 'platform_admin', aal: 'aal2' };
+
+// One Essential PDF, which is what a certification journey produces. The fingerprint is computed
+// here the same way the database computes it, so the fixture cannot drift from the contract.
+const TARGET = { bucket: 'generated-reports', path: 'rc1/MKTEST-RC1-20260730-01/essential-report.pdf' };
+function targetFingerprint(targets) {
+  const joined = [...targets]
+    .map((target) => `${target.bucket}\n${target.path}`)
+    .sort()
+    .join('\n');
+  return crypto.createHash('sha256').update(joined, 'utf8').digest('hex');
+}
+const EMPTY_FINGERPRINT = crypto.createHash('sha256').update('', 'utf8').digest('hex');
+
+function resolutionFor(targets) {
+  return {
+    reference: REFERENCE,
+    target_count: targets.length,
+    target_fingerprint: targets.length === 0 ? EMPTY_FINGERPRINT : targetFingerprint(targets),
+    targets,
+  };
+}
 
 function request(body) {
   return new Request('http://127.0.0.1/score/api/admin/rc1-synthetic-cleanup', {
@@ -38,10 +64,20 @@ function request(body) {
   });
 }
 
-function dependencies({ identity = operator, response, error = null, frozen = false } = {}) {
+function dependencies({
+  identity = operator,
+  response,
+  error = null,
+  frozen = false,
+  resolution = resolutionFor([TARGET]),
+  resolutionError = null,
+  storageOutcome = 'removed',
+} = {}) {
   const calls = [];
+  const storageCalls = [];
   return {
     calls,
+    storageCalls,
     value: {
       // The freeze check returns a ready-made response; the route only forwards it, so a stub is
       // sufficient here and keeps this suite free of a next/server import.
@@ -51,10 +87,22 @@ function dependencies({ identity = operator, response, error = null, frozen = fa
       resolveOperator: async () => identity,
       rpc: async (token, name, args = {}) => {
         calls.push({ token, name, args });
+        if (name === 'rc1_prepare_synthetic_storage_cleanup') {
+          return { data: resolution, error: resolutionError };
+        }
         return { data: response, error };
+      },
+      removeStorageTargets: async (targets) => {
+        storageCalls.push(targets.map((target) => ({ ...target })));
+        return typeof storageOutcome === 'function' ? storageOutcome(targets) : storageOutcome;
       },
     },
   };
+}
+
+/** The prepare RPC is always call 0; the cleanup RPC, when reached, is always call 1. */
+function rpcNames(deps) {
+  return deps.calls.map((call) => call.name);
 }
 
 const okResponse = {
@@ -183,13 +231,23 @@ await test('A7b. an unknown database message collapses to unclassified and leaks
 });
 
 // 8
-await test('A8. a valid AAL2 platform admin invokes the RPC with the operator JWT', async () => {
+await test('A8. a valid AAL2 platform admin invokes both RPCs with the operator JWT', async () => {
   const deps = dependencies({ response: okResponse });
   await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
-  assert.equal(deps.calls.length, 1);
-  assert.equal(deps.calls[0].name, 'rc1_cleanup_synthetic_certification');
-  assert.equal(deps.calls[0].token, operator.accessToken, 'must call through the operator JWT');
-  assert.deepEqual(deps.calls[0].args, { p_reference: REFERENCE, p_reason: REASON });
+  assert.deepEqual(rpcNames(deps), [
+    'rc1_prepare_synthetic_storage_cleanup',
+    'rc1_cleanup_synthetic_certification',
+  ]);
+  for (const call of deps.calls) {
+    assert.equal(call.token, operator.accessToken, 'must call through the operator JWT');
+  }
+  assert.deepEqual(deps.calls[0].args, { p_reference: REFERENCE });
+  assert.deepEqual(deps.calls[1].args, {
+    p_reference: REFERENCE,
+    p_reason: REASON,
+    p_expected_target_fingerprint: targetFingerprint([TARGET]),
+    p_expected_target_count: 1,
+  });
 });
 
 // 9
@@ -198,12 +256,13 @@ await test('A9. success returns only the reference, already_clean and safe integ
   const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.deepEqual(Object.keys(body).sort(), ['already_clean', 'deleted', 'ok', 'reference']);
+  assert.deepEqual(Object.keys(body).sort(), ['already_clean', 'deleted', 'ok', 'reference', 'storage']);
   assert.equal(body.reference, REFERENCE);
   assert.equal(body.already_clean, false);
   assert.equal(body.deleted.organisations, 1);
   assert.equal(body.deleted.email_events, 3);
   for (const value of Object.values(body.deleted)) assert.equal(Number.isSafeInteger(value), true);
+  assert.deepEqual(body.storage, { targets: 1, verified_absent: 1 });
 });
 
 // 10
@@ -220,6 +279,8 @@ await test('A10. an exact retry of a completed cleanup is a recorded no-op', asy
 await test('A12. the route has no service-role path around the RPC authority model', () => {
   assert.doesNotMatch(routeFile, /createSupabaseServiceClient|SUPABASE_SERVICE_ROLE_KEY/);
   const factory = controlPlane.split('export function createRc1SyntheticCleanupPost')[1];
+  // The service role is used for the Storage API alone, in defaultRemoveStorageTargets. The
+  // request handler itself must contain no service-role path at all.
   assert.doesNotMatch(factory, /createSupabaseServiceClient|SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   // The RPC itself is revoked from service_role, so no caller can take that path.
   assert.match(
@@ -240,8 +301,14 @@ await test('A12. the route has no service-role path around the RPC authority mod
 await test('A13. the route logs nothing and cannot echo raw database payload', async () => {
   const factory = controlPlane.split('export function createRc1SyntheticCleanupPost')[1];
   assert.doesNotMatch(factory, /console\./, 'the cleanup route must not log');
+  // Scoped to executable code: the comments explain which categories of data must never appear,
+  // and that explanation must not be mistaken for a use of them.
+  const executable = factory
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'))
+    .join('\n');
   for (const forbidden of [/accessToken/, /cookie/i, /jwt/i, /secret/i, /customer/i, /email_address/i]) {
-    assert.doesNotMatch(factory, forbidden, `route must not reference ${forbidden}`);
+    assert.doesNotMatch(executable, forbidden, `route must not reference ${forbidden}`);
   }
   // A hostile or malformed RPC payload cannot widen the response.
   const deps = dependencies({
@@ -263,7 +330,7 @@ await test('A13. the route logs nothing and cannot echo raw database payload', a
   const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
   const body = await response.json();
   const serialised = JSON.stringify(body);
-  assert.deepEqual(Object.keys(body).sort(), ['already_clean', 'deleted', 'ok', 'reference']);
+  assert.deepEqual(Object.keys(body).sort(), ['already_clean', 'deleted', 'ok', 'reference', 'storage']);
   assert.deepEqual(Object.keys(body.deleted), ['organisations'], 'only safe integer counts survive');
   for (const leak of ['nomsa@example.test', 'secret narrative', 'must-never-appear', 'delete from', 'report_html']) {
     assert.equal(serialised.includes(leak), false, `response leaked ${leak}`);
@@ -293,6 +360,241 @@ await test('A16. the route file stays a thin wrapper over the shared factory', (
   assert.match(routeFile, /export const runtime = 'nodejs'/);
   assert.match(routeFile, /export const dynamic = 'force-dynamic'/);
   assert.ok(routeFile.split('\n').filter((line) => line.trim()).length <= 8, 'route must stay thin');
+});
+
+// ---------------------------------------------------------------------------
+// Storage closure
+//
+// 20260731130000 stopped deleting from storage.objects and started counting instead, which left
+// the route deleting the report row while the PDF it named survived in a private bucket. These
+// prove the three-step replacement: the database resolves the targets, the Storage API removes
+// exactly those, and the database refuses to delete a row until that is proven.
+// ---------------------------------------------------------------------------
+await test('S1. targets are resolved by the database, never supplied by the browser', async () => {
+  const deps = dependencies({ response: okResponse });
+  await createRc1SyntheticCleanupPost(deps.value)(request({
+    reference: REFERENCE,
+    reason: REASON,
+    // A hostile caller trying to name its own object.
+    bucket: 'generated-reports',
+    path: '../../etc/passwd',
+    targets: [{ bucket: 'generated-reports', path: 'someone-elses-report.pdf' }],
+    storage_bucket: 'avatars',
+  }));
+  assert.deepEqual(deps.calls[0].args, { p_reference: REFERENCE },
+    'only the reference may reach target resolution');
+  assert.equal(deps.storageCalls.length, 1);
+  assert.deepEqual(deps.storageCalls[0], [TARGET], 'only the resolved target may be removed');
+  // The request handler must not read any target-shaped field from the body.
+  const factory = controlPlane.split('export function createRc1SyntheticCleanupPost')[1];
+  for (const field of ['body.bucket', 'body.path', 'body.targets', 'body.storage_bucket', 'body.storagePath']) {
+    assert.equal(factory.includes(field), false, `route must not read ${field}`);
+  }
+});
+
+await test('S2. a refused resolution performs no Storage call and no database cleanup', async () => {
+  const deps = dependencies({
+    resolutionError: { message: 'ERROR: rc1_synthetic_cleanup:not_enabled_in_this_environment' },
+  });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const body = await response.json();
+  assert.equal(response.status, 409);
+  assert.equal(body.error, 'RC1_CLEANUP_TARGET_RESOLUTION_REFUSED');
+  assert.equal(body.reason, 'rc1_synthetic_cleanup:not_enabled_in_this_environment');
+  assert.equal(deps.storageCalls.length, 0, 'no Storage call after a resolution failure');
+  assert.deepEqual(rpcNames(deps), ['rc1_prepare_synthetic_storage_cleanup']);
+});
+
+await test('S3. an unsafe or inconsistent resolution is refused before any Storage call', async () => {
+  const unsafe = [
+    resolutionFor([{ bucket: 'generated-reports', path: '../../../etc/passwd' }]),
+    resolutionFor([{ bucket: 'generated-reports', path: '/absolute/report.pdf' }]),
+    resolutionFor([{ bucket: 'generated-reports', path: 'a\\b.pdf' }]),
+    resolutionFor([{ bucket: 'generated-reports', path: '' }]),
+    resolutionFor([{ bucket: 'generated-reports', path: 'x'.repeat(401) }]),
+    resolutionFor([{ bucket: 'Generated-Reports', path: 'report.pdf' }]),
+    resolutionFor([{ bucket: '', path: 'report.pdf' }]),
+    resolutionFor([{ bucket: 'generated-reports', path: 'rep ort.pdf' }]),
+    // Shape and consistency failures.
+    { ...resolutionFor([TARGET]), target_count: 2 },
+    { ...resolutionFor([TARGET]), target_fingerprint: 'not-a-fingerprint' },
+    { ...resolutionFor([TARGET]), reference: 'MKTEST-RC1-20260730-02' },
+    { ...resolutionFor([TARGET]), targets: 'generated-reports/report.pdf' },
+    resolutionFor([TARGET, TARGET]),
+    null,
+    'ok',
+  ];
+  for (const resolution of unsafe) {
+    const deps = dependencies({ resolution, response: okResponse });
+    const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+    const body = await response.json();
+    assert.equal(response.status, 502, `resolution ${JSON.stringify(resolution)?.slice(0, 60)} was not refused`);
+    assert.equal(body.error, 'RC1_CLEANUP_UNSAFE_STORAGE_TARGET');
+    assert.equal(deps.storageCalls.length, 0, 'no Storage call after an unsafe resolution');
+    assert.deepEqual(rpcNames(deps), ['rc1_prepare_synthetic_storage_cleanup']);
+  }
+});
+
+await test('S4. the route enforces the journey-sized upper bound as well as the database', async () => {
+  const many = Array.from({ length: 26 }, (unused, index) => ({
+    bucket: 'generated-reports',
+    path: `rc1/report-${index}.pdf`,
+  }));
+  const deps = dependencies({ resolution: resolutionFor(many), response: okResponse });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  assert.equal(response.status, 502);
+  assert.equal(deps.storageCalls.length, 0);
+  assert.match(storageClosure, /c_target_limit constant integer := 25/);
+  assert.match(storageClosure, /rc1_synthetic_cleanup:storage_target_limit_exceeded/);
+});
+
+await test('S5. a Storage removal failure prevents the database cleanup', async () => {
+  const deps = dependencies({ storageOutcome: 'removal_failed', response: okResponse });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const body = await response.json();
+  assert.equal(response.status, 502);
+  assert.equal(body.error, 'RC1_CLEANUP_STORAGE_REMOVAL_FAILED');
+  assert.deepEqual(rpcNames(deps), ['rc1_prepare_synthetic_storage_cleanup'],
+    'the cleanup RPC must not be reached after a Storage failure');
+});
+
+await test('S6. an object still present prevents the database cleanup', async () => {
+  const deps = dependencies({ storageOutcome: 'still_present', response: okResponse });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const body = await response.json();
+  assert.equal(response.status, 502);
+  assert.equal(body.error, 'RC1_CLEANUP_STORAGE_ABSENCE_UNVERIFIED');
+  assert.deepEqual(rpcNames(deps), ['rc1_prepare_synthetic_storage_cleanup']);
+});
+
+await test('S7. Storage removal happens only after AAL2 authorisation', async () => {
+  for (const identity of [null, { ...operator, role: 'finance_admin' }, { ...operator, aal: 'aal1' }]) {
+    const deps = dependencies({ identity, response: okResponse });
+    await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+    assert.equal(deps.storageCalls.length, 0, 'Storage must not be touched without AAL2 platform admin');
+  }
+  const frozen = dependencies({ frozen: true, response: okResponse });
+  await createRc1SyntheticCleanupPost(frozen.value)(request({ reference: REFERENCE, reason: REASON }));
+  assert.equal(frozen.storageCalls.length, 0, 'a frozen surface must not touch Storage');
+  // Ordering in the source: resolution is awaited before the removal helper is ever called.
+  const factory = controlPlane.split('export function createRc1SyntheticCleanupPost')[1];
+  assert.ok(
+    factory.indexOf('rc1_prepare_synthetic_storage_cleanup') < factory.indexOf('removeStorageTargets'),
+    'targets must be resolved before anything is removed',
+  );
+  assert.ok(
+    factory.indexOf('removeStorageTargets') < factory.indexOf('rc1_cleanup_synthetic_certification'),
+    'objects must be removed before the database rows are deleted',
+  );
+});
+
+await test('S8. the service role is used for the Storage API only, never to authorise', () => {
+  const remover = controlPlane.split('async function defaultRemoveStorageTargets')[1].split('\n}')[0];
+  assert.match(remover, /createSupabaseServiceClient/);
+  assert.match(remover, /\.storage\s*\n?\s*\.?from\(target\.bucket\)|db\.storage\.from\(target\.bucket\)/);
+  // It performs Storage calls and nothing else: no rpc, no table access, no auth.
+  for (const forbidden of [/\.rpc\(/, /\.from\('/, /auth\./, /rc1_cleanup_synthetic_certification/, /rc1_prepare_/]) {
+    assert.doesNotMatch(remover, forbidden, `the Storage remover must not use ${forbidden}`);
+  }
+  // And the database refuses it regardless of what the route does.
+  assert.match(
+    storageClosure,
+    /revoke all on function public\.rc1_prepare_synthetic_storage_cleanup\(text\)\s*\n\s*from public, anon, authenticated, service_role/i,
+  );
+  assert.match(
+    storageClosure,
+    /revoke all on function public\.rc1_cleanup_synthetic_certification\(text,text,text,integer\)\s*\n\s*from public, anon, authenticated, service_role/i,
+  );
+  assert.doesNotMatch(storageClosure, /grant execute on function[^;]*to (?:anon|service_role|public)\b/i);
+  for (const signature of [
+    'public.rc1_prepare_synthetic_storage_cleanup(text) to authenticated',
+    'public.rc1_cleanup_synthetic_certification(text,text,text,integer) to authenticated',
+  ]) {
+    assert.ok(storageClosure.includes(`grant execute on function ${signature}`), `missing grant: ${signature}`);
+  }
+});
+
+await test('S9. an already-absent object is retryable, re-proving the target from report rows', async () => {
+  // The provider reports not-found for both the delete and the absence check; the helper treats
+  // that as removed, so a retry after a half-completed cleanup still reaches the database.
+  const deps = dependencies({ storageOutcome: 'removed', response: okResponse });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(rpcNames(deps), [
+    'rc1_prepare_synthetic_storage_cleanup',
+    'rc1_cleanup_synthetic_certification',
+  ]);
+  const remover = controlPlane.split('async function defaultRemoveStorageTargets')[1].split('\n}')[0];
+  assert.match(remover, /classifySupabaseStorageResult\(error\) !== 'object_not_found'/);
+  // Targets are always re-derived: the database recomputes them from the report rows that exist.
+  assert.match(storageClosure, /into v_actual_count, v_actual_fingerprint/);
+  assert.match(storageClosure, /from public\.reports r\s*\n\s*where r\.id = any\(v_report_ids\)/);
+});
+
+await test('S10. a zero-target journey still completes without touching Storage', async () => {
+  const deps = dependencies({ resolution: resolutionFor([]), response: { reference: REFERENCE, already_clean: true, deleted: {} } });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.already_clean, true);
+  assert.deepEqual(body.storage, { targets: 0, verified_absent: 0 });
+  assert.deepEqual(deps.storageCalls[0], [], 'no object is named when there are none');
+  assert.equal(deps.calls[1].args.p_expected_target_count, 0);
+  assert.equal(deps.calls[1].args.p_expected_target_fingerprint, EMPTY_FINGERPRINT);
+});
+
+await test('S11. unrelated objects are never named', async () => {
+  const deps = dependencies({ response: okResponse });
+  await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const named = deps.storageCalls.flat();
+  assert.equal(named.length, 1);
+  assert.deepEqual(named[0], TARGET);
+  // Resolution is confined to reports reachable from an organisation carrying the exact reference.
+  assert.match(storageClosure, /where o\.synthetic_certification_ref = p_reference/);
+  assert.match(storageClosure, /join public\.assessments a on a\.id = r\.assessment_id/);
+  assert.match(storageClosure, /where a\.organisation_id = any\(v_org_ids\)/);
+  // No whole-bucket operation exists anywhere in the closure or the remover.
+  const remover = controlPlane.split('async function defaultRemoveStorageTargets')[1].split('\n}')[0];
+  assert.doesNotMatch(remover, /emptyBucket|deleteBucket|\.list\(/);
+  assert.match(remover, /remove\(\[target\.path\]\)/, 'removal must always name exactly one path');
+});
+
+await test('S12. no bucket, path or fingerprint reaches the response', async () => {
+  const deps = dependencies({ response: okResponse });
+  const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+  const serialised = JSON.stringify(await response.json());
+  for (const leak of [
+    TARGET.bucket, TARGET.path, targetFingerprint([TARGET]), 'essential-report', 'target_fingerprint',
+  ]) {
+    assert.equal(serialised.includes(leak), false, `response leaked ${leak}`);
+  }
+});
+
+await test('S13. the audit records fingerprints and counts, never raw targets', () => {
+  assert.match(storageClosure, /storage_target_count integer/);
+  assert.match(storageClosure, /storage_verified_absent_count integer/);
+  assert.match(storageClosure, /storage_target_fingerprint text/);
+  assert.match(storageClosure, /storage_target_fingerprint ~ '\^\[0-9a-f\]\{64\}\$'/);
+  // No column, and no audited value, carries a bucket or a path.
+  const auditInserts = storageClosure.split('insert into public.rc1_synthetic_cleanup_audit').slice(1);
+  assert.equal(auditInserts.length, 2, 'both the no-op and the full cleanup must write an audit row');
+  for (const insert of auditInserts) {
+    const values = insert.split(';')[0];
+    assert.doesNotMatch(values, /storage_bucket|storage_path|v_targets/);
+  }
+});
+
+await test('S14. the superseded two-argument entry point refuses', () => {
+  const superseded = storageClosure
+    .split('create or replace function public.rc1_cleanup_synthetic_certification(\n  p_reference text,\n  p_reason text\n)')[1]
+    .split('$$;')[0];
+  assert.match(superseded, /rc1_require_platform_admin\(true\)/);
+  assert.match(superseded, /raise exception 'rc1_synthetic_cleanup:storage_closure_required'/);
+  assert.doesNotMatch(superseded, /delete from/i, 'the superseded signature must delete nothing');
+  // And the four-argument form refuses without proof.
+  assert.match(storageClosure, /rc1_synthetic_cleanup:storage_proof_required/);
+  assert.match(storageClosure, /rc1_synthetic_cleanup:storage_target_mismatch/);
+  assert.match(storageClosure, /rc1_synthetic_cleanup:storage_objects_remaining/);
 });
 
 console.log('');

@@ -999,6 +999,8 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+    "src/lib/rc1/control-plane.ts:498",
+    "src/lib/rc1/control-plane.ts:504",
     "src/lib/reports/customer-report-access.ts:176",
     "src/lib/reports/customer-report-access.ts:192",
     "src/lib/reports/download-verification.ts:29",
@@ -1062,9 +1064,11 @@
       "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:140:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:181:rpc"
+      "src/lib/reports/email/delivery-dispatch.ts:181:rpc",
+      "src/lib/rc1/control-plane.ts:76:from",
+      "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "149e351457c82c7ed3cf4184ae41de508aa814e761c86eca3a2153283950838f"
+    "fullAstInventorySha256": "fe7f7982f46416d1bbee71516568519e52b45512b86979864eff79119b1fe1f4"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

@@ -428,6 +428,127 @@ test('D28. the guard migration uses no blunt instruments', () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// 20260731170000 -- the Storage closure
+//
+// 20260731130000 stopped deleting Storage objects and started counting them, which left the
+// database deleting the report row that named the PDF while the PDF itself survived. These check
+// the half of the fix that lives in SQL: resolution the caller cannot influence, and a cleanup
+// that refuses until removal has been proven.
+// ---------------------------------------------------------------------------
+const closureName = '20260731170000_rc1_synthetic_storage_cleanup_closure.sql';
+const closure = fs.readFileSync(path.join(root, 'supabase', 'migrations', closureName), 'utf8');
+
+function closureFunctionBody(signatureArgs) {
+  const marker = `create or replace function public.${signatureArgs}`;
+  const start = closure.indexOf(marker);
+  assert.notEqual(start, -1, `missing function: ${signatureArgs}`);
+  return closure.slice(start, closure.indexOf('\n$$;', start) + 4);
+}
+
+const fourArgCleanup = closureFunctionBody(
+  'rc1_cleanup_synthetic_certification(\n  p_reference text,\n  p_reason text,\n  p_expected_target_fingerprint text,\n  p_expected_target_count integer\n)',
+);
+
+test('D29. resolution requires the same authority as the cleanup itself', () => {
+  const prepare = closureFunctionBody('rc1_prepare_synthetic_storage_cleanup(\n  p_reference text\n)');
+  assert.match(prepare, /perform public\.rc1_require_platform_admin\(true\)/);
+  assert.match(prepare, /\^MKTEST-RC1-\[0-9\]\{8\}-\[0-9\]\{2\}\$/);
+  assert.match(prepare, /rc1_synthetic_cleanup:not_enabled_in_this_environment/);
+  assert.match(prepare, /security definer/i);
+  assert.match(prepare, /set search_path = ''/);
+  // Resolution only: it must not remove anything, in either layer.
+  assert.doesNotMatch(prepare, /delete from/i);
+  assert.doesNotMatch(prepare, /update /i);
+});
+
+test('D30. every fail-closed check precedes the first deletion', () => {
+  const firstDelete = fourArgCleanup.indexOf('delete from');
+  assert.ok(firstDelete > 0, 'the cleanup must still delete something');
+  for (const check of [
+    'rc1_require_platform_admin(true)',
+    'rc1_synthetic_cleanup:reference_not_synthetic',
+    'rc1_synthetic_cleanup:meaningful_reason_required',
+    'rc1_synthetic_cleanup:storage_proof_required',
+    'rc1_synthetic_cleanup:not_enabled_in_this_environment',
+    'rc1_synthetic_cleanup:storage_target_mismatch',
+    'rc1_synthetic_cleanup:storage_objects_remaining',
+  ]) {
+    const index = fourArgCleanup.indexOf(check);
+    assert.ok(index > 0, `missing fail-closed check: ${check}`);
+    assert.ok(index < firstDelete, `${check} must be proven before anything is deleted`);
+  }
+});
+
+test('D31. the expected targets are re-derived, not trusted', () => {
+  // The comparison is against a value computed here, from the rows that exist now.
+  assert.match(fourArgCleanup, /into v_actual_count, v_actual_fingerprint/);
+  assert.match(
+    fourArgCleanup,
+    /if v_actual_count <> p_expected_target_count\s*\n\s*or v_actual_fingerprint <> p_expected_target_fingerprint then/,
+  );
+  // Absence is established against storage.objects directly, not from the caller's assertion.
+  assert.match(fourArgCleanup, /from storage\.objects so\s*\n\s*join public\.reports r/);
+  assert.match(fourArgCleanup, /if coalesce\(v_remaining, 0\) > 0 then/);
+  // And it still never deletes from storage.
+  assert.doesNotMatch(
+    fourArgCleanup.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n'),
+    /delete\s+from\s+storage\./i,
+  );
+});
+
+test('D32. the closure never enables itself, so Production stays inert', () => {
+  assert.doesNotMatch(closure, /insert into public\.app_settings/i);
+  assert.match(closure, /setting_key = 'rc1_synthetic_certification_cleanup'/);
+  // Applied migrations 49, 50 and 51 are untouched by this one.
+  for (const applied of [
+    '20260730130000_rc1_synthetic_certification_cleanup.sql',
+    '20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql',
+    '20260731150000_rc1_synthetic_cleanup_guard_allowances.sql',
+  ]) {
+    const contents = fs.readFileSync(path.join(root, 'supabase', 'migrations', applied), 'utf8');
+    assert.ok(contents.length > 0);
+  }
+  const executable = closure.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable, /session_replication_role/i);
+  assert.doesNotMatch(executable, /disable trigger/i);
+  assert.doesNotMatch(executable, /drop\s+(?:trigger|policy|table)/i);
+});
+
+test('D33. the guard allowance still governs the closure deletions', () => {
+  // The four-argument form sets the same transaction-local marker the guards require, so it gains
+  // no deletion power the accepted mechanism did not already grant it.
+  assert.match(fourArgCleanup, /set_config\('rc1\.synthetic_cleanup_ref', p_reference, true\)/);
+  const markerIndex = fourArgCleanup.indexOf("set_config('rc1.synthetic_cleanup_ref'");
+  assert.ok(markerIndex < fourArgCleanup.indexOf('delete from public.score_question_traces'));
+  // Deletion order and protected relations are unchanged from the accepted definition.
+  const order = [
+    'report_delivery_finalizations',
+    'phase14_provider_attestation_consumptions',
+    'phase14_provider_attestations',
+    'manual_report_generation_attempts',
+    'report_delivery_authorizations',
+  ].map((table) => ({ table, index: fourArgCleanup.indexOf(`delete from public.${table}`) }));
+  for (const entry of order) assert.ok(entry.index > 0, `${entry.table} is never deleted`);
+  for (let i = 1; i < order.length; i += 1) {
+    assert.ok(order[i - 1].index < order[i].index, `${order[i - 1].table} must precede ${order[i].table}`);
+  }
+  assert.ok(
+    fourArgCleanup.indexOf('delete from public.score_question_traces')
+      < fourArgCleanup.indexOf('delete from public.score_runs s'),
+  );
+  for (const protectedTable of [
+    'supabase_migrations', 'schema_migrations', 'methodology_versions', 'domains',
+    'questions', 'exposure_factors', 'response_scale', 'products', 'report_templates',
+    'admin_profiles', 'rc1_operation_freeze_state'
+  ]) {
+    assert.doesNotMatch(
+      fourArgCleanup, new RegExp(`delete from (?:public\\.)?${protectedTable}\\b`, 'i'),
+      `cleanup must never delete from ${protectedTable}`
+    );
+  }
+});
+
 console.log('');
 console.log(`rc1-synthetic-cleanup: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);
