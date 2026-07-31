@@ -151,7 +151,7 @@
     },
     "function_fingerprints": {
       "rc1_is_known_operation_surface(text)": "499d8a23e973bd1236aeb1b6a7024681",
-      "rc1_surface_for_relation(text,text)": "e8e936bf67b845f896cad6fd878bfb26",
+      "rc1_surface_for_relation(text,text)": "bb461e07fb583bd8524a20562c5d3de3",
       "rc1_freeze_status()": "23a9c885e272c9254e41d0e2eac5943b",
       "rc1_require_operation_open(text)": "0d9eeb53c3e2dda89959b7117675212f",
       "rc1_require_platform_admin(boolean)": "76772f17ca0b3e2375231ace97e425df",
