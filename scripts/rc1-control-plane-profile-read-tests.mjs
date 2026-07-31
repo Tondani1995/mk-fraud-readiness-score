@@ -26,7 +26,7 @@ const freezeBootstrap = fs.readFileSync(
 const migrationFiles = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 47);
+assert.equal(migrationFiles.length, 48);
 assert.equal(migrationFiles.at(-2), '20260729113242_rc1_service_role_privilege_contract.sql');
 assert.equal(migrationFiles.at(-1), migrationName);
 

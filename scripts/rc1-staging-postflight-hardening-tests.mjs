@@ -82,7 +82,7 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 47, 'canonical migration directory must contain 47 SQL files');
+assert.equal(migrationFiles.length, 48, 'canonical migration directory must contain 48 SQL files');
 assert.equal(
   migrationFiles.at(-3),
   '20260728191000_rc1_launch_required_foreign_key_indexes.sql',

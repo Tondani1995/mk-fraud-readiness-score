@@ -6,7 +6,7 @@ import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
-import { isReportCommercialQualityError } from './commercial-quality';
+import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -172,6 +172,50 @@ async function recordFailure(
       attemptId,
       errorCategory: category,
       safeMessage: 'Generation failure state could not be persisted.'
+    });
+  }
+}
+
+/**
+ * Persists the safe violation codes behind a commercial-quality failure.
+ *
+ * Before RC1 the thrown ReportCommercialQualityError was logged and discarded, leaving
+ * manual_report_generation_attempts holding only error_category = 'commercial_quality_failed'
+ * and a fixed safe message -- which made a real staging generation failure undiagnosable from the
+ * database. Only closed-vocabulary identifiers are sent; record_report_quality_diagnostics()
+ * rejects any other payload key, so report narrative cannot leak through this path even if the
+ * mapper is later changed. Persistence is best-effort: a diagnostics failure must never mask or
+ * replace the underlying generation failure the caller is about to raise.
+ */
+async function recordQualityDiagnostics(
+  db: any,
+  attemptId: string | null,
+  error: { violations: readonly any[]; warnings: readonly any[] }
+) {
+  if (!attemptId) return;
+  const items = [
+    ...toSafeQualityDiagnostics(error.violations),
+    ...toSafeQualityDiagnostics(error.warnings)
+  ];
+  if (items.length === 0) return;
+  try {
+    const { error: rpcError } = await db.rpc('record_report_quality_diagnostics', {
+      p_attempt_id: attemptId,
+      p_safe_category: 'commercial_quality_failed',
+      p_items: items
+    });
+    if (rpcError) {
+      console.error('phase1_quality_diagnostics_persistence', {
+        attemptId,
+        outcome: 'error',
+        itemCount: items.length
+      });
+    }
+  } catch {
+    console.error('phase1_quality_diagnostics_persistence', {
+      attemptId,
+      outcome: 'threw',
+      itemCount: items.length
     });
   }
 }
@@ -386,6 +430,7 @@ export async function generateManualPhase1Report(
           warningCodes: error.warnings.map((issue) => issue.code),
           violationCount: error.violations.length
         });
+        await recordQualityDiagnostics(db, attemptId, error);
         throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
       }
       throw error;
@@ -427,6 +472,7 @@ export async function generateManualPhase1Report(
           warningCodes: error.warnings.map((issue) => issue.code),
           violationCount: error.violations.length
         });
+        await recordQualityDiagnostics(db, attemptId, error);
         throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
       }
       if (error instanceof Phase1GenerationError) throw error;
