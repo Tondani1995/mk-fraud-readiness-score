@@ -48,7 +48,8 @@ assert.ok(
 const newestApplied = sql(`
   select version from supabase_migrations.schema_migrations order by version desc limit 1
 `);
-assert.equal(newestApplied, '20260729170000');
+// The newest applied migration tracks the RC1 series head, not migration 47 specifically.
+assert.equal(newestApplied, '20260730130000');
 
 const roleState = JSON.parse(sql(`
   select jsonb_build_object(
