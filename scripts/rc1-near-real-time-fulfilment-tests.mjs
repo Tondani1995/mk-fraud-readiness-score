@@ -635,9 +635,9 @@ await test('six established workflow definitions retain correction gates', async
     assert.ok(fs.existsSync(path.join(root, '.github', 'workflows', file)), `${file} exists`);
   }
 });
-await test('full migration postflight requires exactly 50 rows', async () => {
-  includes(postflight, 'count(*) = 50', 'postflight total is 50');
-  includes(postflight, "max(version) = '20260731130000'", 'postflight newest correction is exact');
+await test('full migration postflight requires exactly 51 rows', async () => {
+  includes(postflight, 'count(*) = 51', 'postflight total is 51');
+  includes(postflight, "max(version) = '20260731150000'", 'postflight newest correction is exact');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');

@@ -312,6 +312,122 @@ test('D23. the replacement keeps the narrow grant and the audit record', () => {
   assert.match(storageFix, /NOT a customer erasure facility/i);
 });
 
+// ---------------------------------------------------------------------------
+// 20260731150000 -- the remaining immutability guards
+//
+// Score traces were not the only guard between a completed synthetic journey and its removal.
+// guard_score_run_write, guard_assessment_answer_write and guard_exposure_answer_write each
+// refuse too, so the cleanup could never have finished. Each gains the identical allowance and
+// nothing else -- which these checks prove by reconstructing the original body from it.
+// ---------------------------------------------------------------------------
+const guardFixName = '20260731150000_rc1_synthetic_cleanup_guard_allowances.sql';
+const guardFix = fs.readFileSync(path.join(root, 'supabase', 'migrations', guardFixName), 'utf8');
+const answerGuards = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations', '0005_phase5_v1_1_guards.sql'), 'utf8');
+
+const ALLOWANCE = `  if tg_op = 'DELETE' then
+    v_cleanup_ref := pg_catalog.current_setting('rc1.synthetic_cleanup_ref', true);
+    if v_cleanup_ref is not null and v_cleanup_ref <> '' then
+      select o.synthetic_certification_ref into v_synthetic_ref
+      from public.assessments a
+      join public.organisations o on o.id = a.organisation_id
+      where a.id = old.assessment_id;
+
+      if v_synthetic_ref is not null and v_synthetic_ref = v_cleanup_ref then
+        return old;
+      end if;
+    end if;
+  end if;
+
+`;
+
+const GUARDS = [
+  { name: 'guard_score_run_write', source: originalGuard },
+  { name: 'guard_assessment_answer_write', source: answerGuards },
+  { name: 'guard_exposure_answer_write', source: answerGuards },
+];
+
+function functionBody(source, name) {
+  const start = source.indexOf(`create or replace function public.${name}()`);
+  assert.notEqual(start, -1, `${name} is missing`);
+  return source.slice(start, source.indexOf('\n$$;', start) + 4);
+}
+
+test('D24. all three remaining guards receive the allowance, identically', () => {
+  assert.equal(guardFix.split(ALLOWANCE).length - 1, 3,
+    'the allowance must be the same text in every guard, not three variations');
+  for (const guard of GUARDS) {
+    const replacement = functionBody(guardFix, guard.name);
+    assert.ok(replacement.includes(ALLOWANCE), `${guard.name} is missing the allowance`);
+    // BOTH conditions: the transaction-local marker AND provenance proven from the row.
+    assert.match(replacement, /current_setting\('rc1\.synthetic_cleanup_ref', true\)/);
+    assert.match(replacement, /join public\.organisations o on o\.id = a\.organisation_id/);
+    assert.match(replacement, /v_synthetic_ref = v_cleanup_ref/);
+  }
+});
+
+test('D25. the allowance is the only change to each guard', () => {
+  for (const guard of GUARDS) {
+    const original = functionBody(guard.source, guard.name);
+    const reconstructed = functionBody(guardFix, guard.name)
+      .replace(ALLOWANCE, '')
+      .replace('  v_cleanup_ref text;\n', '')
+      .replace('  v_synthetic_ref text;\n', '');
+    assert.equal(reconstructed, original,
+      `${guard.name} differs from the accepted definition beyond the allowance`);
+  }
+});
+
+test('D26. every original refusal still fires for ordinary writes', () => {
+  for (const message of [
+    'Completed score runs are immutable. Create a new score run instead.',
+    'Score runs may only be created for submitted or later assessments. Current status: %.',
+    'Completed score run must be locked.',
+    'Assessment answers cannot be changed after assessment lock/submission.',
+    'Exposure answers cannot be changed after assessment lock/submission.',
+    'Parent assessment not found.',
+  ]) {
+    assert.ok(guardFix.includes(message), `guard replacement dropped the refusal: ${message}`);
+  }
+  // The allowance is DELETE-only: no INSERT or UPDATE path can reach `return old`.
+  for (const guard of GUARDS) {
+    const replacement = functionBody(guardFix, guard.name);
+    const allowanceIndex = replacement.indexOf(ALLOWANCE);
+    assert.ok(allowanceIndex > 0);
+    assert.doesNotMatch(
+      replacement.slice(allowanceIndex, allowanceIndex + ALLOWANCE.length),
+      /tg_op in \('INSERT'|tg_op = 'INSERT'|tg_op = 'UPDATE'/,
+    );
+  }
+});
+
+test('D27. an unprovable delete still fails closed', () => {
+  // The allowance returns early only inside the provenance branch. Nothing outside it returns
+  // old before the refusals, so a marker with no matching organisation changes nothing -- and a
+  // cascade whose parent assessment has already gone still raises 'Parent assessment not found.'
+  for (const guard of GUARDS) {
+    const replacement = functionBody(guardFix, guard.name);
+    const beforeRefusals = replacement.slice(0, replacement.indexOf(ALLOWANCE) + ALLOWANCE.length);
+    assert.equal((beforeRefusals.match(/return old;/g) ?? []).length, 1,
+      `${guard.name} must have exactly one early return, inside the proven branch`);
+  }
+  assert.match(guardFix, /provenance cannot be established and the guard still raises/i);
+});
+
+test('D28. the guard migration uses no blunt instruments', () => {
+  const executable = executableSql(guardFix);
+  assert.doesNotMatch(executable, /session_replication_role/i);
+  assert.doesNotMatch(executable, /disable trigger/i);
+  assert.doesNotMatch(executable, /alter table[^;]*disable/i);
+  assert.doesNotMatch(executable, /drop\s+(?:trigger|policy|function|table)/i);
+  assert.doesNotMatch(executable, /delete from/i, 'a guard migration must not delete anything');
+  assert.doesNotMatch(executable, /grant|revoke/i, 'guard replacement must not move privileges');
+  for (const guard of GUARDS) {
+    assert.match(functionBody(guardFix, guard.name), /set search_path = public/,
+      `${guard.name} must keep its original search_path`);
+  }
+});
+
 console.log('');
 console.log(`rc1-synthetic-cleanup: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);
