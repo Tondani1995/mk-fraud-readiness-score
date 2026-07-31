@@ -41,6 +41,7 @@ const pendingVersions = new Set([
   '20260729170000',
   '20260730120000',
   '20260730130000',
+  '20260731130000',
 ]);
 
 function migrationParts(name) {
