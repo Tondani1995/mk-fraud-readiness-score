@@ -356,6 +356,38 @@ export function createRc1FreezeReleasePost(
 const SYNTHETIC_CERTIFICATION_REFERENCE = /^MKTEST-RC1-[0-9]{8}-[0-9]{2}$/;
 const SAFE_COUNT_KEY = /^[a-z][a-z0-9_]{2,63}$/;
 
+/**
+ * Closed vocabulary of refusal reasons the cleanup function can raise.
+ *
+ * The route must never echo a raw database message -- it can quote row detail -- but returning
+ * nothing at all made a real staging refusal undiagnosable, which is the same failure mode Section
+ * B and Section C were built to remove. These are fixed identifiers raised by
+ * rc1_cleanup_synthetic_certification and rc1_require_platform_admin; anything not on this list
+ * collapses to `unclassified`.
+ */
+const CLEANUP_REFUSAL_REASONS = new Set([
+  'rc1_synthetic_cleanup:reference_not_synthetic',
+  'rc1_synthetic_cleanup:meaningful_reason_required',
+  'rc1_synthetic_cleanup:not_enabled_in_this_environment',
+  'rc1_freeze_control:no_session',
+  'rc1_freeze_control:malformed_session',
+  'rc1_freeze_control:expired_session',
+  'rc1_freeze_control:inactive_session',
+  'rc1_freeze_control:platform_admin_required',
+  'rc1_freeze_control:aal2_required',
+]);
+
+/** Extracts a known refusal identifier, never arbitrary database text. */
+function safeRefusalReason(error: { message?: string } | null): string {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  for (const known of CLEANUP_REFUSAL_REASONS) {
+    if (message.includes(known)) return known;
+  }
+  // Surface the operation-frozen family without the offending surface name.
+  if (/rc1_operation_frozen:/.test(message)) return 'rc1_operation_frozen';
+  return 'unclassified';
+}
+
 export type Rc1SyntheticCleanupDependencies = Rc1ControlPlaneDependencies & {
   freezeResponse?: () => Promise<NextResponse | null>;
 };
@@ -404,10 +436,9 @@ export function createRc1SyntheticCleanupPost(
       { p_reference: reference, p_reason: reason },
     );
     if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
-      // The database message can quote row detail, so only a classified code is returned. The
-      // function itself raises for a non-synthetic reference, a disabled environment, a missing
-      // platform-admin identity or an AAL1 session.
-      return json({ ok: false, error: 'RC1_CLEANUP_REFUSED' }, 409);
+      // The database message can quote row detail, so only a classified identifier from the closed
+      // vocabulary above is returned -- never the raw text.
+      return json({ ok: false, error: 'RC1_CLEANUP_REFUSED', reason: safeRefusalReason(error) }, 409);
     }
 
     const result = data as Record<string, unknown>;

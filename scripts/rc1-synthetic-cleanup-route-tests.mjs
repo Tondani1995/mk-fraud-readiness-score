@@ -148,14 +148,38 @@ await test('A6. a missing or too-short reason is refused', async () => {
 });
 
 // 7 (environment enablement is a database decision; the route surfaces it as a refusal)
-await test('A7. a disabled cleanup environment is surfaced as a refusal, not a success', async () => {
-  const deps = dependencies({ error: { message: 'rc1_synthetic_cleanup:not_enabled_in_this_environment' } });
+await test('A7. refusals are classified from a closed vocabulary, never raw database text', async () => {
+  const cases = [
+    ['rc1_synthetic_cleanup:not_enabled_in_this_environment', 'rc1_synthetic_cleanup:not_enabled_in_this_environment'],
+    ['rc1_synthetic_cleanup:reference_not_synthetic', 'rc1_synthetic_cleanup:reference_not_synthetic'],
+    ['rc1_freeze_control:aal2_required', 'rc1_freeze_control:aal2_required'],
+    ['rc1_freeze_control:platform_admin_required', 'rc1_freeze_control:platform_admin_required'],
+    ['rc1_operation_frozen:activation_control', 'rc1_operation_frozen'],
+  ];
+  for (const [message, expected] of cases) {
+    const deps = dependencies({ error: { message: `ERROR: ${message}\nCONTEXT: PL/pgSQL function line 12` } });
+    const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
+    const body = await response.json();
+    assert.equal(response.status, 409);
+    assert.equal(body.error, 'RC1_CLEANUP_REFUSED');
+    assert.equal(body.reason, expected, `expected classified reason ${expected}`);
+    // The surrounding raw database text must never be echoed.
+    assert.equal(JSON.stringify(body).includes('PL/pgSQL'), false);
+    assert.equal(JSON.stringify(body).includes('CONTEXT'), false);
+  }
+});
+
+await test('A7b. an unknown database message collapses to unclassified and leaks nothing', async () => {
+  const deps = dependencies({
+    error: { message: 'ERROR: duplicate key value violates unique constraint "orders_pkey" DETAIL: Key (customer_email)=(nomsa@example.test) already exists.' },
+  });
   const response = await createRc1SyntheticCleanupPost(deps.value)(request({ reference: REFERENCE, reason: REASON }));
   const body = await response.json();
-  assert.equal(response.status, 409);
-  assert.equal(body.error, 'RC1_CLEANUP_REFUSED');
-  // The raw database message must not be echoed back to the caller.
-  assert.equal(JSON.stringify(body).includes('not_enabled_in_this_environment'), false);
+  assert.equal(body.reason, 'unclassified');
+  const serialised = JSON.stringify(body);
+  for (const leak of ['nomsa@example.test', 'orders_pkey', 'DETAIL', 'duplicate key']) {
+    assert.equal(serialised.includes(leak), false, `refusal leaked ${leak}`);
+  }
 });
 
 // 8
