@@ -5,11 +5,38 @@ import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
 import {
   ResendWebhookBodyTooLargeError,
   createProviderWebhookDatabaseAttestation,
+  isResendWebhookVerificationError,
+  isSupportedResendEventType,
   readLimitedWebhookBody,
   validateResendEventCreatedAt,
   verifyResendWebhook,
   webhookPayloadFingerprint
 } from '@/lib/reports/email/resend-webhook';
+
+/**
+ * Emits a single safe structured line for a rejected or ignored provider callback.
+ *
+ * Safe by construction: a closed reason vocabulary, the provider's own opaque event id as the
+ * correlation key, the signed clock skew, the event type only when it came from a
+ * signature-verified payload, and the deployment identity so a rejection can be attributed to an
+ * exact build. Never the signing secret, raw signature values, request body, recipient address,
+ * customer data or report access tokens.
+ */
+function logResendWebhookRejection(input: {
+  reason: string;
+  providerEventId: string | null;
+  timestampDeltaSeconds: number | null;
+  eventType: string | null;
+}) {
+  console.error('resend_webhook_rejected', {
+    reason: input.reason,
+    providerEventId: input.providerEventId ?? null,
+    timestampDeltaSeconds: input.timestampDeltaSeconds ?? null,
+    eventType: input.eventType ?? null,
+    deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null
+  });
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,8 +84,33 @@ export async function POST(request: Request) {
       verifiedSvixTimestamp: svixTimestamp,
       receiptTimeMs
     });
-  } catch {
+  } catch (error) {
+    // RC1 observability: previously every rejection here was silent, so a genuine run of failing
+    // email.delivered callbacks could not be attributed to a secret mismatch, a replay-window
+    // rejection or a malformed body without the provider's retry UI. Only closed-vocabulary safe
+    // fields are emitted -- never the signing secret, the raw signature, the request body, a
+    // recipient address, customer data or a report access token.
+    logResendWebhookRejection({
+      reason: isResendWebhookVerificationError(error) ? error.reason : 'verification_failed',
+      providerEventId,
+      timestampDeltaSeconds: isResendWebhookVerificationError(error) ? error.timestampDeltaSeconds : null,
+      eventType: null
+    });
     return NextResponse.json({ ok: false, error: 'invalid_webhook' }, { status: 400 });
+  }
+
+  if (!isSupportedResendEventType(event.type)) {
+    // The accepted delivery contract acts only on the types mapResendEventStatus() knows. An
+    // unexpected type usually means the provider subscription drifted from the contract, so it is
+    // acknowledged rather than retried, and recorded. Ingesting such events created provider-event
+    // rows that bound to nothing -- the contamination that corrupted the RC1 callback count.
+    logResendWebhookRejection({
+      reason: 'unsupported_event_type',
+      providerEventId,
+      timestampDeltaSeconds: null,
+      eventType: event.type
+    });
+    return NextResponse.json({ ok: true, ignored: 'unsupported_event_type' });
   }
 
   const providerMessageId = typeof event.data?.email_id === 'string' ? event.data.email_id : null;
@@ -104,6 +156,12 @@ export async function POST(request: Request) {
       eventType: effectiveEventType, eventCreatedAt, payloadSha256
     });
   } catch {
+    logResendWebhookRejection({
+      reason: 'database_attestation_failed',
+      providerEventId,
+      timestampDeltaSeconds: null,
+      eventType: event.type
+    });
     return NextResponse.json({ ok: false, error: 'webhook_attestation_unavailable' }, { status: 503 });
   }
   const { data, error } = await db.rpc('ingest_phase14_provider_webhook', {
@@ -120,6 +178,13 @@ export async function POST(request: Request) {
   });
   if (error) {
     const gateUnsatisfied = /phase14_(security_gate|feature_policy)/.test(error.message ?? '');
+    // The RPC's own message can quote database detail, so only the classified reason is emitted.
+    logResendWebhookRejection({
+      reason: gateUnsatisfied ? 'security_gate_unsatisfied' : 'provider_message_binding_failed',
+      providerEventId,
+      timestampDeltaSeconds: null,
+      eventType: event.type
+    });
     return NextResponse.json(
       { ok: false, error: gateUnsatisfied ? 'security_gate_unsatisfied' : 'processing_failed' },
       { status: gateUnsatisfied ? 503 : 500 }
