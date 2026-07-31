@@ -27,8 +27,15 @@ const migrationFiles = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
 assert.equal(migrationFiles.length, 49);
-assert.equal(migrationFiles.at(-2), '20260729113242_rc1_service_role_privilege_contract.sql');
-assert.equal(migrationFiles.at(-1), migrationName);
+// Asserted by name and relative order rather than tail position: the RC1 series appends further
+// additive migrations (quality diagnostics, synthetic cleanup), so at(-1)/at(-2) legitimately move
+// while the accepted ordering of these two must not.
+assert.ok(migrationFiles.includes('20260729113242_rc1_service_role_privilege_contract.sql'));
+assert.ok(migrationFiles.includes(migrationName));
+assert.ok(
+  migrationFiles.indexOf('20260729113242_rc1_service_role_privilege_contract.sql')
+    < migrationFiles.indexOf(migrationName),
+);
 
 assert.match(
   migration,

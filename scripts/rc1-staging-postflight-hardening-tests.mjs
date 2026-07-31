@@ -83,18 +83,23 @@ const migrationFiles = fs
   .filter((name) => name.endsWith('.sql'))
   .sort();
 assert.equal(migrationFiles.length, 49, 'canonical migration directory must contain 49 SQL files');
-assert.equal(
-  migrationFiles.at(-3),
+// Asserted by name and relative order rather than tail position: the RC1 series appends further
+// additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering
+// must not.
+const acceptedOrder = [
   '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
-);
-assert.equal(
-  migrationFiles.at(-2),
   '20260729113242_rc1_service_role_privilege_contract.sql',
-);
-assert.equal(
-  migrationFiles.at(-1),
   '20260729170000_rc1_authenticated_admin_profile_read.sql',
-);
+];
+for (const name of acceptedOrder) {
+  assert.ok(migrationFiles.includes(name), `canonical migration missing: ${name}`);
+}
+for (let index = 1; index < acceptedOrder.length; index += 1) {
+  assert.ok(
+    migrationFiles.indexOf(acceptedOrder[index - 1]) < migrationFiles.indexOf(acceptedOrder[index]),
+    `canonical migration order changed around ${acceptedOrder[index]}`,
+  );
+}
 assert.equal(
   sha256(aclMigration),
   manifest.migrations[
