@@ -36,7 +36,7 @@ assert.equal(manifest.migrationCountAfter, 46);
 const migrations = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrations.length, 48);
+assert.equal(migrations.length, 49);
 assert.equal(migrations.at(-2), manifest.newestMigration);
 assert.equal(
   migrations.at(-1),
