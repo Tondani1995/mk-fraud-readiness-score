@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminAccessTokenFromCookies } from '@/lib/auth/session-cookies';
 import { decodeAalClaimForDisplayOnly } from '@/lib/auth/mfa';
+import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import {
   createSupabaseAnonServerClient,
   createSupabaseAuthenticatedServerClient,
@@ -335,5 +336,90 @@ export function createRc1FreezeReleasePost(
     return status?.state === 'released'
       ? json({ ok: true, freeze: status })
       : json({ ok: false, error: 'RC1_CONTROL_RELEASE_FAILED' }, 409);
+  };
+}
+
+/**
+ * RC1 synthetic-certification cleanup route.
+ *
+ * This is a deliberately thin transport. Every authority decision stays in
+ * public.rc1_cleanup_synthetic_certification: platform_admin, AAL2, the environment enablement
+ * row, the MKTEST-RC1- provenance check, the transaction-local score-trace allowance and the
+ * audited deletion. The route adds only three things the database cannot see -- the RC1 operation
+ * freeze for the activation_control surface, a fail-fast shape check so a malformed request never
+ * reaches the function, and a projection that keeps the response free of raw database payload.
+ *
+ * The RPC is invoked through the operator's own JWT via callRpc(), exactly like the freeze routes.
+ * It is revoked from service_role in 20260730130000, so there is no service-role path to bypass
+ * the authority model even if this route were changed carelessly.
+ */
+const SYNTHETIC_CERTIFICATION_REFERENCE = /^MKTEST-RC1-[0-9]{8}-[0-9]{2}$/;
+const SAFE_COUNT_KEY = /^[a-z][a-z0-9_]{2,63}$/;
+
+export type Rc1SyntheticCleanupDependencies = Rc1ControlPlaneDependencies & {
+  freezeResponse?: () => Promise<NextResponse | null>;
+};
+
+/** Keeps only closed-vocabulary table names mapped to non-negative integer counts. */
+function safeDeletedCounts(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const counts: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!SAFE_COUNT_KEY.test(key)) continue;
+    if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw < 0) continue;
+    counts[key] = raw;
+  }
+  return counts;
+}
+
+export function createRc1SyntheticCleanupPost(
+  dependencies: Rc1SyntheticCleanupDependencies = {},
+) {
+  return async function POST(request: Request) {
+    // Cleanup mutates authoritative business tables, so it is only available inside a deliberate
+    // RELEASED window. This is the same freeze check every other mutating surface uses.
+    const frozen = await (
+      dependencies.freezeResponse
+        ?? (() => getRc1OperationFreezeResponse('activation_control'))
+    )();
+    if (frozen) return frozen;
+
+    const operator = await requireOperator(dependencies);
+    if (!isOperator(operator)) return operator;
+
+    const body = await readJsonBody(request);
+    if (!body) return json({ ok: false, error: 'RC1_CONTROL_INVALID_BODY' }, 400);
+
+    const reference = typeof body.reference === 'string' ? body.reference.trim() : '';
+    if (!SYNTHETIC_CERTIFICATION_REFERENCE.test(reference)) {
+      return json({ ok: false, error: 'RC1_CLEANUP_REFERENCE_NOT_SYNTHETIC' }, 400);
+    }
+    const reason = meaningfulReason(body.reason);
+    if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
+
+    const { data, error } = await callRpc(
+      dependencies,
+      operator,
+      'rc1_cleanup_synthetic_certification',
+      { p_reference: reference, p_reason: reason },
+    );
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      // The database message can quote row detail, so only a classified code is returned. The
+      // function itself raises for a non-synthetic reference, a disabled environment, a missing
+      // platform-admin identity or an AAL1 session.
+      return json({ ok: false, error: 'RC1_CLEANUP_REFUSED' }, 409);
+    }
+
+    const result = data as Record<string, unknown>;
+    if (result.reference !== reference || typeof result.already_clean !== 'boolean') {
+      return json({ ok: false, error: 'RC1_CLEANUP_UNEXPECTED_RPC_RESPONSE' }, 502);
+    }
+
+    return json({
+      ok: true,
+      reference,
+      already_clean: result.already_clean,
+      deleted: safeDeletedCounts(result.deleted),
+    });
   };
 }

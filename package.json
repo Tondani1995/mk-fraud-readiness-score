@@ -65,6 +65,7 @@
     "rc1:test-quality-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-commercial-quality-diagnostics-tests.mjs",
     "rc1:test-webhook-verification": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-resend-webhook-verification-tests.mjs",
     "rc1:test-synthetic-cleanup": "node scripts/rc1-synthetic-cleanup-tests.mjs",
+    "rc1:test-synthetic-cleanup-route": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-synthetic-cleanup-route-tests.mjs",
     "v7:test-checkpoint-d": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs",
     "v7:test-checkpoint-e": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-e-ai-narrative-integration-tests.mjs",
     "v7:test-checkpoint-e-migration": "node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs",
