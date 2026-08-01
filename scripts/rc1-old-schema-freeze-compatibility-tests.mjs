@@ -46,6 +46,7 @@ const pendingVersions = new Set([
   '20260731170000',
   '20260801070000',
   '20260801090000',
+  '20260801120000',
 ]);
 
 function migrationParts(name) {
@@ -76,7 +77,7 @@ async function setup() {
     create table vault.decrypted_secrets(id uuid primary key default gen_random_uuid(),name text,decrypted_secret text);
     create schema if not exists storage;
     create table storage.buckets(id text primary key,name text not null,owner uuid,owner_id text,public boolean default false,avif_autodetection boolean default false,file_size_limit bigint,allowed_mime_types text[],created_at timestamptz default now(),updated_at timestamptz default now());
-    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,owner uuid,metadata jsonb,created_at timestamptz default now(),updated_at timestamptz default now());
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,owner uuid,metadata jsonb,user_metadata jsonb,created_at timestamptz default now(),updated_at timestamptz default now());
     create schema supabase_migrations;
     create table supabase_migrations.schema_migrations(version text primary key,name text not null,statements text[] not null);
     do $$ begin

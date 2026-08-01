@@ -50,7 +50,8 @@ const pending = [
   '20260731150000_rc1_synthetic_cleanup_guard_allowances.sql',
   '20260731170000_rc1_synthetic_storage_cleanup_closure.sql',
   '20260801070000_rc1_synthetic_cleanup_attestation_routes.sql',
-  '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql'
+  '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql',
+  '20260801120000_rc1_delivery_entitlement_user_metadata.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -148,7 +149,7 @@ async function setup() {
     create table if not exists vault.decrypted_secrets (id uuid primary key default gen_random_uuid(), name text, decrypted_secret text);
     create schema if not exists storage;
     create table if not exists storage.buckets (id text primary key, name text not null, owner uuid, owner_id text, public boolean default false, avif_autodetection boolean default false, file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now(), updated_at timestamptz default now());
-    create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now());
+    create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, metadata jsonb, user_metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now());
     create schema if not exists supabase_migrations;
     create table if not exists supabase_migrations.schema_migrations (version text primary key, name text not null, statements text[] not null);
     do $$ begin
