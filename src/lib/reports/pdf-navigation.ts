@@ -42,11 +42,42 @@ export interface BookmarkNode {
   children?: BookmarkNode[];
 }
 
+/**
+ * pdfjs expects DOM geometry types that Node does not provide. Its own fallback is to load
+ * @napi-rs/canvas, whose entry point requires a compiled native binding -- and that binding is not
+ * present in the deployed bundle, so the load fails and pdfjs then throws `DOMMatrix is not
+ * defined` the moment it touches the type, even though this module only extracts text and never
+ * rasterises anything.
+ *
+ * @napi-rs/canvas also ships geometry.js: a vendored, pure-JavaScript geometry polyfill with no
+ * native dependency at all. Installing those globals first means pdfjs never needs the native
+ * binding for the text-extraction path. Path2D is deliberately not stubbed -- nothing here draws,
+ * and a stub would turn a missing capability into silently wrong output rather than a loud error.
+ */
+async function ensureGeometryGlobals(): Promise<void> {
+  const globals = globalThis as Record<string, unknown>;
+  if (typeof globals.DOMMatrix !== 'undefined') return;
+
+  const geometry = await import('@napi-rs/canvas/geometry.js') as Record<string, unknown> & {
+    default?: Record<string, unknown>;
+  };
+  const source = (typeof geometry.DOMMatrix !== 'undefined' ? geometry : geometry.default) ?? {};
+  for (const name of ['DOMMatrix', 'DOMPoint', 'DOMRect'] as const) {
+    if (typeof globals[name] === 'undefined' && typeof source[name] !== 'undefined') {
+      globals[name] = source[name];
+    }
+  }
+  if (typeof globals.DOMMatrix === 'undefined') {
+    throw new Error('pdf-navigation could not install a DOMMatrix polyfill for pdfjs-dist.');
+  }
+}
+
 export async function extractHeadingPageMap(
   pdfBytes: Uint8Array,
   entries: TocEntry[],
   startPage = 1
 ): Promise<Record<string, number>> {
+  await ensureGeometryGlobals();
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
   const map: Record<string, number> = {};

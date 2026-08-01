@@ -18,7 +18,34 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+
+/** Smallest valid single-page PDF carrying one known heading string. */
+function buildProbePdf(heading) {
+  const content = Buffer.from(`BT /F1 24 Tf 72 700 Td (${heading}) Tj ET`);
+  const objects = [
+    Buffer.from('<< /Type /Catalog /Pages 2 0 R >>'),
+    Buffer.from('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+    Buffer.from('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>'),
+    Buffer.concat([Buffer.from(`<< /Length ${content.length} >>\nstream\n`), content, Buffer.from('\nendstream')]),
+    Buffer.from('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
+  ];
+  let pdf = Buffer.from('%PDF-1.4\n');
+  const offsets = [];
+  objects.forEach((body, index) => {
+    offsets.push(pdf.length);
+    pdf = Buffer.concat([pdf, Buffer.from(`${index + 1} 0 obj\n`), body, Buffer.from('\nendobj\n')]);
+  });
+  const xref = pdf.length;
+  let table = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) table += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  return Buffer.concat([
+    pdf,
+    Buffer.from(table),
+    Buffer.from(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`),
+  ]);
+}
 
 const root = process.cwd();
 const nextConfig = fs.readFileSync(path.join(root, 'next.config.mjs'), 'utf8');
@@ -103,6 +130,62 @@ await test('P7. no external branch can route a .mjs request through require()', 
     assert.notEqual(request, 'pdfjs-dist', 'pdfjs-dist must never be a commonjs external');
     const entry = require.resolve(request);
     assert.ok(!entry.endsWith('.mjs'), `${request} resolves to ESM (${entry}) but is a commonjs external`);
+  }
+});
+
+await test('P8. the geometry polyfill loads without any native binding', () => {
+  // @napi-rs/canvas/geometry.js is a vendored pure-JS polyfill. Its whole value here is that it
+  // resolves when the compiled binding does not -- which is the deployed condition.
+  const geometry = require('@napi-rs/canvas/geometry.js');
+  assert.equal(typeof geometry.DOMMatrix, 'function');
+  const matrix = new geometry.DOMMatrix([1, 0, 0, 1, 10, 20]);
+  assert.equal(matrix.a, 1);
+  assert.equal(matrix.f, 20);
+});
+
+await test('P9. the call site installs the geometry globals before importing pdfjs', () => {
+  assert.match(navigation, /await ensureGeometryGlobals\(\);\s*\n\s*const pdfjs = await import\('pdfjs-dist/);
+  assert.match(navigation, /await import\('@napi-rs\/canvas\/geometry\.js'\)/);
+  // Fail loudly rather than proceeding without DOMMatrix.
+  assert.match(navigation, /could not install a DOMMatrix polyfill/);
+  // Path2D must not be stubbed: nothing here draws, and a stub would hide a real capability gap.
+  assert.doesNotMatch(navigation, /globals\.Path2D\s*=/);
+});
+
+await test('P10. heading extraction succeeds with the native binding unavailable', async () => {
+  // The exact deployed failure: @napi-rs/canvas cannot resolve, so pdfjs cannot self-polyfill and
+  // throws `DOMMatrix is not defined`. This runs the real extractor against a real PDF with the
+  // binding blocked, in a child process so the module-resolution patch cannot leak.
+  const probe = path.join(root, 'scripts', '.rc1-pdf-navigation-probe.mjs');
+  const pdfPath = path.join(root, 'scripts', '.rc1-pdf-navigation-probe.pdf');
+  fs.writeFileSync(pdfPath, buildProbePdf('RC1HEADINGPROBE'));
+  fs.writeFileSync(probe, `
+import fs from 'node:fs';
+import Module from 'node:module';
+const realResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...rest) {
+  if (request === '@napi-rs/canvas') throw new Error('Cannot find native binding.');
+  return realResolve.call(this, request, ...rest);
+};
+delete globalThis.DOMMatrix; delete globalThis.DOMPoint; delete globalThis.DOMRect;
+const { extractHeadingPageMap } = await import('../src/lib/reports/pdf-navigation.ts');
+const bytes = new Uint8Array(fs.readFileSync(${JSON.stringify(pdfPath)}));
+const map = await extractHeadingPageMap(bytes, [{ key: 'RC1HEADINGPROBE', label: 'probe' }], 1);
+process.stdout.write('MAP=' + JSON.stringify(map));
+`);
+  try {
+    const result = spawnSync(process.execPath, [
+      '--experimental-strip-types',
+      '--experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs',
+      probe,
+    ], { cwd: root, encoding: 'utf8' });
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    assert.equal(result.status, 0, `probe failed:\n${output}`);
+    assert.ok(output.includes('MAP={"RC1HEADINGPROBE":1}'), `unexpected extraction result:\n${output}`);
+    assert.ok(!/DOMMatrix is not defined/.test(output), 'the original failure must not recur');
+  } finally {
+    fs.rmSync(probe, { force: true });
+    fs.rmSync(pdfPath, { force: true });
   }
 });
 
