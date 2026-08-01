@@ -189,6 +189,30 @@ process.stdout.write('MAP=' + JSON.stringify(map));
   }
 });
 
+await test('P11. every PDF-rendering route traces the whole pdfjs build directory', () => {
+  // pdfjs loads pdf.worker.mjs by path from its own build directory at runtime, so tracing the
+  // entry alone leaves the worker missing and rendering fails with "Setting up fake worker
+  // failed". Both routes that render a premium PDF must trace the directory, not just the entry.
+  const renderingRoutes = [
+    '/score/api/admin/orders/[orderReference]/generate-report',
+    '/score/api/internal/fulfilment-worker',
+  ];
+  for (const route of renderingRoutes) {
+    const key = `'${route}': [`;
+    const start = nextConfig.indexOf(key);
+    assert.ok(start > 0, `${route} is not listed in outputFileTracingIncludes`);
+    // Slice from after the opening bracket: the route key itself contains [orderReference], so
+    // searching for the first ']' from the key start finds the wrong bracket.
+    const listStart = start + key.length;
+    const block = nextConfig.slice(listStart, nextConfig.indexOf(']', listStart));
+    assert.match(block, /pdfjs-dist\/legacy\/build\/\*\*\/\*/, `${route} must trace the pdfjs build directory`);
+    assert.match(block, /@sparticuz\/chromium\/bin/, `${route} must trace the Chromium binary`);
+  }
+  // The worker file the failure named must really live in that directory.
+  const worker = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+  assert.ok(fs.existsSync(worker), 'pdf.worker.mjs must exist in the traced directory');
+});
+
 console.log('');
 console.log(`rc1-pdf-navigation-module: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);

@@ -16,10 +16,21 @@ const nextConfig = {
   },
   experimental: {
     typedRoutes: false,
+    // Both routes that render a premium PDF need the same three things on disk at runtime.
+    // pdfjs-dist loads its worker by path from its own build directory, so tracing pdf.mjs alone
+    // is not enough -- the automatic fulfilment worker failed with "Setting up fake worker failed:
+    // Cannot find module .../pdf.worker.mjs" because the worker file was never traced, and the
+    // route itself was not listed here at all even though it renders exactly the same report.
     outputFileTracingIncludes: {
       '/score/api/admin/orders/[orderReference]/generate-report': [
         './node_modules/@sparticuz/chromium/bin/**/*',
-        './node_modules/@napi-rs/canvas/**/*'
+        './node_modules/@napi-rs/canvas/**/*',
+        './node_modules/pdfjs-dist/legacy/build/**/*'
+      ],
+      '/score/api/internal/fulfilment-worker': [
+        './node_modules/@sparticuz/chromium/bin/**/*',
+        './node_modules/@napi-rs/canvas/**/*',
+        './node_modules/pdfjs-dist/legacy/build/**/*'
       ]
     }
   },
