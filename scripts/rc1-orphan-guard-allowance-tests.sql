@@ -495,12 +495,15 @@ end $t$;
 -- ---------------------------------------------------------------------------
 -- One failing row rolls back every deletion.
 -- ---------------------------------------------------------------------------
-do $t$
-declare v_msg text; v_state text; v_before jsonb; v_ok boolean; i integer;
+-- Rebuild an orphan set, and give one orphan email event a surviving linked attestation so the
+-- last of the four deletes hits a RESTRICT foreign key after three have already succeeded.
+-- Seeding runs at replica, as above; the run under test runs at origin. session_replication_role
+-- cannot be set from inside a DO block here, so the seeding is hoisted to top level.
+set local session_replication_role = replica;
+
+do $rollback_fixture$
+declare i integer;
 begin
-  -- Rebuild an orphan set, and give one orphan email event a surviving linked attestation so the
-  -- last of the four deletes hits a RESTRICT foreign key after three have already succeeded.
-  perform set_config('session_replication_role', 'replica', true);
   insert into public.email_events(id,recipient_email,status)
   values ('59000000-0000-0000-0000-000000000110','orphan2@example.invalid','sent');
   for i in 1..3 loop
@@ -522,8 +525,13 @@ begin
   ) values ('59000000-0000-0000-0000-000000000203','webhook','resend','rc1-orphan-guard-rb-linked',
     '59000000-0000-0000-0000-000000000005','59000000-0000-0000-0000-000000000110','delivered',
     repeat('8',64),gen_random_uuid(),now(),now(),'{}'::jsonb,1);
-  perform set_config('session_replication_role', 'origin', true);
+end $rollback_fixture$;
 
+set local session_replication_role = origin;
+
+do $t$
+declare v_msg text; v_state text; v_before jsonb; v_ok boolean;
+begin
   v_before := pg_temp.counts();
   v_ok := false;
   begin
