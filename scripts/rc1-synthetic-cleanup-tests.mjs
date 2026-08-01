@@ -670,6 +670,54 @@ test('D42. the original refusal is preserved verbatim and stays the default', ()
   assert.doesNotMatch(executable, /delete from/i, 'a guard migration must not delete anything');
 });
 
+// ---------------------------------------------------------------------------
+// 20260801140000 -- the Phase 14 authoritative-mutation allowance
+//
+// report_events written during generation carry a phase14_operation_ref, so the shared guard
+// refused their deletion and blocked reports, score_runs, assessments and organisations behind it.
+// ---------------------------------------------------------------------------
+const authGuardName = '20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql';
+const authGuard = fs.readFileSync(path.join(root, 'supabase', 'migrations', authGuardName), 'utf8');
+
+test('D43. the allowance requires both the marker and proven provenance', () => {
+  assert.match(authGuard, /current_setting\('rc1\.synthetic_cleanup_ref', true\)/);
+  assert.match(authGuard, /o\.synthetic_certification_ref = v_cleanup_ref/);
+  assert.match(authGuard, /if v_synthetic_ref is not null and v_synthetic_ref = v_cleanup_ref then\s*\n\s*return old;/);
+});
+
+test('D44. provenance follows every link these tables actually have', () => {
+  for (const link of [
+    /where a\.id = nullif\(v_old->>'assessment_id',''\)::uuid/,
+    /where r\.id = nullif\(v_old->>'report_id',''\)::uuid/,
+    /where e\.id = nullif\(v_old->>'email_event_id',''\)::uuid/,
+  ]) {
+    assert.match(authGuard, link, 'each provenance link must be followed');
+  }
+});
+
+test('D45. only DELETE is relaxed, and every refusal survives', () => {
+  const body = authGuard.slice(authGuard.indexOf('as $$'), authGuard.indexOf('$$;'));
+  const allowance = body.slice(body.indexOf("if tg_op = 'DELETE' then"), body.indexOf('select pg_get_userbyid'));
+  assert.doesNotMatch(allowance, /tg_op in \('INSERT'|tg_op = 'UPDATE'/, 'the allowance is DELETE-only');
+  for (const preserved of [
+    'phase14_authoritative_rpc_required:%:%',
+    'phase14_operation_ref_immutable:%',
+    "'authenticated_rpc','fulfilment_queue_rpc','fulfilment_transition_rpc'",
+    'new.phase14_operation_ref :=',
+  ]) {
+    assert.ok(authGuard.includes(preserved), `the replacement dropped: ${preserved}`);
+  }
+});
+
+test('D46. the guard keeps its original security mode and search_path', () => {
+  // Measured on the live definition: this guard is SECURITY INVOKER, not DEFINER.
+  const header = authGuard.slice(authGuard.indexOf('create or replace function public.guard_phase14_authoritative_mutation'), authGuard.indexOf('as $$'));
+  assert.doesNotMatch(header, /security definer/i, 'this guard must remain SECURITY INVOKER');
+  assert.match(header, /set search_path = ''/);
+  const executable = authGuard.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable, /session_replication_role|disable trigger|drop trigger|delete from/i);
+});
+
 console.log('');
 console.log(`rc1-synthetic-cleanup: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);
