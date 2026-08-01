@@ -37,8 +37,16 @@ const nextConfig = {
       // above -- so both packages must resolve through Node's own module loader at runtime
       // instead of being pulled into the webpack graph.
       config.externals.push(({ request }, callback) => {
-        if (request === 'pdfjs-dist' || request.startsWith('pdfjs-dist/')
-          || request === '@napi-rs/canvas' || request.startsWith('@napi-rs/canvas/')) {
+        // pdfjs-dist ships ESM (pdf.mjs). Externalising it as `commonjs` made webpack emit
+        // require('.../pdf.mjs'), which Node refuses with ERR_REQUIRE_ESM -- the call site already
+        // uses `await import()`, but a commonjs external rewrites that back into a require. The
+        // `import` external type keeps it a real dynamic import, which is what both Node and the
+        // call site expect.
+        if (request === 'pdfjs-dist' || request.startsWith('pdfjs-dist/')) {
+          return callback(null, `import ${request}`);
+        }
+        // @napi-rs/canvas is a native CommonJS addon: it must stay a commonjs external.
+        if (request === '@napi-rs/canvas' || request.startsWith('@napi-rs/canvas/')) {
           return callback(null, `commonjs ${request}`);
         }
         callback();
