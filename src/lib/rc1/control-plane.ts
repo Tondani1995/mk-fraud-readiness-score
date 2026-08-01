@@ -521,6 +521,143 @@ function safeDeletedCounts(value: unknown): Record<string, number> {
   return counts;
 }
 
+/**
+ * RC1 orphan-remediation route.
+ *
+ * The synthetic-journey cleanup is scoped to rows reachable from a MKTEST-RC1- organisation, which
+ * is the right boundary. Provider callbacks can nevertheless arrive for an email event that no
+ * longer exists, or for none at all, leaving rows that reference no business record and never can
+ * again. This route removes exactly that residue.
+ *
+ * Two phases with a fingerprint-and-count contract. `prepare` measures; `execute` re-derives the
+ * candidate set inside the database and refuses unless the fingerprint and total still match, so a
+ * candidate that appeared, vanished or was substituted between the calls cannot be removed. The
+ * browser supplies a reason and the two values it was given -- never a record id, provider id,
+ * recipient or predicate. Every authority decision stays in the database functions.
+ */
+const REMEDIATION_PHASES = new Set(['prepare', 'execute']);
+const SAFE_RELATION_KEY = /^[a-z][a-z0-9_]{2,63}$/;
+
+const REMEDIATION_REFUSAL_REASONS = new Set([
+  'rc1_orphan_remediation:not_enabled_in_this_environment',
+  'rc1_orphan_remediation:database_not_released',
+  'rc1_orphan_remediation:meaningful_reason_required',
+  'rc1_orphan_remediation:expected_result_required',
+  'rc1_orphan_remediation:candidate_total_mismatch',
+  'rc1_orphan_remediation:candidate_fingerprint_mismatch',
+  'rc1_orphan_remediation:candidate_limit_exceeded',
+  'rc1_orphan_remediation:candidate_still_linked',
+  'rc1_freeze_control:no_session',
+  'rc1_freeze_control:malformed_session',
+  'rc1_freeze_control:expired_session',
+  'rc1_freeze_control:inactive_session',
+  'rc1_freeze_control:platform_admin_required',
+  'rc1_freeze_control:aal2_required',
+]);
+
+function safeRemediationReason(error: { message?: string } | null): string {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  for (const known of REMEDIATION_REFUSAL_REASONS) {
+    if (message.includes(known)) return known;
+  }
+  if (/rc1_operation_frozen:/.test(message)) return 'rc1_operation_frozen';
+  return 'unclassified';
+}
+
+/** Keeps only closed-vocabulary relation names mapped to non-negative integer counts. */
+function safeRelationCounts(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const counts: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!SAFE_RELATION_KEY.test(key)) continue;
+    if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw < 0) continue;
+    counts[key] = raw;
+  }
+  return counts;
+}
+
+export function createRc1OrphanRemediationPost(
+  dependencies: Rc1SyntheticCleanupDependencies = {},
+) {
+  return async function POST(request: Request) {
+    const frozen = await (
+      dependencies.freezeResponse
+        ?? (() => getRc1OperationFreezeResponse('activation_control'))
+    )();
+    if (frozen) return frozen;
+
+    const operator = await requireOperator(dependencies);
+    if (!isOperator(operator)) return operator;
+
+    const body = await readJsonBody(request);
+    if (!body) return json({ ok: false, error: 'RC1_CONTROL_INVALID_BODY' }, 400);
+
+    const phase = typeof body.phase === 'string' ? body.phase.trim() : '';
+    if (!REMEDIATION_PHASES.has(phase)) {
+      return json({ ok: false, error: 'RC1_REMEDIATION_PHASE_INVALID' }, 400);
+    }
+
+    if (phase === 'prepare') {
+      const { data, error } = await callRpc(dependencies, operator, 'rc1_prepare_orphan_remediation');
+      if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+        return json({ ok: false, error: 'RC1_REMEDIATION_REFUSED', reason: safeRemediationReason(error) }, 409);
+      }
+      const result = data as Record<string, unknown>;
+      const total = result.total;
+      const fingerprint = typeof result.fingerprint === 'string' ? result.fingerprint : '';
+      if (!Number.isSafeInteger(total) || Number(total) < 0 || !FINGERPRINT.test(fingerprint)) {
+        return json({ ok: false, error: 'RC1_REMEDIATION_UNEXPECTED_RPC_RESPONSE' }, 502);
+      }
+      return json({
+        ok: true,
+        phase: 'prepare',
+        total: Number(total),
+        fingerprint,
+        counts: safeRelationCounts(result.counts),
+        classification: result.classification === 'already_clean' ? 'already_clean' : 'removable_orphans',
+      });
+    }
+
+    const reason = meaningfulReason(body.reason);
+    if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
+    const expectedFingerprint = typeof body.expectedFingerprint === 'string'
+      ? body.expectedFingerprint.trim().toLowerCase()
+      : '';
+    if (!FINGERPRINT.test(expectedFingerprint)) {
+      return json({ ok: false, error: 'RC1_REMEDIATION_EXPECTED_FINGERPRINT_REQUIRED' }, 400);
+    }
+    const expectedTotal = body.expectedTotal;
+    if (!Number.isSafeInteger(expectedTotal) || Number(expectedTotal) < 0) {
+      return json({ ok: false, error: 'RC1_REMEDIATION_EXPECTED_TOTAL_REQUIRED' }, 400);
+    }
+
+    const { data, error } = await callRpc(
+      dependencies,
+      operator,
+      'rc1_execute_orphan_remediation',
+      {
+        p_reason: reason,
+        p_expected_fingerprint: expectedFingerprint,
+        p_expected_total: Number(expectedTotal),
+      },
+    );
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return json({ ok: false, error: 'RC1_REMEDIATION_REFUSED', reason: safeRemediationReason(error) }, 409);
+    }
+    const result = data as Record<string, unknown>;
+    if (typeof result.already_clean !== 'boolean' || !Number.isSafeInteger(result.total)) {
+      return json({ ok: false, error: 'RC1_REMEDIATION_UNEXPECTED_RPC_RESPONSE' }, 502);
+    }
+    return json({
+      ok: true,
+      phase: 'execute',
+      already_clean: result.already_clean,
+      total: Number(result.total),
+      deleted: safeRelationCounts(result.deleted),
+    });
+  };
+}
+
 export function createRc1SyntheticCleanupPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {

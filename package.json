@@ -64,6 +64,7 @@
     "rc1:test-playbook-semantics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-question-playbook-semantic-review-tests.mjs",
     "rc1:test-quality-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-commercial-quality-diagnostics-tests.mjs",
     "rc1:test-webhook-verification": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/rc1-resend-webhook-verification-tests.mjs",
+    "rc1:test-orphan-remediation": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-orphan-remediation-tests.mjs",
     "rc1:test-delivery-entitlement-metadata": "node scripts/rc1-delivery-entitlement-metadata-tests.mjs",
     "rc1:test-heading-match-diagnostic": "node scripts/rc1-heading-match-diagnostic-tests.mjs",
     "rc1:test-pdf-navigation-module": "node scripts/rc1-pdf-navigation-module-tests.mjs",

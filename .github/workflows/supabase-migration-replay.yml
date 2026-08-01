@@ -578,8 +578,8 @@ jobs:
       - name: Capture final local migration ledger
         run: |
           set -Eeuo pipefail
-          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations")" = '56'
-          test "$(psql "$LOCAL_DB_URL" -XAtc "select max(version) from supabase_migrations.schema_migrations")" = '20260801140000'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select count(*) from supabase_migrations.schema_migrations")" = '57'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select max(version) from supabase_migrations.schema_migrations")" = '20260801160000'
           psql "$LOCAL_DB_URL" \
             --set=ON_ERROR_STOP=1 \
             --tuples-only \

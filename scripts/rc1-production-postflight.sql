@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 56 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 57 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260801140000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260801160000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 22
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 23
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -95,14 +95,15 @@ with authorised(version, name) as (
     ('20260801070000','rc1_synthetic_cleanup_attestation_routes'),
     ('20260801090000','rc1_synthetic_cleanup_attestation_allowance'),
     ('20260801120000','rc1_delivery_entitlement_user_metadata'),
-    ('20260801140000','rc1_synthetic_cleanup_authoritative_allowance')
+    ('20260801140000','rc1_synthetic_cleanup_authoritative_allowance'),
+    ('20260801160000','rc1_orphan_remediation')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 22 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 23 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -112,7 +113,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
