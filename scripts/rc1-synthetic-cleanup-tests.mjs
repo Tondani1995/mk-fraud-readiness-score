@@ -621,6 +621,55 @@ test('D38. every other control in the cleanup is unchanged', () => {
   assert.match(attestation, /revoke all on function public\.rc1_cleanup_synthetic_certification\(text,text,text,integer\)\s*\n\s*from public, anon, authenticated, service_role;/);
 });
 
+// ---------------------------------------------------------------------------
+// 20260801090000 -- the attestation immutability allowance
+//
+// Finding the attestations was not the same as being allowed to remove them:
+// guard_phase14_provider_attestation_immutable refused every DELETE unconditionally, so the
+// resolved rows survived and blocked email_events with the same 23503.
+// ---------------------------------------------------------------------------
+const attestGuardName = '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql';
+const attestGuard = fs.readFileSync(path.join(root, 'supabase', 'migrations', attestGuardName), 'utf8');
+const originalAttestGuard = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations', '0017_phase14_canonical_disabled_foundation.sql'), 'utf8');
+
+test('D39. the attestation guard requires both the marker and proven provenance', () => {
+  assert.match(attestGuard, /current_setting\('rc1\.synthetic_cleanup_ref', true\)/);
+  assert.match(attestGuard, /if v_cleanup_ref is not null and v_cleanup_ref <> '' then/);
+  assert.match(attestGuard, /o\.synthetic_certification_ref = v_cleanup_ref/);
+  assert.match(attestGuard, /if v_synthetic_ref is not null and v_synthetic_ref = v_cleanup_ref then\s*\n\s*return old;/);
+});
+
+test('D40. provenance follows both of the attestation routes', () => {
+  assert.match(attestGuard, /from public\.report_delivery_authorizations d\s*\n\s*join public\.assessments a on a\.id = d\.assessment_id\s*\n\s*where d\.id = old\.authorization_id/);
+  assert.match(attestGuard, /from public\.email_events e\s*\n\s*join public\.assessments a on a\.id = e\.assessment_id\s*\n\s*where e\.id = old\.email_event_id/);
+});
+
+test('D41. UPDATE is never relaxed, only DELETE', () => {
+  const body = attestGuard.slice(attestGuard.indexOf('as $$'), attestGuard.indexOf('$$;'));
+  assert.match(body, /if tg_op = 'DELETE' then/);
+  assert.doesNotMatch(body, /tg_op = 'UPDATE'/, 'the allowance must not mention UPDATE');
+  // Exactly one early return, inside the proven branch; everything else still raises.
+  assert.equal((body.match(/return old;/g) ?? []).length, 1);
+  assert.match(body, /raise exception 'phase14_provider_attestation_immutable';/);
+  assert.match(attestGuard, /UPDATE is deliberately not relaxed/i);
+});
+
+test('D42. the original refusal is preserved verbatim and stays the default', () => {
+  assert.ok(originalAttestGuard.includes("raise exception 'phase14_provider_attestation_immutable';"),
+    'the accepted 0017 refusal must still exist to compare against');
+  const body = attestGuard.slice(attestGuard.indexOf('as $$'), attestGuard.indexOf('$$;'));
+  // The refusal is the last statement: anything that does not return early still fails closed.
+  const refusalIndex = body.lastIndexOf("raise exception 'phase14_provider_attestation_immutable';");
+  assert.ok(refusalIndex > body.indexOf('return old;'), 'the refusal must follow the allowance');
+  assert.match(attestGuard, /set search_path=''/, 'the guard must keep its empty search_path');
+  const executable = attestGuard.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable, /session_replication_role/i);
+  assert.doesNotMatch(executable, /drop trigger/i);
+  assert.doesNotMatch(executable, /disable trigger/i);
+  assert.doesNotMatch(executable, /delete from/i, 'a guard migration must not delete anything');
+});
+
 console.log('');
 console.log(`rc1-synthetic-cleanup: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);

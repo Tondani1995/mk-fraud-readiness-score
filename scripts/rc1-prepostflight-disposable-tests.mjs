@@ -49,7 +49,8 @@ const pending = [
   '20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql',
   '20260731150000_rc1_synthetic_cleanup_guard_allowances.sql',
   '20260731170000_rc1_synthetic_storage_cleanup_closure.sql',
-  '20260801070000_rc1_synthetic_cleanup_attestation_routes.sql'
+  '20260801070000_rc1_synthetic_cleanup_attestation_routes.sql',
+  '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
