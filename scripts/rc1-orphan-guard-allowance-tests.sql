@@ -158,7 +158,7 @@ begin
     '59000000-0000-0000-0000-000000000005','59000000-0000-0000-0000-000000000004',repeat('c',64),
     'linked@example.invalid','59000000-0000-0000-0000-000000000003',
     '59000000-0000-0000-0000-000000000001','59000000-0000-0000-0000-000000000002',
-    'resend','59000000-0000-0000-0000-000000000101','sent'
+    'resend','59000000-0000-0000-0000-000000000101','finalized'
   );
 
   -- Seven orphan provider events, all on the orphan email event.
@@ -170,28 +170,28 @@ begin
   -- Seven orphan attestations: no delivery authorisation, orphan email event.
   for i in 1..7 loop
     insert into public.phase14_provider_attestations(
-      attestation_source,provider,email_event_id,provider_state,payload_sha256,
+      attestation_source,provider,provider_event_id,email_event_id,provider_state,payload_sha256,
       nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch
     ) values (
-      'provider_webhook','resend','59000000-0000-0000-0000-000000000100','delivered',repeat('d',64),
-      gen_random_uuid(),now(),now(),'{}'::jsonb,1
+      'webhook','resend','rc1-orphan-guard-att-'||i,'59000000-0000-0000-0000-000000000100','delivered',
+      repeat('d',64),gen_random_uuid(),now(),now(),'{}'::jsonb,1
     );
   end loop;
 
   -- Two controls that orphan remediation must never touch.
   insert into public.phase14_provider_attestations(
-    id,attestation_source,provider,authorization_id,provider_state,payload_sha256,
+    id,attestation_source,provider,provider_event_id,authorization_id,provider_state,payload_sha256,
     nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch
   ) values (
-    '59000000-0000-0000-0000-000000000201','provider_webhook','resend',
+    '59000000-0000-0000-0000-000000000201','webhook','resend','rc1-orphan-guard-linked-auth',
     '59000000-0000-0000-0000-000000000005','delivered',repeat('e',64),
     gen_random_uuid(),now(),now(),'{}'::jsonb,1
   );
   insert into public.phase14_provider_attestations(
-    id,attestation_source,provider,email_event_id,provider_state,payload_sha256,
+    id,attestation_source,provider,provider_event_id,email_event_id,provider_state,payload_sha256,
     nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch
   ) values (
-    '59000000-0000-0000-0000-000000000202','provider_webhook','resend',
+    '59000000-0000-0000-0000-000000000202','webhook','resend','rc1-orphan-guard-linked-event',
     '59000000-0000-0000-0000-000000000101','delivered',repeat('f',64),
     gen_random_uuid(),now(),now(),'{}'::jsonb,1
   );
@@ -507,17 +507,19 @@ begin
     insert into public.email_provider_events(email_event_id,provider,provider_event_id,event_type)
     values ('59000000-0000-0000-0000-000000000110','resend','rc1-orphan-guard-rb-'||i,'email.delivered');
     insert into public.phase14_provider_attestations(
-      attestation_source,provider,email_event_id,provider_state,payload_sha256,
+      attestation_source,provider,provider_event_id,email_event_id,provider_state,payload_sha256,
       nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch
-    ) values ('provider_webhook','resend','59000000-0000-0000-0000-000000000110','delivered',
+    ) values ('webhook','resend','rc1-orphan-guard-rb-att-'||i,
+      '59000000-0000-0000-0000-000000000110','delivered',
       repeat('9',64),gen_random_uuid(),now(),now(),'{}'::jsonb,1);
   end loop;
   -- Linked through a surviving delivery authorisation, so never a candidate, yet still pointing at
   -- the orphan email event.
   insert into public.phase14_provider_attestations(
-    id,attestation_source,provider,authorization_id,email_event_id,provider_state,payload_sha256,
+    id,attestation_source,provider,provider_event_id,authorization_id,email_event_id,
+    provider_state,payload_sha256,
     nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch
-  ) values ('59000000-0000-0000-0000-000000000203','provider_webhook','resend',
+  ) values ('59000000-0000-0000-0000-000000000203','webhook','resend','rc1-orphan-guard-rb-linked',
     '59000000-0000-0000-0000-000000000005','59000000-0000-0000-0000-000000000110','delivered',
     repeat('8',64),gen_random_uuid(),now(),now(),'{}'::jsonb,1);
   perform set_config('session_replication_role', 'origin', true);
