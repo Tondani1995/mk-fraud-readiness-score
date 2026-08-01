@@ -36,7 +36,7 @@ assert.equal(manifest.migrationCountAfter, 46);
 const migrations = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrations.length, 59);
+assert.equal(migrations.length, 60);
 // By name and relative order, not tail position -- later RC1 migrations append to the ledger.
 assert.ok(migrations.includes(manifest.newestMigration));
 assert.ok(migrations.includes('20260729170000_rc1_authenticated_admin_profile_read.sql'));
@@ -49,7 +49,7 @@ const newestApplied = sql(`
   select version from supabase_migrations.schema_migrations order by version desc limit 1
 `);
 // The newest applied migration tracks the RC1 series head, not migration 47 specifically.
-assert.equal(newestApplied, '20260801200000');
+assert.equal(newestApplied, '20260801220000');
 
 const roleState = JSON.parse(sql(`
   select jsonb_build_object(

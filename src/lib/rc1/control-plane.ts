@@ -655,6 +655,93 @@ export function createRc1CertificationEnablementPost(
   };
 }
 
+const SYNTHETIC_REFERENCE = /^MKTEST-RC1-[0-9]{8}-[0-9]{2}$/;
+
+// Journey references are the assessment's own public identifier, not a row id. The shape is pinned
+// here so nothing resembling an id, an address or a predicate can reach the RPC.
+const ASSESSMENT_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9-]{2,99}$/;
+
+const MARKING_REFUSAL_REASONS = new Set([
+  'rc1_synthetic_marking:meaningful_reason_required',
+  'rc1_synthetic_marking:synthetic_reference_invalid',
+  'rc1_synthetic_marking:assessment_reference_required',
+  'rc1_synthetic_marking:not_enabled_in_this_environment',
+  'rc1_synthetic_marking:database_not_released',
+  'rc1_synthetic_marking:assessment_not_found',
+  'rc1_synthetic_marking:organisation_already_marked_or_missing',
+  'rc1_synthetic_marking:organisation_not_recent',
+  'rc1_synthetic_marking:organisation_has_other_assessments',
+  'rc1_synthetic_marking:organisation_already_in_use',
+  'rc1_synthetic_marking:marking_did_not_apply_exactly_once',
+  'rc1_freeze_control:no_session',
+  'rc1_freeze_control:malformed_session',
+  'rc1_freeze_control:expired_session',
+  'rc1_freeze_control:inactive_session',
+  'rc1_freeze_control:platform_admin_required',
+  'rc1_freeze_control:aal2_required',
+]);
+
+function safeMarkingReason(error: { message?: string } | null): string {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  for (const known of MARKING_REFUSAL_REASONS) {
+    if (message.includes(known)) return known;
+  }
+  if (/rc1_operation_frozen:/.test(message)) return 'rc1_operation_frozen';
+  return 'unclassified';
+}
+
+export function createRc1SyntheticMarkingPost(
+  dependencies: Rc1SyntheticCleanupDependencies = {},
+) {
+  return async function POST(request: Request) {
+    const frozen = await (
+      dependencies.freezeResponse
+        ?? (() => getRc1OperationFreezeResponse('activation_control'))
+    )();
+    if (frozen) return frozen;
+
+    const operator = await requireOperator(dependencies);
+    if (!isOperator(operator)) return operator;
+
+    const body = await readJsonBody(request);
+    if (!body) return json({ ok: false, error: 'RC1_CONTROL_INVALID_BODY' }, 400);
+
+    const assessmentReference = typeof body.assessmentReference === 'string'
+      ? body.assessmentReference.trim()
+      : '';
+    if (!ASSESSMENT_REFERENCE.test(assessmentReference)) {
+      return json({ ok: false, error: 'RC1_MARKING_ASSESSMENT_REFERENCE_REQUIRED' }, 400);
+    }
+    const syntheticReference = typeof body.syntheticReference === 'string'
+      ? body.syntheticReference.trim().toUpperCase()
+      : '';
+    if (!SYNTHETIC_REFERENCE.test(syntheticReference)) {
+      return json({ ok: false, error: 'RC1_MARKING_SYNTHETIC_REFERENCE_REQUIRED' }, 400);
+    }
+    const reason = meaningfulReason(body.reason);
+    if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
+
+    const { data, error } = await callRpc(
+      dependencies,
+      operator,
+      'rc1_mark_synthetic_certification_organisation',
+      {
+        p_assessment_reference: assessmentReference,
+        p_synthetic_reference: syntheticReference,
+        p_reason: reason,
+      },
+    );
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return json({ ok: false, error: 'RC1_MARKING_REFUSED', reason: safeMarkingReason(error) }, 409);
+    }
+    const result = data as Record<string, unknown>;
+    if (result.synthetic_reference !== syntheticReference || result.marked !== 1) {
+      return json({ ok: false, error: 'RC1_MARKING_UNEXPECTED_RPC_RESPONSE' }, 502);
+    }
+    return json({ ok: true, syntheticReference, marked: 1 });
+  };
+}
+
 export function createRc1OrphanRemediationPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
