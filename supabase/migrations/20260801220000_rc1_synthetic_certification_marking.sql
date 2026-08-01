@@ -171,11 +171,15 @@ begin
   + (select pg_catalog.count(*) from public.email_events e
        join public.assessments a on a.id = e.assessment_id
        where a.organisation_id = v_organisation_id)
+  -- A data request carries both links, so either one counts as use.
   + (select pg_catalog.count(*) from public.data_requests dr
-       join public.assessments a on a.id = dr.assessment_id
-       where a.organisation_id = v_organisation_id)
+       where dr.organisation_id = v_organisation_id
+          or dr.assessment_id in (
+               select a.id from public.assessments a where a.organisation_id = v_organisation_id))
+  -- An access token has no assessment column; it reaches the organisation through its order.
   + (select pg_catalog.count(*) from public.customer_report_access_tokens t
-       join public.assessments a on a.id = t.assessment_id
+       join public.orders o2 on o2.id = t.order_id
+       join public.assessments a on a.id = o2.assessment_id
        where a.organisation_id = v_organisation_id)
   into v_blocking;
   if v_blocking > 0 then
