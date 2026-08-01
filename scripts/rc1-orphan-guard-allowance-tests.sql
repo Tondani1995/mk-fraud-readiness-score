@@ -140,7 +140,7 @@ begin
   ) values (
     '59000000-0000-0000-0000-000000000004',
     '59000000-0000-0000-0000-000000000001','59000000-0000-0000-0000-000000000002',
-    v_template,'premium','RPT-RC1-ORPHAN-GUARD'
+    v_template,'essential_self_assessment'::public.report_type,'RPT-RC1-ORPHAN-GUARD'
   );
 
   -- The orphan email event: no assessment, order, report or data request.
