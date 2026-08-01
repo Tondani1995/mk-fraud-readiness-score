@@ -53,7 +53,8 @@ const pending = [
   '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql',
   '20260801120000_rc1_delivery_entitlement_user_metadata.sql',
   '20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql',
-  '20260801160000_rc1_orphan_remediation.sql'
+  '20260801160000_rc1_orphan_remediation.sql',
+  '20260801180000_rc1_certification_enablement_control.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],

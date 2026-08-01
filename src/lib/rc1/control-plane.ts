@@ -576,6 +576,85 @@ function safeRelationCounts(value: unknown): Record<string, number> {
   return counts;
 }
 
+/**
+ * RC1 certification-enablement route.
+ *
+ * The two RC1 certification flags are inert until an operator grants them, and nothing could grant
+ * them through an audited path: update_phase14_feature_policy refuses every key except the two
+ * Phase 14 settings, leaving only a direct database edit or service_role. This route is the
+ * audited alternative -- the database function owns the allow-list, the AAL2 requirement and the
+ * audit, and app_settings sits on the activation_control freeze surface, so a grant is only
+ * possible inside a deliberate RELEASED window.
+ */
+const CERTIFICATION_ENABLEMENT_KEYS = new Set([
+  'rc1_synthetic_certification_cleanup',
+  'rc1_orphan_remediation',
+]);
+
+const ENABLEMENT_REFUSAL_REASONS = new Set([
+  'rc1_certification_enablement:setting_key_forbidden',
+  'rc1_certification_enablement:enabled_required',
+  'rc1_certification_enablement:meaningful_reason_required',
+  'rc1_freeze_control:no_session',
+  'rc1_freeze_control:malformed_session',
+  'rc1_freeze_control:expired_session',
+  'rc1_freeze_control:inactive_session',
+  'rc1_freeze_control:platform_admin_required',
+  'rc1_freeze_control:aal2_required',
+]);
+
+function safeEnablementReason(error: { message?: string } | null): string {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  for (const known of ENABLEMENT_REFUSAL_REASONS) {
+    if (message.includes(known)) return known;
+  }
+  if (/rc1_operation_frozen:/.test(message)) return 'rc1_operation_frozen';
+  return 'unclassified';
+}
+
+export function createRc1CertificationEnablementPost(
+  dependencies: Rc1SyntheticCleanupDependencies = {},
+) {
+  return async function POST(request: Request) {
+    const frozen = await (
+      dependencies.freezeResponse
+        ?? (() => getRc1OperationFreezeResponse('activation_control'))
+    )();
+    if (frozen) return frozen;
+
+    const operator = await requireOperator(dependencies);
+    if (!isOperator(operator)) return operator;
+
+    const body = await readJsonBody(request);
+    if (!body) return json({ ok: false, error: 'RC1_CONTROL_INVALID_BODY' }, 400);
+
+    const settingKey = typeof body.settingKey === 'string' ? body.settingKey.trim() : '';
+    if (!CERTIFICATION_ENABLEMENT_KEYS.has(settingKey)) {
+      return json({ ok: false, error: 'RC1_ENABLEMENT_KEY_FORBIDDEN' }, 400);
+    }
+    if (typeof body.enabled !== 'boolean') {
+      return json({ ok: false, error: 'RC1_ENABLEMENT_STATE_REQUIRED' }, 400);
+    }
+    const reason = meaningfulReason(body.reason);
+    if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
+
+    const { data, error } = await callRpc(
+      dependencies,
+      operator,
+      'rc1_set_certification_enablement',
+      { p_setting_key: settingKey, p_enabled: body.enabled, p_reason: reason },
+    );
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return json({ ok: false, error: 'RC1_ENABLEMENT_REFUSED', reason: safeEnablementReason(error) }, 409);
+    }
+    const result = data as Record<string, unknown>;
+    if (result.setting_key !== settingKey || typeof result.enabled !== 'boolean') {
+      return json({ ok: false, error: 'RC1_ENABLEMENT_UNEXPECTED_RPC_RESPONSE' }, 502);
+    }
+    return json({ ok: true, settingKey, enabled: result.enabled, scope: 'staging_certification_only' });
+  };
+}
+
 export function createRc1OrphanRemediationPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {
