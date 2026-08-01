@@ -60,9 +60,9 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 58 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 59 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260801180000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260801200000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
@@ -97,14 +97,15 @@ with authorised(version, name) as (
     ('20260801120000','rc1_delivery_entitlement_user_metadata'),
     ('20260801140000','rc1_synthetic_cleanup_authoritative_allowance'),
     ('20260801160000','rc1_orphan_remediation'),
-    ('20260801180000','rc1_certification_enablement_control')
+    ('20260801180000','rc1_certification_enablement_control'),
+    ('20260801200000','rc1_orphan_remediation_guard_allowance')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 24 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 25 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -114,7 +115,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when

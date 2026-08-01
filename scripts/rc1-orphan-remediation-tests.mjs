@@ -376,6 +376,141 @@ await test('O26. the route file stays a thin wrapper and the audit joins a freez
   }
 });
 
+
+// ---------------------------------------------------------------------------
+// 20260801200000: the orphan-remediation allowance on the attestation guard.
+// ---------------------------------------------------------------------------
+const guardAllowance = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations',
+    '20260801200000_rc1_orphan_remediation_guard_allowance.sql'), 'utf8');
+const priorGuard = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations',
+    '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql'), 'utf8');
+
+// Just the guard's own body, so assertions about it cannot be satisfied by the surrounding prose.
+function guardBody() {
+  const from = guardAllowance.indexOf(
+    'create or replace function public.guard_phase14_provider_attestation_immutable');
+  const to = guardAllowance.indexOf('\n$$;', from);
+  assert.ok(from > 0 && to > from);
+  return guardAllowance.slice(from, to);
+}
+
+await test('O27. the guard keeps SECURITY INVOKER, an empty search path and no overload', () => {
+  assert.match(guardAllowance,
+    /create or replace function public\.guard_phase14_provider_attestation_immutable\(\)\nreturns trigger language plpgsql set search_path=''/);
+  // The guard is SECURITY INVOKER. Adding `security definer` here would silently widen it.
+  assert.doesNotMatch(guardBody(), /security definer/);
+  // No new signature is introduced for either function.
+  assert.equal(
+    (guardAllowance.match(/create or replace function public\.rc1_execute_orphan_remediation\(/g) || []).length, 1);
+  assert.match(guardAllowance,
+    /create or replace function public\.rc1_execute_orphan_remediation\(\n  p_reason text,\n  p_expected_fingerprint text,\n  p_expected_total integer\n\)/);
+  assert.doesNotMatch(guardAllowance, /drop function/i);
+});
+
+await test('O28. the accepted synthetic branch is reproduced unchanged', () => {
+  // Everything from the synthetic marker read to the end of that branch must be byte-identical to
+  // the accepted 20260801090000 body, so the linked-journey cleanup cannot have drifted.
+  const slice = (text) => {
+    const from = text.indexOf("v_cleanup_ref := pg_catalog.current_setting('rc1.synthetic_cleanup_ref', true);");
+    const to = text.indexOf('if v_synthetic_ref is not null and v_synthetic_ref = v_cleanup_ref then');
+    assert.ok(from > 0 && to > from);
+    return text.slice(from, to);
+  };
+  assert.equal(slice(guardAllowance), slice(priorGuard));
+});
+
+await test('O29. the allowance requires a real execution frame, not merely a custom setting', () => {
+  // A marker alone proves nothing -- anyone can set a GUC. The stack frame cannot be fabricated.
+  assert.match(guardAllowance, /get diagnostics v_stack = pg_context;/);
+  assert.match(guardAllowance,
+    /'PL\/pgSQL function public\.rc1_execute_orphan_remediation\(text,text,integer\) line '/);
+  // Schema-qualified and fully-typed, so neither another schema nor an overload can match it.
+  assert.ok(guardAllowance.includes('public.rc1_execute_orphan_remediation(text,text,integer) line '));
+  // Transaction-local on both edges, so it cannot survive commit, rollback or an exception.
+  assert.match(guardAllowance,
+    /set_config\('rc1\.orphan_remediation_context', 'active', true\)/);
+  assert.match(guardAllowance,
+    /set_config\('rc1\.orphan_remediation_context', '', true\)/);
+  assert.doesNotMatch(guardAllowance, /set_config\('rc1\.orphan_remediation_context', '[^']*', false\)/);
+});
+
+await test('O30. the row must prove orphanhood itself, and the proof must stay complete', () => {
+  // Both links are required, combined with AND: a null email_event_id never makes a row eligible
+  // while a delivery authorisation survives, and a missing email event never does either.
+  assert.match(guardAllowance,
+    /if \(old\.authorization_id is null\n\s+or not exists \(select 1\n\s+from public\.report_delivery_authorizations d\n\s+where d\.id = old\.authorization_id\)\)\n\s+and \(old\.email_event_id is null/);
+  assert.match(guardAllowance, /and e\.assessment_id is null\n\s+and e\.order_id is null\n\s+and e\.report_id is null\n\s+and e\.data_request_id is null/);
+  // The two-link proof is only complete while those are the only two links.
+  assert.match(guardAllowance, /array\['authorization_id', 'email_event_id'\]::text\[\]/);
+  assert.match(guardAllowance, /phase14_provider_attestation_immutable:orphan_proof_incomplete/);
+  // The guard never calls the classifier, whose result necessarily changes as the deletion
+  // proceeds; it proves orphanhood from OLD instead. A call would be schema-qualified, since the
+  // guard runs with an empty search path -- the unqualified name appears only in a comment.
+  assert.doesNotMatch(guardBody(), /public\.rc1_orphan_remediation_candidates/);
+  assert.doesNotMatch(guardBody(), /(?:perform|from|select)\s+rc1_orphan_remediation_candidates/);
+});
+
+await test('O31. UPDATE and unaudited DELETE remain refused, and the default is still refusal', () => {
+  // The allowance is inside `if tg_op = 'DELETE'`, and the unconditional raise is still the exit.
+  assert.match(guardAllowance, /if tg_op = 'DELETE' then/);
+  assert.match(guardAllowance, /\n  raise exception 'phase14_provider_attestation_immutable';\nend;\n\$\$;/);
+  assert.doesNotMatch(guardAllowance, /tg_op = 'UPDATE'/);
+});
+
+await test('O32. every re-derivation and refusal in execute survives the change', () => {
+  for (const clause of [
+    "raise exception 'rc1_orphan_remediation:candidate_total_mismatch';",
+    "raise exception 'rc1_orphan_remediation:candidate_fingerprint_mismatch';",
+    "raise exception 'rc1_orphan_remediation:candidate_still_linked';",
+    "raise exception 'rc1_orphan_remediation:candidate_limit_exceeded';",
+    "raise exception 'rc1_orphan_remediation:not_enabled_in_this_environment';",
+    "raise exception 'rc1_orphan_remediation:database_not_released';",
+    "raise exception 'rc1_orphan_remediation:meaningful_reason_required';",
+    "public.rc1_require_platform_admin(true)",
+  ]) {
+    assert.ok(guardAllowance.includes(clause), `execute lost: ${clause}`);
+  }
+  // The context is opened only after every check has passed, and never on the already-clean path.
+  const openAt = guardAllowance.indexOf("set_config('rc1.orphan_remediation_context', 'active', true)");
+  const alreadyCleanAt = guardAllowance.indexOf("'already_clean', true, 'total', 0");
+  const linkedAt = guardAllowance.indexOf("raise exception 'rc1_orphan_remediation:candidate_still_linked';");
+  assert.ok(openAt > alreadyCleanAt && openAt > linkedAt);
+  // Nothing widens: no other relation is deleted, and no guard is disabled.
+  assert.doesNotMatch(guardAllowance,
+    /delete from public\.(?:organisations|assessments|orders|reports|score_runs|report_delivery_authorizations)\b/);
+  assert.doesNotMatch(guardAllowance, /session_replication_role|disable trigger/i);
+});
+
+await test('O33. the execution-context marker cannot be influenced from the browser', async () => {
+  // O18 already pins that only three arguments reach the RPC. This pins the fields specific to the
+  // new allowance: nothing a browser sends may name the marker, its value, or a candidate id.
+  const deps = dependencies({ response: { already_clean: false, total: 15, deleted: { email_events: 1 } } });
+  await createRc1OrphanRemediationPost(deps.value)(request({
+    phase: 'execute', reason: REASON, expectedFingerprint: FINGERPRINT, expectedTotal: 15,
+    orphanRemediationContext: 'active',
+    'rc1.orphan_remediation_context': 'active',
+    context: 'active', marker: 'active', setting: 'rc1.orphan_remediation_context',
+    recordIds: ['59000000-0000-0000-0000-000000000201'],
+    relation: 'phase14_provider_attestations',
+  }));
+  assert.deepEqual(deps.calls[0].args, {
+    p_reason: REASON, p_expected_fingerprint: FINGERPRINT, p_expected_total: 15,
+  });
+  const forwarded = JSON.stringify(deps.calls[0].args);
+  for (const leaked of ['orphan_remediation_context', 'active', 'recordIds', '59000000', 'relation']) {
+    assert.ok(!forwarded.includes(leaked), `the route forwarded a hostile field: ${leaked}`);
+  }
+  // And the route never reads any of them.
+  const factory = controlPlane.split('export function createRc1OrphanRemediationPost')[1]
+    .split('export function createRc1SyntheticCleanupPost')[0];
+  for (const field of ['body.context', 'body.marker', 'body.setting', 'body.recordIds', 'body.relation',
+                       'orphan_remediation_context', 'set_config']) {
+    assert.equal(factory.includes(field), false, `route must not read or set ${field}`);
+  }
+});
+
 console.log('');
 console.log(`rc1-orphan-remediation: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);
