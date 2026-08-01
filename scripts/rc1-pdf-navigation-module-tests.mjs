@@ -158,7 +158,7 @@ await test('P10. heading extraction succeeds with the native binding unavailable
   // binding blocked, in a child process so the module-resolution patch cannot leak.
   const probe = path.join(root, 'scripts', '.rc1-pdf-navigation-probe.mjs');
   const pdfPath = path.join(root, 'scripts', '.rc1-pdf-navigation-probe.pdf');
-  fs.writeFileSync(pdfPath, buildProbePdf('RC1HEADINGPROBE'));
+  fs.writeFileSync(pdfPath, buildProbePdf('Probe Heading One'));
   fs.writeFileSync(probe, `
 import fs from 'node:fs';
 import Module from 'node:module';
@@ -170,7 +170,7 @@ Module._resolveFilename = function (request, ...rest) {
 delete globalThis.DOMMatrix; delete globalThis.DOMPoint; delete globalThis.DOMRect;
 const { extractHeadingPageMap } = await import('../src/lib/reports/pdf-navigation.ts');
 const bytes = new Uint8Array(fs.readFileSync(${JSON.stringify(pdfPath)}));
-const map = await extractHeadingPageMap(bytes, [{ key: 'RC1HEADINGPROBE', label: 'probe' }], 1);
+const map = await extractHeadingPageMap(bytes, [{ key: 'Probe Heading One', label: 'probe' }], 1);
 process.stdout.write('MAP=' + JSON.stringify(map));
 `);
   try {
@@ -181,7 +181,7 @@ process.stdout.write('MAP=' + JSON.stringify(map));
     ], { cwd: root, encoding: 'utf8' });
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
     assert.equal(result.status, 0, `probe failed:\n${output}`);
-    assert.ok(output.includes('MAP={"RC1HEADINGPROBE":1}'), `unexpected extraction result:\n${output}`);
+    assert.ok(output.includes('MAP={"Probe Heading One":1}'), `unexpected extraction result:\n${output}`);
     assert.ok(!/DOMMatrix is not defined/.test(output), 'the original failure must not recur');
   } finally {
     fs.rmSync(probe, { force: true });
