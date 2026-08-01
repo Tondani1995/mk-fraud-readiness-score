@@ -72,29 +72,166 @@ async function ensureGeometryGlobals(): Promise<void> {
   }
 }
 
+/**
+ * Diagnostic tiers, in decreasing strictness. Only `exact` is ever used to accept a heading.
+ *
+ * Tiers 2 and 3 exist purely to identify *why* a heading that is demonstrably present in the HTML
+ * was not found in the extracted PDF text, without guessing. Extracted whitespace does not
+ * correspond to HTML whitespace: a heading long enough to wrap is emitted as several text runs,
+ * and depending on how the line breaks those runs may be separated by inconsistent spacing
+ * (tier 2) or split inside a word (tier 3). Which of those actually occurs is an empirical
+ * question about the real renderer, so it is measured rather than assumed.
+ *
+ * Every tier still requires the complete canonical heading in exact character order. None of them
+ * is a similarity, token-subset or fuzzy match.
+ */
+export type HeadingMatchTier = 'exact' | 'whitespace_normalised' | 'whitespace_stripped';
+
+export interface HeadingTierCandidate {
+  tier: HeadingMatchTier;
+  /** Pages on which the full heading appears at this tier. */
+  pages: number[];
+  /** A tier is usable evidence only when exactly one page matches; more is ambiguous. */
+  unique: boolean;
+}
+
+/**
+ * Content-free. `key` is a fixed heading constant from REPORT_TOC_ENTRIES, never report text; the
+ * remaining fields are page numbers and counts. No extracted text, surrounding content,
+ * organisation detail or customer data appears here or in the thrown message.
+ */
+export interface HeadingMatchDiagnostic {
+  key: string;
+  /** The tier actually used to accept the heading. Only ever 'exact', or null when unresolved. */
+  acceptedTier: 'exact' | null;
+  pageNumber: number | null;
+  /** Number of text items on the accepted page -- a shape signal, not content. */
+  textItemCount: number | null;
+  candidates: HeadingTierCandidate[];
+}
+
+export class HeadingExtractionError extends Error {
+  readonly diagnostics: HeadingMatchDiagnostic[];
+  readonly missingKeys: string[];
+  constructor(message: string, diagnostics: HeadingMatchDiagnostic[], missingKeys: string[]) {
+    super(message);
+    this.name = 'HeadingExtractionError';
+    this.diagnostics = diagnostics;
+    this.missingKeys = missingKeys;
+  }
+}
+
+function normaliseWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function stripWhitespace(value: string): string {
+  return value.replace(/\s+/g, '');
+}
+
+/**
+ * Measures, for every entry, which tiers would have located it and on how many pages.
+ *
+ * Exposed separately from extractHeadingPageMap so the evidence can be read whether or not
+ * extraction succeeds -- a heading accepted at tier 1 still carries a uniqueness result worth
+ * knowing. This function decides nothing; it only measures.
+ */
+export async function collectHeadingMatchDiagnostics(
+  pdfBytes: Uint8Array,
+  entries: TocEntry[],
+  startPage = 1
+): Promise<HeadingMatchDiagnostic[]> {
+  await ensureGeometryGlobals();
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+
+  // Every page is read, rather than stopping at the first hit, so a tier's uniqueness can be
+  // established. Acceptance itself is unchanged: the first page whose text contains the heading
+  // exactly still wins, and nothing else can approve a heading.
+  const pages: Array<{ pageNumber: number; exact: string; normalised: string; stripped: string; itemCount: number }> = [];
+  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const exact = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    pages.push({
+      pageNumber,
+      exact,
+      normalised: normaliseWhitespace(exact),
+      stripped: stripWhitespace(exact),
+      itemCount: content.items.length,
+    });
+  }
+
+  const diagnostics: HeadingMatchDiagnostic[] = [];
+
+  for (const entry of entries) {
+    const key = entry.key;
+    const normalisedKey = normaliseWhitespace(key);
+    const strippedKey = stripWhitespace(key);
+
+    const exactPages = pages.filter((page) => page.exact.includes(key)).map((page) => page.pageNumber);
+    const normalisedPages = pages.filter((page) => page.normalised.includes(normalisedKey)).map((page) => page.pageNumber);
+    const strippedPages = pages.filter((page) => page.stripped.includes(strippedKey)).map((page) => page.pageNumber);
+
+    const candidates: HeadingTierCandidate[] = [
+      { tier: 'exact', pages: exactPages, unique: exactPages.length === 1 },
+      { tier: 'whitespace_normalised', pages: normalisedPages, unique: normalisedPages.length === 1 },
+      { tier: 'whitespace_stripped', pages: strippedPages, unique: strippedPages.length === 1 },
+    ];
+
+    // Acceptance is tier 1 only. Tier 2 and tier 3 are recorded and deliberately not honoured.
+    const acceptedPage = exactPages.length > 0 ? exactPages[0] : null;
+
+    diagnostics.push({
+      key,
+      acceptedTier: acceptedPage !== null ? 'exact' : null,
+      pageNumber: acceptedPage,
+      textItemCount: acceptedPage !== null
+        ? (pages.find((page) => page.pageNumber === acceptedPage)?.itemCount ?? null)
+        : null,
+      candidates,
+    });
+  }
+
+  return diagnostics;
+}
+
 export async function extractHeadingPageMap(
   pdfBytes: Uint8Array,
   entries: TocEntry[],
   startPage = 1
 ): Promise<Record<string, number>> {
-  await ensureGeometryGlobals();
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+  const diagnostics = await collectHeadingMatchDiagnostics(pdfBytes, entries, startPage);
   const map: Record<string, number> = {};
-  const remaining = new Set(entries.map((entry) => entry.key));
-  for (let pageNumber = startPage; pageNumber <= doc.numPages && remaining.size > 0; pageNumber += 1) {
-    const page = await doc.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const text = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
-    for (const key of remaining) {
-      if (text.includes(key)) {
-        map[key] = pageNumber;
-        remaining.delete(key);
-      }
+  const missing: string[] = [];
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.acceptedTier === 'exact' && diagnostic.pageNumber !== null) {
+      map[diagnostic.key] = diagnostic.pageNumber;
+    } else {
+      missing.push(diagnostic.key);
     }
   }
-  if (remaining.size > 0) {
-    throw new Error(`extractHeadingPageMap could not locate heading(s) in the rendered PDF: ${[...remaining].join(', ')}`);
+
+  if (missing.length > 0) {
+    // The summary carries heading constants, tier names, page numbers and counts only, so it is
+    // safe for the protected runtime log that already records this stage's error.
+    const summary = diagnostics
+      .filter((diagnostic) => diagnostic.acceptedTier === null)
+      .map((diagnostic) => {
+        const tiers = diagnostic.candidates
+          .filter((candidate) => candidate.tier !== 'exact')
+          .map((candidate) => `${candidate.tier}=${candidate.pages.length === 0
+            ? 'none'
+            : candidate.unique ? `unique(p${candidate.pages[0]})` : `ambiguous(${candidate.pages.length})`}`)
+          .join(' ');
+        return `${diagnostic.key} [${tiers}]`;
+      })
+      .join('; ');
+    throw new HeadingExtractionError(
+      `extractHeadingPageMap could not locate heading(s) in the rendered PDF: ${missing.join(', ')} -- tier diagnostics: ${summary}`,
+      diagnostics,
+      missing,
+    );
   }
   return map;
 }
