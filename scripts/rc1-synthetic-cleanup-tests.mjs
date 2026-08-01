@@ -549,6 +549,78 @@ test('D33. the guard allowance still governs the closure deletions', () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// 20260801070000 -- both routes from an attestation to its journey
+//
+// Attestations were removed by authorization_id only. A journey whose sends were delivered but
+// which had not yet reached a delivery authorisation kept attestations with a null
+// authorization_id, and their foreign key onto email_events blocked the whole cleanup with a
+// 23503 the route could only report as `unclassified`.
+// ---------------------------------------------------------------------------
+const attestationName = '20260801070000_rc1_synthetic_cleanup_attestation_routes.sql';
+const attestation = fs.readFileSync(path.join(root, 'supabase', 'migrations', attestationName), 'utf8');
+
+test('D34. attestations are resolved by delivery authorisation and by email event', () => {
+  assert.match(
+    attestation,
+    /delete from public\.phase14_provider_attestations a\s*\n\s*where a\.authorization_id = any\(v_authorization_ids\)\s*\n\s*or a\.email_event_id in \(/,
+    'attestations must be reachable by either route',
+  );
+  assert.match(
+    attestation,
+    /delete from public\.phase14_provider_attestation_consumptions c\s*\n\s*where c\.authorization_id = any\(v_authorization_ids\)\s*\n\s*or c\.attestation_id in \(/,
+    'consumptions must follow the same two routes',
+  );
+});
+
+test('D35. both routes stay scoped to the journey', () => {
+  // The email-event route is confined to the journey's own assessments; it must never select
+  // every email event, which would reach attestations belonging to unrelated work.
+  const emailRouteMatches = [...attestation.matchAll(
+    /a\.email_event_id in \(\s*\n\s*select e\.id from public\.email_events e where e\.assessment_id = any\(v_assessment_ids\)\)/g,
+  )];
+  assert.ok(emailRouteMatches.length >= 1, 'the email-event route must filter by the journey assessments');
+  assert.doesNotMatch(attestation, /from public\.email_events e\)\s*;/, 'no unfiltered email-event subquery');
+  assert.doesNotMatch(attestation, /delete from public\.phase14_provider_attestations\s*;/, 'never an unfiltered delete');
+});
+
+test('D36. the attestation removals precede the email_events delete that they blocked', () => {
+  const attestations = attestation.indexOf('delete from public.phase14_provider_attestations a');
+  const consumptions = attestation.indexOf('delete from public.phase14_provider_attestation_consumptions c');
+  const emailEvents = attestation.indexOf('delete from public.email_events e where e.assessment_id');
+  assert.ok(consumptions > 0 && attestations > consumptions, 'consumptions must go before attestations');
+  assert.ok(emailEvents > attestations, 'attestations must be removed before email_events');
+});
+
+test('D37. both removals are counted in the audited result', () => {
+  assert.match(attestation, /jsonb_build_object\('phase14_provider_attestations', v_deleted\)/);
+  assert.match(attestation, /jsonb_build_object\('phase14_provider_attestation_consumptions', v_deleted\)/);
+});
+
+test('D38. every other control in the cleanup is unchanged', () => {
+  for (const control of [
+    'rc1_require_platform_admin(true)',
+    'rc1_synthetic_cleanup:reference_not_synthetic',
+    'rc1_synthetic_cleanup:meaningful_reason_required',
+    'rc1_synthetic_cleanup:storage_proof_required',
+    'rc1_synthetic_cleanup:not_enabled_in_this_environment',
+    'rc1_synthetic_cleanup:storage_target_mismatch',
+    'rc1_synthetic_cleanup:storage_objects_remaining',
+    "set_config('rc1.synthetic_cleanup_ref', p_reference, true)",
+    "set search_path = ''",
+  ]) {
+    assert.ok(attestation.includes(control), `the replacement dropped: ${control}`);
+  }
+  const executable = attestation.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable, /delete\s+from\s+storage\./i);
+  assert.doesNotMatch(executable, /session_replication_role/i);
+  assert.doesNotMatch(executable, /disable trigger/i);
+  assert.match(attestation, /grant execute on function public\.rc1_cleanup_synthetic_certification\(text,text,text,integer\) to authenticated;/);
+  // Only grants are checked here: the revoke line legitimately names anon, service_role and public.
+  assert.doesNotMatch(attestation, /grant[^;]*\bto\b[^;]*(?:anon|service_role|public)\b/i);
+  assert.match(attestation, /revoke all on function public\.rc1_cleanup_synthetic_certification\(text,text,text,integer\)\s*\n\s*from public, anon, authenticated, service_role;/);
+});
+
 console.log('');
 console.log(`rc1-synthetic-cleanup: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);
