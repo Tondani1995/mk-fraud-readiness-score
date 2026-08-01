@@ -85,6 +85,18 @@ async function ensureGeometryGlobals(): Promise<void> {
  * Every tier still requires the complete canonical heading in exact character order. None of them
  * is a similarity, token-subset or fuzzy match.
  */
+/**
+ * Measured on the real renderer during RC1 certification. For the three headings that failed --
+ * "Priority findings, contradictions and scenarios", "A1. Complete material findings register"
+ * and "A7. Definitions and score basis" -- the diagnostic recorded:
+ *
+ *   whitespace_normalised = none        whitespace_stripped = unique
+ *
+ * Tier 2 matching nothing while tier 3 matches uniquely means Chromium splits these headings
+ * *inside a word*, not merely across inconsistent spacing. Whitespace normalisation could never
+ * have fixed them, which is why the earlier normalisation-only attempt was withdrawn rather than
+ * shipped on a guess.
+ */
 export type HeadingMatchTier = 'exact' | 'whitespace_normalised' | 'whitespace_stripped';
 
 export interface HeadingTierCandidate {
@@ -102,8 +114,8 @@ export interface HeadingTierCandidate {
  */
 export interface HeadingMatchDiagnostic {
   key: string;
-  /** The tier actually used to accept the heading. Only ever 'exact', or null when unresolved. */
-  acceptedTier: 'exact' | null;
+  /** The tier that resolved this heading, or null when no tier could. */
+  acceptedTier: HeadingMatchTier | null;
   pageNumber: number | null;
   /** Number of text items on the accepted page -- a shape signal, not content. */
   textItemCount: number | null;
@@ -179,12 +191,26 @@ export async function collectHeadingMatchDiagnostics(
       { tier: 'whitespace_stripped', pages: strippedPages, unique: strippedPages.length === 1 },
     ];
 
-    // Acceptance is tier 1 only. Tier 2 and tier 3 are recorded and deliberately not honoured.
-    const acceptedPage = exactPages.length > 0 ? exactPages[0] : null;
+    // Acceptance order, strictest first. Tier 1 keeps its original first-match-wins behaviour so
+    // nothing that resolved before can resolve differently now. Tiers 2 and 3 are fallbacks only:
+    // each requires the full canonical heading in exact character order AND exactly one page, so
+    // an ambiguous heading is never silently attributed to a page.
+    let acceptedTier: HeadingMatchTier | null = null;
+    let acceptedPage: number | null = null;
+    if (exactPages.length > 0) {
+      acceptedTier = 'exact';
+      acceptedPage = exactPages[0];
+    } else if (normalisedPages.length === 1) {
+      acceptedTier = 'whitespace_normalised';
+      acceptedPage = normalisedPages[0];
+    } else if (strippedPages.length === 1) {
+      acceptedTier = 'whitespace_stripped';
+      acceptedPage = strippedPages[0];
+    }
 
     diagnostics.push({
       key,
-      acceptedTier: acceptedPage !== null ? 'exact' : null,
+      acceptedTier,
       pageNumber: acceptedPage,
       textItemCount: acceptedPage !== null
         ? (pages.find((page) => page.pageNumber === acceptedPage)?.itemCount ?? null)
@@ -199,13 +225,15 @@ export async function collectHeadingMatchDiagnostics(
 export async function extractHeadingPageMap(
   pdfBytes: Uint8Array,
   entries: TocEntry[],
-  startPage = 1
+  startPage = 1,
+  onDiagnostics?: (diagnostics: HeadingMatchDiagnostic[]) => void
 ): Promise<Record<string, number>> {
   const diagnostics = await collectHeadingMatchDiagnostics(pdfBytes, entries, startPage);
+  onDiagnostics?.(diagnostics);
   const map: Record<string, number> = {};
   const missing: string[] = [];
   for (const diagnostic of diagnostics) {
-    if (diagnostic.acceptedTier === 'exact' && diagnostic.pageNumber !== null) {
+    if (diagnostic.acceptedTier !== null && diagnostic.pageNumber !== null) {
       map[diagnostic.key] = diagnostic.pageNumber;
     } else {
       missing.push(diagnostic.key);

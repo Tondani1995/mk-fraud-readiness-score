@@ -168,10 +168,9 @@ test('H2. ordinary line wrapping is classified, and never accepted below tier 1'
 
 test('H3. a heading split inside a word matches only tier 3', () => {
   const result = extract([['Priority findings, contradic', 'tions and scenarios']], [HEADING]);
-  assert.equal(result.ok, false, 'a mid-word split must not be accepted');
   assert.equal(tierFor(result.diagnostics, HEADING, 'exact').pages.length, 0);
   assert.equal(tierFor(result.diagnostics, HEADING, 'whitespace_normalised').pages.length, 0,
-    'a mid-word split must not satisfy whitespace normalisation');
+    'a mid-word split must not satisfy whitespace normalisation -- this is what production does');
   assert.equal(tierFor(result.diagnostics, HEADING, 'whitespace_stripped').unique, true);
 });
 
@@ -225,27 +224,24 @@ test('H9. punctuation differences never pass silently', () => {
   }
 });
 
-test('H10. the diagnostic still throws rather than approving a fallback', () => {
-  const result = extract([['Priority findings, contradic', 'tions and scenarios']], [HEADING]);
-  assert.equal(result.ok, false, 'tier 3 evidence must not approve the PDF');
+test('H10. no tier can resolve a heading that is genuinely absent', () => {
+  const result = extract([['entirely unrelated page content']], [HEADING]);
+  assert.equal(result.ok, false, 'an absent heading must still fail closed');
   assert.equal(result.name, 'HeadingExtractionError');
   assert.deepEqual(result.missing, [HEADING]);
-  // Acceptance stays tier 1 only, in the source as well as the outcome.
-  assert.match(navigation, /Acceptance is tier 1 only/);
-  assert.match(navigation, /const acceptedPage = exactPages\.length > 0 \? exactPages\[0\] : null;/);
-  assert.doesNotMatch(navigation, /map\[key\] = normalisedPages|map\[key\] = strippedPages/);
 });
 
 test('H11. the diagnostic records shape only, never content', () => {
-  const result = extract([['Priority findings, contradic', 'tions and scenarios'], ['unrelated page text']], [HEADING]);
+  // Uses a genuinely absent heading so both the failure message and the diagnostics are exercised.
+  const result = extract([['unrelated page text'], ['more unrelated filler']], [HEADING]);
+  assert.equal(result.ok, false);
   const serialised = JSON.stringify(result.diagnostics);
   // Probes deliberately chosen so they are not substrings of the heading key, which legitimately
   // appears in the diagnostics: only genuinely extracted page text would be a leak.
-  for (const leak of ['unrelated page text', 'unrelated', 'page text']) {
+  for (const leak of ['unrelated page text', 'unrelated', 'page text', 'filler']) {
     assert.equal(serialised.includes(leak), false, `diagnostics leaked extracted text: ${leak}`);
+    assert.equal(result.message.includes(leak), false, `message leaked extracted text: ${leak}`);
   }
-  // The message is what reaches the runtime log; it must be equally content-free.
-  assert.equal(result.message.includes('unrelated page text'), false);
   const entry = result.diagnostics.find((d) => d.key === HEADING);
   assert.deepEqual(Object.keys(entry).sort(), ['acceptedTier', 'candidates', 'key', 'pageNumber', 'textItemCount']);
 });
@@ -256,6 +252,67 @@ test('H12. accepted headings record their page and text-item count', () => {
   // Item count is exposed for accepted headings; verified via the accepting path in H1/H12 shape.
   assert.match(navigation, /textItemCount: acceptedPage !== null/);
   assert.match(navigation, /itemCount: content\.items\.length/);
+});
+
+// ---------------------------------------------------------------------------
+// Acceptance, per the evidence captured on the real renderer: tier 2 matched nothing and tier 3
+// matched uniquely for all three failing headings, so the fallback is whitespace-stripped only,
+// reached only after tiers 1 and 2 fail, and only on a single unambiguous page.
+// ---------------------------------------------------------------------------
+test('A1. an exact heading is still resolved at tier 1', () => {
+  const result = extract([[HEADING]], [HEADING]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.map, { [HEADING]: 1 });
+  const entry = result.diagnostics.find((d) => d.key === HEADING);
+  assert.equal(entry.acceptedTier, 'exact');
+});
+
+test('A2. a mid-word split is now resolved, at tier 3, to its unique page', () => {
+  const result = extract([['filler'], ['Priority findings, contradic', 'tions and scenarios']], [HEADING]);
+  assert.equal(result.ok, true, `expected tier 3 acceptance, got ${result.message}`);
+  assert.deepEqual(result.map, { [HEADING]: 2 });
+  const entry = result.diagnostics.find((d) => d.key === HEADING);
+  assert.equal(entry.acceptedTier, 'whitespace_stripped');
+  assert.equal(entry.pageNumber, 2);
+});
+
+test('A3. an ambiguous tier-3 heading is refused, not guessed', () => {
+  const result = extract([
+    ['Priority findings, contradic', 'tions and scenarios'],
+    ['Priority findings, contradic', 'tions and scenarios'],
+  ], [HEADING]);
+  assert.equal(result.ok, false, 'two candidate pages must not be resolved to one');
+  assert.equal(tierFor(result.diagnostics, HEADING, 'whitespace_stripped').unique, false);
+  const entry = result.diagnostics.find((d) => d.key === HEADING);
+  assert.equal(entry.acceptedTier, null);
+});
+
+test('A4. the fallback still requires the complete heading in exact character order', () => {
+  for (const pages of [
+    [['Priority findings, contradictions and scenari']],          // truncated
+    [['scenarios and contradictions, Priority findings']],        // reordered
+    [['Priority findings contradic', 'tions and scenarios']],     // punctuation removed
+  ]) {
+    const result = extract(pages, [HEADING]);
+    assert.equal(result.ok, false, `unexpectedly accepted: ${JSON.stringify(pages)}`);
+  }
+});
+
+test('A5. tier order is strictest-first in the source', () => {
+  assert.match(navigation, /if \(exactPages\.length > 0\) \{[\s\S]*?acceptedTier = 'exact'/);
+  assert.match(navigation, /else if \(normalisedPages\.length === 1\) \{[\s\S]*?acceptedTier = 'whitespace_normalised'/);
+  assert.match(navigation, /else if \(strippedPages\.length === 1\) \{[\s\S]*?acceptedTier = 'whitespace_stripped'/);
+  // Fallbacks are uniqueness-gated; tier 1 keeps first-match-wins.
+  assert.match(navigation, /acceptedPage = exactPages\[0\];/);
+});
+
+test('A6. the accepted tier is recorded in generation diagnostics', () => {
+  const caller = fs.readFileSync(path.join(root, 'src', 'lib', 'reports', 'render-validated-commercial-pdf.ts'), 'utf8');
+  assert.match(caller, /pdf_heading_match_tier/);
+  assert.match(caller, /acceptedTier !== 'exact'/);
+  // Content-free: only the heading constant, tier name and page number are recorded.
+  const block = caller.slice(caller.indexOf('pdf_heading_match_tier'), caller.indexOf('});', caller.indexOf('pdf_heading_match_tier')));
+  assert.doesNotMatch(block, /organisation|customer|content|text/i);
 });
 
 console.log('');

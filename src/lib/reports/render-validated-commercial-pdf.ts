@@ -80,7 +80,26 @@ export async function renderValidatedCommercialPdfWithNavigation(
   // Page 1 is the fixed cover and page 2 is the contents page itself (which prints every tracked
   // heading's label as plain text) -- see pdf-navigation.ts's TocEntry doc comment for why the
   // heading scan must start after both.
-  const pageMap = await extractHeadingPageMap(new Uint8Array(firstPassPdf), REPORT_TOC_ENTRIES, 3);
+  const pageMap = await extractHeadingPageMap(
+    new Uint8Array(firstPassPdf),
+    REPORT_TOC_ENTRIES,
+    3,
+    // Generation diagnostics: which tier resolved each heading. Headings resolved below tier 1
+    // mean the renderer split them across text runs, which is worth seeing rather than silently
+    // tolerating. Heading constants, tier names and page numbers only -- no report content.
+    (diagnostics) => {
+      const belowExact = diagnostics.filter((diagnostic) => diagnostic.acceptedTier !== null
+        && diagnostic.acceptedTier !== 'exact');
+      if (belowExact.length === 0) return;
+      console.info('pdf_heading_match_tier', {
+        acceptedBelowExact: belowExact.map((diagnostic) => ({
+          key: diagnostic.key,
+          tier: diagnostic.acceptedTier,
+          page: diagnostic.pageNumber
+        }))
+      });
+    }
+  );
 
   const secondPassHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap);
   const secondPassPdf = await dependencies.renderPdf(secondPassHtml);
