@@ -288,12 +288,17 @@ try {
     agreement.marker === SYNTHETIC_REF && agreement.audit_reference === SYNTHETIC_REF
       && Number(agreement.audit_count) === 1, JSON.stringify(agreement));
 
+  // Scoped to this journey. Earlier steps in the same replay database deliberately leave provider
+  // events and attestations behind, and those are not this journey's dispatch.
   const dispatch = await one(`select
-      (select count(*) from public.email_events e
-         where e.provider_message_id is not null or e.sent_at is not null) as dispatched,
-      (select count(*) from public.email_provider_events) as provider_events,
-      (select count(*) from public.phase14_provider_attestations) as attestations,
-      (select count(*) from public.report_delivery_authorizations) as authorizations`);
+      (select count(*) from public.email_events e where e.assessment_id = $1
+         and (e.provider_message_id is not null or e.sent_at is not null)) as dispatched,
+      (select count(*) from public.email_provider_events pe where pe.email_event_id in
+         (select id from public.email_events where assessment_id = $1)) as provider_events,
+      (select count(*) from public.phase14_provider_attestations pa where pa.email_event_id in
+         (select id from public.email_events where assessment_id = $1)) as attestations,
+      (select count(*) from public.report_delivery_authorizations d
+         where d.assessment_id = $1) as authorizations`, [assessmentId]);
   check('R5 no external dispatch occurred',
     Number(dispatch.dispatched) === 0 && Number(dispatch.provider_events) === 0
       && Number(dispatch.attestations) === 0 && Number(dispatch.authorizations) === 0,
@@ -345,17 +350,22 @@ try {
     JSON.stringify(identity));
   adminUserId = null;
 
+  // Also scoped: this asserts nothing of *this* journey survived, not that the shared replay
+  // database is empty -- earlier steps legitimately leave their own fixtures behind.
   const residual = await one(`select
-      (select count(*) from public.organisations) as organisations,
-      (select count(*) from public.respondents) as respondents,
-      (select count(*) from public.assessments) as assessments,
-      (select count(*) from public.email_events) as email_events,
-      (select count(*) from public.email_provider_events) as provider_events,
-      (select count(*) from public.phase14_provider_attestations) as attestations,
-      (select count(*) from public.reports) as reports,
-      (select count(*) from public.orders) as orders,
-      (select count(*) from storage.objects) as storage_objects`);
-  check('R8 no residual business, delivery, provider or Storage data remains',
+      (select count(*) from public.organisations where id = $1) as organisations,
+      (select count(*) from public.assessments where id = $2) as assessments,
+      (select count(*) from public.email_events where assessment_id = $2) as email_events,
+      (select count(*) from public.email_provider_events pe where pe.email_event_id in
+         (select id from public.email_events where assessment_id = $2)) as provider_events,
+      (select count(*) from public.phase14_provider_attestations pa where pa.email_event_id in
+         (select id from public.email_events where assessment_id = $2)) as attestations,
+      (select count(*) from public.reports where assessment_id = $2) as reports,
+      (select count(*) from public.orders where assessment_id = $2) as orders,
+      (select count(*) from public.organisations where synthetic_certification_ref = $3) as marked,
+      (select count(*) from storage.objects o where o.name like '%' || $2::text || '%') as storage_objects`,
+    [organisationId, assessmentId, SYNTHETIC_REF]);
+  check('R8 no residual business, delivery, provider or Storage data remains for this journey',
     Object.values(residual).every((v) => Number(v) === 0), JSON.stringify(residual));
 
   console.log('');
