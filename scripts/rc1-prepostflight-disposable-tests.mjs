@@ -56,7 +56,8 @@ const pending = [
   '20260801160000_rc1_orphan_remediation.sql',
   '20260801180000_rc1_certification_enablement_control.sql',
   '20260801200000_rc1_orphan_remediation_guard_allowance.sql',
-  '20260801220000_rc1_synthetic_certification_marking.sql'
+  '20260801220000_rc1_synthetic_certification_marking.sql',
+  '20260802120000_rc1_synthetic_marking_placeholder_allowance.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],

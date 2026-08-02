@@ -344,6 +344,85 @@ await test('M23. nothing in the migration widens a cleanup or bypasses a guard',
   assert.doesNotMatch(migration, /to service_role/);
 });
 
+
+// ---------------------------------------------------------------------------
+// 20260802120000: the placeholder allowance and the bounded age.
+// ---------------------------------------------------------------------------
+const allowance = fs.readFileSync(
+  path.join(root, 'supabase', 'migrations',
+    '20260802120000_rc1_synthetic_marking_placeholder_allowance.sql'), 'utf8');
+
+await test('M24. a queued email event is not treated as harmless on its own', () => {
+  // All eleven row conditions must hold before an event is disregarded.
+  for (const condition of [
+    "e.assessment_id = v_assessment_id",
+    "e.order_id is null",
+    "e.report_id is null",
+    "e.data_request_id is null",
+    "e.template_key = 'resume_link_phase4_placeholder'",
+    "e.notification_type is null",
+    "e.provider_mode = 'disabled'",
+    "e.status = 'queued'",
+    "e.provider_message_id is null",
+    "e.sent_at is null",
+    "from public.email_provider_events pe where pe.email_event_id = e.id",
+    "from public.phase14_provider_attestations pa where pa.email_event_id = e.id",
+    "from public.phase14_provider_attestation_consumptions c",
+    "from public.report_delivery_authorizations d where d.email_event_id = e.id",
+  ]) {
+    assert.ok(allowance.includes(condition), `the placeholder predicate lost: ${condition}`);
+  }
+});
+
+await test('M25. the set conditions close the gap a row predicate cannot', () => {
+  // At most one placeholder, and no email event that is not that placeholder.
+  assert.match(allowance, /if v_placeholder > 1 then\s*\n\s*raise exception 'rc1_synthetic_marking:multiple_placeholder_events'/);
+  assert.match(allowance, /if v_email_total <> v_placeholder then\s*\n\s*raise exception 'rc1_synthetic_marking:organisation_already_in_use'/);
+  // The total counts every link an email event can have to the organisation, not just assessments.
+  for (const link of ['e.assessment_id in', 'e.order_id in', 'e.report_id in', 'e.data_request_id in']) {
+    assert.ok(allowance.includes(link), `the email total ignores ${link}`);
+  }
+});
+
+await test('M26. the freshness bound is 24 hours and still refuses older organisations', () => {
+  assert.match(allowance, /if v_created_at < pg_catalog\.now\(\) - interval '24 hours' then\s*\n\s*raise exception 'rc1_synthetic_marking:organisation_not_recent'/);
+  assert.doesNotMatch(allowance, /interval '1 hour'/);
+});
+
+await test('M27. answers now count as real use, and every earlier protection survives', () => {
+  assert.ok(allowance.includes('from public.assessment_answers an'));
+  assert.ok(allowance.includes('from public.exposure_answers ex'));
+  for (const clause of [
+    "public.rc1_require_platform_admin(true)",
+    "raise exception 'rc1_synthetic_marking:meaningful_reason_required'",
+    "raise exception 'rc1_synthetic_marking:synthetic_reference_invalid'",
+    "raise exception 'rc1_synthetic_marking:not_enabled_in_this_environment'",
+    "raise exception 'rc1_synthetic_marking:database_not_released'",
+    "raise exception 'rc1_synthetic_marking:assessment_not_found'",
+    "raise exception 'rc1_synthetic_marking:organisation_already_marked_or_missing'",
+    "raise exception 'rc1_synthetic_marking:organisation_has_other_assessments'",
+    "raise exception 'rc1_synthetic_marking:marking_did_not_apply_exactly_once'",
+    "where a.assessment_reference = v_assessment_ref",
+    "and o.synthetic_certification_ref is null",
+    "p_synthetic_reference !~ '^MKTEST-RC1-[0-9]{8}-[0-9]{2}$'",
+  ]) {
+    assert.ok(allowance.includes(clause), `migration 61 dropped: ${clause}`);
+  }
+  assert.doesNotMatch(allowance, /set synthetic_certification_ref = null/);
+  assert.doesNotMatch(allowance, /to service_role/);
+  assert.doesNotMatch(allowance, /session_replication_role|disable trigger/i);
+});
+
+await test('M28. no new signature, and the grants are restated unchanged', () => {
+  assert.equal(
+    (allowance.match(/create or replace function public\.rc1_mark_synthetic_certification_organisation\(/g) || []).length, 1);
+  assert.match(allowance, /create or replace function public\.rc1_mark_synthetic_certification_organisation\(\n  p_assessment_reference text,\n  p_synthetic_reference text,\n  p_reason text\n\)/);
+  assert.match(allowance, /returns jsonb\nlanguage plpgsql\nsecurity definer\nset search_path = ''/);
+  assert.match(allowance, /revoke all on function public\.rc1_mark_synthetic_certification_organisation\(text,text,text\)\s*\n\s*from public, anon, authenticated, service_role;/);
+  assert.match(allowance, /grant execute on function public\.rc1_mark_synthetic_certification_organisation\(text,text,text\) to authenticated;/);
+  assert.doesNotMatch(allowance, /drop function|create table/i);
+});
+
 console.log('');
 console.log(`rc1-synthetic-marking: ${total - failures}/${total} checks passed`);
 if (failures > 0) process.exit(1);

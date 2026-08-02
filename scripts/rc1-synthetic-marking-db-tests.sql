@@ -219,6 +219,246 @@ begin
   perform pg_temp.check('K8 the control is inert without the enablement', v_ok, coalesce(v_msg,'call succeeded'));
 end $t$;
 
+
+-- ---------------------------------------------------------------------------
+-- 20260802120000: the placeholder allowance, and every event that must still block.
+--
+-- One organisation per variant. Each is a fresh, otherwise-markable journey whose only difference
+-- is the email event attached to it, so any refusal is attributable to that event alone.
+-- ---------------------------------------------------------------------------
+set local session_replication_role = replica;
+
+do $variants$
+declare
+  v_methodology uuid; v_product uuid; v_org uuid; v_assessment uuid; v_event uuid;
+  v_auth uuid; v_report uuid; v_score uuid; v_order uuid; v_att uuid;
+  v_variants text[] := array[
+    'ok_placeholder','second_event','real_message','provider_mode_live','has_message_id',
+    'has_sent_at','not_queued','has_provider_event','has_attestation','has_consumption',
+    'two_placeholders','too_old','has_answers','has_score_run','no_email_at_all'];
+  v_name text;
+  i integer := 0;
+begin
+  select id into strict v_methodology from public.methodology_versions where status='active';
+  select id into strict v_product from public.products where product_code='essential_self_assessment';
+
+  foreach v_name in array v_variants loop
+    i := i + 1;
+    v_org := ('61000000-0000-0000-0000-0000000001' || lpad(i::text,2,'0'))::uuid;
+    v_assessment := ('61000000-0000-0000-0000-0000000002' || lpad(i::text,2,'0'))::uuid;
+    v_event := ('61000000-0000-0000-0000-0000000003' || lpad(i::text,2,'0'))::uuid;
+
+    insert into public.organisations(id,legal_name,created_at)
+    values (v_org, 'Variant ' || v_name,
+            case when v_name = 'too_old' then now() - interval '25 hours' else now() end);
+    insert into public.assessments(id,assessment_reference,organisation_id,methodology_version_id,status)
+    values (v_assessment, 'RC1-VAR-' || upper(v_name), v_org, v_methodology, 'draft');
+
+    -- Every variant except the last gets the baseline placeholder.
+    if v_name <> 'no_email_at_all' then
+      insert into public.email_events(id,assessment_id,recipient_email,template_key,status,provider_mode)
+      values (v_event, v_assessment, 'variant@example.invalid',
+              case when v_name = 'real_message' then 'premium_report_pdf'
+                   else 'resume_link_phase4_placeholder' end,
+              case when v_name = 'not_queued' then 'sent' else 'queued' end,
+              case when v_name = 'provider_mode_live' then 'external' else 'disabled' end);
+    end if;
+
+    if v_name = 'has_message_id' then
+      update public.email_events set provider_message_id = 'msg_variant' where id = v_event;
+    elsif v_name = 'has_sent_at' then
+      update public.email_events set sent_at = now() where id = v_event;
+    elsif v_name = 'second_event' then
+      insert into public.email_events(assessment_id,recipient_email,template_key,status,provider_mode)
+      values (v_assessment,'variant2@example.invalid','payment_confirmed','queued','disabled');
+    elsif v_name = 'two_placeholders' then
+      insert into public.email_events(assessment_id,recipient_email,template_key,status,provider_mode)
+      values (v_assessment,'variant2@example.invalid','resume_link_phase4_placeholder','queued','disabled');
+    elsif v_name = 'has_provider_event' then
+      insert into public.email_provider_events(email_event_id,provider,provider_event_id,event_type)
+      values (v_event,'resend','rc1-var-'||i,'email.delivered');
+    elsif v_name in ('has_attestation','has_consumption') then
+      insert into public.phase14_provider_attestations(
+        id,attestation_source,provider,provider_event_id,email_event_id,provider_state,
+        payload_sha256,nonce,attested_at,recorded_at,minimal_payload_json,authority_epoch)
+      values (gen_random_uuid(),'webhook','resend','rc1-var-att-'||i,v_event,'delivered',
+              repeat('7',64),gen_random_uuid(),now(),now(),'{}'::jsonb,1)
+      returning id into v_att;
+      if v_name = 'has_consumption' then
+        -- A consumption needs an authorisation, which needs a full journey; build the minimum.
+        insert into public.score_runs(id,assessment_id,methodology_version_id,run_number,run_type,status,
+          overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,
+          coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,input_hash,locked_at)
+        values (gen_random_uuid(),v_assessment,v_methodology,1,'test_fixture','completed',60,
+          'Developing','Developing',40,'High',100,0,0,0,false,repeat('a',64),now())
+        returning id into v_score;
+        insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,
+          currency,product_name,customer_email,customer_name,organisation_name)
+        select gen_random_uuid(),'ORDER-RC1-VAR-'||i,v_assessment,v_product,'awaiting_payment',500000,
+          'ZAR',name,'variant@example.invalid','Variant','Variant Org'
+        from public.products where id=v_product returning id into v_order;
+        insert into public.reports(id,assessment_id,score_run_id,template_id,report_type,report_reference)
+        select gen_random_uuid(),v_assessment,v_score,(select id from public.report_templates order by created_at limit 1),
+          'essential_self_assessment'::public.report_type,'RPT-RC1-VAR-'||i returning id into v_report;
+        insert into public.report_delivery_authorizations(
+          id,report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,
+          provider,email_event_id,status)
+        values (gen_random_uuid(),v_report,repeat('c',64),'variant@example.invalid',v_order,
+          v_assessment,v_score,'resend',v_event,'finalized') returning id into v_auth;
+        insert into public.phase14_provider_attestation_consumptions(
+          attestation_id,authorization_id,consumed_by,consumed_session_id)
+        values (v_att,v_auth,'60000000-0000-0000-0000-000000000020',gen_random_uuid());
+      end if;
+    elsif v_name = 'has_answers' then
+      insert into public.assessment_answers(assessment_id,question_id,response_value)
+      select v_assessment,q.id,3 from public.questions q
+      where q.methodology_version_id=v_methodology and q.active limit 1;
+    elsif v_name = 'has_score_run' then
+      insert into public.score_runs(id,assessment_id,methodology_version_id,run_number,run_type,status,
+        overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,
+        coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,input_hash,locked_at)
+      values (gen_random_uuid(),v_assessment,v_methodology,1,'test_fixture','completed',60,
+        'Developing','Developing',40,'High',100,0,0,0,false,repeat('b',64),now());
+    end if;
+  end loop;
+end
+$variants$;
+
+set local session_replication_role = origin;
+
+do $t$
+declare
+  v_expect jsonb := jsonb_build_object(
+    'ok_placeholder','',            -- must succeed
+    'no_email_at_all','',           -- must succeed
+    'second_event','rc1_synthetic_marking:organisation_already_in_use',
+    'real_message','rc1_synthetic_marking:organisation_already_in_use',
+    'provider_mode_live','rc1_synthetic_marking:organisation_already_in_use',
+    'has_message_id','rc1_synthetic_marking:organisation_already_in_use',
+    'has_sent_at','rc1_synthetic_marking:organisation_already_in_use',
+    'not_queued','rc1_synthetic_marking:organisation_already_in_use',
+    'has_provider_event','rc1_synthetic_marking:organisation_already_in_use',
+    'has_attestation','rc1_synthetic_marking:organisation_already_in_use',
+    'has_consumption','rc1_synthetic_marking:organisation_already_in_use',
+    'two_placeholders','rc1_synthetic_marking:multiple_placeholder_events',
+    'too_old','rc1_synthetic_marking:organisation_not_recent',
+    'has_answers','rc1_synthetic_marking:organisation_already_in_use',
+    'has_score_run','rc1_synthetic_marking:organisation_already_in_use');
+  v_name text; v_expected text; v_msg text; v_ok boolean; v_succeeded boolean; i integer := 0;
+begin
+  perform set_config('request.jwt.claims',
+    '{"sub":"60000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2",'
+    '"exp":4102444800,"session_id":"60000000-0000-0000-0000-000000000099"}', true);
+
+  for v_name, v_expected in select key, value from jsonb_each_text(v_expect) loop
+    i := i + 1;
+    v_succeeded := false; v_msg := null;
+    begin
+      perform public.rc1_mark_synthetic_certification_organisation(
+        'RC1-VAR-' || upper(v_name), 'MKTEST-RC1-20260802-' || lpad(i::text,2,'0'),
+        'Variant regression for the placeholder allowance: ' || v_name);
+      v_succeeded := true;
+    exception when others then
+      get stacked diagnostics v_msg = message_text;
+    end;
+
+    if v_expected = '' then
+      v_ok := v_succeeded;
+    else
+      v_ok := (not v_succeeded) and v_msg = v_expected;
+    end if;
+    perform pg_temp.check('P' || i || ' ' || v_name,
+      v_ok, coalesce(v_msg, 'marked') || ' (expected ' || coalesce(nullif(v_expected,''),'success') || ')');
+  end loop;
+end $t$;
+
+do $t$
+declare v_marked integer;
+begin
+  select count(*)::integer into v_marked from public.organisations
+  where synthetic_certification_ref is not null
+    and legal_name in ('Variant ok_placeholder','Variant no_email_at_all');
+  perform pg_temp.check('P16 exactly the two admissible variants were marked', v_marked = 2,
+    'marked='||v_marked);
+  select count(*)::integer into v_marked from public.organisations
+  where synthetic_certification_ref is not null and legal_name like 'Variant %';
+  perform pg_temp.check('P17 no refused variant was marked', v_marked = 2, 'marked='||v_marked);
+end $t$;
+
+-- ---------------------------------------------------------------------------
+-- P18: authority. AAL1, the wrong role, anon and service_role are all refused.
+-- ---------------------------------------------------------------------------
+do $t$
+declare v_msg text; v_ok boolean; v_succeeded boolean;
+begin
+  perform set_config('request.jwt.claims',
+    '{"sub":"60000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal1",'
+    '"exp":4102444800,"session_id":"60000000-0000-0000-0000-000000000099"}', true);
+  v_succeeded := false;
+  begin
+    perform public.rc1_mark_synthetic_certification_organisation(
+      'RC1-VAR-SECOND_EVENT','MKTEST-RC1-20260802-90','An AAL1 session must never mark.');
+    v_succeeded := true;
+  exception when others then get stacked diagnostics v_msg = message_text; end;
+  perform pg_temp.check('P18a AAL1 is refused', not v_succeeded and v_msg like 'rc1_freeze_control:%',
+    coalesce(v_msg,'marked'));
+
+  perform set_config('request.jwt.claims', '{}', true);
+  v_succeeded := false; v_msg := null;
+  begin
+    perform public.rc1_mark_synthetic_certification_organisation(
+      'RC1-VAR-SECOND_EVENT','MKTEST-RC1-20260802-91','An anonymous caller must never mark.');
+    v_succeeded := true;
+  exception when others then get stacked diagnostics v_msg = message_text; end;
+  perform pg_temp.check('P18b an unauthenticated caller is refused', not v_succeeded,
+    coalesce(v_msg,'marked'));
+end $t$;
+
+do $t$
+declare v_can boolean;
+begin
+  select has_function_privilege('service_role',
+    'public.rc1_mark_synthetic_certification_organisation(text,text,text)', 'EXECUTE') into v_can;
+  perform pg_temp.check('P18c service_role cannot execute the control', v_can = false, 'execute='||v_can);
+  select has_function_privilege('anon',
+    'public.rc1_mark_synthetic_certification_organisation(text,text,text)', 'EXECUTE') into v_can;
+  perform pg_temp.check('P18d anon cannot execute the control', v_can = false, 'execute='||v_can);
+end $t$;
+
+-- ---------------------------------------------------------------------------
+-- P19: the exact failed-start residue shape marks, and the real cleanup then removes it.
+-- ---------------------------------------------------------------------------
+do $t$
+declare v_result jsonb; v_remaining integer;
+begin
+  perform set_config('request.jwt.claims',
+    '{"sub":"60000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2",'
+    '"exp":4102444800,"session_id":"60000000-0000-0000-0000-000000000099"}', true);
+
+  select count(*)::integer into v_remaining
+  from public.organisations o
+  where o.legal_name = 'Variant ok_placeholder' and o.synthetic_certification_ref is not null;
+  perform pg_temp.check('P19a the failed-start residue shape is marked', v_remaining = 1,
+    'marked='||v_remaining);
+
+  v_result := public.rc1_cleanup_synthetic_certification(
+    (select o.synthetic_certification_ref from public.organisations o where o.legal_name='Variant ok_placeholder'),
+    'Removing the marked failed-start residue through the real cleanup.',
+    (select public.rc1_prepare_synthetic_storage_cleanup(
+       (select o2.synthetic_certification_ref from public.organisations o2 where o2.legal_name='Variant ok_placeholder')
+     )->>'fingerprint'),
+    (select (public.rc1_prepare_synthetic_storage_cleanup(
+       (select o2.synthetic_certification_ref from public.organisations o2 where o2.legal_name='Variant ok_placeholder')
+     )->>'object_count')::integer));
+
+  select count(*)::integer into v_remaining from public.organisations o
+  where o.legal_name = 'Variant ok_placeholder';
+  perform pg_temp.check('P19b the real cleanup removed it entirely', v_remaining = 0,
+    'remaining='||v_remaining||' result='||coalesce(v_result::text,'null'));
+exception when others then
+  perform pg_temp.check('P19 marked residue is removable by the real cleanup', false, sqlerrm);
+end $t$;
+
 rollback;
 
 \echo RC1_SYNTHETIC_MARKING_DB_PASS
