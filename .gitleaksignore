@@ -81,3 +81,10 @@ fa2b57c133baccf3069b0a2e280b50ecb7e1e613:scripts/rc1-prepostflight-disposable-te
 # scanner-reading-its-own-ignore-file noise already described near the top of this file).
 1a0c437574743e06d399d255ee41bd270ca7d31d:scripts/rc1-pdf-navigation-module-tests.mjs:generic-api-key:173
 c46430b490f0cdb18c8d0a7353563fae7149e200:.gitleaksignore:generic-api-key:75
+#
+# Reviewed 2026-08-02: a disposable per-run assessment token pepper set inside the
+# migration-replay workflow, used only against the ephemeral CI-local Postgres. It is not a
+# credential for any real system and grants no access. The literal was replaced with a
+# run-time derived value in a later commit; this entry covers the historical commit, which
+# the full-history scan still reaches.
+f01dd0510abf51386bc49e726803f08a03a7d28b:.github/workflows/supabase-migration-replay.yml:generic-api-key:828

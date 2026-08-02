@@ -225,6 +225,10 @@ end $t$;
 --
 -- One organisation per variant. Each is a fresh, otherwise-markable journey whose only difference
 -- is the email event attached to it, so any refusal is attributable to that event alone.
+-- K8 above deliberately disabled the environment switch; the variants need it back on.
+update public.app_settings set value_json = jsonb_build_object('enabled', true)
+where setting_key = 'rc1_synthetic_certification_cleanup';
+
 -- ---------------------------------------------------------------------------
 set local session_replication_role = replica;
 
