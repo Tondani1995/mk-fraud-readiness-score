@@ -11,7 +11,7 @@
 --   K2      the marker is exactly the reference supplied, and the audit records a count only
 --   K3      marking the same organisation again is refused
 --   K4      an organisation that has been used is refused
---   K5      an organisation created more than an hour ago is refused
+--   K5      an organisation created more than 24 hours ago is refused
 --   K6      an unknown assessment reference is refused
 --   K7      a malformed synthetic reference is refused
 --   K8      the control is inert without the environment enablement
@@ -88,9 +88,9 @@ begin
     name,'used@example.invalid','Used Test','Marking Used Org'
   from public.products where id=v_product;
 
-  -- C: unused, but created two hours ago. Stands in for a real customer organisation.
+  -- C: unused, but created more than a day ago. Stands in for a real customer organisation.
   insert into public.organisations(id,legal_name,created_at)
-  values ('60000000-0000-0000-0000-00000000000c','Marking Old Org',now() - interval '2 hours');
+  values ('60000000-0000-0000-0000-00000000000c','Marking Old Org',now() - interval '25 hours');
   insert into public.assessments(id,assessment_reference,organisation_id,methodology_version_id,status)
   values ('60000000-0000-0000-0000-00000000001c','RC1-MARK-OLD',
           '60000000-0000-0000-0000-00000000000c',v_methodology,'draft');
@@ -167,12 +167,12 @@ begin
   v_ok := false; v_msg := null;
   begin
     perform public.rc1_mark_synthetic_certification_organisation(
-      'RC1-MARK-OLD', 'MKTEST-RC1-20260801-63', 'Attempting to mark an organisation created two hours ago.');
+      'RC1-MARK-OLD', 'MKTEST-RC1-20260801-63', 'Attempting to mark an organisation created more than a day ago.');
   exception when others then
     get stacked diagnostics v_msg = message_text;
     v_ok := v_msg = 'rc1_synthetic_marking:organisation_not_recent';
   end;
-  perform pg_temp.check('K5 an organisation older than an hour is refused', v_ok, coalesce(v_msg,'call succeeded'));
+  perform pg_temp.check('K5 an organisation older than 24 hours is refused', v_ok, coalesce(v_msg,'call succeeded'));
 
   -- K6 an unknown assessment reference is refused.
   v_ok := false; v_msg := null;
