@@ -824,6 +824,9 @@ jobs:
           eval "$(supabase status -o env)"
           export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          # The login and MFA routes build an anon client to reach GoTrue, so this test needs the
+          # anon key as well as the service key -- unlike the webhook route test it is modelled on.
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
           export ASSESSMENT_TOKEN_PEPPER="disposable-rc1-marking-route-$(date +%s%N)"
           export MK_RC1_OPERATION_FREEZE_MODE='released'
           export MK_EMAIL_PROVIDER_MODE='disabled'
