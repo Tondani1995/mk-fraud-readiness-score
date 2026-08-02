@@ -191,6 +191,23 @@ try {
     // session reason, and guessing at which would be worse than reading it.
     `status=${enrollResponse.status} error=${JSON.stringify(enrollBody?.error ?? null)}`);
 
+  // The factor exists but is not yet verified: the session is still AAL1 and must be refused.
+  const aal1Attempt = await fetch(`${routeBase}/api/admin/rc1-synthetic-marking`, {
+    method: 'POST', headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ assessmentReference, syntheticReference: SYNTHETIC_REF,
+      reason: 'An AAL1 session with an unverified factor must never mark.' }),
+  });
+  check('R3-neg-a an unverified factor leaves the session AAL1, and AAL1 is refused',
+    aal1Attempt.status === 403, `status=${aal1Attempt.status}`);
+
+  // An invalid TOTP must not verify.
+  const badVerify = await fetch(`${routeBase}/api/admin/mfa/verify`, {
+    method: 'POST', headers: { 'content-type': 'application/json', cookie },
+    body: JSON.stringify({ factorId, code: '000000' }),
+  });
+  check('R3-neg-b an invalid TOTP code is refused', badVerify.status === 400,
+    `status=${badVerify.status}`);
+
   // GoTrue rejects a code from the wrong window, so try the current step and its neighbours.
   let verifyBody = null;
   for (const drift of [0, -30, 30]) {
@@ -223,6 +240,40 @@ try {
   check('R3 a genuine platform_admin AAL2 session marks the organisation through the real route',
     markResponse.status === 200 && markBody.ok === true && markBody.marked === 1,
     `status=${markResponse.status} body=${JSON.stringify(markBody)}`);
+
+  // Every other identity is refused, against the same live route.
+  for (const [label, headers, expected] of [
+    ['anonymous', {}, 401],
+    ['service_role', { authorization: `Bearer ${serviceKey}` }, 401],
+  ]) {
+    const denied = await fetch(`${routeBase}/api/admin/rc1-synthetic-marking`, {
+      method: 'POST', headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ assessmentReference, syntheticReference: SYNTHETIC_REF,
+        reason: `A ${label} caller must never mark an organisation.` }),
+    });
+    check(`R3-neg-c ${label} is refused`, denied.status === expected,
+      `status=${denied.status} expected=${expected}`);
+  }
+
+  // A non-platform_admin role, and a suspended platform_admin, are refused with the same AAL2
+  // session -- only the profile differs, so the refusal is attributable to the profile alone.
+  for (const [label, patch, expected] of [
+    ['finance_admin', { role: 'finance_admin' }, 403],
+    ['reviewer', { role: 'reviewer' }, 403],
+    ['suspended platform_admin', { role: 'platform_admin', status: 'suspended' }, 401],
+  ]) {
+    await q(`update public.admin_profiles set role = $2, status = $3 where id = $1`,
+            [adminUserId, patch.role, patch.status ?? 'active']);
+    const denied = await fetch(`${routeBase}/api/admin/rc1-synthetic-marking`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ assessmentReference, syntheticReference: SYNTHETIC_REF,
+        reason: `A ${label} must never mark an organisation.` }),
+    });
+    check(`R3-neg-d ${label} is refused`, denied.status === expected,
+      `status=${denied.status} expected=${expected}`);
+  }
+  await q(`update public.admin_profiles set role = 'platform_admin', status = 'active' where id = $1`,
+          [adminUserId]);
 
   // -------------------------------------------------------------------------
   // R4/R5

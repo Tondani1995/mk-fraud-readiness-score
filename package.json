@@ -96,7 +96,8 @@
     "rc1:test-synthetic-notification-contract": "node scripts/rc1-synthetic-notification-contract-tests.mjs",
     "rc1:dry-evaluate-live-boundary": "node scripts/rc1-live-boundary-dry-evaluation.mjs",
     "rc1:test-synthetic-marking": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-synthetic-marking-tests.mjs",
-    "rc1:test-synthetic-marking-route": "node scripts/rc1-synthetic-marking-route-test.mjs"
+    "rc1:test-synthetic-marking-route": "node scripts/rc1-synthetic-marking-route-test.mjs",
+    "verify:supabase-local-config": "node scripts/verify-supabase-local-config.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

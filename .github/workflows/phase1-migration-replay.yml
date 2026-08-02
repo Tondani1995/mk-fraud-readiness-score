@@ -57,6 +57,9 @@ jobs:
       - name: Verify seven accepted migration payload checksums
         run: npm run rc1:verify-accepted-migrations
 
+      - name: Verify the committed local Supabase configuration
+        run: npm run verify:supabase-local-config
+
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
