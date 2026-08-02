@@ -59,7 +59,13 @@ try {
   await q(`insert into public.app_settings(setting_key, value_json)
            values ('rc1_synthetic_certification_cleanup', jsonb_build_object('enabled', true))
            on conflict (setting_key) do update set value_json = excluded.value_json`);
-  await q(`update public.rc1_operation_freeze_state set state = 'RELEASED' where singleton`);
+
+  // The freeze state is never written directly -- rc1_guard_freeze_state_write forbids it, and that
+  // refusal is correct product behaviour. The workflow releases the disposable database through the
+  // audited control in its own earlier step, so this only asserts the precondition holds.
+  const freeze = await one(`select state from public.rc1_operation_freeze_state where singleton`);
+  check('R0 the disposable database was released by the audited control before this step',
+    freeze?.state === 'RELEASED', `state=${freeze?.state}`);
 
   await q(`insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
              email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
