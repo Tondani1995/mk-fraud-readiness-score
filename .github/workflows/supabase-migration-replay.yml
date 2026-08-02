@@ -828,14 +828,21 @@ jobs:
           export ASSESSMENT_TOKEN_PEPPER="disposable-rc1-marking-route-$(date +%s%N)"
           export MK_RC1_OPERATION_FREEZE_MODE='released'
           export MK_EMAIL_PROVIDER_MODE='disabled'
-          npm run dev > tmp/migration-replay/marking-route-next.log 2>&1 &
+          # A dedicated port: an earlier step's server can still hold 3000, and next dev silently
+          # moves to the next free port, which would leave this test talking to the wrong server.
+          export PHASE14_TEST_APP_URL='http://127.0.0.1:3200/score'
+          npm run dev -- --port 3200 > tmp/migration-replay/marking-route-next.log 2>&1 &
           next_pid=$!
           cleanup_next() { kill "$next_pid" 2>/dev/null || true; }
           trap cleanup_next EXIT
           for attempt in $(seq 1 90); do
-            if curl --silent --output /dev/null http://127.0.0.1:3000/score/api/health; then break; fi
+            if curl --silent --output /dev/null http://127.0.0.1:3200/score/api/health; then break; fi
             sleep 1
           done
+          grep -q 'Port 3200 is in use' tmp/migration-replay/marking-route-next.log && {
+            echo 'The dedicated port was not free; refusing to test against another server.' >&2
+            exit 1
+          }
           npm run rc1:test-synthetic-marking-route \
             | tee tmp/migration-replay/rc1-synthetic-marking-route-test.txt
 
