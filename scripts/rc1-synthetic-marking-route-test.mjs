@@ -187,7 +187,9 @@ try {
   factorId = enrollBody.factorId;
   check('R3b the real MFA enrol route returns a factor',
     enrollResponse.status === 200 && enrollBody.ok === true && !!factorId && !!enrollBody.secret,
-    `status=${enrollResponse.status}`);
+    // The GoTrue message is surfaced verbatim: enrolment can only fail for a configuration or
+    // session reason, and guessing at which would be worse than reading it.
+    `status=${enrollResponse.status} error=${JSON.stringify(enrollBody?.error ?? null)}`);
 
   // GoTrue rejects a code from the wrong window, so try the current step and its neighbours.
   let verifyBody = null;
