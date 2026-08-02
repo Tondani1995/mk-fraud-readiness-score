@@ -430,37 +430,128 @@ begin
 end $t$;
 
 -- ---------------------------------------------------------------------------
--- P19: the exact failed-start residue shape marks, and the real cleanup then removes it.
+-- P19: the marked failed-start residue is removed through the real Storage-aware contract.
+--
+-- The contract is prepare-then-execute with a proof carried between them:
+--   public.rc1_prepare_synthetic_storage_cleanup(p_reference text) -> jsonb
+--        { reference, target_count, target_fingerprint, targets }
+--   public.rc1_cleanup_synthetic_certification(
+--        p_reference text, p_reason text,
+--        p_expected_target_fingerprint text, p_expected_target_count integer) -> jsonb
+--
+-- Prepare is called once and its result captured; the execute call is given those exact values by
+-- name. Nothing here weakens or bypasses the production requirement -- the mismatch probes below
+-- prove the proof is still enforced.
 -- ---------------------------------------------------------------------------
 do $t$
-declare v_result jsonb; v_remaining integer;
+declare
+  v_ref text;
+  v_prepared jsonb;
+  v_reprepared jsonb;
+  v_fingerprint text;
+  v_target_count integer;
+  v_result jsonb;
+  v_msg text;
+  v_succeeded boolean;
+  v_remaining integer;
 begin
   perform set_config('request.jwt.claims',
     '{"sub":"60000000-0000-0000-0000-000000000020","role":"authenticated","aal":"aal2",'
     '"exp":4102444800,"session_id":"60000000-0000-0000-0000-000000000099"}', true);
 
-  select count(*)::integer into v_remaining
-  from public.organisations o
-  where o.legal_name = 'Variant ok_placeholder' and o.synthetic_certification_ref is not null;
-  perform pg_temp.check('P19a the failed-start residue shape is marked', v_remaining = 1,
-    'marked='||v_remaining);
+  select o.synthetic_certification_ref into v_ref
+  from public.organisations o where o.legal_name = 'Variant ok_placeholder';
+  perform pg_temp.check('P19a the failed-start residue shape is marked', v_ref is not null,
+    coalesce(v_ref, '<unmarked>'));
 
-  v_result := public.rc1_cleanup_synthetic_certification(
-    (select o.synthetic_certification_ref from public.organisations o where o.legal_name='Variant ok_placeholder'),
-    'Removing the marked failed-start residue through the real cleanup.',
-    (select public.rc1_prepare_synthetic_storage_cleanup(
-       (select o2.synthetic_certification_ref from public.organisations o2 where o2.legal_name='Variant ok_placeholder')
-     )->>'fingerprint'),
-    (select (public.rc1_prepare_synthetic_storage_cleanup(
-       (select o2.synthetic_certification_ref from public.organisations o2 where o2.legal_name='Variant ok_placeholder')
-     )->>'object_count')::integer));
+  -- Exactly one prepare. Everything execute needs comes from this result.
+  v_prepared := public.rc1_prepare_synthetic_storage_cleanup(v_ref);
+  v_fingerprint := v_prepared->>'target_fingerprint';
+  v_target_count := (v_prepared->>'target_count')::integer;
+  perform pg_temp.check('P19b prepare returns a usable storage proof',
+    v_fingerprint ~ '^[0-9a-f]{64}$' and v_target_count >= 0,
+    v_prepared::text);
+
+  -- The proof is still current at the moment of execute.
+  v_reprepared := public.rc1_prepare_synthetic_storage_cleanup(v_ref);
+  perform pg_temp.check('P19c the fingerprint and counts are unchanged immediately before execute',
+    v_reprepared->>'target_fingerprint' = v_fingerprint
+    and (v_reprepared->>'target_count')::integer = v_target_count,
+    v_reprepared::text);
+
+  -- A wrong fingerprint is refused, and nothing is removed.
+  v_succeeded := false; v_msg := null;
+  begin
+    perform public.rc1_cleanup_synthetic_certification(
+      p_reference => v_ref,
+      p_reason => 'A stale storage fingerprint must never be accepted.',
+      p_expected_target_fingerprint => repeat('0', 64),
+      p_expected_target_count => v_target_count);
+    v_succeeded := true;
+  exception when others then get stacked diagnostics v_msg = message_text; end;
+  perform pg_temp.check('P19d a mismatched storage fingerprint is refused',
+    not v_succeeded and v_msg = 'rc1_synthetic_cleanup:storage_target_mismatch',
+    coalesce(v_msg, 'cleanup succeeded'));
+
+  -- A wrong count is refused, and nothing is removed.
+  v_succeeded := false; v_msg := null;
+  begin
+    perform public.rc1_cleanup_synthetic_certification(
+      p_reference => v_ref,
+      p_reason => 'A stale storage target count must never be accepted.',
+      p_expected_target_fingerprint => v_fingerprint,
+      p_expected_target_count => v_target_count + 1);
+    v_succeeded := true;
+  exception when others then get stacked diagnostics v_msg = message_text; end;
+  perform pg_temp.check('P19e a mismatched storage target count is refused',
+    not v_succeeded and v_msg = 'rc1_synthetic_cleanup:storage_target_mismatch',
+    coalesce(v_msg, 'cleanup succeeded'));
+
+  -- An absent proof is refused: the two-argument form exists only to say so.
+  v_succeeded := false; v_msg := null;
+  begin
+    perform public.rc1_cleanup_synthetic_certification(
+      p_reference => v_ref,
+      p_reason => 'The two-argument form must refuse without a storage proof.');
+    v_succeeded := true;
+  exception when others then get stacked diagnostics v_msg = message_text; end;
+  perform pg_temp.check('P19f the proofless form still refuses',
+    not v_succeeded and v_msg like 'rc1_synthetic_cleanup:%',
+    coalesce(v_msg, 'cleanup succeeded'));
 
   select count(*)::integer into v_remaining from public.organisations o
   where o.legal_name = 'Variant ok_placeholder';
-  perform pg_temp.check('P19b the real cleanup removed it entirely', v_remaining = 0,
-    'remaining='||v_remaining||' result='||coalesce(v_result::text,'null'));
-exception when others then
-  perform pg_temp.check('P19 marked residue is removable by the real cleanup', false, sqlerrm);
+  perform pg_temp.check('P19g no refused attempt removed anything', v_remaining = 1,
+    'remaining='||v_remaining);
+
+  -- The real contract, with the values carried from that one prepare.
+  v_result := public.rc1_cleanup_synthetic_certification(
+    p_reference => v_ref,
+    p_reason => 'Removing the marked failed-start residue through the real cleanup contract.',
+    p_expected_target_fingerprint => v_fingerprint,
+    p_expected_target_count => v_target_count);
+
+  select count(*)::integer into v_remaining from public.organisations o
+  where o.synthetic_certification_ref = v_ref;
+  perform pg_temp.check('P19h the real cleanup removed the marked residue entirely',
+    v_remaining = 0, 'remaining='||v_remaining||' result='||coalesce(v_result::text,'null'));
+
+  select (select count(*) from public.assessments a where a.assessment_reference = 'RC1-VAR-OK_PLACEHOLDER')
+       + (select count(*) from public.email_events e where e.recipient_email::text = 'variant@example.invalid'
+            and e.assessment_id in (select id from public.assessments where assessment_reference = 'RC1-VAR-OK_PLACEHOLDER'))
+  into v_remaining;
+  perform pg_temp.check('P19i its assessment and placeholder went with it', v_remaining = 0,
+    'remaining='||v_remaining);
+
+  -- Retrying against the now-empty result is safe and changes nothing.
+  v_prepared := public.rc1_prepare_synthetic_storage_cleanup(v_ref);
+  v_result := public.rc1_cleanup_synthetic_certification(
+    p_reference => v_ref,
+    p_reason => 'Retrying the cleanup against an already clean reference.',
+    p_expected_target_fingerprint => v_prepared->>'target_fingerprint',
+    p_expected_target_count => (v_prepared->>'target_count')::integer);
+  perform pg_temp.check('P19j a retry against the empty result is safe',
+    coalesce((v_result->>'already_clean')::boolean, false), coalesce(v_result::text,'null'));
 end $t$;
 
 rollback;
