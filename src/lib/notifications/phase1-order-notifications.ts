@@ -4,7 +4,7 @@ import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
 } from '@/lib/reports/phase1-schema-capability';
-import { sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
+import { getEmailProviderMode, sendEmail as defaultSendEmail } from '@/lib/notifications/email-provider';
 import {
   buildAdminNewOrderAlertMessage,
   buildInternalExceptionAlertMessage,
@@ -25,6 +25,7 @@ type NotificationContext = {
 type AutomaticExceptionAlertDependencies = {
   createClient?: typeof createSupabaseServiceClient;
   sendEmailImpl?: typeof defaultSendEmail;
+  providerModeImpl?: typeof getEmailProviderMode;
 };
 
 function displayAmount(cents: number, currency: string) {
@@ -127,11 +128,24 @@ async function deliverUnsentNotification(db: any, existing: {
   notificationType: string;
   message: { subject: string; text: string; html: string };
   safeProviderFailure?: boolean;
-}, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
+}, dependencies: {
+  sendEmailImpl?: typeof defaultSendEmail;
+  providerModeImpl?: typeof getEmailProviderMode;
+} = {}) {
   if (existing.sent_at || existing.provider_message_id) return { recovered: false, reason: 'already_sent' };
   if (!existing.recipient_email) return { recovered: false, reason: 'recipient_missing' };
   // Last gate before the provider is contacted, so it also covers stale-claim recovery.
   if (!isRecipientPermitted(existing.recipient_email)) return { recovered: false, reason: 'recipient_not_allowlisted' };
+
+  // 'recorded_disabled' is recoverable so the row still dispatches once the provider is switched
+  // on. While it is still off there is nothing to recover: re-claiming only re-runs a no-op that
+  // cannot produce a provider message id, yet each pass consumes one of the five recovery
+  // attempts, so a handful of duplicate records would park a perfectly healthy row as
+  // reconciliation_required. Wait for the provider instead of spending the budget against it.
+  const providerMode = (dependencies.providerModeImpl ?? getEmailProviderMode)();
+  if (providerMode === 'disabled' && existing.status === 'recorded_disabled') {
+    return { recovered: false, reason: 'provider_disabled' };
+  }
 
   const attempt = Number(existing.retry_count ?? 0) + 1;
   if (attempt > MAX_RECOVERY_ATTEMPTS) {
@@ -226,7 +240,10 @@ async function recordNotification(db: any, input: {
   message: { subject: string; text: string; html: string };
   dedupeKey?: string;
   safeProviderFailure?: boolean;
-}, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
+}, dependencies: {
+  sendEmailImpl?: typeof defaultSendEmail;
+  providerModeImpl?: typeof getEmailProviderMode;
+} = {}) {
   const dedupeKey = input.dedupeKey
     ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')

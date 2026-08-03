@@ -301,3 +301,82 @@ test('R9 validator metric table and thresholds unchanged', () => {
   assert.match(src, /issue\('metric_evidence_mismatch', `\$\{path\}\.evidenceRefs`/);
   ok('R9 metric rule table and path shape unchanged');
 });
+
+
+// ---- Maturity-band claim detection: an adjective is not a band claim ----
+//
+// The paid certification journey MKORD-2026-D1U0CTO8 failed prepare_narrative with
+// maturity_evidence_mismatch on gapCommentary[2] (D2-Q01). Its fallback commentary quotes the
+// assessed control verbatim -- "has completed a structured fraud risk assessment within the past
+// two years" -- and maturityMentions matched the bare word "structured" as a claim to the
+// Structured band. Reactive, Developing, Structured and Strategic are all ordinary English
+// adjectives, so any section quoting a question prompt carried the same latent failure. These
+// tests pin the false positive shut and pin every genuine claim shape open.
+
+const gapNarrative = (body, refs) => ({
+  ...build(),
+  gapCommentary: [{ questionCode: 'D4-Q01', body, evidenceRefs: refs ?? ['gap:D4-Q01', 'domain:D4'] }]
+});
+const maturityIssues = (body, refs) => validation
+  .validatePremiumReportNarrative(gapNarrative(body, refs), evidence).issues
+  .filter((i) => i.code === 'maturity_evidence_mismatch');
+
+// D4 sits in the Reactive band, so an unsupported "Structured" claim here is a genuine failure
+// and an ordinary adjectival "structured" is not.
+test('M1 an assessed control quoted verbatim is not a band claim', () => {
+  const body = 'Within Domain D4, the specific control on whether the organisation has completed '
+    + 'a structured fraud risk assessment within the past two years scored low enough to be '
+    + 'flagged as a critical gap.';
+  assert.deepEqual(maturityIssues(body), [], 'quoting the assessed control must not claim a band');
+  ok('M1 quoted control prompt raises no maturity claim');
+});
+
+test('M2 every band word survives ordinary adjectival use', () => {
+  const bodies = [
+    'The response was reactive rather than planned, and depended on individuals.',
+    'The organisation is developing a supplier verification procedure this quarter.',
+    'A structured handover exists between the finance and procurement teams.',
+    'Strategic objectives are set annually by the executive committee.'
+  ];
+  for (const body of bodies) {
+    assert.deepEqual(maturityIssues(body), [], `adjectival use must not claim a band: ${body}`);
+  }
+  ok('M2 adjectival reactive/developing/structured/strategic raise no claim');
+});
+
+test('M3 a predicative band claim without supporting evidence still fails', () => {
+  for (const body of [
+    'This domain is Structured.',
+    'The control environment is Strategic and fully embedded.',
+    'The organisation was assessed as Structured.',
+    'Performance here is best described as Strategic.'
+  ]) {
+    assert.equal(maturityIssues(body).length, 1, `predicative claim must still fail: ${body}`);
+  }
+  ok('M3 predicative band claims still fail without evidence');
+});
+
+test('M4 a band attached to maturity vocabulary still fails', () => {
+  for (const body of [
+    'This places the domain in the Structured band.',
+    'Structured maturity is evident across the estate.',
+    'The readiness rating is Strategic for this domain.'
+  ]) {
+    assert.equal(maturityIssues(body).length, 1, `band-noun claim must still fail: ${body}`);
+  }
+  ok('M4 band-with-maturity-noun claims still fail without evidence');
+});
+
+test('M5 a supported band claim passes on its own cited evidence', () => {
+  // D4's own domain evidence carries maturityBand Reactive, so claiming Reactive is grounded.
+  assert.deepEqual(maturityIssues('This domain is Reactive.'), []);
+  ok('M5 a band claim matching the cited domain evidence passes');
+});
+
+test('M6 the detector is anchored, not a bare word match', () => {
+  const src = fs.readFileSync(path.join(root, 'src/lib/reports/automation/validation.ts'), 'utf8');
+  assert.doesNotMatch(src, /function maturityMentions\([\s\S]{0,200}?new RegExp\(`\\\\b\$\{band\}\\\\b`, 'i'\)\.test\(text\)/,
+    'maturityMentions must not go back to an unanchored band match');
+  assert.match(src, /MATURITY_NOUN/, 'anchored maturity vocabulary must remain');
+  ok('M6 maturity detection stays anchored to a claim shape');
+});

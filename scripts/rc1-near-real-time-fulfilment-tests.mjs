@@ -221,15 +221,54 @@ function createNotificationStore() {
           };
           return insertion;
         },
+        // The unsent-notification claim is a CONDITIONAL update -- .eq(...).is(...).in(...) and,
+        // when reclaiming a stale lease, .lt(...) -- and its result decides whether this caller
+        // owns the send. A double that only understood .eq() therefore threw
+        // "…​.eq(...).is is not a function" the moment recovery ran, and could not have modelled
+        // the race it exists to prove. This mirrors the postgrest builder: filters accumulate,
+        // and only rows matching every one of them are written.
         update(payload) {
-          return {
-            async eq(column, value) {
-              for (const row of rows.filter((candidate) => candidate[column] === value)) {
-                Object.assign(row, payload);
-              }
-              return { data: null, error: null };
+          const predicates = [];
+          const apply = () => {
+            const matched = rows.filter((row) => predicates.every((predicate) => predicate(row)));
+            matched.forEach((row) => Object.assign(row, payload));
+            return matched;
+          };
+          const builder = {
+            eq(column, value) {
+              predicates.push((row) => row[column] === value);
+              return builder;
+            },
+            is(column, value) {
+              // postgrest `is` is null/boolean identity, not equality.
+              predicates.push((row) => (row[column] ?? null) === value);
+              return builder;
+            },
+            in(column, values) {
+              predicates.push((row) => values.includes(row[column] ?? null));
+              return builder;
+            },
+            lt(column, value) {
+              predicates.push((row) => row[column] != null && row[column] < value);
+              return builder;
+            },
+            select() {
+              return builder;
+            },
+            async maybeSingle() {
+              return { data: apply()[0] ?? null, error: null };
+            },
+            async single() {
+              const matched = apply();
+              return matched.length === 1
+                ? { data: matched[0], error: null }
+                : { data: null, error: { message: 'no rows' } };
+            },
+            then(resolve, reject) {
+              return Promise.resolve({ data: apply(), error: null }).then(resolve, reject);
             },
           };
+          return builder;
         },
       };
       return query;
@@ -653,4 +692,53 @@ assert.equal(results.length, 36);
 assert.equal(calls[0].args.p_outcome, 'started');
 assert.equal(calls[1].args.p_outcome, 'succeeded');
 assert.equal(capturedRequest.url, 'https://exact-deployment.example.vercel.app/score/api/internal/fulfilment-worker');
-console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/36.`);
+
+// A row recorded while the provider was off must WAIT for the provider, not be re-claimed against
+// it. Each re-claim re-runs a no-op that can never produce a provider message id, yet spends one
+// of the five recovery attempts, so a few duplicate records would park a healthy row as
+// reconciliation_required and strand the notification permanently.
+await test('disabled provider does not consume the recovery budget', async () => {
+  const { store, db } = createNotificationStore();
+  const sends = [];
+  const sendEmailImpl = async (message) => {
+    sends.push(message);
+    return { ok: true, mode: 'disabled', providerMessageId: null };
+  };
+  const input = {
+    orderId: syntheticOrderId,
+    reportId: null,
+    attemptId: '55555555-5555-4555-8555-555555555555',
+    authorizationId: null,
+    category: 'worker_dispatch_failed',
+    stage: 'immediate_dispatch',
+    technicalReference: '66666666-6666-4666-8666-666666666666',
+    requiredAction: dispatchRequiredAction,
+  };
+  const disabled = { createClient: () => db, sendEmailImpl, providerModeImpl: () => 'disabled' };
+  await recordAutomaticFulfilmentExceptionAlert(input, disabled);
+  for (let i = 0; i < 6; i += 1) await recordAutomaticFulfilmentExceptionAlert(input, disabled);
+
+  assert.equal(store.emailEvents.length, 1, 'dedupe key still yields exactly one row');
+  assert.equal(sends.length, 1, 'a disabled provider is not re-invoked per duplicate record');
+  const row = store.emailEvents[0];
+  assert.equal(row.status, 'recorded_disabled', 'row stays recoverable, not parked');
+  assert.notEqual(row.status, 'reconciliation_required');
+  assert.ok(Number(row.retry_count ?? 0) <= 1, 'no recovery attempts are spent while disabled');
+
+  // Once the provider is switched on the very same row is dispatched -- the guard defers the
+  // recovery, it does not cancel it.
+  const enabled = {
+    createClient: () => db,
+    providerModeImpl: () => 'live',
+    sendEmailImpl: async (message) => {
+      sends.push(message);
+      return { ok: true, mode: 'live', providerMessageId: 'provider-message-1' };
+    },
+  };
+  await recordAutomaticFulfilmentExceptionAlert(input, enabled);
+  assert.equal(sends.length, 2, 'enabling the provider releases the deferred recovery');
+  assert.equal(store.emailEvents[0].provider_message_id, 'provider-message-1');
+  assert.equal(store.emailEvents.length, 1, 'recovery never creates a second event row');
+});
+
+console.log(`RC1 near-real-time automatic fulfilment checks passed: ${results.length}/37.`);
