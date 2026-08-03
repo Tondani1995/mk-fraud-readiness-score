@@ -200,7 +200,7 @@ assert.equal(manifest.assessmentStartPlaceholder.countsAsReportDeliveryEvidence,
 const webhookRoute = read('src/app/score/api/webhooks/resend/route.ts');
 assert.match(
   webhookRoute,
-  /event = verifyResendWebhook\([\s\S]*?createProviderWebhookDatabaseAttestation\([\s\S]*?db\.rpc\('ingest_phase14_provider_webhook'/,
+  /event = verifyResendWebhook\([\s\S]*?createProviderWebhookDatabaseAttestation\([\s\S]*?db\.rpc\([\s\S]*?['"]ingest_phase14_provider_webhook'/,
 );
 const finalWebhookStart = canonicalDelivery.lastIndexOf(
   'create or replace function public.ingest_phase14_provider_webhook',

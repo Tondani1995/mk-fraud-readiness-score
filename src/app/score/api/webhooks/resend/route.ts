@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { checkRateLimits, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { isPremiumReportDevelopmentMode } from '@/lib/reports/email/premium-report-development-mode';
 import {
   ResendWebhookBodyTooLargeError,
   createProviderWebhookDatabaseAttestation,
@@ -42,8 +43,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const frozen = await getRc1OperationFreezeResponse('resend_webhook', 'provider_webhook');
-  if (frozen) return frozen;
+  const previewDevelopmentMode = isPremiumReportDevelopmentMode();
+  if (!previewDevelopmentMode) {
+    const frozen = await getRc1OperationFreezeResponse('resend_webhook', 'provider_webhook');
+    if (frozen) return frozen;
+  }
 
   const receiptTimeMs = Date.now();
   // L5: global volumetric ceiling, checked before any request-body work. Deliberately not
@@ -164,7 +168,11 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: false, error: 'webhook_attestation_unavailable' }, { status: 503 });
   }
-  const { data, error } = await db.rpc('ingest_phase14_provider_webhook', {
+  const { data, error } = await db.rpc(
+    previewDevelopmentMode
+      ? 'preview_development_ingest_phase14_provider_webhook'
+      : 'ingest_phase14_provider_webhook',
+    {
     p_provider: 'resend',
     p_provider_event_id: providerEventId,
     p_provider_message_id: providerMessageId,
