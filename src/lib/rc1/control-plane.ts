@@ -824,6 +824,55 @@ export function createRc1OrphanRemediationPost(
   };
 }
 
+const ATTEMPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * RC1 fulfilment-attempt parking.
+ *
+ * Available while the operation is FROZEN: standing a queued attempt down is a containment action,
+ * not a journey mutation, and the whole point is to make a released window safe to open. The
+ * database still owns every authority and eligibility decision.
+ */
+export function createRc1ParkFulfilmentAttemptPost(
+  dependencies: Rc1ControlPlaneDependencies = {},
+) {
+  return async function POST(request: Request) {
+    const operator = await requireOperator(dependencies);
+    if (!isOperator(operator)) return operator;
+
+    const body = await readJsonBody(request);
+    if (!body) return json({ ok: false, error: 'RC1_CONTROL_INVALID_BODY' }, 400);
+
+    const attemptId = typeof body.attemptId === 'string' ? body.attemptId.trim() : '';
+    if (!ATTEMPT_ID.test(attemptId)) {
+      return json({ ok: false, error: 'RC1_PARK_ATTEMPT_ID_INVALID' }, 400);
+    }
+    const reason = meaningfulReason(body.reason);
+    if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
+
+    const { data, error } = await callRpc(
+      dependencies,
+      operator,
+      'rc1_park_fulfilment_attempt',
+      { p_attempt_id: attemptId, p_reason: reason },
+    );
+    if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      return json({ ok: false, error: 'RC1_PARK_REFUSED', reason: safeRefusalReason(error) }, 409);
+    }
+
+    const result = data as Record<string, unknown>;
+    // Identifiers and status only: no attempt payload, no report content, no actor identity.
+    return json({
+      ok: true,
+      attemptId,
+      status: typeof result.status === 'string' ? result.status : null,
+      previousStatus: typeof result.previous_status === 'string' ? result.previous_status : null,
+      alreadyParked: result.already_parked === true,
+      claimable: result.claimable === true,
+    });
+  };
+}
+
 export function createRc1SyntheticCleanupPost(
   dependencies: Rc1SyntheticCleanupDependencies = {},
 ) {

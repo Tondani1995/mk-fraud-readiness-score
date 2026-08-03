@@ -59,7 +59,9 @@ const pending = [
   '20260801220000_rc1_synthetic_certification_marking.sql',
   '20260802120000_rc1_synthetic_marking_placeholder_allowance.sql',
   '20260803090000_rc1_certification_closure.sql',
-  '20260803160000_rc1_reactive_domain_content_correction.sql'
+  '20260803160000_rc1_reactive_domain_content_correction.sql',
+  '20260803170000_rc1_reactive_domain_title_correction.sql',
+  '20260803180000_rc1_park_fulfilment_attempt.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],

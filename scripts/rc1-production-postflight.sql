@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 63 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 65 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260803160000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260803180000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 29
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 31
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -102,14 +102,16 @@ with authorised(version, name) as (
     ('20260801220000','rc1_synthetic_certification_marking'),
     ('20260802120000','rc1_synthetic_marking_placeholder_allowance'),
     ('20260803090000','rc1_certification_closure'),
-    ('20260803160000','rc1_reactive_domain_content_correction')
+    ('20260803160000','rc1_reactive_domain_content_correction'),
+    ('20260803170000','rc1_reactive_domain_title_correction'),
+    ('20260803180000','rc1_park_fulfilment_attempt')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 29 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 31 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -119,7 +121,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
