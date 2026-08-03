@@ -20,6 +20,20 @@ export function buildDeterministicNarrative(
     'score:exposure_band', 'score:coverage', 'gaps:critical_count', 'gaps:major_count'
   ];
 
+  // A domain section may only cite its own evidence. Attaching coreRefs here would have the
+  // section claim the overall maturity band as its own, which validatePremiumReportNarrative
+  // correctly rejects as domain_maturity_contradiction whenever a domain sits in a different band
+  // from the report overall; attaching every cap event would have D2 cite D1's cap rules. Global
+  // maturity and exposure context belongs to executiveDiagnosis, which still carries it.
+  const capRefsForDomain = (domainCode: string) => data.maturityCapEvents
+    .filter((event) => event.relatedDomainCode === domainCode
+      || (event.relatedQuestionCode ?? '').startsWith(`${domainCode}-`))
+    .map((event) => `cap:${event.ruleCode}:${event.relatedQuestionCode ?? event.relatedDomainCode ?? 'global'}`);
+
+  const gapRefsForDomain = (domainCode: string) => data.criticalMajorGaps
+    .filter((gap) => gap.domainCode === domainCode)
+    .map((gap) => `gap:${gap.questionCode}`);
+
   return {
     executiveDiagnosis: {
       title: content.executiveSummary.title,
@@ -48,8 +62,8 @@ export function buildDeterministicNarrative(
         body: selected?.body ?? '',
         evidenceRefs: nonEmpty([
           `domain:${domain.domainCode}`,
-          ...coreRefs,
-          ...capRefs
+          ...gapRefsForDomain(domain.domainCode),
+          ...capRefsForDomain(domain.domainCode)
         ])
       };
     }),
@@ -59,8 +73,7 @@ export function buildDeterministicNarrative(
       evidenceRefs: nonEmpty([
         `gap:${gap.questionCode}`,
         `domain:${gap.domainCode}`,
-        ...coreRefs,
-        ...capRefs
+        ...capRefsForDomain(gap.domainCode)
       ])
     }))
   };

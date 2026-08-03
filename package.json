@@ -99,7 +99,8 @@
     "rc1:test-synthetic-marking-route": "node scripts/rc1-synthetic-marking-route-test.mjs",
     "verify:supabase-local-config": "node scripts/verify-supabase-local-config.mjs",
     "rc1:test-notification-recovery": "node scripts/rc1-notification-recovery-tests.mjs",
-    "rc1:test-notification-claim-db": "psql \"$LOCAL_DB_URL\" -XAtf scripts/rc1-notification-claim-db-tests.sql"
+    "rc1:test-notification-claim-db": "psql \"$LOCAL_DB_URL\" -XAtf scripts/rc1-notification-claim-db-tests.sql",
+    "rc1:test-narrative-domain-scope": "node scripts/rc1-narrative-domain-scope-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

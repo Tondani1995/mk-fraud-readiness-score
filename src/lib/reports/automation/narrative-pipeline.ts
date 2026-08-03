@@ -25,6 +25,20 @@ export interface NarrativePipelineDependencies {
   buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
 }
 
+/**
+ * Maps a narrative grounding rule onto a closed-vocabulary diagnostic code.
+ *
+ * The rule identifiers emitted by validatePremiumReportNarrative are already a fixed vocabulary of
+ * lowercase snake_case codes, so the safe form is a deterministic upper-cased projection behind a
+ * stage prefix. Anything unrecognised degrades to the stage-level code rather than leaking text.
+ */
+export function narrativeGroundingDiagnosticCode(ruleCode: unknown): `QG_NARRATIVE_${string}` {
+  const raw = typeof ruleCode === 'string' ? ruleCode.trim() : '';
+  if (!/^[a-z][a-z0-9_]{2,48}$/.test(raw)) return 'QG_NARRATIVE_GROUNDING_FAILED';
+  const code = `QG_NARRATIVE_${raw.toUpperCase()}` as const;
+  return /^[A-Z][A-Z0-9_]{2,63}$/.test(code) ? code : 'QG_NARRATIVE_GROUNDING_FAILED';
+}
+
 function fallbackResult(
   input: BuildPremiumReportNarrativeInput,
   reason: string,
@@ -42,12 +56,17 @@ function fallbackResult(
 
   if (!validation.ok) {
     throw new ReportCommercialQualityError(
+      // Preserve the real validation code. Collapsing every grounding failure into the generic
+      // evaluator-exception code made a genuine, specific failure indistinguishable from an
+      // evaluator crash, and the persisted diagnostic carried no usable detail at all. The code is
+      // a closed-vocabulary identifier from validatePremiumReportNarrative and the path is a
+      // structural JSON pointer -- neither contains report prose or organisation data.
       validation.issues.map((item) => ({
-        code: 'QG_QUALITY_EVALUATION_FAILED',
+        code: narrativeGroundingDiagnosticCode(item.code),
         severity: 'violation',
         message: `Approved deterministic narrative failed grounding validation (${item.code}).`,
         entityId: item.path,
-        source: 'commercial-quality'
+        source: 'narrative-grounding'
       })),
       [],
       COMMERCIAL_QUALITY_SAFE_ADMIN_MESSAGE
