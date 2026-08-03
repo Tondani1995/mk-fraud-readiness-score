@@ -80,11 +80,37 @@ assert.match(
   phase1Notifications,
   /const dedupeKey = input\.dedupeKey\s*\?\?\s*`phase1:\$\{input\.notificationType\}:\$\{input\.context\.order\.id\}`/,
 );
+// The dedupe key still guarantees exactly one row per notification, and a duplicate still reuses
+// that row rather than inserting a second one. What changed is what a reuse may now do: an event
+// written while the provider was disabled or failing carries no sent_at and no provider message
+// id, and the reuse branch hands it to deliverUnsentNotification so it can still be delivered once
+// the provider returns. The columns the lookup selects grew to carry exactly the facts that
+// decision needs.
 assert.match(
   phase1Notifications,
-  /\.select\('id,status,retry_count'\)\.eq\('dedupe_key', dedupeKey\)\.maybeSingle\(\)[\s\S]*?if \(existing\) return \{ \.\.\.existing, reused: true \}/,
+  /\.select\('id,status,retry_count,sent_at,provider_message_id,recipient_email,updated_at'\)\s*\.eq\('dedupe_key', dedupeKey\)\.maybeSingle\(\)[\s\S]*?if \(existing\) \{[\s\S]*?return \{ \.\.\.existing, \.\.\.recovered, reused: true \};/,
 );
-assert.match(phase1Notifications, /idempotencyKey: data\.id/);
+// A reuse must never be able to send an event that already reached the provider: sent_at and
+// provider_message_id are the two authoritative marks of a real dispatch, and either one is
+// terminal. This is what keeps "exactly one provider message per notification" true even though a
+// duplicate now has a delivery path at all.
+assert.match(
+  phase1Notifications,
+  /if \(existing\.sent_at \|\| existing\.provider_message_id\) return \{ recovered: false, reason: 'already_sent' \}/,
+);
+// Both send paths -- the initial dispatch and the recovery of an unsent row -- must present the
+// SAME provider idempotency key, or recovering a row whose first attempt did reach the provider
+// would produce a second message for one notification. providerIdempotencyKeyFor is that single
+// derivation (the email-event id, itself one-per-dedupe-key); pinning the shared helper rather
+// than an inlined `data.id` is what stops the two paths drifting apart.
+assert.match(
+  phase1Notifications,
+  /export function providerIdempotencyKeyFor\(emailEventId: string\) \{\s*return emailEventId;/,
+);
+assert.equal(
+  (phase1Notifications.match(/idempotencyKey: providerIdempotencyKeyFor\((?:data|existing)\.id\)/g) ?? []).length,
+  2,
+);
 assert.equal(
   (phase1Notifications.match(/notificationType: 'customer_order_confirmation',/g) ?? []).length,
   1,
