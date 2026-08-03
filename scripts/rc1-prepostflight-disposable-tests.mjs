@@ -63,7 +63,8 @@ const pending = [
   '20260803170000_rc1_reactive_domain_title_correction.sql',
   '20260803180000_rc1_park_fulfilment_attempt.sql',
   '20260803190000_rc1_park_fulfilment_attempt_search_path_fix.sql',
-  '20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql'
+  '20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql',
+  '20260803210000_rc1_structured_band_operating_state_overclaim.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],

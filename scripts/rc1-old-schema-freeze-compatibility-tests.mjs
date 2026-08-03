@@ -59,6 +59,9 @@ const pendingVersions = new Set([
   '20260803180000',
   '20260803190000',
   '20260803200000',
+  // Structured-band operating-state overclaim correction: report copy only, so it sits above the
+  // production boundary with the rest of the RC1 corrections.
+  '20260803210000',
 ]);
 
 function migrationParts(name) {
