@@ -118,8 +118,12 @@ export const FALLBACK_DOMAIN_CONTENT: Record<string, Record<MaturityBand, Fallba
 export function getDomainFallback(domainName: string, band: MaturityBand): FallbackText {
   const content = FALLBACK_DOMAIN_CONTENT[domainName]?.[band];
   if (content) return content;
+  // Deliberately states no maturity band. The generic fallback has no evidence of its own, so
+  // asserting "was assessed at a <band> level" made an unsupported maturity claim that
+  // validatePremiumReportNarrative correctly rejected. Wording stays band-neutral; the band is
+  // carried by the domain evidence and rendered from there.
   return {
-    headline: `${domainName}: ${band.toLowerCase()} position`,
-    body: `${domainName} was assessed at a ${band} level. The detailed advisory interpretation for this domain should be reviewed with MK Fraud Insights during the report walkthrough.`
+    headline: `${domainName}: assessed position`,
+    body: `${domainName} was assessed against the MK Fraud Readiness methodology using this organisation's own responses. The detailed advisory interpretation for this domain should be reviewed with MK Fraud Insights during the report walkthrough.`
   };
 }

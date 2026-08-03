@@ -26,7 +26,7 @@ const freezeBootstrap = fs.readFileSync(
 const migrationFiles = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 62);
+assert.equal(migrationFiles.length, 63);
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations (quality diagnostics, synthetic cleanup), so at(-1)/at(-2) legitimately move
 // while the accepted ordering of these two must not.

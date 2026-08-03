@@ -100,6 +100,22 @@ const INDIRECT_MATURITY: Array<{ band: string; pattern: RegExp }> = [
   { band: 'Strategic', pattern: /\b(?:intelligence[- ]led|continuously optimised|fully embedded)\s+(?:maturity|readiness|operating model|control environment)\b/i }
 ];
 
+/**
+ * The metric evidence references a piece of text obliges its section to cite.
+ *
+ * Single source of truth with METRIC_CLAIMS below: a section whose body invokes a metric phrase
+ * must cite that metric's evidence, so the builder asks this function rather than restating the
+ * patterns. Returns only the refs the text actually triggers -- it never widens a section's
+ * grounding beyond what its own wording requires.
+ */
+export function requiredMetricRefsFor(text: string): string[] {
+  const refs = new Set<string>();
+  for (const metric of METRIC_CLAIMS) {
+    if (metric.pattern.test(text)) metric.requiredRefs.forEach((ref) => refs.add(ref));
+  }
+  return [...refs];
+}
+
 function validateMetricClaims(
   path: string,
   value: { title?: string; body: string; evidenceRefs?: string[] },

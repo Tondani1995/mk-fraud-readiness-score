@@ -1,6 +1,7 @@
 import type { AssembledReportData, SelectedContent } from '../types';
 import { gapKey } from '../select-content-blocks';
 import type { PremiumReportAiEditorialPlan, PremiumReportNarrative } from './types';
+import { requiredMetricRefsFor } from './validation';
 
 function nonEmpty(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value));
@@ -56,26 +57,36 @@ export function buildDeterministicNarrative(
     },
     domainNarratives: data.domainResults.map((domain) => {
       const selected = content.domainNarratives[domain.domainName];
+      const title = selected?.title ?? domain.domainName;
+      const body = selected?.body ?? '';
       return {
         domainCode: domain.domainCode,
-        title: selected?.title ?? domain.domainName,
-        body: selected?.body ?? '',
+        title,
+        body,
         evidenceRefs: nonEmpty([
           `domain:${domain.domainCode}`,
           ...gapRefsForDomain(domain.domainCode),
-          ...capRefsForDomain(domain.domainCode)
+          ...capRefsForDomain(domain.domainCode),
+          // Only the metric evidence this section's own wording obliges it to cite.
+          ...requiredMetricRefsFor(`${title} ${body}`)
         ])
       };
     }),
-    gapCommentary: data.criticalMajorGaps.map((gap) => ({
-      questionCode: gap.questionCode,
-      body: content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)]?.body ?? gap.prompt,
-      evidenceRefs: nonEmpty([
-        `gap:${gap.questionCode}`,
-        `domain:${gap.domainCode}`,
-        ...capRefsForDomain(gap.domainCode)
-      ])
-    }))
+    gapCommentary: data.criticalMajorGaps.map((gap) => {
+      const body = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)]?.body ?? gap.prompt;
+      return {
+        questionCode: gap.questionCode,
+        body,
+        evidenceRefs: nonEmpty([
+          `gap:${gap.questionCode}`,
+          `domain:${gap.domainCode}`,
+          ...capRefsForDomain(gap.domainCode),
+          // Gap commentary routinely says "critical gap" / "major gap", which obliges the matching
+          // count evidence. Stripping these in c4b5550 is what produced the 14 metric mismatches.
+          ...requiredMetricRefsFor(body)
+        ])
+      };
+    })
   };
 }
 

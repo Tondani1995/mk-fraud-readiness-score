@@ -36,6 +36,8 @@ function load(rel) {
 }
 
 const content = load('src/lib/reports/automation/content.ts');
+const selectBlocks = load('src/lib/reports/select-content-blocks.ts');
+const fallbackContent = load('src/lib/reports/fallback-content.ts');
 const validation = load('src/lib/reports/automation/validation.ts');
 const pipeline = load('src/lib/reports/automation/narrative-pipeline.ts');
 
@@ -167,3 +169,135 @@ test('N8 validator thresholds and rule set are unchanged', () => {
 });
 
 process.on('exit', () => console.log(`\nRC1_NARRATIVE_DOMAIN_SCOPE_TESTS: ${pass} checks passed`));
+
+
+// ---- Report content repair: Reactive content, deterministic selection, metric refs ----
+
+const REACTIVE = { D1: 'Reactive', D2: 'Reactive', D3: 'Reactive', D4: 'Reactive', D5: 'Reactive',
+  D6: 'Reactive', D7: 'Reactive', D8: 'Reactive', D9: 'Reactive', D10: 'Reactive' };
+const R_CODES = Object.keys(REACTIVE);
+const MIG = fs.readFileSync(path.join(root,
+  'supabase/migrations/20260803160000_rc1_reactive_domain_content_correction.sql'), 'utf8');
+const migBodies = MIG.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+
+// 18 critical + 11 major, ten domains, overall Reactive -- the live journey's shape.
+const rData = {
+  scoreRun: { overallScore: 30.09, calculatedMaturity: 'Reactive', finalMaturity: 'Reactive',
+    exposureBand: 'High', capApplied: false },
+  organisationName: 'Fixture Org',
+  domainResults: R_CODES.map((c, i) => ({ domainCode: c, domainName: `Domain ${c}`, rawScore: 20 + i })),
+  // 18 critical + 11 major = 29, matching the live journey's gap profile.
+  criticalMajorGaps: [
+    ...Array.from({ length: 18 }, (_, i) => {
+      const c = R_CODES[i % 10];
+      return { domainCode: c, domainName: `Domain ${c}`, questionCode: `${c}-QC${i}`,
+        isCriticalGap: true, isHardGate: false, prompt: `critical ${i}` };
+    }),
+    ...Array.from({ length: 11 }, (_, i) => {
+      const c = R_CODES[i % 10];
+      return { domainCode: c, domainName: `Domain ${c}`, questionCode: `${c}-QM${i}`,
+        isCriticalGap: false, isHardGate: false, prompt: `major ${i}` };
+    })
+  ],
+  maturityCapEvents: [{ ruleCode: 'any_core_domain_below_40', relatedQuestionCode: null, relatedDomainCode: 'D1' }]
+};
+
+test('R1 no Reactive block in the correction states Structured maturity', () => {
+  for (const band of ['Structured', 'Developing', 'Strategic']) {
+    assert.ok(!new RegExp(`\\b${band}\\b`, 'i').test(migBodies),
+      `Reactive correction must not contain the band word ${band}`);
+  }
+  ok('R1 corrected Reactive content states no other maturity band');
+});
+
+test('R2 D1, D2 and D3 all receive Reactive content', () => {
+  for (const key of ['domain_d1_reactive', 'domain_d3_reactive', 'domain_d2_reactive']) {
+    assert.ok(MIG.includes(key), `${key} must be addressed by the correction`);
+  }
+  assert.match(MIG, /maturity_band = 'Reactive'/);
+  assert.match(MIG, /'D2',\s*\n\s*'Reactive'/, 'a D2 Reactive block must be inserted');
+  ok('R2 D1, D3 corrected and D2 Reactive block added');
+});
+
+test('R3 duplicate matching blocks resolve deterministically by block key', () => {
+  const dup = [
+    { blockKey: 'zz_last', blockType: 'domain_narrative', domainCode: 'D1', maturityBand: 'Reactive',
+      title: 'Z', body: 'Z body', status: 'active', severity: null },
+    { blockKey: 'aa_first', blockType: 'domain_narrative', domainCode: 'D1', maturityBand: 'Reactive',
+      title: 'A', body: 'A body', status: 'active', severity: null }
+  ];
+  const a = selectBlocks.selectContent(rData, dup);
+  const b = selectBlocks.selectContent(rData, [...dup].reverse());
+  assert.equal(a.domainNarratives['Domain D1'].title, b.domainNarratives['Domain D1'].title,
+    'selection must not depend on row order');
+  assert.equal(a.domainNarratives['Domain D1'].title, 'A', 'lowest block key wins');
+  ok('R3 duplicate blocks resolve deterministically');
+});
+
+test('R4 the generic fallback invents no maturity statement', () => {
+  const f = fallbackContent.getDomainFallback('Totally Unknown Domain', 'Reactive');
+  const text = `${f.headline} ${f.body}`;
+  for (const band of ['Reactive', 'Developing', 'Structured', 'Strategic']) {
+    assert.ok(!new RegExp(`\\b${band}\\b`, 'i').test(text), `fallback must not assert ${band}`);
+  }
+  ok('R4 generic fallback asserts no band');
+});
+
+test('R5 gap commentary citing gap counts carries the matching metric evidence', () => {
+  const selected = selectBlocks.selectContent(rData, []);
+  // Force the metric language the live blocks use.
+  for (const k of Object.keys(selected.gapCommentary)) {
+    selected.gapCommentary[k] = { body: 'This is a critical gap and a major gap.', usedFallback: true };
+  }
+  const n = content.buildDeterministicNarrative(rData, selected);
+  assert.equal(n.gapCommentary.length, 29, 'fixture must produce 18 critical + 11 major gaps');
+  for (const g of n.gapCommentary) {
+    assert.ok(g.evidenceRefs.includes('gaps:critical_count'), `${g.questionCode} missing gaps:critical_count`);
+    assert.ok(g.evidenceRefs.includes('gaps:major_count'), `${g.questionCode} missing gaps:major_count`);
+  }
+  ok('R5 metric references restored for every gap commentary');
+});
+
+test('R6 every gap commentary retains its own gap and domain grounding', () => {
+  const n = content.buildDeterministicNarrative(rData, selectBlocks.selectContent(rData, []));
+  for (const g of n.gapCommentary) {
+    assert.ok(g.evidenceRefs.includes(`gap:${g.questionCode}`), `${g.questionCode} lost its gap ref`);
+    const dom = g.questionCode.split('-')[0];
+    assert.ok(g.evidenceRefs.includes(`domain:${dom}`), `${g.questionCode} lost its domain ref`);
+  }
+  ok('R6 gap and domain grounding retained');
+});
+
+test('R7 a section with no metric language gains no metric references', () => {
+  const selected = selectBlocks.selectContent(rData, []);
+  for (const k of Object.keys(selected.gapCommentary)) {
+    selected.gapCommentary[k] = { body: 'Controls here depend on individual diligence.', usedFallback: true };
+  }
+  const n = content.buildDeterministicNarrative(rData, selected);
+  for (const g of n.gapCommentary) {
+    assert.ok(!g.evidenceRefs.includes('gaps:critical_count'),
+      'references must not be widened beyond what the wording requires');
+  }
+  ok('R7 references are not widened without a triggering claim');
+});
+
+test('R8 unsupported numeric and contradictory claims still fail', () => {
+  const n = build();
+  n.domainNarratives[0].body = 'This domain is Strategic.';
+  const r1 = validation.validatePremiumReportNarrative(n, evidence);
+  assert.ok(r1.issues.some((i) => i.code === 'domain_maturity_contradiction'));
+  const n2 = build();
+  n2.gapCommentary = [{ questionCode: 'D1-Q01', body: 'There are 4 critical gaps.', evidenceRefs: ['gap:D1-Q01', 'domain:D1'] }];
+  const r2 = validation.validatePremiumReportNarrative(n2, evidence);
+  assert.ok(r2.issues.some((i) => i.code === 'metric_evidence_mismatch'),
+    'metric language without its reference must still fail');
+  ok('R8 contradictory and unsupported claims still fail');
+});
+
+test('R9 validator metric table and thresholds unchanged', () => {
+  const src = fs.readFileSync(path.join(root, 'src/lib/reports/automation/validation.ts'), 'utf8');
+  assert.match(src, /requiredRefs: \['gaps:critical_count'\]/);
+  assert.match(src, /requiredRefs: \['gaps:major_count'\]/);
+  assert.match(src, /issue\('metric_evidence_mismatch', `\$\{path\}\.evidenceRefs`/);
+  ok('R9 metric rule table and path shape unchanged');
+});
