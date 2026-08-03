@@ -380,3 +380,86 @@ test('M6 the detector is anchored, not a bare word match', () => {
   assert.match(src, /MATURITY_NOUN/, 'anchored maturity vocabulary must remain');
   ok('M6 maturity detection stays anchored to a claim shape');
 });
+
+
+// ---- Response-state claims: seeded copy may not overclaim an operating control ----
+//
+// The Phase 1 release-safety fixture answers eight controls 0 and the rest 4, so a domain can sit
+// in the Structured band while still containing a control recorded as entirely absent. Every
+// Structured-band domain narrative opened with "real controls exist and are operating across most
+// of what was assessed here", the section cites its own response-value-0 gap, and
+// validatePremiumReportNarrative correctly raised response_label_misstatement. The validator is
+// right: a weighted-average band can hide an absent control, which is the false comfort this
+// product is sold to surface. These tests keep the copy honest without touching the guard.
+
+const RESPONSE_STATE_SUBJECT = String.raw`\b(?:controls?(?:\s+in\s+(?:this|the)\s+domain)?|process(?:es)?|measures?|practices?|capabilit(?:y|ies)|arrangements?|responses?|the\s+domain)\b[^.\n]{0,50}\b(?:is|are|was|were|has\s+been|have\s+been|remains?|operate(?:s)?)\s+`;
+const RESPONSE_STATE_CLAIMS = {
+  implementedOrOperating: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:implemented(?:\\s+and\\s+in\\s+use)?|in\\s+use|operating|operational|consistently\\s+operating|embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved)`, 'i'),
+  consistentlyOperating: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:consistently\\s+operating|operating\\s+consistently|consistently\\s+in\\s+use)`, 'i'),
+  embeddedImproved: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved|subject\\s+to\\s+continuous\\s+improvement)`, 'i')
+};
+const claimsFired = (text) => Object.entries(RESPONSE_STATE_CLAIMS)
+  .filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
+
+test('L1 the retired Structured opening still trips the guard', () => {
+  // Proves these tests would catch a reintroduction, and that the validator was never relaxed.
+  const retired = 'This domain is genuinely functioning: real controls exist and are operating '
+    + 'across most of what was assessed here, not just described in policy.';
+  assert.deepEqual(claimsFired(retired), ['implementedOrOperating']);
+  ok('L1 the old wording is still detected as an operating-state claim');
+});
+
+test('L2 no deterministic fallback copy claims an operating state', () => {
+  // Walk the exported values, not the file text: scanning source picks up apostrophes inside
+  // comments and reports fragments that are not copy at all.
+  const strings = [];
+  const walk = (value) => {
+    if (typeof value === 'string') strings.push(value);
+    else if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+    else if (typeof value === 'function') {
+      // getDomainFallback(domainName, band) -- exercise every band it serves.
+      for (const band of ['Reactive', 'Developing', 'Structured', 'Strategic']) {
+        try { walk(value('Fraud Leadership and Governance', band)); } catch { /* not a fallback getter */ }
+      }
+    }
+  };
+  walk(fallbackContent);
+  assert.ok(strings.length > 10, 'fallback copy should have been collected');
+  for (const text of strings) {
+    assert.deepEqual(claimsFired(text), [], `fallback copy makes a response-state claim: ${text.slice(0, 140)}`);
+  }
+  ok(`L2 ${strings.length} fallback strings make no blanket operating-state claim`);
+});
+
+test('L3 the retired opening is corrected by a migration', () => {
+  // The seed migration is already applied, so its text cannot be edited -- its checksum is pinned.
+  // The retired sentence therefore still appears there by design, and correctness means a LATER
+  // migration rewrites every row carrying it. This asserts that coverage rather than the absence
+  // of the string. (A blanket source scan is not usable here: question prompts such as 0009's
+  // "...processes or operational changes are implemented" match the same shape while being
+  // assessment text, not report narrative.)
+  const dir = path.join(root, 'supabase/migrations');
+  const retired = 'real controls exist and are operating across most of what was assessed here';
+  const execRetired = 'controls exist and are operating across most of what was assessed';
+
+  const correction = fs.readdirSync(dir).find((f) => /operating_state_overclaim/.test(f));
+  assert.ok(correction, 'a migration must correct the retired operating-state opening');
+  const sql = fs.readFileSync(path.join(dir, correction), 'utf8');
+
+  assert.ok(sql.includes(retired), 'correction must target the domain-narrative opening');
+  assert.ok(sql.includes(execRetired), 'correction must target the executive-summary opening');
+  assert.match(sql, /block_type = 'domain_narrative'[\s\S]*?maturity_band = 'Structured'/);
+  assert.match(sql, /block_type = 'executive_summary'[\s\S]*?maturity_band = 'Structured'/);
+
+  // The replacement copy must not reintroduce a claim. Strip comments first, then take only the
+  // literals that are actually being written (the second argument of each replace()).
+  const body = sql.split(/\r?\n/).filter((line) => !line.trim().startsWith('--')).join('\n');
+  const replacements = [...body.matchAll(/replace\(\s*body,\s*'((?:[^']|'')*)',\s*'((?:[^']|'')*)'\s*\)/g)];
+  assert.equal(replacements.length, 2, 'expected one replacement per Structured block type');
+  for (const [, from, to] of replacements) {
+    assert.ok(claimsFired(from.replaceAll("''", "'")).length > 0, 'each replacement must target a real claim');
+    assert.deepEqual(claimsFired(to.replaceAll("''", "'")), [], 'replacement copy must make no claim');
+  }
+  ok('L3 the retired opening is corrected and the replacement makes no claim');
+});

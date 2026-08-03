@@ -60,9 +60,9 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 67 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 68 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260803200000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260803210000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34

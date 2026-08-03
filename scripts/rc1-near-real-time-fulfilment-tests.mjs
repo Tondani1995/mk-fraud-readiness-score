@@ -674,9 +674,15 @@ await test('six established workflow definitions retain correction gates', async
     assert.ok(fs.existsSync(path.join(root, '.github', 'workflows', file)), `${file} exists`);
   }
 });
-await test('full migration postflight requires exactly 67 rows', async () => {
-  includes(postflight, 'count(*) = 67', 'postflight total is 67');
-  includes(postflight, "max(version) = '20260803200000'", 'postflight newest correction is exact');
+await test('full migration postflight matches the committed migration set', async () => {
+  // Derived from the committed files rather than restated, so adding a migration without moving
+  // the postflight is what fails here -- which is exactly how this drifted before.
+  const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+  const newest = migrationFiles[migrationFiles.length - 1].split('_')[0];
+  includes(postflight, `count(*) = ${migrationFiles.length}`, `postflight total is ${migrationFiles.length}`);
+  includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');
