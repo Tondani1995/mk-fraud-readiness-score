@@ -13,6 +13,7 @@ const mode = read('src/lib/reports/email/premium-report-development-mode.ts');
 const delivery = read('src/lib/reports/email/report-delivery-service-core.ts');
 const dispatch = read('src/lib/reports/email/delivery-dispatch.ts');
 const migration = read('supabase/migrations/20260803230000_preview_development_delivery.sql');
+const contextMigration = read('supabase/migrations/20260804090000_preview_development_authoritative_context.sql');
 const uniqueness = read('supabase/migrations/20260803220000_rc1_premium_delivery_active_uniqueness.sql');
 
 for (const forbidden of [
@@ -32,10 +33,10 @@ for (const required of [
   'payment_received', 'payment_transition_events', 'assertExactlyOneValidPaymentTransition',
   'resolveCurrentReportId', 'assertReportAccessEligible', 'storage_unverified',
   'PREMIUM_REPORT_DEVELOPMENT_RECIPIENT', 'recipient_not_allowlisted',
-  'developmentMode: true', 'provider_mode', 'premium_report_preview_development_delivery_requested',
-  'premium_report_preview_development_delivery_completed'
+  'developmentMode: true', 'assertTestProviderMode'
 ]) assert.match(service, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `development service missing ${required}`);
 assert.doesNotMatch(service, /getAdminSession|Phase14|requirePhase14Action|platform_admin|MFA|AAL2/);
+assert.doesNotMatch(service, /recordAudit|\.from\(['"]audit_logs['"]\)|audit_logs/);
 assert.match(mode, /VERCEL_ENV/);
 assert.match(mode, /MK_DEVELOPMENT_MODE/);
 assert.match(mode, /penhenkzfrtmcxklodtu/);
@@ -60,6 +61,10 @@ assert.match(delivery, /preview_development_prepare_premium_report_delivery/);
 assert.match(delivery, /provider_request_key/);
 assert.match(dispatch, /preview_development_finalize_premium_report_delivery/);
 assert.match(dispatch, /preview_development_mark_reconciliation_required/);
+assert.match(contextMigration, /preview_development_rpc/);
+assert.match(contextMigration, /guard_phase14_authoritative_mutation/);
+assert.match(contextMigration, /premium_report_preview_development_delivery_requested/);
+assert.match(migration, /premium_report_preview_development_delivery_finalized/);
 assert.match(uniqueness, /report_delivery_authorizations_one_active_uidx/);
 
 function loadModule(file) {

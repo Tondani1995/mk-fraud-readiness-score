@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getEmailProviderMode } from '@/lib/notifications/email-provider';
 import { recipientAllowlist } from '@/lib/notifications/phase1-order-notifications';
@@ -44,10 +43,6 @@ type ReportRow = {
   checksum: string | null;
   fulfilment_id: string | null;
 };
-
-function fingerprint(value: string) {
-  return crypto.createHash('sha256').update(value).digest('hex');
-}
 
 function safeErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error ?? 'unknown');
@@ -108,18 +103,6 @@ async function resolveReport(db: any, input: PremiumReportAdminInitiationInput) 
     throw new PremiumReportAdminInitiationError('report_selector_mismatch', 'The supplied report selectors do not identify the same report.');
   }
   return report;
-}
-
-async function recordAudit(db: any, action: string, orderId: string, reportId: string, after: Record<string, unknown>) {
-  const { error } = await db.from('audit_logs').insert({
-    actor_type: 'system',
-    assessment_id: after.assessment_id ?? null,
-    entity_table: 'reports',
-    entity_id: reportId,
-    action,
-    after_json: { order_fingerprint: fingerprint(orderId), report_fingerprint: fingerprint(reportId), ...after }
-  });
-  if (error) throw new PremiumReportAdminInitiationError('audit_persistence_failed', 'The delivery audit record could not be persisted.', 500);
 }
 
 async function deliverWithConcurrencyRecovery(db: any, reportId: string, recipient: string) {
@@ -200,11 +183,6 @@ export async function initiatePremiumReportDevelopmentDelivery(input: PremiumRep
     throw new PremiumReportAdminInitiationError('recipient_not_allowlisted', 'Preview development delivery is restricted to admin@mkfraud.co.za.', 403);
   }
 
-  await recordAudit(db, 'premium_report_preview_development_delivery_requested', order.id, report.id, {
-    assessment_id: report.assessment_id, provider_mode: 'test', recipient_allowlisted: true,
-    recipient: PREMIUM_REPORT_DEVELOPMENT_RECIPIENT, payment_transition_count: transitionCount, report_status: report.status
-  });
-
   let result;
   try {
     result = await deliverWithConcurrencyRecovery(db, report.id, recipient);
@@ -212,12 +190,6 @@ export async function initiatePremiumReportDevelopmentDelivery(input: PremiumRep
     if (error instanceof PremiumReportAdminInitiationError) throw error;
     throw mapDatabaseError(error);
   }
-
-  await recordAudit(db, 'premium_report_preview_development_delivery_completed', order.id, report.id, {
-    assessment_id: report.assessment_id, provider_mode: 'test',
-    outcome: result.status === 'in_progress' ? 'in_progress' : result.reusedExistingSend ? 'reused_existing_outcome' : 'provider_accepted',
-    test_delivery: result.testDelivery
-  });
 
   return {
     reportId: report.id, orderId: order.id, emailEventId: result.emailEventId,
