@@ -6,6 +6,8 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const route = read('src/app/score/api/webhooks/resend/route.ts');
 const migration = read('supabase/migrations/20260804110000_rc1_preview_resend_webhook_ingestion.sql');
+const onceMigration = read('supabase/migrations/20260804130000_rc1_preview_resend_reconciliation_once.sql');
+const reconciliationCore = read('src/lib/reports/email/resend-webhook-reconciliation.ts');
 const reconciliation = read('scripts/rc1-reconcile-resend-preview-webhook.mjs');
 const { isPremiumReportDevelopmentMode } = await import('../src/lib/reports/email/premium-report-development-mode.ts');
 
@@ -43,14 +45,17 @@ const previewWrapper = migration.slice(migration.indexOf('create or replace func
 assert.doesNotMatch(previewWrapper, /phase14_require_policy/);
 assert.match(previewWrapper, /lower\(trim\(coalesce\(p_provider,''\)\)\) <> 'resend'/);
 
-assert.match(reconciliation, /GET|listAllWebhooks|\/webhooks/);
-assert.match(reconciliation, /signing_secret === configuredSecret/);
-assert.match(reconciliation, /matches\.length !== 1/);
-assert.match(reconciliation, /method: 'PATCH'/);
-assert.match(reconciliation, /status: 'enabled'/);
+assert.match(reconciliationCore, /listResendWebhooks|\/webhooks/);
+assert.match(reconciliationCore, /signing_secret === signingSecret/);
+assert.match(reconciliationCore, /matches\.length !== 1/);
+assert.match(reconciliationCore, /method: 'PATCH'/);
+assert.match(reconciliationCore, /status: 'enabled'/);
+assert.match(onceMigration, /preview_development_record_resend_webhook_reconciliation/);
+assert.match(onceMigration, /on conflict \(operation_key\) do nothing/);
+assert.match(reconciliation, /rc1-preview-resend-reconciliation/);
 for (const forbidden of ['console.log(apiKey', 'console.log(configuredSecret', 'message body', 'recipient']) {
   assert.doesNotMatch(reconciliation, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 }
-assert.match(reconciliation, /RC1_RESEND_RECONCILIATION_ONCE=confirm/);
+assert.doesNotMatch(reconciliationCore, /console\.(log|info|error).*signingSecret|console\.(log|info|error).*apiKey/i);
 
 console.log('rc1-preview-resend-webhook: exact Preview gate, Production fail-closed path, shared attested core, service-role-only RPC, idempotency, binding fallback, and secret-safe reconciliation checks passed.');
