@@ -21,6 +21,13 @@ type ResendWebhook = {
   signing_secret?: unknown;
 };
 
+export class ResendWebhookApiError extends Error {
+  constructor(readonly status: number, readonly code: string | null) {
+    super(`Resend webhook API returned HTTP ${status}.`);
+    this.name = 'ResendWebhookApiError';
+  }
+}
+
 async function resendRequest(path: string, apiKey: string, init: RequestInit = {}) {
   const response = await fetch(`${RESEND_API_BASE}${path}`, {
     ...init,
@@ -31,7 +38,10 @@ async function resendRequest(path: string, apiKey: string, init: RequestInit = {
     },
   });
   const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(`Resend webhook API returned HTTP ${response.status}.`);
+  if (!response.ok) {
+    const code = body && typeof body.name === 'string' ? body.name : null;
+    throw new ResendWebhookApiError(response.status, code);
+  }
   return body as Record<string, unknown>;
 }
 
@@ -39,9 +49,8 @@ async function listResendWebhooks(apiKey: string) {
   const all: ResendWebhook[] = [];
   let after: string | null = null;
   do {
-    const query = new URLSearchParams({ limit: '100' });
-    if (after) query.set('after', after);
-    const page = await resendRequest(`/webhooks?${query.toString()}`, apiKey);
+    const query = after ? `?after=${encodeURIComponent(after)}` : '';
+    const page = await resendRequest(`/webhooks${query}`, apiKey);
     const rows = Array.isArray(page.data) ? page.data as ResendWebhook[] : [];
     all.push(...rows);
     const lastId = rows.at(-1)?.id;
