@@ -850,6 +850,7 @@ export function createRc1ParkFulfilmentAttemptPost(
     const reason = meaningfulReason(body.reason);
     if (!reason) return json({ ok: false, error: 'RC1_CONTROL_REASON_REQUIRED' }, 400);
 
+    const technicalReference = crypto.randomUUID();
     const { data, error } = await callRpc(
       dependencies,
       operator,
@@ -857,6 +858,22 @@ export function createRc1ParkFulfilmentAttemptPost(
       { p_attempt_id: attemptId, p_reason: reason },
     );
     if (error || !data || typeof data !== 'object' || Array.isArray(data)) {
+      // Diagnostic only: SQLSTATE and the closed-vocabulary identifiers, never raw SQL, tokens,
+      // narrative, credentials or row values. Without this the refusal is indistinguishable from
+      // any other and the underlying Postgres exception is unreachable.
+      const raw = (error ?? {}) as Record<string, unknown>;
+      const message = typeof raw.message === 'string' ? raw.message : '';
+      const safeIdentifier = message.match(/rc1_park_attempt:[a-z_]+/)?.[0]
+        ?? message.match(/function ([a-z_]+\.[a-z_"]+)\(/)?.[1]
+        ?? message.match(/^[a-z_]+ "([a-zA-Z0-9_]+)"/)?.[1]
+        ?? null;
+      console.error('rc1_park_attempt_refused', {
+        sqlstate: typeof raw.code === 'string' ? raw.code : null,
+        safeIdentifier,
+        classifiedReason: safeRefusalReason(error),
+        attemptId,
+        technicalReference,
+      });
       return json({ ok: false, error: 'RC1_PARK_REFUSED', reason: safeRefusalReason(error) }, 409);
     }
 
