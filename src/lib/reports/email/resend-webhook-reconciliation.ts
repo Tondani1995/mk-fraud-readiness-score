@@ -3,6 +3,15 @@ const RESEND_API_BASE = 'https://api.resend.com';
 export const PREVIEW_RESEND_WEBHOOK_ENDPOINT =
   'https://mk-fraud-platform-git-fix-rc1-control-81cf3f-tondanis-projects.vercel.app/score/api/webhooks/resend';
 
+function previewResendWebhookEndpoint() {
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (!bypass) return PREVIEW_RESEND_WEBHOOK_ENDPOINT;
+
+  const endpoint = new URL(PREVIEW_RESEND_WEBHOOK_ENDPOINT);
+  endpoint.searchParams.set('x-vercel-protection-bypass', bypass);
+  return endpoint.toString();
+}
+
 export const PREVIEW_RESEND_WEBHOOK_EVENTS = [
   'email.sent',
   'email.delivered',
@@ -82,16 +91,17 @@ export async function reconcilePreviewResendWebhook() {
 
   const target = matches[0];
   if (typeof target.id !== 'string') throw new Error('Resend returned an invalid matching webhook identity.');
+  const endpoint = previewResendWebhookEndpoint();
   await resendRequest(`/webhooks/${encodeURIComponent(target.id)}`, apiKey, {
     method: 'PATCH',
     body: JSON.stringify({
-      endpoint: PREVIEW_RESEND_WEBHOOK_ENDPOINT,
+      endpoint,
       status: 'enabled',
       events: PREVIEW_RESEND_WEBHOOK_EVENTS,
     }),
   });
   const verified = await resendRequest(`/webhooks/${encodeURIComponent(target.id)}`, apiKey);
-  if (verified.endpoint !== PREVIEW_RESEND_WEBHOOK_ENDPOINT
+  if (verified.endpoint !== endpoint
       || verified.status !== 'enabled'
       || !exactEventSet(verified.events)
       || verified.signing_secret !== signingSecret) {
