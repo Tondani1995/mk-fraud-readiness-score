@@ -65,6 +65,91 @@ function formatEftAccountSummary(eftSnapshot: any): string {
   return lines.join('\n');
 }
 
+// An event is a delivery candidate only while it carries no proof of having reached the provider.
+// sent_at and provider_message_id are the two authoritative marks of a real dispatch, so any row
+// holding either is terminal and must never be sent again regardless of its status string.
+const RECOVERABLE_UNSENT_STATUSES = new Set(['queued', 'recorded_disabled', 'send_failed']);
+
+/**
+ * Deliver an email_events row that was recorded but never dispatched.
+ *
+ * Concurrency is serialised the same way the initial insert is -- by the database, not by a
+ * read-then-write in application code. The claim is a conditional UPDATE that only matches while
+ * the row is still unsent; the loser of a race updates zero rows and returns without sending, so
+ * at most one provider call can ever be made per row.
+ */
+async function deliverUnsentNotification(db: any, existing: {
+  id: string; status: string | null; retry_count: number | null;
+  sent_at: string | null; provider_message_id: string | null; recipient_email: string | null;
+}, input: {
+  context: NotificationContext;
+  notificationType: string;
+  message: { subject: string; text: string; html: string };
+  safeProviderFailure?: boolean;
+}, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
+  if (existing.sent_at || existing.provider_message_id) return { recovered: false, reason: 'already_sent' };
+  if (!RECOVERABLE_UNSENT_STATUSES.has(existing.status ?? '')) return { recovered: false, reason: 'not_recoverable' };
+  if (!existing.recipient_email) return { recovered: false, reason: 'recipient_missing' };
+
+  const attempt = Number(existing.retry_count ?? 0) + 1;
+  const { data: claimed } = await db.from('email_events')
+    .update({ status: 'sending', retry_count: attempt, updated_at: new Date().toISOString() })
+    .eq('id', existing.id)
+    .is('sent_at', null)
+    .is('provider_message_id', null)
+    .in('status', [...RECOVERABLE_UNSENT_STATUSES])
+    .select('id')
+    .maybeSingle();
+  if (!claimed) return { recovered: false, reason: 'claimed_by_another_attempt' };
+
+  const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
+  const replyTo = process.env.MK_REPORT_EMAIL_REPLY_TO?.trim() || null;
+  const sendEmail = dependencies.sendEmailImpl ?? defaultSendEmail;
+  const sendResult = await sendEmail({
+    from: fromAddress,
+    to: existing.recipient_email,
+    replyTo,
+    subject: input.message.subject,
+    html: input.message.html,
+    text: input.message.text,
+    idempotencyKey: existing.id
+  });
+
+  const sentSuccessfully = sendResult.ok && sendResult.mode !== 'disabled';
+  const finalStatus = !sendResult.ok ? 'send_failed' : sendResult.mode === 'disabled' ? 'recorded_disabled' : 'sent';
+  await db.from('email_events').update({
+    status: finalStatus,
+    provider_mode: sendResult.mode === 'disabled' ? 'disabled' : 'external',
+    provider_message_id: sentSuccessfully ? sendResult.providerMessageId : null,
+    sent_at: sentSuccessfully ? new Date().toISOString() : null,
+    error_message: sendResult.ok
+      ? null
+      : input.safeProviderFailure
+        ? 'The operational exception notification provider request failed.'
+        : sendResult.error,
+    updated_at: new Date().toISOString()
+  }).eq('id', existing.id);
+
+  await db.from('order_events').insert({
+    order_id: input.context.order.id,
+    event_type: sentSuccessfully ? 'notification_recovered' : 'notification_failed',
+    note: sentSuccessfully
+      ? `${input.notificationType.replace(/_/g, ' ')} recovered and sent on attempt ${attempt}.`
+      : `${input.notificationType.replace(/_/g, ' ')} recovery attempt ${attempt} did not dispatch; provider mode ${sendResult.mode}.`,
+    metadata_json: {
+      notification_type: input.notificationType,
+      email_event_id: existing.id,
+      recovery_attempt: attempt,
+      provider_mode: sendResult.mode === 'disabled' ? 'disabled' : 'external',
+      provider_send_attempted: sendResult.mode !== 'disabled',
+      ...(sendResult.ok ? {} : { error_category: 'provider_send_failed' })
+    }
+  });
+
+  return { recovered: sentSuccessfully, status: finalStatus, retry_count: attempt,
+           reason: sentSuccessfully ? 'sent' : sendResult.mode === 'disabled' ? 'provider_disabled' : 'send_failed' };
+}
+
 // Insert the email_events row BEFORE calling sendEmail() -- the row's dedupe_key unique index
 // (0012) is what actually serialises concurrent callers. Sending first and inserting after would
 // let two concurrent requests both pass the earlier `existing` check and both dispatch a real
@@ -81,9 +166,22 @@ async function recordNotification(db: any, input: {
   const dedupeKey = input.dedupeKey
     ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
-    .select('id,status,retry_count').eq('dedupe_key', dedupeKey).maybeSingle();
+    .select('id,status,retry_count,sent_at,provider_message_id,recipient_email')
+    .eq('dedupe_key', dedupeKey).maybeSingle();
   if (existingError) throw existingError;
-  if (existing) return { ...existing, reused: true };
+  if (existing) {
+    // The dedupe key still guarantees exactly one row per notification. What it must not do is
+    // strand that row: a provider that was disabled or failing when the row was written leaves an
+    // event with no sent_at and no provider message id, and before this branch existed there was
+    // no controlled way to deliver it once the provider came back.
+    const recovered = await deliverUnsentNotification(db, existing, {
+      context: input.context,
+      notificationType: input.notificationType,
+      message: input.message,
+      safeProviderFailure: input.safeProviderFailure,
+    }, dependencies);
+    return { ...existing, ...recovered, reused: true };
+  }
   if (!input.recipient) {
     await db.from('order_events').insert({
       order_id: input.context.order.id,
