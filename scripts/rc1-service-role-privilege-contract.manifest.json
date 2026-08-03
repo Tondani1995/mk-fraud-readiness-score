@@ -180,7 +180,7 @@
         "src/lib/notifications/phase1-order-notifications.ts:83 S",
         "src/lib/notifications/phase1-order-notifications.ts:97 I+S",
         "src/lib/notifications/phase1-order-notifications.ts:139 U",
-        "src/lib/reports/email/report-delivery-service-core.ts:306 S"
+        "src/lib/reports/email/report-delivery-service-core.ts:334 S"
       ],
       "justification": "Durable notification creation, provider state and reconciliation."
     },
@@ -468,7 +468,8 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/reports/delivery-recovery-service.ts:163 S",
-        "src/lib/reports/email/report-delivery-service-core.ts:313 S"
+        "src/lib/reports/email/report-delivery-service-core.ts:201 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:342 S"
       ],
       "justification": "Delivery state and reconciliation lookup; mutations remain controlled RPC-only."
     },
@@ -886,7 +887,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:334"
+        "src/lib/reports/email/report-delivery-service-core.ts:362"
       ]
     },
     {
@@ -1056,10 +1057,10 @@
       "src/lib/reports/delivery-recovery-service.ts:224:rpc",
       "src/lib/reports/delivery-recovery-service.ts:234:rpc",
       "src/lib/reports/delivery-recovery-service.ts:261:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:184:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:223:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:291:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:345:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:191:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:251:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:319:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:373:rpc",
       "src/lib/reports/premium-report-download.ts:19:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
@@ -1068,7 +1069,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "561573cc8a48b1caa418322eb07c414b852d5cd7080ae58414fc4509a6a1d576"
+    "fullAstInventorySha256": "354a1fd76cf152065ab6c579ad9d8745b3bca3caad4c7b9611b991f0b847bd4a"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
