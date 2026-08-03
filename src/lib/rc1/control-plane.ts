@@ -387,6 +387,15 @@ const CLEANUP_REFUSAL_REASONS = new Set([
 ]);
 
 /** Extracts a known refusal identifier, never arbitrary database text. */
+const PARK_REFUSAL_REASONS = new Set([
+  'attempt_required',
+  'meaningful_reason_required',
+  'attempt_not_found',
+  'attempt_already_published',
+  'attempt_actively_claimed',
+  'attempt_not_parkable',
+]);
+
 function safeRefusalReason(error: { message?: string } | null): string {
   const message = typeof error?.message === 'string' ? error.message : '';
   for (const known of CLEANUP_REFUSAL_REASONS) {
@@ -394,6 +403,9 @@ function safeRefusalReason(error: { message?: string } | null): string {
   }
   // Surface the operation-frozen family without the offending surface name.
   if (/rc1_operation_frozen:/.test(message)) return 'rc1_operation_frozen';
+  // Parking refusals are already a closed vocabulary raised by rc1_park_fulfilment_attempt.
+  const parking = message.match(/rc1_park_attempt:([a-z_]+)/);
+  if (parking && PARK_REFUSAL_REASONS.has(parking[1])) return `rc1_park_attempt:${parking[1]}`;
   return 'unclassified';
 }
 
