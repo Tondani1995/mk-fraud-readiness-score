@@ -655,7 +655,7 @@ begin
       provider_request_key,phase14_operation_ref
     ) values (
       v_id,'26000000-0000-0000-0000-000000000001','26000000-0000-0000-0000-000000000003',
-      '26000000-0000-0000-0000-000000000082','corrected@example.invalid',
+      '26000000-0000-0000-0000-000000000082','corrected+'||v_kind||'@example.invalid',
       'reconciliation_required','resend','sixth-provider-'||v_kind,
       'phase14:provider-attestation-test'
     );
@@ -665,7 +665,7 @@ begin
       status,dispatch_started_at,updated_at
     ) values (
       v_id,'26000000-0000-0000-0000-000000000082',repeat('3',64),
-      'corrected@example.invalid','26000000-0000-0000-0000-000000000003',
+      'corrected+'||v_kind||'@example.invalid','26000000-0000-0000-0000-000000000003',
       '26000000-0000-0000-0000-000000000001','26000000-0000-0000-0000-000000000002',
       1,'26000000-0000-0000-0000-000000000020','26000000-0000-0000-0000-000000000099',
       'resend',v_id,'reconciliation_required',clock_timestamp()-interval '2 minutes',clock_timestamp()
