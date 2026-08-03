@@ -44,6 +44,7 @@ export type DeliverPremiumReportEmailResult = {
 
 type DeliveryAuthorization = {
   reused_existing_send: boolean;
+  in_progress?: boolean;
   authorization_id?: string;
   email_event_id: string;
   provider_message_id?: string | null;
@@ -115,6 +116,12 @@ function deliveryEnvironmentIdentifier() {
   return safeCorrelationTagValue(process.env.VERCEL_ENV?.trim() || process.env.NODE_ENV?.trim() || 'unknown');
 }
 
+function isProductionDeployment() {
+  const vercelEnvironment = process.env.VERCEL_ENV?.trim().toLowerCase();
+  return vercelEnvironment === 'production'
+    || (!vercelEnvironment && process.env.NODE_ENV?.trim().toLowerCase() === 'production');
+}
+
 export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmailInput): Promise<DeliverPremiumReportEmailResult> {
   const flags = await getPremiumReportAutomationFlags();
   if (input.actor.action === 'automatic_email' && !flags.autoEmailEnabled) {
@@ -154,7 +161,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   const order: any = one(report.orders);
   const customerRecipient = email(order?.customer_email);
   if (!customerRecipient) throw new Error('The customer delivery address is invalid.');
-  const overridePermitted = process.env.NODE_ENV !== 'production'
+  const overridePermitted = !isProductionDeployment()
     && flags.testRecipientOverrideEnabled
     && input.allowNonProductionTestOverride === true;
   if (input.recipientOverride && !overridePermitted) {
@@ -189,6 +196,27 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
           p_provider: 'resend',
           p_bounce_remediation_id: input.bounceRetry?.remediationId ?? null
         });
+  if (authorizationError?.code === '23505'
+      && String(authorizationError.message ?? '').includes('report_delivery_authorizations_one_active_uidx')) {
+    const { data: active } = await db.from('report_delivery_authorizations')
+      .select('id,status,email_event_id,provider_message_id,recipient_email,test_delivery')
+      .eq('report_id', input.reportId)
+      .eq('recipient_email', recipient)
+      .in('status', ['queued', 'claimed', 'dispatching', 'reconciliation_required', 'retry_scheduled'])
+      .order('authorised_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (active) {
+      return {
+        emailEventId: active.email_event_id,
+        providerMessageId: active.provider_message_id ?? null,
+        recipient: active.recipient_email,
+        reusedExistingSend: true,
+        status: 'in_progress',
+        testDelivery: active.test_delivery
+      };
+    }
+  }
   if (authorizationError || !authorizationData) {
     throw authorizationError ?? new Error('Delivery authorization was not created.');
   }

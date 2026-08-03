@@ -36,7 +36,7 @@ assert.equal(manifest.migrationCountAfter, 46);
 const migrations = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrations.length, 68);
+assert.equal(migrations.length, 69);
 // By name and relative order, not tail position -- later RC1 migrations append to the ledger.
 assert.ok(migrations.includes(manifest.newestMigration));
 assert.ok(migrations.includes('20260729170000_rc1_authenticated_admin_profile_read.sql'));
