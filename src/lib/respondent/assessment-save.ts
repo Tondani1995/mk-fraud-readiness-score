@@ -318,7 +318,8 @@ export async function submitAssessment(payload: { assessmentReference: string; t
     .update({
       status: 'submitted',
       submitted_at: now,
-      locked_at: now
+      locked_at: now,
+      completion_percentage: progress.overallPct
     })
     .eq('id', assessment.id)
     .eq('status', 'draft')

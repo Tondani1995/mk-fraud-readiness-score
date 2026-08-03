@@ -159,7 +159,7 @@
       "rc1_activate_freeze(text)": "ca56aaef210c1ac0fa4b722a1e44ee5a",
       "rc1_release_freeze(text,text,bigint)": "8f323d159e84fb5a8fccf8d34070405b",
       "rc1_provision_certification_runtime_secret(text,text,text,bigint)": "a3c89038f9515b10bb1ccfb902da0ede",
-      "rc1_guard_authoritative_mutation()": "c1a338fb73ca017d5021e17e0a254ee9",
+      "rc1_guard_authoritative_mutation()": "c5f5c6aff6ef8a473949fb43aafcb900",
       "rc1_install_relation_guard(text,text)": "b7c4a30e1c3cd697fe29a43868ef849f",
       "rc1_install_new_relation_guards()": "315a99b25e5812006c86069ad248f361"
     },
