@@ -70,6 +70,46 @@ function formatEftAccountSummary(eftSnapshot: any): string {
 // holding either is terminal and must never be sent again regardless of its status string.
 const RECOVERABLE_UNSENT_STATUSES = new Set(['queued', 'recorded_disabled', 'send_failed']);
 
+// A claim is a lease, not a lock. A sender that dies between claiming the row and calling the
+// provider would otherwise strand the event in 'sending' forever. Reclaiming is only safe because
+// the provider call is keyed by the email-event id (see providerIdempotencyKeyFor): a replay of an
+// attempt that did reach Resend returns the original message rather than sending a second one.
+const CLAIM_LEASE_MS = Number(process.env.MK_NOTIFICATION_CLAIM_LEASE_MS ?? 10 * 60 * 1000);
+const MAX_RECOVERY_ATTEMPTS = Number(process.env.MK_NOTIFICATION_MAX_RECOVERY_ATTEMPTS ?? 5);
+
+/**
+ * The provider idempotency identifier for an event.
+ *
+ * Derived from the email-event id, which is itself one-per-dedupe-key, so every attempt at the
+ * same notification presents the same key to Resend. resend-transport sends this as the
+ * `Idempotency-Key` request header.
+ */
+export function providerIdempotencyKeyFor(emailEventId: string) {
+  return emailEventId;
+}
+
+/**
+ * Recipients permitted to receive provider mail.
+ *
+ * Enforcement is opt-in: with MK_EMAIL_RECIPIENT_ALLOWLIST unset the behaviour is unchanged, so
+ * production delivery to real customers is unaffected. Certification and staging set it, which
+ * makes an unapproved address a hard refusal at the last point before the provider is contacted.
+ */
+export function recipientAllowlist(): string[] | null {
+  const raw = process.env.MK_EMAIL_RECIPIENT_ALLOWLIST?.trim();
+  if (!raw) return null;
+  const entries = raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return entries.length ? entries : null;
+}
+
+export function isRecipientPermitted(recipient: string | null | undefined) {
+  const address = recipient?.trim().toLowerCase() ?? '';
+  if (!address) return false;
+  const allowlist = recipientAllowlist();
+  if (!allowlist) return true;
+  return allowlist.includes(address);
+}
+
 /**
  * Deliver an email_events row that was recorded but never dispatched.
  *
@@ -81,6 +121,7 @@ const RECOVERABLE_UNSENT_STATUSES = new Set(['queued', 'recorded_disabled', 'sen
 async function deliverUnsentNotification(db: any, existing: {
   id: string; status: string | null; retry_count: number | null;
   sent_at: string | null; provider_message_id: string | null; recipient_email: string | null;
+  updated_at?: string | null;
 }, input: {
   context: NotificationContext;
   notificationType: string;
@@ -88,18 +129,41 @@ async function deliverUnsentNotification(db: any, existing: {
   safeProviderFailure?: boolean;
 }, dependencies: { sendEmailImpl?: typeof defaultSendEmail } = {}) {
   if (existing.sent_at || existing.provider_message_id) return { recovered: false, reason: 'already_sent' };
-  if (!RECOVERABLE_UNSENT_STATUSES.has(existing.status ?? '')) return { recovered: false, reason: 'not_recoverable' };
   if (!existing.recipient_email) return { recovered: false, reason: 'recipient_missing' };
+  // Last gate before the provider is contacted, so it also covers stale-claim recovery.
+  if (!isRecipientPermitted(existing.recipient_email)) return { recovered: false, reason: 'recipient_not_allowlisted' };
 
   const attempt = Number(existing.retry_count ?? 0) + 1;
-  const { data: claimed } = await db.from('email_events')
-    .update({ status: 'sending', retry_count: attempt, updated_at: new Date().toISOString() })
+  if (attempt > MAX_RECOVERY_ATTEMPTS) {
+    // Fail closed rather than hammer the provider: park the row for human reconciliation.
+    await db.from('email_events')
+      .update({ status: 'reconciliation_required', error_message: 'Recovery attempt ceiling reached.', updated_at: new Date().toISOString() })
+      .eq('id', existing.id).is('sent_at', null).is('provider_message_id', null);
+    return { recovered: false, reason: 'attempt_ceiling_reached' };
+  }
+
+  // A 'sending' row is claimable only once its lease has expired. Statuses in the recoverable set
+  // are claimable immediately; 'sending' is the in-flight state and must not be overtaken while a
+  // live sender still holds it.
+  const leaseCutoff = new Date(Date.now() - CLAIM_LEASE_MS).toISOString();
+  const claimable = [...RECOVERABLE_UNSENT_STATUSES];
+  const staleClaim = existing.status === 'sending'
+    && (existing.updated_at ?? '') !== ''
+    && existing.updated_at! < leaseCutoff;
+  if (existing.status === 'sending' && !staleClaim) return { recovered: false, reason: 'claim_lease_active' };
+  if (!RECOVERABLE_UNSENT_STATUSES.has(existing.status ?? '') && !staleClaim) return { recovered: false, reason: 'not_recoverable' };
+  if (staleClaim) claimable.push('sending');
+
+  const claimStamp = new Date().toISOString();
+  let claim = db.from('email_events')
+    .update({ status: 'sending', retry_count: attempt, updated_at: claimStamp })
     .eq('id', existing.id)
     .is('sent_at', null)
     .is('provider_message_id', null)
-    .in('status', [...RECOVERABLE_UNSENT_STATUSES])
-    .select('id')
-    .maybeSingle();
+    .in('status', claimable);
+  // Reclaiming a stale lease must lose to any sender that refreshed it since we read the row.
+  if (staleClaim) claim = claim.lt('updated_at', leaseCutoff);
+  const { data: claimed } = await claim.select('id').maybeSingle();
   if (!claimed) return { recovered: false, reason: 'claimed_by_another_attempt' };
 
   const fromAddress = process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>';
@@ -112,7 +176,7 @@ async function deliverUnsentNotification(db: any, existing: {
     subject: input.message.subject,
     html: input.message.html,
     text: input.message.text,
-    idempotencyKey: existing.id
+    idempotencyKey: providerIdempotencyKeyFor(existing.id)
   });
 
   const sentSuccessfully = sendResult.ok && sendResult.mode !== 'disabled';
@@ -166,7 +230,7 @@ async function recordNotification(db: any, input: {
   const dedupeKey = input.dedupeKey
     ?? `phase1:${input.notificationType}:${input.context.order.id}`;
   const { data: existing, error: existingError } = await db.from('email_events')
-    .select('id,status,retry_count,sent_at,provider_message_id,recipient_email')
+    .select('id,status,retry_count,sent_at,provider_message_id,recipient_email,updated_at')
     .eq('dedupe_key', dedupeKey).maybeSingle();
   if (existingError) throw existingError;
   if (existing) {
@@ -182,12 +246,12 @@ async function recordNotification(db: any, input: {
     }, dependencies);
     return { ...existing, ...recovered, reused: true };
   }
-  if (!input.recipient) {
+  if (!input.recipient || !isRecipientPermitted(input.recipient)) {
     await db.from('order_events').insert({
       order_id: input.context.order.id,
       event_type: 'notification_failed',
-      note: `${input.notificationType} could not be recorded because the intended recipient was missing.`,
-      metadata_json: { notification_type: input.notificationType, provider_mode: 'disabled', error_category: 'recipient_missing' }
+      note: `${input.notificationType} could not be recorded because the intended recipient was missing or not allowlisted.`,
+      metadata_json: { notification_type: input.notificationType, provider_mode: 'disabled', error_category: input.recipient ? 'recipient_not_allowlisted' : 'recipient_missing' }
     });
     return { id: null, status: 'failed', reused: false };
   }
@@ -227,7 +291,7 @@ async function recordNotification(db: any, input: {
     subject: input.message.subject,
     html: input.message.html,
     text: input.message.text,
-    idempotencyKey: data.id
+    idempotencyKey: providerIdempotencyKeyFor(data.id)
   });
 
   const providerMode = sendResult.mode === 'disabled' ? 'disabled' : 'external';

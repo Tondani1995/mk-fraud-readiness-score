@@ -48,16 +48,18 @@ function makeDb(rows = []) {
         eq(col, val) { filters[col] = { op: 'eq', val }; return api; },
         is(col, val) { filters[col] = { op: 'is', val }; return api; },
         in(col, vals) { filters[col] = { op: 'in', val: vals }; return api; },
+        lt(col, val) { filters[col] = { op: 'lt', val }; return api; },
         match(row) {
           return Object.entries(filters).every(([c, f]) =>
             f.op === 'eq' ? row[c] === f.val
             : f.op === 'is' ? (row[c] ?? null) === f.val
+            : f.op === 'lt' ? String(row[c] ?? '') < f.val
             : f.val.includes(row[c]));
         },
         async maybeSingle() { const r = events.find((e) => api.match(e)); return { data: r ?? null, error: null }; },
         async single() { const r = events.find((e) => api.match(e)); return { data: r ?? null, error: r ? null : new Error('none') }; },
         insert(row) {
-          const r = { id: `evt_${events.length + 1}`, retry_count: 0, sent_at: null, provider_message_id: null, ...row };
+          const r = { id: `evt_${events.length + 1}`, retry_count: 0, sent_at: null, provider_message_id: null, updated_at: new Date().toISOString(), ...row };
           const dup = events.find((e) => e.dedupe_key === r.dedupe_key);
           if (dup) return { select: () => ({ single: async () => ({ data: null, error: new Error('duplicate') }) }) };
           events.push(r);
@@ -72,6 +74,7 @@ function makeDb(rows = []) {
           upd.eq = (c, v) => { filters[c] = { op: 'eq', val: v }; return upd; };
           upd.is = (c, v) => { filters[c] = { op: 'is', val: v }; return upd; };
           upd.in = (c, v) => { filters[c] = { op: 'in', val: v }; return upd; };
+          upd.lt = (c, v) => { filters[c] = { op: 'lt', val: v }; return upd; };
           upd.then = undefined;
           const p = Promise.resolve().then(() => {
             const r = events.find((e) => api.match(e));
@@ -195,3 +198,121 @@ test('T7 provider failure leaves the event safely retryable', async () => {
 });
 
 process.on('exit', () => console.log(`\nRC1_NOTIFICATION_RECOVERY_TESTS: ${pass} checks passed`));
+
+
+// ---- Follow-up remediation: stale claims, persistence failure, allowlist ----
+
+const ALLOWED = 'admin@mkfraud.co.za';
+const UNAPPROVED = 'not-on-the-allowlist@example.com';
+
+test('T8 crash after claim, before provider: row is left in sending', async () => {
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  // Simulate a process that claimed the row and then died before calling the provider.
+  e.status = 'sending'; e.updated_at = new Date().toISOString();
+  let calls = 0;   // scoped to THIS event: the sibling admin notification also dispatches
+  await run(db, async (input) => { if (input.idempotencyKey === e.id) calls += 1; return live(input); });
+  assert.equal(calls, 0, 'a live lease must not be overtaken');
+  assert.equal(e.status, 'sending');
+  ok('T8 crashed claim holds its lease and is not overtaken');
+});
+
+test('T9 stale sending claim is safely recovered after the lease expires', async () => {
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const before = db.events.length;
+  e.status = 'sending';
+  e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();  // an hour old
+  const priorAttempts = Number(e.retry_count ?? 0);
+  let calls = 0;
+  await run(db, async (...a) => { calls += 1; return live(...a); });
+  assert.ok(calls > 0, 'an expired lease is reclaimable');
+  assert.equal(db.events.length, before, 'no additional email-event row');
+  assert.equal(e.status, 'sent');
+  assert.ok(Number(e.retry_count) > priorAttempts, 'recovery attempt was incremented');
+  ok('T9 stale claim recovered after lease timeout, attempt audited, no new row');
+});
+
+test('T10 provider accepted then persistence failed: retry sends no second message', async () => {
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  // Provider accepted, but the local success write never landed: row still looks unsent.
+  e.status = 'sending';
+  e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const keys = [];
+  let providerMessages = 0;
+  const idempotentProvider = async (input) => {
+    if (input.idempotencyKey !== e.id) return { ok: true, mode: 'external', providerMessageId: 'prov_other' };
+    keys.push(input.idempotencyKey);
+    // A real provider keyed by Idempotency-Key returns the ORIGINAL message on replay.
+    if (keys.length === 1) providerMessages += 1;
+    return { ok: true, mode: 'external', providerMessageId: 'prov_original' };
+  };
+  await run(db, idempotentProvider);
+  e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  await run(db, idempotentProvider);
+  assert.equal(e.provider_message_id, 'prov_original');
+  assert.equal(providerMessages, 1, 'replay produced no second provider message');
+  ok('T10 replay after lost persistence yields the original provider message');
+});
+
+test('T11 retry presents the same provider idempotency key', async () => {
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  const keys = [];
+  const capture = async (input) => { keys.push(input.idempotencyKey); return { ok: false, mode: 'external', error: 'transient' }; };
+  await run(db, capture);
+  e.updated_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  await run(db, capture);
+  const forThisEvent = keys.filter((k) => k === e.id);
+  assert.ok(forThisEvent.length >= 2, 'the same event was attempted more than once');
+  assert.equal(new Set(forThisEvent).size, 1, 'every attempt used one stable key');
+  assert.equal(forThisEvent[0], e.id, 'key is derived from the email-event id');
+  ok('T11 all attempts present one stable provider idempotency key');
+});
+
+test('T12 non-empty unapproved recipient is blocked by the real recovery path', async () => {
+  process.env.MK_EMAIL_RECIPIENT_ALLOWLIST = ALLOWED;
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  e.recipient_email = UNAPPROVED;              // syntactically valid, simply not allowlisted
+  let calls = 0;   // scoped to THIS event
+  await run(db, async (input) => { if (input.idempotencyKey === e.id) calls += 1; return live(input); });
+  assert.equal(calls, 0, 'no provider call for an unapproved recipient');
+  assert.equal(e.sent_at ?? null, null);
+  assert.equal(e.provider_message_id ?? null, null);
+  delete process.env.MK_EMAIL_RECIPIENT_ALLOWLIST;
+  ok('T12 unapproved but valid recipient is refused before the provider');
+});
+
+test('T13 approved recipient remains deliverable under the same allowlist', async () => {
+  process.env.MK_EMAIL_RECIPIENT_ALLOWLIST = ALLOWED;
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  assert.equal(e.recipient_email, ALLOWED);
+  let calls = 0;
+  await run(db, async (input) => { if (input.idempotencyKey === e.id) calls += 1; return live(input); });
+  assert.ok(calls > 0);
+  assert.equal(e.status, 'sent');
+  delete process.env.MK_EMAIL_RECIPIENT_ALLOWLIST;
+  ok('T13 allowlisted recipient still delivers');
+});
+
+test('T14 concurrent active claims still yield at most one provider invocation', async () => {
+  const db = makeDb();
+  await run(db, disabled);
+  const e = db.events.find((x) => x.notification_type === 'customer_order_confirmation');
+  let calls = 0;
+  const counting = async (...a) => { calls += 1; return live(...a); };
+  await Promise.all([run(db, counting), run(db, counting), run(db, counting), run(db, counting)]);
+  const forThis = db.events.filter((x) => x.id === e.id && x.status === 'sent');
+  assert.equal(forThis.length <= 1, true);
+  assert.ok(calls <= 2, `expected at most one send per notification type, saw ${calls}`);
+  ok('T14 concurrent claims serialise to a single provider invocation');
+});
