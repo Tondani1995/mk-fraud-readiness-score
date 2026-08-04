@@ -202,7 +202,7 @@ export function FreeSnapshotCard({
           <section className="grid gap-4 md:grid-cols-5" aria-label="Snapshot metrics">
             <Metric label="Overall readiness score" value={snapshot.overallScore === null ? 'Not issued' : `${formatScore(snapshot.overallScore)}/100`} supporting={snapshot.overallScore === null ? 'More visibility is needed' : 'Persisted score result'} />
             <Metric label="Final maturity level" value={snapshot.finalMaturity ?? 'Not issued'} supporting={snapshot.finalMaturity === null ? 'No band is issued' : 'Based on submitted answers'} />
-            <Metric label="Coverage status" value={`${formatScore(snapshot.coveragePct)}%`} supporting={`${formatScore(snapshot.nARatePct)}% not applicable`} />
+            <Metric label="Coverage status" value={`${formatScore(snapshot.coveragePct)}%`} supporting={snapshot.adaptiveMetrics ? `${formatScore(snapshot.adaptiveMetrics.unknownSharePct)}% uncertainty` : `${formatScore(snapshot.nARatePct)}% not applicable`} />
             {showExposure ? <Metric label="Exposure band" value={snapshot.exposureBand ?? 'Not assessed'} supporting="Exposure profile included" /> : null}
             <Metric label="Critical controls" value={String(snapshot.criticalGapCount)} supporting={`${snapshot.majorGapCount} serious control gaps`} />
           </section>
