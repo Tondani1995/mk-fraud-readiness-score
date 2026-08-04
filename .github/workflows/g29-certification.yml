@@ -26,10 +26,12 @@ jobs:
     env:
       LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       G29_RUN_LIVE: '1'
-      G29_SUITE_IDS: database.service-role-contract,database.old-schema-freeze,database.migration-replay,integration.payment-db
+      G29_SUITE_IDS: database.old-schema-freeze,database.migration-replay,integration.payment-db
       G29_OUTPUT: tmp/g29/loopback-database.json
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -50,6 +52,8 @@ jobs:
           printf 'SUPABASE_LOCAL_API_URL=%s\n' "$API_URL" >> "$GITHUB_ENV"
           test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
           psql "$LOCAL_DB_URL" -XAtc 'select 1' | grep -qx 1
+      - name: Run service-role contract before disposable runtime grants
+        run: G29_OUTPUT=tmp/g29/service-role-contract.json node scripts/g29-service-role-contract-runner.mjs
       - name: Prepare disposable payment fixture boundary
         run: |
           set -Eeuo pipefail
@@ -61,6 +65,9 @@ jobs:
           test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
       - name: Run selected G29 suites
         run: npm run g29:regression -- --live
+      - name: Clean disposable payment fixture
+        if: always()
+        run: psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/g29-disposable-payment-fixture-cleanup.sql || true
       - name: Stop disposable local Supabase
         if: always()
         run: supabase stop --no-backup || true
@@ -84,6 +91,8 @@ jobs:
       G25_DB_TEST_REF: MKADAPT-QA-20260804-01
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -117,6 +126,8 @@ jobs:
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -143,6 +154,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -159,6 +172,7 @@ jobs:
           find tmp/g29-artifacts -type f -name '*.json' -print
           node scripts/g29-merge-results.mjs \
             tmp/g29-artifacts/g29-loopback-database/loopback-database.json \
+            tmp/g29-artifacts/g29-loopback-database/service-role-contract.json \
             tmp/g29-artifacts/g29-adaptive-staging/adaptive-staging.json \
             tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json
       - uses: actions/upload-artifact@v4

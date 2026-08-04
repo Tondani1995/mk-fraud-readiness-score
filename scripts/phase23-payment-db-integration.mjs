@@ -118,8 +118,4 @@ try {
 } finally {
   const { error: orderCleanupError } = await db.from('orders').delete().in('order_reference', orderReferences);
   assert.ifError(orderCleanupError);
-  const { error: assessmentCleanupError } = await db.from('assessments').delete().eq('id', assessment.id);
-  assert.ifError(assessmentCleanupError);
-  const { error: organisationCleanupError } = await db.from('organisations').delete().eq('id', assessment.organisation_id);
-  assert.ifError(organisationCleanupError);
 }
