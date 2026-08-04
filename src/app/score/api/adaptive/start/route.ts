@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { parseAdaptiveStartInput, startAdaptiveAssessment } from '@/lib/adaptive/server';
 
+const GENERIC_START_ERROR = 'We could not start your assessment right now. Please try again. If the problem continues, contact hello@mkfraud.co.za.';
+
 export async function POST(request: Request) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false, errors: ['Invalid JSON body.'] }, { status: 400 }); }
@@ -17,7 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, data: result }, { status: 201 });
   } catch (error) {
     console.error('adaptive assessment start failed', error);
-    const message = error instanceof Error && error.message.startsWith('adaptive_') ? error.message : 'Adaptive assessment could not be started.';
-    return NextResponse.json({ ok: false, errors: [message] }, { status: message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' ? 404 : 500 });
+    const internalMessage = error instanceof Error ? error.message : 'unknown_error';
+    const environmentFailure = internalMessage === 'adaptive_preview_only' || internalMessage === 'adaptive_staging_project_required';
+    return NextResponse.json({ ok: false, errors: [GENERIC_START_ERROR] }, { status: environmentFailure ? 404 : 500 });
   }
 }

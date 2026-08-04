@@ -13,7 +13,7 @@ export function AdaptiveStartForm() {
     event.preventDefault(); setBusy(true); setErrors([]);
     const response = await fetch('/score/api/adaptive/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, consentResearch: Boolean(form.consentResearch) }) });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body.ok) { setErrors(body.errors ?? ['Adaptive assessment could not be started.']); setBusy(false); return; }
+    if (!response.ok || !body.ok) { setErrors(body.errors ?? ['We could not start your assessment right now. Please try again. If the problem continues, contact hello@mkfraud.co.za.']); setBusy(false); return; }
     window.location.assign(body.data.resumeUrl);
   }
 
@@ -27,6 +27,6 @@ export function AdaptiveStartForm() {
     <label className="block text-sm font-medium text-mk-ink">Role (optional)<input value={form.roleTitle} onChange={(event) => update('roleTitle', event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-mk-line bg-white px-4" /></label>
     <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input required type="checkbox" checked={form.consentPrivacy} onChange={(event) => update('consentPrivacy', event.target.checked)} className="mt-1 h-4 w-4" />I agree to the privacy notice and understand this is a readiness self-assessment.</label>
     <label className="flex items-start gap-3 text-sm leading-6 text-mk-muted"><input type="checkbox" checked={form.consentResearch} onChange={(event) => update('consentResearch', event.target.checked)} className="mt-1 h-4 w-4" />I am happy for anonymised assessment information to support product improvement.</label>
-    <Button type="submit" disabled={busy}>{busy ? 'Starting…' : 'Start adaptive assessment'}</Button>
+    <Button type="submit" disabled={busy}>{busy ? 'Starting…' : 'Start assessment'}</Button>
   </form>;
 }
