@@ -105,7 +105,8 @@
     "rc1:test-premium-report-admin-initiation": "node scripts/rc1-premium-report-admin-initiation-tests.mjs",
     "rc1:test-preview-development-delivery-db": "node scripts/rc1-preview-development-delivery-db-test.mjs",
     "rc1:test-preview-resend-webhook": "node scripts/rc1-preview-resend-webhook-tests.mjs",
-    "rc1:reconcile-resend-preview-webhook": "node scripts/rc1-reconcile-resend-preview-webhook.mjs"
+    "rc1:reconcile-resend-preview-webhook": "node scripts/rc1-reconcile-resend-preview-webhook.mjs",
+    "g25:test-adaptive-engine": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g25-adaptive-engine-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
