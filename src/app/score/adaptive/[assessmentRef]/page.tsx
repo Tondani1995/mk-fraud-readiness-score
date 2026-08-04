@@ -4,6 +4,9 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { AdaptiveAssessmentExperience } from '@/components/adaptive/AdaptiveAssessmentExperience';
 import { getAdaptiveAssessmentState } from '@/lib/adaptive/server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdaptiveAssessmentPage({ params, searchParams }: { params: { assessmentRef: string }; searchParams?: { token?: string } }) {
   if (!searchParams?.token) return <SectionShell className="py-12"><PageHeader eyebrow="FRAUD READINESS ASSESSMENT" title="Private resume link required" description="Open the private link returned when this assessment was started." /></SectionShell>;
   try {
