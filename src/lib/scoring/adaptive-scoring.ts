@@ -341,8 +341,48 @@ export async function scoreAdaptiveSubmittedAssessment(assessmentReference: stri
     p_assessment_id: assessment.id, p_methodology_version_id: assessment.methodology_version_id, p_graph_version_id: assessment.graph_version_id,
     p_graph_version_snapshot: assessment.graph_version_snapshot, p_graph_fingerprint_snapshot: assessment.graph_fingerprint_snapshot,
     p_run_type: runType, p_input_hash: result.inputHash, p_created_by_user_id: options.createdByAdminId ?? null,
-    p_result_status: result.resultStatus, p_summary: result.summary, p_metrics: result.metrics,
-    p_domain_results: result.domainResults, p_question_traces: result.questionTraces, p_cap_events: result.maturityCapEvents
+    p_result_status: result.resultStatus,
+    p_summary: {
+      overall_score: result.summary.overallScore,
+      calculated_maturity: result.summary.calculatedMaturity,
+      final_maturity: result.summary.finalMaturity,
+      exposure_score: result.summary.exposureScore,
+      exposure_band: result.summary.exposureBand,
+      coverage_pct: result.summary.coveragePct,
+      n_a_rate_pct: result.summary.nARatePct,
+      critical_gap_count: result.summary.criticalGapCount,
+      major_gap_count: result.summary.majorGapCount,
+      cap_applied: result.summary.capApplied,
+      cap_reason: result.summary.capReason
+    },
+    p_metrics: result.metrics,
+    p_domain_results: result.domainResults.map((domain) => ({
+      domain_id: domain.domainId,
+      raw_score: domain.rawScore,
+      weighted_contribution: domain.weightedContribution,
+      coverage_pct: domain.coveragePct,
+      critical_gap_count: domain.criticalGapCount,
+      flags: domain.flags
+    })),
+    p_question_traces: result.questionTraces.map((trace) => ({
+      question_id: trace.questionId,
+      response_value: trace.responseValue,
+      normalised_score: trace.normalisedScore,
+      question_weight: trace.questionWeight,
+      applicable: trace.applicable,
+      numerator_contribution: trace.numeratorContribution,
+      denominator_contribution: trace.denominatorContribution,
+      is_critical_gap: trace.isCriticalGap,
+      is_major_gap: trace.isMajorGap,
+      triggered_rules: trace.triggeredRules
+    })),
+    p_cap_events: result.maturityCapEvents.map((event) => ({
+      rule_code: event.ruleCode,
+      cap_to: event.capTo,
+      reason: event.reason,
+      related_question_id: event.relatedQuestionId,
+      related_domain_id: event.relatedDomainId
+    }))
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
