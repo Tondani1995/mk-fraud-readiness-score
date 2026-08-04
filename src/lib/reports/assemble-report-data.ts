@@ -10,6 +10,11 @@ import type {
   ScoreBand
 } from './types';
 import { getOfficialResponseLabels } from './response-labels';
+import {
+  evaluatePaymentVerificationEvidence,
+  isValidPaymentSourceEvent,
+  type PaymentVerificationEvidence
+} from '@/lib/payments/payment-verification';
 
 /**
  * Parses a recommendation rule's numeric score band from its structured condition_json where
@@ -96,6 +101,75 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     .maybeSingle();
 
   if (scoreRunError || !scoreRunRow) throw new ReportAssemblyError('assessment_not_scored', `Score run ${assessment.current_score_run_id} is missing or incomplete.`);
+
+  const { data: paymentRows, error: paymentError } = await supabase
+    .from('payment_transition_events')
+    .select('id,new_state,source,actor_reference,amount_cents,currency,provider_transaction_reference,provider_event_reference,provider_event_at,verification_result,processing_result')
+    .eq('order_id', order.id)
+    .eq('new_state', 'PAID')
+    .eq('processing_result', 'applied')
+    .order('created_at', { ascending: false });
+  if (paymentError) throw new ReportAssemblyError('entitlement_snapshot_failed', 'Payment verification evidence could not be loaded.');
+
+  const manualActorIds = [...new Set((paymentRows ?? [])
+    .filter((row: any) => row.source === 'manual_admin' && /^[0-9a-f-]{36}$/i.test(row.actor_reference ?? ''))
+    .map((row: any) => row.actor_reference))];
+  const { data: verifierRows, error: verifierError } = manualActorIds.length > 0
+    ? await supabase.from('admin_profiles').select('id,status,role').in('id', manualActorIds)
+    : { data: [], error: null };
+  if (verifierError) throw new ReportAssemblyError('entitlement_snapshot_failed', 'Payment verifier evidence could not be loaded.');
+  const verifiers = new Map((verifierRows ?? []).map((row: any) => [String(row.id).toLowerCase(), row]));
+
+  const paymentEvidenceForRow = (row: any): PaymentVerificationEvidence => {
+    const verifier = verifiers.get(String(row.actor_reference ?? '').toLowerCase());
+    return {
+      paymentState: row.new_state ?? null,
+      confirmationSource: row.source ?? null,
+      actorReference: row.actor_reference ?? null,
+      providerTransactionReference: row.provider_transaction_reference ?? null,
+      providerEventReference: row.provider_event_reference ?? null,
+      providerEventAt: row.provider_event_at ?? null,
+      verificationResult: row.verification_result ?? null,
+      processingResult: row.processing_result ?? null,
+      paymentEventId: row.id ?? null,
+      amountCents: nullableNumber(row.amount_cents),
+      orderAmountCents: nullableNumber(order.amount_cents),
+      currency: row.currency ?? null,
+      orderCurrency: order.currency ?? null,
+      orderVerifiedAt: order.verified_at ?? null,
+      orderVerifiedBy: order.verified_by ?? null,
+      manualVerifierStatus: verifier?.status ?? null,
+      manualVerifierRole: verifier?.role ?? null,
+      priorValidSourceEvent: false,
+      transitionCount: paymentRows?.length ?? 0
+    };
+  };
+
+  const sourceEvidence = (paymentRows ?? []).map(paymentEvidenceForRow);
+  const priorValidSourceEvent = sourceEvidence.some((evidence) => isValidPaymentSourceEvent({ ...evidence, transitionCount: 1 }));
+  const paymentVerification: PaymentVerificationEvidence = sourceEvidence.length > 0
+    ? { ...sourceEvidence[0], priorValidSourceEvent, transitionCount: sourceEvidence.length }
+    : {
+      paymentState: null,
+      confirmationSource: null,
+      actorReference: null,
+      providerTransactionReference: null,
+      providerEventReference: null,
+      providerEventAt: null,
+      verificationResult: null,
+      processingResult: null,
+      paymentEventId: null,
+      amountCents: null,
+      orderAmountCents: nullableNumber(order.amount_cents),
+      currency: null,
+      orderCurrency: order.currency ?? null,
+      orderVerifiedAt: order.verified_at ?? null,
+      orderVerifiedBy: order.verified_by ?? null,
+      manualVerifierStatus: null,
+      manualVerifierRole: null,
+      priorValidSourceEvent: false,
+      transitionCount: 0
+    };
 
   const [
     { count: expectedDomainCount, error: expectedDomainError },
@@ -257,6 +331,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     currentScoreRunId: assessment.current_score_run_id,
     orderVerifiedAt: order.verified_at ?? null,
     orderVerifiedBy: order.verified_by ?? null,
+    paymentVerification,
     organisationName: (assessment.organisations as any)?.legal_name ?? (assessment.organisations as any)?.trading_name ?? order.organisation_name ?? 'Organisation',
     respondentName: (assessment.respondents as any)?.full_name ?? order.customer_name ?? 'Respondent',
     customerEmail: String(order.customer_email ?? '').trim().toLowerCase(),

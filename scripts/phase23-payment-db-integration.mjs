@@ -15,6 +15,9 @@ const { data: assessment, error: assessmentError } = await db.from('assessments'
 assert.ifError(assessmentError);
 const { data: product, error: productError } = await db.from('products').select('id').eq('active', true).limit(1).single();
 assert.ifError(productError);
+const { data: verifier, error: verifierError } = await db.from('admin_profiles')
+  .select('id').eq('status', 'active').in('role', ['platform_admin', 'finance_admin']).limit(1).single();
+assert.ifError(verifierError);
 
 const orderReferences = [`MKORD-DB-WEBHOOK-${nonce}`, `MKORD-DB-MANUAL-${nonce}`];
 const { error: orderError } = await db.from('orders').insert(orderReferences.map((orderReference) => ({
@@ -33,7 +36,7 @@ async function proveSingleTransition(orderReference, source) {
     p_order_reference: orderReference,
     p_new_state: 'PAID',
     p_source: source,
-    p_actor_reference: source === 'manual_admin' ? 'disposable-test-admin' : 'stitch-double',
+    p_actor_reference: source === 'manual_admin' ? verifier.id : 'stitch-double',
     p_amount_cents: 125000,
     p_currency: 'ZAR',
     p_provider_transaction_reference: `txn:${nonce}`,
@@ -60,7 +63,40 @@ async function proveSingleTransition(orderReference, source) {
   assert.equal(timelineCount, 1, `${source} must persist one order timeline event.`);
 }
 
+async function proveInvalidManualEvidenceIsAtomic(orderReference) {
+  const { error } = await db.rpc('record_payment_transition', {
+    p_order_reference: orderReference,
+    p_new_state: 'PAID',
+    p_source: 'manual_admin',
+    p_actor_reference: '00000000-0000-4000-8000-000000000000',
+    p_amount_cents: 125000,
+    p_currency: 'ZAR',
+    p_provider_transaction_reference: null,
+    p_provider_event_reference: `invalid:${nonce}`,
+    p_provider_event_at: new Date().toISOString(),
+    p_safe_note: 'Must be rejected before any payment side effect.',
+    p_verification_result: 'authorised_manual_confirmation',
+    p_idempotency_key: `invalid:${nonce}`,
+    p_technical_reference: `invalid-technical:${nonce}`,
+    p_payload_sha256: null
+  });
+  assert.ok(error, 'invalid manual verifier must be rejected');
+  assert.match(String(error.message), /payment_manual_verifier_invalid/);
+  const { data: order } = await db.from('orders').select('id,status,verified_at,verified_by').eq('order_reference', orderReference).single();
+  assert.equal(order.status, 'awaiting_payment');
+  assert.equal(order.verified_at, null);
+  assert.equal(order.verified_by, null);
+  for (const table of ['payment_automation_records', 'payment_transition_events', 'order_events', 'manual_report_generation_attempts']) {
+    const key = table === 'payment_transition_events' ? 'order_reference' : 'order_id';
+    const value = table === 'payment_transition_events' ? orderReference : order.id;
+    const { count, error: countError } = await db.from(table).select('id', { count: 'exact', head: true }).eq(key, value);
+    assert.ifError(countError);
+    assert.equal(count, 0, `${table} must remain untouched after invalid evidence`);
+  }
+}
+
 try {
+  await proveInvalidManualEvidenceIsAtomic(orderReferences[1]);
   await proveSingleTransition(orderReferences[0], 'stitch_webhook');
   await proveSingleTransition(orderReferences[1], 'manual_admin');
 

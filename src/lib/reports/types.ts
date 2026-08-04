@@ -156,6 +156,7 @@ export interface AssembledReportData {
   currentScoreRunId: string;
   orderVerifiedAt: string | null;
   orderVerifiedBy: string | null;
+  paymentVerification: import('@/lib/payments/payment-verification').PaymentVerificationEvidence;
   organisationName: string;
   respondentName: string;
   customerEmail: string;

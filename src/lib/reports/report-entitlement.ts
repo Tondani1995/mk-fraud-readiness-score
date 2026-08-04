@@ -1,4 +1,5 @@
 import type { AssembledReportData } from './types';
+import { evaluatePaymentVerificationEvidence } from '@/lib/payments/payment-verification';
 
 export const ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment';
 export const ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE = 'essential_self_assessment';
@@ -50,8 +51,9 @@ export function validatePremiumReportGenerationEntitlement(
     reject('assessment_not_scored', 'Premium report generation requires a completed assessment score run.');
   }
 
-  if (!assembled.orderVerifiedAt || !assembled.orderVerifiedBy) {
-    reject('order_not_verified', 'Premium report generation requires complete manual payment verification evidence.');
+  const paymentVerification = evaluatePaymentVerificationEvidence(assembled.paymentVerification);
+  if (!paymentVerification.valid) {
+    reject('order_not_verified', `Premium report generation requires valid payment verification evidence (${paymentVerification.reason}).`);
   }
 
   if (

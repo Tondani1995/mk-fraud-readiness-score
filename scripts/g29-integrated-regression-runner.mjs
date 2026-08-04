@@ -35,6 +35,7 @@ const suites = [
   { id: 'commercial.events', category: 'commercial', ...npm('phase13:test-events') },
   { id: 'commercial.conversion', category: 'commercial', ...npm('phase13:test-conversion') },
   { id: 'commercial.report-engine', category: 'commercial', ...npm('phase14:test-report-engine') },
+  { id: 'commercial.payment-verification', category: 'commercial', ...npm('g29:test-payment-verification') },
   { id: 'commercial.numeric-claims', category: 'commercial', ...node('scripts/g27-commercial-report-numeric-tests.mjs') },
   { id: 'commercial.quality-a', category: 'commercial', ...npm('v7:test-checkpoint-a-unit') },
   { id: 'commercial.quality-b', category: 'commercial', ...npm('v7:test-checkpoint-b') },

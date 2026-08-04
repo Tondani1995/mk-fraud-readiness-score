@@ -12,6 +12,7 @@ function loadPureModule(relativePath) {
   }).outputText;
   const module = { exports: {} };
   new Function('require', 'module', 'exports', output)((specifier) => {
+    if (specifier === '@/lib/payments/payment-verification') return loadPureModule('src/lib/payments/payment-verification.ts');
     throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
@@ -380,6 +381,14 @@ const eligibleReport = {
   currentScoreRunId: 'score-run-id',
   orderVerifiedAt: '2026-07-14T00:00:00.000Z',
   orderVerifiedBy: 'admin-id',
+  paymentVerification: {
+    paymentState: 'PAID', confirmationSource: 'manual_admin', actorReference: '11111111-1111-4111-8111-111111111111',
+    providerTransactionReference: null, providerEventReference: 'manual:ORDER-TEST', providerEventAt: '2026-07-14T00:00:00.000Z',
+    verificationResult: 'authorised_manual_confirmation', processingResult: 'applied', paymentEventId: 'payment-event-id',
+    amountCents: 500000, orderAmountCents: 500000, currency: 'ZAR', orderCurrency: 'ZAR',
+    orderVerifiedAt: '2026-07-14T00:00:00.000Z', orderVerifiedBy: '11111111-1111-4111-8111-111111111111',
+    manualVerifierStatus: 'active', manualVerifierRole: 'platform_admin', priorValidSourceEvent: false, transitionCount: 1
+  },
   productCode: 'essential_self_assessment',
   orderStatus: 'payment_received',
   amountCents: 500000,
@@ -409,8 +418,8 @@ for (const testCase of [
   ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],
   ['expired order', { orderStatus: 'expired' }, 'order_not_eligible'],
   ['missing score run', { scoreRun: null }, 'assessment_not_scored'],
-  ['unverified order', { orderVerifiedAt: null, orderVerifiedBy: null }, 'order_not_verified'],
-  ['partially verified order', { orderVerifiedBy: null }, 'order_not_verified'],
+  ['unverified order', { orderVerifiedAt: null, orderVerifiedBy: null, paymentVerification: { ...eligibleReport.paymentVerification, orderVerifiedAt: null, orderVerifiedBy: null } }, 'order_not_verified'],
+  ['partially verified order', { orderVerifiedBy: null, paymentVerification: { ...eligibleReport.paymentVerification, orderVerifiedBy: null } }, 'order_not_verified'],
   ['unlocked score run', { scoreRun: { ...eligibleReport.scoreRun, lockedAt: null } }, 'score_run_not_locked'],
   ['missing score input hash', { scoreRun: { ...eligibleReport.scoreRun, inputHash: null } }, 'score_run_input_hash_invalid'],
   ['stale current score reference', { currentScoreRunId: 'old-score-run' }, 'assessment_not_scored'],
