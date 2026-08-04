@@ -252,15 +252,16 @@ export function buildPremiumReportNarrativeBrief(
       item.kind === 'material_finding' && itemMentions(item.value, 'assurance_priority')
     );
 
+  const exposureKinds = items.some((item) => item.kind === 'exposure_band') ? ['exposure_score', 'exposure_band'] : [];
   const executiveAllowed = ids([
     ...items.filter((item) => [
-      'overall_score', 'final_maturity', 'calculated_maturity', 'exposure_score', 'exposure_band',
+      'overall_score', 'final_maturity', 'calculated_maturity', ...exposureKinds,
       'material_finding', 'maturity_cap', 'contradiction', 'risk', 'leadership_decision',
       'assessment_limitation'
     ].includes(item.kind)),
   ]);
   const executiveRequired = orderedIds([
-    ...items.filter((item) => ['overall_score', 'final_maturity', 'exposure_band'].includes(item.kind)),
+    ...items.filter((item) => ['overall_score', 'final_maturity', ...exposureKinds].includes(item.kind)),
     ...risks.slice(0, 2), ...caps.slice(0, 2), ...contradictions.slice(0, 1),
     ...decisions.slice(0, 2), ...limitation
   ]);
@@ -272,13 +273,13 @@ export function buildPremiumReportNarrativeBrief(
       : assurance;
   const falseComfortAllowedItems = stableUnique(ids([
     ...items.filter((item) => [
-      'overall_score', 'final_maturity', 'exposure_band', 'domain', 'gap', 'question_response', 'material_finding',
+      'overall_score', 'final_maturity', ...exposureKinds, 'domain', 'gap', 'question_response', 'material_finding',
       'maturity_cap', 'contradiction', 'risk', 'evidence_checklist', 'assessment_limitation'
     ].includes(item.kind))
   ])).map((id) => items.find((item) => item.id === id)!).filter(Boolean);
   const falseComfortRequired = orderedIds([
     ...falseComfortDrivers.slice(0, 2), ...limitation,
-    ...firstByKind(items, 'final_maturity'), ...firstByKind(items, 'exposure_band')
+    ...firstByKind(items, 'final_maturity'), ...(exposureKinds.length ? firstByKind(items, 'exposure_band') : [])
   ]);
 
   const advisoryLeadershipItems = items.filter((item) => [

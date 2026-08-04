@@ -25,6 +25,8 @@ const suites = [
   { id: 'adaptive.branch-matrix', category: 'adaptive', ...node('scripts/g29-adaptive-branch-matrix-tests.mjs', true) },
   { id: 'adaptive.engine', category: 'adaptive', ...npm('g25:test-adaptive-engine') },
   { id: 'adaptive.scoring', category: 'adaptive', ...npm('g27:test-adaptive-scoring') },
+  { id: 'adaptive.correction', category: 'adaptive', ...npm('g27:test-adaptive-correction') },
+  { id: 'adaptive.gateway-audit', category: 'adaptive', ...npm('g27:test-adaptive-gateway-audit') },
   { id: 'adaptive.customer-copy', category: 'adaptive', ...npm('g25:test-customer-copy') },
   { id: 'legacy.engine', category: 'legacy', ...npm('phase6:test-engine') },
   { id: 'legacy.scenarios', category: 'legacy', ...npm('phase6:test-scenarios') },

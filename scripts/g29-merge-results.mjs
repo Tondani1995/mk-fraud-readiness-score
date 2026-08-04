@@ -8,7 +8,7 @@ assert(inputPaths.length > 0, 'Usage: node scripts/g29-merge-results.mjs <result
 
 const graph = JSON.parse(await readFile(resolve(root, 'docs/adaptive-assessment/adaptive-graph-v1-draft.json'), 'utf8'));
 const expectedSuiteIds = [
-  'adaptive.branch-matrix', 'adaptive.engine', 'adaptive.scoring', 'adaptive.customer-copy',
+  'adaptive.branch-matrix', 'adaptive.engine', 'adaptive.scoring', 'adaptive.correction', 'adaptive.gateway-audit', 'adaptive.customer-copy',
   'legacy.engine', 'legacy.scenarios', 'legacy.snapshot', 'legacy.report-contract',
   'commercial.events', 'commercial.conversion', 'commercial.report-engine', 'commercial.numeric-claims',
   'commercial.quality-a', 'commercial.quality-b', 'commercial.quality-c', 'commercial.quality-d', 'commercial.quality-e',

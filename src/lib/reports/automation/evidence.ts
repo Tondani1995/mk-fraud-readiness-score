@@ -29,7 +29,7 @@ export function evidenceChecksum(evidence: PremiumReportEvidencePack) {
 
 function coreEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   const score = data.scoreRun;
-  return [
+  const base: ReportEvidenceItem[] = [
     {
       id: 'score:scale_max',
       kind: 'score_scale',
@@ -43,11 +43,16 @@ function coreEvidence(data: AssembledReportData): ReportEvidenceItem[] {
     { id: 'score:overall', kind: 'overall_score', label: 'Overall readiness score', value: score.overallScore },
     { id: 'score:calculated_maturity', kind: 'calculated_maturity', label: 'Calculated maturity', value: score.calculatedMaturity },
     { id: 'score:final_maturity', kind: 'final_maturity', label: 'Final maturity', value: score.finalMaturity },
-    { id: 'score:exposure', kind: 'exposure_score', label: 'Exposure score', value: score.exposureScore },
-    { id: 'score:exposure_band', kind: 'exposure_band', label: 'Exposure band', value: score.exposureBand },
     { id: 'score:coverage', kind: 'coverage', label: 'Assessment coverage percentage', value: score.coveragePct },
     { id: 'gaps:critical_count', kind: 'gap_count', label: 'Critical gap count', value: score.criticalGapCount },
     { id: 'gaps:major_count', kind: 'gap_count', label: 'Major gap count', value: score.majorGapCount }
+  ];
+  if (data.adaptiveScope?.exposureAssessed === false) return base;
+  return [
+    ...base.slice(0, 4),
+    { id: 'score:exposure', kind: 'exposure_score', label: 'Exposure score', value: score.exposureScore },
+    { id: 'score:exposure_band', kind: 'exposure_band', label: 'Exposure band', value: score.exposureBand },
+    ...base.slice(4)
   ];
 }
 
@@ -133,6 +138,7 @@ function advisoryEvidence(model: AdvisoryEvidenceModel): ReportEvidenceItem[] {
     ...model.scenarios.map((scenario) => ({ id: `scenario:${scenario.id}`, kind: 'plausible_scenario' as const, label: scenario.title, value: scenario, evidenceRefs: scenario.evidenceRefs })),
     ...model.controlImprovements.map((control) => ({ id: `control:${control.id}`, kind: 'control_improvement' as const, questionCode: control.linkedQuestionCode, label: control.controlObjective, value: control, evidenceRefs: control.evidenceRefs })),
     ...model.evidenceChecklist.map((item) => ({ id: item.evidenceRef, kind: 'evidence_checklist' as const, label: item.artefact, value: item, evidenceRefs: [...item.linkedFindingIds.map((id) => `finding:${id}`), ...item.linkedRiskIds.map((id) => `risk:${id}`), ...item.linkedQuestionCodes.map((code) => `question:${code}`)].sort() })),
+    ...model.visibilityGaps.map((gap) => ({ id: gap.evidenceRef, kind: 'visibility_gap' as const, questionCode: gap.questionCode, domainCode: gap.domainCode, label: gap.prompt, value: gap, evidenceRefs: [`question:${gap.questionCode}`, `domain:${gap.domainCode}`] })),
     ...model.leadershipDecisions.map((decision) => ({ id: `decision:${decision.id}`, kind: 'leadership_decision' as const, label: decision.decisionRequired, value: decision, evidenceRefs: decision.evidenceRefs })),
     ...model.roadmapActions.map((action) => ({ id: `roadmap:${action.id}`, kind: 'roadmap_action' as const, domainCode: action.domainCode, label: action.deliverable, value: action, evidenceRefs: action.evidenceRefs })),
     { id: 'limitation:self_assessment', kind: 'assessment_limitation' as const, label: 'Assessment limitation', value: 'Self-assessment only, not independently verified.', evidenceRefs: [] }

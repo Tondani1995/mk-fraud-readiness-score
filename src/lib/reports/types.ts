@@ -20,6 +20,20 @@ export type AdaptiveResultMetrics = {
   unansweredApplicableWeight: number;
   assessmentCoveragePct: number;
   controlVisibilityPct: number;
+  exposureAssessed: boolean;
+  visibilityGaps: Array<{
+    id: string;
+    questionCode: string;
+    domainCode: string;
+    prompt: string;
+    statement: string;
+    whyVisibilityMatters: string;
+    evidenceNeeded: string;
+    likelyEvidenceOwner: string;
+    recommendedVerificationAction: string;
+    priority: 'High' | 'Medium';
+    targetTiming: '30 days' | '60 days';
+  }>;
   materialExclusionSharePct: number;
   unknownSharePct: number;
   scoreComparabilityStatement: string;
@@ -45,11 +59,11 @@ export interface ScoreRunRecord {
   status: string;
   lockedAt: string | null;
   inputHash: string | null;
-  overallScore: number;
-  calculatedMaturity: MaturityBand;
-  finalMaturity: MaturityBand;
-  exposureScore: number;
-  exposureBand: ExposureBand;
+  overallScore: number | null;
+  calculatedMaturity: MaturityBand | null;
+  finalMaturity: MaturityBand | null;
+  exposureScore: number | null;
+  exposureBand: ExposureBand | null;
   coveragePct: number;
   nARatePct: number;
   criticalGapCount: number;

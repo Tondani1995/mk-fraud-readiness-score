@@ -337,7 +337,10 @@ function leadershipPriority(snapshot: FreeSnapshot, band: CommercialScoreBand) {
 }
 
 function riskImplication(snapshot: FreeSnapshot) {
-  return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] ?? RISK_IMPLICATION_BY_EXPOSURE.Low;
+  if (snapshot.adaptiveMetrics?.exposureAssessed === false || snapshot.resultStatus) {
+    return 'Adaptive exposure was not assessed. No exposure-based risk implication is issued; leadership should focus on the visibility gaps and evidence needed to verify the control position.';
+  }
+  return snapshot.exposureBand ? RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] : RISK_IMPLICATION_BY_EXPOSURE.Low;
 }
 
 function coverageMessage(snapshot: FreeSnapshot) {

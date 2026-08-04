@@ -374,6 +374,10 @@ export function validatePremiumReportNarrative(
   }
 
   const output = narrative as unknown as PremiumReportNarrative;
+  const exposureAssessed = evidence.items.some((item) => item.kind === 'exposure_band' || item.kind === 'exposure_score');
+  if (!exposureAssessed && /\b(?:exposure|inherent fraud risk)\b/i.test(sectionText(output.executiveDiagnosis) + ' ' + sectionText(output.falseComfort) + ' ' + sectionText(output.leadershipAttention))) {
+    issues.push(issue('adaptive_exposure_unsupported', 'narrative', 'Adaptive narrative must not include exposure claims when exposure was not assessed.'));
+  }
   const executive = output.executiveDiagnosis;
   const falseComfort = output.falseComfort;
   const leadership = output.leadershipAttention;

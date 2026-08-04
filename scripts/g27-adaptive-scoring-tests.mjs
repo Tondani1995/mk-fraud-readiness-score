@@ -59,7 +59,44 @@ const unknownId = Object.keys(allApplicable)[0];
 const unknown = score({ ...allApplicable, [unknownId]: { responseState: 'unknown', responseValue: null } });
 assert.equal(unknown.metrics.unknownCount, 1, 'unknown remains a visible applicable response');
 assert.equal(unknown.metrics.unknownWeight > 0, true, 'unknown weight remains in the denominator');
-assert.equal(unknown.summary.overallScore < parity.summary.overallScore, true, 'unknown receives zero score credit');
+assert.equal(unknown.summary.overallScore, parity.summary.overallScore, 'unknown does not receive zero-score credit');
+assert.equal(unknown.metrics.controlVisibilityPct < 100, true, 'unknown reduces control visibility');
+assert.equal(unknown.summary.exposureScore, null, 'adaptive exposure score is not assessed');
+assert.equal(unknown.summary.exposureBand, null, 'adaptive exposure band is not assessed');
+
+function unknownAtOrNear(targetPct) {
+  const nodes = resolveAdaptivePath({ graph, gatewayAnswers }).activeNodes.filter((node) => node.kind !== 'gateway');
+  const units = nodes.map((node) => ({ node, units: Math.round(Number(node.weight ?? graph.questions.find((q) => q.questionId === node.nodeId)?.weight ?? 0) * 4) }));
+  const totalUnits = units.reduce((sum, item) => sum + item.units, 0);
+  const targetUnits = Math.round(totalUnits * targetPct / 100);
+  const states = new Map([[0, []]]);
+  for (const item of units) {
+    for (const [sum, ids] of [...states.entries()]) {
+      const next = sum + item.units;
+      if (!states.has(next)) states.set(next, [...ids, item.node.nodeId]);
+    }
+  }
+  const best = [...states.entries()].sort((a, b) => Math.abs(a[0] - targetUnits) - Math.abs(b[0] - targetUnits))[0];
+  return best[1];
+}
+
+const boundaryCases = [19, 20, 29, 30].map((target) => {
+  const ids = unknownAtOrNear(target);
+  const result = score({ ...allApplicable, ...Object.fromEntries(ids.map((id) => [id, { responseState: 'unknown', responseValue: null }])) });
+  return { target, ids, result };
+});
+assert.equal(boundaryCases[0].result.metrics.unknownSharePct < 20, true, '19% unknown remains below the provisional threshold');
+assert.equal(boundaryCases[1].result.metrics.unknownSharePct >= 20 && boundaryCases[1].result.resultStatus === 'PROVISIONAL', true, `20% unknown is provisional (${boundaryCases[1].result.metrics.unknownSharePct}, ${boundaryCases[1].result.resultStatus})`);
+assert.equal(boundaryCases[2].result.metrics.unknownSharePct >= 20 && boundaryCases[2].result.metrics.unknownSharePct < 30 && boundaryCases[2].result.resultStatus === 'PROVISIONAL', true, `29% unknown is provisional (${boundaryCases[2].result.metrics.unknownSharePct}, ${boundaryCases[2].result.resultStatus})`);
+assert.equal(boundaryCases[3].result.metrics.unknownSharePct >= 30 && boundaryCases[3].result.resultStatus === 'INSUFFICIENT_VISIBILITY', true, `30% unknown withholds the result (${boundaryCases[3].result.metrics.unknownSharePct}, ${boundaryCases[3].result.resultStatus})`);
+
+const allUnknown = score(Object.fromEntries(Object.keys(allApplicable).map((id) => [id, { responseState: 'unknown', responseValue: null }])));
+assert.equal(allUnknown.metrics.unknownSharePct, 100, '100% unknown is measured explicitly');
+assert.equal(allUnknown.metrics.controlVisibilityPct, 0, '100% unknown has zero confirmed visibility');
+assert.equal(allUnknown.summary.overallScore, null, '100% unknown has no readiness score');
+assert.equal(allUnknown.summary.finalMaturity, null, '100% unknown has no maturity');
+assert.equal(allUnknown.summary.criticalGapCount, 0, 'unknown responses create no confirmed critical gaps');
+assert.equal(allUnknown.metrics.visibilityGaps.length, allUnknown.metrics.applicableCount, 'each unknown response creates a verification priority');
 
 const redirectedAnswers = { ...gatewayAnswers, G01: 'construction', G03: 'outsourced', G04: 'outsourced', G07: 'outsourced', G14: 'owner_led' };
 const redirected = calculateAdaptiveReadinessScore({ graph, methodology, gatewayAnswers: redirectedAnswers, controlResponses: responses(resolveAdaptivePath({ graph, gatewayAnswers: redirectedAnswers })) });

@@ -12,10 +12,10 @@ import {
 function applyTokens(text: string, data: AssembledReportData) {
   return text
     .replaceAll('{{organisationName}}', data.organisationName)
-    .replaceAll('{{overallScore}}', String(Math.round(data.scoreRun.overallScore)))
-    .replaceAll('{{calculatedMaturity}}', data.scoreRun.calculatedMaturity)
-    .replaceAll('{{finalMaturity}}', data.scoreRun.finalMaturity)
-    .replaceAll('{{exposureBand}}', data.scoreRun.exposureBand);
+    .replaceAll('{{overallScore}}', data.scoreRun.overallScore === null ? 'not issued' : String(Math.round(data.scoreRun.overallScore)))
+    .replaceAll('{{calculatedMaturity}}', data.scoreRun.calculatedMaturity ?? 'not issued')
+    .replaceAll('{{finalMaturity}}', data.scoreRun.finalMaturity ?? 'not issued')
+    .replaceAll('{{exposureBand}}', data.scoreRun.exposureBand ?? 'not assessed');
 }
 
 function activeBlocks(blocks: ContentBlock[]) {
@@ -41,13 +41,21 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   const capped = data.scoreRun.capApplied;
   const hasPriorityGaps = data.criticalMajorGaps.length > 0;
 
-  const executive = firstBlock(blocks, (block) =>
+  const executive = data.adaptiveScope ? undefined : firstBlock(blocks, (block) =>
     block.blockType === 'executive_summary' && (capped ? block.severity === 'capped' : block.maturityBand === data.scoreRun.finalMaturity)
   );
-  const leadership = firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
+  const leadership = data.adaptiveScope ? undefined : firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
   for (const domain of data.domainResults) {
+    if (data.adaptiveScope) {
+      domainNarratives[domain.domainName] = {
+        title: 'Visibility and verification priority',
+        body: 'The available response did not provide enough visibility to confirm this control position. Obtain the evidence listed in the report before treating this area as operating or as a confirmed weakness.',
+        usedFallback: true
+      };
+      continue;
+    }
     const band = bandForScore(domain.rawScore);
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
@@ -76,7 +84,7 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
     executiveSummary: selectExecutiveSummary(data, executive),
     falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps),
     leadershipAttention: {
-      body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity], data),
+      body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity ?? 'Reactive'], data),
       usedFallback: !leadership
     },
     domainNarratives,
@@ -97,6 +105,13 @@ export function gapKey(domainCode: string, questionCode: string) {
 }
 
 function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined): SelectedContent['executiveSummary'] {
+  if (data.adaptiveScope) {
+    return {
+      title: 'Visibility-limited assessment',
+      body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+      usedFallback: true
+    };
+  }
   if (block) {
     return {
       title: applyTokens(block.title ?? '', data),
@@ -105,10 +120,10 @@ function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock |
     };
   }
 
-  const fallback = data.scoreRun.capApplied ? FALLBACK_CAPPED_DIAGNOSIS : FALLBACK_EXECUTIVE_DIAGNOSIS[data.scoreRun.finalMaturity];
+  const fallback = data.scoreRun.capApplied ? FALLBACK_CAPPED_DIAGNOSIS : FALLBACK_EXECUTIVE_DIAGNOSIS[data.scoreRun.finalMaturity ?? 'Reactive'];
   const body = data.scoreRun.capApplied
     ? fallback.body
-    : `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore)} out of 100. ${fallback.body}`;
+    : `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore ?? 0)} out of 100. ${fallback.body}`;
 
   return {
     title: applyTokens(fallback.headline, data),
@@ -123,6 +138,13 @@ function selectFalseComfort(
   capped: boolean,
   hasPriorityGaps: boolean
 ): SelectedContent['falseComfort'] {
+  if (data.adaptiveScope) {
+    return {
+      title: 'Visibility and verification priority',
+      body: 'Unknown responses are not treated as confirmed control gaps. Obtain the evidence listed in this report before relying on a readiness conclusion.',
+      usedFallback: true
+    };
+  }
   const severity = capped ? 'capped' : hasPriorityGaps ? 'not_capped' : 'clean';
   const block = firstBlock(blocks, (item) => item.blockType === 'false_comfort' && item.severity === severity);
   const fallback = capped

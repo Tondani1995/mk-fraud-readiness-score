@@ -23,8 +23,8 @@ export type FreeSnapshot = {
   overallScore: number | null;
   calculatedMaturity: MaturityBand | null;
   finalMaturity: MaturityBand | null;
-  exposureScore: number;
-  exposureBand: ExposureBand;
+  exposureScore: number | null;
+  exposureBand: ExposureBand | null;
   coveragePct: number;
   nARatePct: number;
   criticalGapCount: number;
@@ -117,7 +117,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     overallScore: scoreRun.overall_score === null ? null : asNumber(scoreRun.overall_score),
     calculatedMaturity: scoreRun.calculated_maturity,
     finalMaturity: scoreRun.final_maturity,
-    exposureScore: asNumber(scoreRun.exposure_score),
+    exposureScore: scoreRun.exposure_score === null ? null : asNumber(scoreRun.exposure_score),
     exposureBand: scoreRun.exposure_band,
     coveragePct: asNumber(scoreRun.coverage_pct),
     nARatePct: asNumber(scoreRun.n_a_rate_pct),

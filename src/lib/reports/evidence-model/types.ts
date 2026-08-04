@@ -220,6 +220,22 @@ export interface EvidenceChecklistItem {
   minimumAcceptableCharacteristics: string[];
   reviewStatus: 'Not yet requested' | 'Requested' | 'Received' | 'Insufficient' | 'Validated';
   evidenceRef: string;
+  visibilityGap?: boolean;
+}
+
+export interface VisibilityGap {
+  id: string;
+  questionCode: string;
+  domainCode: string;
+  prompt: string;
+  statement: string;
+  whyVisibilityMatters: string;
+  evidenceNeeded: string;
+  likelyEvidenceOwner: string;
+  recommendedVerificationAction: string;
+  priority: 'High' | 'Medium';
+  targetTiming: '30 days' | '60 days';
+  evidenceRef: string;
 }
 
 export type LeadershipDecisionCategory =
@@ -295,6 +311,7 @@ export interface AdvisoryEvidenceModel {
   leadershipDecisions: LeadershipDecision[];
   roadmapActions: RoadmapAction[];
   functionalAgenda: FunctionalAgendaItem[];
+  visibilityGaps: VisibilityGap[];
 }
 
 // --- Commercial quality gate (V7 Checkpoint B) -----------------------------------------------

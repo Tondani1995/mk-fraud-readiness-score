@@ -35,7 +35,7 @@ function buildFixture(
   scores: Record<string, number>,
   overallScore: number,
   exposureScore: number,
-  exposureBand: AssembledReportData['scoreRun']['exposureBand'],
+  exposureBand: Exclude<AssembledReportData['scoreRun']['exposureBand'], null>,
   maturityCapEvents: AssembledReportData['maturityCapEvents']
 ): AssembledReportData {
   const criticalMajorGaps = traces.filter((item) => item.isCriticalGap || item.isMajorGap).map(({ normalisedScore: _n, applicable: _a, triggeredRules: _t, ...gap }) => gap);

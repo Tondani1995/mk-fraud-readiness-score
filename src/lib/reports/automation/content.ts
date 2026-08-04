@@ -17,8 +17,9 @@ export function buildDeterministicNarrative(
   const gapRefs = data.criticalMajorGaps.map((gap) => `gap:${gap.questionCode}`);
   const domainRefs = data.domainResults.map((domain) => `domain:${domain.domainCode}`);
   const coreRefs = [
-    'score:scale_max', 'score:overall', 'score:calculated_maturity', 'score:final_maturity', 'score:exposure',
-    'score:exposure_band', 'score:coverage', 'gaps:critical_count', 'gaps:major_count'
+    'score:scale_max', 'score:overall', 'score:calculated_maturity', 'score:final_maturity',
+    ...(data.adaptiveScope?.exposureAssessed === false ? [] : ['score:exposure', 'score:exposure_band']),
+    'score:coverage', 'gaps:critical_count', 'gaps:major_count'
   ];
 
   // A domain section may only cite its own evidence. Attaching coreRefs here would have the

@@ -202,9 +202,10 @@ export function renderReportHtml(
     day: 'numeric',
     timeZone: 'UTC'
   });
-  const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#173f68';
+  const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? '#173f68';
   const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
   const adaptiveScope = data.adaptiveScope;
+  const adaptiveExposureAssessed = !adaptiveScope || adaptiveScope.exposureAssessed !== false;
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
@@ -214,7 +215,7 @@ export function renderReportHtml(
   // re-derived from raw exposurePct/readinessPct thresholds), so it can never diverge from the
   // exposure band shown elsewhere in the report. See Checkpoint F controller review blocker 2.
   const readinessDescriptor = readinessPct >= 50 ? 'stronger reported readiness' : 'developing reported readiness';
-  const exposurePosition = `${sr.exposureBand} exposure with ${readinessDescriptor}`;
+  const exposurePosition = `${sr.exposureBand ?? 'Not assessed'} exposure with ${readinessDescriptor}`;
   const adaptiveScopeBlock = adaptiveScope ? subsection('Assessment scope and limitations', `
     <div class="metric-grid">
       <div><span>Applicable controls</span><strong>${adaptiveScope.applicableCount}</strong></div>
@@ -225,6 +226,7 @@ export function renderReportHtml(
     <p class="lede">${esc(insufficientVisibility ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. This report explains the assessed scope, information gaps and evidence needed for a reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
     ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and verification priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
     <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
 
   const heatmap = data.domainResults.map((domain) => {
@@ -244,6 +246,12 @@ export function renderReportHtml(
       <div class="bar-track"><i style="width:${Math.round(level * 100)}%;background:${color}"></i></div>
     </div>`;
   }).join('');
+
+  const exposureSection = adaptiveExposureAssessed ? subsection(exposurePosition, `
+      <div class="exposure-layout">
+        <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
+        <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
+      </div>`) : '';
 
   const priorityGaps = data.criticalMajorGaps.map((gap) => {
     const commentary = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)];
@@ -508,18 +516,14 @@ export function renderReportHtml(
         <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p><div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
       </div>
       <div class="metric-grid">
-        <div><span>Exposure</span><strong>${esc(sr.exposureBand)}</strong></div>
+        ${adaptiveExposureAssessed ? `<div><span>Exposure</span><strong>${esc(sr.exposureBand ?? 'Not assessed')}</strong></div>` : ''}
         <div><span>Coverage</span><strong>${pct(sr.coveragePct)}</strong></div>
         <div><span>Critical gaps</span><strong>${sr.criticalGapCount}</strong></div>
         <div><span>Major gaps</span><strong>${sr.majorGapCount}</strong></div>
       </div>`)}
       ${adaptiveScopeBlock}
-      ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity)} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
-      ${subsection(exposurePosition, `
-      <div class="exposure-layout">
-        <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
-        <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
-      </div>`)}
+      ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity ?? 'visibility-limited')} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
+      ${exposureSection}
       ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
     section('Domain overview', 'Domain overview', domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `

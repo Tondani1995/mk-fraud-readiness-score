@@ -1,6 +1,6 @@
 import { earliestPeriod, stableToken, stableUnique } from './deterministic';
 import { riskPathwayForFinding } from './risk-pathways';
-import type { ControlImprovementEntry, EvidenceChecklistItem, Impact, Likelihood, MaterialFinding, RiskRegisterEntry } from './types';
+import type { ControlImprovementEntry, EvidenceChecklistItem, Impact, Likelihood, MaterialFinding, RiskRegisterEntry, VisibilityGap } from './types';
 
 const PRIORITY_MATRIX: Record<Likelihood, Record<Impact, RiskRegisterEntry['priority']>> = {
   Low: { Low: 'Low', Moderate: 'Medium', High: 'High', Severe: 'High' },
@@ -153,7 +153,7 @@ export function buildControlImprovementRegister(findings: MaterialFinding[], ris
   });
 }
 
-export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[]): EvidenceChecklistItem[] {
+export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {
   const groups = new Map<string, { artefact: string; findings: MaterialFinding[] }>();
   for (const finding of [...findings].sort((a, b) => a.questionCode.localeCompare(b.questionCode))) {
     for (const artefact of stableUnique(finding.evidenceToRequest)) {
@@ -164,7 +164,7 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
     }
   }
 
-  return [...groups.values()].sort((a, b) => a.artefact.localeCompare(b.artefact)).map(({ artefact, findings: linked }) => {
+  const controlEvidence = [...groups.values()].sort((a, b) => a.artefact.localeCompare(b.artefact)).map(({ artefact, findings: linked }) => {
     const linkedFindingIds = stableUnique(linked.map((finding) => finding.id));
     const linkedQuestionCodes = stableUnique(linked.map((finding) => finding.questionCode));
     const linkedRiskIds = stableUnique(risks.filter((risk) => risk.linkedFindingIds.some((id) => linkedFindingIds.includes(id))).map((risk) => risk.id));
@@ -193,4 +193,23 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
       evidenceRef
     } satisfies EvidenceChecklistItem;
   });
+  const visibilityEvidence = visibilityGaps.map((gap) => ({
+    id: gap.evidenceRef.slice('evidence:'.length),
+    artefact: `Evidence pack for ${gap.questionCode}: ${gap.prompt}`,
+    linkedFindingIds: [],
+    linkedRiskIds: [],
+    linkedQuestionCodes: [gap.questionCode],
+    linkedFindingId: '',
+    linkedRiskId: '',
+    likelyOwner: gap.likelyEvidenceOwner,
+    provesWhat: gap.statement,
+    expectedRecency: gap.targetTiming,
+    requiredPopulation: 'Complete in-scope population for the control, including exceptions and changes.',
+    samplingExpectation: 'Review the complete population where feasible; otherwise use a documented risk-based sample including exceptions.',
+    minimumAcceptableCharacteristics: [gap.evidenceNeeded, gap.recommendedVerificationAction],
+    reviewStatus: 'Not yet requested' as const,
+    evidenceRef: gap.evidenceRef,
+    visibilityGap: true
+  } satisfies EvidenceChecklistItem));
+  return [...controlEvidence, ...visibilityEvidence];
 }

@@ -74,6 +74,7 @@ export function FreeSnapshotCard({
   snapshotUrl?: string | null;
   commercialInsights: CommercialSnapshotInsights;
 }) {
+  const showExposure = !snapshot.adaptiveMetrics || snapshot.adaptiveMetrics.exposureAssessed !== false;
   const [selectedOption, setSelectedOption] = useState<CommercialOptionCode | null>(null);
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -190,7 +191,7 @@ export function FreeSnapshotCard({
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">Assessment complete</p>
               <CardTitle className="mt-2 text-2xl text-white">Your organisation&apos;s fraud readiness position</CardTitle>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
-                Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.
+                {snapshot.adaptiveMetrics ? 'Your assessment has been scored using the MK Fraud Readiness methodology across the applicable control domains, with visibility and verification priorities shown below.' : 'Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation\'s fraud-exposure profile.'}
               </p>
               <p className="mt-2 text-sm text-white/70">Reference: {snapshot.assessmentReference}</p>
             </div>
@@ -202,7 +203,7 @@ export function FreeSnapshotCard({
             <Metric label="Overall readiness score" value={snapshot.overallScore === null ? 'Not issued' : `${formatScore(snapshot.overallScore)}/100`} supporting={snapshot.overallScore === null ? 'More visibility is needed' : 'Persisted score result'} />
             <Metric label="Final maturity level" value={snapshot.finalMaturity ?? 'Not issued'} supporting={snapshot.finalMaturity === null ? 'No band is issued' : 'Based on submitted answers'} />
             <Metric label="Coverage status" value={`${formatScore(snapshot.coveragePct)}%`} supporting={`${formatScore(snapshot.nARatePct)}% not applicable`} />
-            <Metric label="Exposure band" value={snapshot.exposureBand} supporting="Exposure profile included" />
+            {showExposure ? <Metric label="Exposure band" value={snapshot.exposureBand ?? 'Not assessed'} supporting="Exposure profile included" /> : null}
             <Metric label="Critical controls" value={String(snapshot.criticalGapCount)} supporting={`${snapshot.majorGapCount} serious control gaps`} />
           </section>
 
@@ -223,7 +224,7 @@ export function FreeSnapshotCard({
           ) : null}
 
           <section className="grid gap-3 md:grid-cols-4" aria-label="Assessment trust facts">
-            {['68 controlled questions', '10 fraud-readiness domains', 'Exposure profile included', 'Deterministic scoring'].map((item) => (
+            {['68 controlled questions', '10 fraud-readiness domains', ...(showExposure ? ['Exposure profile included'] : []), 'Deterministic scoring'].map((item) => (
               <div key={item} className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-sm font-semibold text-mk-ink">{item}</div>
             ))}
           </section>

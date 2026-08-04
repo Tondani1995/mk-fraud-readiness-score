@@ -16,6 +16,20 @@ import type { MaturityBand } from '@/lib/types/domain';
 
 export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
 
+export type AdaptiveVisibilityGap = {
+  id: string;
+  questionCode: string;
+  domainCode: string;
+  prompt: string;
+  statement: string;
+  whyVisibilityMatters: string;
+  evidenceNeeded: string;
+  likelyEvidenceOwner: string;
+  recommendedVerificationAction: string;
+  priority: 'High' | 'Medium';
+  targetTiming: '30 days' | '60 days';
+};
+
 export type AdaptiveResultMetrics = {
   resultStatus: AdaptiveResultStatus;
   graphVersion: string;
@@ -35,6 +49,9 @@ export type AdaptiveResultMetrics = {
   unansweredApplicableWeight: number;
   assessmentCoveragePct: number;
   controlVisibilityPct: number;
+  /** Percentage of applicable control weight supported by a known maturity response. */
+  exposureAssessed: boolean;
+  visibilityGaps: AdaptiveVisibilityGap[];
   materialExclusionSharePct: number;
   unknownSharePct: number;
   scoreComparabilityStatement: string;
@@ -54,6 +71,8 @@ export type AdaptiveResultMetrics = {
     isHardGate: boolean;
     isCriticalGap: boolean;
     isMajorGap: boolean;
+    controlObjective?: string;
+    evidenceReference?: string;
     triggeredRules: string[];
   }>;
 };
@@ -65,8 +84,8 @@ export type AdaptiveScoringResult = {
     overallScore: number | null;
     calculatedMaturity: MaturityBand | null;
     finalMaturity: MaturityBand | null;
-    exposureScore: number;
-    exposureBand: string;
+    exposureScore: null;
+    exposureBand: null;
     coveragePct: number;
     nARatePct: number;
     criticalGapCount: number;
@@ -179,7 +198,7 @@ export function calculateAdaptiveReadinessScore(input: {
   let unansweredApplicableWeight = 0;
   let criticalGapCount = 0;
   let majorGapCount = 0;
-  const domainAccumulators = new Map<string, { numerator: number; denominator: number; completedWeight: number; critical: number }>();
+  const domainAccumulators = new Map<string, { numerator: number; denominator: number; completedWeight: number; knownWeight: number; critical: number }>();
   const totalControlWeight = input.graph.questions.reduce((sum, question) => sum + question.weight, 0);
 
   for (const question of input.graph.questions) {
@@ -190,7 +209,7 @@ export function calculateAdaptiveReadinessScore(input: {
     const domain = domainByCode.get(question.domainCode);
     const methodologyQuestion = questionByCode.get(code);
     if (!domain || !node || !methodologyQuestion) continue;
-    const accumulator = domainAccumulators.get(question.domainCode) ?? { numerator: 0, denominator: 0, completedWeight: 0, critical: 0 };
+    const accumulator = domainAccumulators.get(question.domainCode) ?? { numerator: 0, denominator: 0, completedWeight: 0, knownWeight: 0, critical: 0 };
     const response = node.response ?? null;
     const isInvalidated = invalidated.has(question.questionId) && profileState !== 'active' && profileState !== 'redirected';
     const isRedirected = profileState === 'redirected';
@@ -199,7 +218,7 @@ export function calculateAdaptiveReadinessScore(input: {
     if (isInvalidated) {
       invalidatedCodes.push(code);
       invalidatedWeight += question.weight;
-      reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: node.prompt, responseValue: null, normalisedScore: null, applicable: false, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap: false, isMajorGap: false, triggeredRules: ['invalidated_by_upstream_gateway'] });
+      reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: node.prompt, responseValue: null, normalisedScore: null, applicable: false, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap: false, isMajorGap: false, controlObjective: question.controlObjective ?? undefined, evidenceReference: question.evidenceReference ?? undefined, triggeredRules: ['invalidated_by_upstream_gateway'] });
       traces.push({ questionId: methodologyQuestion.id, questionCode: code, responseValue: null, normalisedScore: null, questionWeight: question.weight, applicable: false, numeratorContribution: 0, denominatorContribution: 0, isCriticalGap: false, isMajorGap: false, triggeredRules: ['invalidated_by_upstream_gateway'] });
       domainAccumulators.set(question.domainCode, accumulator);
       continue;
@@ -208,7 +227,7 @@ export function calculateAdaptiveReadinessScore(input: {
       excludedCount += 1;
       excludedWeight += question.weight;
       excludedCodes.push(code);
-      reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: question.prompt, responseValue: null, normalisedScore: null, applicable: false, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap: false, isMajorGap: false, triggeredRules: ['valid_gateway_exclusion'] });
+      reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: question.prompt, responseValue: null, normalisedScore: null, applicable: false, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap: false, isMajorGap: false, controlObjective: question.controlObjective ?? undefined, evidenceReference: question.evidenceReference ?? undefined, triggeredRules: ['valid_gateway_exclusion'] });
       traces.push({ questionId: methodologyQuestion.id, questionCode: code, responseValue: null, normalisedScore: null, questionWeight: question.weight, applicable: false, numeratorContribution: 0, denominatorContribution: 0, isCriticalGap: false, isMajorGap: false, triggeredRules: ['valid_gateway_exclusion'] });
       domainAccumulators.set(question.domainCode, accumulator);
       continue;
@@ -218,27 +237,30 @@ export function calculateAdaptiveReadinessScore(input: {
     const value = response?.responseState === 'maturity' ? response.responseValue : null;
     const unknown = response?.responseState === 'unknown';
     const unanswered = !response;
-    const normalisedScore = value === null ? 0 : round((value / 5) * 100);
+    const normalisedScore = value === null ? null : round((value / 5) * 100);
     const isCriticalGap = value !== null && value <= 2 && question.isCritical;
     const isMajorGap = value !== null && value <= 1 && question.isHardGate;
     const triggeredRules: string[] = [];
     if (isRedirected) { redirectedCount += 1; redirectedWeight += weight; redirectedCodes.push(code); triggeredRules.push('redirected_to_oversight'); }
-    if (unknown) { unknownCount += 1; unknownWeight += weight; unknownCodes.push(code); triggeredRules.push('unknown_response_zero_credit_retained_in_denominator'); }
+    if (unknown) { unknownCount += 1; unknownWeight += weight; unknownCodes.push(code); triggeredRules.push('unknown_response_excluded_from_score_denominator'); }
     if (unanswered) { unansweredApplicableCount += 1; unansweredApplicableWeight += weight; flags.add('unanswered_applicable'); triggeredRules.push('unanswered_applicable'); }
     if (isCriticalGap) { criticalGapCount += 1; accumulator.critical += 1; triggeredRules.push('critical_gap_response_lte_2'); }
     if (isMajorGap) { majorGapCount += 1; triggeredRules.push('major_hard_gate_gap_response_lte_1'); }
     if (question.isHardGate && value === 2) triggeredRules.push('hard_gate_gap_response_eq_2');
     applicableCount += 1; applicableWeight += weight;
-    accumulator.denominator += weight;
-    accumulator.numerator += normalisedScore * weight;
-    if (!unanswered) accumulator.completedWeight += weight;
-    reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: node.prompt, responseValue: value, normalisedScore, applicable: true, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap, isMajorGap, triggeredRules });
-    traces.push({ questionId: methodologyQuestion.id, questionCode: code, responseValue: value, normalisedScore, questionWeight: weight, applicable: true, numeratorContribution: round(normalisedScore * weight, 4), denominatorContribution: weight, isCriticalGap, isMajorGap, triggeredRules });
+    if (value !== null) {
+      accumulator.denominator += weight;
+      accumulator.numerator += normalisedScore! * weight;
+      accumulator.knownWeight += weight;
+    }
+    if (value !== null) accumulator.completedWeight += weight;
+    reportTraces.push({ questionCode: code, domainCode: question.domainCode, prompt: node.prompt, responseValue: value, normalisedScore, applicable: true, isCritical: question.isCritical, isHardGate: question.isHardGate, isCriticalGap, isMajorGap, controlObjective: question.controlObjective ?? undefined, evidenceReference: question.evidenceReference ?? undefined, triggeredRules });
+    traces.push({ questionId: methodologyQuestion.id, questionCode: code, responseValue: value, normalisedScore, questionWeight: weight, applicable: true, numeratorContribution: value === null ? 0 : round(normalisedScore! * weight, 4), denominatorContribution: value === null ? 0 : weight, isCriticalGap, isMajorGap, triggeredRules });
     domainAccumulators.set(question.domainCode, accumulator);
   }
 
   const domainResults = input.methodology.domains.map((domain) => {
-    const accumulator = domainAccumulators.get(domain.domainCode) ?? { numerator: 0, denominator: 0, completedWeight: 0, critical: 0 };
+    const accumulator = domainAccumulators.get(domain.domainCode) ?? { numerator: 0, denominator: 0, completedWeight: 0, knownWeight: 0, critical: 0 };
     const rawScore = accumulator.denominator > 0 ? round(accumulator.numerator / accumulator.denominator) : null;
     return {
       domainId: domain.id, domainCode: domain.domainCode, domainName: domain.name, domainWeightPct: domain.weightPct,
@@ -257,12 +279,14 @@ export function calculateAdaptiveReadinessScore(input: {
   const coveragePct = applicableCount > 0 ? round((applicableCount - unansweredApplicableCount) / applicableCount * 100) : 0;
   const unknownSharePct = applicableWeight > 0 ? round(unknownWeight / applicableWeight * 100) : 0;
   const materialExclusionSharePct = totalControlWeight > 0 ? round((excludedWeight + invalidatedWeight) / totalControlWeight * 100) : 100;
-  const controlVisibilityPct = totalControlWeight > 0 ? round(applicableWeight / totalControlWeight * 100) : 0;
+  const knownWeight = [...domainAccumulators.values()].reduce((sum, accumulator) => sum + accumulator.knownWeight, 0);
+  const controlVisibilityPct = applicableWeight > 0 ? round(knownWeight / applicableWeight * 100) : 0;
   const limitationReasons: string[] = [];
   if (input.integritySignals?.some((signal) => signal.blocking)) limitationReasons.push('The submitted assessment contains a blocking integrity condition.');
   if (coveragePct < 70) limitationReasons.push('Applicable controls were not sufficiently answered.');
   if (applicableCount === 0) limitationReasons.push('No applicable control areas remained in scope.');
   if (materialExclusionSharePct >= 40) limitationReasons.push('A material share of the control set was outside the assessed scope.');
+  if (unknownSharePct >= 30) limitationReasons.push('Unknown responses reached 30% or more of applicable control weight; the control position cannot be confirmed.');
   const resultStatus: AdaptiveResultStatus = limitationReasons.length > 0
     ? 'INSUFFICIENT_VISIBILITY'
     : (unknownSharePct >= 20 || excludedCount > 0 || redirectedCount > 0 || (input.integritySignals?.length ?? 0) > 0 || coveragePct < 90 ? 'PROVISIONAL' : 'NORMAL');
@@ -286,7 +310,20 @@ export function calculateAdaptiveReadinessScore(input: {
     redirectedCount, redirectedWeight: round(redirectedWeight), invalidatedCount: invalidatedCodes.length, invalidatedWeight: round(invalidatedWeight),
     profileOnlyCount: path.profileOnlyNodes.length, unknownCount, unknownWeight: round(unknownWeight),
     unansweredApplicableCount, unansweredApplicableWeight: round(unansweredApplicableWeight), assessmentCoveragePct: coveragePct,
-    controlVisibilityPct, materialExclusionSharePct, unknownSharePct,
+    controlVisibilityPct, materialExclusionSharePct, unknownSharePct, exposureAssessed: false,
+    visibilityGaps: reportTraces.filter((trace) => trace.applicable && trace.responseValue === null && trace.triggeredRules.includes('unknown_response_excluded_from_score_denominator')).map((trace) => ({
+      id: `VIS-${trace.questionCode}`,
+      questionCode: trace.questionCode,
+      domainCode: trace.domainCode,
+      prompt: trace.prompt,
+      statement: 'The control position could not be confirmed from the response.',
+      whyVisibilityMatters: trace.controlObjective ? `Independent evidence is needed to confirm whether the control objective is operating: ${trace.controlObjective}` : 'A known response is not available, so the operating control position cannot be interpreted reliably.',
+      evidenceNeeded: trace.evidenceReference ? `Evidence mapped to ${trace.evidenceReference}, including the complete in-scope population and operating records.` : 'The complete in-scope population, operating records and the owner-approved evidence used to support this control response.',
+      likelyEvidenceOwner: 'Control owner / process owner to be confirmed during evidence review.',
+      recommendedVerificationAction: 'Obtain and independently verify the control evidence before relying on the result.',
+      priority: unknownSharePct >= 30 ? 'High' : 'Medium',
+      targetTiming: unknownSharePct >= 30 ? '30 days' : '60 days'
+    })),
     scoreComparabilityStatement: resultStatus === 'NORMAL'
       ? 'Comparable with other assessments using the same approved methodology where the assessed scope is materially similar.'
       : resultStatus === 'PROVISIONAL'
@@ -298,7 +335,7 @@ export function calculateAdaptiveReadinessScore(input: {
   return {
     summary: {
       overallScore: scoreAllowed ? overallScore : null, calculatedMaturity: scoreAllowed ? calculatedMaturity : null, finalMaturity: scoreAllowed ? finalMaturity : null,
-      exposureScore: 0, exposureBand: 'Moderate', coveragePct, nARatePct: unknownSharePct, criticalGapCount, majorGapCount,
+      exposureScore: null, exposureBand: null, coveragePct, nARatePct: unknownSharePct, criticalGapCount, majorGapCount,
       capApplied: Boolean(scoreAllowed && finalMaturity !== calculatedMaturity), capReason: maturityCapEvents.length ? maturityCapEvents.map((event) => event.reason).join(' ') : null,
       flags: flagsList
     },

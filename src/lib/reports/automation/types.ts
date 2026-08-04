@@ -65,6 +65,7 @@ export type ReportEvidenceKind =
   | 'leadership_decision'
   | 'roadmap_action'
   | 'assessment_limitation'
+  | 'visibility_gap'
   | 'roadmap';
 
 export interface ReportEvidenceItem {

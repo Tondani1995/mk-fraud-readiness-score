@@ -5,6 +5,7 @@ import { buildMaterialFindings } from './material-findings';
 import { buildControlImprovementRegister, buildEvidenceChecklist, buildRiskRegister } from './registers';
 import { buildPlausibleScenarios } from './scenarios';
 import { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
+import { buildVisibilityGaps } from './visibility-gaps';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './types';
 
 export * from './types';
@@ -20,6 +21,7 @@ export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependenc
  */
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
+  const visibilityGaps = buildVisibilityGaps(data);
   let riskRegister = buildRiskRegister(materialFindings);
   const scenarios = buildPlausibleScenarios(data, materialFindings, riskRegister);
   riskRegister = riskRegister.map((risk) => ({
@@ -28,7 +30,7 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
   }));
   const contradictions = buildContradictions(data, materialFindings, riskRegister);
   const controlImprovements = buildControlImprovementRegister(materialFindings, riskRegister);
-  const evidenceChecklist = buildEvidenceChecklist(materialFindings, riskRegister);
+  const evidenceChecklist = buildEvidenceChecklist(materialFindings, riskRegister, visibilityGaps);
   const leadershipDecisions = buildLeadershipDecisions(materialFindings, riskRegister);
   const functionalAgenda = buildFunctionalAgenda(materialFindings, riskRegister);
   const roadmapActions = buildRoadmapActions(materialFindings, riskRegister);
@@ -42,7 +44,8 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
     evidenceChecklist,
     leadershipDecisions,
     roadmapActions,
-    functionalAgenda
+    functionalAgenda,
+    visibilityGaps
   };
 }
 
@@ -187,7 +190,8 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
 
   // Checkpoint D: scenario volume follows the evidence context instead of fabricating failures.
   const assuranceOnly = model.materialFindings.length > 0 && model.materialFindings.every((finding) => finding.materialityClass === 'assurance_priority');
-  const scenarioMinimum = assuranceOnly ? 2 : 3;
+  const visibilityOnly = data.scoreRun.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY' && model.visibilityGaps.length > 0;
+  const scenarioMinimum = visibilityOnly ? 0 : assuranceOnly ? 2 : 3;
   if (model.scenarios.length < scenarioMinimum) {
     violations.push({
       code: 'QG_SCENARIO_MINIMUM_NOT_MET',
@@ -195,6 +199,14 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
       message: `Only ${model.scenarios.length} plausible scenarios generated; ${scenarioMinimum} are required for this assessment context.`,
       source: 'evidence-model'
     });
+  }
+  for (const gap of model.visibilityGaps) {
+    if (!gap.questionCode || !gap.evidenceRef || !gap.likelyEvidenceOwner || !gap.recommendedVerificationAction) {
+      violations.push({ code: 'QG_EVIDENCE_CRITERIA_MISSING', severity: 'violation', message: `Visibility gap ${gap.id} is missing verification evidence criteria.`, entityId: gap.id, source: 'evidence-model' });
+    }
+  }
+  if (data.adaptiveScope?.unknownCount && model.visibilityGaps.length === 0) {
+    violations.push({ code: 'QG_EVIDENCE_CHECKLIST_MISSING', severity: 'violation', message: 'Adaptive unknown responses have no visibility-gap evidence records.', source: 'evidence-model' });
   }
   for (const scenario of model.scenarios) {
     if (!['control_gap', 'assurance_validation'].includes(scenario.scenarioBasis)) {
