@@ -1,6 +1,15 @@
 name: G29 certification evidence
 
 on:
+  pull_request:
+    branches: [fix/rc1-control-plane-profile-read]
+    paths:
+      - '.github/workflows/g29-certification.yml'
+      - 'scripts/g29-*.mjs'
+      - 'scripts/phase23-assessment-browser-tests.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'supabase/**'
   workflow_dispatch:
 
 permissions:
