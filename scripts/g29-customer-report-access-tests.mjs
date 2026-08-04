@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const service = read('src/lib/reports/customer-report-access.ts');
-const migration = read('supabase/migrations/20260804200000_g29_customer_report_access_audit.sql');
+const migration = read('supabase/migrations/20260804203520_g29_customer_report_access_audit.sql');
 
 assert.match(service, /rpc\('record_customer_report_access'/, 'customer path uses the atomic audit RPC');
 assert.doesNotMatch(service, /from\('(?:report_events|order_events|audit_logs)'\)\.insert/, 'customer service does not directly insert audited tables');
