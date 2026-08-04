@@ -67,10 +67,21 @@ async function selectRadio(page, selector, label) {
   throw new Error(`${label}: radio did not remain selected after retries`);
 }
 
+function assertPreviewPageReached(page, response, route) {
+  const finalUrl = page.url();
+  const finalHost = new URL(finalUrl).hostname;
+  const expectedHost = new URL(baseUrl).hostname;
+  const redirectedToVercelAuth = finalHost === 'vercel.com' || finalHost.endsWith('.vercel.com');
+  if (redirectedToVercelAuth || finalHost !== expectedHost) {
+    throw new Error(`G29_ENVIRONMENT_FAILURE Preview route ${route} did not reach the application; final host=${finalHost} status=${response?.status() ?? 'unknown'} protection bypass is unavailable`);
+  }
+}
+
 try {
   if (accessUrl) {
     const accessPage = await browser.newPage();
-    await accessPage.goto(accessUrl, { waitUntil: 'networkidle0' });
+    const accessResponse = await accessPage.goto(accessUrl, { waitUntil: 'networkidle0' });
+    assertPreviewPageReached(accessPage, accessResponse, 'PHASE23_VERCEL_ACCESS_URL');
     await accessPage.close();
   }
   for (const viewport of viewports) {
@@ -78,7 +89,8 @@ try {
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
     if (protectionBypass) await page.setExtraHTTPHeaders({ 'x-vercel-protection-bypass': protectionBypass });
-    await page.goto(`${baseUrl}/fraud-readiness-score#start-score`, { waitUntil: 'networkidle0' });
+    const startResponse = await page.goto(`${baseUrl}/fraud-readiness-score#start-score`, { waitUntil: 'networkidle0' });
+    assertPreviewPageReached(page, startResponse, '/fraud-readiness-score#start-score');
     await page.waitForSelector('[data-native-assessment-start="true"] form');
     const measurement = await page.evaluate(() => {
       const root = document.documentElement;
@@ -109,7 +121,8 @@ try {
   const journey = await browser.newPage();
   await journey.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
   await journey.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
+  const journeyStartResponse = await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
+  assertPreviewPageReached(journey, journeyStartResponse, '/score/start');
   const nonce = Date.now();
   const syntheticName = syntheticMarker ? `${syntheticMarker}${nonce}` : `Phase 23 Browser ${nonce}`;
   const syntheticEmail = syntheticMarker ? `${syntheticMarker.toLowerCase()}${nonce}@example.test` : `phase23-browser-${nonce}@example.test`;
@@ -206,6 +219,7 @@ try {
 
   const compatibility = await browser.newPage();
   const response = await compatibility.goto(`${baseUrl}/score/start?embed=1`, { waitUntil: 'networkidle0' });
+  assertPreviewPageReached(compatibility, response, '/score/start?embed=1');
   assert.equal(new URL(compatibility.url()).pathname, '/score/start');
   assert.equal(await compatibility.$$('iframe').then((items) => items.length), 0);
   evidence.push({ route: '/score/start?embed=1', finalPath: new URL(compatibility.url()).pathname, status: response?.status() ?? null, iframeCount: 0 });
