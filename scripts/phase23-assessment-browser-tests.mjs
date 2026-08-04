@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import puppeteer from 'puppeteer-core';
 
 const baseUrl = (process.env.PHASE23_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
+const accessUrl = process.env.PHASE23_VERCEL_ACCESS_URL?.trim();
 const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23-browser-evidence';
 const syntheticMarker = process.env.PHASE23_SYNTHETIC_MARKER ?? '';
 const executablePath = process.env.CHROME_EXECUTABLE
@@ -22,6 +23,11 @@ const viewports = [
 const evidence = [];
 
 try {
+  if (accessUrl) {
+    const accessPage = await browser.newPage();
+    await accessPage.goto(accessUrl, { waitUntil: 'networkidle0' });
+    await accessPage.close();
+  }
   for (const viewport of viewports) {
     const page = await browser.newPage();
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
@@ -103,7 +109,11 @@ try {
     );
     if (!nextExposureId) break;
     await journey.click(`#${nextExposureId} input[type="radio"]`);
-    await delay(450);
+    await journey.waitForFunction(
+      (id) => Boolean(document.querySelector(`#${id} input[type="radio"]:checked`)),
+      { timeout: 10000 },
+      nextExposureId,
+    );
   }
   await journey.waitForFunction(() => document.body.textContent?.includes('Domain 1 of 10'));
 
