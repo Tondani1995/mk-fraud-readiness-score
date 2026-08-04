@@ -680,9 +680,13 @@ await test('full migration postflight matches the committed migration set', asyn
   const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
     .filter((file) => file.endsWith('.sql'))
     .sort();
-  const newest = migrationFiles[migrationFiles.length - 1].split('_')[0];
-  includes(postflight, `count(*) = ${migrationFiles.length}`, `postflight total is ${migrationFiles.length}`);
-  includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
+  // The production postflight intentionally stops at the RC1 cutover ledger. G24 adds
+  // Staging-only migrations after that boundary, so compare the postflight to its explicit
+  // RC1 prefix rather than treating later additive development migrations as Production drift.
+  const rc1MigrationFiles = migrationFiles.filter((file) => file.split('_')[0] <= '20260803220000');
+  const newest = rc1MigrationFiles[rc1MigrationFiles.length - 1].split('_')[0];
+  includes(postflight, `count(*) = ${rc1MigrationFiles.length}`, `postflight RC1 total is ${rc1MigrationFiles.length}`);
+  includes(postflight, `max(version) = '${newest}'`, 'postflight newest RC1 correction is exact');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {
   includes(replay, 'for (let i = 1; i <= 18; i += 1)', '18 protected synthetic fixtures are retained');
