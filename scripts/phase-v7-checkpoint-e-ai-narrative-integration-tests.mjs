@@ -603,8 +603,16 @@ await test('E23: deterministic narrative grounding defects fail through the comm
       flags: DISABLED_FLAGS,
       generationIdentity: 'deterministic-grounding-defect'
     }),
+    // The grounding failure must reach the lifecycle as the SPECIFIC rule that fired. Collapsing
+    // every grounding defect into the generic evaluator-exception code made a real, diagnosable
+    // failure indistinguishable from an evaluator crash and left the persisted diagnostic with no
+    // usable detail -- which is exactly what stalled the paid certification journey. The codes are
+    // a closed vocabulary projected from validatePremiumReportNarrative, so they carry no prose.
     (error) => isReportCommercialQualityError(error)
-      && error.violations.every((issue) => issue.code === 'QG_QUALITY_EVALUATION_FAILED')
+      && error.violations.length > 0
+      && error.violations.every((issue) => /^QG_NARRATIVE_[A-Z0-9_]+$/.test(issue.code))
+      && error.violations.every((issue) => issue.code !== 'QG_QUALITY_EVALUATION_FAILED')
+      && error.violations.some((issue) => issue.code === 'QG_NARRATIVE_UNSUPPORTED_NUMERIC_CLAIM')
   );
 });
 

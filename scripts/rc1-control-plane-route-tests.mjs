@@ -98,13 +98,14 @@ async function certificationRouteTests() {
   ]);
   assert.equal((await payload(response)).secret.fingerprint, fingerprint);
 
-  for (const [label, changes, expected] of [
-    ['missing explicit frozen mode', { mode: undefined }, 423],
-    ['released app mode', { mode: 'released' }, 423],
-    ['unauthenticated', { identity: null }, 401],
-    ['AAL1', { identity: { ...operator, aal: 'aal1' } }, 403],
-    ['reviewer', { identity: { ...operator, role: 'reviewer' } }, 403],
-    ['service_role', { identity: { ...operator, role: 'service_role' } }, 403],
+  for (const [label, changes, expected, expectedError] of [
+    ['missing explicit frozen mode', { mode: undefined }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
+    ['released app mode', { mode: 'released' }, 423, 'RC1_CONTROL_EXPLICIT_FROZEN_MODE_REQUIRED'],
+    ['unauthenticated', { identity: null }, 401, 'RC1_CONTROL_SESSION_REQUIRED'],
+    ['AAL1', { identity: { ...operator, aal: 'aal1' } }, 403, 'RC1_CONTROL_AAL2_REQUIRED'],
+    ['reviewer', { identity: { ...operator, role: 'reviewer' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
+    ['finance_admin', { identity: { ...operator, role: 'finance_admin' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
+    ['service_role', { identity: { ...operator, role: 'service_role' } }, 403, 'RC1_CONTROL_PLATFORM_ADMIN_REQUIRED'],
   ]) {
     const deps = dependencies(changes);
     if (label === 'missing explicit frozen mode') deps.value.mode = '';
@@ -116,6 +117,7 @@ async function certificationRouteTests() {
       expectedFreezeEpoch: 1,
     }));
     assert.equal(stopped.status, expected, label);
+    assert.equal((await payload(stopped)).error, expectedError, `${label} error`);
     assert.equal(deps.calls.length, 0, `${label} must stop before the RPC`);
   }
 

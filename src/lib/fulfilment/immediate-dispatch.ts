@@ -130,6 +130,7 @@ export async function dispatchImmediateFulfilment(
     if (!cronSecret) throw new Error('cron_secret_unavailable');
 
     const origin = exactDeploymentOrigin(env);
+    const protectionBypass = env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
     const response = await fetchImpl(
       `${origin}/score/api/internal/fulfilment-worker`,
       {
@@ -137,7 +138,13 @@ export async function dispatchImmediateFulfilment(
         cache: 'no-store',
         headers: {
           Authorization: `Bearer ${cronSecret}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Protected Preview deployments require the same short-lived automation
+          // bypass used by third-party staging callbacks. Production leaves this
+          // unset, so its request contract is unchanged.
+          ...(protectionBypass
+            ? { 'x-vercel-protection-bypass': protectionBypass }
+            : {})
         },
         body: JSON.stringify(immediateFulfilmentDispatchPayload(input))
       }

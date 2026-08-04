@@ -82,15 +82,24 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 46, 'canonical migration directory must contain 46 SQL files');
-assert.equal(
-  migrationFiles.at(-2),
+assert.equal(migrationFiles.length, 69, 'canonical migration directory must contain 69 SQL files');
+// Asserted by name and relative order rather than tail position: the RC1 series appends further
+// additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering
+// must not.
+const acceptedOrder = [
   '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
-);
-assert.equal(
-  migrationFiles.at(-1),
   '20260729113242_rc1_service_role_privilege_contract.sql',
-);
+  '20260729170000_rc1_authenticated_admin_profile_read.sql',
+];
+for (const name of acceptedOrder) {
+  assert.ok(migrationFiles.includes(name), `canonical migration missing: ${name}`);
+}
+for (let index = 1; index < acceptedOrder.length; index += 1) {
+  assert.ok(
+    migrationFiles.indexOf(acceptedOrder[index - 1]) < migrationFiles.indexOf(acceptedOrder[index]),
+    `canonical migration order changed around ${acceptedOrder[index]}`,
+  );
+}
 assert.equal(
   sha256(aclMigration),
   manifest.migrations[
@@ -591,4 +600,4 @@ assert(
   'representative delivery plan must be able to use the approved index',
 );
 
-console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history now has additive migration 46');
+console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history now has additive migrations 46 and 47');

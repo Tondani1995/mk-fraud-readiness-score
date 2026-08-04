@@ -91,6 +91,57 @@ export function isReportCommercialQualityError(error: unknown): error is ReportC
     && typeof candidate.safeMessage === 'string';
 }
 
+/**
+ * A single safe, persistable diagnostic derived from a commercial-quality issue.
+ *
+ * Deliberately narrower than CommercialQualityIssue: the `message` field is dropped entirely
+ * because it interpolates finding identifiers and control names, and the report narrative must
+ * never reach the diagnostics table. Only closed-vocabulary identifiers survive -- the violation
+ * code, its severity, the methodology question and domain the issue attaches to, and the producing
+ * subsystem. record_report_quality_diagnostics() independently rejects any other key, so this
+ * shape and the database contract fail closed together.
+ */
+export type SafeQualityDiagnostic = {
+  violation_code: string;
+  severity: 'violation' | 'warning';
+  question_code?: string;
+  domain_code?: string;
+  source?: string;
+};
+
+const FINDING_ENTITY_PATTERN = /^MF-(D\d+)-(Q\d+)$/;
+const SAFE_SOURCE_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
+
+/**
+ * Maps gate issues to safe diagnostics. Material findings are identified as `MF-<questionCode>`
+ * (see buildMaterialFindings in ./evidence-model/material-findings.ts), so the affected question
+ * and domain can be recovered from the entity id without touching report content. Issues that
+ * carry no recognisable finding id -- document-level gates such as a missing risk register -- are
+ * still recorded, with no question or domain attached.
+ */
+export function toSafeQualityDiagnostics(
+  issues: readonly CommercialQualityIssue[]
+): SafeQualityDiagnostic[] {
+  const diagnostics: SafeQualityDiagnostic[] = [];
+  for (const issue of issues) {
+    if (typeof issue?.code !== 'string' || !/^[A-Z][A-Z0-9_]{2,63}$/.test(issue.code)) continue;
+    const diagnostic: SafeQualityDiagnostic = {
+      violation_code: issue.code,
+      severity: issue.severity === 'warning' ? 'warning' : 'violation'
+    };
+    const match = typeof issue.entityId === 'string' ? issue.entityId.match(FINDING_ENTITY_PATTERN) : null;
+    if (match) {
+      diagnostic.domain_code = match[1];
+      diagnostic.question_code = `${match[1]}-${match[2]}`;
+    }
+    if (typeof issue.source === 'string' && SAFE_SOURCE_PATTERN.test(issue.source)) {
+      diagnostic.source = issue.source;
+    }
+    diagnostics.push(diagnostic);
+  }
+  return diagnostics;
+}
+
 export interface CommercialReportPayload {
   data: AssembledReportData;
   content: SelectedContent;

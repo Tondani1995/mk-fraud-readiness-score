@@ -38,6 +38,31 @@ const pendingVersions = new Set([
   '20260728190000',
   '20260728191000',
   '20260729113242',
+  '20260729170000',
+  '20260730120000',
+  '20260730130000',
+  '20260731130000',
+  '20260731150000',
+  '20260731170000',
+  '20260801070000',
+  '20260801090000',
+  '20260801120000',
+  '20260801140000',
+  '20260801160000',
+  '20260801180000',
+  '20260801200000',
+  '20260801220000',
+  '20260802120000',
+  '20260803090000',
+  '20260803160000',
+  '20260803170000',
+  '20260803180000',
+  '20260803190000',
+  '20260803200000',
+  // Structured-band operating-state overclaim correction: report copy only, so it sits above the
+  // production boundary with the rest of the RC1 corrections.
+  '20260803210000',
+  '20260803220000',
 ]);
 
 function migrationParts(name) {
@@ -68,7 +93,7 @@ async function setup() {
     create table vault.decrypted_secrets(id uuid primary key default gen_random_uuid(),name text,decrypted_secret text);
     create schema if not exists storage;
     create table storage.buckets(id text primary key,name text not null,owner uuid,owner_id text,public boolean default false,avif_autodetection boolean default false,file_size_limit bigint,allowed_mime_types text[],created_at timestamptz default now(),updated_at timestamptz default now());
-    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,owner uuid,metadata jsonb,created_at timestamptz default now(),updated_at timestamptz default now());
+    create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,owner uuid,metadata jsonb,user_metadata jsonb,created_at timestamptz default now(),updated_at timestamptz default now());
     create schema supabase_migrations;
     create table supabase_migrations.schema_migrations(version text primary key,name text not null,statements text[] not null);
     do $$ begin

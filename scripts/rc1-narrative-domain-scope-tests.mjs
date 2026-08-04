@@ -1,0 +1,465 @@
+/**
+ * RC1: a domain narrative may cite only its own evidence.
+ *
+ * The paid certification journey MKORD-2026-D1U0CTO8 failed prepare_narrative with three
+ * domain_maturity_contradiction issues on domainNarratives[0..2]. buildDeterministicNarrative was
+ * attaching the shared overall-score preamble and every maturity cap event to each domain section,
+ * so D1/D2/D3 -- whose own bands differ from the report overall -- read as contradicting themselves,
+ * and D2 cited D1's cap rules. These tests pin the scoping rule and the diagnostic mapping.
+ */
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import ts from 'typescript';
+
+const root = process.cwd();
+const cache = new Map();
+function load(rel) {
+  if (cache.has(rel)) return cache.get(rel);
+  const out = ts.transpileModule(fs.readFileSync(path.join(root, rel), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+  }).outputText;
+  const mod = { exports: {} };
+  cache.set(rel, mod.exports);
+  new Function('require', 'module', 'exports', out)((spec) => {
+    if (spec === 'node:crypto') return crypto;
+    if (spec.startsWith('.') || spec.startsWith('@/')) {
+      const base = spec.startsWith('@/') ? spec.replace('@/', 'src/') : path.join(path.dirname(rel), spec);
+      for (const c of [`${base}.ts`, `${base}/index.ts`]) if (fs.existsSync(path.join(root, c))) return load(c);
+    }
+    return {};
+  }, mod, mod.exports);
+  cache.set(rel, mod.exports);
+  return mod.exports;
+}
+
+const content = load('src/lib/reports/automation/content.ts');
+const selectBlocks = load('src/lib/reports/select-content-blocks.ts');
+const fallbackContent = load('src/lib/reports/fallback-content.ts');
+const validation = load('src/lib/reports/automation/validation.ts');
+const pipeline = load('src/lib/reports/automation/narrative-pipeline.ts');
+
+// Ten domains. D1/D2/D3 sit in a different band from the report overall, mirroring the real
+// journey (overall 30.09 Reactive; D1 33.33, D2 18.97, D3 37.22).
+const BANDS = { D1: 'Developing', D2: 'Structured', D3: 'Strategic',
+  D4: 'Reactive', D5: 'Reactive', D6: 'Reactive', D7: 'Reactive', D8: 'Reactive', D9: 'Reactive', D10: 'Reactive' };
+const CODES = Object.keys(BANDS);
+
+const data = {
+  domainResults: CODES.map((c, i) => ({ domainCode: c, domainName: `Domain ${c}`, rawScore: 30 + i, maturityBand: BANDS[c] })),
+  criticalMajorGaps: CODES.flatMap((c) => [{ domainCode: c, questionCode: `${c}-Q01`, prompt: `gap ${c}` }]),
+  maturityCapEvents: [
+    { ruleCode: 'any_hard_gate_critical_control_lte_1', relatedQuestionCode: 'D1-Q01', relatedDomainCode: null },
+    { ruleCode: 'any_core_domain_below_40', relatedQuestionCode: null, relatedDomainCode: 'D1' },
+    { ruleCode: 'any_core_domain_below_40', relatedQuestionCode: null, relatedDomainCode: 'D2' },
+    { ruleCode: 'three_or_more_critical_controls_lte_2', relatedQuestionCode: null, relatedDomainCode: null }
+  ]
+};
+const selected = {
+  executiveSummary: { title: 'Executive', body: 'Overall posture is Reactive across the estate.' },
+  falseComfort: { title: 'False comfort', body: 'Assurance is thinner than it appears.' },
+  leadershipAttention: { body: 'Leadership must sponsor the remediation.' },
+  domainNarratives: Object.fromEntries(CODES.map((c) => [`Domain ${c}`,
+    { title: `Domain ${c}`, body: `This domain is assessed as ${BANDS[c]} on its own evidence.` }])),
+  gapCommentary: Object.fromEntries(CODES.map((c) => [`${c}|${c}-Q01`, { body: `gap commentary ${c}` }]))
+};
+
+const evidence = {
+  schemaVersion: 1,
+  items: [
+    ...CODES.map((c) => ({ id: `domain:${c}`, kind: 'domain', domainCode: c, value: { maturityBand: BANDS[c] } })),
+    ...CODES.map((c) => ({ id: `gap:${c}-Q01`, kind: 'gap', questionCode: `${c}-Q01`, value: {} })),
+    { id: 'score:overall', kind: 'score', value: {} },
+    { id: 'score:calculated_maturity', kind: 'score', value: {} },
+    { id: 'score:final_maturity', kind: 'score', value: { maturityBand: 'Reactive' } },
+    { id: 'score:exposure', kind: 'score', value: {} },
+    { id: 'score:exposure_band', kind: 'score', value: {} },
+    { id: 'score:coverage', kind: 'score', value: {} },
+    { id: 'gaps:critical_count', kind: 'gaps', value: {} },
+    { id: 'gaps:major_count', kind: 'gaps', value: {} },
+    { id: 'cap:any_hard_gate_critical_control_lte_1:D1-Q01', kind: 'cap', value: {} },
+    { id: 'cap:any_core_domain_below_40:D1', kind: 'cap', value: {} },
+    { id: 'cap:any_core_domain_below_40:D2', kind: 'cap', value: {} },
+    { id: 'cap:three_or_more_critical_controls_lte_2:global', kind: 'cap', value: {} }
+  ]
+};
+
+let pass = 0; const ok = (n) => { pass += 1; console.log(`  ok - ${n}`); };
+const build = () => content.buildDeterministicNarrative(data, selected);
+
+test('N1 pre-fix shape reproduces domain_maturity_contradiction on D1, D2 and D3', () => {
+  const n = build();
+  // Reconstruct the old behaviour: global preamble on every domain section.
+  const core = ['score:overall','score:calculated_maturity','score:final_maturity','score:exposure',
+    'score:exposure_band','score:coverage','gaps:critical_count','gaps:major_count'];
+  const preFix = { ...n, domainNarratives: n.domainNarratives.map((d) => ({
+    ...d,
+    body: `${d.body} Overall the organisation is Reactive.`,
+    evidenceRefs: [...d.evidenceRefs, ...core]
+  })) };
+  const r = validation.validatePremiumReportNarrative(preFix, evidence);
+  const contradictions = r.issues.filter((i) => i.code === 'domain_maturity_contradiction');
+  assert.ok(contradictions.length >= 3, `expected >=3 contradictions, saw ${contradictions.length}`);
+  for (const p of ['domainNarratives[0]','domainNarratives[1]','domainNarratives[2]']) {
+    assert.ok(contradictions.some((i) => i.path === p), `missing contradiction at ${p}`);
+  }
+  ok('N1 original D1/D2/D3 contradictions reproduce against pre-fix shape');
+});
+
+test('N2 corrected narrative passes grounding validation for all ten domains', () => {
+  const r = validation.validatePremiumReportNarrative(build(), evidence);
+  assert.equal(r.issues.filter((i) => i.code === 'domain_maturity_contradiction').length, 0);
+  assert.equal(r.ok, true, `unexpected issues: ${r.issues.map((i) => i.code).join(',')}`);
+  ok('N2 corrected narrative passes for all ten domains');
+});
+
+test('N3 every domain narrative cites its own domain anchor', () => {
+  for (const d of build().domainNarratives) {
+    assert.ok(d.evidenceRefs.includes(`domain:${d.domainCode}`), `${d.domainCode} missing own anchor`);
+  }
+  ok('N3 each section cites its own domain anchor');
+});
+
+test('N4 no domain narrative carries another domain\'s capability references', () => {
+  for (const d of build().domainNarratives) {
+    for (const ref of d.evidenceRefs.filter((r) => r.startsWith('cap:'))) {
+      const target = ref.split(':')[2] ?? '';
+      const owner = target.includes('-') ? target.split('-')[0] : target;
+      assert.ok(owner === d.domainCode, `${d.domainCode} cites cap owned by ${owner}`);
+    }
+  }
+  ok('N4 no cross-domain capability references');
+});
+
+test('N5 no domain narrative restates the overall maturity as its own', () => {
+  for (const d of build().domainNarratives) {
+    for (const ref of ['score:final_maturity','score:calculated_maturity','score:overall','score:exposure_band']) {
+      assert.ok(!d.evidenceRefs.includes(ref), `${d.domainCode} cites global ${ref}`);
+    }
+  }
+  ok('N5 global score refs stay out of domain sections');
+});
+
+test('N6 a deliberately contradictory domain narrative still fails', () => {
+  const n = build();
+  n.domainNarratives[0].body = 'This domain is Strategic and fully embedded.';  // D1 is Developing
+  const r = validation.validatePremiumReportNarrative(n, evidence);
+  assert.ok(r.issues.some((i) => i.code === 'domain_maturity_contradiction' && i.path === 'domainNarratives[0]'));
+  ok('N6 genuine contradiction still fails');
+});
+
+test('N7 diagnostics preserve the specific rule code without narrative text', () => {
+  const c = pipeline.narrativeGroundingDiagnosticCode('domain_maturity_contradiction');
+  assert.equal(c, 'QG_NARRATIVE_DOMAIN_MATURITY_CONTRADICTION');
+  assert.match(c, /^[A-Z][A-Z0-9_]{2,63}$/, 'must satisfy the safe-diagnostic code pattern');
+  assert.notEqual(c, 'QG_QUALITY_EVALUATION_FAILED');
+  assert.equal(pipeline.narrativeGroundingDiagnosticCode('not a code!'), 'QG_NARRATIVE_GROUNDING_FAILED');
+  assert.equal(pipeline.narrativeGroundingDiagnosticCode(null), 'QG_NARRATIVE_GROUNDING_FAILED');
+  ok('N7 real code preserved, unrecognised input degrades safely');
+});
+
+test('N8 validator thresholds and rule set are unchanged', () => {
+  const src = fs.readFileSync(path.join(root, 'src/lib/reports/automation/validation.ts'), 'utf8');
+  assert.match(src, /mentions\.some\(\(band\) => band\.toLowerCase\(\) !== expectedBand\.toLowerCase\(\)\)/,
+    'domain_maturity_contradiction comparison must be unchanged');
+  assert.match(src, /issue\('domain_maturity_contradiction'/, 'rule must still exist');
+  ok('N8 validator rule and comparison unchanged');
+});
+
+process.on('exit', () => console.log(`\nRC1_NARRATIVE_DOMAIN_SCOPE_TESTS: ${pass} checks passed`));
+
+
+// ---- Report content repair: Reactive content, deterministic selection, metric refs ----
+
+const REACTIVE = { D1: 'Reactive', D2: 'Reactive', D3: 'Reactive', D4: 'Reactive', D5: 'Reactive',
+  D6: 'Reactive', D7: 'Reactive', D8: 'Reactive', D9: 'Reactive', D10: 'Reactive' };
+const R_CODES = Object.keys(REACTIVE);
+const MIG = fs.readFileSync(path.join(root,
+  'supabase/migrations/20260803160000_rc1_reactive_domain_content_correction.sql'), 'utf8');
+const migBodies = MIG.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+
+// 18 critical + 11 major, ten domains, overall Reactive -- the live journey's shape.
+const rData = {
+  scoreRun: { overallScore: 30.09, calculatedMaturity: 'Reactive', finalMaturity: 'Reactive',
+    exposureBand: 'High', capApplied: false },
+  organisationName: 'Fixture Org',
+  domainResults: R_CODES.map((c, i) => ({ domainCode: c, domainName: `Domain ${c}`, rawScore: 20 + i })),
+  // 18 critical + 11 major = 29, matching the live journey's gap profile.
+  criticalMajorGaps: [
+    ...Array.from({ length: 18 }, (_, i) => {
+      const c = R_CODES[i % 10];
+      return { domainCode: c, domainName: `Domain ${c}`, questionCode: `${c}-QC${i}`,
+        isCriticalGap: true, isHardGate: false, prompt: `critical ${i}` };
+    }),
+    ...Array.from({ length: 11 }, (_, i) => {
+      const c = R_CODES[i % 10];
+      return { domainCode: c, domainName: `Domain ${c}`, questionCode: `${c}-QM${i}`,
+        isCriticalGap: false, isHardGate: false, prompt: `major ${i}` };
+    })
+  ],
+  maturityCapEvents: [{ ruleCode: 'any_core_domain_below_40', relatedQuestionCode: null, relatedDomainCode: 'D1' }]
+};
+
+test('R1 no Reactive block in the correction states Structured maturity', () => {
+  for (const band of ['Structured', 'Developing', 'Strategic']) {
+    assert.ok(!new RegExp(`\\b${band}\\b`, 'i').test(migBodies),
+      `Reactive correction must not contain the band word ${band}`);
+  }
+  ok('R1 corrected Reactive content states no other maturity band');
+});
+
+test('R2 D1, D2 and D3 all receive Reactive content', () => {
+  for (const key of ['domain_d1_reactive', 'domain_d3_reactive', 'domain_d2_reactive']) {
+    assert.ok(MIG.includes(key), `${key} must be addressed by the correction`);
+  }
+  assert.match(MIG, /maturity_band = 'Reactive'/);
+  assert.match(MIG, /'D2',\s*\n\s*'Reactive'/, 'a D2 Reactive block must be inserted');
+  ok('R2 D1, D3 corrected and D2 Reactive block added');
+});
+
+test('R3 duplicate matching blocks resolve deterministically by block key', () => {
+  const dup = [
+    { blockKey: 'zz_last', blockType: 'domain_narrative', domainCode: 'D1', maturityBand: 'Reactive',
+      title: 'Z', body: 'Z body', status: 'active', severity: null },
+    { blockKey: 'aa_first', blockType: 'domain_narrative', domainCode: 'D1', maturityBand: 'Reactive',
+      title: 'A', body: 'A body', status: 'active', severity: null }
+  ];
+  const a = selectBlocks.selectContent(rData, dup);
+  const b = selectBlocks.selectContent(rData, [...dup].reverse());
+  assert.equal(a.domainNarratives['Domain D1'].title, b.domainNarratives['Domain D1'].title,
+    'selection must not depend on row order');
+  assert.equal(a.domainNarratives['Domain D1'].title, 'A', 'lowest block key wins');
+  ok('R3 duplicate blocks resolve deterministically');
+});
+
+test('R4 the generic fallback invents no maturity statement', () => {
+  const f = fallbackContent.getDomainFallback('Totally Unknown Domain', 'Reactive');
+  const text = `${f.headline} ${f.body}`;
+  for (const band of ['Reactive', 'Developing', 'Structured', 'Strategic']) {
+    assert.ok(!new RegExp(`\\b${band}\\b`, 'i').test(text), `fallback must not assert ${band}`);
+  }
+  ok('R4 generic fallback asserts no band');
+});
+
+test('R5 gap commentary citing gap counts carries the matching metric evidence', () => {
+  const selected = selectBlocks.selectContent(rData, []);
+  // Force the metric language the live blocks use.
+  for (const k of Object.keys(selected.gapCommentary)) {
+    selected.gapCommentary[k] = { body: 'This is a critical gap and a major gap.', usedFallback: true };
+  }
+  const n = content.buildDeterministicNarrative(rData, selected);
+  assert.equal(n.gapCommentary.length, 29, 'fixture must produce 18 critical + 11 major gaps');
+  for (const g of n.gapCommentary) {
+    assert.ok(g.evidenceRefs.includes('gaps:critical_count'), `${g.questionCode} missing gaps:critical_count`);
+    assert.ok(g.evidenceRefs.includes('gaps:major_count'), `${g.questionCode} missing gaps:major_count`);
+  }
+  ok('R5 metric references restored for every gap commentary');
+});
+
+test('R6 every gap commentary retains its own gap and domain grounding', () => {
+  const n = content.buildDeterministicNarrative(rData, selectBlocks.selectContent(rData, []));
+  for (const g of n.gapCommentary) {
+    assert.ok(g.evidenceRefs.includes(`gap:${g.questionCode}`), `${g.questionCode} lost its gap ref`);
+    const dom = g.questionCode.split('-')[0];
+    assert.ok(g.evidenceRefs.includes(`domain:${dom}`), `${g.questionCode} lost its domain ref`);
+  }
+  ok('R6 gap and domain grounding retained');
+});
+
+test('R7 a section with no metric language gains no metric references', () => {
+  const selected = selectBlocks.selectContent(rData, []);
+  for (const k of Object.keys(selected.gapCommentary)) {
+    selected.gapCommentary[k] = { body: 'Controls here depend on individual diligence.', usedFallback: true };
+  }
+  const n = content.buildDeterministicNarrative(rData, selected);
+  for (const g of n.gapCommentary) {
+    assert.ok(!g.evidenceRefs.includes('gaps:critical_count'),
+      'references must not be widened beyond what the wording requires');
+  }
+  ok('R7 references are not widened without a triggering claim');
+});
+
+test('R8 unsupported numeric and contradictory claims still fail', () => {
+  const n = build();
+  n.domainNarratives[0].body = 'This domain is Strategic.';
+  const r1 = validation.validatePremiumReportNarrative(n, evidence);
+  assert.ok(r1.issues.some((i) => i.code === 'domain_maturity_contradiction'));
+  const n2 = build();
+  n2.gapCommentary = [{ questionCode: 'D1-Q01', body: 'There are 4 critical gaps.', evidenceRefs: ['gap:D1-Q01', 'domain:D1'] }];
+  const r2 = validation.validatePremiumReportNarrative(n2, evidence);
+  assert.ok(r2.issues.some((i) => i.code === 'metric_evidence_mismatch'),
+    'metric language without its reference must still fail');
+  ok('R8 contradictory and unsupported claims still fail');
+});
+
+test('R9 validator metric table and thresholds unchanged', () => {
+  const src = fs.readFileSync(path.join(root, 'src/lib/reports/automation/validation.ts'), 'utf8');
+  assert.match(src, /requiredRefs: \['gaps:critical_count'\]/);
+  assert.match(src, /requiredRefs: \['gaps:major_count'\]/);
+  assert.match(src, /issue\('metric_evidence_mismatch', `\$\{path\}\.evidenceRefs`/);
+  ok('R9 metric rule table and path shape unchanged');
+});
+
+
+// ---- Maturity-band claim detection: an adjective is not a band claim ----
+//
+// The paid certification journey MKORD-2026-D1U0CTO8 failed prepare_narrative with
+// maturity_evidence_mismatch on gapCommentary[2] (D2-Q01). Its fallback commentary quotes the
+// assessed control verbatim -- "has completed a structured fraud risk assessment within the past
+// two years" -- and maturityMentions matched the bare word "structured" as a claim to the
+// Structured band. Reactive, Developing, Structured and Strategic are all ordinary English
+// adjectives, so any section quoting a question prompt carried the same latent failure. These
+// tests pin the false positive shut and pin every genuine claim shape open.
+
+const gapNarrative = (body, refs) => ({
+  ...build(),
+  gapCommentary: [{ questionCode: 'D4-Q01', body, evidenceRefs: refs ?? ['gap:D4-Q01', 'domain:D4'] }]
+});
+const maturityIssues = (body, refs) => validation
+  .validatePremiumReportNarrative(gapNarrative(body, refs), evidence).issues
+  .filter((i) => i.code === 'maturity_evidence_mismatch');
+
+// D4 sits in the Reactive band, so an unsupported "Structured" claim here is a genuine failure
+// and an ordinary adjectival "structured" is not.
+test('M1 an assessed control quoted verbatim is not a band claim', () => {
+  const body = 'Within Domain D4, the specific control on whether the organisation has completed '
+    + 'a structured fraud risk assessment within the past two years scored low enough to be '
+    + 'flagged as a critical gap.';
+  assert.deepEqual(maturityIssues(body), [], 'quoting the assessed control must not claim a band');
+  ok('M1 quoted control prompt raises no maturity claim');
+});
+
+test('M2 every band word survives ordinary adjectival use', () => {
+  const bodies = [
+    'The response was reactive rather than planned, and depended on individuals.',
+    'The organisation is developing a supplier verification procedure this quarter.',
+    'A structured handover exists between the finance and procurement teams.',
+    'Strategic objectives are set annually by the executive committee.'
+  ];
+  for (const body of bodies) {
+    assert.deepEqual(maturityIssues(body), [], `adjectival use must not claim a band: ${body}`);
+  }
+  ok('M2 adjectival reactive/developing/structured/strategic raise no claim');
+});
+
+test('M3 a predicative band claim without supporting evidence still fails', () => {
+  for (const body of [
+    'This domain is Structured.',
+    'The control environment is Strategic and fully embedded.',
+    'The organisation was assessed as Structured.',
+    'Performance here is best described as Strategic.'
+  ]) {
+    assert.equal(maturityIssues(body).length, 1, `predicative claim must still fail: ${body}`);
+  }
+  ok('M3 predicative band claims still fail without evidence');
+});
+
+test('M4 a band attached to maturity vocabulary still fails', () => {
+  for (const body of [
+    'This places the domain in the Structured band.',
+    'Structured maturity is evident across the estate.',
+    'The readiness rating is Strategic for this domain.'
+  ]) {
+    assert.equal(maturityIssues(body).length, 1, `band-noun claim must still fail: ${body}`);
+  }
+  ok('M4 band-with-maturity-noun claims still fail without evidence');
+});
+
+test('M5 a supported band claim passes on its own cited evidence', () => {
+  // D4's own domain evidence carries maturityBand Reactive, so claiming Reactive is grounded.
+  assert.deepEqual(maturityIssues('This domain is Reactive.'), []);
+  ok('M5 a band claim matching the cited domain evidence passes');
+});
+
+test('M6 the detector is anchored, not a bare word match', () => {
+  const src = fs.readFileSync(path.join(root, 'src/lib/reports/automation/validation.ts'), 'utf8');
+  assert.doesNotMatch(src, /function maturityMentions\([\s\S]{0,200}?new RegExp\(`\\\\b\$\{band\}\\\\b`, 'i'\)\.test\(text\)/,
+    'maturityMentions must not go back to an unanchored band match');
+  assert.match(src, /MATURITY_NOUN/, 'anchored maturity vocabulary must remain');
+  ok('M6 maturity detection stays anchored to a claim shape');
+});
+
+
+// ---- Response-state claims: seeded copy may not overclaim an operating control ----
+//
+// The Phase 1 release-safety fixture answers eight controls 0 and the rest 4, so a domain can sit
+// in the Structured band while still containing a control recorded as entirely absent. Every
+// Structured-band domain narrative opened with "real controls exist and are operating across most
+// of what was assessed here", the section cites its own response-value-0 gap, and
+// validatePremiumReportNarrative correctly raised response_label_misstatement. The validator is
+// right: a weighted-average band can hide an absent control, which is the false comfort this
+// product is sold to surface. These tests keep the copy honest without touching the guard.
+
+const RESPONSE_STATE_SUBJECT = String.raw`\b(?:controls?(?:\s+in\s+(?:this|the)\s+domain)?|process(?:es)?|measures?|practices?|capabilit(?:y|ies)|arrangements?|responses?|the\s+domain)\b[^.\n]{0,50}\b(?:is|are|was|were|has\s+been|have\s+been|remains?|operate(?:s)?)\s+`;
+const RESPONSE_STATE_CLAIMS = {
+  implementedOrOperating: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:implemented(?:\\s+and\\s+in\\s+use)?|in\\s+use|operating|operational|consistently\\s+operating|embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved)`, 'i'),
+  consistentlyOperating: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:consistently\\s+operating|operating\\s+consistently|consistently\\s+in\\s+use)`, 'i'),
+  embeddedImproved: new RegExp(`${RESPONSE_STATE_SUBJECT}(?:embedded(?:\\s+and\\s+improved)?|optimi[sz]ed|continuously\\s+improved|subject\\s+to\\s+continuous\\s+improvement)`, 'i')
+};
+const claimsFired = (text) => Object.entries(RESPONSE_STATE_CLAIMS)
+  .filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
+
+test('L1 the retired Structured opening still trips the guard', () => {
+  // Proves these tests would catch a reintroduction, and that the validator was never relaxed.
+  const retired = 'This domain is genuinely functioning: real controls exist and are operating '
+    + 'across most of what was assessed here, not just described in policy.';
+  assert.deepEqual(claimsFired(retired), ['implementedOrOperating']);
+  ok('L1 the old wording is still detected as an operating-state claim');
+});
+
+test('L2 no deterministic fallback copy claims an operating state', () => {
+  // Walk the exported values, not the file text: scanning source picks up apostrophes inside
+  // comments and reports fragments that are not copy at all.
+  const strings = [];
+  const walk = (value) => {
+    if (typeof value === 'string') strings.push(value);
+    else if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+    else if (typeof value === 'function') {
+      // getDomainFallback(domainName, band) -- exercise every band it serves.
+      for (const band of ['Reactive', 'Developing', 'Structured', 'Strategic']) {
+        try { walk(value('Fraud Leadership and Governance', band)); } catch { /* not a fallback getter */ }
+      }
+    }
+  };
+  walk(fallbackContent);
+  assert.ok(strings.length > 10, 'fallback copy should have been collected');
+  for (const text of strings) {
+    assert.deepEqual(claimsFired(text), [], `fallback copy makes a response-state claim: ${text.slice(0, 140)}`);
+  }
+  ok(`L2 ${strings.length} fallback strings make no blanket operating-state claim`);
+});
+
+test('L3 the retired opening is corrected by a migration', () => {
+  // The seed migration is already applied, so its text cannot be edited -- its checksum is pinned.
+  // The retired sentence therefore still appears there by design, and correctness means a LATER
+  // migration rewrites every row carrying it. This asserts that coverage rather than the absence
+  // of the string. (A blanket source scan is not usable here: question prompts such as 0009's
+  // "...processes or operational changes are implemented" match the same shape while being
+  // assessment text, not report narrative.)
+  const dir = path.join(root, 'supabase/migrations');
+  const retired = 'real controls exist and are operating across most of what was assessed here';
+  const execRetired = 'controls exist and are operating across most of what was assessed';
+
+  const correction = fs.readdirSync(dir).find((f) => /operating_state_overclaim/.test(f));
+  assert.ok(correction, 'a migration must correct the retired operating-state opening');
+  const sql = fs.readFileSync(path.join(dir, correction), 'utf8');
+
+  assert.ok(sql.includes(retired), 'correction must target the domain-narrative opening');
+  assert.ok(sql.includes(execRetired), 'correction must target the executive-summary opening');
+  assert.match(sql, /block_type = 'domain_narrative'[\s\S]*?maturity_band = 'Structured'/);
+  assert.match(sql, /block_type = 'executive_summary'[\s\S]*?maturity_band = 'Structured'/);
+
+  // The replacement copy must not reintroduce a claim. Strip comments first, then take only the
+  // literals that are actually being written (the second argument of each replace()).
+  const body = sql.split(/\r?\n/).filter((line) => !line.trim().startsWith('--')).join('\n');
+  const replacements = [...body.matchAll(/replace\(\s*body,\s*'((?:[^']|'')*)',\s*'((?:[^']|'')*)'\s*\)/g)];
+  assert.equal(replacements.length, 2, 'expected one replacement per Structured block type');
+  for (const [, from, to] of replacements) {
+    assert.ok(claimsFired(from.replaceAll("''", "'")).length > 0, 'each replacement must target a real claim');
+    assert.deepEqual(claimsFired(to.replaceAll("''", "'")), [], 'replacement copy must make no claim');
+  }
+  ok('L3 the retired opening is corrected and the replacement makes no claim');
+});

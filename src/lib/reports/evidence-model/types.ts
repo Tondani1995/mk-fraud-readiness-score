@@ -338,6 +338,10 @@ export type CommercialQualityIssueCode =
   | 'QG_PLACEHOLDER_TEXT_PRESENT'
   | 'QG_COMMERCIAL_VOLUME_WARNING'
   | 'QG_QUALITY_EVALUATION_FAILED'
+  // Stage-specific narrative grounding codes, projected from the validatePremiumReportNarrative
+  // rule vocabulary by narrativeGroundingDiagnosticCode(). Kept open as a template literal so a
+  // new grounding rule does not silently degrade to the generic evaluator-exception code.
+  | `QG_NARRATIVE_${string}`
   | 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK'
   | 'QG_RENDERED_ROADMAP_OWNER_MISSING'
   | 'QG_MATERIAL_PLAYBOOK_MISSING'

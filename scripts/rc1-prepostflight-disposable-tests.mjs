@@ -42,7 +42,30 @@ const pending = [
   '20260728120000_rc1_near_real_time_automatic_fulfilment.sql',
   '20260728190000_rc1_staging_postflight_least_privilege.sql',
   '20260728191000_rc1_launch_required_foreign_key_indexes.sql',
-  '20260729113242_rc1_service_role_privilege_contract.sql'
+  '20260729113242_rc1_service_role_privilege_contract.sql',
+  '20260729170000_rc1_authenticated_admin_profile_read.sql',
+  '20260730120000_rc1_commercial_quality_diagnostics.sql',
+  '20260730130000_rc1_synthetic_certification_cleanup.sql',
+  '20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql',
+  '20260731150000_rc1_synthetic_cleanup_guard_allowances.sql',
+  '20260731170000_rc1_synthetic_storage_cleanup_closure.sql',
+  '20260801070000_rc1_synthetic_cleanup_attestation_routes.sql',
+  '20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql',
+  '20260801120000_rc1_delivery_entitlement_user_metadata.sql',
+  '20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql',
+  '20260801160000_rc1_orphan_remediation.sql',
+  '20260801180000_rc1_certification_enablement_control.sql',
+  '20260801200000_rc1_orphan_remediation_guard_allowance.sql',
+  '20260801220000_rc1_synthetic_certification_marking.sql',
+  '20260802120000_rc1_synthetic_marking_placeholder_allowance.sql',
+  '20260803090000_rc1_certification_closure.sql',
+  '20260803160000_rc1_reactive_domain_content_correction.sql',
+  '20260803170000_rc1_reactive_domain_title_correction.sql',
+  '20260803180000_rc1_park_fulfilment_attempt.sql',
+  '20260803190000_rc1_park_fulfilment_attempt_search_path_fix.sql',
+  '20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql',
+  '20260803210000_rc1_structured_band_operating_state_overclaim.sql',
+  '20260803220000_rc1_premium_delivery_active_uniqueness.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -140,7 +163,7 @@ async function setup() {
     create table if not exists vault.decrypted_secrets (id uuid primary key default gen_random_uuid(), name text, decrypted_secret text);
     create schema if not exists storage;
     create table if not exists storage.buckets (id text primary key, name text not null, owner uuid, owner_id text, public boolean default false, avif_autodetection boolean default false, file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now(), updated_at timestamptz default now());
-    create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now());
+    create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, metadata jsonb, user_metadata jsonb, created_at timestamptz default now(), updated_at timestamptz default now());
     create schema if not exists supabase_migrations;
     create table if not exists supabase_migrations.schema_migrations (version text primary key, name text not null, statements text[] not null);
     do $$ begin
@@ -204,6 +227,11 @@ async function seedOrders(adminId) {
       await db.query("insert into public.reports(id,assessment_id,order_id,score_run_id,template_id,report_type,status,report_reference,version_number,storage_status,storage_bucket,storage_path,checksum) values ($1,$2,$3,$4,$5,'essential_self_assessment','generated',$6,1,$7,$8,$9,$10) on conflict do nothing", [report, assessment, order, score, template.id, `RC1-SYNTHETIC-REPORT-${n}`, storage, storageBucket, storagePath, checksum]);
     }
   }
+  await db.query(`
+    insert into public.phase14_operational_alerts(alert_key,severity,category,detail_json)
+    values ('rc1-cleanup-global-alert','warning','synthetic_fixture','{"scope":"global"}'::jsonb)
+    on conflict (alert_key) do nothing
+  `);
   return { adminId };
 }
 async function seedHistoricalEmailEvents() {
@@ -399,6 +427,250 @@ async function expectQueryStop(label, action, expectedMessage) {
       `${label} stopped for the wrong reason: ${String(error?.message ?? error)}`);
   }
   assert(stopped, `${label} did not fail closed`);
+}
+
+async function proveHealthySyntheticCertificationCleanup(adminId) {
+  const ids = {
+    org: '00000000-0000-0000-0000-00000000c101',
+    respondent: '00000000-0000-0000-0000-00000000c102',
+    assessment: '00000000-0000-0000-0000-00000000d101',
+    order: '00000000-0000-0000-0000-00000000e101',
+    score: '00000000-0000-0000-0000-00000000f101',
+    report: '00000000-0000-0000-0000-00000000a101',
+    fulfilment: '00000000-0000-0000-0000-00000000b101',
+    generationRun: '00000000-0000-0000-0000-00000000b102',
+    claimToken: '00000000-0000-0000-0000-00000000b103',
+    manualGeneration: '00000000-0000-0000-0000-00000000b104',
+    manualDelivery: '00000000-0000-0000-0000-00000000b105',
+    authorization: '00000000-0000-0000-0000-00000000b106',
+    finalizationEmail: '00000000-0000-0000-0000-00000000e201',
+    remediation: '00000000-0000-0000-0000-00000000b107',
+    capability: '00000000-0000-0000-0000-00000000b108',
+    queue: '00000000-0000-0000-0000-00000000b109',
+    outbox: '00000000-0000-0000-0000-00000000b110',
+    contact: '00000000-0000-0000-0000-00000000b111',
+    proof: '00000000-0000-0000-0000-00000000b112',
+    session: '00000000-0000-0000-0000-00000000b113',
+    token: '00000000-0000-0000-0000-00000000b114',
+    backlog: '00000000-0000-0000-0000-00000000b115',
+    dataRequest: '00000000-0000-0000-0000-00000000b116',
+  };
+  const emails = ['e201', 'e202', 'e203', 'e204'].map((suffix) => `00000000-0000-0000-0000-00000000${suffix}`);
+  const attestations = ['b201', 'b202', 'b203', 'b204'].map((suffix) => `00000000-0000-0000-0000-00000000${suffix}`);
+  const questions = await query('select id from public.questions order by id limit 1');
+  const domains = await query('select id from public.domains order by id limit 1');
+  const exposures = await query('select id from public.exposure_factors order by id limit 1');
+  const methodology = await query("select id from public.methodology_versions where status='active' limit 1");
+  const template = await query("select id from public.report_templates where status='active' and report_type='essential_self_assessment' limit 1");
+  assert(questions.length === 1 && domains.length === 1 && exposures.length === 1 && methodology.length === 1 && template.length === 1,
+    'healthy cleanup fixture requires canonical methodology, question, domain, exposure and template seeds');
+  const checksum = 'a'.repeat(64);
+  const storageTargetCount = 1;
+  const storageTargetFingerprint = crypto.createHash('sha256').update('generated-reports\nrc1/healthy.pdf').digest('hex');
+
+  await withTriggerBypass(async () => {
+    const fixtureParams = [
+      ids.org, ids.respondent, ids.assessment, methodology[0].id, ids.score, checksum,
+      questions[0].id, exposures[0].id, domains[0].id, adminId, ids.dataRequest, ids.order,
+      ids.proof, ids.session, ids.report, template[0].id, ids.fulfilment, ids.generationRun,
+      ids.claimToken, ids.manualGeneration, crypto.randomUUID(), ids.manualDelivery, crypto.randomUUID(),
+      ...emails, ids.authorization, ids.remediation, attestations, ids.token, ids.contact, ids.capability,
+      ids.queue, ids.outbox, ids.backlog,
+    ];
+    const sqlLiteral = (value) => {
+      if (Array.isArray(value)) return `ARRAY[${value.map((entry) => `'${entry}'::uuid`).join(',')}]`;
+      if (value === null || value === undefined) return 'null';
+      return `'${String(value).replaceAll("'", "''")}'`;
+    };
+    const fixtureSql = String.raw`
+      insert into public.organisations(id,legal_name,country,synthetic_certification_ref)
+      values ($1,'RC1 healthy commercial path','South Africa','MKTEST-RC1-20260803-01');
+      insert into public.respondents(id,organisation_id,full_name,email,consent_privacy)
+      values ($2,$1,'RC1 Synthetic Respondent','rc1-cleanup-respondent@invalid.test',true);
+      insert into public.assessments(id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,submitted_at,locked_at,completion_percentage)
+      values ($3,'RC1-CLEANUP-HEALTHY',$1,$2,$4,'submitted',now(),now(),68);
+      insert into public.score_runs(id,assessment_id,methodology_version_id,run_number,run_type,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,input_hash,locked_at)
+      values ($5,$3,$4,1,'initial','completed',68,'Reactive','Reactive',12,'Low',100,$6,now());
+      update public.assessments set current_score_run_id=$5 where id=$3;
+      insert into public.assessment_answers(assessment_id,question_id,response_value)
+      values ($3,$7,4);
+      insert into public.exposure_answers(assessment_id,exposure_factor_id,raw_value_json,points_awarded)
+      values ($3,$8,'{"value":1}'::jsonb,1);
+      insert into public.score_domain_results(score_run_id,domain_id,raw_score,weighted_contribution,coverage_pct)
+      values ($5,$9,68,68,100);
+      insert into public.score_question_traces(score_run_id,question_id,response_value,normalised_score,question_weight,applicable)
+      values ($5,$7,4,68,1,true);
+      insert into public.maturity_cap_events(score_run_id,rule_code,cap_to,reason)
+      values ($5,'RC1_SYNTHETIC_CAP','Reactive','synthetic fixture');
+      insert into public.assessment_tokens(assessment_id,token_hash,token_type,expires_at)
+      values ($3,'rc1-cleanup-token','resume',now()+interval '1 day');
+      insert into public.assessment_events(assessment_id,event_type,dedupe_key,metadata_json)
+      values ($3,'assessment_submitted','rc1-cleanup-assessment-submitted','{"fixture":true}'::jsonb);
+      insert into public.assessment_resume_events(assessment_id,event_type,completion_percentage)
+      values ($3,'assessment_completed',68);
+      insert into public.audit_logs(actor_type,actor_user_id,assessment_id,entity_table,entity_id,action)
+      values ('system',$10,$3,'assessments',$3,'synthetic_fixture');
+      insert into public.data_requests(id,assessment_id,organisation_id,request_type,status)
+      values ($11,$3,$1,'export','received');
+      insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency,customer_email,customer_name,organisation_name)
+      select $12,'RC1-CLEANUP-ORDER',$3,p.id,'payment_received',100,'ZAR','rc1-cleanup-customer@invalid.test','RC1 Customer','RC1 healthy commercial path'
+      from public.products p where p.active limit 1;
+      insert into storage.buckets(id,name,public)
+      values ('generated-reports','generated-reports',false)
+      on conflict (id) do nothing;
+      insert into public.payment_proofs(id,order_id,storage_bucket,storage_path,status)
+      values ($13,$12,'payment-proofs','tmp/rc1-cleanup-proof.pdf','accepted');
+      insert into public.payment_sessions(id,order_id,provider_mode,provider_session_reference,return_token_hash,status,expires_at)
+      values ($14,$12,'disabled','rc1-cleanup-session','rc1-cleanup-return','created',now()+interval '1 day');
+      insert into public.payment_automation_records(order_id,state,expected_amount_cents,received_amount_cents,currency,confirmation_source,fulfilment_trigger_result)
+      values ($12,'PAID',100,100,'ZAR','manual_admin','QUEUED');
+      insert into public.payment_transition_events(order_id,order_reference,old_state,new_state,source,amount_cents,currency,verification_result,idempotency_key,technical_reference)
+      values ($12,'RC1-CLEANUP-ORDER','PAYMENT_PENDING','PAID','manual_admin',100,'ZAR','verified','rc1-cleanup-transition','rc1-cleanup-transition');
+      insert into public.order_events(order_id,event_type,new_status,note)
+      values ($12,'payment_received','payment_received','synthetic fixture');
+      insert into public.reports(id,assessment_id,order_id,score_run_id,template_id,report_type,status,report_reference,version_number,storage_status,storage_bucket,storage_path,checksum,fulfilment_id)
+      values ($15,$3,$12,$5,$16,'essential_self_assessment','generated','RC1-CLEANUP-REPORT',1,'VERIFIED','generated-reports','rc1/healthy.pdf',$6,$17);
+      insert into storage.objects(bucket_id,name,metadata)
+      values ('generated-reports','rc1/healthy.pdf','{}'::jsonb);
+      insert into public.report_events(report_id,event_type,to_status)
+      values ($15,'generated','generated');
+      insert into public.report_fulfilments(id,order_id,assessment_id,score_run_id,report_id,idempotency_key,trigger_source,status,generation_mode,attempt_count,workflow_start_status)
+      values ($17,$12,$3,$5,$15,'rc1-cleanup-fulfilment','payment_confirmation','completed','deterministic_fallback',1,'started');
+      insert into public.report_generation_runs(id,fulfilment_id,report_id,attempt_number,generation_mode,prompt_version,schema_version,evidence_checksum,status,completed_at)
+      values ($18,$17,$15,1,'deterministic_fallback','rc1','rc1',$6,'used',now());
+      insert into public.report_generation_claims(assessment_id,report_type,claim_token,order_id,score_run_id,fulfilment_id,claim_owner,report_id,version_number,report_reference,lease_expires_at,state)
+      values ($3,'essential_self_assessment',$19,$12,$5,$17,'rc1-cleanup-worker',$15,1,'RC1-CLEANUP-CLAIM',now()+interval '1 hour','abandoned');
+      insert into public.manual_report_generation_attempts(id,request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+      values ($20,$21,'rc1-cleanup-manual-generation',$12,1,'admin_generate',$10,'GENERATION_FAILED','rc1-cleanup-manual');
+      insert into public.report_quality_diagnostics(attempt_id,safe_category,violation_code,severity,question_code,domain_code,source)
+      values ($20,'commercial_quality','RC1_FIXTURE','warning','D1-Q1','D1','synthetic');
+      insert into public.report_ai_attempts(generation_identity,fulfilment_id,attempt_kind,attempt_number,provider_request_key,provider,model,requested_provider,requested_model,evidence_checksum,max_output_tokens,max_estimated_cost_micros,timeout_ms,status)
+      values ('rc1-cleanup-ai',$17,'generate',1,'rc1-cleanup-ai-request','disabled','disabled','disabled','disabled',$6,100,1,1000,'failed_before_provider');
+      insert into public.manual_report_delivery_attempts(id,request_id,request_key,order_id,report_id,requested_by,status,technical_reference,recipient_email)
+      values ($22,$23,'rc1-cleanup-manual-delivery',$12,$15,$10,'DELIVERY_FAILED','rc1-cleanup-delivery','rc1-cleanup-customer@invalid.test');
+      insert into public.email_events(id,assessment_id,order_id,report_id,recipient_email,template_key,status,provider_mode)
+      values
+        ($24,$3,$12,$15,'rc1-cleanup-customer@invalid.test','customer_order_confirmation','sent','disabled'),
+        ($25,$3,$12,$15,'rc1-cleanup-admin@invalid.test','admin_new_order_notification','sent','disabled'),
+        ($26,$3,$12,$15,'rc1-cleanup-payment@invalid.test','payment_confirmed','sent','disabled'),
+        ($27,$3,$12,$15,'rc1-cleanup-report@invalid.test','premium_report_pdf','bounced','disabled');
+      insert into public.email_provider_events(email_event_id,provider,provider_event_id,provider_message_id,event_type,payload_json)
+      select id,'disabled','rc1-cleanup-provider-'||row_number() over (), 'rc1-cleanup-message-'||row_number() over (), 'email.sent','{}'::jsonb
+      from public.email_events where id in ($24,$25,$26,$27);
+      insert into public.report_delivery_authorizations(id,report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,security_gate_version,authorised_by,authorised_session_id,provider,email_event_id,status)
+      values ($28,$15,$6,'rc1-cleanup-report@invalid.test',$12,$3,$5,1,$10,'00000000-0000-0000-0000-00000000a002','disabled',$24,'finalized');
+      insert into public.report_delivery_finalizations(authorization_id,email_event_id,report_id,provider,provider_message_id)
+      values ($28,$24,$15,'disabled','rc1-cleanup-message');
+      insert into public.report_delivery_remediations(id,prior_email_event_id,report_id,recipient_email,remediation_type,reason,evidence_json,authorised_by)
+      values ($29,$27,$15,'rc1-cleanup-report@invalid.test','bounce_retry','synthetic fixture','{"fixture":true}'::jsonb,$10);
+      insert into public.phase14_provider_attestations(id,attestation_source,provider,provider_event_id,authorization_id,email_event_id,provider_state,payload_sha256,nonce,attested_at)
+      select x.id,'webhook','disabled','rc1-cleanup-attestation-'||row_number() over (),$28,e.id,'delivered',$6,x.id,now()
+      from unnest(array['00000000-0000-0000-0000-00000000b201'::uuid,'00000000-0000-0000-0000-00000000b202'::uuid,'00000000-0000-0000-0000-00000000b203'::uuid,'00000000-0000-0000-0000-00000000b204'::uuid]) with ordinality x(id,n)
+      join unnest(array[$24,$25,$26,$27]::uuid[]) with ordinality e(id,n) on e.n=x.n;
+      insert into public.phase14_provider_attestation_consumptions(attestation_id,authorization_id,consumed_by,consumed_session_id)
+      select id,$28,$10,'00000000-0000-0000-0000-00000000a002' from public.phase14_provider_attestations where id = any($30::uuid[]);
+      insert into public.customer_report_access_tokens(id,order_id,report_id,recipient_email,token_hash,expires_at,issued_by)
+      values ($31,$12,$15,'rc1-cleanup-report@invalid.test','rc1-cleanup-access-token',now()+interval '1 day',$10);
+      insert into public.customer_contact_verifications(id,order_id,assessment_id,customer_identity,previous_email,corrected_email,verification_method,evidence_reference,verified_at,verified_by_actor,expires_at)
+      values ($32,$12,$3,'rc1-cleanup-customer','old@invalid.test','new@invalid.test','support_callback','rc1-cleanup-contact',now(),$10,now()+interval '1 day');
+      insert into public.phase14_worker_capabilities(id,capability_type,policy_key,operation_key,issue_secret_hash,order_id,assessment_id,score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,reason,expires_at,status)
+      values ($33,'automatic_generation','automatic_fulfilment','rc1-cleanup-capability',$6,$12,$3,$5,$17,$15,1,$10,'00000000-0000-0000-0000-00000000a002','synthetic fixture',now()+interval '1 day','consumed');
+      insert into phase14_private.worker_attestation_nonces(nonce,capability_id,action,lease_generation,request_payload_hash,issued_at,expires_at)
+      values ('00000000-0000-0000-0000-00000000b117',$33,'cleanup',0,$6,now(),now()+interval '1 day');
+      insert into phase14_private.worker_recovery_nonces(nonce,capability_id,old_execution_id,proposed_execution_id,lease_generation,reason,issued_at,expires_at)
+      values ('00000000-0000-0000-0000-00000000b118',$33,'old','new',0,'synthetic fixture',now(),now()+interval '1 day');
+      insert into public.phase14_storage_cleanup_queue(id,storage_bucket,storage_path,expected_checksum,report_id,owner_admin_user_id,owner_capability_id,cleanup_reason)
+      values ($34,'generated-reports','tmp/rc1-cleanup.pdf',$6,$15,$10,$33,'synthetic fixture');
+      insert into public.phase14_workflow_start_outbox(id,fulfilment_id,capability_id,operation_key,external_idempotency_key,authority_epoch)
+      values ($35,$17,$33,'rc1-cleanup-workflow','rc1-cleanup-workflow-idempotency',1);
+      insert into public.backlog_reconciliation_records(id,order_id,report_id,classification,resolution_note,classified_by)
+      values ($36,$12,$15,'internal_test_order','Synthetic fixture retained only for cleanup coverage.',$10);
+      insert into public.phase14_operational_alerts(alert_key,severity,category,detail_json)
+      values ('rc1-cleanup-global-alert','warning','synthetic_fixture','{"scope":"global"}'::jsonb)
+      on conflict (alert_key) do nothing;
+      insert into public.app_settings(setting_key,value_json)
+      values ('rc1_synthetic_certification_cleanup','{"enabled":true}'::jsonb)
+      on conflict (setting_key) do update set value_json=excluded.value_json;
+    `.replace(/\$(\d+)/g, (_, index) => sqlLiteral(fixtureParams[Number(index) - 1]));
+    await db.query(fixtureSql);
+  });
+
+  await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-0000-0000-00000000a002"}',false)`);
+  let unmarkedRefused = false;
+  try {
+    await query(
+      'select public.rc1_cleanup_synthetic_certification($1,$2,$3,$4)',
+      ['MKTEST-RC1-20260803-02', 'Refuse an unmarked certification reference.', crypto.createHash('sha256').update('').digest('hex'), 0],
+    );
+  } catch (error) {
+    unmarkedRefused = String(error.message).includes('unmarked_or_missing');
+  }
+  assert(unmarkedRefused, 'unmarked synthetic reference must be refused');
+  let wrongProofRefused = false;
+  try {
+    await query(
+      'select public.rc1_cleanup_synthetic_certification($1,$2,$3,$4)',
+      ['MKTEST-RC1-20260803-01', 'Refuse an incorrect Storage target proof.', crypto.createHash('sha256').update('').digest('hex'), 0],
+    );
+  } catch (error) {
+    wrongProofRefused = String(error.message).includes('storage_target_mismatch');
+  }
+  assert(wrongProofRefused, 'incorrect Storage target proof must be refused');
+  let objectRefused = false;
+  try {
+    await query(
+      'select public.rc1_cleanup_synthetic_certification($1,$2,$3,$4)',
+      ['MKTEST-RC1-20260803-01', 'Refuse while the Storage object still exists.', storageTargetFingerprint, storageTargetCount],
+    );
+  } catch (error) {
+    objectRefused = String(error.message).includes('storage_objects_remaining');
+  }
+  assert(objectRefused, 'Storage object presence must refuse cleanup');
+  await withTriggerBypass(() => db.query("delete from storage.objects where bucket_id='generated-reports' and name='rc1/healthy.pdf'"));
+  const proofCheck = await query(`
+    select count(*)::int as count,
+      encode(extensions.digest(convert_to(coalesce(string_agg(storage_bucket || E'\\n' || storage_path, E'\\n' order by storage_bucket, storage_path),''),'UTF8'),'sha256'),'hex') as fingerprint
+    from public.reports where id=$1 and storage_bucket is not null and storage_path is not null
+  `, [ids.report]);
+  assert(proofCheck[0].count === storageTargetCount && proofCheck[0].fingerprint === storageTargetFingerprint,
+    `fixture Storage proof must be canonical: ${JSON.stringify(proofCheck[0])}`);
+  const result = await query(
+    'select public.rc1_cleanup_synthetic_certification($1,$2,$3,$4) as value',
+    ['MKTEST-RC1-20260803-01', 'Remove disposable healthy certification journey for RC1 closure.', storageTargetFingerprint, storageTargetCount],
+  );
+  assert(result[0].value.deleted.organisations === 1, `healthy cleanup must delete one organisation: ${JSON.stringify(result[0].value)}`);
+  const remaining = await query(`select jsonb_build_object(
+    'organisations',(select count(*) from public.organisations where id=$1),
+    'assessments',(select count(*) from public.assessments where id=$2),
+    'orders',(select count(*) from public.orders where id=$3),
+    'reports',(select count(*) from public.reports where id=$4),
+    'score_runs',(select count(*) from public.score_runs where id=$5),
+    'external_email_events',(select count(*) from public.email_events where id=any($6::uuid[])),
+    'provider_callbacks',(select count(*) from public.email_provider_events where email_event_id=any($6::uuid[])),
+    'attestations',(select count(*) from public.phase14_provider_attestations where id=any($7::uuid[])),
+    'global_alert',(select count(*) from public.phase14_operational_alerts where alert_key='rc1-cleanup-global-alert'),
+    'products',(select count(*) from public.products where active)
+  ) as value`, [ids.org, ids.assessment, ids.order, ids.report, ids.score, emails, attestations]);
+  const remainingValue = remaining[0].value;
+  assert(
+    Number(remainingValue.organisations) === 0
+      && Number(remainingValue.assessments) === 0
+      && Number(remainingValue.orders) === 0
+      && Number(remainingValue.reports) === 0
+      && Number(remainingValue.score_runs) === 0
+      && Number(remainingValue.external_email_events) === 0
+      && Number(remainingValue.provider_callbacks) === 0
+      && Number(remainingValue.attestations) === 0
+      && Number(remainingValue.global_alert) === 1
+      && Number(remainingValue.products) > 0,
+    `healthy cleanup retained or deleted the wrong rows: ${JSON.stringify(remainingValue)}`,
+  );
+  const retry = await query(
+    'select public.rc1_cleanup_synthetic_certification($1,$2,$3,$4) as value',
+    ['MKTEST-RC1-20260803-01', 'Retry already-clean disposable certification journey.', crypto.createHash('sha256').update('').digest('hex'), 0],
+  );
+  assert(retry[0].value.already_clean === true, 'healthy cleanup retry must be an audited idempotent no-op');
+  console.log(`PASS RC1 healthy cleanup fixture: external_email_events=4 provider_callbacks=4 attestations=4 storage_targets=1 retained_global_alert=1 products=${remaining[0].value.products}`);
 }
 
 async function proveMalformedStateFailClosed() {
@@ -1421,6 +1693,7 @@ try {
     rc1_approved_freeze_trigger_fingerprints_json: JSON.stringify(approvedFreeze.enforcement_trigger_fingerprints)
   };
   passResult(await runPost(postVars), 'baseline postflight');
+  await proveHealthySyntheticCertificationCleanup(adminId);
 
   const [freezeStateOriginal] = await query('select * from public.rc1_operation_freeze_state where singleton');
   const restoreFreezeState = async () => {

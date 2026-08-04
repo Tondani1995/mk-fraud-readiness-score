@@ -22,8 +22,19 @@ function activeBlocks(blocks: ContentBlock[]) {
   return blocks.filter((block) => block.status === 'active');
 }
 
+/**
+ * Deterministic block choice.
+ *
+ * More than one active block can match the same content type, domain and band -- D1 alone carries
+ * two active Reactive domain narratives. Array.find() then returns whichever row the database
+ * happened to hand back first, so the same journey could select different prose in different
+ * environments, and one of the two D1 rows asserts a band its metadata does not support. Sorting
+ * candidates by block_key makes the winner a property of the data rather than of row order.
+ */
 function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => boolean) {
-  return activeBlocks(blocks).find(predicate);
+  const matches = activeBlocks(blocks).filter(predicate);
+  if (matches.length <= 1) return matches[0];
+  return [...matches].sort((a, b) => a.blockKey.localeCompare(b.blockKey))[0];
 }
 
 export function selectContent(data: AssembledReportData, blocks: ContentBlock[]): SelectedContent {

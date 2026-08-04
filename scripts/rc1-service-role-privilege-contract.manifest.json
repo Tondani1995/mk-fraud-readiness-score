@@ -12,92 +12,941 @@
   },
   "aclEncoding": "SIUD booleans in that order; 1 means effective privilege and 0 means denied",
   "tables": [
-    {"schema":"public","table":"admin_profiles","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/api/admin/login/route.ts:60 S","src/lib/auth/admin-route.ts:23 S"],"justification":"Server-side admin login and session resolution require active-profile lookup; no service-role write is justified."},
-    {"schema":"public","table":"app_settings","required":"S","stagingCurrent":"1000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/assessment-experience/resume-capability.ts:10 S","src/lib/payments/payment-capability.ts:21 S","src/lib/reports/automation/feature-flags.ts:61 S","src/lib/reports/phase1-schema-capability.ts:44 S"],"justification":"Runtime capability and feature-state reads."},
-    {"schema":"public","table":"assessment_answers","required":"SIUD","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:168 S","src/lib/respondent/assessment-save.ts:152 D","src/lib/respondent/assessment-save.ts:162 I+U","src/lib/scoring/score-assessment.ts:78 S"],"justification":"Draft replacement/upsert, journey load and scoring."},
-    {"schema":"public","table":"assessment_events","required":"SIU","stagingCurrent":"1111","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/analytics/assessment-events.ts:85 U+S","src/lib/analytics/assessment-events.ts:113 S","src/lib/analytics/assessment-events.ts:125 I+S"],"justification":"Idempotent customer journey event recording; DELETE is not required and is not newly granted."},
-    {"schema":"public","table":"assessment_tokens","required":"SIU","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/start-assessment.ts:84 I+S","src/lib/respondent/tokens.ts:42 U","src/lib/respondent/tokens.ts:89 S","src/lib/respondent/tokens.ts:123 U"],"justification":"Resume/snapshot token creation, validation and consumption."},
-    {"schema":"public","table":"assessments","required":"SIUD","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/start-assessment.ts:62 I+S","src/lib/respondent/start-assessment.ts:145 D","src/lib/respondent/assessment-save.ts:316 U+S","src/lib/scoring/score-assessment.ts:64 S"],"justification":"Assessment creation, journey state, submission and compensating rollback."},
-    {"schema":"public","table":"audit_logs","required":"SI","stagingCurrent":"1111","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/api/admin/login/route.ts:71 I","src/lib/admin/assessment-review.ts:122 S","src/lib/respondent/start-assessment.ts:103 I","src/lib/respondent/assessment-save.ts:213 I"],"justification":"Append-only audit recording and authorised admin review; UPDATE/DELETE are not required."},
-    {"schema":"public","table":"customer_report_access_tokens","required":"SU","stagingCurrent":"0000","productionCurrent":"ABSENT","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/customer-report-access.ts:108 S","src/lib/reports/customer-report-access.ts:200 U","src/lib/reports/delivery-recovery-service.ts:166 S"],"justification":"Token validation/consumption and recovery-state inspection."},
-    {"schema":"public","table":"data_requests","required":"SIU","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:77 S","src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:92 U+S","src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:132 I+S"],"justification":"Personalised/report request creation, deduplication and status progression."},
-    {"schema":"public","table":"domains","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:72 S","src/lib/reports/assemble-report-data.ts:106 S","src/lib/snapshot/free-snapshot.ts:82 S"],"justification":"Read-only methodology and report assembly."},
-    {"schema":"public","table":"eft_settings","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/orders/manual-eft-orders.ts:62 S","src/lib/admin/assessment-review.ts:199 S"],"justification":"Read-only EFT configuration."},
-    {"schema":"public","table":"email_events","required":"SIU","stagingCurrent":"1111","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/notifications/phase1-order-notifications.ts:83 S","src/lib/notifications/phase1-order-notifications.ts:97 I+S","src/lib/notifications/phase1-order-notifications.ts:139 U","src/lib/reports/email/report-delivery-service-core.ts:306 S"],"justification":"Durable notification creation, provider state and reconciliation."},
-    {"schema":"public","table":"exposure_answers","required":"SIU","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:172 S","src/lib/respondent/assessment-save.ts:198 I+U","src/lib/scoring/score-assessment.ts:82 S"],"justification":"Exposure answer load, upsert and scoring."},
-    {"schema":"public","table":"exposure_factors","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:83 S","src/lib/admin/assessment-review.ts:178 S"],"justification":"Read-only methodology configuration."},
-    {"schema":"public","table":"manual_report_delivery_attempts","required":"S","stagingCurrent":"1000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/phase1-operations.ts:95 S"],"justification":"Admin operational history only."},
-    {"schema":"public","table":"manual_report_generation_attempts","required":"S","stagingCurrent":"1000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/phase1-operations.ts:92 S","src/lib/reports/phase1-operations.ts:134 S"],"justification":"Admin operational history only."},
-    {"schema":"public","table":"maturity_cap_events","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/admin/assessment-review.ts:110 S","src/lib/reports/assemble-report-data.ts:178 S"],"justification":"Score evidence and report assembly."},
-    {"schema":"public","table":"methodology_versions","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/start-assessment.ts:12 S","src/app/score/admin/methodology/page.tsx:10 S","src/lib/admin/assessment-review.ts:163 S"],"justification":"Assessment start and read-only admin methodology view; historical Production writes are deliberately not copied."},
-    {"schema":"public","table":"order_events","required":"SI","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/orders/manual-eft-orders.ts:258 I","src/lib/orders/manual-eft-orders.ts:352 S","src/lib/reports/delivery-recovery-service.ts:174 S"],"justification":"Append-only order timeline and recovery reads."},
-    {"schema":"public","table":"orders","required":"SIU","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/orders/manual-eft-orders.ts:201 S","src/lib/orders/manual-eft-orders.ts:232 I+S","src/lib/orders/manual-eft-orders.ts:379 U+S","src/lib/payments/payment-service.ts:53 S","src/lib/fulfilment/delivery-worker.ts:132 S"],"justification":"Order creation, admin/payment state and fulfilment binding."},
-    {"schema":"public","table":"organisations","required":"SID","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/start-assessment.ts:23 I+S","src/lib/respondent/start-assessment.ts:147 D","src/lib/respondent/tokens.ts:116 S"],"justification":"Accountless assessment creation, validation and compensating rollback."},
-    {"schema":"public","table":"payment_automation_records","required":"SU","stagingCurrent":"1110","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/payments/payment-operations.ts:25 S","src/lib/payments/payment-service.ts:95 U"],"justification":"Payment state lookup and post-transition annotation; INSERT is RPC-owned."},
-    {"schema":"public","table":"payment_sessions","required":"SI","stagingCurrent":"1110","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/api/payments/[orderReference]/session/route.ts:34 I","src/app/score/api/payments/[orderReference]/status/route.ts:16 S"],"justification":"Payment return-session creation and lookup."},
-    {"schema":"public","table":"payment_transition_events","required":"S","stagingCurrent":"1100","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/payments/payment-operations.ts:26 S"],"justification":"Admin payment timeline; writes remain inside the transition RPC."},
-    {"schema":"public","table":"phase14_ai_route_policies","required":"S","stagingCurrent":"1000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/admin/phase14-activation/page.tsx:34 S"],"justification":"Read-only operational state."},
-    {"schema":"public","table":"phase14_feature_policies","required":"S","stagingCurrent":"1000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/admin/phase14-activation/page.tsx:33 S","src/lib/reports/automation/feature-flags.ts:69 S"],"justification":"Read-only operational state."},
-    {"schema":"public","table":"phase14_operational_alerts","required":"S","stagingCurrent":"0000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/components/admin/AdminShell.tsx:37 S"],"justification":"Server-rendered critical-alert count; transitions remain authenticated RPC-only."},
-    {"schema":"public","table":"phase14_security_gates","required":"S","stagingCurrent":"1000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/app/score/admin/phase14-activation/page.tsx:32 S","src/lib/reports/automation/feature-flags.ts:65 S"],"justification":"Read-only security-gate status."},
-    {"schema":"public","table":"products","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/orders/manual-eft-orders.ts:118 S","src/lib/admin/dashboard.ts:11 S"],"justification":"Read-only product selection and admin counts."},
-    {"schema":"public","table":"questions","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:77 S","src/lib/reports/assemble-report-data.ts:110 S"],"justification":"Read-only methodology and report evidence."},
-    {"schema":"public","table":"recommendation_rules","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/assemble-report-data.ts:221 S"],"justification":"Read-only report recommendation assembly."},
-    {"schema":"public","table":"report_ai_attempts","required":"S","stagingCurrent":"0000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/automation/durable-ai-attempts.ts:79 S","src/lib/reports/automation/manual-ai-attempt-store.ts:26 S"],"justification":"Idempotency/accounting reads; mutations remain controlled RPC-only."},
-    {"schema":"public","table":"report_content_blocks","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/phase1-manual-fulfilment.ts:327 S","src/lib/reports/premium-report-service-core.ts:463 S"],"justification":"Read-only report content assembly."},
-    {"schema":"public","table":"report_delivery_authorizations","required":"S","stagingCurrent":"0000","productionCurrent":"1000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/delivery-recovery-service.ts:163 S","src/lib/reports/email/report-delivery-service-core.ts:313 S"],"justification":"Delivery state and reconciliation lookup; mutations remain controlled RPC-only."},
-    {"schema":"public","table":"report_events","required":"I","stagingCurrent":"1111","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/customer-report-access.ts:66 I","src/lib/reports/phase1-report-access.ts:62 I"],"justification":"Append-only access audit. Direct SELECT/UPDATE/DELETE are not required."},
-    {"schema":"public","table":"report_fulfilments","required":"S","stagingCurrent":"0000","productionCurrent":"0000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/automation/processor.ts:14 S","src/workflows/premium-report-fulfilment.ts:38 S","src/workflows/premium-report-fulfilment.ts:77 S"],"justification":"Worker and workflow state validation; transitions remain controlled RPC-only."},
-    {"schema":"public","table":"report_generation_runs","required":"S","stagingCurrent":"0000","productionCurrent":"0000","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/automation/processor.ts:35 S","src/lib/reports/premium-report-service-core.ts:126 S","src/lib/reports/premium-report-service-core.ts:202 S"],"justification":"Worker idempotency and generated-report metadata; writes remain controlled RPC-only."},
-    {"schema":"public","table":"report_templates","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/phase1-manual-fulfilment.ts:315 S","src/lib/reports/premium-report-service-core.ts:461 S"],"justification":"Read-only template selection."},
-    {"schema":"public","table":"reports","required":"SU","stagingCurrent":"1110","productionCurrent":"1110","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/phase1-report-access.ts:119 S","src/lib/reports/phase1-report-access.ts:181 U","src/lib/reports/customer-report-access.ts:136 S","src/lib/reports/customer-report-access.ts:178 U","src/lib/fulfilment/delivery-worker.ts:127 S"],"justification":"Report lookup, Storage-state correction and delivery verification; creation remains controlled RPC-only."},
-    {"schema":"public","table":"respondents","required":"SID","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/start-assessment.ts:41 I+S","src/lib/respondent/start-assessment.ts:146 D","src/lib/respondent/tokens.ts:118 S"],"justification":"Accountless assessment creation, validation and compensating rollback."},
-    {"schema":"public","table":"response_scale","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/respondent/assessment-methodology.ts:67 S","src/lib/reports/response-labels.ts:313 S"],"justification":"Read-only official response labels."},
-    {"schema":"public","table":"score_domain_results","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/reports/assemble-report-data.ts:108 S","src/lib/snapshot/free-snapshot.ts:73 S"],"justification":"Read-only score evidence and snapshot/report output."},
-    {"schema":"public","table":"score_question_traces","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/admin/assessment-review.ts:103 S","src/lib/reports/assemble-report-data.ts:112 S"],"justification":"Read-only scoring trace evidence."},
-    {"schema":"public","table":"score_runs","required":"S","stagingCurrent":"0000","productionCurrent":"1111","classification":"DIRECT SERVICE-ROLE ACCESS REQUIRED","sources":["src/lib/admin/assessment-review.ts:44 S","src/lib/reports/assemble-report-data.ts:91 S","src/lib/snapshot/free-snapshot.ts:58 S"],"justification":"Read-only score result, snapshot and report assembly."}
+    {
+      "schema": "public",
+      "table": "admin_profiles",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/admin/login/route.ts:60 S",
+        "src/lib/auth/admin-route.ts:23 S"
+      ],
+      "justification": "Server-side admin login and session resolution require active-profile lookup; no service-role write is justified."
+    },
+    {
+      "schema": "public",
+      "table": "app_settings",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/assessment-experience/resume-capability.ts:10 S",
+        "src/lib/payments/payment-capability.ts:21 S",
+        "src/lib/reports/automation/feature-flags.ts:61 S",
+        "src/lib/reports/phase1-schema-capability.ts:44 S"
+      ],
+      "justification": "Runtime capability and feature-state reads."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_answers",
+      "required": "SIUD",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:168 S",
+        "src/lib/respondent/assessment-save.ts:152 D",
+        "src/lib/respondent/assessment-save.ts:162 I+U",
+        "src/lib/scoring/score-assessment.ts:78 S"
+      ],
+      "justification": "Draft replacement/upsert, journey load and scoring."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_events",
+      "required": "SIU",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/analytics/assessment-events.ts:85 U+S",
+        "src/lib/analytics/assessment-events.ts:113 S",
+        "src/lib/analytics/assessment-events.ts:125 I+S"
+      ],
+      "justification": "Idempotent customer journey event recording; DELETE is not required and is not newly granted."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_tokens",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/start-assessment.ts:84 I+S",
+        "src/lib/respondent/tokens.ts:42 U",
+        "src/lib/respondent/tokens.ts:89 S",
+        "src/lib/respondent/tokens.ts:123 U"
+      ],
+      "justification": "Resume/snapshot token creation, validation and consumption."
+    },
+    {
+      "schema": "public",
+      "table": "assessments",
+      "required": "SIUD",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/start-assessment.ts:62 I+S",
+        "src/lib/respondent/start-assessment.ts:145 D",
+        "src/lib/respondent/assessment-save.ts:316 U+S",
+        "src/lib/scoring/score-assessment.ts:64 S"
+      ],
+      "justification": "Assessment creation, journey state, submission and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "audit_logs",
+      "required": "SI",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/admin/login/route.ts:71 I",
+        "src/lib/admin/assessment-review.ts:122 S",
+        "src/lib/respondent/start-assessment.ts:103 I",
+        "src/lib/respondent/assessment-save.ts:213 I"
+      ],
+      "justification": "Append-only audit recording and authorised admin review; UPDATE/DELETE are not required."
+    },
+    {
+      "schema": "public",
+      "table": "customer_report_access_tokens",
+      "required": "SU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "ABSENT",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:108 S",
+        "src/lib/reports/customer-report-access.ts:200 U",
+        "src/lib/reports/delivery-recovery-service.ts:166 S"
+      ],
+      "justification": "Token validation/consumption and recovery-state inspection."
+    },
+    {
+      "schema": "public",
+      "table": "data_requests",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:77 S",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:92 U+S",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:132 I+S"
+      ],
+      "justification": "Personalised/report request creation, deduplication and status progression."
+    },
+    {
+      "schema": "public",
+      "table": "domains",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:72 S",
+        "src/lib/reports/assemble-report-data.ts:106 S",
+        "src/lib/snapshot/free-snapshot.ts:82 S"
+      ],
+      "justification": "Read-only methodology and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "eft_settings",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/orders/manual-eft-orders.ts:62 S",
+        "src/lib/admin/assessment-review.ts:199 S"
+      ],
+      "justification": "Read-only EFT configuration."
+    },
+    {
+      "schema": "public",
+      "table": "email_events",
+      "required": "SIU",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/notifications/phase1-order-notifications.ts:83 S",
+        "src/lib/notifications/phase1-order-notifications.ts:97 I+S",
+        "src/lib/notifications/phase1-order-notifications.ts:139 U",
+        "src/lib/reports/email/report-delivery-service-core.ts:334 S"
+      ],
+      "justification": "Durable notification creation, provider state and reconciliation."
+    },
+    {
+      "schema": "public",
+      "table": "exposure_answers",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:172 S",
+        "src/lib/respondent/assessment-save.ts:198 I+U",
+        "src/lib/scoring/score-assessment.ts:82 S"
+      ],
+      "justification": "Exposure answer load, upsert and scoring."
+    },
+    {
+      "schema": "public",
+      "table": "exposure_factors",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:83 S",
+        "src/lib/admin/assessment-review.ts:178 S"
+      ],
+      "justification": "Read-only methodology configuration."
+    },
+    {
+      "schema": "public",
+      "table": "manual_report_delivery_attempts",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-operations.ts:95 S"
+      ],
+      "justification": "Admin operational history only."
+    },
+    {
+      "schema": "public",
+      "table": "manual_report_generation_attempts",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-operations.ts:92 S",
+        "src/lib/reports/phase1-operations.ts:134 S"
+      ],
+      "justification": "Admin operational history only."
+    },
+    {
+      "schema": "public",
+      "table": "maturity_cap_events",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:110 S",
+        "src/lib/reports/assemble-report-data.ts:178 S"
+      ],
+      "justification": "Score evidence and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "methodology_versions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/start-assessment.ts:12 S",
+        "src/app/score/admin/methodology/page.tsx:10 S",
+        "src/lib/admin/assessment-review.ts:163 S"
+      ],
+      "justification": "Assessment start and read-only admin methodology view; historical Production writes are deliberately not copied."
+    },
+    {
+      "schema": "public",
+      "table": "order_events",
+      "required": "SI",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/orders/manual-eft-orders.ts:258 I",
+        "src/lib/orders/manual-eft-orders.ts:352 S",
+        "src/lib/reports/delivery-recovery-service.ts:174 S"
+      ],
+      "justification": "Append-only order timeline and recovery reads."
+    },
+    {
+      "schema": "public",
+      "table": "orders",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/orders/manual-eft-orders.ts:201 S",
+        "src/lib/orders/manual-eft-orders.ts:232 I+S",
+        "src/lib/orders/manual-eft-orders.ts:379 U+S",
+        "src/lib/payments/payment-service.ts:53 S",
+        "src/lib/fulfilment/delivery-worker.ts:132 S"
+      ],
+      "justification": "Order creation, admin/payment state and fulfilment binding."
+    },
+    {
+      "schema": "public",
+      "table": "organisations",
+      "required": "SID",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/start-assessment.ts:23 I+S",
+        "src/lib/respondent/start-assessment.ts:147 D",
+        "src/lib/respondent/tokens.ts:116 S"
+      ],
+      "justification": "Accountless assessment creation, validation and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "payment_automation_records",
+      "required": "SU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/payments/payment-operations.ts:25 S",
+        "src/lib/payments/payment-service.ts:95 U"
+      ],
+      "justification": "Payment state lookup and post-transition annotation; INSERT is RPC-owned."
+    },
+    {
+      "schema": "public",
+      "table": "payment_sessions",
+      "required": "SI",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/api/payments/[orderReference]/session/route.ts:34 I",
+        "src/app/score/api/payments/[orderReference]/status/route.ts:16 S"
+      ],
+      "justification": "Payment return-session creation and lookup."
+    },
+    {
+      "schema": "public",
+      "table": "payment_transition_events",
+      "required": "S",
+      "stagingCurrent": "1100",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/payments/payment-operations.ts:26 S"
+      ],
+      "justification": "Admin payment timeline; writes remain inside the transition RPC."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_ai_route_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:34 S"
+      ],
+      "justification": "Read-only operational state."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_feature_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:33 S",
+        "src/lib/reports/automation/feature-flags.ts:69 S"
+      ],
+      "justification": "Read-only operational state."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_operational_alerts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/components/admin/AdminShell.tsx:37 S"
+      ],
+      "justification": "Server-rendered critical-alert count; transitions remain authenticated RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "phase14_security_gates",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:32 S",
+        "src/lib/reports/automation/feature-flags.ts:65 S"
+      ],
+      "justification": "Read-only security-gate status."
+    },
+    {
+      "schema": "public",
+      "table": "products",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/orders/manual-eft-orders.ts:118 S",
+        "src/lib/admin/dashboard.ts:11 S"
+      ],
+      "justification": "Read-only product selection and admin counts."
+    },
+    {
+      "schema": "public",
+      "table": "questions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:77 S",
+        "src/lib/reports/assemble-report-data.ts:110 S"
+      ],
+      "justification": "Read-only methodology and report evidence."
+    },
+    {
+      "schema": "public",
+      "table": "recommendation_rules",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/assemble-report-data.ts:221 S"
+      ],
+      "justification": "Read-only report recommendation assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_ai_attempts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/durable-ai-attempts.ts:79 S",
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:26 S"
+      ],
+      "justification": "Idempotency/accounting reads; mutations remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_content_blocks",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:327 S",
+        "src/lib/reports/premium-report-service-core.ts:463 S"
+      ],
+      "justification": "Read-only report content assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_delivery_authorizations",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/delivery-recovery-service.ts:163 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:201 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:342 S"
+      ],
+      "justification": "Delivery state and reconciliation lookup; mutations remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_events",
+      "required": "I",
+      "stagingCurrent": "1111",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:66 I",
+        "src/lib/reports/phase1-report-access.ts:62 I"
+      ],
+      "justification": "Append-only access audit. Direct SELECT/UPDATE/DELETE are not required."
+    },
+    {
+      "schema": "public",
+      "table": "report_fulfilments",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/processor.ts:14 S",
+        "src/workflows/premium-report-fulfilment.ts:38 S",
+        "src/workflows/premium-report-fulfilment.ts:77 S"
+      ],
+      "justification": "Worker and workflow state validation; transitions remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_generation_runs",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/automation/processor.ts:35 S",
+        "src/lib/reports/premium-report-service-core.ts:126 S",
+        "src/lib/reports/premium-report-service-core.ts:202 S"
+      ],
+      "justification": "Worker idempotency and generated-report metadata; writes remain controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "report_templates",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:315 S",
+        "src/lib/reports/premium-report-service-core.ts:461 S"
+      ],
+      "justification": "Read-only template selection."
+    },
+    {
+      "schema": "public",
+      "table": "reports",
+      "required": "SU",
+      "stagingCurrent": "1110",
+      "productionCurrent": "1110",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/phase1-report-access.ts:119 S",
+        "src/lib/reports/phase1-report-access.ts:181 U",
+        "src/lib/reports/customer-report-access.ts:136 S",
+        "src/lib/reports/customer-report-access.ts:178 U",
+        "src/lib/fulfilment/delivery-worker.ts:127 S"
+      ],
+      "justification": "Report lookup, Storage-state correction and delivery verification; creation remains controlled RPC-only."
+    },
+    {
+      "schema": "public",
+      "table": "respondents",
+      "required": "SID",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/start-assessment.ts:41 I+S",
+        "src/lib/respondent/start-assessment.ts:146 D",
+        "src/lib/respondent/tokens.ts:118 S"
+      ],
+      "justification": "Accountless assessment creation, validation and compensating rollback."
+    },
+    {
+      "schema": "public",
+      "table": "response_scale",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/respondent/assessment-methodology.ts:67 S",
+        "src/lib/reports/response-labels.ts:313 S"
+      ],
+      "justification": "Read-only official response labels."
+    },
+    {
+      "schema": "public",
+      "table": "score_domain_results",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/assemble-report-data.ts:108 S",
+        "src/lib/snapshot/free-snapshot.ts:73 S"
+      ],
+      "justification": "Read-only score evidence and snapshot/report output."
+    },
+    {
+      "schema": "public",
+      "table": "score_question_traces",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:103 S",
+        "src/lib/reports/assemble-report-data.ts:112 S"
+      ],
+      "justification": "Read-only scoring trace evidence."
+    },
+    {
+      "schema": "public",
+      "table": "score_runs",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "1111",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/admin/assessment-review.ts:44 S",
+        "src/lib/reports/assemble-report-data.ts:91 S",
+        "src/lib/snapshot/free-snapshot.ts:58 S"
+      ],
+      "justification": "Read-only score result, snapshot and report assembly."
+    }
   ],
   "serviceRoleRpcs": [
-    {"signature":"public.assessment_resume_capability()","securityMode":"INVOKER","searchPath":"public, pg_temp","sources":["src/lib/assessment-experience/resume-capability.ts:16"]},
-    {"signature":"public.authorize_manual_report_ai_action(uuid,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/automation/manual-ai-attempt-store.ts:18"]},
-    {"signature":"public.automatic_release_completed_fulfilment(uuid,uuid,text)","securityMode":"DEFINER","searchPath":"","sources":["src/app/score/api/internal/fulfilment-worker/route.ts:233"]},
-    {"signature":"public.check_rate_limit(text,integer,integer)","securityMode":"DEFINER","searchPath":"public","sources":["src/lib/security/rate-limit.ts:26"]},
-    {"signature":"public.claim_exact_delivery(uuid,uuid,text,integer)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/fulfilment/delivery-worker.ts:97"]},
-    {"signature":"public.claim_exact_fulfilment_job(uuid,text,integer)","securityMode":"DEFINER","searchPath":"","sources":["src/app/score/api/internal/fulfilment-worker/route.ts:126"]},
-    {"signature":"public.claim_manual_report_ai_attempt(jsonb)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/automation/manual-ai-attempt-store.ts:57"]},
-    {"signature":"public.claim_manual_report_delivery(uuid,text,uuid,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-delivery.ts:70"]},
-    {"signature":"public.claim_manual_report_generation(text,uuid,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-fulfilment.ts:235"]},
-    {"signature":"public.claim_next_delivery(text,integer)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/fulfilment/delivery-worker.ts:103"]},
-    {"signature":"public.claim_next_fulfilment_job(text,integer)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/app/score/api/internal/fulfilment-worker/route.ts:131"]},
-    {"signature":"public.claim_payment_report_generation(text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-fulfilment.ts:230"]},
-    {"signature":"public.complete_manual_report_delivery(uuid,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-delivery.ts:125"]},
-    {"signature":"public.complete_manual_report_generation(uuid,uuid,report_type,text,text,text,text,bigint,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-fulfilment.ts:457"]},
-    {"signature":"public.complete_score_run_atomic(uuid,uuid,score_run_type,text,uuid,jsonb,jsonb,jsonb,jsonb)","securityMode":"DEFINER","searchPath":"public","sources":["src/lib/scoring/score-assessment.ts:168"]},
-    {"signature":"public.execute_phase14_worker_step(jsonb,text,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/phase14-security.ts:170","src/lib/reports/phase14-security.ts:317 dynamic resolution"]},
-    {"signature":"public.fail_delivery(uuid,uuid,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/fulfilment/delivery-worker.ts:285"]},
-    {"signature":"public.fail_fulfilment_job(uuid,text,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/app/score/api/internal/fulfilment-worker/route.ts:191"]},
-    {"signature":"public.fail_manual_report_generation(uuid,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-fulfilment.ts:165"]},
-    {"signature":"public.finalize_delivery(uuid,uuid,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/fulfilment/delivery-worker.ts:213"]},
-    {"signature":"public.get_phase14_worker_attestation_context(uuid)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/phase14-security.ts:205","src/lib/reports/phase14-security.ts:228"]},
-    {"signature":"public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)","securityMode":"DEFINER","searchPath":"","sources":["src/app/score/api/webhooks/resend/route.ts:109"]},
-    {"signature":"public.issue_customer_report_access_token(uuid,uuid,text,integer)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/fulfilment/delivery-worker.ts:148"]},
-    {"signature":"public.mark_delivery_dispatch_started(uuid,uuid)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/fulfilment/delivery-worker.ts:164"]},
-    {"signature":"public.mark_delivery_reconciliation_required(uuid,uuid,text,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/fulfilment/delivery-worker.ts:219"]},
-    {"signature":"public.payment_automation_capability()","securityMode":"INVOKER","searchPath":"public, pg_temp","sources":["src/lib/payments/payment-capability.ts:30"]},
-    {"signature":"public.phase1_manual_fulfilment_capability()","securityMode":"DEFINER","searchPath":"public, pg_catalog, pg_temp","sources":["src/lib/reports/phase1-schema-capability.ts:59"]},
-    {"signature":"public.rc1_freeze_status()","securityMode":"DEFINER","searchPath":"","sources":["src/lib/rc1/operation-freeze.ts:58"]},
-    {"signature":"public.record_automatic_fulfilment_exception(uuid,uuid,text,text,text,text)","securityMode":"DEFINER","searchPath":"","sources":["src/app/score/api/internal/fulfilment-worker/route.ts:98","src/lib/fulfilment/delivery-worker.ts:50","src/lib/fulfilment/immediate-dispatch.ts:79"]},
-    {"signature":"public.record_fulfilment_dispatch_result(uuid,uuid,text,integer,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/fulfilment/immediate-dispatch.ts:67"]},
-    {"signature":"public.record_manual_report_narrative_provenance(uuid,jsonb)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/automation/manual-narrative-provenance.ts:28"]},
-    {"signature":"public.record_payment_transition(text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/payments/payment-service.ts:69"]},
-    {"signature":"public.record_phase14_operational_alert(text,text,uuid,uuid,jsonb,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/automation/workflow-start.ts:94","src/lib/reports/download-verification.ts:21","src/lib/reports/email/delivery-dispatch.ts:39"]},
-    {"signature":"public.record_phase14_provider_lookup_attestation(text,text,uuid,uuid,text,text,text,jsonb,bigint,uuid,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/email/report-delivery-service-core.ts:334"]},
-    {"signature":"public.record_unmatched_payment_event(text,text,text,text,text,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/payments/payment-service.ts:57"]},
-    {"signature":"public.recover_phase14_worker_capability_lease(jsonb,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/phase14-security.ts:267"]},
-    {"signature":"public.save_assessment_resume_state(text,text,uuid,integer,text)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/app/score/assessment/[assessmentRef]/page.tsx:129","src/lib/respondent/assessment-save.ts:230"]},
-    {"signature":"public.settle_manual_report_ai_attempt(uuid,jsonb)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/automation/manual-ai-attempt-store.ts:64"]},
-    {"signature":"public.start_manual_report_generation(uuid)","securityMode":"DEFINER","searchPath":"public, pg_temp","sources":["src/lib/reports/phase1-manual-fulfilment.ts:298"]},
-    {"signature":"public.terminal_phase14_generation_publication(jsonb,text,text)","securityMode":"DEFINER","searchPath":"","sources":["src/lib/reports/phase14-security.ts:317 dynamic resolution"]}
+    {
+      "signature": "public.assessment_resume_capability()",
+      "securityMode": "INVOKER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/assessment-experience/resume-capability.ts:16"
+      ]
+    },
+    {
+      "signature": "public.authorize_manual_report_ai_action(uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:18"
+      ]
+    },
+    {
+      "signature": "public.automatic_release_completed_fulfilment(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:233"
+      ]
+    },
+    {
+      "signature": "public.check_rate_limit(text,integer,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public",
+      "sources": [
+        "src/lib/security/rate-limit.ts:26"
+      ]
+    },
+    {
+      "signature": "public.claim_exact_delivery(uuid,uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:97"
+      ]
+    },
+    {
+      "signature": "public.claim_exact_fulfilment_job(uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:126"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_ai_attempt(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:57"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_delivery(uuid,text,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-delivery.ts:70"
+      ]
+    },
+    {
+      "signature": "public.claim_manual_report_generation(text,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:235"
+      ]
+    },
+    {
+      "signature": "public.claim_next_delivery(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:103"
+      ]
+    },
+    {
+      "signature": "public.claim_next_fulfilment_job(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:131"
+      ]
+    },
+    {
+      "signature": "public.claim_payment_report_generation(text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:230"
+      ]
+    },
+    {
+      "signature": "public.complete_manual_report_delivery(uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-delivery.ts:125"
+      ]
+    },
+    {
+      "signature": "public.complete_manual_report_generation(uuid,uuid,report_type,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:457"
+      ]
+    },
+    {
+      "signature": "public.complete_score_run_atomic(uuid,uuid,score_run_type,text,uuid,jsonb,jsonb,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "public",
+      "sources": [
+        "src/lib/scoring/score-assessment.ts:168"
+      ]
+    },
+    {
+      "signature": "public.execute_phase14_worker_step(jsonb,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:170",
+        "src/lib/reports/phase14-security.ts:317 dynamic resolution"
+      ]
+    },
+    {
+      "signature": "public.fail_delivery(uuid,uuid,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:285"
+      ]
+    },
+    {
+      "signature": "public.fail_fulfilment_job(uuid,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:191"
+      ]
+    },
+    {
+      "signature": "public.fail_manual_report_generation(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:165"
+      ]
+    },
+    {
+      "signature": "public.finalize_delivery(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:213"
+      ]
+    },
+    {
+      "signature": "public.get_phase14_worker_attestation_context(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:205",
+        "src/lib/reports/phase14-security.ts:228"
+      ]
+    },
+    {
+      "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:109"
+      ]
+    },
+    {
+      "signature": "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:148"
+      ]
+    },
+    {
+      "signature": "public.mark_delivery_dispatch_started(uuid,uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:164"
+      ]
+    },
+    {
+      "signature": "public.mark_delivery_reconciliation_required(uuid,uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/delivery-worker.ts:219"
+      ]
+    },
+    {
+      "signature": "public.payment_automation_capability()",
+      "securityMode": "INVOKER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/payments/payment-capability.ts:30"
+      ]
+    },
+    {
+      "signature": "public.phase1_manual_fulfilment_capability()",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_catalog, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-schema-capability.ts:59"
+      ]
+    },
+    {
+      "signature": "public.rc1_freeze_status()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/rc1/operation-freeze.ts:58"
+      ]
+    },
+    {
+      "signature": "public.record_automatic_fulfilment_exception(uuid,uuid,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/fulfilment-worker/route.ts:98",
+        "src/lib/fulfilment/delivery-worker.ts:50",
+        "src/lib/fulfilment/immediate-dispatch.ts:79"
+      ]
+    },
+    {
+      "signature": "public.record_fulfilment_dispatch_result(uuid,uuid,text,integer,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/fulfilment/immediate-dispatch.ts:67"
+      ]
+    },
+    {
+      "signature": "public.record_manual_report_narrative_provenance(uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-narrative-provenance.ts:28"
+      ]
+    },
+    {
+      "signature": "public.record_payment_transition(text,text,text,text,integer,text,text,text,timestamptz,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/payments/payment-service.ts:69"
+      ]
+    },
+    {
+      "signature": "public.record_phase14_operational_alert(text,text,uuid,uuid,jsonb,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/workflow-start.ts:94",
+        "src/lib/reports/download-verification.ts:21",
+        "src/lib/reports/email/delivery-dispatch.ts:39"
+      ]
+    },
+    {
+      "signature": "public.record_phase14_provider_lookup_attestation(text,text,uuid,uuid,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:362"
+      ]
+    },
+    {
+      "signature": "public.record_report_quality_diagnostics(uuid,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:202"
+      ]
+    },
+    {
+      "signature": "public.record_unmatched_payment_event(text,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/payments/payment-service.ts:57"
+      ]
+    },
+    {
+      "signature": "public.recover_phase14_worker_capability_lease(jsonb,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:267"
+      ]
+    },
+    {
+      "signature": "public.save_assessment_resume_state(text,text,uuid,integer,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/app/score/assessment/[assessmentRef]/page.tsx:129",
+        "src/lib/respondent/assessment-save.ts:230"
+      ]
+    },
+    {
+      "signature": "public.settle_manual_report_ai_attempt(uuid,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:64"
+      ]
+    },
+    {
+      "signature": "public.start_manual_report_generation(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:298"
+      ]
+    },
+    {
+      "signature": "public.terminal_phase14_generation_publication(jsonb,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase14-security.ts:317 dynamic resolution"
+      ]
+    }
   ],
   "nonServiceRpcClassifications": {
     "AUTHENTICATED ADMIN CLIENT ONLY": [
@@ -151,14 +1000,16 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+    "src/lib/rc1/control-plane.ts:510",
+    "src/lib/rc1/control-plane.ts:516",
     "src/lib/reports/customer-report-access.ts:176",
     "src/lib/reports/customer-report-access.ts:192",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:27",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:180",
-    "src/lib/reports/phase1-manual-fulfilment.ts:445",
-    "src/lib/reports/phase1-manual-fulfilment.ts:521",
+    "src/lib/reports/phase1-manual-fulfilment.ts:224",
+    "src/lib/reports/phase1-manual-fulfilment.ts:491",
+    "src/lib/reports/phase1-manual-fulfilment.ts:567",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:721",
@@ -206,17 +1057,19 @@
       "src/lib/reports/delivery-recovery-service.ts:224:rpc",
       "src/lib/reports/delivery-recovery-service.ts:234:rpc",
       "src/lib/reports/delivery-recovery-service.ts:261:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:184:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:223:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:291:rpc",
-      "src/lib/reports/email/report-delivery-service-core.ts:345:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:191:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:251:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:319:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:373:rpc",
       "src/lib/reports/premium-report-download.ts:19:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:140:rpc",
-      "src/lib/reports/email/delivery-dispatch.ts:181:rpc"
+      "src/lib/reports/email/delivery-dispatch.ts:181:rpc",
+      "src/lib/rc1/control-plane.ts:76:from",
+      "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "e26856f0698bfd08e442861ce0b6decc031264614986dfe689e5b0dd75b809a9"
+    "fullAstInventorySha256": "354a1fd76cf152065ab6c579ad9d8745b3bca3caad4c7b9611b991f0b847bd4a"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

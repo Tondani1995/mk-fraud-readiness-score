@@ -100,6 +100,22 @@ const INDIRECT_MATURITY: Array<{ band: string; pattern: RegExp }> = [
   { band: 'Strategic', pattern: /\b(?:intelligence[- ]led|continuously optimised|fully embedded)\s+(?:maturity|readiness|operating model|control environment)\b/i }
 ];
 
+/**
+ * The metric evidence references a piece of text obliges its section to cite.
+ *
+ * Single source of truth with METRIC_CLAIMS below: a section whose body invokes a metric phrase
+ * must cite that metric's evidence, so the builder asks this function rather than restating the
+ * patterns. Returns only the refs the text actually triggers -- it never widens a section's
+ * grounding beyond what its own wording requires.
+ */
+export function requiredMetricRefsFor(text: string): string[] {
+  const refs = new Set<string>();
+  for (const metric of METRIC_CLAIMS) {
+    if (metric.pattern.test(text)) metric.requiredRefs.forEach((ref) => refs.add(ref));
+  }
+  return [...refs];
+}
+
 function validateMetricClaims(
   path: string,
   value: { title?: string; body: string; evidenceRefs?: string[] },
@@ -251,8 +267,43 @@ function validateEvidenceRefs(path: string, refs: unknown, knownRefs: Set<string
   }
 }
 
+/** Nouns that make a band token a maturity classification rather than an ordinary adjective. */
+const MATURITY_NOUN = '(?:band|maturity|readiness|posture|tier|level|rating|classification|stage|grade)';
+
+/** Verbs that place a band token in predicative (classifying) position. */
+const MATURITY_COPULA =
+  '(?:is|are|was|were|remains?|sits?|stands?|falls?|scored?|scores|rated?|assessed|classified|placed|presents?|described|characterised|characterized|regarded|considered|deemed|judged)';
+
+/**
+ * A band token only counts as a maturity claim when it is actually used to classify something.
+ *
+ * A bare `\b<Band>\b` match cannot tell the Structured *band* from the ordinary English adjective,
+ * so an assessed control quoted verbatim -- "has completed a structured fraud risk assessment"
+ * (D2-Q01) -- was read as claiming the Structured band and failed maturity_evidence_mismatch on
+ * the live paid journey. Reactive, Developing, Structured and Strategic are all everyday
+ * adjectives, so the same false positive is latent in any section that quotes a question prompt.
+ *
+ * This mirrors how the neighbouring detectors already work -- exposureMentions anchors on
+ * "<Band> exposure" and INDIRECT_MATURITY anchors on maturity vocabulary -- and it narrows only
+ * the false-positive surface: a band attached to maturity vocabulary, or standing predicatively at
+ * a clause boundary, still registers, so genuine unsupported and contradictory band claims fail
+ * exactly as before.
+ */
 function maturityMentions(text: string) {
-  return MATURITY_BANDS.filter((band) => new RegExp(`\\b${band}\\b`, 'i').test(text));
+  // Predicative use only counts when the band ends the clause or is followed by maturity
+  // vocabulary or a conjunction -- "is Strategic." and "is Strategic and fully embedded" are
+  // claims, while "a structured fraud risk assessment" is the adjective modifying a plain noun.
+  const clauseBoundary = `(?=\\s*(?:[.,;:!?)\\]]|$)|\\s+(?:and|or|but|rather|because|which|while|with|overall|${MATURITY_NOUN}))`;
+
+  return MATURITY_BANDS.filter((band) => {
+    const bandWithNoun = new RegExp(`\\b${band}\\b\\s+${MATURITY_NOUN}\\b`, 'i');
+    const nounWithBand = new RegExp(`\\b${MATURITY_NOUN}\\b\\s*(?:of|is|as|:)?\\s*(?:an?\\s+|the\\s+)?\\b${band}\\b`, 'i');
+    const predicative = new RegExp(
+      `\\b${MATURITY_COPULA}\\s+(?:at|as|within|in)?\\s*(?:an?\\s+|the\\s+)?\\b${band}\\b${clauseBoundary}`,
+      'i'
+    );
+    return bandWithNoun.test(text) || nounWithBand.test(text) || predicative.test(text);
+  });
 }
 
 function overallMaturityMentions(text: string) {

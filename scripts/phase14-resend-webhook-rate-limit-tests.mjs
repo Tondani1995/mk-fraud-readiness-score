@@ -53,8 +53,17 @@ function loadRoute({ rateLimitAllowed, readBodyCalled }) {
         validateResendEventCreatedAt: () => new Date().toISOString(),
         verifyResendWebhook: () => ({ type: 'email.delivered', data: { email_id: 'evt' }, created_at: new Date().toISOString() }),
         webhookPayloadFingerprint: () => 'a'.repeat(64),
-        createProviderWebhookDatabaseAttestation: () => ({ attestedAtEpoch: 0, nonce: 'n', hmac: 'h' })
+        createProviderWebhookDatabaseAttestation: () => ({ attestedAtEpoch: 0, nonce: 'n', hmac: 'h' }),
+        // RC1 observability additions used by the route's safe rejection logging.
+        isResendWebhookVerificationError: (error) => !!error && typeof error?.reason === 'string',
+        isSupportedResendEventType: () => true
       };
+    }
+    // The route has gated every RC1 operation surface behind the operational freeze since
+    // 20260722120000; this stub keeps the rate-limit assertion (which must be evaluated before any
+    // body work) reachable without pulling in the freeze machinery or a database.
+    if (specifier === '@/lib/rc1/operation-freeze') {
+      return { getRc1OperationFreezeResponse: async () => null };
     }
     throw new Error(`Unexpected route.ts dependency in test: ${specifier}`);
   });

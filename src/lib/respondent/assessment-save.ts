@@ -313,12 +313,13 @@ export async function submitAssessment(payload: { assessmentReference: string; t
   if (errors.length) return { ok: false as const, status: 400, errors: [...new Set(errors)], progress };
 
   const now = new Date().toISOString();
-  const { data: lockedAssessment, error } = await service
+  let updateResult = await service
     .from('assessments')
     .update({
       status: 'submitted',
       submitted_at: now,
-      locked_at: now
+      locked_at: now,
+      completion_percentage: progress.overallPct
     })
     .eq('id', assessment.id)
     .eq('status', 'draft')
@@ -327,6 +328,25 @@ export async function submitAssessment(payload: { assessmentReference: string; t
     .select('id')
     .maybeSingle();
 
+  // The 0023 compatibility boundary predates completion_percentage. Keep that
+  // boundary usable without weakening the final-schema atomic update above.
+  if (updateResult.error && /completion_percentage.*schema cache/i.test(updateResult.error.message)) {
+    updateResult = await service
+      .from('assessments')
+      .update({
+        status: 'submitted',
+        submitted_at: now,
+        locked_at: now
+      })
+      .eq('id', assessment.id)
+      .eq('status', 'draft')
+      .is('locked_at', null)
+      .is('submitted_at', null)
+      .select('id')
+      .maybeSingle();
+  }
+
+  const { data: lockedAssessment, error } = updateResult;
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
   if (!lockedAssessment) {
     return { ok: false as const, status: 409, errors: ['assessment_already_submitted_or_locked'], progress };

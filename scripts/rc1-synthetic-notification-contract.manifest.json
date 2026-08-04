@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "contract": "RC1_SYNTHETIC_HEALTHY_JOURNEY_NOTIFICATIONS",
+  "syntheticMailbox": "admin@mkfraud.co.za",
+  "expectedExternalMessageCount": 4,
+  "expectedUniqueProviderMessageIdCount": 4,
+  "expectedSignedDeliveryCallbackCount": 4,
+  "emailEventClassifications": [
+    "NON_PROVIDER_PLACEHOLDER",
+    "EXPECTED_EXTERNAL_SEND",
+    "EXCEPTION",
+    "DUPLICATE",
+    "UNEXPECTED"
+  ],
+  "messages": [
+    {
+      "id": "customer_order_confirmation",
+      "stage": "ORDER_CREATED_CUSTOMER_CONFIRMATION",
+      "recipientClass": "SYNTHETIC_CUSTOMER",
+      "templateOrMessageType": "customer_order_confirmation",
+      "sourceFunction": "recordPhase1OrderNotifications",
+      "source": {
+        "file": "src/lib/notifications/phase1-order-notifications.ts",
+        "functionLine": 361,
+        "messageLine": 395
+      },
+      "dedupeKeyConstruction": "phase1:customer_order_confirmation:<order_id>",
+      "providerIdempotencyKeyConstruction": "<email_events.id>",
+      "expectedProviderMode": "test",
+      "expectedProviderMessageCount": 1,
+      "expectedCallbackCount": 1,
+      "expectedDatabaseEventType": "email_events.notification_type=customer_order_confirmation",
+      "duplicateRetryBehaviour": "The email_events.dedupe_key lookup and unique index reuse the original row; the provider is not called again."
+    },
+    {
+      "id": "admin_new_order_notification",
+      "stage": "ORDER_CREATED_INTERNAL_NOTIFICATION",
+      "recipientClass": "INTERNAL_STAGING",
+      "templateOrMessageType": "admin_new_order_notification",
+      "sourceFunction": "recordPhase1OrderNotifications",
+      "source": {
+        "file": "src/lib/notifications/phase1-order-notifications.ts",
+        "functionLine": 361,
+        "messageLine": 410
+      },
+      "dedupeKeyConstruction": "phase1:admin_new_order_notification:<order_id>",
+      "providerIdempotencyKeyConstruction": "<email_events.id>",
+      "expectedProviderMode": "test",
+      "expectedProviderMessageCount": 1,
+      "expectedCallbackCount": 1,
+      "expectedDatabaseEventType": "email_events.notification_type=admin_new_order_notification",
+      "duplicateRetryBehaviour": "The email_events.dedupe_key lookup and unique index reuse the original row; the provider is not called again."
+    },
+    {
+      "id": "payment_confirmed",
+      "stage": "PAYMENT_CONFIRMED",
+      "recipientClass": "SYNTHETIC_CUSTOMER",
+      "templateOrMessageType": "payment_confirmed",
+      "sourceFunction": "recordPaymentConfirmedNotification",
+      "source": {
+        "file": "src/lib/notifications/phase1-order-notifications.ts",
+        "functionLine": 446,
+        "messageLine": 452
+      },
+      "dedupeKeyConstruction": "phase1:payment_confirmed:<order_id>",
+      "providerIdempotencyKeyConstruction": "<email_events.id>",
+      "expectedProviderMode": "test",
+      "expectedProviderMessageCount": 1,
+      "expectedCallbackCount": 1,
+      "expectedDatabaseEventType": "email_events.notification_type=payment_confirmed",
+      "duplicateRetryBehaviour": "Duplicate payment transitions skip notification dispatch; a repeated notification call also reuses the email_events.dedupe_key row."
+    },
+    {
+      "id": "premium_report_pdf",
+      "stage": "REPORT_DELIVERY",
+      "recipientClass": "SYNTHETIC_CUSTOMER",
+      "templateOrMessageType": "premium_report_pdf",
+      "sourceFunction": "deliverPremiumReportEmail",
+      "source": {
+        "file": "src/lib/reports/email/report-delivery-service-core.ts",
+        "functionLine": 126,
+        "messageLine": 280
+      },
+      "dedupeKeyConstruction": "premium-report-delivery:<report_id>:<lowercase_recipient>:attempt-<attempt_number>",
+      "providerIdempotencyKeyConstruction": "<email_events.provider_request_key>, equal to the durable delivery dedupe key",
+      "expectedProviderMode": "test",
+      "expectedProviderMessageCount": 1,
+      "expectedCallbackCount": 1,
+      "expectedDatabaseEventType": "email_events.notification_type=premium_report_pdf",
+      "duplicateRetryBehaviour": "A completed initial send is returned as reused_existing_send; worker retry reuses the durable authorization/provider request identity and cannot create a second provider send."
+    }
+  ],
+  "assessmentStartPlaceholder": {
+    "templateOrMessageType": "resume_link_phase4_placeholder",
+    "classification": "NON_PROVIDER_PLACEHOLDER",
+    "sourceFunction": "startAssessment",
+    "source": {
+      "file": "src/lib/respondent/start-assessment.ts",
+      "recordLine": 115,
+      "templateLine": 118
+    },
+    "externallyDispatched": false,
+    "countsTowardExternalMessages": false,
+    "countsAsReportDeliveryEvidence": false,
+    "expectedProviderMessageCount": 0,
+    "expectedCallbackCount": 0
+  },
+  "healthyJourney": {
+    "exactlyOneEach": [
+      "customer_order_confirmation",
+      "admin_new_order_notification",
+      "payment_confirmed",
+      "premium_report_pdf"
+    ],
+    "zero": [
+      "exception_alerts",
+      "duplicate_sends",
+      "bounce_remediation_sends",
+      "recipient_override_sends",
+      "recovery_driven_resends"
+    ],
+    "callbackBinding": "Each signed delivery callback must resolve by provider and provider_message_id to the same email_event identity; rebinding to a different email_event is forbidden."
+  }
+}

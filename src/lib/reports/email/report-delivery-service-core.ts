@@ -31,6 +31,7 @@ export type DeliverPremiumReportEmailInput = {
   allowNonProductionTestOverride?: boolean;
   workerLease?: Phase14WorkerLease;
   transport?: ReportEmailTransport;
+  developmentMode?: boolean;
 };
 
 export type DeliverPremiumReportEmailResult = {
@@ -44,6 +45,7 @@ export type DeliverPremiumReportEmailResult = {
 
 type DeliveryAuthorization = {
   reused_existing_send: boolean;
+  in_progress?: boolean;
   authorization_id?: string;
   email_event_id: string;
   provider_message_id?: string | null;
@@ -115,15 +117,22 @@ function deliveryEnvironmentIdentifier() {
   return safeCorrelationTagValue(process.env.VERCEL_ENV?.trim() || process.env.NODE_ENV?.trim() || 'unknown');
 }
 
+function isProductionDeployment() {
+  const vercelEnvironment = process.env.VERCEL_ENV?.trim().toLowerCase();
+  return vercelEnvironment === 'production'
+    || (!vercelEnvironment && process.env.NODE_ENV?.trim().toLowerCase() === 'production');
+}
+
 export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmailInput): Promise<DeliverPremiumReportEmailResult> {
-  const flags = await getPremiumReportAutomationFlags();
-  if (input.actor.action === 'automatic_email' && !flags.autoEmailEnabled) {
+  const developmentMode = input.developmentMode === true;
+  const flags = developmentMode ? null : await getPremiumReportAutomationFlags();
+  if (!developmentMode && input.actor.action === 'automatic_email' && !flags!.autoEmailEnabled) {
     throw new Error('Automatic premium-report email is disabled.');
   }
-  if (input.actor.action !== 'automatic_email' && !flags.manualDeliveryEnabled) {
+  if (!developmentMode && input.actor.action !== 'automatic_email' && !flags!.manualDeliveryEnabled) {
     throw new Error('Manual premium-report delivery policy is disabled.');
   }
-  if (input.actor.actorType === 'system' && !input.workerLease) {
+  if (!developmentMode && input.actor.actorType === 'system' && !input.workerLease) {
     throw new Error('Automatic premium-report email requires a durable worker capability lease.');
   }
   if (input.workerLease && (input.bounceRetry || input.recipientOverride)) {
@@ -131,9 +140,11 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   }
 
   const action = input.bounceRetry ? 'email_resend' : 'email_delivery';
-  const { client: privilegedDb } = input.workerLease
-    ? await requirePhase14WorkerAction(input.workerLease, action)
-    : await requirePhase14Action(action);
+  const privilegedDb = developmentMode
+    ? createSupabaseServiceClient() as any
+    : input.workerLease
+      ? (await requirePhase14WorkerAction(input.workerLease, action)).client
+      : (await requirePhase14Action(action)).client;
   const db = createSupabaseServiceClient() as any;
   const report = await loadReport(db, input.reportId);
   // H5: application-layer defense-in-depth, on top of (never instead of) the RPC call below to
@@ -154,18 +165,24 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   const order: any = one(report.orders);
   const customerRecipient = email(order?.customer_email);
   if (!customerRecipient) throw new Error('The customer delivery address is invalid.');
-  const overridePermitted = process.env.NODE_ENV !== 'production'
-    && flags.testRecipientOverrideEnabled
-    && input.allowNonProductionTestOverride === true;
+  const overridePermitted = developmentMode || (!isProductionDeployment()
+    && flags!.testRecipientOverrideEnabled
+    && input.allowNonProductionTestOverride === true);
   if (input.recipientOverride && !overridePermitted) {
     throw new Error('Recipient overrides require explicitly enabled non-production test mode.');
   }
   const recipient = email(overridePermitted
-    ? input.recipientOverride ?? flags.testRecipientOverride ?? customerRecipient
+    ? input.recipientOverride ?? flags!.testRecipientOverride ?? customerRecipient
     : customerRecipient);
   if (!recipient) throw new Error('The resolved report recipient is invalid.');
 
-  const { data: authorizationData, error: authorizationError } = input.workerLease
+  const { data: authorizationData, error: authorizationError } = developmentMode
+    ? await privilegedDb.rpc('preview_development_prepare_premium_report_delivery', {
+        p_report_id: input.reportId,
+        p_recipient: recipient,
+        p_provider: 'resend'
+      })
+    : input.workerLease
     ? await (async () => {
         try {
           return {
@@ -189,6 +206,27 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
           p_provider: 'resend',
           p_bounce_remediation_id: input.bounceRetry?.remediationId ?? null
         });
+  if (authorizationError?.code === '23505'
+      && String(authorizationError.message ?? '').includes('report_delivery_authorizations_one_active_uidx')) {
+    const { data: active } = await db.from('report_delivery_authorizations')
+      .select('id,status,email_event_id,provider_message_id,recipient_email,test_delivery')
+      .eq('report_id', input.reportId)
+      .eq('recipient_email', recipient)
+      .in('status', ['queued', 'claimed', 'dispatching', 'reconciliation_required', 'retry_scheduled'])
+      .order('authorised_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (active) {
+      return {
+        emailEventId: active.email_event_id,
+        providerMessageId: active.provider_message_id ?? null,
+        recipient: active.recipient_email,
+        reusedExistingSend: true,
+        status: 'in_progress',
+        testDelivery: active.test_delivery
+      };
+    }
+  }
   if (authorizationError || !authorizationData) {
     throw authorizationError ?? new Error('Delivery authorization was not created.');
   }
@@ -205,7 +243,9 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
   }
   if (!authorization.authorization_id) throw new Error('Delivery authorization identity is missing.');
 
-  const { data: claimData, error: claimError } = input.workerLease
+  const { data: claimData, error: claimError } = developmentMode
+    ? { data: authorization as unknown as ClaimedDelivery, error: null }
+    : input.workerLease
     ? await (async () => {
         try {
           return {
@@ -243,6 +283,7 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     workerLease: input.workerLease,
     report,
     claim,
+    developmentMode,
     transport: input.transport ?? sendReportEmailWithResend,
     transportInput: {
       from: process.env.MK_REPORT_EMAIL_FROM?.trim() || 'MK Fraud Insights <hello@mkfraud.co.za>',
