@@ -22,6 +22,23 @@ const viewports = [
 ];
 const evidence = [];
 
+async function selectRadio(page, selector, label) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await page.click(selector);
+    try {
+      await page.waitForFunction(
+        (target) => Boolean(document.querySelector(target)?.checked),
+        { timeout: 2000 },
+        selector,
+      );
+      return;
+    } catch {
+      await delay(250);
+    }
+  }
+  throw new Error(`${label}: radio did not remain selected after retries`);
+}
+
 try {
   if (accessUrl) {
     const accessPage = await browser.newPage();
@@ -108,20 +125,14 @@ try {
       items.find((item) => !item.querySelector('input[type="radio"]:checked'))?.id ?? null
     );
     if (!nextExposureId) break;
-    await journey.click(`#${nextExposureId} input[type="radio"]`);
-    await journey.waitForFunction(
-      (id) => Boolean(document.querySelector(`#${id} input[type="radio"]:checked`)),
-      { timeout: 10000 },
-      nextExposureId,
-    );
+    await selectRadio(journey, `#${nextExposureId} input[type="radio"]`, nextExposureId);
   }
   await journey.waitForFunction(() => document.body.textContent?.includes('Domain 1 of 10'));
 
   const domainOneQuestions = await journey.$$eval('fieldset[id^="question-"]', (items) => items.map((item) => item.id));
   assert.ok(domainOneQuestions.length > 1, 'first domain questions did not render');
   for (const id of domainOneQuestions) {
-    await journey.click(`#${id} input[type="radio"][value="4"]`);
-    await delay(450);
+    await selectRadio(journey, `#${id} input[type="radio"][value="4"]`, id);
   }
   await journey.waitForFunction(() => document.body.textContent?.includes('Domain 2 of 10'));
 
@@ -137,8 +148,7 @@ try {
   await journey.select('label.sm\\:hidden select', await journey.$eval('label.sm\\:hidden select option:nth-child(2)', (option) => option.value));
   await journey.waitForSelector('fieldset[id^="question-"] input[type="radio"]:checked');
   const completedQuestion = await journey.$eval('fieldset[id^="question-"]', (element) => element.id);
-  await journey.click(`#${completedQuestion} input[type="radio"][value="3"]`);
-  await delay(500);
+  await selectRadio(journey, `#${completedQuestion} input[type="radio"][value="3"]`, completedQuestion);
   await journey.reload({ waitUntil: 'networkidle0' });
   await journey.waitForSelector('[data-assessment-native="true"]');
   assert.match(await journey.$eval('[role="progressbar"]', (element) => element.getAttribute('aria-valuenow') ?? ''), /^[1-9]\d*$/);
