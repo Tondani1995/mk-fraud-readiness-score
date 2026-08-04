@@ -8,7 +8,7 @@ begin;
 
 insert into auth.users (id, email)
 values (
-  '2d100000-0000-0000-0000-000000000001',
+  '2d100000-0000-4000-8000-000000000001',
   'rc1-disposable-ci@invalid.local'
 )
 on conflict (id) do nothing;
