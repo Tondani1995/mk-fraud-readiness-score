@@ -94,6 +94,9 @@ try {
 
   const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
     .filter((name) => name.endsWith('.sql') && name !== migrationName)
+    // Checkpoint E is a historical migration-replay contract. Later RC1/G29 migrations
+    // require schema introduced after this fixture boundary and do not belong in this replay.
+    .filter((name) => name.slice(0, 14) < '20260722143000')
     .sort();
   for (const name of migrationFiles) {
     await db.query(fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8'));

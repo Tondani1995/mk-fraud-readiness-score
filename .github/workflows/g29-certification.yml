@@ -56,6 +56,8 @@ jobs:
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --file=scripts/rc1-release-disposable-test-database.sql
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/g29-disposable-payment-fixture.sql
           test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
       - name: Run selected G29 suites
         run: npm run g29:regression -- --live

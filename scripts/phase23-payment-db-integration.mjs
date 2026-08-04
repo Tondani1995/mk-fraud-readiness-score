@@ -10,7 +10,7 @@ assert.ok(['127.0.0.1', 'localhost', '::1'].includes(new URL(supabaseUrl).hostna
 const db = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const nonce = crypto.randomUUID();
 const { data: assessment, error: assessmentError } = await db.from('assessments')
-  .select('id').in('status', ['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'])
+  .select('id,organisation_id').in('status', ['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'])
   .not('current_score_run_id', 'is', null).order('created_at', { ascending: false }).limit(1).single();
 assert.ifError(assessmentError);
 const { data: product, error: productError } = await db.from('products').select('id').eq('active', true).limit(1).single();
@@ -116,5 +116,10 @@ try {
 
   console.log(JSON.stringify({ ok: true, concurrentWebhookCalls: 8, concurrentManualCalls: 8, paymentTransitions: 2, generationAttempts: 1 }));
 } finally {
-  await db.from('orders').delete().in('order_reference', orderReferences);
+  const { error: orderCleanupError } = await db.from('orders').delete().in('order_reference', orderReferences);
+  assert.ifError(orderCleanupError);
+  const { error: assessmentCleanupError } = await db.from('assessments').delete().eq('id', assessment.id);
+  assert.ifError(assessmentCleanupError);
+  const { error: organisationCleanupError } = await db.from('organisations').delete().eq('id', assessment.organisation_id);
+  assert.ifError(organisationCleanupError);
 }

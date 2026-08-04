@@ -25,46 +25,6 @@ const db = new Client({
   password: 'testpass',
   database: 'testdb',
 });
-const pendingVersions = new Set([
-  '20260722120000',
-  '20260722143000',
-  '20260724150000',
-  '20260724160000',
-  '20260724170000',
-  '20260724180000',
-  '20260725090000',
-  '20260725150000',
-  '20260728120000',
-  '20260728190000',
-  '20260728191000',
-  '20260729113242',
-  '20260729170000',
-  '20260730120000',
-  '20260730130000',
-  '20260731130000',
-  '20260731150000',
-  '20260731170000',
-  '20260801070000',
-  '20260801090000',
-  '20260801120000',
-  '20260801140000',
-  '20260801160000',
-  '20260801180000',
-  '20260801200000',
-  '20260801220000',
-  '20260802120000',
-  '20260803090000',
-  '20260803160000',
-  '20260803170000',
-  '20260803180000',
-  '20260803190000',
-  '20260803200000',
-  // Structured-band operating-state overclaim correction: report copy only, so it sits above the
-  // production boundary with the rest of the RC1 corrections.
-  '20260803210000',
-  '20260803220000',
-]);
-
 function migrationParts(name) {
   const split = name.indexOf('_');
   return {
@@ -111,7 +71,10 @@ async function replayOldBoundary() {
   const files = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .filter((name) => !pendingVersions.has(migrationParts(name).version));
+    // This compatibility test is explicitly for the pre-Checkpoint-E schema. Keep the
+    // boundary derived from the historical version rather than growing a stale exclusion list
+    // whenever later migrations are added to the repository.
+    .filter((name) => migrationParts(name).version <= '20260721150808');
   assert.equal(files.length, 34);
   for (const name of files) {
     const { version, migrationName } = migrationParts(name);
