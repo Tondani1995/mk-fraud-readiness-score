@@ -55,6 +55,17 @@ function fallbackResult(
   const validation = validatePremiumReportNarrative(narrative, evidence);
 
   if (!validation.ok) {
+    console.error('commercial_report_narrative_grounding_failure', {
+      source: 'deterministic_fallback',
+      assessmentReference: evidence.assessmentReference,
+      issueCount: validation.issues.length,
+      numericClaims: validation.issues
+        .filter((item) => item.code === 'unsupported_numeric_claim')
+        .map((item) => ({
+          path: item.path,
+          token: item.message.match(/Numeric claim "([^"]+)"/)?.[1] ?? null
+        }))
+    });
     throw new ReportCommercialQualityError(
       // Preserve the real validation code. Collapsing every grounding failure into the generic
       // evaluator-exception code made a genuine, specific failure indistinguishable from an
