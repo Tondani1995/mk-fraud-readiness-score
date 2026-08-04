@@ -25,6 +25,7 @@ type AdaptiveAssessment = {
   methodology_version_id: string;
   status: string;
   assessment_mode: string;
+  current_score_run_id: string | null;
   graph_version_id: string;
   graph_version_snapshot: string;
   graph_fingerprint_snapshot: string;
@@ -79,7 +80,7 @@ async function loadAdaptiveByToken(assessmentReference: string, rawToken: string
   if (token.use_count >= token.max_uses) throw new Error('adaptive_token_use_limit_reached');
 
   const { data: assessment, error: assessmentError } = await db.from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at')
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,methodology_version_id,status,assessment_mode,current_score_run_id,graph_version_id,graph_version_snapshot,graph_fingerprint_snapshot,submitted_at,locked_at')
     .eq('id', token.assessment_id).eq('assessment_reference', assessmentReference).maybeSingle();
   if (assessmentError || !assessment) throw new Error('adaptive_assessment_not_found');
   if (assessment.assessment_mode !== 'adaptive') throw new Error('adaptive_mode_required');
@@ -220,7 +221,12 @@ export async function saveAdaptiveAssessmentState(input: {
 
 export async function submitAdaptiveAssessment(assessmentReference: string, token: string, expectedSaveSequence: number) {
   const access = await loadAdaptiveByToken(assessmentReference, token);
-  if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
+  if (access.assessment.status !== 'draft' || access.assessment.locked_at || access.assessment.submitted_at) {
+    if (access.assessment.status === 'submitted' && !access.assessment.current_score_run_id) {
+      return { ok: true as const, alreadySubmitted: true, submittedAt: access.assessment.submitted_at, state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState };
+    }
+    return { ok: false as const, status: 409, errors: ['adaptive_assessment_locked'] };
+  }
   const current = await loadState(access.db, access.assessment);
   const missingGateways = current.graph.gateways.filter((gateway) => !current.gatewayAnswers[gateway.questionId]).map((gateway) => gateway.questionId);
   const signals = deriveAdaptiveIntegritySignals({ graph: current.graph, path: current.path, navigation: current.navigation, gatewayAnswers: current.gatewayAnswers });
