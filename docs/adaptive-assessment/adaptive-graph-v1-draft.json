@@ -1,0 +1,2086 @@
+{
+  "graphVersion": "MFRS-V1.1-ADAPTIVE-DRAFT-20260804",
+  "methodologyVersion": "MFRS-V1.1",
+  "status": "draft",
+  "activationPolicy": "not_customer_active",
+  "provenance": "G24 approved adaptive foundation; current MFRS-V1.1 question bank plus approved pathway structure.",
+  "responseScale": [
+    {
+      "responseValue": 0,
+      "label": "Not in place",
+      "operationalMeaning": "The control, process or capability does not exist or is not recognised as required.",
+      "normalisedScore": 0
+    },
+    {
+      "responseValue": 1,
+      "label": "Initial / ad hoc",
+      "operationalMeaning": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "normalisedScore": 20
+    },
+    {
+      "responseValue": 2,
+      "label": "Partially designed",
+      "operationalMeaning": "Some elements exist, but implementation is incomplete, inconsistent or not evidenced.",
+      "normalisedScore": 40
+    },
+    {
+      "responseValue": 3,
+      "label": "Implemented",
+      "operationalMeaning": "The capability is established in important areas, but may not operate consistently across the organisation.",
+      "normalisedScore": 60
+    },
+    {
+      "responseValue": 4,
+      "label": "Consistently operating",
+      "operationalMeaning": "The capability is formally implemented, evidenced and regularly operating.",
+      "normalisedScore": 80
+    },
+    {
+      "responseValue": 5,
+      "label": "Embedded and improved",
+      "operationalMeaning": "The capability is monitored, measured, governed and continuously improved.",
+      "normalisedScore": 100
+    }
+  ],
+  "uncertaintyOption": {
+    "value": "unknown",
+    "label": "I do not know",
+    "scoringStatus": "unknown",
+    "uncertaintyTreatment": "retained_in_denominator_zero_credit_flagged",
+    "excludedFromDenominatorRule": "never"
+  },
+  "domains": [
+    {
+      "domainCode": "D1",
+      "name": "Fraud Leadership and Governance",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 1
+    },
+    {
+      "domainCode": "D2",
+      "name": "Fraud Risk Identification",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 2
+    },
+    {
+      "domainCode": "D3",
+      "name": "Operational Fraud Controls",
+      "weightPct": 14,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 3
+    },
+    {
+      "domainCode": "D4",
+      "name": "Fraud Detection Capability",
+      "weightPct": 14,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 4
+    },
+    {
+      "domainCode": "D5",
+      "name": "Fraud Incident Response",
+      "weightPct": 10,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 5
+    },
+    {
+      "domainCode": "D6",
+      "name": "Whistleblowing and Reporting Culture",
+      "weightPct": 6,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 6
+    },
+    {
+      "domainCode": "D7",
+      "name": "Third-Party and Supply Chain Fraud Risk",
+      "weightPct": 10,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 7
+    },
+    {
+      "domainCode": "D8",
+      "name": "Digital and Identity Fraud Risk",
+      "weightPct": 12,
+      "domainType": "core",
+      "isCore": true,
+      "sortOrder": 8
+    },
+    {
+      "domainCode": "D9",
+      "name": "Fraud Culture and Awareness",
+      "weightPct": 5,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 9
+    },
+    {
+      "domainCode": "D10",
+      "name": "Continuous Improvement and Fraud Risk Monitoring",
+      "weightPct": 5,
+      "domainType": "support",
+      "isCore": false,
+      "sortOrder": 10
+    }
+  ],
+  "gateways": [
+    {
+      "questionId": "G01",
+      "section": "Organisation profile",
+      "prompt": "What best describes your organisation’s primary operating model?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 0,
+      "responseOptions": [
+        {
+          "value": "professional_services",
+          "label": "professional services"
+        },
+        {
+          "value": "retail",
+          "label": "retail"
+        },
+        {
+          "value": "construction",
+          "label": "construction"
+        },
+        {
+          "value": "online",
+          "label": "online"
+        },
+        {
+          "value": "manufacturing",
+          "label": "manufacturing"
+        },
+        {
+          "value": "other",
+          "label": "other"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G02",
+      "section": "Organisation profile",
+      "prompt": "Approximately how many people work in the organisation?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 1,
+      "responseOptions": [
+        {
+          "value": "micro",
+          "label": "micro"
+        },
+        {
+          "value": "small",
+          "label": "small"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "large",
+          "label": "large"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G03",
+      "section": "Suppliers and third parties",
+      "prompt": "Does your organisation use external suppliers or contractors?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 2,
+      "responseOptions": [
+        {
+          "value": "internal",
+          "label": "internal"
+        },
+        {
+          "value": "outsourced",
+          "label": "outsourced"
+        },
+        {
+          "value": "shared_service",
+          "label": "shared service"
+        },
+        {
+          "value": "none",
+          "label": "none"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G04",
+      "section": "Suppliers and third parties",
+      "prompt": "How is procurement or buying handled?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 3,
+      "responseOptions": [
+        {
+          "value": "internal_department",
+          "label": "internal department"
+        },
+        {
+          "value": "owner_led",
+          "label": "owner led"
+        },
+        {
+          "value": "outsourced",
+          "label": "outsourced"
+        },
+        {
+          "value": "shared_service",
+          "label": "shared service"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G05",
+      "section": "Money, stock and assets",
+      "prompt": "Does your organisation handle physical cash?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 4,
+      "responseOptions": [
+        {
+          "value": "significant",
+          "label": "significant"
+        },
+        {
+          "value": "minor",
+          "label": "minor"
+        },
+        {
+          "value": "none",
+          "label": "none"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G06",
+      "section": "Money, stock and assets",
+      "prompt": "Does your organisation hold physical stock, inventory or valuable equipment?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 5,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G07",
+      "section": "People and payroll",
+      "prompt": "How is payroll handled?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 6,
+      "responseOptions": [
+        {
+          "value": "internal",
+          "label": "internal"
+        },
+        {
+          "value": "outsourced",
+          "label": "outsourced"
+        },
+        {
+          "value": "shared_service",
+          "label": "shared service"
+        },
+        {
+          "value": "none",
+          "label": "none"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G08",
+      "section": "Digital and customers",
+      "prompt": "Does your organisation sell online or accept digital or card payments?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 7,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "platform",
+          "label": "platform"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G09",
+      "section": "Digital and customers",
+      "prompt": "Does your organisation hold personal information about customers, clients or employees?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 8,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G10",
+      "section": "Operations",
+      "prompt": "Does your organisation process refunds, credit notes or manual adjustments?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 9,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G11",
+      "section": "Operations",
+      "prompt": "Does the organisation operate from more than one site, store or project location?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 10,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G12",
+      "section": "People and payroll",
+      "prompt": "Does your organisation use temporary, seasonal or subcontracted workers?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 11,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G13",
+      "section": "Digital and customers",
+      "prompt": "Do employees work remotely or do you depend on third-party digital platforms?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 12,
+      "responseOptions": [
+        {
+          "value": "yes",
+          "label": "yes"
+        },
+        {
+          "value": "no",
+          "label": "no"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    },
+    {
+      "questionId": "G14",
+      "section": "Governance",
+      "prompt": "Who approves payments and significant spending?",
+      "questionType": "single_select",
+      "gatewayStatus": "gateway",
+      "sortOrder": 13,
+      "responseOptions": [
+        {
+          "value": "formal_delegation",
+          "label": "formal delegation"
+        },
+        {
+          "value": "owner_led",
+          "label": "owner led"
+        },
+        {
+          "value": "shared_service",
+          "label": "shared service"
+        },
+        {
+          "value": "unknown",
+          "label": "unknown"
+        }
+      ],
+      "scoringStatus": "profile_only"
+    }
+  ],
+  "gatewayBlocks": [
+    {
+      "phase": "profile",
+      "title": "About your organisation",
+      "intro": "Short operating-model questions establish applicability before the scored domains."
+    },
+    {
+      "phase": "domain:D2",
+      "title": "Before fraud-risk identification",
+      "intro": "Operating-model context determines which risk-identification pathways apply."
+    },
+    {
+      "phase": "domain:D3",
+      "title": "Before operational controls",
+      "intro": "Money, stock, people and manual-activity context determines operational applicability."
+    },
+    {
+      "phase": "domain:D7",
+      "title": "Before supplier and procurement controls",
+      "intro": "Supplier, procurement and payroll context determines direct versus retained-governance questions."
+    }
+  ],
+  "questions": [
+    {
+      "questionId": "D1-Q01",
+      "questionCode": "D1-Q01",
+      "domainCode": "D1",
+      "prompt": "A named senior owner is accountable for fraud risk management and has authority to drive action.",
+      "controlObjective": "Give one senior executive explicit authority and accountability for fraud-risk decisions.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 1,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q01"
+    },
+    {
+      "questionId": "D1-Q02",
+      "questionCode": "D1-Q02",
+      "domainCode": "D1",
+      "prompt": "Fraud risk is recognised in the organisation's wider risk or governance framework.",
+      "controlObjective": "Carry fraud risk as a named risk inside the organisation-wide risk and governance framework rather than as an informal concern.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 2,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q02"
+    },
+    {
+      "questionId": "D1-Q03",
+      "questionCode": "D1-Q03",
+      "domainCode": "D1",
+      "prompt": "Fraud risks, incidents and control weaknesses are reported to senior leadership or a governance forum on a defined rhythm.",
+      "controlObjective": "Give leadership a predictable, evidence-based view of fraud exposure, incidents and control weaknesses.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 3,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q03"
+    },
+    {
+      "questionId": "D1-Q04",
+      "questionCode": "D1-Q04",
+      "domainCode": "D1",
+      "prompt": "Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist.",
+      "controlObjective": "Separate management ownership of fraud risk from independent assurance over that ownership.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 4,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q04"
+    },
+    {
+      "questionId": "D1-Q05",
+      "questionCode": "D1-Q05",
+      "domainCode": "D1",
+      "prompt": "The organisation has written fraud guidance, policies or procedures explaining how fraud should be prevented, detected, reported and managed.",
+      "controlObjective": "Put the organisation’s fraud rules in writing so expected behaviour and required process are not left to individual interpretation.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 5,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q05"
+    },
+    {
+      "questionId": "D1-Q06",
+      "questionCode": "D1-Q06",
+      "domainCode": "D1",
+      "prompt": "Leadership receives updates on emerging fraud threats affecting the sector, operating model or customer and supplier environment.",
+      "controlObjective": "Keep leadership informed of fraud threats actually emerging in the sector, operating model and counterparty base.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 6,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D1-Q06"
+    },
+    {
+      "questionId": "D2-Q01",
+      "questionCode": "D2-Q01",
+      "domainCode": "D2",
+      "prompt": "The organisation has completed a structured fraud risk assessment within the past two years.",
+      "controlObjective": "Establish a current, structured and documented view of where the organisation is actually exposed to fraud.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 7,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q01"
+    },
+    {
+      "questionId": "D2-Q02",
+      "questionCode": "D2-Q02",
+      "domainCode": "D2",
+      "prompt": "Fraud risks have been mapped across important processes such as procurement, payments, refunds, claims, stock, supplier management or service delivery.",
+      "controlObjective": "Map fraud risk to the specific operational processes where value can actually be diverted.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 8,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q02"
+    },
+    {
+      "questionId": "D2-Q03",
+      "questionCode": "D2-Q03",
+      "domainCode": "D2",
+      "prompt": "New systems, channels, products, services or operational changes include fraud-risk review before implementation.",
+      "controlObjective": "Force a fraud-risk review into the design of new systems, channels, products, services and operational changes before they go live.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 9,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q03"
+    },
+    {
+      "questionId": "D2-Q04",
+      "questionCode": "D2-Q04",
+      "domainCode": "D2",
+      "prompt": "Fraud risks are refreshed when the organisation changes how it operates, serves customers or works with suppliers.",
+      "controlObjective": "Keep the fraud risk picture aligned to how the organisation currently operates rather than how it operated when the assessment was written.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 10,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q04"
+    },
+    {
+      "questionId": "D2-Q05",
+      "questionCode": "D2-Q05",
+      "domainCode": "D2",
+      "prompt": "Fraud risks linked to suppliers, contractors, agents, intermediaries or other third parties have been assessed.",
+      "controlObjective": "Assess the fraud risk introduced by suppliers, contractors, agents, intermediaries and other third parties acting for or with the organisation.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 11,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D2-Q05"
+    },
+    {
+      "questionId": "D2-Q06",
+      "questionCode": "D2-Q06",
+      "domainCode": "D2",
+      "prompt": "The organisation monitors emerging fraud threats affecting its industry, geography or operating environment.",
+      "controlObjective": "Track fraud threats emerging in the organisation’s own industry, geography and operating environment and convert them into control questions.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 12,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q06"
+    },
+    {
+      "questionId": "D2-Q07",
+      "questionCode": "D2-Q07",
+      "domainCode": "D2",
+      "prompt": "The organisation considers how fraud could occur through misuse of authority, privileged access, approvals, system permissions or operational process gaps.",
+      "controlObjective": "Consider deliberately how insiders could misuse authority, privileged access, approvals, system permissions or process gaps.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 13,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D2-Q07"
+    },
+    {
+      "questionId": "D2-Q08",
+      "questionCode": "D2-Q08",
+      "domainCode": "D2",
+      "prompt": "The organisation considers how fraud could occur through customer or user platforms, online forms, WhatsApp journeys, loyalty programmes, service portals or other digital channels where relevant.",
+      "controlObjective": "Assess fraud risk arising through customer and user digital channels where the organisation operates them.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 14,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G13",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_digital_footprint",
+      "evidenceReference": "G28-D2-Q08"
+    },
+    {
+      "questionId": "D3-Q01",
+      "questionCode": "D3-Q01",
+      "domainCode": "D3",
+      "prompt": "High-risk processes have segregation of duties between initiation, approval, processing and reconciliation.",
+      "controlObjective": "Ensure no single person can initiate, approve, process and reconcile the same high-risk transaction.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 15,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D3-Q01"
+    },
+    {
+      "questionId": "D3-Q02",
+      "questionCode": "D3-Q02",
+      "domainCode": "D3",
+      "prompt": "Transactions or operational activities above defined risk or value thresholds require independent review or approval.",
+      "controlObjective": "Require genuinely independent review or approval for transactions and activities above defined risk or value thresholds.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 16,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D3-Q02"
+    },
+    {
+      "questionId": "D3-Q03",
+      "questionCode": "D3-Q03",
+      "domainCode": "D3",
+      "prompt": "Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators.",
+      "controlObjective": "Prevent fictitious, conflicted or misrepresented suppliers from entering the approved vendor population.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 17,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G03",
+          "in": [
+            "outsourced"
+          ]
+        },
+        "redirectTo": "OV-D3-Q03"
+      },
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D3-Q03"
+    },
+    {
+      "questionId": "D3-Q04",
+      "questionCode": "D3-Q04",
+      "domainCode": "D3",
+      "prompt": "System and data access are granted based on role requirements and reviewed periodically.",
+      "controlObjective": "Keep ordinary system and data access aligned to current job responsibilities.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 18,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D3-Q04"
+    },
+    {
+      "questionId": "D3-Q05",
+      "questionCode": "D3-Q05",
+      "domainCode": "D3",
+      "prompt": "Sensitive manual activities such as refunds, credits, write-offs, stock adjustments, manual journals or overrides are monitored or reviewed.",
+      "controlObjective": "Bring sensitive manual adjustments under independent review because they bypass normal transactional controls.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 19,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_refunds_or_adjustments",
+      "evidenceReference": "G28-D3-Q05"
+    },
+    {
+      "questionId": "D3-Q06",
+      "questionCode": "D3-Q06",
+      "domainCode": "D3",
+      "prompt": "Operational processes are periodically reviewed to identify control weaknesses or opportunities for manipulation.",
+      "controlObjective": "Periodically re-examine operational processes for control weaknesses and manipulation opportunities that have emerged in practice.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 20,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D3-Q06"
+    },
+    {
+      "questionId": "D3-Q07",
+      "questionCode": "D3-Q07",
+      "domainCode": "D3",
+      "prompt": "People in high-risk roles are subject to appropriate oversight, rotation, secondary review or other compensating controls.",
+      "controlObjective": "Apply proportionate oversight to roles whose authority, access or custody creates elevated fraud opportunity.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 21,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G05",
+            "in": [
+              "significant",
+              "minor",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G06",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G10",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G12",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_high_risk_handling",
+      "evidenceReference": "G28-D3-Q07"
+    },
+    {
+      "questionId": "D4-Q01",
+      "questionCode": "D4-Q01",
+      "domainCode": "D4",
+      "prompt": "The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+      "controlObjective": "Actively monitor transactions and operational activity for unusual patterns, anomalies and red flags.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 22,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q01"
+    },
+    {
+      "questionId": "D4-Q02",
+      "questionCode": "D4-Q02",
+      "domainCode": "D4",
+      "prompt": "Exception reports or alerts highlighting unusual transactions or activities are generated and reviewed regularly.",
+      "controlObjective": "Ensure generated fraud and control exceptions are actually investigated and resolved.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 23,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q02"
+    },
+    {
+      "questionId": "D4-Q03",
+      "questionCode": "D4-Q03",
+      "domainCode": "D4",
+      "prompt": "Analytics, rules, reports or data checks are used to identify suspicious transactions, behaviour or control exceptions.",
+      "controlObjective": "Use analytics, rules, reports or data checks to surface suspicious transactions, behaviour and control exceptions.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 24,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q03"
+    },
+    {
+      "questionId": "D4-Q04",
+      "questionCode": "D4-Q04",
+      "domainCode": "D4",
+      "prompt": "Detection controls are updated when new fraud risks, fraud methods or operational changes emerge.",
+      "controlObjective": "Keep detection controls current as fraud methods, risks and operations change.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 25,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q04"
+    },
+    {
+      "questionId": "D4-Q05",
+      "questionCode": "D4-Q05",
+      "domainCode": "D4",
+      "prompt": "Monitoring covers both internal misuse and external fraud threats where these are relevant to the organisation.",
+      "controlObjective": "Cover both internal misuse and external fraud threats within the monitoring design.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 26,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q05"
+    },
+    {
+      "questionId": "D4-Q06",
+      "questionCode": "D4-Q06",
+      "domainCode": "D4",
+      "prompt": "People responsible for monitoring suspicious activity know when to escalate concerns and have authority to do so.",
+      "controlObjective": "Ensure monitoring staff know when to escalate and hold the authority to do so without obstruction.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 27,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q06"
+    },
+    {
+      "questionId": "D4-Q07",
+      "questionCode": "D4-Q07",
+      "domainCode": "D4",
+      "prompt": "Detection controls are periodically reviewed for effectiveness by management, risk, audit or another independent reviewer.",
+      "controlObjective": "Independently test whether detection controls are actually working, not merely running.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 28,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D4-Q07"
+    },
+    {
+      "questionId": "D5-Q01",
+      "questionCode": "D5-Q01",
+      "domainCode": "D5",
+      "prompt": "The organisation has a documented process for responding to suspected fraud incidents.",
+      "controlObjective": "Create a repeatable, coordinated response to suspected fraud.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 29,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q01"
+    },
+    {
+      "questionId": "D5-Q02",
+      "questionCode": "D5-Q02",
+      "domainCode": "D5",
+      "prompt": "Employees know where and how to report suspected fraud or misconduct.",
+      "controlObjective": "Make sure every employee knows exactly where and how to report suspected fraud or misconduct.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 30,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q02"
+    },
+    {
+      "questionId": "D5-Q03",
+      "questionCode": "D5-Q03",
+      "domainCode": "D5",
+      "prompt": "Roles and decision rights are defined for fraud triage, investigation, escalation and closure.",
+      "controlObjective": "Define who decides what at each stage of fraud triage, investigation, escalation and closure.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 31,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q03"
+    },
+    {
+      "questionId": "D5-Q04",
+      "questionCode": "D5-Q04",
+      "domainCode": "D5",
+      "prompt": "Fraud investigations follow procedures that protect confidentiality, fairness, evidence and documentation.",
+      "controlObjective": "Conduct investigations so that confidentiality, fairness and documentary integrity are protected throughout.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 32,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q04"
+    },
+    {
+      "questionId": "D5-Q05",
+      "questionCode": "D5-Q05",
+      "domainCode": "D5",
+      "prompt": "Evidence linked to suspected fraud is identified, preserved and handled appropriately.",
+      "controlObjective": "Identify, preserve and account for fraud evidence so integrity and provenance can be demonstrated.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 33,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q05"
+    },
+    {
+      "questionId": "D5-Q06",
+      "questionCode": "D5-Q06",
+      "domainCode": "D5",
+      "prompt": "External specialists are considered when incidents require forensic, legal, cyber or investigative expertise.",
+      "controlObjective": "Bring in specialist forensic, legal, cyber or investigative capability when a case exceeds internal capability.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 34,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q06"
+    },
+    {
+      "questionId": "D5-Q07",
+      "questionCode": "D5-Q07",
+      "domainCode": "D5",
+      "prompt": "Lessons from fraud incidents are used to improve controls and reduce repeat exposure.",
+      "controlObjective": "Convert what each incident reveals into control improvements that reduce repeat exposure.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 35,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D5-Q07"
+    },
+    {
+      "questionId": "D6-Q01",
+      "questionCode": "D6-Q01",
+      "domainCode": "D6",
+      "prompt": "The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.",
+      "controlObjective": "Provide a safe, confidential route for internal and relevant external fraud concerns.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": false,
+      "sortOrder": 36,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D6-Q01"
+    },
+    {
+      "questionId": "D6-Q02",
+      "questionCode": "D6-Q02",
+      "domainCode": "D6",
+      "prompt": "Employees know how to use the whistleblowing or confidential reporting channel.",
+      "controlObjective": "Ensure the workforce actually knows how to use the confidential reporting channel, not merely that one exists.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 37,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D6-Q02"
+    },
+    {
+      "questionId": "D6-Q03",
+      "questionCode": "D6-Q03",
+      "domainCode": "D6",
+      "prompt": "Reports submitted through the channel are reviewed independently from the people or teams implicated.",
+      "controlObjective": "Guarantee that reports are assessed independently of the people or teams they implicate.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 38,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D6-Q03"
+    },
+    {
+      "questionId": "D6-Q04",
+      "questionCode": "D6-Q04",
+      "domainCode": "D6",
+      "prompt": "The organisation clearly communicates that retaliation against whistleblowers or people who raise concerns is prohibited.",
+      "controlObjective": "State and enforce that retaliation against people who raise concerns is prohibited.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 39,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D6-Q04"
+    },
+    {
+      "questionId": "D6-Q05",
+      "questionCode": "D6-Q05",
+      "domainCode": "D6",
+      "prompt": "Reporting channels are accessible to relevant external stakeholders such as suppliers, contractors, customers or beneficiaries where appropriate.",
+      "controlObjective": "Extend reporting access to external stakeholders who observe misconduct the workforce cannot see.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 40,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D6-Q05"
+    },
+    {
+      "questionId": "D6-Q06",
+      "questionCode": "D6-Q06",
+      "domainCode": "D6",
+      "prompt": "Employees receive guidance or training on recognising and reporting suspicious behaviour.",
+      "controlObjective": "Equip employees to recognise the behavioural and situational signals that should prompt a report.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 41,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D6-Q06"
+    },
+    {
+      "questionId": "D7-Q01",
+      "questionCode": "D7-Q01",
+      "domainCode": "D7",
+      "prompt": "Suppliers, contractors or other third parties are subject to due diligence before being engaged.",
+      "controlObjective": "Risk-screen every supplier, contractor or third party before engagement.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": false,
+      "sortOrder": 42,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G03",
+          "in": [
+            "outsourced"
+          ]
+        },
+        "redirectTo": "OV-D7-Q01"
+      },
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D7-Q01"
+    },
+    {
+      "questionId": "D7-Q02",
+      "questionCode": "D7-Q02",
+      "domainCode": "D7",
+      "prompt": "Procurement processes include safeguards against collusion, manipulation, bid rigging or favouritism.",
+      "controlObjective": "Protect competitive sourcing from collusion, manipulation, bid rigging and favouritism.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 43,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G04",
+            "in": [
+              "internal_department",
+              "owner_led",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G04",
+          "in": [
+            "outsourced"
+          ]
+        },
+        "redirectTo": "OV-D7-Q02"
+      },
+      "skipReasonCode": "gateway_no_procurement",
+      "evidenceReference": "G28-D7-Q02"
+    },
+    {
+      "questionId": "D7-Q03",
+      "questionCode": "D7-Q03",
+      "domainCode": "D7",
+      "prompt": "Employees are required to disclose and manage conflicts of interest involving suppliers or third parties.",
+      "controlObjective": "Surface and actively manage employee conflicts of interest involving suppliers and third parties.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 44,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D7-Q03"
+    },
+    {
+      "questionId": "D7-Q04",
+      "questionCode": "D7-Q04",
+      "domainCode": "D7",
+      "prompt": "Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation.",
+      "controlObjective": "Prevent invoice manipulation and fraudulent vendor bank-detail changes before payment release.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 45,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": {
+        "condition": {
+          "questionId": "G03",
+          "in": [
+            "outsourced"
+          ]
+        },
+        "redirectTo": "OV-D7-Q04"
+      },
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D7-Q04"
+    },
+    {
+      "questionId": "D7-Q05",
+      "questionCode": "D7-Q05",
+      "domainCode": "D7",
+      "prompt": "High-risk suppliers or third-party relationships are periodically monitored or reviewed.",
+      "controlObjective": "Keep high-risk third-party relationships under periodic review after onboarding, not only at the point of engagement.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 46,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D7-Q05"
+    },
+    {
+      "questionId": "D7-Q06",
+      "questionCode": "D7-Q06",
+      "domainCode": "D7",
+      "prompt": "Procurement or vendor-management activity is subject to oversight or periodic review.",
+      "controlObjective": "Subject procurement and vendor-management activity itself to oversight, since it controls both supplier selection and payment eligibility.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 47,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G04",
+            "in": [
+              "internal_department",
+              "owner_led",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_procurement",
+      "evidenceReference": "G28-D7-Q06"
+    },
+    {
+      "questionId": "D7-Q07",
+      "questionCode": "D7-Q07",
+      "domainCode": "D7",
+      "prompt": "Fraud risks are considered when using agents, brokers, distributors, intermediaries, partners or outsourced service providers where relevant.",
+      "controlObjective": "Address the specific fraud risks created by agents, brokers, distributors, intermediaries and outsourced providers acting on the organisation’s behalf.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 48,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G03",
+            "in": [
+              "internal",
+              "outsourced",
+              "shared_service",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_third_parties",
+      "evidenceReference": "G28-D7-Q07"
+    },
+    {
+      "questionId": "D8-Q01",
+      "questionCode": "D8-Q01",
+      "domainCode": "D8",
+      "prompt": "The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm.",
+      "controlObjective": "Verify the identity of customers, users, employees, suppliers and counterparties wherever identity misuse could create loss or harm.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 49,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_digital_or_identity_footprint",
+      "evidenceReference": "G28-D8-Q01"
+    },
+    {
+      "questionId": "D8-Q02",
+      "questionCode": "D8-Q02",
+      "domainCode": "D8",
+      "prompt": "Systems or digital platforms are monitored for suspicious activity such as unusual login, access, profile, transaction or account behaviour.",
+      "controlObjective": "Detect suspicious login, account, access and transaction behaviour on digital platforms.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 50,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G13",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": {
+        "condition": {
+          "all": [
+            {
+              "questionId": "G08",
+              "in": [
+                "platform"
+              ]
+            },
+            {
+              "questionId": "G13",
+              "in": [
+                "no"
+              ]
+            }
+          ]
+        },
+        "redirectTo": "OV-D8-Q02"
+      },
+      "skipReasonCode": "gateway_no_digital_footprint",
+      "evidenceReference": "G28-D8-Q02"
+    },
+    {
+      "questionId": "D8-Q03",
+      "questionCode": "D8-Q03",
+      "domainCode": "D8",
+      "prompt": "Employees receive training on phishing, social engineering and digital impersonation attempts.",
+      "controlObjective": "Prepare employees to recognise and resist phishing, social engineering and digital impersonation.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 51,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D8-Q03"
+    },
+    {
+      "questionId": "D8-Q04",
+      "questionCode": "D8-Q04",
+      "domainCode": "D8",
+      "prompt": "Access to sensitive digital systems, administrator rights and confidential data is restricted and reviewed.",
+      "controlObjective": "Restrict and independently recertify privileged, administrator and sensitive-data access.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 52,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D8-Q04"
+    },
+    {
+      "questionId": "D8-Q05",
+      "questionCode": "D8-Q05",
+      "domainCode": "D8",
+      "prompt": "Digital activity is monitored for misuse, unauthorised transactions, suspicious data changes or channel abuse.",
+      "controlObjective": "Detect misuse, unauthorised transactions, suspicious data changes and digital-channel abuse.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 53,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G13",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_digital_footprint",
+      "evidenceReference": "G28-D8-Q05"
+    },
+    {
+      "questionId": "D8-Q06",
+      "questionCode": "D8-Q06",
+      "domainCode": "D8",
+      "prompt": "Employees and users know how to report suspicious digital activity or account-security concerns.",
+      "controlObjective": "Give employees and users a fast, known route to report suspicious digital activity or account-security concerns.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 54,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D8-Q06"
+    },
+    {
+      "questionId": "D8-Q07",
+      "questionCode": "D8-Q07",
+      "domainCode": "D8",
+      "prompt": "Emerging digital fraud risks relevant to the organisation's operations or sector are reviewed periodically.",
+      "controlObjective": "Periodically reassess emerging digital fraud risks relevant to the organisation’s operations and sector.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 55,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G13",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_digital_footprint",
+      "evidenceReference": "G28-D8-Q07"
+    },
+    {
+      "questionId": "D8-Q08",
+      "questionCode": "D8-Q08",
+      "domainCode": "D8",
+      "prompt": "The organisation can detect or investigate identity misuse, account takeover, impersonation or unauthorised profile changes where relevant.",
+      "controlObjective": "Be able to detect and investigate identity misuse, account takeover, impersonation and unauthorised profile changes.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 56,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G08",
+            "in": [
+              "yes",
+              "platform",
+              "unknown"
+            ]
+          },
+          {
+            "questionId": "G09",
+            "in": [
+              "yes",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_digital_or_identity_footprint",
+      "evidenceReference": "G28-D8-Q08"
+    },
+    {
+      "questionId": "D9-Q01",
+      "questionCode": "D9-Q01",
+      "domainCode": "D9",
+      "prompt": "Employees receive periodic training or guidance on fraud risks relevant to their roles and the organisation's operating environment.",
+      "controlObjective": "Equip staff to recognise and act on fraud risks specific to their roles.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 57,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D9-Q01"
+    },
+    {
+      "questionId": "D9-Q02",
+      "questionCode": "D9-Q02",
+      "domainCode": "D9",
+      "prompt": "Fraud awareness is included in employee onboarding or induction.",
+      "controlObjective": "Establish fraud expectations at the point of joining, before habits and local practice form.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 58,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D9-Q02"
+    },
+    {
+      "questionId": "D9-Q03",
+      "questionCode": "D9-Q03",
+      "domainCode": "D9",
+      "prompt": "Leadership communicates clear expectations on ethical conduct, conflicts of interest and fraud prevention.",
+      "controlObjective": "Have leadership set explicit, repeated expectations on ethical conduct, conflicts and fraud prevention.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 59,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D9-Q03"
+    },
+    {
+      "questionId": "D9-Q04",
+      "questionCode": "D9-Q04",
+      "domainCode": "D9",
+      "prompt": "Employees understand the consequences of fraudulent, dishonest or unethical behaviour.",
+      "controlObjective": "Ensure employees understand the actual consequences of fraudulent, dishonest or unethical behaviour.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 60,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D9-Q04"
+    },
+    {
+      "questionId": "D9-Q05",
+      "questionCode": "D9-Q05",
+      "domainCode": "D9",
+      "prompt": "The organisation uses real examples, scenarios or lessons learned to help employees recognise fraud risks.",
+      "controlObjective": "Use real examples, scenarios and lessons learned so staff recognise fraud as it actually presents.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 61,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D9-Q05"
+    },
+    {
+      "questionId": "D9-Q06",
+      "questionCode": "D9-Q06",
+      "domainCode": "D9",
+      "prompt": "Employees have safe ways to raise concerns and believe those concerns will be taken seriously.",
+      "controlObjective": "Build genuine confidence that raising a concern is safe and will be taken seriously.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 62,
+      "applicabilityCondition": {
+        "any": [
+          {
+            "questionId": "G02",
+            "in": [
+              "small",
+              "medium",
+              "large",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "redirectWhen": null,
+      "skipReasonCode": "gateway_no_employee_base",
+      "evidenceReference": "G28-D9-Q06"
+    },
+    {
+      "questionId": "D10-Q01",
+      "questionCode": "D10-Q01",
+      "domainCode": "D10",
+      "prompt": "The organisation periodically reviews its fraud risks and control environment.",
+      "controlObjective": "Periodically re-examine the fraud risk profile and the control environment as a whole rather than only at incident time.",
+      "weight": 1.5,
+      "isCritical": true,
+      "isHardGate": true,
+      "sortOrder": 63,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q01"
+    },
+    {
+      "questionId": "D10-Q02",
+      "questionCode": "D10-Q02",
+      "domainCode": "D10",
+      "prompt": "Fraud incidents or control failures are analysed to understand root causes and control weaknesses.",
+      "controlObjective": "Analyse incidents and control failures to understand why they were possible, not merely what happened.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 64,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q02"
+    },
+    {
+      "questionId": "D10-Q03",
+      "questionCode": "D10-Q03",
+      "domainCode": "D10",
+      "prompt": "Lessons from investigations or incidents are translated into control, process, training or monitoring improvements.",
+      "controlObjective": "Translate lessons from investigations and incidents into actual changes in controls, process, training or monitoring.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 65,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q03"
+    },
+    {
+      "questionId": "D10-Q04",
+      "questionCode": "D10-Q04",
+      "domainCode": "D10",
+      "prompt": "The organisation monitors fraud trends affecting its sector, geography, customer environment or supplier base.",
+      "controlObjective": "Monitor fraud trends affecting the organisation’s sector, geography, customer environment and supplier base.",
+      "weight": 1,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 66,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q04"
+    },
+    {
+      "questionId": "D10-Q05",
+      "questionCode": "D10-Q05",
+      "domainCode": "D10",
+      "prompt": "Fraud risk is considered when new systems, products, services, processes or operational changes are implemented.",
+      "controlObjective": "Ensure fraud risk is considered whenever new systems, products, services, processes or operational changes are implemented.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 67,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q05"
+    },
+    {
+      "questionId": "D10-Q06",
+      "questionCode": "D10-Q06",
+      "domainCode": "D10",
+      "prompt": "Leadership periodically reviews whether key fraud controls remain effective, resourced and fit for purpose.",
+      "controlObjective": "Have leadership periodically confirm that key fraud controls remain effective, adequately resourced and fit for purpose.",
+      "weight": 1.25,
+      "isCritical": false,
+      "isHardGate": false,
+      "sortOrder": 68,
+      "applicabilityCondition": null,
+      "redirectWhen": null,
+      "skipReasonCode": null,
+      "evidenceReference": "G28-D10-Q06"
+    }
+  ],
+  "oversightVariants": [
+    {
+      "questionId": "OV-D3-Q03",
+      "replaces": "D3-Q03",
+      "domainCode": "D3",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "Supplier management is outsourced; the organisation retains assurance over provider vetting and due diligence.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    },
+    {
+      "questionId": "OV-D7-Q01",
+      "replaces": "D7-Q01",
+      "domainCode": "D7",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "The organisation defines and monitors the third-party vetting standard applied on its behalf.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    },
+    {
+      "questionId": "OV-D7-Q02",
+      "replaces": "D7-Q02",
+      "domainCode": "D7",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "The organisation retains controls over supplier selection, price integrity and conflict disclosure where procurement is outsourced.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    },
+    {
+      "questionId": "OV-D7-Q04",
+      "replaces": "D7-Q04",
+      "domainCode": "D7",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "The organisation independently verifies supplier banking changes before provider-executed payments are released.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    },
+    {
+      "questionId": "OV-D8-Q02",
+      "replaces": "D8-Q02",
+      "domainCode": "D8",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "The organisation reviews fraud, dispute and account-security reporting from the third-party platform it uses.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    },
+    {
+      "questionId": "OV-G07",
+      "replaces": null,
+      "domainCode": "D7",
+      "questionType": "maturity_scale",
+      "gatewayStatus": "oversight_variant",
+      "prompt": "The organisation independently reviews an externally processed payroll register for unknown, duplicate or altered records.",
+      "scoringStatus": "scored_as_third_party_governance",
+      "displayGuidance": "Outsourcing moves the activity, not the accountability; assess the retained governance control."
+    }
+  ],
+  "applicabilityStates": [
+    "activity_exists_internal",
+    "activity_outsourced",
+    "activity_shared_service",
+    "activity_absent",
+    "unknown"
+  ],
+  "scoringStatuses": [
+    "not_applicable",
+    "outsourced",
+    "unknown",
+    "not_implemented",
+    "partially_implemented",
+    "implemented",
+    "invalidated_by_upstream",
+    "profile_only",
+    "scored_as_third_party_governance"
+  ],
+  "skipReasonCodes": {
+    "gateway_no_third_parties": "No external suppliers or contractors were confirmed.",
+    "gateway_no_procurement": "No procurement or buying activity was confirmed.",
+    "gateway_no_refunds_or_adjustments": "No refunds, credits, write-offs or manual adjustments were confirmed.",
+    "gateway_no_high_risk_handling": "No relevant cash, stock, refund, adjustment or temporary-worker exposure was confirmed.",
+    "gateway_no_digital_footprint": "No relevant online, digital-payment or platform dependency was confirmed.",
+    "gateway_no_digital_or_identity_footprint": "No relevant digital channel or personal-information exposure was confirmed.",
+    "gateway_no_employee_base": "No employee base beyond the owner was confirmed.",
+    "upstream_answer_changed": "An upstream gateway answer changed the active pathway.",
+    "redirected_to_oversight_variant": "The activity is outsourced, so the retained-governance equivalent was used."
+  },
+  "graphInvariants": {
+    "questionCount": 68,
+    "gatewayCount": 14,
+    "oversightVariantCount": 6,
+    "gatewayBlockCount": 4,
+    "customerRoutingEnabled": false,
+    "scoringEngineChanged": false
+  },
+  "graphFingerprint": "fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab"
+}
