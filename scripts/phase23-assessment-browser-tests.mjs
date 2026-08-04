@@ -147,14 +147,27 @@ try {
 
   await journey.select('label.sm\\:hidden select', await journey.$eval('label.sm\\:hidden select option:nth-child(2)', (option) => option.value));
   await journey.waitForSelector('fieldset[id^="question-"] input[type="radio"]:checked');
-  const completedQuestion = await journey.$eval('fieldset[id^="question-"] input[type="radio"]:not(:checked)', (input) => ({
-    fieldsetId: input.closest('fieldset')?.id,
-    name: input.getAttribute('name'),
-    value: input.getAttribute('value'),
-  }));
-  assert.ok(completedQuestion.fieldsetId && completedQuestion.name && completedQuestion.value, 'current question radio must be addressable');
-  const completedSelector = `#${completedQuestion.fieldsetId} input[name="${completedQuestion.name}"][value="${completedQuestion.value}"]`;
-  await selectRadio(journey, completedSelector, completedQuestion.fieldsetId);
+  let completedQuestion = null;
+  for (let attempt = 0; attempt < 8 && !completedQuestion; attempt += 1) {
+    const candidate = await journey.$eval('fieldset[id^="question-"] input[type="radio"]:not(:checked)', (input) => ({
+      fieldsetId: input.closest('fieldset')?.id,
+      name: input.getAttribute('name'),
+      value: input.getAttribute('value'),
+    })).catch(() => null);
+    if (!candidate?.fieldsetId || !candidate.name || !candidate.value) {
+      await delay(250);
+      continue;
+    }
+    const candidateSelector = `#${candidate.fieldsetId} input[name="${candidate.name}"][value="${candidate.value}"]`;
+    try {
+      await selectRadio(journey, candidateSelector, candidate.fieldsetId);
+      completedQuestion = candidate;
+    } catch (error) {
+      if (!String(error?.message ?? error).includes('No element found')) throw error;
+      await delay(250);
+    }
+  }
+  assert.ok(completedQuestion, 'current question radio must be addressable');
   await journey.reload({ waitUntil: 'networkidle0' });
   await journey.waitForSelector('[data-assessment-native="true"]');
   assert.match(await journey.$eval('[role="progressbar"]', (element) => element.getAttribute('aria-valuenow') ?? ''), /^[1-9]\d*$/);
