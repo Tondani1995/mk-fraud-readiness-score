@@ -6,6 +6,12 @@ import { dirname, resolve } from 'node:path';
 const root = process.cwd();
 const live = process.argv.includes('--live') || process.env.G29_RUN_LIVE === '1';
 const outputPath = process.env.G29_OUTPUT ?? resolve(root, 'tmp/g29/g29-result.json');
+const requestedSuiteIds = (process.env.G29_SUITE_IDS
+  ?? process.argv.find((argument) => argument.startsWith('--suites='))?.slice('--suites='.length)
+  ?? '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 const graph = JSON.parse(await readFile(resolve(root, 'docs/adaptive-assessment/adaptive-graph-v1-draft.json'), 'utf8'));
 const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 
@@ -49,6 +55,14 @@ const suites = [
   { id: 'integration.payment-db', category: 'integration', live: true, ...npm('phase23:test-payment-db') }
 ];
 
+const knownSuiteIds = new Set(suites.map((suite) => suite.id));
+for (const requestedSuiteId of requestedSuiteIds) {
+  if (!knownSuiteIds.has(requestedSuiteId)) throw new Error(`Unknown G29 suite: ${requestedSuiteId}`);
+}
+const selectedSuites = requestedSuiteIds.length
+  ? suites.filter((suite) => requestedSuiteIds.includes(suite.id))
+  : suites;
+
 const environmentFailure = /(set .+ for|missing .*(?:env|variable)|required environment|connection failed|connection refused|econnrefused|chrome executable|vercel protection|supabase.*key|database.*url|local_db_url|g25_supabase|dyld\[|libicudata|embedded-postgres|postgres init script failed)/i;
 const extractJson = (text) => {
   for (const line of text.trim().split('\n').reverse()) {
@@ -58,7 +72,7 @@ const extractJson = (text) => {
 };
 
 const results = [];
-for (const suite of suites) {
+for (const suite of selectedSuites) {
   if (suite.live && !live) {
     results.push({ id: suite.id, category: suite.category, status: 'skipped', classification: 'environment/configuration', reason: 'live suite requires --live', exitCode: null });
     continue;
@@ -89,6 +103,7 @@ const summary = {
   runner: 'g29-integrated-regression-runner', commit: sha,
   graphVersion: graph.graphVersion, graphFingerprint: graph.graphFingerprint,
   liveSuitesEnabled: live,
+  selectedSuiteIds: selectedSuites.map((suite) => suite.id),
   suiteCounts: {
     passed: results.filter((result) => result.status === 'passed').length,
     failed: results.filter((result) => result.status === 'failed').length,

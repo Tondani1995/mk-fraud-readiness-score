@@ -1,0 +1,156 @@
+name: G29 certification evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_CLI_VERSION: '2.110.0'
+
+jobs:
+  loopback-database:
+    name: G29 loopback database suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      G29_RUN_LIVE: '1'
+      G29_SUITE_IDS: database.service-role-contract,database.old-schema-freeze,database.migration-replay,integration.payment-db
+      G29_OUTPUT: tmp/g29/loopback-database.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Start disposable local Supabase
+        run: |
+          set -Eeuo pipefail
+          mkdir -p tmp/g29
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor > tmp/g29/supabase-start.log 2>&1
+          eval "$(supabase status -o env)"
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$API_URL" >> "$GITHUB_ENV"
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY" >> "$GITHUB_ENV"
+          printf 'SUPABASE_LOCAL_API_URL=%s\n' "$API_URL" >> "$GITHUB_ENV"
+          test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          psql "$LOCAL_DB_URL" -XAtc 'select 1' | grep -qx 1
+      - name: Prepare disposable payment fixture boundary
+        run: |
+          set -Eeuo pipefail
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
+            --set=rc1_disposable_expected_boundary=0025 \
+            --file=scripts/rc1-disposable-old-schema-release-status.sql
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
+      - name: Run selected G29 suites
+        run: npm run g29:regression -- --live
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-loopback-database
+          path: tmp/g29
+          if-no-files-found: warn
+
+  adaptive-staging:
+    name: G29 adaptive Staging DB suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      G29_RUN_LIVE: '1'
+      G29_SUITE_IDS: integration.adaptive-db
+      G29_OUTPUT: tmp/g29/adaptive-staging.json
+      G25_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
+      G25_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.G25_SUPABASE_SERVICE_ROLE_KEY }}
+      G25_DB_TEST_REF: MKADAPT-QA-20260804-01
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Require the existing Staging service-role secret without printing it
+        run: test -n "$G25_SUPABASE_SERVICE_ROLE_KEY"
+      - name: Run adaptive Staging DB suite
+        run: npm run g29:regression -- --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-adaptive-staging
+          path: tmp/g29
+          if-no-files-found: warn
+
+  responsive-preview:
+    name: G29 Preview responsive browser suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      G29_RUN_LIVE: '1'
+      G29_SUITE_IDS: responsive.browser
+      G29_OUTPUT: tmp/g29/responsive-preview.json
+      PHASE23_BASE_URL: https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app
+      PHASE23_SYNTHETIC_MARKER: MKG29-QA-
+      PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Locate preinstalled Chrome/Chromium
+        run: |
+          set -Eeuo pipefail
+          chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          printf 'CHROME_EXECUTABLE=%s\n' "$chrome" >> "$GITHUB_ENV"
+      - name: Run Preview responsive suite
+        run: npm run g29:regression -- --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-responsive-preview
+          path: tmp/g29
+          if-no-files-found: warn
+
+  merge:
+    name: G29 merged certification result
+    if: always()
+    needs: [loopback-database, adaptive-staging, responsive-preview]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g29-*
+          path: tmp/g29-artifacts
+          merge-multiple: false
+      - name: Merge and require every G29 suite exactly once
+        run: |
+          set -Eeuo pipefail
+          find tmp/g29-artifacts -type f -name '*.json' -print
+          node scripts/g29-merge-results.mjs \
+            tmp/g29-artifacts/g29-loopback-database/loopback-database.json \
+            tmp/g29-artifacts/g29-adaptive-staging/adaptive-staging.json \
+            tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-merged-certification
+          path: tmp/g29/g29-merged-result.json
+          if-no-files-found: warn

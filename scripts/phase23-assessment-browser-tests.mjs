@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer-core';
 
 const baseUrl = (process.env.PHASE23_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
 const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23-browser-evidence';
+const syntheticMarker = process.env.PHASE23_SYNTHETIC_MARKER ?? '';
 const executablePath = process.env.CHROME_EXECUTABLE
   ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
 const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
@@ -59,9 +60,11 @@ try {
   await journey.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
   await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
   const nonce = Date.now();
-  await journey.type('input[name="fullName"]', 'Phase 23 Browser Test');
-  await journey.type('input[name="email"]', `phase23-browser-${nonce}@example.test`);
-  await journey.type('input[name="organisationName"]', `Phase 23 Browser ${nonce}`);
+  const syntheticName = syntheticMarker ? `${syntheticMarker}${nonce}` : `Phase 23 Browser ${nonce}`;
+  const syntheticEmail = syntheticMarker ? `${syntheticMarker.toLowerCase()}${nonce}@example.test` : `phase23-browser-${nonce}@example.test`;
+  await journey.type('input[name="fullName"]', syntheticName);
+  await journey.type('input[name="email"]', syntheticEmail);
+  await journey.type('input[name="organisationName"]', syntheticName);
   await journey.click('input[name="consentPrivacy"]');
   await journey.click('button[type="submit"]');
   await journey.waitForSelector('a[href*="/score/assessment/"]');
@@ -131,7 +134,7 @@ try {
   assert.match(await journey.$eval('[role="progressbar"]', (element) => element.getAttribute('aria-valuenow') ?? ''), /^[1-9]\d*$/);
   assert.equal(await journey.$$('iframe').then((items) => items.length), 0);
   await journey.screenshot({ path: join(outputDirectory, 'mobile-active-resume.png'), fullPage: true });
-  evidence.push({ route: new URL(resumeHref, baseUrl).pathname, saveFailurePreventedAdvance: true, retrySucceeded: true, firstDomainAdvanced: true, rapidTapSaveRequests: 1, completedDomainReopened: true, refreshResumed: true });
+  evidence.push({ route: new URL(resumeHref, baseUrl).pathname, syntheticMarker: syntheticMarker || null, syntheticName, saveFailurePreventedAdvance: true, retrySucceeded: true, firstDomainAdvanced: true, rapidTapSaveRequests: 1, completedDomainReopened: true, refreshResumed: true });
   await journey.close();
 
   const compatibility = await browser.newPage();
