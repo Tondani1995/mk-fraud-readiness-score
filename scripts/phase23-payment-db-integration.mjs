@@ -89,7 +89,8 @@ async function proveInvalidManualEvidenceIsAtomic(orderReference) {
   for (const table of ['payment_automation_records', 'payment_transition_events', 'order_events', 'manual_report_generation_attempts']) {
     const key = table === 'payment_transition_events' ? 'order_reference' : 'order_id';
     const value = table === 'payment_transition_events' ? orderReference : order.id;
-    const { count, error: countError } = await db.from(table).select('id', { count: 'exact', head: true }).eq(key, value);
+    const column = table === 'payment_automation_records' ? 'order_id' : 'id';
+    const { count, error: countError } = await db.from(table).select(column, { count: 'exact', head: true }).eq(key, value);
     assert.ifError(countError);
     assert.equal(count, 0, `${table} must remain untouched after invalid evidence`);
   }
