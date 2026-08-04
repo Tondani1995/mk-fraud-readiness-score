@@ -30,6 +30,16 @@ export function evidenceChecksum(evidence: PremiumReportEvidencePack) {
 function coreEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   const score = data.scoreRun;
   return [
+    {
+      id: 'score:scale_max',
+      kind: 'score_scale',
+      label: 'Fraud Readiness Score scale maximum',
+      value: {
+        scale: 'fraud_readiness_score',
+        maximum: 100,
+        unit: 'points'
+      }
+    },
     { id: 'score:overall', kind: 'overall_score', label: 'Overall readiness score', value: score.overallScore },
     { id: 'score:calculated_maturity', kind: 'calculated_maturity', label: 'Calculated maturity', value: score.calculatedMaturity },
     { id: 'score:final_maturity', kind: 'final_maturity', label: 'Final maturity', value: score.finalMaturity },

@@ -17,7 +17,7 @@ export function buildDeterministicNarrative(
   const gapRefs = data.criticalMajorGaps.map((gap) => `gap:${gap.questionCode}`);
   const domainRefs = data.domainResults.map((domain) => `domain:${domain.domainCode}`);
   const coreRefs = [
-    'score:overall', 'score:calculated_maturity', 'score:final_maturity', 'score:exposure',
+    'score:scale_max', 'score:overall', 'score:calculated_maturity', 'score:final_maturity', 'score:exposure',
     'score:exposure_band', 'score:coverage', 'gaps:critical_count', 'gaps:major_count'
   ];
 

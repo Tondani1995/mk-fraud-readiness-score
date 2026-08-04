@@ -44,6 +44,7 @@ export interface PremiumReportAutomationFlags {
 }
 
 export type ReportEvidenceKind =
+  | 'score_scale'
   | 'overall_score'
   | 'final_maturity'
   | 'calculated_maturity'
