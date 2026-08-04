@@ -108,7 +108,10 @@ try {
   };
   const claims = await Promise.all(Array.from({ length: 8 }, () => db.rpc('claim_payment_report_generation', claimParameters)));
   for (const claim of claims) assert.ifError(claim.error);
-  assert.equal(claims.filter((claim) => claim.data?.claimed === true).length, 1, 'Concurrent fulfilment claims must create one attempt.');
+  // Release B queues the durable fulfilment attempt atomically with the payment transition.
+  // These follow-up claims must therefore observe that one active attempt and create none.
+  assert.equal(claims.filter((claim) => claim.data?.claimed === true).length, 0, 'Follow-up claims must not create a second attempt.');
+  assert.equal(claims.filter((claim) => claim.data?.reason === 'already_active').length, 8, 'All follow-up claims must reuse the active attempt.');
   const { data: webhookOrder } = await db.from('orders').select('id').eq('order_reference', orderReferences[0]).single();
   const { count: attemptCount, error: attemptError } = await db.from('manual_report_generation_attempts')
     .select('id', { count: 'exact', head: true }).eq('order_id', webhookOrder.id);
