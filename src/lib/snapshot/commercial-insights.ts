@@ -254,14 +254,15 @@ function round(value: number) {
   return Math.round(value);
 }
 
-export function commercialScoreBand(score: number): CommercialScoreBand {
+export function commercialScoreBand(score: number | null): CommercialScoreBand {
+  if (score === null) return 'Reactive';
   if (score < 40) return 'Reactive';
   if (score < 60) return 'Developing';
   if (score < 80) return 'Structured';
   return 'Strategic';
 }
 
-function commercialMaturityBand(maturity: string): CommercialScoreBand {
+function commercialMaturityBand(maturity: string | null): CommercialScoreBand {
   if (maturity === 'Reactive' || maturity === 'Developing' || maturity === 'Structured' || maturity === 'Strategic') return maturity;
   return 'Reactive';
 }
@@ -386,12 +387,15 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
   const priority = priorityAreas(snapshot);
   const positive = strengths(snapshot);
 
+  const insufficient = snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY';
   return {
     scoreBand,
     currentPosition: CURRENT_POSITION_BY_BAND[maturityBand],
     riskImplication: riskImplication(snapshot),
     leadershipPriority: leadershipPriority(snapshot, maturityBand),
-    conciseInterpretation: `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
+    conciseInterpretation: insufficient
+      ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. The result identifies the assessed scope, information gaps and evidence needed for a reliable view.'
+      : `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
     criticalGapIndicator: snapshot.criticalGapCount > 0 || snapshot.capApplied,
     coverageMessage: coverageMessage(snapshot),
     priorityAreas: priority,

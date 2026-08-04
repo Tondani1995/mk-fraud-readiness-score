@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { ExposureBand, MaturityBand } from '@/lib/types/domain';
+import type { AdaptiveResultMetrics, AdaptiveResultStatus } from '@/lib/scoring/adaptive-scoring';
 
 export type FreeSnapshotDomain = {
   domainId: string;
@@ -19,9 +20,9 @@ export type FreeSnapshot = {
   respondentEmail: string | null;
   scoreRunId: string;
   runNumber: number;
-  overallScore: number;
-  calculatedMaturity: MaturityBand;
-  finalMaturity: MaturityBand;
+  overallScore: number | null;
+  calculatedMaturity: MaturityBand | null;
+  finalMaturity: MaturityBand | null;
   exposureScore: number;
   exposureBand: ExposureBand;
   coveragePct: number;
@@ -32,6 +33,9 @@ export type FreeSnapshot = {
   capReason: string | null;
   scoredAt: string | null;
   domains: FreeSnapshotDomain[];
+  resultStatus?: AdaptiveResultStatus | null;
+  adaptiveMetrics?: AdaptiveResultMetrics | null;
+  comparabilityStatement?: string | null;
 };
 
 function asNumber(value: unknown, fallback = 0): number {
@@ -44,7 +48,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id,assessment_mode')
     .eq('assessment_reference', assessmentReference)
     .maybeSingle();
 
@@ -57,7 +61,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
   const [{ data: scoreRun, error: scoreRunError }, { data: organisation }, { data: respondent }] = await Promise.all([
     service
       .from('score_runs')
-      .select('id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at')
+      .select('id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at,adaptive_result_status,adaptive_metrics_json')
       .eq('id', scoreRunId)
       .eq('assessment_id', assessment.id)
       .maybeSingle(),
@@ -110,7 +114,7 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     respondentEmail: respondent?.email ?? null,
     scoreRunId: scoreRun.id,
     runNumber: Number(scoreRun.run_number ?? 1),
-    overallScore: asNumber(scoreRun.overall_score),
+    overallScore: scoreRun.overall_score === null ? null : asNumber(scoreRun.overall_score),
     calculatedMaturity: scoreRun.calculated_maturity,
     finalMaturity: scoreRun.final_maturity,
     exposureScore: asNumber(scoreRun.exposure_score),
@@ -123,5 +127,8 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     capReason: scoreRun.cap_reason,
     scoredAt: scoreRun.locked_at ?? scoreRun.created_at ?? null,
     domains: snapshotDomains
+    ,resultStatus: scoreRun.adaptive_result_status ?? null
+    ,adaptiveMetrics: scoreRun.adaptive_metrics_json && Object.keys(scoreRun.adaptive_metrics_json).length ? scoreRun.adaptive_metrics_json as AdaptiveResultMetrics : null
+    ,comparabilityStatement: scoreRun.adaptive_metrics_json?.scoreComparabilityStatement ?? null
   };
 }

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { submitAdaptiveAssessment } from '@/lib/adaptive/server';
+import { createSnapshotTokenForAssessment } from '@/lib/respondent/tokens';
+import { scoreAdaptiveSubmittedAssessment } from '@/lib/scoring/adaptive-scoring';
+import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
   let body: any;
@@ -7,7 +11,23 @@ export async function POST(request: Request, { params }: { params: { assessmentR
   if (!body?.token) return NextResponse.json({ ok: false, errors: ['adaptive_token_required'] }, { status: 403 });
   try {
     const result = await submitAdaptiveAssessment(params.assessmentRef, body.token, Number(body.expectedSaveSequence));
-    return NextResponse.json(result, { status: result.ok ? 200 : result.status });
+    if (!result.ok) return NextResponse.json(result, { status: result.status });
+    const scored = await scoreAdaptiveSubmittedAssessment(params.assessmentRef, { runType: 'initial', createdByAdminId: null });
+    if (!scored.ok) return NextResponse.json({ ok: false, errors: ['Assessment was submitted, but the readiness result could not be generated.'], scoringErrors: scored.errors }, { status: scored.status });
+    const snapshot = await loadFreeSnapshotByReference(params.assessmentRef, scored.scoreRunId);
+    if (!snapshot) return NextResponse.json({ ok: false, errors: ['Assessment was scored, but the persisted result could not be loaded.'] }, { status: 500 });
+    const requestHeaders = new Headers(request.headers);
+    const db = createSupabaseServiceClient();
+    const { data: assessmentRow, error: assessmentError } = await db.from('assessments').select('id').eq('assessment_reference', params.assessmentRef).single();
+    if (assessmentError || !assessmentRow) return NextResponse.json({ ok: false, errors: ['Assessment identity could not be loaded after scoring.'] }, { status: 500 });
+    const snapshotToken = await createSnapshotTokenForAssessment({
+      assessmentId: assessmentRow.id,
+      assessmentReference: params.assessmentRef,
+      ipAddress: requestHeaders.get('x-forwarded-for')
+    });
+    const origin = request.headers.get('x-forwarded-host') ? `${request.headers.get('x-forwarded-proto') ?? 'https'}://${request.headers.get('x-forwarded-host')}` : new URL(request.url).origin;
+    const snapshotUrl = `${origin}/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(snapshotToken.rawToken)}`;
+    return NextResponse.json({ ...result, status: 'scored', scoreRunId: scored.scoreRunId, runNumber: scored.runNumber, resultStatus: scored.result.resultStatus, snapshotTokenExpiresAt: snapshotToken.expiresAt, snapshotUrl, snapshot });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'adaptive_submit_failed';
     return NextResponse.json({ ok: false, errors: [message] }, { status: message === 'adaptive_preview_only' || message === 'adaptive_staging_project_required' ? 404 : message.includes('token') ? 403 : 500 });

@@ -80,7 +80,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: assessment, error: assessmentError } = await supabase
     .from('assessments')
-    .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+    .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
     .eq('id', order.assessment_id)
     .maybeSingle();
 
@@ -90,7 +90,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: scoreRunRow, error: scoreRunError } = await supabase
     .from('score_runs')
-    .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash')
+    .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash, adaptive_result_status, adaptive_metrics_json')
     .eq('id', assessment.current_score_run_id)
     .eq('status', 'completed')
     .maybeSingle();
@@ -290,7 +290,9 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
       criticalGapCount: scoreRunRow.critical_gap_count,
       majorGapCount: scoreRunRow.major_gap_count,
       capApplied: scoreRunRow.cap_applied,
-      capReason: scoreRunRow.cap_reason
+      capReason: scoreRunRow.cap_reason,
+      adaptiveResultStatus: scoreRunRow.adaptive_result_status ?? null,
+      adaptiveMetrics: scoreRunRow.adaptive_metrics_json && Object.keys(scoreRunRow.adaptive_metrics_json).length ? scoreRunRow.adaptive_metrics_json : null
     },
     domainResults,
     exposureAnswers,
@@ -302,6 +304,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     expectedDomainResultCount: Number(expectedDomainCount ?? 0),
     actualDomainResultCount: Number(actualDomainCount ?? 0),
     expectedQuestionTraceCount: Number(expectedTraceCount ?? 0),
-    actualQuestionTraceCount: Number(actualTraceCount ?? 0)
+    actualQuestionTraceCount: Number(actualTraceCount ?? 0),
+    adaptiveScope: scoreRunRow.adaptive_metrics_json && Object.keys(scoreRunRow.adaptive_metrics_json).length ? scoreRunRow.adaptive_metrics_json : null
   };
 }

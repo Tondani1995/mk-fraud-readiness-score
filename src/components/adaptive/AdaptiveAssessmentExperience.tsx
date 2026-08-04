@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import Link from 'next/link';
 
 type AdaptiveState = any;
 
@@ -20,6 +21,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const [message, setMessage] = useState<string | null>(null);
   const [invalidation, setInvalidation] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const nodes = state.path?.nodes ?? [];
@@ -73,11 +75,11 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
     const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, expectedSaveSequence: Number(state.navigation.save_sequence) }) });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.ok) { setSaveState('error'); setMessage((body.errors ?? ['Submission could not be completed.']).join(' ')); return; }
-    setState(body.state); setSubmitted(true); setSaveState('saved');
+    setState(body.state); setSnapshotUrl(body.snapshotUrl ?? null); setSubmitted(true); setSaveState('saved');
   }
 
   const domainProgress = useMemo(() => (state.path?.domainBoundaries ?? []).filter((domain: any) => domain.activeCount > 0), [state.path?.domainBoundaries]);
-  if (submitted || state.navigation?.current_screen === 'complete') return <Card><CardHeader><Badge>Assessment submitted</Badge><CardTitle className="mt-3">Your assessment is complete</CardTitle></CardHeader><CardContent className="space-y-4 text-sm leading-6 text-mk-muted"><p>Your responses have been securely recorded for assessment review.</p><p>Applicable assessment areas recorded: {state.path?.nodes?.length ?? 0}.</p><p className="font-medium text-mk-ink">Reference: {assessmentReference}</p></CardContent></Card>;
+  if (submitted || state.navigation?.current_screen === 'complete') return <Card><CardHeader><Badge>Assessment submitted</Badge><CardTitle className="mt-3">Your assessment is complete</CardTitle></CardHeader><CardContent className="space-y-4 text-sm leading-6 text-mk-muted"><p>Your responses have been securely recorded and your persisted result is ready.</p><p>Applicable assessment areas recorded: {state.path?.nodes?.length ?? 0}.</p><p className="font-medium text-mk-ink">Reference: {assessmentReference}</p>{snapshotUrl ? <Button asChild><Link href={snapshotUrl}>View your Fraud Readiness Result</Link></Button> : <p>The result link is being prepared. Refresh this page shortly.</p>}</CardContent></Card>;
 
   if (screen === 'review' || !currentNode) return <Card><CardHeader><Badge>Review before submission</Badge><h1 ref={headingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold text-mk-ink">Review your assessed scope</h1></CardHeader><CardContent className="space-y-6"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-mk-paper p-4"><p className="text-xs text-mk-muted">Applicable</p><p className="mt-1 text-2xl font-semibold">{state.path.activePathCount}</p></div><div className="rounded-xl bg-mk-paper p-4"><p className="text-xs text-mk-muted">Excluded</p><p className="mt-1 text-2xl font-semibold">{state.path.excludedCount}</p></div><div className="rounded-xl bg-mk-paper p-4"><p className="text-xs text-mk-muted">Redirected</p><p className="mt-1 text-2xl font-semibold">{state.path.redirectedCount}</p></div></div><div><h2 className="font-semibold text-mk-ink">Scope notes</h2><ul className="mt-3 space-y-2 text-sm text-mk-muted">{state.path.nodes.filter((node: any) => node.state === 'excluded' || node.state === 'redirected').slice(0, 12).map((node: any) => <li key={node.nodeId}><strong>{node.nodeId}</strong> — {node.state === 'excluded' ? `excluded (${node.skipReason ?? 'gateway scope'})` : `redirected to ${node.redirectTo}`}</li>)}</ul></div>{state.integritySignals?.length ? <div><h2 className="font-semibold text-mk-ink">Assessment notes</h2><ul className="mt-3 space-y-2 text-sm text-mk-muted">{state.integritySignals.map((signal: any) => <li key={signal.signalId}>{signal.signalId.replaceAll('_', ' ')}</li>)}</ul></div> : null}<div className="flex flex-wrap gap-3"><Button type="button" variant="secondary" onClick={() => { setScreen('question'); setCurrentId(state.path.currentPreviousNode ?? state.path.currentNextNode); }}>Edit answers</Button><Button type="button" disabled={saveState === 'saving'} onClick={() => void submit()}>Submit assessment</Button></div></CardContent></Card>;
 

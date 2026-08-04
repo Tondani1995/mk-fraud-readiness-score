@@ -50,6 +50,12 @@ function formatScore(score: number) {
   return Math.round(score).toString();
 }
 
+function resultStatusLabel(status?: FreeSnapshot['resultStatus']) {
+  if (status === 'INSUFFICIENT_VISIBILITY') return 'Visibility limited';
+  if (status === 'PROVISIONAL') return 'Provisional result';
+  return 'Normal result';
+}
+
 function snapshotTokenFromUrl(snapshotUrl?: string | null) {
   try {
     if (snapshotUrl) return new URL(snapshotUrl, window.location.origin).searchParams.get('token');
@@ -188,17 +194,33 @@ export function FreeSnapshotCard({
               </p>
               <p className="mt-2 text-sm text-white/70">Reference: {snapshot.assessmentReference}</p>
             </div>
-            <Badge>{snapshot.finalMaturity}</Badge>
+            <Badge>{snapshot.resultStatus ? resultStatusLabel(snapshot.resultStatus) : snapshot.finalMaturity}</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
           <section className="grid gap-4 md:grid-cols-5" aria-label="Snapshot metrics">
-            <Metric label="Overall readiness score" value={`${formatScore(snapshot.overallScore)}/100`} supporting="Persisted score result" />
-            <Metric label="Final maturity level" value={snapshot.finalMaturity} supporting="Based on submitted answers" />
+            <Metric label="Overall readiness score" value={snapshot.overallScore === null ? 'Not issued' : `${formatScore(snapshot.overallScore)}/100`} supporting={snapshot.overallScore === null ? 'More visibility is needed' : 'Persisted score result'} />
+            <Metric label="Final maturity level" value={snapshot.finalMaturity ?? 'Not issued'} supporting={snapshot.finalMaturity === null ? 'No band is issued' : 'Based on submitted answers'} />
             <Metric label="Coverage status" value={`${formatScore(snapshot.coveragePct)}%`} supporting={`${formatScore(snapshot.nARatePct)}% not applicable`} />
             <Metric label="Exposure band" value={snapshot.exposureBand} supporting="Exposure profile included" />
             <Metric label="Critical controls" value={String(snapshot.criticalGapCount)} supporting={`${snapshot.majorGapCount} serious control gaps`} />
           </section>
+
+          {snapshot.adaptiveMetrics ? (
+            <section className="rounded-2xl border border-mk-brass/30 bg-mk-brass/10 p-5 text-sm leading-6 text-mk-ink" aria-label="Assessment scope">
+              <p className="font-semibold">Assessment scope and visibility</p>
+              <p className="mt-2">{snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY' ? 'Your assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. The result below explains the areas that could be assessed, the information gaps identified and the evidence needed to complete a reliable view.' : 'This result reflects the control areas that were applicable to your organisation, including any areas assessed through oversight responses.'}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <ScopeMetric label="Applicable controls" value={`${snapshot.adaptiveMetrics.applicableCount} (${snapshot.adaptiveMetrics.applicableWeight} weight)`} />
+                <ScopeMetric label="Control visibility" value={`${snapshot.adaptiveMetrics.controlVisibilityPct}%`} />
+                <ScopeMetric label="Excluded areas" value={`${snapshot.adaptiveMetrics.excludedCount}`} />
+                <ScopeMetric label="Uncertainty" value={`${snapshot.adaptiveMetrics.unknownCount}`} />
+              </div>
+              {snapshot.adaptiveMetrics.redirectedCount > 0 ? <p className="mt-3">{snapshot.adaptiveMetrics.redirectedCount} area{snapshot.adaptiveMetrics.redirectedCount === 1 ? '' : 's'} were assessed through an oversight response. Excluded areas are outside this result and are not treated as weaknesses.</p> : null}
+              {snapshot.adaptiveMetrics.limitationReasons.length ? <p className="mt-3 font-semibold">{snapshot.adaptiveMetrics.limitationReasons.join(' ')}</p> : null}
+              <p className="mt-3 text-mk-muted">{snapshot.adaptiveMetrics.scoreComparabilityStatement}</p>
+            </section>
+          ) : null}
 
           <section className="grid gap-3 md:grid-cols-4" aria-label="Assessment trust facts">
             {['68 controlled questions', '10 fraud-readiness domains', 'Exposure profile included', 'Deterministic scoring'].map((item) => (
@@ -667,6 +689,15 @@ function Metric({ label, value, supporting }: { label: string; value: string; su
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-muted">{label}</p>
       <p className="mt-3 text-3xl font-semibold text-mk-ink">{value}</p>
       <p className="mt-2 text-sm text-mk-muted">{supporting}</p>
+    </div>
+  );
+}
+
+function ScopeMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-mk-line bg-white/70 p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mk-muted">{label}</p>
+      <p className="mt-1 font-semibold text-mk-ink">{value}</p>
     </div>
   );
 }

@@ -1,5 +1,35 @@
 export type MaturityBand = 'Reactive' | 'Developing' | 'Structured' | 'Strategic';
 export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
+export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
+export type AdaptiveResultMetrics = {
+  resultStatus: AdaptiveResultStatus;
+  graphVersion: string;
+  graphFingerprint: string;
+  applicableCount: number;
+  applicableWeight: number;
+  excludedCount: number;
+  excludedWeight: number;
+  redirectedCount: number;
+  redirectedWeight: number;
+  invalidatedCount: number;
+  invalidatedWeight: number;
+  profileOnlyCount: number;
+  unknownCount: number;
+  unknownWeight: number;
+  unansweredApplicableCount: number;
+  unansweredApplicableWeight: number;
+  assessmentCoveragePct: number;
+  controlVisibilityPct: number;
+  materialExclusionSharePct: number;
+  unknownSharePct: number;
+  scoreComparabilityStatement: string;
+  limitationReasons: string[];
+  excludedQuestionCodes: string[];
+  redirectedQuestionCodes: string[];
+  invalidatedQuestionCodes: string[];
+  unknownQuestionCodes: string[];
+  questionTraces: unknown[];
+};
 
 export interface ScoreRunRecord {
   id: string;
@@ -26,6 +56,8 @@ export interface ScoreRunRecord {
   majorGapCount: number;
   capApplied: boolean;
   capReason: string | null;
+  adaptiveResultStatus?: AdaptiveResultStatus | null;
+  adaptiveMetrics?: AdaptiveResultMetrics | null;
 }
 
 export interface DomainResultRecord {
@@ -140,6 +172,7 @@ export interface AssembledReportData {
   actualDomainResultCount: number;
   expectedQuestionTraceCount: number;
   actualQuestionTraceCount: number;
+  adaptiveScope?: AdaptiveResultMetrics | null;
 }
 
 export interface ContentBlock {

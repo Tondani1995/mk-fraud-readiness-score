@@ -203,6 +203,8 @@ export function renderReportHtml(
     timeZone: 'UTC'
   });
   const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#173f68';
+  const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
+  const adaptiveScope = data.adaptiveScope;
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
@@ -213,6 +215,17 @@ export function renderReportHtml(
   // exposure band shown elsewhere in the report. See Checkpoint F controller review blocker 2.
   const readinessDescriptor = readinessPct >= 50 ? 'stronger reported readiness' : 'developing reported readiness';
   const exposurePosition = `${sr.exposureBand} exposure with ${readinessDescriptor}`;
+  const adaptiveScopeBlock = adaptiveScope ? subsection('Assessment scope and limitations', `
+    <div class="metric-grid">
+      <div><span>Applicable controls</span><strong>${adaptiveScope.applicableCount}</strong></div>
+      <div><span>Control visibility</span><strong>${pct(adaptiveScope.controlVisibilityPct)}</strong></div>
+      <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
+      <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
+    </div>
+    <p class="lede">${esc(insufficientVisibility ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. This report explains the assessed scope, information gaps and evidence needed for a reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
 
   const heatmap = data.domainResults.map((domain) => {
     const band = bandFor(domain.rawScore);
@@ -491,7 +504,7 @@ export function renderReportHtml(
     section('Executive summary', 'Executive summary', `
       ${subsection(content.executiveSummary.title, `
       <div class="diagnosis">
-        <div class="score-tile"><strong>${score(sr.overallScore)}</strong><span>out of 100</span><b style="background:${bandColor}">${esc(sr.finalMaturity)}</b></div>
+        <div class="score-tile"><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
         <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p><div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
       </div>
       <div class="metric-grid">
@@ -500,6 +513,7 @@ export function renderReportHtml(
         <div><span>Critical gaps</span><strong>${sr.criticalGapCount}</strong></div>
         <div><span>Major gaps</span><strong>${sr.majorGapCount}</strong></div>
       </div>`)}
+      ${adaptiveScopeBlock}
       ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity)} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
       ${subsection(exposurePosition, `
       <div class="exposure-layout">
