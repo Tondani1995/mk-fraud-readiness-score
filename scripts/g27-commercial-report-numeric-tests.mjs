@@ -68,6 +68,15 @@ assert.equal(validatePremiumReportNarrative(
   evidence()
 ).ok, true);
 
+// Numeric characters in the exact customer-entered organisation name are identity text, not a
+// report claim; the surrounding score claim remains fully validated.
+const namedOrganisation = evidence();
+namedOrganisation.organisationName = 'MK G27 QA - Adaptive Paid Report 20260804';
+assert.equal(validatePremiumReportNarrative(
+  narrative('MK G27 QA - Adaptive Paid Report 20260804 scored 58 out of 100.', ['score:scale_max', 'score:overall', 'score:final_maturity']),
+  namedOrganisation
+).ok, true);
+
 // Invented percentage, currency and control-count claims remain blocked.
 assert(violations(validatePremiumReportNarrative(narrative('The result is 99% reliable.'), evidence())).includes('unsupported_numeric_claim'));
 assert(violations(validatePremiumReportNarrative(narrative('The payment value is 7500.'), evidence())).includes('unsupported_numeric_claim'));
