@@ -147,8 +147,14 @@ try {
 
   await journey.select('label.sm\\:hidden select', await journey.$eval('label.sm\\:hidden select option:nth-child(2)', (option) => option.value));
   await journey.waitForSelector('fieldset[id^="question-"] input[type="radio"]:checked');
-  const completedQuestion = await journey.$eval('fieldset[id^="question-"]', (element) => element.id);
-  await selectRadio(journey, `#${completedQuestion} input[type="radio"][value="3"]`, completedQuestion);
+  const completedQuestion = await journey.$eval('fieldset[id^="question-"] input[type="radio"]:not(:checked)', (input) => ({
+    fieldsetId: input.closest('fieldset')?.id,
+    name: input.getAttribute('name'),
+    value: input.getAttribute('value'),
+  }));
+  assert.ok(completedQuestion.fieldsetId && completedQuestion.name && completedQuestion.value, 'current question radio must be addressable');
+  const completedSelector = `#${completedQuestion.fieldsetId} input[name="${completedQuestion.name}"][value="${completedQuestion.value}"]`;
+  await selectRadio(journey, completedSelector, completedQuestion.fieldsetId);
   await journey.reload({ waitUntil: 'networkidle0' });
   await journey.waitForSelector('[data-assessment-native="true"]');
   assert.match(await journey.$eval('[role="progressbar"]', (element) => element.getAttribute('aria-valuenow') ?? ''), /^[1-9]\d*$/);
