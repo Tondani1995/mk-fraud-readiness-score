@@ -227,7 +227,12 @@ export async function submitAdaptiveAssessment(assessmentReference: string, toke
   const errors = missingGateways.length ? [`Complete the profile gateways: ${missingGateways.join(', ')}.`] : [];
   if (current.path.unansweredApplicableCount > 0) errors.push(`Complete the remaining applicable controls (${current.path.unansweredApplicableCount}).`);
   if (errors.length || signals.some((signal) => signal.blocking)) return { ok: false as const, status: 400, errors: [...errors, ...signals.filter((signal) => signal.blocking).map((signal) => signal.signalId)], state: { ...publicState(current), organisation: access.organisation, respondent: access.respondent } };
-  const { data, error } = await access.db.rpc('adaptive_submit_assessment', { p_assessment_id: access.assessment.id, p_expected_save_sequence: expectedSaveSequence, p_profile: profileRowsForPath(current.path), p_signals: signals });
+  const rpcSignals = signals.map((signal) => ({
+    signal_id: signal.signalId,
+    detail: signal.detail,
+    blocking: signal.blocking
+  }));
+  const { data, error } = await access.db.rpc('adaptive_submit_assessment', { p_assessment_id: access.assessment.id, p_expected_save_sequence: expectedSaveSequence, p_profile: profileRowsForPath(current.path), p_signals: rpcSignals });
   if (error) return { ok: false as const, status: 500, errors: [error.message] };
   if (data?.conflict) return { ok: false as const, status: 409, reason: 'save_conflict' as const, recovery: data };
   return { ok: true as const, submittedAt: data?.submitted_at ?? null, state: (await getAdaptiveAssessmentState(assessmentReference, token)).publicState, profileCount: current.path.nodes.length, signalCount: signals.length };
