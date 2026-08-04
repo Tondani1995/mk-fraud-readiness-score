@@ -284,7 +284,11 @@ assertIncludes(files.freeSnapshot, 'respondentEmail: respondent?.email ?? null',
 
 assertIncludes(files.snapshot, 'Assessment complete', 'Snapshot uses approved result eyebrow');
 assertIncludes(files.snapshot, 'Your organisation&apos;s fraud readiness position', 'Snapshot uses approved result heading');
-assertIncludes(files.snapshot, 'Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.', 'Snapshot uses approved result support copy');
+assert(
+  read(files.snapshot).includes("Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation\\'s fraud-exposure profile.")
+    || read(files.snapshot).includes('Your assessment has been scored using the MK Fraud Readiness methodology across ten control domains and your organisation&apos;s fraud-exposure profile.'),
+  'Snapshot uses approved result support copy'
+);
 assertIncludes(files.snapshot, '68 controlled questions', 'Snapshot trust strip includes question count');
 assertIncludes(files.snapshot, '10 fraud-readiness domains', 'Snapshot trust strip includes domain count');
 assertIncludes(files.snapshot, 'Exposure profile included', 'Snapshot trust strip includes exposure profile');

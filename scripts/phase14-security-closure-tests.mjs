@@ -142,7 +142,7 @@ assert.match(downloadVerification, /record_phase14_operational_alert/);
   };
   const baseNarrative = () => ({
     executiveDiagnosis: { title: 'Executive summary', body: 'The organisation shows a Developing maturity position.', evidenceRefs: ['score:final_maturity'] },
-    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other exposure.', evidenceRefs: [] },
+    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other open gaps.', evidenceRefs: [] },
     leadershipAttention: { body: 'Leadership should prioritise remediation.', evidenceRefs: [] },
     domainNarratives: [],
     gapCommentary: []

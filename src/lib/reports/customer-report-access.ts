@@ -61,32 +61,14 @@ async function recordAccess(input: {
     success: input.success,
     error_category: input.reason ?? null
   };
-  const inserts = [] as Promise<any>[];
-  if (input.reportId) {
-    inserts.push(input.db.from('report_events').insert({
-      report_id: input.reportId,
-      event_type: eventType,
-      note: input.success ? 'Customer accessed the secure report link.' : `Customer access failed: ${input.reason}.`,
-      metadata_json: metadata
-    }));
-  }
-  if (input.orderId) {
-    inserts.push(input.db.from('order_events').insert({
-      order_id: input.orderId,
-      event_type: eventType,
-      note: input.success ? 'Customer accessed the secure report link.' : `Customer access failed: ${input.reason}.`,
-      metadata_json: metadata
-    }));
-  }
-  inserts.push(input.db.from('audit_logs').insert({
-    actor_type: 'customer_token',
-    entity_table: 'customer_report_access_tokens',
-    entity_id: input.tokenId,
-    action: eventType,
-    after_json: metadata
-  }));
-  const results = await Promise.all(inserts);
-  const auditError = results.find((result: any) => result.error)?.error;
+  const { error: auditError } = await input.db.rpc('record_customer_report_access', {
+    p_token_id: input.tokenId,
+    p_order_id: input.orderId,
+    p_report_id: input.reportId,
+    p_success: input.success,
+    p_reason: input.reason ?? null,
+    p_technical_reference: input.technicalReference
+  });
   if (auditError) {
     console.error('customer_report_access_audit', { technicalReference: input.technicalReference, errorCategory: 'access_audit_failed' });
     if (input.success) {

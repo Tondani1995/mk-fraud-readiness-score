@@ -78,7 +78,7 @@ jobs:
       G29_SUITE_IDS: integration.adaptive-db
       G29_OUTPUT: tmp/g29/adaptive-staging.json
       G25_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
-      G25_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.G25_SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       G25_DB_TEST_REF: MKADAPT-QA-20260804-01
     steps:
       - uses: actions/checkout@v4
@@ -87,8 +87,11 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Require the existing Staging service-role secret without printing it
-        run: test -n "$G25_SUPABASE_SERVICE_ROLE_KEY"
+      - name: Map the canonical Staging service-role secret for the legacy suite interface
+        run: |
+          set -Eeuo pipefail
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          printf 'G25_SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SUPABASE_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
       - name: Run adaptive Staging DB suite
         run: npm run g29:regression -- --live
       - uses: actions/upload-artifact@v4

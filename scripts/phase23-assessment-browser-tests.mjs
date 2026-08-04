@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import puppeteer from 'puppeteer-core';
 
-const baseUrl = (process.env.PHASE23_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
+const configuredBaseUrl = process.env.PHASE23_BASE_URL?.trim();
+const localPort = Number(process.env.PHASE23_PORT ?? 3100);
 const accessUrl = process.env.PHASE23_VERCEL_ACCESS_URL?.trim();
 const outputDirectory = process.env.PHASE23_BROWSER_EVIDENCE_DIR ?? 'tmp/phase23-browser-evidence';
 const syntheticMarker = process.env.PHASE23_SYNTHETIC_MARKER ?? '';
@@ -12,6 +14,32 @@ const executablePath = process.env.CHROME_EXECUTABLE
   ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
 const protectionBypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
 await mkdir(outputDirectory, { recursive: true });
+
+let localServer = null;
+const startupLog = [];
+const localBaseUrl = `http://127.0.0.1:${localPort}`;
+
+async function startLocalServer() {
+  const npmCommand = process.env.npm_execpath ? process.execPath : 'npm';
+  const npmArgs = process.env.npm_execpath
+    ? [process.env.npm_execpath, 'run', 'dev', '--', '--hostname', '127.0.0.1', '--port', String(localPort)]
+    : ['run', 'dev', '--', '--hostname', '127.0.0.1', '--port', String(localPort)];
+  localServer = spawn(npmCommand, npmArgs, { cwd: process.cwd(), env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  localServer.stdout.on('data', (chunk) => startupLog.push(String(chunk)));
+  localServer.stderr.on('data', (chunk) => startupLog.push(String(chunk)));
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (localServer.exitCode !== null) break;
+    try {
+      const response = await fetch(`${localBaseUrl}/score/start`, { redirect: 'manual' });
+      if (response.status >= 200 && response.status < 500) return;
+    } catch {}
+    await delay(1000);
+  }
+  throw new Error(`G29_ENVIRONMENT_FAILURE local server did not become ready on ${localBaseUrl}`);
+}
+
+if (!configuredBaseUrl) await startLocalServer();
+const baseUrl = (configuredBaseUrl ?? localBaseUrl).replace(/\/$/, '');
 
 const browser = await puppeteer.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
 const viewports = [
@@ -184,6 +212,10 @@ try {
   await compatibility.close();
 } finally {
   await browser.close();
+  if (localServer) {
+    localServer.kill('SIGTERM');
+    await writeFile(join(outputDirectory, 'startup.log'), startupLog.join(''));
+  }
 }
 
 await writeFile(join(outputDirectory, 'measurements.json'), `${JSON.stringify(evidence, null, 2)}\n`);

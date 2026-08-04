@@ -66,7 +66,7 @@ const selectedSuites = requestedSuiteIds.length
   ? suites.filter((suite) => requestedSuiteIds.includes(suite.id))
   : suites;
 
-const environmentFailure = /(set .+ for|missing .*(?:env|variable)|required environment|connection failed|connection refused|econnrefused|chrome executable|vercel protection|supabase.*key|database.*url|local_db_url|g25_supabase|dyld\[|libicudata|embedded-postgres|postgres init script failed)/i;
+const environmentFailure = /(G29_ENVIRONMENT_FAILURE|(?:LOCAL_DB_URL|G25_SUPABASE_URL|G25_SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SERVICE_ROLE_KEY) is required|chrome executable|vercel protection bypass|net::ERR_CONNECTION_REFUSED at http:\/\/127\.0\.0\.1|dyld\[|libicudata|embedded-postgres|postgres init script failed)/i;
 const extractJson = (text) => {
   for (const line of text.trim().split('\n').reverse()) {
     try { const parsed = JSON.parse(line); if (parsed && typeof parsed === 'object') return parsed; } catch {}
@@ -91,10 +91,13 @@ for (const suite of selectedSuites) {
   const status = run.status === 0 ? 'passed' : 'failed';
   const classification = status === 'passed'
     ? 'product'
-    : (run.status === 2 || run.signal === 'SIGTERM' || environmentFailure.test(combined) ? 'environment/configuration' : 'product');
+    : (run.status === 2 || run.error?.code === 'ENOENT' || environmentFailure.test(combined) ? 'environment/configuration' : 'product');
+  const severity = status === 'passed' || classification !== 'product'
+    ? null
+    : (/\bP0\b|critical|data loss|security bypass/i.test(combined) ? 'P0' : (/\bP2\b/i.test(combined) ? 'P2' : 'P1'));
   results.push({
     id: suite.id, category: suite.category, status, classification,
-    severity: status === 'passed' || classification !== 'product' ? null : 'P1',
+    severity,
     exitCode: run.status, signal: run.signal ?? null,
     assertions: parsed?.assertions ?? parsed?.tests ?? parsed?.passed ?? null,
     output: combined.slice(-8000), parsed
