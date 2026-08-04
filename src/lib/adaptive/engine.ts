@@ -109,6 +109,13 @@ const GATEWAY_BLOCKS: Record<string, string[]> = {
   D3: ['G05', 'G06', 'G10', 'G11', 'G12'],
   D7: ['G04', 'G07', 'G14']
 };
+// OV-G07 is the one approved oversight variant that is supplemental to a
+// gateway rather than declared as a replacement in the draft graph. It
+// replaces the generic outsourced-provider control when payroll is processed
+// externally, so the existing scoring path can retain the approved weight.
+const STANDALONE_OVERSIGHT_RULES = [
+  { variantId: 'OV-G07', replaces: 'D7-Q07', gatewayId: 'G07', values: ['outsourced', 'shared_service'] }
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -229,6 +236,20 @@ export function resolveAdaptivePath(input: {
       const redirect = question.redirectWhen && evaluateAdaptiveCondition(question.redirectWhen.condition, gatewayAnswers);
       const applicable = question.applicabilityCondition === null || evaluateAdaptiveCondition(question.applicabilityCondition, gatewayAnswers);
       const response = controlResponses[question.questionId] ?? null;
+      const standaloneRule = STANDALONE_OVERSIGHT_RULES.find((rule) => rule.replaces === question.questionId
+        && rule.values.some((value) => value === gatewayAnswers[rule.gatewayId]));
+      const standaloneVariant = standaloneRule ? variantById.get(standaloneRule.variantId) : null;
+      if (standaloneRule && standaloneVariant) {
+        nodes.push({ nodeId: question.questionId, kind: 'control', domainCode, prompt: question.prompt, controlObjective: question.controlObjective, weight: question.weight,
+          isCritical: question.isCritical, isHardGate: question.isHardGate, state: 'redirected', applicabilityState: activityState(question, gatewayAnswers),
+          findingClass: 'redirected', recommendationClass: 'retained_oversight', skipReason: 'redirected_to_oversight', redirectTo: standaloneVariant.questionId,
+          replacementFor: null, evidenceReference: question.evidenceReference, guidance: input.guidanceByQuestion?.[question.questionId] ?? null, response: null });
+        nodes.push({ nodeId: standaloneVariant.questionId, kind: 'oversight', domainCode: standaloneVariant.domainCode, prompt: standaloneVariant.prompt, controlObjective: null, weight: question.weight,
+          isCritical: question.isCritical, isHardGate: question.isHardGate, state: 'active', applicabilityState: activityState(standaloneVariant, gatewayAnswers), findingClass: 'retained_oversight',
+          recommendationClass: 'retained_oversight', skipReason: null, redirectTo: null, replacementFor: question.questionId, evidenceReference: question.evidenceReference,
+          guidance: input.guidanceByQuestion?.[question.questionId] ?? null, response: controlResponses[standaloneVariant.questionId] ?? null });
+        continue;
+      }
       if (redirect && question.redirectWhen) {
         nodes.push({ nodeId: question.questionId, kind: 'control', domainCode, prompt: question.prompt, controlObjective: question.controlObjective, weight: question.weight,
           isCritical: question.isCritical, isHardGate: question.isHardGate, state: 'redirected', applicabilityState: activityState(question, gatewayAnswers),

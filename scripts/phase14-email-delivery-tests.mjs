@@ -74,7 +74,7 @@ const deliveryWrapper = read('src/lib/reports/email/report-delivery.ts');
 assert.match(deliveryWrapper, /report-delivery-service/);
 const delivery = read('src/lib/reports/email/report-delivery-service-core.ts');
 const dispatch = read('src/lib/reports/email/delivery-dispatch.ts');
-assert.match(delivery, /flags\.testRecipientOverride/);
+assert.match(delivery, /flags!?\.testRecipientOverride(?:Enabled)?/);
 assert.match(delivery, /overridePermitted/);
 assert.match(delivery, /manualDeliveryEnabled/);
 assert.match(dispatch, /fail_premium_report_delivery_before_dispatch/);
