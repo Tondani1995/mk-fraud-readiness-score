@@ -26,8 +26,13 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const activeNodes = state.path?.activeNodes ?? [];
   const currentNode = nodes.find((node: any) => node.nodeId === currentId) ?? activeNodes.find((node: any) => node.nodeId === state.path?.currentNextNode) ?? null;
   const progress = state.path?.activePathCount ? Math.round((state.path.completedApplicableCount / state.path.activePathCount) * 100) : 0;
-  const currentIndex = currentNode ? activeNodes.findIndex((node: any) => node.nodeId === currentNode.nodeId) : -1;
-  const previousNode = currentIndex > 0 ? activeNodes[currentIndex - 1] : null;
+  const navigableNodes = nodes.filter((node: any) => node.state === 'active' || (node.kind === 'gateway' && node.state === 'profile-only'));
+  const currentIndex = currentNode ? navigableNodes.findIndex((node: any) => node.nodeId === currentNode.nodeId) : -1;
+  const previousNode = currentIndex > 0
+    ? [...navigableNodes.slice(0, currentIndex)].reverse().find((node: any) =>
+        node.kind === 'gateway' ? Boolean(gatewayAnswers[node.nodeId]) : Boolean(controlResponses[node.nodeId])
+      ) ?? null
+    : null;
 
   useEffect(() => { headingRef.current?.focus(); }, [currentId, screen]);
 

@@ -42,6 +42,7 @@ assert.equal(evaluateAdaptiveCondition({ questionId: 'G03', equals: 'internal' }
 const professional = resolveAdaptivePath({ graph, gatewayAnswers: answers() });
 expect(professional.profileOnlyNodes.length === 14, 'answered gateways must be retained as profile-only nodes');
 expect(professional.currentNextNode === 'D1-Q01', 'completed profile gateways must lead to the first applicable control');
+expect(professional.currentPreviousNode === 'G09', 'back navigation must retain the last answered profile gateway');
 expect(professional.excludedCount > 0, 'professional path should exclude out-of-scope controls');
 
 const retail = resolveAdaptivePath({ graph, gatewayAnswers: answers({ G01: 'retail', G05: 'significant', G06: 'yes', G08: 'yes', G09: 'yes', G10: 'yes', G11: 'yes', G12: 'yes', G13: 'yes' }) });

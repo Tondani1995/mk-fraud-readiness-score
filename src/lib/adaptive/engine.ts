@@ -261,7 +261,11 @@ export function resolveAdaptivePath(input: {
   const unansweredApplicableCount = controlActive.filter((node) => !isControlAnswered(node)).length;
   const currentNextNode = nodes.find((node) => node.state === 'active' && ((node.kind === 'gateway' && !gatewayAnswers[node.nodeId]) || (node.kind !== 'gateway' && !isControlAnswered(node))))?.nodeId ?? null;
   const currentIndex = currentNextNode ? nodes.findIndex((node) => node.nodeId === currentNextNode) : nodes.length;
-  const currentPreviousNode = [...nodes.slice(0, currentIndex)].reverse().find((node) => node.state === 'active' && (node.kind === 'gateway' ? Boolean(gatewayAnswers[node.nodeId]) : isControlAnswered(node)))?.nodeId ?? null;
+  const currentPreviousNode = [...nodes.slice(0, currentIndex)].reverse().find((node) =>
+    node.kind === 'gateway'
+      ? Boolean(gatewayAnswers[node.nodeId])
+      : node.state === 'active' && isControlAnswered(node)
+  )?.nodeId ?? null;
   const domainBoundaries = domains.map((domain) => {
     const domainNodes = controlActive.filter((node) => node.domainCode === domain.domainCode);
     return { domainCode: domain.domainCode, name: domain.name, activeCount: domainNodes.length, completedCount: domainNodes.filter(isControlAnswered).length,
