@@ -373,7 +373,7 @@ export function renderReportHtml(
   </tr>`);
   const roadmapBlock = subsection('30/60/90-day roadmap', `
     <p class="section-note">This is the report's only action roadmap. Dependencies and measures are carried directly from the material findings, risks and controls set out in this report.</p>
-    ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows)}`);
+    ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows, 'compact-register roadmap-table')}`);
 
   const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
   for (const item of evidenceModel.evidenceChecklist) {
@@ -631,7 +631,10 @@ export function renderReportHtml(
   .bar-row span { color:#6c665b; }
   .bar-track,.mini-track { height:2.4mm;background:#e7dfd2;margin-top:1.2mm;overflow:hidden;border-radius:2mm; }
   .bar-track i,.mini-track i { display:block;height:100%; }
-  .stack { display:flex;flex-direction:column;gap:1mm; }
+  /* Let related domain cards fragment as ordinary flow content. A flex column can strand a
+     single short card on a fresh page when the preceding group fills the current one. */
+  .stack { display:block; }
+  .stack .compact-card { margin-bottom: 1mm; }
   .domain-top { display:flex;justify-content:space-between;gap:4mm;align-items:baseline; }
   .domain-top span { font:700 10pt Arial,sans-serif; }
   .inline-alert { margin-top:2mm;padding:2mm 3mm;background:#fff2f2;border-left:.8mm solid #a61b1b;font-size:8pt; }
@@ -657,6 +660,7 @@ export function renderReportHtml(
   table { width:100%;border-collapse:collapse; }
   thead { display:table-header-group; }
   tr { break-inside:avoid;page-break-inside:avoid; }
+  .roadmap-table { break-inside: avoid; page-break-inside: avoid; }
   th,td { border:.2mm solid #dcd3c4;padding:2.2mm 3mm;text-align:left;vertical-align:top; }
   th { background:#071b3d;color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
   td { font-size:8pt; }

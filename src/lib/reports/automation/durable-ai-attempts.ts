@@ -14,6 +14,7 @@ import type {
   NarrativeGenerationResult,
   PremiumReportNarrativeGenerator
 } from './types';
+import { logPremiumReportPhase } from './phase-timing';
 
 export const PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2;
 export const PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS = 250_000;
@@ -143,6 +144,7 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
   const store = input.attemptStore ?? createPhase14NarrativeAttemptStore(input);
 
   async function run(kind: AttemptKind, generationInput: NarrativeGenerationInput) {
+    const runStartedAt = Date.now();
     await store.authorize(input.generator.provider);
     const providerPrompt = kind === 'generate'
       ? buildPremiumReportGenerationPrompt(generationInput)
@@ -315,6 +317,15 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         }
         throw new Error('AI provider output is marked uncertain and must be reconciled before any retry.');
       }
+      logPremiumReportPhase({
+        phase: 'accounting_persisted',
+        status: 'completed',
+        startedAt: runStartedAt,
+        generationAttemptId: attempt.id,
+        provider: result.provider,
+        model: result.model,
+        gatewayGenerationId: result.gateway?.generationId ?? null
+      });
       return result;
     } catch (error) {
       if (accountingStatePersisted) throw error;

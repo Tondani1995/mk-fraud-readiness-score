@@ -20,6 +20,7 @@ import type {
   PreparedPremiumReportNarrative,
   PremiumReportNarrativeGenerator
 } from './types';
+import { logPremiumReportPhase } from './phase-timing';
 
 export interface NarrativePipelineDependencies {
   buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
@@ -275,6 +276,8 @@ export async function preparePremiumReportNarrative(
 
   try {
     const generation = await generator.generate(baseGenerationInput);
+    const validationStartedAt = Date.now();
+    logPremiumReportPhase({ phase: 'narrative_validation_started', status: 'started', startedAt: validationStartedAt, provider: generation.provider, model: generation.model, gatewayGenerationId: generation.gateway?.generationId ?? null });
     const planValidation = validatePremiumReportAiEditorialPlan(generation.output, evidence, narrativeBrief);
 
     if (!planValidation.ok) {
@@ -291,6 +294,7 @@ export async function preparePremiumReportNarrative(
 
     const { narrative, validation } = buildAndValidateAiNarrative(input, evidence, generation.output);
     if (validation.ok) {
+      logPremiumReportPhase({ phase: 'narrative_validation_completed', status: 'completed', startedAt: validationStartedAt, provider: generation.provider, model: generation.model, gatewayGenerationId: generation.gateway?.generationId ?? null });
       return {
         narrative,
         selectedContent: narrativeToSelectedContent(input.assembled, narrative, false),

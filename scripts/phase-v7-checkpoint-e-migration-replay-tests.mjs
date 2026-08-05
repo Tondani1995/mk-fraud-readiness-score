@@ -198,7 +198,7 @@ try {
     evidence_checksum: 'a'.repeat(64), prompt_version: 'checkpoint-e-prompt-v4',
     schema_version: 'checkpoint-e-schema-v4', input_size_bytes: 100,
     estimated_input_tokens: 25, max_output_tokens: 5000,
-    max_estimated_cost_micros: 250000, timeout_ms: 45000
+    max_estimated_cost_micros: 250000, timeout_ms: 240000
   })])).rows[0].value;
   assert.equal(claimed.manual_generation_attempt_id, manualAttemptId);
   assert.equal(claimed.manual_order_id, orderId);

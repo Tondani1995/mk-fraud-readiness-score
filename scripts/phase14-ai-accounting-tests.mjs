@@ -30,8 +30,9 @@ new Function('require', 'module', 'exports', compiled)((specifier) => {
   };
   if (specifier === './ai-sdk-generator') return {
     PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 5000,
-    PREMIUM_REPORT_AI_TIMEOUT_MS: 45_000
+    PREMIUM_REPORT_AI_TIMEOUT_MS: 240_000
   };
+  if (specifier === './phase-timing') return { logPremiumReportPhase() {} };
   if (specifier === './prompt') return {
     PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS: 'test system instructions',
     buildPremiumReportGenerationPrompt: (input) => `test generation prompt\n${JSON.stringify(input.evidence)}`,

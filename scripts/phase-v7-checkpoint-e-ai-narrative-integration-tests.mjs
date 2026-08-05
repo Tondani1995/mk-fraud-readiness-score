@@ -350,6 +350,12 @@ await test('E3: generation and repair prompts remain within byte/token limits fo
       assert.ok(estimatedTokens < PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS, `${context.data.assessmentReference} prompt exceeded token estimate`);
       assert.ok(estimatedCostMicros < PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS, `${context.data.assessmentReference} prompt exceeded cost estimate`);
       assert.doesNotMatch(prompt, /customerEmail|respondentName|@example\.test/);
+      for (const section of [context.brief.executive, context.brief.falseComfort, context.brief.leadership, ...Object.values(context.brief.domains), ...Object.values(context.brief.gaps)]) {
+        for (const ref of section.requiredEvidenceRefs) assert.ok(prompt.includes(ref), `${context.data.assessmentReference} prompt dropped required evidence ref ${ref}`);
+      }
+      assert.match(prompt, /NARRATIVE_BRIEF_START/);
+      assert.match(prompt, /EVIDENCE_PROJECTION_START/);
+      if (context === weak && prompt === prompts[0]) assert.ok(bytes <= 45_000, `compact weak-fixture generation prompt is ${bytes} bytes`);
     }
   }
 });

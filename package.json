@@ -115,6 +115,7 @@
     "g27:test-adaptive-gateway-audit": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-gateway-audit-tests.mjs",
     "g29:test-payment-verification": "node scripts/g29-payment-verification-contract-tests.mjs",
     "pre-g30:test-ai-route-authority": "node scripts/pre-g30-ai-route-authority-tests.mjs",
+    "pre-g30:test-timeout-architecture": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-timeout-architecture-tests.mjs",
     "pre-g30:test-migration-targets": "node scripts/pre-g30-migration-target-check.mjs",
     "pre-g30:test-adaptive-launch": "node scripts/pre-g30-adaptive-launch-tests.mjs",
     "g29:test-customer-report-access": "node scripts/g29-customer-report-access-tests.mjs",

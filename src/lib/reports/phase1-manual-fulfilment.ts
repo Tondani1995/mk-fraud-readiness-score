@@ -20,6 +20,7 @@ import type {
   PremiumReportNarrativeGenerator,
   PreparedPremiumReportNarrative
 } from './automation/types';
+import { logPremiumReportPhase } from './automation/phase-timing';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -251,6 +252,7 @@ export async function generateManualPhase1Report(
   dependencies: ManualPhase1Dependencies = {}
 ): Promise<ManualGenerationResult> {
   const technicalReference = crypto.randomUUID();
+  const generationStartedAt = Date.now();
   const requestKey = input.requestKey.trim().slice(0, 200);
   if (!requestKey) {
     throw new Phase1GenerationError('generation_failed', 'A request key is required for safe report generation.', 400, technicalReference);
@@ -332,6 +334,7 @@ export async function generateManualPhase1Report(
   }
 
   const attemptId = String(claim.attempt.id);
+  logPremiumReportPhase({ phase: 'generation_attempt_claimed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
   const versionNumber = Number(claim.attempt.report_version);
   let assembled: Awaited<ReturnType<typeof assembleReportData>> | undefined;
   let storageBucket: string | null = null;
@@ -347,6 +350,7 @@ export async function generateManualPhase1Report(
     try {
       assembled = await doAssembleReportData(input.orderReference);
       reportType = doValidateEntitlement(assembled);
+      logPremiumReportPhase({ phase: 'evidence_assembled', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
     } catch (error) {
       throw mapPreflightFailure(error, technicalReference);
     }
@@ -408,6 +412,7 @@ export async function generateManualPhase1Report(
     generationStage = 'prepare_narrative';
     let prepared: PreparedPremiumReportNarrative;
     try {
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
       const doPrepareNarrative = dependencies.preparePremiumReportNarrative
         ?? (await import('./automation/narrative-pipeline')).preparePremiumReportNarrative;
       prepared = await doPrepareNarrative({
@@ -428,6 +433,7 @@ export async function generateManualPhase1Report(
             })
           : undefined
       });
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
@@ -462,6 +468,7 @@ export async function generateManualPhase1Report(
     // logged with only safe structured fields (technical reference, order reference, issue codes,
     // counts), never full report content, HTML, or customer data.
     generationStage = 'render_pdf';
+    logPremiumReportPhase({ phase: 'pdf_rendering_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     let pdf: Buffer;
     try {
       pdf = await doRenderValidatedCommercialPdf({
@@ -470,6 +477,7 @@ export async function generateManualPhase1Report(
         roadmap,
         evidenceModel: advisoryModel
       });
+      logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
@@ -495,6 +503,7 @@ export async function generateManualPhase1Report(
     storageBucket = 'generated-reports';
     storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
 
+    logPremiumReportPhase({ phase: 'storage_publication_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
     const { error: uploadError } = await db.storage.from(storageBucket).upload(storagePath, pdf, {
       contentType: 'application/pdf',
       upsert: false,
@@ -505,6 +514,7 @@ export async function generateManualPhase1Report(
     }
     uploaded = true;
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
+    logPremiumReportPhase({ phase: 'storage_publication_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
 
     generationStage = 'complete_generation';
     const { data: completed, error: completeError } = await db.rpc('complete_manual_report_generation', {
@@ -534,6 +544,7 @@ export async function generateManualPhase1Report(
       });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
+    logPremiumReportPhase({ phase: 'report_finalised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: completed.report.report_reference });
 
     console.info('phase1_manual_generation', {
       requestId: claim.attempt.request_id,

@@ -92,7 +92,8 @@ try {
     '0017_phase14_canonical_disabled_foundation', '0023_phase1_manual_fulfilment_recovery', '0024_phase23_payment_automation', '0025_phase23_assessment_resume',
     '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
     '0028_phase14_attestation_canonicalisation_hardening', '0029_phase14_ai_attempt_cross_kind_budget',
-    '0030_phase14_ai_attempt_pre_dispatch_budget_exclusion', '0031_phase14_delivery_event_recency_precision_fix'
+    '0030_phase14_ai_attempt_pre_dispatch_budget_exclusion', '0031_phase14_delivery_event_recency_precision_fix',
+    '20260805200000_pre_g30_ai_timeout_window'
   ];
   for (const f of files) await migrator.query(fs.readFileSync(path.join(migrationsDir, `${f}.sql`), 'utf8'));
   console.log('All migrations applied.');
@@ -180,7 +181,7 @@ try {
       attempt_kind: overrides.kind ?? 'generate', provider_request_key: overrides.key ?? `req-${Math.random()}`,
       requested_provider: 'openai', requested_model: 'gpt-test', evidence_checksum: 'a'.repeat(64),
       prompt_version: 'v1', schema_version: 'v1', input_size_bytes: 100, estimated_input_tokens: 25,
-      max_output_tokens: 3500, max_estimated_cost_micros: 100000, timeout_ms: 45000
+      max_output_tokens: 3500, max_estimated_cost_micros: 100000, timeout_ms: 240000
     };
   }
 
