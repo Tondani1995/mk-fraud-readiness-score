@@ -65,6 +65,7 @@ async function main() {
   fs.chmodSync(tempDir, 0o700);
   const headerPath = path.join(tempDir, 'headers.txt');
   const bodyPath = path.join(tempDir, 'body.json');
+  const cookiePath = path.join(tempDir, 'cookies.txt');
   const responsePath = path.join(tempDir, 'response.json');
   try {
     fs.writeFileSync(
@@ -77,12 +78,15 @@ async function main() {
       JSON.stringify({ attemptId, correlationReference }),
       { mode: 0o600 }
     );
+    fs.writeFileSync(cookiePath, '', { mode: 0o600 });
 
     const responseHeadersPath = path.join(tempDir, 'response-headers.txt');
     const curl = childProcess.spawnSync('curl', [
       '--silent',
       '--show-error',
       '--location',
+      '--cookie', cookiePath,
+      '--cookie-jar', cookiePath,
       '--output', responsePath,
       '--dump-header', responseHeadersPath,
       '--write-out', '%{http_code}',
@@ -108,8 +112,25 @@ async function main() {
       });
       fail('Protected worker request could not be completed.');
     }
-    const responseBody = fs.readFileSync(responsePath, 'utf8');
-    const responseHeaders = fs.readFileSync(responseHeadersPath, 'utf8');
+    const responseBody = fs.existsSync(responsePath) ? fs.readFileSync(responsePath, 'utf8') : '';
+    const responseHeaders = fs.existsSync(responseHeadersPath)
+      ? fs.readFileSync(responseHeadersPath, 'utf8')
+      : '';
+    if (!fs.existsSync(responsePath)) {
+      writeEvidence({
+        ok: false,
+        httpStatus: null,
+        responseBody: null,
+        vercelRequestId: null,
+        attemptId,
+        correlationReference,
+        deploymentUrl: previewBaseUrl,
+        sha: expectedSha,
+        timestamp: new Date().toISOString(),
+        failureCategory: 'worker_response_body_missing'
+      });
+      fail('Protected worker returned no response body.');
+    }
     if (responseBody.includes(cronSecret)) fail('Worker response contained the protected secret.');
 
     const httpStatus = Number.parseInt(String(curl.stdout ?? '').trim(), 10);
