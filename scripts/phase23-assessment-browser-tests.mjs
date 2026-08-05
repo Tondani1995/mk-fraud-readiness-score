@@ -65,6 +65,21 @@ function redirectHost(host) {
   return host === 'vercel.com' || host.endsWith('.vercel.com');
 }
 
+function updateCookieJar(jar, response) {
+  const setCookies = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : [response.headers.get('set-cookie')].filter(Boolean);
+  for (const setCookie of setCookies) {
+    const pair = setCookie.split(';', 1)[0];
+    const separator = pair.indexOf('=');
+    if (separator > 0) jar.set(pair.slice(0, separator), pair.slice(separator + 1));
+  }
+}
+
+function cookieHeader(jar) {
+  return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+}
+
 async function previewPreflight() {
   const target = `${baseUrl}/score/start`;
   if (!configuredBaseUrl) {
@@ -75,9 +90,14 @@ async function previewPreflight() {
   }
 
   const chain = [];
+  const cookies = new Map();
   let currentUrl = target;
   for (let redirects = 0; redirects <= 5; redirects += 1) {
-    const response = await fetch(currentUrl, { redirect: 'manual', headers: previewHeaders(), signal: AbortSignal.timeout(15000) });
+    const headers = previewHeaders();
+    const cookie = cookieHeader(cookies);
+    if (cookie) headers.cookie = cookie;
+    const response = await fetch(currentUrl, { redirect: 'manual', headers, signal: AbortSignal.timeout(15000) });
+    updateCookieJar(cookies, response);
     const host = new URL(currentUrl).hostname;
     chain.push({ host, status: response.status });
     if (response.status < 300 || response.status >= 400) {

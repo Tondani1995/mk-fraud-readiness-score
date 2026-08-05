@@ -94,13 +94,25 @@ async function responseEvidence(response, body) {
 
 async function followRedirects(startUrl) {
   const chain = [];
+  const cookies = new Map();
   let currentUrl = startUrl;
   for (let redirectCount = 0; redirectCount <= 6; redirectCount += 1) {
+    const headers = { 'x-vercel-protection-bypass': protectionBypass, 'x-vercel-set-bypass-cookie': 'true' };
+    const cookie = [...cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+    if (cookie) headers.cookie = cookie;
     const response = await fetch(currentUrl, {
       redirect: 'manual',
-      headers: { 'x-vercel-protection-bypass': protectionBypass, 'x-vercel-set-bypass-cookie': 'true' },
+      headers,
       signal: AbortSignal.timeout(30000)
     });
+    const setCookies = typeof response.headers.getSetCookie === 'function'
+      ? response.headers.getSetCookie()
+      : [response.headers.get('set-cookie')].filter(Boolean);
+    for (const setCookie of setCookies) {
+      const pair = setCookie.split(';', 1)[0];
+      const separator = pair.indexOf('=');
+      if (separator > 0) cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+    }
     const body = Buffer.from(await response.arrayBuffer());
     const item = await responseEvidence(response, body);
     chain.push(item);
