@@ -23,7 +23,9 @@ assert.equal(PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS, 30_000);
 assert.ok(PREMIUM_REPORT_AI_TIMEOUT_MS + PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS <= PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS * 1000,
   'AI timeout plus post-provider margin must fit within the route duration');
 assert.equal(PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS, 5000);
-assert.match(route, /export const maxDuration = PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS/);
+// Next.js requires a literal segment export for static analysis; the value remains
+// tied to PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS by the source-level contract.
+assert.match(route, /export const maxDuration = 300;/);
 assert.match(generator, /maxRetries:\s*0/);
 assert.doesNotMatch(generator, /45_000/);
 assert.match(generator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);

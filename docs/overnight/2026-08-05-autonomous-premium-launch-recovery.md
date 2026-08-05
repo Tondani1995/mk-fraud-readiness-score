@@ -71,6 +71,13 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 - Result: local `npm run rc1:test-prepostflight` passes, including the required malformed-state, frozen-secret, cleanup, certification-control, freeze-race, and all defect STOP cases.
 - Safety: test harness correction only; no application, database, provider, payment, email, Storage, or Production mutation. This is the fourth corrective commit in the overnight budget.
 
+### 2026-08-06 00:42 SAST — live Gateway identity-shape correction
+
+- Decision: accept the current AI Gateway routing shape without weakening identity verification. When the legacy top-level `resolvedProviderApiModelId` is absent, resolve it only from a successful matching `routing.modelAttempts[].providerAttempts[]` entry’s `providerApiModelId`; provider, original model, canonical model, generation ID and SDK contradiction checks remain mandatory.
+- Evidence: model discovery returned 317 available models and confirmed `openai/gpt-5.5` with a 1,000,000-token context and published pricing. The first structured probe reached OpenAI in 7.6 seconds but was rejected solely because the old parser expected the absent top-level field. A safe metadata inspection confirmed the nested provider-attempt shape and persisted generation metadata.
+- Focused result: identity parser fixture including nested provider attempts, timeout architecture, and typecheck all pass locally. The failed probe is not a certification journey and produced no report, payment, Storage, or email mutation.
+- Safety: this is the fifth corrective commit in the overnight budget. The exact affected workflows and Preview deployment must be rerun before any further provider call.
+
 ## Safe action ledger
 
 | Time | Action | Environment | Result | Evidence |

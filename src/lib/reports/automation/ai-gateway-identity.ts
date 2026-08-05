@@ -46,6 +46,17 @@ function parseCostMicros(value: unknown): number | undefined {
   return Number.isFinite(cost) && cost >= 0 ? Math.round(cost * 1_000_000) : undefined;
 }
 
+function nestedResolvedProviderApiModelId(routing: JsonRecord, provider: string): string | undefined {
+  const modelAttempts = Array.isArray(routing.modelAttempts) ? routing.modelAttempts : [];
+  const providerAttempts = modelAttempts.flatMap((modelAttempt) => {
+    const attempt = record(modelAttempt);
+    return Array.isArray(attempt?.providerAttempts) ? attempt.providerAttempts : [];
+  }).map(record).filter((attempt): attempt is JsonRecord => Boolean(attempt));
+  const matching = providerAttempts.filter((attempt) => normaliseProvider(text(attempt.provider) ?? '') === provider);
+  const successful = matching.find((attempt) => attempt.success === true) ?? matching[0];
+  return text(successful?.providerApiModelId);
+}
+
 export function parseAiGatewayExecutionIdentity(input: {
   requestedProvider: string;
   requestedModel: string;
@@ -62,7 +73,6 @@ export function parseAiGatewayExecutionIdentity(input: {
   const canonicalSlug = text(routing.canonicalSlug);
   const resolvedProvider = text(routing.resolvedProvider);
   const finalProvider = text(routing.finalProvider);
-  const resolvedProviderApiModelId = text(routing.resolvedProviderApiModelId);
   const sdkResponseModelId = text(record(input.response)?.modelId);
 
   if (!generationId) throw new AiGatewayIdentityVerificationError('Gateway generationId is missing.');
@@ -75,6 +85,8 @@ export function parseAiGatewayExecutionIdentity(input: {
   if (effectiveProvider !== requestedProvider) {
     throw new AiGatewayIdentityVerificationError(`Gateway resolved provider ${effectiveProvider} is not authorised.`);
   }
+  const resolvedProviderApiModelId = text(routing.resolvedProviderApiModelId)
+    ?? nestedResolvedProviderApiModelId(routing, effectiveProvider);
   if (!resolvedProviderApiModelId) throw new AiGatewayIdentityVerificationError('Gateway resolvedProviderApiModelId is missing.');
   if (!originalModelId && !canonicalSlug) throw new AiGatewayIdentityVerificationError('Gateway model proof is missing.');
   if (originalModelId && originalModelId !== input.requestedModel) {

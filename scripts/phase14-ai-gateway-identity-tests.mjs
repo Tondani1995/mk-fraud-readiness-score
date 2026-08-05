@@ -55,6 +55,33 @@ assert.equal(parsed.gatewayCostMicros, 12345);
 assert.equal(classification.classifyAiProviderFailure(new identity.AiGatewayIdentityVerificationError('fixture')), 'provider_declared');
 assert.equal(classification.aiAttemptStatusForFailureClass('provider_declared'), 'provider_result_uncertain');
 
+const nestedMetadata = {
+  gateway: {
+    generationId: 'gen_nested_001',
+    cost: '0.000725',
+    routing: {
+      originalModelId: requestedModel,
+      canonicalSlug: requestedModel,
+      resolvedProvider: 'openai',
+      finalProvider: 'openai',
+      modelAttempts: [{
+        modelId: 'openai:gpt-5.5',
+        success: true,
+        providerAttempts: [{ provider: 'openai', providerApiModelId: 'gpt-5.5', success: true }]
+      }]
+    }
+  }
+};
+const nestedParsed = identity.parseAiGatewayExecutionIdentity({
+  requestedProvider,
+  requestedModel,
+  providerMetadata: nestedMetadata,
+  response: { modelId: requestedModel }
+});
+assert.equal(nestedParsed.identity.generationId, 'gen_nested_001');
+assert.equal(nestedParsed.identity.resolvedProviderApiModelId, 'gpt-5.5');
+assert.equal(nestedParsed.gatewayCostMicros, 725);
+
 const cases = [
   ['routing missing', (m) => ({ ...m, gateway: { generationId: 'g', routing: null } })],
   ['generation id missing', (m) => ({ ...m, gateway: { ...m.gateway, generationId: '' } })],
