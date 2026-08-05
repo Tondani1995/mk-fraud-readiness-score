@@ -65,7 +65,21 @@ const pending = [
   '20260803190000_rc1_park_fulfilment_attempt_search_path_fix.sql',
   '20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql',
   '20260803210000_rc1_structured_band_operating_state_overclaim.sql',
-  '20260803220000_rc1_premium_delivery_active_uniqueness.sql'
+  '20260803220000_rc1_premium_delivery_active_uniqueness.sql',
+  '20260803230000_preview_development_delivery.sql',
+  '20260804090000_preview_development_authoritative_context.sql',
+  '20260804110000_rc1_preview_resend_webhook_ingestion.sql',
+  '20260804130000_rc1_preview_resend_reconciliation_once.sql',
+  '20260804140000_rc1_preview_resend_reconciliation_status.sql',
+  '20260804150000_rc1_preview_resend_apply_context.sql',
+  '20260804170000_g24_adaptive_foundation_g28_evidence_guidance.sql',
+  '20260804171000_g28_evidence_guidance_seed_repair.sql',
+  '20260804194001_g29_payment_verification_contract.sql',
+  '20260804200000_g25_adaptive_engine.sql',
+  '20260804203520_g29_customer_report_access_audit.sql',
+  '20260804210000_g27_adaptive_scoring_integration.sql',
+  '20260804223000_g27_adaptive_visibility_score_guard.sql',
+  '20260805090000_pre_g30_ai_route_authority.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -132,7 +146,7 @@ function runGate(file, variables) {
   const result = spawnSync(psql, args, { env: localOnlyEnv, encoding: 'utf8' });
   return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
-function passResult(result, label) {
+async function passResult(result, label) {
   assert(result.code === 0, `${label} exited ${result.code}: ${result.output}`);
   const stops = result.output.split('\n').filter((line) => /\|STOP$/.test(line));
   assert(stops.length === 0, `${label} emitted STOP: ${stops.join(', ')}`);
@@ -194,10 +208,10 @@ async function replayBaseline() {
   }
 }
 async function ensureAdmin() {
-  await db.query(`insert into auth.users(id,email) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test') on conflict do nothing`);
-  await db.query(`insert into auth.sessions(id,user_id,not_after) values ('00000000-0000-0000-0000-00000000a002','00000000-0000-0000-0000-00000000a001',now()+interval '1 hour') on conflict (id) do update set not_after=excluded.not_after`);
-  await db.query(`insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test','Synthetic RC1 Admin','platform_admin','active',false) on conflict (id) do nothing`);
-  return '00000000-0000-0000-0000-00000000a001';
+  await db.query(`insert into auth.users(id,email) values ('00000000-0000-4000-8000-00000000a001','rc1-synthetic-admin@invalid.test') on conflict do nothing`);
+  await db.query(`insert into auth.sessions(id,user_id,not_after) values ('00000000-0000-4000-8000-00000000a002','00000000-0000-4000-8000-00000000a001',now()+interval '1 hour') on conflict (id) do update set not_after=excluded.not_after`);
+  await db.query(`insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) values ('00000000-0000-4000-8000-00000000a001','rc1-synthetic-admin@invalid.test','Synthetic RC1 Admin','platform_admin','active',false) on conflict (id) do nothing`);
+  return '00000000-0000-4000-8000-00000000a001';
 }
 async function seedOrders(adminId) {
   const method = await query("select id from public.methodology_versions where status='active' limit 1");
@@ -558,7 +572,7 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
       select id,'disabled','rc1-cleanup-provider-'||row_number() over (), 'rc1-cleanup-message-'||row_number() over (), 'email.sent','{}'::jsonb
       from public.email_events where id in ($24,$25,$26,$27);
       insert into public.report_delivery_authorizations(id,report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,security_gate_version,authorised_by,authorised_session_id,provider,email_event_id,status)
-      values ($28,$15,$6,'rc1-cleanup-report@invalid.test',$12,$3,$5,1,$10,'00000000-0000-0000-0000-00000000a002','disabled',$24,'finalized');
+      values ($28,$15,$6,'rc1-cleanup-report@invalid.test',$12,$3,$5,1,$10,'00000000-0000-4000-8000-00000000a002','disabled',$24,'finalized');
       insert into public.report_delivery_finalizations(authorization_id,email_event_id,report_id,provider,provider_message_id)
       values ($28,$24,$15,'disabled','rc1-cleanup-message');
       insert into public.report_delivery_remediations(id,prior_email_event_id,report_id,recipient_email,remediation_type,reason,evidence_json,authorised_by)
@@ -568,13 +582,13 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
       from unnest(array['00000000-0000-0000-0000-00000000b201'::uuid,'00000000-0000-0000-0000-00000000b202'::uuid,'00000000-0000-0000-0000-00000000b203'::uuid,'00000000-0000-0000-0000-00000000b204'::uuid]) with ordinality x(id,n)
       join unnest(array[$24,$25,$26,$27]::uuid[]) with ordinality e(id,n) on e.n=x.n;
       insert into public.phase14_provider_attestation_consumptions(attestation_id,authorization_id,consumed_by,consumed_session_id)
-      select id,$28,$10,'00000000-0000-0000-0000-00000000a002' from public.phase14_provider_attestations where id = any($30::uuid[]);
+      select id,$28,$10,'00000000-0000-4000-8000-00000000a002' from public.phase14_provider_attestations where id = any($30::uuid[]);
       insert into public.customer_report_access_tokens(id,order_id,report_id,recipient_email,token_hash,expires_at,issued_by)
       values ($31,$12,$15,'rc1-cleanup-report@invalid.test','rc1-cleanup-access-token',now()+interval '1 day',$10);
       insert into public.customer_contact_verifications(id,order_id,assessment_id,customer_identity,previous_email,corrected_email,verification_method,evidence_reference,verified_at,verified_by_actor,expires_at)
       values ($32,$12,$3,'rc1-cleanup-customer','old@invalid.test','new@invalid.test','support_callback','rc1-cleanup-contact',now(),$10,now()+interval '1 day');
       insert into public.phase14_worker_capabilities(id,capability_type,policy_key,operation_key,issue_secret_hash,order_id,assessment_id,score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,reason,expires_at,status)
-      values ($33,'automatic_generation','automatic_fulfilment','rc1-cleanup-capability',$6,$12,$3,$5,$17,$15,1,$10,'00000000-0000-0000-0000-00000000a002','synthetic fixture',now()+interval '1 day','consumed');
+      values ($33,'automatic_generation','automatic_fulfilment','rc1-cleanup-capability',$6,$12,$3,$5,$17,$15,1,$10,'00000000-0000-4000-8000-00000000a002','synthetic fixture',now()+interval '1 day','consumed');
       insert into phase14_private.worker_attestation_nonces(nonce,capability_id,action,lease_generation,request_payload_hash,issued_at,expires_at)
       values ('00000000-0000-0000-0000-00000000b117',$33,'cleanup',0,$6,now(),now()+interval '1 day');
       insert into phase14_private.worker_recovery_nonces(nonce,capability_id,old_execution_id,proposed_execution_id,lease_generation,reason,issued_at,expires_at)
@@ -595,7 +609,7 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
     await db.query(fixtureSql);
   });
 
-  await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-0000-0000-00000000a002"}',false)`);
+  await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-4000-8000-00000000a002"}',false)`);
   let unmarkedRefused = false;
   try {
     await query(
@@ -878,9 +892,9 @@ async function proveBootstrapEnforcement() {
     role: 'authenticated',
     aal: 'aal1',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    session_id: '00000000-0000-0000-0000-00000000a002',
+    session_id: '00000000-0000-4000-8000-00000000a002',
   });
-  await db.query("select set_config('request.jwt.claim.sub',$1,false)", ['00000000-0000-0000-0000-00000000a001']);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", ['00000000-0000-4000-8000-00000000a001']);
   await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
   await expectQueryStop(
     'AAL1 release',
@@ -906,8 +920,8 @@ async function proveBootstrapEnforcement() {
 }
 
 async function proveFrozenCertificationControlPlane() {
-  const adminId = '00000000-0000-0000-0000-00000000a001';
-  const sessionId = '00000000-0000-0000-0000-00000000a002';
+  const adminId = '00000000-0000-4000-8000-00000000a001';
+  const sessionId = '00000000-0000-4000-8000-00000000a002';
   const secretA = 'rc1-synthetic-webhook-certification-secret-a';
   const secretB = 'rc1-synthetic-lookup-certification-secret-b';
   const claimsFor = (aal) => JSON.stringify({
@@ -1091,7 +1105,7 @@ async function proveFrozenCertificationControlPlane() {
   assert(Number(evidence.fingerprint_count) === 2, 'their fingerprints must be non-null and distinct');
   assert(Number(evidence.audit_count) === 2, 'each certification write must create RC1 audit evidence');
   assert(Number(evidence.token_count) === 0, 'one-use write tokens must be consumed');
-  passResult(runGate('rc1-production-post-provisioning-evidence.sql', {
+  await passResult(runGate('rc1-production-post-provisioning-evidence.sql', {
     rc1_expected_freeze_epoch: '1',
     rc1_expected_business_counts_json: JSON.stringify(countsBefore),
   }), 'post-provisioning read-only evidence');
@@ -1133,12 +1147,12 @@ async function proveFrozenCertificationControlPlane() {
 }
 
 async function proveNearRealTimeAutomaticFulfilment() {
-  const adminId = '00000000-0000-0000-0000-00000000a001';
+  const adminId = '00000000-0000-4000-8000-00000000a001';
   const claims = JSON.stringify({
     role: 'authenticated',
     aal: 'aal2',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    session_id: '00000000-0000-0000-0000-00000000a002',
+    session_id: '00000000-0000-4000-8000-00000000a002',
   });
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [adminId]);
   await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
@@ -1582,7 +1596,7 @@ try {
     'historical email fixture must match the controller-approved 71/2/2 status baseline');
   assert(emailStatus.fingerprint === '76d196fb622eba89ec2c556ea8f65b8a183eee086e722fb43e2d94fa774e6fd2',
     'historical email status fingerprint must match the approved manifest');
-  passResult(await runPre(preVars), 'baseline preflight');
+  await passResult(await runPre(preVars), 'baseline preflight');
 
   await expectPreStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
   await expectPreStop('active generation', () => injectActiveGeneration(adminId), cleanActiveGeneration, 'active_generation_result|STOP');
@@ -1629,7 +1643,7 @@ try {
 
   const dryPass = runDryEvaluation(dryEvaluationEnvironment());
   assertRestrictedDryOutput(dryPass, 'guarded disposable dry evaluation');
-  passResult(dryPass, 'guarded disposable dry evaluation');
+  await passResult(dryPass, 'guarded disposable dry evaluation');
   const requiredDryVariables = [
     'RC1_READ_ONLY_DATABASE_URL', 'RC1_APPROVED_TARGET_FINGERPRINT', 'RC1_CONNECTION_MODE',
     'RC1_APPROVED_RPC_BASELINE_JSON', 'RC1_EXPECTED_BASELINE_COUNTS_JSON',
@@ -1692,7 +1706,7 @@ try {
     ),
     rc1_approved_freeze_trigger_fingerprints_json: JSON.stringify(approvedFreeze.enforcement_trigger_fingerprints)
   };
-  passResult(await runPost(postVars), 'baseline postflight');
+  await passResult(await runPost(postVars), 'baseline postflight');
   await proveHealthySyntheticCertificationCleanup(adminId);
 
   const [freezeStateOriginal] = await query('select * from public.rc1_operation_freeze_state where singleton');

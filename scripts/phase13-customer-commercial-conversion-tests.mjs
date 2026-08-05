@@ -406,7 +406,7 @@ assertNotIncludes(files.startForm, 'does not ask you to upload documents', 'Unap
 
 const packageJson = JSON.parse(read(files.packageJson));
 assert(packageJson.scripts?.['phase13:test-conversion'] === 'node scripts/phase13-customer-commercial-conversion-tests.mjs', 'package.json must expose phase13:test-conversion.');
-assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Phase 13 conversion must keep Next 14.x.');
+assert(/^[^0-9]*15\./.test(String(packageJson.dependencies?.next ?? '')), 'Phase 13 conversion must keep the patched Next 15.x line.');
 assertIncludes(files.workflow, 'npm run phase13:test-conversion', 'V1 workflow runs Phase 13 conversion tests');
 
 const customerSources = [files.snapshot, files.snapshotPage].map(read).join('\n');

@@ -227,6 +227,7 @@ function recordingManualDb({ payment = false, replayOnSecondClaim = false } = {}
         }
         return { data: { claimed: true, attempt: { id: 'manual-attempt-1', report_version: 1, request_id: 'manual-request-1', retry_count: 0 } }, error: null };
       }
+      if (name === 'authorize_phase14_ai_route') return { data: { allowed: true, reason: 'test_route_approved' }, error: null };
       if (name === 'start_manual_report_generation') return { data: { ok: true }, error: null };
       if (name === 'record_manual_report_narrative_provenance') return { data: { id: 'manual-attempt-1', ...args.p_provenance }, error: null };
       if (name === 'complete_manual_report_generation') return { data: { report: { id: 'report-1', report_reference: 'RPT-CHECKPOINT-E-V1', version_number: 1 }, superseded_report_id: null }, error: null };
