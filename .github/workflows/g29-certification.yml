@@ -120,7 +120,7 @@ jobs:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: responsive.browser
       G29_OUTPUT: tmp/g29/responsive-preview.json
-      PHASE23_BASE_URL: https://mk-fraud-platform-9gl2zmtc7-tondanis-projects.vercel.app
+      PHASE23_BASE_URL: https://mk-fraud-platform-m7o2yqfko-tondanis-projects.vercel.app
       PHASE23_SYNTHETIC_MARKER: MKG29-QA-
       PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -179,7 +179,7 @@ jobs:
     timeout-minutes: 15
     env:
       G29_STAGING_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
-      G29_PREVIEW_BASE_URL: https://mk-fraud-platform-9gl2zmtc7-tondanis-projects.vercel.app
+      G29_PREVIEW_BASE_URL: https://mk-fraud-platform-m7o2yqfko-tondanis-projects.vercel.app
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
       G29_PDF_OUTPUT: tmp/g29/retained-pdf
