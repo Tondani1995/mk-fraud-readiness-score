@@ -11,6 +11,11 @@ on:
       - 'package-lock.json'
       - 'supabase/**'
   workflow_dispatch:
+    inputs:
+      preview_base_url:
+        description: 'Exact READY Preview deployment URL for this commit'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -120,7 +125,7 @@ jobs:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: responsive.browser
       G29_OUTPUT: tmp/g29/responsive-preview.json
-      PHASE23_BASE_URL: https://mk-fraud-platform-m7o2yqfko-tondanis-projects.vercel.app
+      PHASE23_BASE_URL: ${{ inputs.preview_base_url || 'https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app' }}
       PHASE23_SYNTHETIC_MARKER: MKG29-QA-
       PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -179,7 +184,7 @@ jobs:
     timeout-minutes: 15
     env:
       G29_STAGING_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
-      G29_PREVIEW_BASE_URL: https://mk-fraud-platform-m7o2yqfko-tondanis-projects.vercel.app
+      G29_PREVIEW_BASE_URL: ${{ inputs.preview_base_url || 'https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app' }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
       G29_PDF_OUTPUT: tmp/g29/retained-pdf
@@ -210,7 +215,7 @@ jobs:
   merge:
     name: G29 merged certification result
     if: always()
-    needs: [loopback-database, adaptive-staging, responsive-preview, product-baseline]
+    needs: [loopback-database, adaptive-staging, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -236,7 +241,8 @@ jobs:
             tmp/g29-artifacts/g29-loopback-database/service-role-contract.json \
             tmp/g29-artifacts/g29-adaptive-staging/adaptive-staging.json \
             tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json \
-            tmp/g29-artifacts/g29-product-baseline/product-baseline.json
+            tmp/g29-artifacts/g29-product-baseline/product-baseline.json \
+            tmp/g29-artifacts/g29-retained-pdf-review/retained-pdf-review.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

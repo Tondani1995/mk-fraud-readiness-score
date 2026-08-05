@@ -39,10 +39,6 @@ export class CustomerReportAccessError extends Error {
 const ACCESS_TTL_SECONDS = 60;
 const MAX_ACCESS_ATTEMPTS_PER_HOUR = 20;
 
-function safeFileName(value: string) {
-  return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`;
-}
-
 async function recordAccess(input: {
   db: any;
   tokenId: string | null;
@@ -173,7 +169,12 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
 
   const { data: signed, error: signError } = await db.storage
     .from(report.storage_bucket)
-    .createSignedUrl(report.storage_path, ACCESS_TTL_SECONDS, { download: report.file_name || safeFileName(report.report_reference) });
+    // Keep the signed object URL canonical. Supabase Storage accepts the boolean
+    // download option, but the filename form is not portable across Storage API
+    // versions and can make an otherwise valid signed URL return HTTP 400. The
+    // customer route remains possession-token and integrity gated; no object is
+    // served through the service-role client.
+    .createSignedUrl(report.storage_path, ACCESS_TTL_SECONDS);
   if (signError || !signed?.signedUrl) {
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'signed_link_creation_failed', technicalReference });
     throw new CustomerReportAccessError('signed_link_creation_failed', 'A secure link could not be created. Contact support.', 500, technicalReference);

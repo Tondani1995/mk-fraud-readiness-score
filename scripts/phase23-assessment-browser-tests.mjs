@@ -49,6 +49,64 @@ const viewports = [
   { name: 'desktop', width: 1440, height: 1000 }
 ];
 const evidence = [];
+const expectedPreviewHost = new URL(baseUrl).hostname;
+
+const previewHeaders = () => ({
+  ...(protectionBypass ? { 'x-vercel-protection-bypass': protectionBypass } : {}),
+  'x-vercel-set-bypass-cookie': 'true'
+});
+
+async function configurePreviewPage(page) {
+  await page.setExtraHTTPHeaders(previewHeaders());
+  return page;
+}
+
+function redirectHost(host) {
+  return host === 'vercel.com' || host.endsWith('.vercel.com');
+}
+
+async function previewPreflight() {
+  const target = `${baseUrl}/score/start`;
+  if (!configuredBaseUrl) {
+    return { ok: true, category: 'application_route_reached', targetPath: '/score/start', finalHost: expectedPreviewHost, status: null, local: true };
+  }
+  if (!protectionBypass) {
+    return { ok: false, category: 'missing_secret', targetPath: '/score/start', expectedHost: expectedPreviewHost };
+  }
+
+  const chain = [];
+  let currentUrl = target;
+  for (let redirects = 0; redirects <= 5; redirects += 1) {
+    const response = await fetch(currentUrl, { redirect: 'manual', headers: previewHeaders(), signal: AbortSignal.timeout(15000) });
+    const host = new URL(currentUrl).hostname;
+    chain.push({ host, status: response.status });
+    if (response.status < 300 || response.status >= 400) {
+      if (host === expectedPreviewHost && response.status >= 200 && response.status < 300) {
+        return { ok: true, category: 'application_route_reached', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: host, status: response.status, chain };
+      }
+      if (redirectHost(host)) {
+        return { ok: false, category: 'rejected_secret', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: host, status: response.status, chain };
+      }
+      if (host !== expectedPreviewHost) {
+        return { ok: false, category: 'unexpected_redirect', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: host, status: response.status, chain };
+      }
+      return { ok: false, category: 'application_route_not_usable', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: host, status: response.status, chain };
+    }
+    const location = response.headers.get('location');
+    if (!location) {
+      return { ok: false, category: 'unexpected_redirect', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: host, status: response.status, chain };
+    }
+    const nextUrl = new URL(location, currentUrl);
+    if (redirectHost(nextUrl.hostname)) {
+      return { ok: false, category: 'rejected_secret', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: nextUrl.hostname, status: response.status, chain };
+    }
+    if (nextUrl.hostname !== expectedPreviewHost) {
+      return { ok: false, category: 'unexpected_redirect', targetPath: '/score/start', expectedHost: expectedPreviewHost, finalHost: nextUrl.hostname, status: response.status, chain };
+    }
+    currentUrl = nextUrl.toString();
+  }
+  return { ok: false, category: 'unexpected_redirect', targetPath: '/score/start', expectedHost: expectedPreviewHost, chain };
+}
 
 async function selectRadio(page, selector, label) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -70,25 +128,28 @@ async function selectRadio(page, selector, label) {
 function assertPreviewPageReached(page, response, route) {
   const finalUrl = page.url();
   const finalHost = new URL(finalUrl).hostname;
-  const expectedHost = new URL(baseUrl).hostname;
-  const redirectedToVercelAuth = finalHost === 'vercel.com' || finalHost.endsWith('.vercel.com');
-  if (redirectedToVercelAuth || finalHost !== expectedHost) {
-    throw new Error(`G29_ENVIRONMENT_FAILURE Preview route ${route} did not reach the application; final host=${finalHost} status=${response?.status() ?? 'unknown'} protection bypass is unavailable`);
+  if (finalHost !== expectedPreviewHost) {
+    const category = redirectHost(finalHost) && protectionBypass
+      ? 'header_not_propagated'
+      : redirectHost(finalHost) ? 'rejected_secret' : 'unexpected_redirect';
+    throw new Error(`G29_ENVIRONMENT_FAILURE_PREVIEW_${category.toUpperCase()} Preview route ${route} did not reach the application; final host=${finalHost} status=${response?.status() ?? 'unknown'}`);
   }
 }
 
 try {
+  const preflight = await previewPreflight();
+  await writeFile(join(outputDirectory, 'preview-preflight.json'), `${JSON.stringify(preflight, null, 2)}\n`);
+  if (!preflight.ok) throw new Error(`G29_ENVIRONMENT_FAILURE_PREVIEW_${preflight.category.toUpperCase()} Preview preflight failed`);
   if (accessUrl) {
-    const accessPage = await browser.newPage();
+    const accessPage = await configurePreviewPage(await browser.newPage());
     const accessResponse = await accessPage.goto(accessUrl, { waitUntil: 'networkidle0' });
     assertPreviewPageReached(accessPage, accessResponse, 'PHASE23_VERCEL_ACCESS_URL');
     await accessPage.close();
   }
   for (const viewport of viewports) {
-    const page = await browser.newPage();
+    const page = await configurePreviewPage(await browser.newPage());
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-    if (protectionBypass) await page.setExtraHTTPHeaders({ 'x-vercel-protection-bypass': protectionBypass });
     const startResponse = await page.goto(`${baseUrl}/fraud-readiness-score#start-score`, { waitUntil: 'networkidle0' });
     assertPreviewPageReached(page, startResponse, '/fraud-readiness-score#start-score');
     await page.waitForSelector('[data-native-assessment-start="true"] form');
@@ -118,7 +179,7 @@ try {
     await page.close();
   }
 
-  const journey = await browser.newPage();
+  const journey = await configurePreviewPage(await browser.newPage());
   await journey.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
   await journey.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
   const journeyStartResponse = await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
@@ -217,7 +278,7 @@ try {
   evidence.push({ route: new URL(resumeHref, baseUrl).pathname, syntheticMarker: syntheticMarker || null, syntheticName, saveFailurePreventedAdvance: true, retrySucceeded: true, firstDomainAdvanced: true, rapidTapSaveRequests: 1, completedDomainReopened: true, refreshResumed: true });
   await journey.close();
 
-  const compatibility = await browser.newPage();
+  const compatibility = await configurePreviewPage(await browser.newPage());
   const response = await compatibility.goto(`${baseUrl}/score/start?embed=1`, { waitUntil: 'networkidle0' });
   assertPreviewPageReached(compatibility, response, '/score/start?embed=1');
   assert.equal(new URL(compatibility.url()).pathname, '/score/start');
