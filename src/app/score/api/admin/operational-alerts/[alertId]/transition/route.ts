@@ -14,7 +14,8 @@ const VALID_TARGET_STATUSES = new Set(['open', 'acknowledged', 'resolved']);
 // read_only_admin can see this route return 403 (via requireAdmin) but the database's own
 // phase14_require_actor check inside transition_phase14_operational_alert is the authoritative
 // enforcement -- this app-layer check exists for a fast, clear error, not as the only gate.
-export async function POST(request: Request, { params }: { params: { alertId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ alertId: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('operational_alert');
   if (frozen) return frozen;
 

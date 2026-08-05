@@ -11,7 +11,8 @@ import { FULFILMENT_QUALITY_REVIEW_ROLES, approveQualityReview } from '@/lib/ful
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('quality_review');
   if (frozen) return frozen;
 

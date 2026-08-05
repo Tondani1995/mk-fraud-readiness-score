@@ -32,6 +32,7 @@ const suites = [
   { id: 'legacy.scenarios', category: 'legacy', ...npm('phase6:test-scenarios') },
   { id: 'legacy.snapshot', category: 'legacy', ...npm('phase7:test-snapshot') },
   { id: 'legacy.report-contract', category: 'commercial', ...npm('phase10:test-report') },
+  { id: 'legacy.respondent-integration', category: 'legacy', live: true, ...npm('consolidation:test-respondent') },
   { id: 'commercial.events', category: 'commercial', ...npm('phase13:test-events') },
   { id: 'commercial.conversion', category: 'commercial', ...npm('phase13:test-conversion') },
   { id: 'commercial.report-engine', category: 'commercial', ...npm('phase14:test-report-engine') },
@@ -53,6 +54,8 @@ const suites = [
   { id: 'database.service-role-contract', category: 'database', ...npm('rc1:test-service-role-contract') },
   { id: 'database.old-schema-freeze', category: 'database', ...npm('rc1:test-old-schema-freeze') },
   { id: 'database.migration-replay', category: 'database', ...npm('v7:test-checkpoint-e-migration') },
+  { id: 'database.ai-route-authority', category: 'database', ...npm('pre-g30:test-ai-route-authority') },
+  { id: 'database.migration-target-separation', category: 'database', ...npm('pre-g30:test-migration-targets') },
   { id: 'responsive.browser', category: 'responsive', live: true, ...npm('phase23:test-browser') },
   { id: 'integration.adaptive-db', category: 'integration', live: true, ...npm('g25:test-adaptive-db') },
   { id: 'integration.payment-db', category: 'integration', live: true, ...npm('phase23:test-payment-db') }

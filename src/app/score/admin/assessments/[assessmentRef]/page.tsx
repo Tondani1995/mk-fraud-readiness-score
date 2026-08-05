@@ -19,7 +19,8 @@ function formatScore(value: unknown) {
   return Number.isFinite(numeric) ? numeric.toFixed(0) : String(value);
 }
 
-export default async function AdminAssessmentDetailPage({ params }: { params: { assessmentRef: string } }) {
+export default async function AdminAssessmentDetailPage(props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const detail = await getAdminAssessmentDetail(params.assessmentRef, admin);
   if (!detail) notFound();

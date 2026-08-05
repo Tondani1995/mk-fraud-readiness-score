@@ -7,7 +7,11 @@ import { getAdaptiveAssessmentState } from '@/lib/adaptive/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function AdaptiveAssessmentPage({ params, searchParams }: { params: { assessmentRef: string }; searchParams?: { token?: string } }) {
+export default async function AdaptiveAssessmentPage(
+  props: { params: Promise<{ assessmentRef: string }>; searchParams?: Promise<{ token?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   if (!searchParams?.token) return <SectionShell className="py-12"><PageHeader eyebrow="FRAUD READINESS ASSESSMENT" title="Private resume link required" description="Open the private link returned when this assessment was started." /></SectionShell>;
   try {
     const state = await getAdaptiveAssessmentState(params.assessmentRef, searchParams.token);

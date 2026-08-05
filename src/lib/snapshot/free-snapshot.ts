@@ -48,7 +48,10 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
-    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id,assessment_mode')
+    // Keep the legacy snapshot contract usable on the 0025 compatibility
+    // boundary. Adaptive callers persist and read their own mode metadata;
+    // the legacy snapshot projection does not need this post-0025 column.
+    .select('id,assessment_reference,organisation_id,primary_respondent_id,status,current_score_run_id')
     .eq('assessment_reference', assessmentReference)
     .maybeSingle();
 

@@ -20,6 +20,42 @@ const service = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+async function countRows(table, column, value) {
+  const { count, error } = await service
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq(column, value);
+  assert.ifError(error);
+  return count ?? 0;
+}
+
+async function commercialSideEffectCounts(assessmentId) {
+  const { data: orders, error: orderError } = await service
+    .from('orders')
+    .select('id')
+    .eq('assessment_id', assessmentId);
+  assert.ifError(orderError);
+  const orderIds = (orders ?? []).map((order) => order.id);
+
+  const { data: emails, error: emailError } = await service
+    .from('email_events')
+    .select('id')
+    .eq('assessment_id', assessmentId);
+  assert.ifError(emailError);
+  const emailIds = (emails ?? []).map((email) => email.id);
+
+  const reports = await countRows('reports', 'assessment_id', assessmentId);
+  const transitions = orderIds.length === 0 ? 0 : await Promise.all(orderIds.map((orderId) => countRows('payment_transition_events', 'order_id', orderId))).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+  const providerEvents = emailIds.length === 0 ? 0 : await Promise.all(emailIds.map((emailId) => countRows('email_provider_events', 'email_event_id', emailId))).then((counts) => counts.reduce((sum, count) => sum + count, 0));
+  return {
+    orders: orderIds.length,
+    reports,
+    paymentTransitions: transitions,
+    assessmentEmailEvents: emailIds.length,
+    providerEvents
+  };
+}
+
 async function jsonRequest(path, init) {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -52,6 +88,11 @@ const resumeToken = new URL(resumeUrl).searchParams.get('token');
 assert.ok(assessmentId && assessmentReference && resumeToken, 'Start response did not include a usable reference and token.');
 assert.equal(new URL(resumeUrl).origin, new URL(baseUrl).origin, 'Resume URL left the consolidated origin.');
 assert.match(new URL(resumeUrl).pathname, /^\/score\/assessment\//);
+
+// The start operation may create its one respondent notification. Capture that
+// assessment-scoped baseline so unrelated shared-environment events cannot
+// make the submission assertion fail.
+const commercialBaseline = await commercialSideEffectCounts(assessmentId);
 
 const { data: assessment, error: assessmentError } = await service
   .from('assessments')
@@ -116,6 +157,13 @@ assert.equal(submitted.snapshot.assessmentReference, assessmentReference);
 assert.equal(submitted.snapshot.scoreRunId, submitted.scoreRunId);
 assert.equal(new URL(submitted.snapshotUrl).origin, new URL(baseUrl).origin);
 assert.match(new URL(submitted.snapshotUrl).pathname, /^\/score\/snapshot\//);
+
+const commercialAfterSubmit = await commercialSideEffectCounts(assessmentId);
+assert.deepEqual(
+  commercialAfterSubmit,
+  commercialBaseline,
+  'legacy submission must not create an order, payment transition, report, provider event, or additional assessment email event'
+);
 
 const { data: scoreRun, error: scoreError } = await service
   .from('score_runs')

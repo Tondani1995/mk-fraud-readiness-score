@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/g29-certification.yml'
       - 'scripts/g29-*.mjs'
+      - 'scripts/consolidation-local-respondent-integration.mjs'
+      - 'scripts/pre-g30-ai-route-authority-tests.mjs'
+      - 'scripts/pre-g30-migration-target-check.mjs'
       - 'scripts/phase23-assessment-browser-tests.mjs'
       - 'package.json'
       - 'package-lock.json'
@@ -117,6 +120,68 @@ jobs:
           path: tmp/g29
           if-no-files-found: warn
 
+  legacy-respondent:
+    name: G29 legacy respondent integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      G29_RUN_LIVE: '1'
+      G29_SUITE_IDS: legacy.respondent-integration
+      G29_OUTPUT: tmp/g29/legacy-respondent.json
+      LOCAL_INTEGRATION_BASE_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+      ASSESSMENT_TOKEN_PEPPER: g29-loopback-only-assessment-pepper
+      JWT_SECRET: g29-loopback-only-jwt-secret
+      PHASE1_DELIVERY_MODE: disabled
+      PAYMENT_PROVIDER_MODE: double
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Start disposable local Supabase
+        run: |
+          set -Eeuo pipefail
+          mkdir -p tmp/g29
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor > tmp/g29/supabase-start.log 2>&1
+          eval "$(supabase status -o env)"
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$API_URL" >> "$GITHUB_ENV"
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY" >> "$GITHUB_ENV"
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+      - name: Build and start the real application route
+        run: |
+          set -Eeuo pipefail
+          npm run build > tmp/g29/legacy-build.log 2>&1
+          npm start -- --port 3100 > tmp/g29/legacy-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error "$LOCAL_INTEGRATION_BASE_URL/score" > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent --show-error "$LOCAL_INTEGRATION_BASE_URL/score" > /dev/null
+      - name: Run the permanent legacy submission suite
+        run: npm run g29:regression -- --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-legacy-respondent
+          path: tmp/g29
+          if-no-files-found: warn
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+
   responsive-preview:
     name: G29 Preview responsive browser suite
     runs-on: ubuntu-latest
@@ -158,7 +223,7 @@ jobs:
     timeout-minutes: 30
     env:
       G29_RUN_LIVE: '1'
-      G29_SUITE_IDS: adaptive.branch-matrix,adaptive.engine,adaptive.scoring,adaptive.correction,adaptive.gateway-audit,adaptive.customer-copy,legacy.engine,legacy.scenarios,legacy.snapshot,legacy.report-contract,commercial.events,commercial.conversion,commercial.report-engine,commercial.payment-verification,commercial.numeric-claims,commercial.quality-a,commercial.quality-b,commercial.quality-c,commercial.quality-d,commercial.quality-e,delivery.email,delivery.webhook-adversarial,delivery.provider-faults,delivery.storage-faults,delivery.security-closure,delivery.resend-rate-limit,database.accepted-migrations
+      G29_SUITE_IDS: adaptive.branch-matrix,adaptive.engine,adaptive.scoring,adaptive.correction,adaptive.gateway-audit,adaptive.customer-copy,legacy.engine,legacy.scenarios,legacy.snapshot,legacy.report-contract,commercial.events,commercial.conversion,commercial.report-engine,commercial.payment-verification,commercial.numeric-claims,commercial.quality-a,commercial.quality-b,commercial.quality-c,commercial.quality-d,commercial.quality-e,delivery.email,delivery.webhook-adversarial,delivery.provider-faults,delivery.storage-faults,delivery.security-closure,delivery.resend-rate-limit,database.accepted-migrations,database.ai-route-authority,database.migration-target-separation
       G29_OUTPUT: tmp/g29/product-baseline.json
     steps:
       - uses: actions/checkout@v4
@@ -215,7 +280,7 @@ jobs:
   merge:
     name: G29 merged certification result
     if: always()
-    needs: [loopback-database, adaptive-staging, responsive-preview, product-baseline, retained-pdf-review]
+    needs: [loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -240,6 +305,7 @@ jobs:
             tmp/g29-artifacts/g29-loopback-database/loopback-database.json \
             tmp/g29-artifacts/g29-loopback-database/service-role-contract.json \
             tmp/g29-artifacts/g29-adaptive-staging/adaptive-staging.json \
+            tmp/g29-artifacts/g29-legacy-respondent/legacy-respondent.json \
             tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json \
             tmp/g29-artifacts/g29-product-baseline/product-baseline.json \
             tmp/g29-artifacts/g29-retained-pdf-review/retained-pdf-review.json

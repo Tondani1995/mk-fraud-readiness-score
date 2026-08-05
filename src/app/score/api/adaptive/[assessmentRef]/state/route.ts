@@ -7,13 +7,15 @@ function failure(error: unknown) {
   return NextResponse.json({ ok: false, errors: [message] }, { status });
 }
 
-export async function GET(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   const token = new URL(request.url).searchParams.get('token');
   if (!token) return NextResponse.json({ ok: false, errors: ['adaptive_token_required'] }, { status: 403 });
   try { return NextResponse.json({ ok: true, state: (await getAdaptiveAssessmentState(params.assessmentRef, token)).publicState }); } catch (error) { return failure(error); }
 }
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false, errors: ['Invalid JSON body.'] }, { status: 400 }); }
   if (!body?.token) return NextResponse.json({ ok: false, errors: ['adaptive_token_required'] }, { status: 403 });

@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 const REPORT_GENERATION_ROLES = new Set(['platform_admin', 'reviewer', 'approver']);
 const ACTIONS = new Set<ManualGenerationAction>(['admin_generate', 'admin_retry', 'admin_regenerate']);
 
-type HandlerContext = { params: { orderReference: string } };
+type HandlerContext = { params: Promise<{ orderReference: string }> };
 
 function wantsHtml(request: Request) {
   return request.headers.get('accept')?.includes('text/html') ?? false;
@@ -47,7 +47,7 @@ export async function POST(request: Request, context: HandlerContext) {
   if (frozen) return frozen;
 
   const admin = await getAdminSession();
-  const { orderReference } = context.params;
+  const { orderReference } = (await context.params);
   if (!admin || !REPORT_GENERATION_ROLES.has(admin.role)) {
     return jsonOrRedirect(request, orderReference, {
       ok: false,

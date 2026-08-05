@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, type UnsafeUnwrappedCookies } from 'next/headers';
 
 export const ADMIN_ACCESS_COOKIE = 'mk_admin_access_token';
 export const ADMIN_REFRESH_COOKIE = 'mk_admin_refresh_token';
@@ -44,11 +44,13 @@ export function clearAdminSessionCookies(response: NextResponse) {
 }
 
 export function getAdminAccessTokenFromCookies(): string | null {
-  return cookies().get(ADMIN_ACCESS_COOKIE)?.value ?? null;
+  const cookieStore = (cookies() as unknown as UnsafeUnwrappedCookies) as unknown as { get(name: string): { value?: string } | undefined };
+  return cookieStore.get(ADMIN_ACCESS_COOKIE)?.value ?? null;
 }
 
 export function getAdminRefreshTokenFromCookies(): string | null {
-  return cookies().get(ADMIN_REFRESH_COOKIE)?.value ?? null;
+  const cookieStore = (cookies() as unknown as UnsafeUnwrappedCookies) as unknown as { get(name: string): { value?: string } | undefined };
+  return cookieStore.get(ADMIN_REFRESH_COOKIE)?.value ?? null;
 }
 
 export function getAdminAccessTokenFromRequest(request: NextRequest): string | null {

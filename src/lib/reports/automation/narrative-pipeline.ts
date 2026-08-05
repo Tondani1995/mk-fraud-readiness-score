@@ -248,6 +248,13 @@ export async function preparePremiumReportNarrative(
     return fallbackResult(input, `organisation_name_injection_suspected:${injectionScan.matchedPattern}`, evidence, checksum);
   }
 
+  if (input.authorizeAiRoute) {
+    const routeDecision = await input.authorizeAiRoute();
+    if (!routeDecision.allowed) {
+      return fallbackResult(input, `ai_route_policy_denied:${routeDecision.reason ?? 'unspecified'}`, evidence, checksum);
+    }
+  }
+
   const { createDurablePremiumReportNarrativeGenerator } = await import('./durable-ai-attempts');
   const generator = createDurablePremiumReportNarrativeGenerator({
     generator: input.generator,

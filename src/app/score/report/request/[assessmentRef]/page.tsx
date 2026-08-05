@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 
-export default function ReportRequestShellPage({ params }: { params: { assessmentRef: string } }) {
+export default async function ReportRequestShellPage(props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   return (
     <SectionShell className="py-12">
       <PageHeader

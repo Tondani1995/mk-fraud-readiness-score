@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 import { redirect } from 'next/navigation';
 
-export default function StartAssessmentPage({ searchParams }: { searchParams?: { embed?: string } }) {
+export default async function StartAssessmentPage(props: { searchParams?: Promise<{ embed?: string }> }) {
+  const searchParams = await props.searchParams;
   if (searchParams?.embed === '1') redirect('/score/start');
   return (
     <SectionShell className="py-12 md:py-16">

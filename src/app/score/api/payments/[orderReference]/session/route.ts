@@ -8,7 +8,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('order_create');
   if (frozen) return frozen;
 

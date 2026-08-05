@@ -69,11 +69,12 @@ async function resolveOrderLinks(db: ReturnType<typeof createSupabaseAuthenticat
   return byAlertId;
 }
 
-export default async function OperationalAlertsPage({
-  searchParams
-}: {
-  searchParams?: { status?: string; severity?: string; category?: string; from?: string; to?: string; page?: string };
-}) {
+export default async function OperationalAlertsPage(
+  props: {
+    searchParams?: Promise<{ status?: string; severity?: string; category?: string; from?: string; to?: string; page?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const accessToken = getAdminAccessTokenFromCookies();
   if (!accessToken) {

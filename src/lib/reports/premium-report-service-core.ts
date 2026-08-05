@@ -500,6 +500,13 @@ export async function generatePremiumReport(
       workerCapabilityId: input.workerLease?.capabilityId ?? null,
       authorizeAiAction: input.workerLease
         ? () => requirePhase14WorkerAction(input.workerLease!, 'ai_narrative_generation')
+        : undefined,
+      authorizeAiRoute: input.generator
+        ? async () => (await import('./automation/ai-route-policy')).authorizePremiumReportAiRoute({
+          provider: input.generator!.provider,
+          model: input.generator!.model,
+          db: privilegedDb
+        })
         : undefined
     });
     const { error: leaseRenewalError } = await generationRpc({

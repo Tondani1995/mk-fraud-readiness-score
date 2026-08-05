@@ -14,6 +14,92 @@
   "tables": [
     {
       "schema": "public",
+      "table": "assessment_answer_history",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE HISTORY READ",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:363 S"
+      ],
+      "justification": "Adaptive scoring reads assessment answer history; writes remain RPC-owned."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_integrity_signals",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE INTEGRITY READ",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:364 S"
+      ],
+      "justification": "Adaptive scoring reads integrity signals; mutation remains behind existing server controls."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_control_responses",
+      "required": "S",
+      "stagingCurrent": "1111",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE CONTROL STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:100"
+      ],
+      "justification": "Adaptive customer control-state persistence is Staging-only and remains absent from Production grants."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_gateway_answers",
+      "required": "S",
+      "stagingCurrent": "1111",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GATEWAY STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:99"
+      ],
+      "justification": "Adaptive gateway answer persistence is Staging-only and remains absent from Production grants."
+    },
+    {
+      "schema": "public",
+      "table": "adaptive_graph_versions",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GRAPH READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:56 S",
+        "src/lib/adaptive/server.ts:97 S"
+      ],
+      "justification": "Adaptive graph selection is read-only; graph content and activation remain environment scoped."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_evidence_guidance",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE GUIDANCE READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:101 S"
+      ],
+      "justification": "Adaptive evidence guidance is read-only for the customer state loader and remains Staging-only."
+    },
+    {
+      "schema": "public",
+      "table": "assessment_navigation_states",
+      "required": "SI",
+      "stagingCurrent": "1111",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE NAVIGATION STATE",
+      "sources": [
+        "src/lib/adaptive/server.ts:98 S",
+        "src/lib/adaptive/server.ts:162 I"
+      ],
+      "justification": "Adaptive navigation state is created and updated through the existing server-side journey operations only."
+    },
+    {
+      "schema": "public",
       "table": "admin_profiles",
       "required": "S",
       "stagingCurrent": "0000",
@@ -629,6 +715,42 @@
       ]
     },
     {
+      "signature": "public.authorize_phase14_ai_route(text,text,text,text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/automation/ai-route-policy.ts:31"
+      ],
+      "justification": "Fail-closed pre-dispatch authorization bound to Preview, Staging, provider, model, PR, head SHA, gate epoch and expiry."
+    },
+    {
+      "signature": "public.adaptive_save_state(uuid,bigint,text,text,text[],jsonb,jsonb,text[],jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/adaptive/server.ts:209"
+      ],
+      "classification": "PREVIEW/STAGING adaptive state mutation RPC"
+    },
+    {
+      "signature": "public.adaptive_submit_assessment(uuid,bigint,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/adaptive/server.ts:241"
+      ],
+      "classification": "PREVIEW/STAGING adaptive submit RPC"
+    },
+    {
+      "signature": "public.complete_adaptive_score_run_atomic(uuid,uuid,uuid,text,text,score_run_type,text,uuid,text,jsonb,jsonb,jsonb,jsonb,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/scoring/adaptive-scoring.ts:377"
+      ],
+      "classification": "PREVIEW/STAGING adaptive scoring RPC"
+    },
+    {
       "signature": "public.automatic_release_completed_fulfilment(uuid,uuid,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -791,6 +913,33 @@
       ]
     },
     {
+      "signature": "public.preview_development_ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:171"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_record_resend_webhook_reconciliation(text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:28"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_resend_webhook_reconciliation_done()",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:19"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
       "signature": "public.issue_customer_report_access_token(uuid,uuid,text,integer)",
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
@@ -847,6 +996,135 @@
         "src/lib/fulfilment/delivery-worker.ts:50",
         "src/lib/fulfilment/immediate-dispatch.ts:79"
       ]
+    },
+    {
+      "signature": "public.record_customer_report_access(uuid,uuid,uuid,boolean,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:64"
+      ],
+      "classification": "Customer access audit RPC"
+    },
+    {
+      "signature": "public.finalize_premium_report_delivery(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:113"
+      ]
+    },
+    {
+      "signature": "public.fail_premium_report_delivery_before_dispatch(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:157"
+      ]
+    },
+    {
+      "signature": "public.mark_premium_report_delivery_dispatch_started(uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:70"
+      ]
+    },
+    {
+      "signature": "public.mark_premium_report_delivery_reconciliation_required(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:206"
+      ]
+    },
+    {
+      "signature": "public.preview_development_finalize_premium_report_delivery(uuid,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:89"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_mark_reconciliation_required(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/delivery-dispatch.ts:125"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.preview_development_prepare_premium_report_delivery(uuid,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:180"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
+    },
+    {
+      "signature": "public.authorize_premium_report_delivery(uuid,text,text,boolean,text,uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:201"
+      ]
+    },
+    {
+      "signature": "public.claim_premium_report_delivery(uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:263"
+      ]
+    },
+    {
+      "signature": "public.authorize_bounced_report_redelivery(uuid,text,text,jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:332"
+      ]
+    },
+    {
+      "signature": "public.resolve_premium_report_delivery_reconciliation(uuid,text,uuid,boolean,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/email/report-delivery-service-core.ts:387"
+      ]
+    },
+    {
+      "signature": "public.register_phase14_manual_final_storage_cleanup(text,text,text,uuid,text,uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/premium-report-service-core.ts:263",
+        "src/lib/reports/premium-report-service-core.ts:624"
+      ]
+    },
+    {
+      "signature": "public.record_phase14_storage_cleanup_result(uuid,boolean,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/premium-report-service-core.ts:295",
+        "src/lib/reports/premium-report-service-core.ts:657",
+        "src/lib/reports/premium-report-service-core.ts:755"
+      ]
+    },
+    {
+      "signature": "public.admin_terminal_phase14_generation_publication(jsonb)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/premium-report-service-core.ts:342",
+        "src/lib/reports/premium-report-service-core.ts:706"
+      ],
+      "classification": "Admin-authorized terminal publication RPC"
     },
     {
       "signature": "public.record_fulfilment_dispatch_result(uuid,uuid,text,integer,text)",
@@ -1002,17 +1280,17 @@
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
-    "src/lib/reports/customer-report-access.ts:176",
-    "src/lib/reports/customer-report-access.ts:192",
+    "src/lib/reports/customer-report-access.ts:158",
+    "src/lib/reports/customer-report-access.ts:174",
     "src/lib/reports/download-verification.ts:29",
-    "src/lib/reports/email/delivery-dispatch.ts:27",
+    "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
     "src/lib/reports/phase1-manual-fulfilment.ts:224",
-    "src/lib/reports/phase1-manual-fulfilment.ts:491",
-    "src/lib/reports/phase1-manual-fulfilment.ts:567",
+    "src/lib/reports/phase1-manual-fulfilment.ts:498",
+    "src/lib/reports/phase1-manual-fulfilment.ts:574",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
-    "src/lib/reports/premium-report-service-core.ts:721",
+    "src/lib/reports/premium-report-service-core.ts:728",
     "src/lib/reports/storage-publication.ts:29",
     "src/lib/reports/storage-publication.ts:47",
     "src/lib/reports/storage-publication.ts:59",
@@ -1069,7 +1347,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "354a1fd76cf152065ab6c579ad9d8745b3bca3caad4c7b9611b991f0b847bd4a"
+    "fullAstInventorySha256": "fb5f52546dfe656019a4a536cb6026e74049dea8a2cc16e027fd425aea5d41a1"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

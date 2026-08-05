@@ -36,7 +36,8 @@ function errorPage(message: string, technicalReference: string, status: number) 
   );
 }
 
-export async function GET(request: Request, { params }: { params: { token: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('customer_token');
   if (frozen) return frozen;
 

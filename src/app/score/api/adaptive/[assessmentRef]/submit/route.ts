@@ -5,7 +5,8 @@ import { scoreAdaptiveSubmittedAssessment } from '@/lib/scoring/adaptive-scoring
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   let body: any;
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false, errors: ['Invalid JSON body.'] }, { status: 400 }); }
   if (!body?.token) return NextResponse.json({ ok: false, errors: ['adaptive_token_required'] }, { status: 403 });

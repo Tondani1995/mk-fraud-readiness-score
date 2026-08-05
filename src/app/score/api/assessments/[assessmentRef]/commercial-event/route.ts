@@ -24,7 +24,8 @@ function cleanOptionCode(value: unknown) {
   return null;
 }
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('assessment_write');
   if (frozen) return frozen;
 

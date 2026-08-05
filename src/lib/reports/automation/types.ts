@@ -241,5 +241,6 @@ export interface BuildPremiumReportNarrativeInput {
   manualGenerationAttemptId?: string | null;
   workerCapabilityId?: string | null;
   authorizeAiAction?: () => Promise<unknown>;
+  authorizeAiRoute?: () => Promise<{ allowed: boolean; reason?: string }>;
   attemptStore?: import('./durable-ai-attempts').DurableNarrativeAttemptStore;
 }

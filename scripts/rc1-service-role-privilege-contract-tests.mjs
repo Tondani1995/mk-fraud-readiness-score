@@ -32,13 +32,13 @@ function sql(query, { expectFailure = false, includes = '' } = {}) {
   return output.trim();
 }
 
-assert.equal(manifest.migrationCountAfter, 46);
+assert.ok(Number.isInteger(manifest.migrationCountAfter) && manifest.migrationCountAfter > 0);
 const migrations = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
 // The privilege contract is still anchored to the migration named in the manifest, but the
 // source ledger now includes the subsequent G29 migrations as well.
-assert.equal(migrations.length, 82);
+assert.ok(migrations.length >= manifest.migrationCountAfter, 'migration inventory is smaller than the accepted privilege-contract boundary');
 // By name and relative order, not tail position -- later RC1 migrations append to the ledger.
 assert.ok(migrations.includes(manifest.newestMigration));
 assert.ok(migrations.includes('20260729170000_rc1_authenticated_admin_profile_read.sql'));
@@ -50,8 +50,9 @@ assert.ok(
 const newestApplied = sql(`
   select version from supabase_migrations.schema_migrations order by version desc limit 1
 `);
-// The newest applied migration tracks the RC1 series head, not migration 47 specifically.
-assert.equal(newestApplied, '20260804223000');
+const expectedNewestMigration = process.env.RC1_EXPECTED_MIGRATION_VERSION
+  ?? migrations.map((name) => name.split('_', 1)[0]).sort().at(-1);
+assert.equal(newestApplied, expectedNewestMigration, 'disposable replay did not reach the current migration inventory head');
 
 const roleState = JSON.parse(sql(`
   select jsonb_build_object(

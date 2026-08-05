@@ -10,11 +10,12 @@ const graph = JSON.parse(await readFile(resolve(root, 'docs/adaptive-assessment/
 const expectedSuiteIds = [
   'adaptive.branch-matrix', 'adaptive.engine', 'adaptive.scoring', 'adaptive.correction', 'adaptive.gateway-audit', 'adaptive.customer-copy',
   'legacy.engine', 'legacy.scenarios', 'legacy.snapshot', 'legacy.report-contract',
+  'legacy.respondent-integration',
   'commercial.events', 'commercial.conversion', 'commercial.report-engine', 'commercial.payment-verification', 'commercial.numeric-claims',
   'commercial.quality-a', 'commercial.quality-b', 'commercial.quality-c', 'commercial.quality-d', 'commercial.quality-e',
   'delivery.email', 'delivery.webhook-adversarial', 'delivery.provider-faults', 'delivery.storage-faults',
   'delivery.access-eligibility', 'delivery.security-closure', 'delivery.resend-rate-limit',
-  'database.accepted-migrations', 'database.service-role-contract', 'database.old-schema-freeze', 'database.migration-replay',
+  'database.accepted-migrations', 'database.service-role-contract', 'database.old-schema-freeze', 'database.migration-replay', 'database.ai-route-authority', 'database.migration-target-separation',
   'responsive.browser', 'integration.adaptive-db', 'integration.payment-db'
 ].sort();
 

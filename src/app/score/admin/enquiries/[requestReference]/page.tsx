@@ -25,7 +25,8 @@ function displayAreas(value: unknown) {
   return value.map((item) => labelForChoice(String(item))).join(', ');
 }
 
-export default async function AdminPersonalisedEnquiryDetailPage({ params }: { params: { requestReference: string } }) {
+export default async function AdminPersonalisedEnquiryDetailPage(props: { params: Promise<{ requestReference: string }> }) {
+  const params = await props.params;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']);
   const enquiry = await getAdminPersonalisedEnquiryDetail(params.requestReference);
   if (!enquiry) notFound();

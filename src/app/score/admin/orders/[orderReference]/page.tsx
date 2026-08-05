@@ -72,13 +72,14 @@ async function getReportVersions(db: any, orderId: string, capabilityAvailable: 
   return { reports: detailed.data ?? [], available: true, failedQuery: null as QueryFailureDiagnostic | null };
 }
 
-export default async function AdminOrderDetailPage({
-  params,
-  searchParams
-}: {
-  params: { orderReference: string };
-  searchParams?: { report_error?: string; report_generated?: string; message?: string; error?: string };
-}) {
+export default async function AdminOrderDetailPage(
+  props: {
+    params: Promise<{ orderReference: string }>;
+    searchParams?: Promise<{ report_error?: string; report_generated?: string; message?: string; error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']);
   const db = createSupabaseServiceClient() as any;
   const detail = await getAdminOrderDetail(params.orderReference);

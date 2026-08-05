@@ -419,7 +419,14 @@ export async function generateManualPhase1Report(
         generator,
         generationIdentity,
         manualGenerationAttemptId: attemptId,
-        attemptStore
+        attemptStore,
+        authorizeAiRoute: generator
+          ? async () => (await import('./automation/ai-route-policy')).authorizePremiumReportAiRoute({
+              provider: generator!.provider,
+              model: generator!.model,
+              db
+            })
+          : undefined
       });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {

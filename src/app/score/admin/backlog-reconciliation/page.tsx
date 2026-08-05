@@ -33,11 +33,12 @@ function dateText(value: string | null | undefined) {
   return value ? new Date(value).toLocaleDateString('en-ZA') : 'Not recorded';
 }
 
-export default async function BacklogReconciliationPage({
-  searchParams
-}: {
-  searchParams?: { classified?: string; error?: string; message?: string };
-}) {
+export default async function BacklogReconciliationPage(
+  props: {
+    searchParams?: Promise<{ classified?: string; error?: string; message?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver']);
   const canClassify = canManageFinance(admin.role);
   const result = await listBacklogQueue();

@@ -10,7 +10,8 @@ import { ACCESS_TOKEN_ROLES, correctDeliveryRecipientAndQueue } from '@/lib/repo
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('recipient_correction');
   if (frozen) return frozen;
 

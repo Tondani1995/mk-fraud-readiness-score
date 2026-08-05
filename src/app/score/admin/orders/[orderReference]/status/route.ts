@@ -12,7 +12,8 @@ import crypto from 'node:crypto';
 
 const allowedStatuses = ['draft', 'awaiting_payment', 'payment_received', 'cancelled', 'expired'];
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('payment_status');
   if (frozen) return frozen;
 

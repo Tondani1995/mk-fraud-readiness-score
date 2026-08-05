@@ -7,7 +7,8 @@ import { deliverPhase1Report, Phase1DeliveryError } from '@/lib/reports/phase1-m
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request, { params }: { params: { reportId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ reportId: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('delivery');
   if (frozen) return frozen;
 
