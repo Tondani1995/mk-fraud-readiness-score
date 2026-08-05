@@ -192,6 +192,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Install PDF review tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
       - name: Verify PDF tooling
         run: command -v pdfinfo && command -v pdftoppm && command -v pdftotext
       - name: Download and review retained PDF
