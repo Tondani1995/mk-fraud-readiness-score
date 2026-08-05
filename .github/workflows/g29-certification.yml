@@ -120,7 +120,7 @@ jobs:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: responsive.browser
       G29_OUTPUT: tmp/g29/responsive-preview.json
-      PHASE23_BASE_URL: https://mk-fraud-platform-owk46e8ho-tondanis-projects.vercel.app
+      PHASE23_BASE_URL: https://mk-fraud-platform-9gl2zmtc7-tondanis-projects.vercel.app
       PHASE23_SYNTHETIC_MARKER: MKG29-QA-
       PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -195,6 +195,7 @@ jobs:
       - name: Merge and require every G29 suite exactly once
         run: |
           set -Eeuo pipefail
+          mkdir -p tmp/g29
           find tmp/g29-artifacts -type f -name '*.json' -print
           node scripts/g29-merge-results.mjs \
             tmp/g29-artifacts/g29-loopback-database/loopback-database.json \
