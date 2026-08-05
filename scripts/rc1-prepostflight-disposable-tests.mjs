@@ -82,7 +82,9 @@ const pending = [
   '20260805090000_pre_g30_ai_route_authority.sql',
   '20260805100000_g24_adaptive_history_least_privilege.sql',
   '20260805110000_g24_adaptive_rpc_least_privilege.sql',
-  '20260805120000_g27_adaptive_scoring_search_path.sql'
+  '20260805120000_g27_adaptive_scoring_search_path.sql',
+  '20260805140000_pre_g30_adaptive_launch_authority.sql',
+  '20260805150000_pre_g30_staging_ai_authority_guard_fix.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
