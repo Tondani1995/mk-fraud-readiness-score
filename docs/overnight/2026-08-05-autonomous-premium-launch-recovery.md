@@ -64,6 +64,13 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 - Result: `npm run rc1:test-synthetic-notification-contract` passes with four expected external messages, four expected callbacks, seven deterministic failure cases, and duplicate-prevention assertions.
 - Safety: this is the third corrective commit in the authorized overnight budget; no runtime or Production mutation was performed. A successor exact-SHA workflow batch is required.
 
+### 2026-08-06 00:27 SAST — Production postflight Staging-only exclusion
+
+- Decision: correct the disposable Production pre/postflight harness to exclude `20260805200000_pre_g30_ai_timeout_window.sql` from its simulated Production ledger; leave the approved Production postflight SQL and its 88-migration / `20260805150000` assertions unchanged.
+- Evidence: the exact-SHA harness failed only because the timeout migration was included in the simulated Production ledger, producing 89 rows and newest `20260805200000`. The migration is Staging-only by design.
+- Result: local `npm run rc1:test-prepostflight` passes, including the required malformed-state, frozen-secret, cleanup, certification-control, freeze-race, and all defect STOP cases.
+- Safety: test harness correction only; no application, database, provider, payment, email, Storage, or Production mutation. This is the fourth corrective commit in the overnight budget.
+
 ## Safe action ledger
 
 | Time | Action | Environment | Result | Evidence |
