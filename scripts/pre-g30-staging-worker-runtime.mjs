@@ -51,6 +51,12 @@ function removeTree(target) {
   }
 }
 
+function writeEvidence(evidence) {
+  const outputAbsolutePath = path.resolve(outputPath);
+  fs.mkdirSync(path.dirname(outputAbsolutePath), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(outputAbsolutePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+}
+
 async function main() {
   validateInputs();
   const correlationReference = crypto.randomUUID();
@@ -60,10 +66,6 @@ async function main() {
   const headerPath = path.join(tempDir, 'headers.txt');
   const bodyPath = path.join(tempDir, 'body.json');
   const responsePath = path.join(tempDir, 'response.json');
-  const outputAbsolutePath = path.resolve(outputPath);
-  const outputDirectory = path.dirname(outputAbsolutePath);
-  fs.mkdirSync(outputDirectory, { recursive: true, mode: 0o700 });
-
   try {
     fs.writeFileSync(
       headerPath,
@@ -90,31 +92,66 @@ async function main() {
       '--data-binary', `@${bodyPath}`,
       `${previewBaseUrl}/score/api/internal/fulfilment-worker`
     ], { encoding: 'utf8' });
-    if (curl.error || curl.status === null) fail('Protected worker request could not be completed.');
+    if (curl.error || curl.status === null) {
+      writeEvidence({
+        ok: false,
+        httpStatus: null,
+        responseBody: null,
+        vercelRequestId: null,
+        attemptId,
+        correlationReference,
+        deploymentUrl: previewBaseUrl,
+        sha: expectedSha,
+        timestamp: new Date().toISOString(),
+        failureCategory: 'protected_worker_request_failed'
+      });
+      fail('Protected worker request could not be completed.');
+    }
     const responseBody = fs.readFileSync(responsePath, 'utf8');
     const responseHeaders = fs.readFileSync(responseHeadersPath, 'utf8');
     if (responseBody.includes(cronSecret)) fail('Worker response contained the protected secret.');
 
     const httpStatus = Number.parseInt(String(curl.stdout ?? '').trim(), 10);
-    if (!Number.isInteger(httpStatus)) fail('Worker did not return an HTTP status.');
+    if (!Number.isInteger(httpStatus)) {
+      writeEvidence({
+        ok: false,
+        httpStatus: null,
+        responseBody: responseBody.slice(0, 20000),
+        vercelRequestId: null,
+        attemptId,
+        correlationReference,
+        deploymentUrl: previewBaseUrl,
+        sha: expectedSha,
+        timestamp: new Date().toISOString(),
+        failureCategory: 'worker_http_status_missing'
+      });
+      fail('Worker did not return an HTTP status.');
+    }
     const vercelRequestId = responseHeaders.match(/^x-vercel-id:\s*(.+)$/im)?.[1]?.trim() ?? null;
 
     let parsed;
     try {
       parsed = JSON.parse(responseBody);
     } catch {
+      writeEvidence({
+        ok: false,
+        httpStatus,
+        responseBody: responseBody.slice(0, 20000),
+        vercelRequestId,
+        attemptId,
+        correlationReference,
+        deploymentUrl: previewBaseUrl,
+        sha: expectedSha,
+        timestamp: new Date().toISOString(),
+        failureCategory: 'worker_non_json_response'
+      });
       fail(`Worker returned a non-JSON response with HTTP ${httpStatus}.`);
     }
     const returnedAttemptId = typeof parsed?.attemptId === 'string' ? parsed.attemptId : null;
     const idempotentlyCompleted = parsed?.idempotentReplay === true;
     const claimed = parsed?.claimed === true || idempotentlyCompleted;
-    if (httpStatus < 200 || httpStatus >= 300) fail(`Worker returned HTTP ${httpStatus}.`);
-    if (parsed?.ok !== true) fail('Worker response did not report ok=true.');
-    if (returnedAttemptId !== attemptId) fail('Worker returned a different attempt ID.');
-    if (!claimed) fail('Worker did not claim or idempotently complete the requested attempt.');
-
     const evidence = {
-      ok: true,
+      ok: false,
       httpStatus,
       responseBody: parsed,
       vercelRequestId,
@@ -123,10 +160,19 @@ async function main() {
       deploymentUrl: previewBaseUrl,
       sha: expectedSha,
       timestamp: new Date().toISOString(),
-      claimed: parsed.claimed === true,
+      claimed: parsed?.claimed === true,
       idempotentReplay: idempotentlyCompleted
     };
-    fs.writeFileSync(outputAbsolutePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+    const reject = (message, failureCategory) => {
+      writeEvidence({ ...evidence, failureCategory });
+      fail(message);
+    };
+    if (httpStatus < 200 || httpStatus >= 300) reject(`Worker returned HTTP ${httpStatus}.`, 'worker_http_error');
+    if (parsed?.ok !== true) reject('Worker response did not report ok=true.', 'worker_ok_false');
+    if (returnedAttemptId !== attemptId) reject('Worker returned a different attempt ID.', 'worker_attempt_mismatch');
+    if (!claimed) reject('Worker did not claim or idempotently complete the requested attempt.', 'worker_not_claimed');
+    evidence.ok = true;
+    writeEvidence(evidence);
     console.log(JSON.stringify({
       httpStatus: evidence.httpStatus,
       responseBody: evidence.responseBody,
