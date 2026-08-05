@@ -174,16 +174,17 @@ try {
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
     const startResponse = await page.goto(`${baseUrl}/fraud-readiness-score#start-score`, { waitUntil: 'networkidle0' });
     assertPreviewPageReached(page, startResponse, '/fraud-readiness-score#start-score');
-    await page.waitForSelector('[data-native-assessment-start="true"] form');
+    await page.waitForSelector('[data-native-assessment-start="true"] form, [data-adaptive-assessment-start="true"]');
     const measurement = await page.evaluate(() => {
       const root = document.documentElement;
-      const form = document.querySelector('[data-native-assessment-start="true"] form');
-      const controls = [...document.querySelectorAll('[data-native-assessment-start="true"] input, [data-native-assessment-start="true"] select, [data-native-assessment-start="true"] button, [data-native-assessment-start="true"] a')];
+      const form = document.querySelector('[data-native-assessment-start="true"] form, [data-adaptive-assessment-start="true"]');
+      const scope = form?.closest('form') ?? form;
+      const controls = scope ? [...scope.querySelectorAll('input, select, button, a')] : [];
       return {
         iframeCount: document.querySelectorAll('iframe').length,
         horizontalOverflowPx: Math.max(0, root.scrollWidth - window.innerWidth),
         documentScrollable: root.scrollHeight > window.innerHeight,
-        nestedScrollableCount: [...document.querySelectorAll('[data-native-assessment-start="true"] *')].filter((element) => {
+        nestedScrollableCount: [...(scope?.querySelectorAll('*') ?? [])].filter((element) => {
           const style = getComputedStyle(element); return /(auto|scroll)/.test(style.overflowY) && element.scrollHeight > element.clientHeight + 1;
         }).length,
         formVisible: Boolean(form && form.getBoundingClientRect().width > 0),
@@ -206,6 +207,7 @@ try {
   await journey.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
   const journeyStartResponse = await journey.goto(`${baseUrl}/score/start`, { waitUntil: 'networkidle0' });
   assertPreviewPageReached(journey, journeyStartResponse, '/score/start');
+  const adaptiveStart = Boolean(await journey.$('[data-adaptive-assessment-start="true"]'));
   const nonce = Date.now();
   const syntheticName = syntheticMarker ? `${syntheticMarker}${nonce}` : `Phase 23 Browser ${nonce}`;
   const syntheticEmail = syntheticMarker ? `${syntheticMarker.toLowerCase()}${nonce}@example.test` : `phase23-browser-${nonce}@example.test`;
@@ -213,6 +215,12 @@ try {
   await journey.type('input[name="email"]', syntheticEmail);
   await journey.type('input[name="organisationName"]', syntheticName);
   await journey.click('input[name="consentPrivacy"]');
+  if (adaptiveStart) {
+    assert.equal(await journey.$eval('[data-adaptive-assessment-start="true"]', (form) => form instanceof HTMLFormElement), true);
+    await journey.screenshot({ path: join(outputDirectory, 'adaptive-start.png'), fullPage: true });
+    evidence.push({ route: '/score/start', syntheticMarker: syntheticMarker || null, adaptiveStart: true, mutation: 'not_started', reason: 'adaptive start contract smoke uses the retained G27/G38-G41 journey for live mutation evidence' });
+    await journey.close();
+  } else {
   await journey.click('button[type="submit"]');
   await journey.waitForSelector('a[href*="/score/assessment/"]');
   const resumeHref = await journey.$eval('a[href*="/score/assessment/"]', (element) => element.getAttribute('href'));
@@ -299,6 +307,7 @@ try {
   await journey.screenshot({ path: join(outputDirectory, 'mobile-active-resume.png'), fullPage: true });
   evidence.push({ route: new URL(resumeHref, baseUrl).pathname, syntheticMarker: syntheticMarker || null, syntheticName, saveFailurePreventedAdvance: true, retrySucceeded: true, firstDomainAdvanced: true, rapidTapSaveRequests: 1, completedDomainReopened: true, refreshResumed: true });
   await journey.close();
+  }
 
   const compatibility = await configurePreviewPage(await browser.newPage());
   const response = await compatibility.goto(`${baseUrl}/score/start?embed=1`, { waitUntil: 'networkidle0' });
