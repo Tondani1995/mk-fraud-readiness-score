@@ -150,8 +150,13 @@ async function createOrder(assessment, admin, product) {
   const { data: persistedAssessment, error: persistedAssessmentError } = await service.from('assessments')
     .select('status,current_score_run_id').eq('id', assessment.id).single();
   assert.ifError(persistedAssessmentError);
-  assert.equal(persistedAssessment.status, 'scored', `${assessment.fixture} assessment must remain scored after order creation`);
-  assert.equal(persistedAssessment.current_score_run_id, assessment.current_score_run_id, `${assessment.fixture} score pointer changed during order creation`);
+  if (expected === 'available') {
+    assert.equal(persistedAssessment.status, 'scored', `${assessment.fixture} assessment must remain scored after order creation`);
+    assert.equal(persistedAssessment.current_score_run_id, assessment.current_score_run_id, `${assessment.fixture} score pointer changed during order creation`);
+  } else {
+    assert.equal(persistedAssessment.status, 'draft', `${assessment.fixture} assessment must remain draft before fulfilment migration`);
+    assert.equal(persistedAssessment.current_score_run_id, null, `${assessment.fixture} assessment must have no score before fulfilment migration`);
+  }
   return { ...order, reference: orderReference, assessment };
 }
 
