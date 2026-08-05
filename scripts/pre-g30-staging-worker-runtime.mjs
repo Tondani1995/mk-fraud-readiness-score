@@ -1,0 +1,140 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+const previewBaseUrl = String(process.env.PRE_G30_PREVIEW_BASE_URL ?? '').trim();
+const expectedSha = String(process.env.PRE_G30_EXPECTED_SHA ?? '').trim();
+const attemptId = String(process.env.PRE_G30_ATTEMPT_ID ?? '').trim();
+const cronSecret = String(process.env.CRON_SECRET ?? '').trim();
+const protectionBypass = String(process.env.VERCEL_PROTECTION_BYPASS ?? '').trim();
+const outputPath = String(
+  process.env.PRE_G30_RUNTIME_OUTPUT ?? 'tmp/g29/pre-g30-staging-worker-runtime.json'
+).trim();
+const providedTempDir = String(process.env.PRE_G30_RUNTIME_TMP ?? '').trim();
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA_PATTERN = /^[0-9a-f]{40}$/i;
+
+function fail(message) {
+  throw new Error(message);
+}
+
+function validateInputs() {
+  if (!/^https:\/\/[^/]+(?:\/[^/]*)?$/.test(previewBaseUrl)) {
+    fail('PRE_G30_PREVIEW_BASE_URL must be an HTTPS deployment URL.');
+  }
+  if (!SHA_PATTERN.test(expectedSha)) fail('PRE_G30_EXPECTED_SHA must be a full commit SHA.');
+  if (!UUID_PATTERN.test(attemptId)) fail('fulfilment_attempt_id must be a UUID.');
+  if (!cronSecret || cronSecret.length < 32) fail('CRON_SECRET is missing or shorter than 32 characters.');
+  if (/^\*+$/.test(cronSecret) || cronSecret === '***********') {
+    fail('CRON_SECRET is a masked placeholder.');
+  }
+  if (/(REDACTED|MASKED|SENSITIVE)/i.test(cronSecret)) {
+    fail('CRON_SECRET is a placeholder.');
+  }
+  if (!protectionBypass) fail('VERCEL_PROTECTION_BYPASS is missing.');
+}
+
+function removeTree(target) {
+  try {
+    for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+      const child = path.join(target, entry.name);
+      if (entry.isDirectory()) removeTree(child);
+      else fs.unlinkSync(child);
+    }
+    fs.rmdirSync(target);
+  } catch {
+    // Cleanup is best effort and never logs secret-bearing paths or values.
+  }
+}
+
+async function main() {
+  validateInputs();
+  const correlationReference = crypto.randomUUID();
+  const ownsTempDir = !providedTempDir;
+  const tempDir = providedTempDir || fs.mkdtempSync(path.join(os.tmpdir(), 'pre-g30-worker-'));
+  fs.chmodSync(tempDir, 0o700);
+  const headerPath = path.join(tempDir, 'headers.txt');
+  const bodyPath = path.join(tempDir, 'body.json');
+  const responsePath = path.join(tempDir, 'response.json');
+  const outputAbsolutePath = path.resolve(outputPath);
+  const outputDirectory = path.dirname(outputAbsolutePath);
+  fs.mkdirSync(outputDirectory, { recursive: true, mode: 0o700 });
+
+  try {
+    fs.writeFileSync(
+      headerPath,
+      `Authorization: Bearer ${cronSecret}\nContent-Type: application/json\nx-vercel-protection-bypass: ${protectionBypass}\nx-vercel-set-bypass-cookie: true\n`,
+      { mode: 0o600 }
+    );
+    fs.writeFileSync(
+      bodyPath,
+      JSON.stringify({ attemptId, correlationReference }),
+      { mode: 0o600 }
+    );
+
+    const response = await fetch(`${previewBaseUrl}/score/api/internal/fulfilment-worker`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${cronSecret}`,
+        'content-type': 'application/json',
+        'x-vercel-protection-bypass': protectionBypass,
+        'x-vercel-set-bypass-cookie': 'true'
+      },
+      body: JSON.stringify({ attemptId, correlationReference })
+    });
+    const responseBody = await response.text();
+    fs.writeFileSync(responsePath, responseBody, { mode: 0o600 });
+    if (responseBody.includes(cronSecret)) fail('Worker response contained the protected secret.');
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseBody);
+    } catch {
+      fail(`Worker returned a non-JSON response with HTTP ${response.status}.`);
+    }
+    const returnedAttemptId = typeof parsed?.attemptId === 'string' ? parsed.attemptId : null;
+    const idempotentlyCompleted = parsed?.idempotentReplay === true;
+    const claimed = parsed?.claimed === true || idempotentlyCompleted;
+    if (response.status < 200 || response.status >= 300) fail(`Worker returned HTTP ${response.status}.`);
+    if (parsed?.ok !== true) fail('Worker response did not report ok=true.');
+    if (returnedAttemptId !== attemptId) fail('Worker returned a different attempt ID.');
+    if (!claimed) fail('Worker did not claim or idempotently complete the requested attempt.');
+
+    const evidence = {
+      ok: true,
+      httpStatus: response.status,
+      responseBody: parsed,
+      vercelRequestId: response.headers.get('x-vercel-id') ?? response.headers.get('x-request-id') ?? null,
+      attemptId,
+      correlationReference,
+      deploymentUrl: previewBaseUrl,
+      sha: expectedSha,
+      timestamp: new Date().toISOString(),
+      claimed: parsed.claimed === true,
+      idempotentReplay: idempotentlyCompleted
+    };
+    fs.writeFileSync(outputAbsolutePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+    console.log(JSON.stringify({
+      httpStatus: evidence.httpStatus,
+      responseBody: evidence.responseBody,
+      vercelRequestId: evidence.vercelRequestId,
+      attemptId: evidence.attemptId,
+      correlationReference: evidence.correlationReference,
+      deploymentUrl: evidence.deploymentUrl,
+      sha: evidence.sha,
+      timestamp: evidence.timestamp,
+      claimed: evidence.claimed,
+      idempotentReplay: evidence.idempotentReplay
+    }));
+  } finally {
+    if (ownsTempDir) removeTree(tempDir);
+  }
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : 'Worker invocation failed.');
+  process.exitCode = 1;
+});

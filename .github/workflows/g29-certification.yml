@@ -11,6 +11,7 @@ on:
       - 'scripts/pre-g30-migration-target-check.mjs'
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
+      - 'scripts/pre-g30-staging-worker-runtime.mjs'
       - 'scripts/phase23-assessment-browser-tests.mjs'
       - 'src/lib/adaptive/server.ts'
       - 'src/app/score/start/page.tsx'
@@ -21,6 +22,15 @@ on:
     inputs:
       preview_base_url:
         description: 'Exact READY Preview deployment URL for this commit'
+        required: false
+        type: string
+      invoke_staging_worker:
+        description: 'Invoke the scoped Staging fulfilment worker for the retained G29 attempt'
+        required: false
+        default: false
+        type: boolean
+      fulfilment_attempt_id:
+        description: 'Existing queued fulfilment attempt UUID; required when invoking the worker'
         required: false
         type: string
 
@@ -64,6 +74,67 @@ jobs:
           done
           echo "No successful immutable Preview deployment was reported for ${sha}." >&2
           exit 1
+
+  pre-g30-staging-worker-runtime:
+    name: PRE-G30 authorized Staging worker runtime
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_staging_worker == true }}
+    needs: [resolve-preview]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PRE_G30_PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
+      PRE_G30_EXPECTED_SHA: ${{ github.sha }}
+      PRE_G30_ATTEMPT_ID: ${{ inputs.fulfilment_attempt_id }}
+      PRE_G30_RUNTIME_OUTPUT: tmp/g29/pre-g30-staging-worker-runtime.json
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+      - name: Assert exact dispatch ref, PR head and immutable Preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          pr_head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/52" --jq '.head.sha')"
+          test "$GITHUB_SHA" = "$pr_head_sha"
+          deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?sha=${GITHUB_SHA}&environment=Preview&per_page=20" \
+            --jq '[.[] | select(.environment == "Preview")] | first | .id // empty')"
+          test -n "$deployment_id"
+          deployment_url="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            --jq '[.[] | select(.state == "success" and (.environment_url // "") != "") | .environment_url] | last // empty')"
+          test -n "$deployment_url"
+          test "$deployment_url" = "$PREVIEW_BASE_URL"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Invoke the scoped Staging worker without exposing CRON_SECRET
+        run: |
+          set +x
+          set -Eeuo pipefail
+          runtime_tmp_dir="$(mktemp -d)"
+          chmod 700 "$runtime_tmp_dir"
+          cleanup_runtime_tmp() {
+            set +e
+            if [ -d "$runtime_tmp_dir" ]; then
+              find "$runtime_tmp_dir" -type f -exec unlink {} + 2>/dev/null || true
+              rmdir "$runtime_tmp_dir" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_runtime_tmp EXIT
+          PRE_G30_RUNTIME_TMP="$runtime_tmp_dir" node scripts/pre-g30-staging-worker-runtime.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-g30-staging-worker-runtime
+          path: tmp/g29/pre-g30-staging-worker-runtime.json
+          if-no-files-found: error
 
   loopback-database:
     name: G29 loopback database suites
@@ -323,7 +394,7 @@ jobs:
   merge:
     name: G29 merged certification result
     if: always()
-    needs: [resolve-preview, loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
+    needs: [resolve-preview, pre-g30-staging-worker-runtime, loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -342,6 +413,10 @@ jobs:
       - name: Merge and require every G29 suite exactly once
         run: |
           set -Eeuo pipefail
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] && [ "${{ inputs.invoke_staging_worker }}" = 'true' ] && [ "${{ needs.pre-g30-staging-worker-runtime.result }}" != 'success' ]; then
+            echo 'The requested PRE-G30 Staging worker runtime did not succeed.' >&2
+            exit 1
+          fi
           mkdir -p tmp/g29
           find tmp/g29-artifacts -type f -name '*.json' -print
           node scripts/g29-merge-results.mjs \
