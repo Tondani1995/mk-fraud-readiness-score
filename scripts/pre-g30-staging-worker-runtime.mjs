@@ -82,6 +82,7 @@ async function main() {
     const curl = childProcess.spawnSync('curl', [
       '--silent',
       '--show-error',
+      '--location',
       '--output', responsePath,
       '--dump-header', responseHeadersPath,
       '--write-out', '%{http_code}',
