@@ -137,6 +137,7 @@ jobs:
       JWT_SECRET: g29-loopback-only-jwt-secret
       PHASE1_DELIVERY_MODE: disabled
       PAYMENT_PROVIDER_MODE: double
+      MK_RC1_OPERATION_FREEZE_MODE: released
     steps:
       - uses: actions/checkout@v4
         with:
@@ -160,6 +161,7 @@ jobs:
           printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY" >> "$GITHUB_ENV"
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/rc1-release-disposable-test-database.sql
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
       - name: Build and start the real application route
         run: |
           set -Eeuo pipefail
