@@ -1007,38 +1007,6 @@
       "classification": "Customer access audit RPC"
     },
     {
-      "signature": "public.finalize_premium_report_delivery(uuid,uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/delivery-dispatch.ts:113"
-      ]
-    },
-    {
-      "signature": "public.fail_premium_report_delivery_before_dispatch(uuid,uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/delivery-dispatch.ts:157"
-      ]
-    },
-    {
-      "signature": "public.mark_premium_report_delivery_dispatch_started(uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/delivery-dispatch.ts:70"
-      ]
-    },
-    {
-      "signature": "public.mark_premium_report_delivery_reconciliation_required(uuid,text,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/delivery-dispatch.ts:206"
-      ]
-    },
-    {
       "signature": "public.preview_development_finalize_premium_report_delivery(uuid,uuid,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1064,67 +1032,6 @@
         "src/lib/reports/email/report-delivery-service-core.ts:180"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
-    },
-    {
-      "signature": "public.authorize_premium_report_delivery(uuid,text,text,boolean,text,uuid)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:201"
-      ]
-    },
-    {
-      "signature": "public.claim_premium_report_delivery(uuid)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:263"
-      ]
-    },
-    {
-      "signature": "public.authorize_bounced_report_redelivery(uuid,text,text,jsonb)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:332"
-      ]
-    },
-    {
-      "signature": "public.resolve_premium_report_delivery_reconciliation(uuid,text,uuid,boolean,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:387"
-      ]
-    },
-    {
-      "signature": "public.register_phase14_manual_final_storage_cleanup(text,text,text,uuid,text,uuid)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/premium-report-service-core.ts:263",
-        "src/lib/reports/premium-report-service-core.ts:624"
-      ]
-    },
-    {
-      "signature": "public.record_phase14_storage_cleanup_result(uuid,boolean,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/premium-report-service-core.ts:295",
-        "src/lib/reports/premium-report-service-core.ts:657",
-        "src/lib/reports/premium-report-service-core.ts:755"
-      ]
-    },
-    {
-      "signature": "public.admin_terminal_phase14_generation_publication(jsonb)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/premium-report-service-core.ts:342",
-        "src/lib/reports/premium-report-service-core.ts:706"
-      ],
-      "classification": "Admin-authorized terminal publication RPC"
     },
     {
       "signature": "public.record_fulfilment_dispatch_result(uuid,uuid,text,integer,text)",
@@ -1341,9 +1248,23 @@
       "src/lib/reports/email/report-delivery-service-core.ts:373:rpc",
       "src/lib/reports/premium-report-download.ts:19:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:70:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:73:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:104:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:113:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:140:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:157:rpc",
       "src/lib/reports/email/delivery-dispatch.ts:181:rpc",
+      "src/lib/reports/email/delivery-dispatch.ts:206:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:201:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:263:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:332:rpc",
+      "src/lib/reports/email/report-delivery-service-core.ts:386:rpc",
+      "src/lib/reports/premium-report-service-core.ts:263:rpc",
+      "src/lib/reports/premium-report-service-core.ts:295:rpc",
+      "src/lib/reports/premium-report-service-core.ts:341:rpc",
+      "src/lib/reports/premium-report-service-core.ts:624:rpc",
+      "src/lib/reports/premium-report-service-core.ts:657:rpc",
+      "src/lib/reports/premium-report-service-core.ts:705:rpc",
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
