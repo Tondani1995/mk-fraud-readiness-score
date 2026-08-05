@@ -43,6 +43,20 @@ export function assertAdaptivePreviewEnvironment() {
   if (configuredSupabaseProjectRef() !== PREVIEW_STAGING_PROJECT_REF) throw new Error('adaptive_staging_project_required');
 }
 
+async function loadAdaptiveActivationPolicy(db: any) {
+  const { data, error } = await db.from('adaptive_activation_policies')
+    .select('policy_key,environment,supabase_project,graph_version,graph_fingerprint,enabled,activation_sha')
+    .eq('policy_key', 'customer_start').maybeSingle();
+  if (error) throw error;
+  if (!data || data.enabled !== true || data.environment !== 'preview' || data.supabase_project !== PREVIEW_STAGING_PROJECT_REF) {
+    throw new Error('adaptive_activation_disabled');
+  }
+  if (data.graph_version !== PREVIEW_ADAPTIVE_GRAPH_VERSION || data.graph_fingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) {
+    throw new Error('adaptive_activation_graph_mismatch');
+  }
+  return data;
+}
+
 function asGraph(value: unknown): AdaptiveGraph {
   if (!value || typeof value !== 'object') throw new Error('adaptive_graph_invalid_json');
   return value as AdaptiveGraph;
@@ -51,6 +65,7 @@ function asGraph(value: unknown): AdaptiveGraph {
 export async function loadConfiguredAdaptiveGraph() {
   assertAdaptivePreviewEnvironment();
   const db = createSupabaseServiceClient() as any;
+  const activation = await loadAdaptiveActivationPolicy(db);
   const configuredVersion = process.env.MK_ADAPTIVE_GRAPH_VERSION || PREVIEW_ADAPTIVE_GRAPH_VERSION;
   const { data, error } = await db
     .from('adaptive_graph_versions')
@@ -60,12 +75,13 @@ export async function loadConfiguredAdaptiveGraph() {
   if (error) throw error;
   if (!data) throw new Error('adaptive_graph_not_found');
   if (data.status === 'retired') throw new Error('adaptive_graph_retired');
-  if (data.status !== 'published' && process.env.VERCEL_ENV !== 'preview') throw new Error('adaptive_graph_not_published');
+  if (data.status !== 'published') throw new Error('adaptive_graph_not_published');
   if (data.graph_fingerprint !== PREVIEW_ADAPTIVE_GRAPH_FINGERPRINT) throw new Error('adaptive_graph_fingerprint_mismatch');
   const graph = asGraph(data.compiled_graph_json);
   const validationErrors = validateAdaptiveGraph(graph, data.graph_fingerprint);
   if (validationErrors.length) throw new Error(`adaptive_graph_invalid:${validationErrors.join(',')}`);
-  return { graph, graphRow: data };
+  if (activation.graph_version !== data.graph_version || activation.graph_fingerprint !== data.graph_fingerprint) throw new Error('adaptive_activation_graph_mismatch');
+  return { graph, graphRow: data, activation };
 }
 
 async function loadAdaptiveByToken(assessmentReference: string, rawToken: string) {

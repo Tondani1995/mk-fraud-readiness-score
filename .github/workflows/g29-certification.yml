@@ -9,7 +9,11 @@ on:
       - 'scripts/consolidation-local-respondent-integration.mjs'
       - 'scripts/pre-g30-ai-route-authority-tests.mjs'
       - 'scripts/pre-g30-migration-target-check.mjs'
+      - 'scripts/pre-g30-migration-target-manifest.json'
+      - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/phase23-assessment-browser-tests.mjs'
+      - 'src/lib/adaptive/server.ts'
+      - 'src/app/score/start/page.tsx'
       - 'package.json'
       - 'package-lock.json'
       - 'supabase/**'
@@ -261,7 +265,7 @@ jobs:
     timeout-minutes: 30
     env:
       G29_RUN_LIVE: '1'
-      G29_SUITE_IDS: adaptive.branch-matrix,adaptive.engine,adaptive.scoring,adaptive.correction,adaptive.gateway-audit,adaptive.customer-copy,legacy.engine,legacy.scenarios,legacy.snapshot,legacy.report-contract,commercial.events,commercial.conversion,commercial.report-engine,commercial.payment-verification,commercial.numeric-claims,commercial.quality-a,commercial.quality-b,commercial.quality-c,commercial.quality-d,commercial.quality-e,delivery.email,delivery.webhook-adversarial,delivery.provider-faults,delivery.storage-faults,delivery.security-closure,delivery.resend-rate-limit,database.accepted-migrations,database.ai-route-authority,database.migration-target-separation
+      G29_SUITE_IDS: adaptive.branch-matrix,adaptive.engine,adaptive.scoring,adaptive.correction,adaptive.gateway-audit,adaptive.customer-copy,legacy.engine,legacy.scenarios,legacy.snapshot,legacy.report-contract,commercial.events,commercial.conversion,commercial.report-engine,commercial.payment-verification,commercial.numeric-claims,commercial.quality-a,commercial.quality-b,commercial.quality-c,commercial.quality-d,commercial.quality-e,delivery.email,delivery.webhook-adversarial,delivery.provider-faults,delivery.storage-faults,delivery.security-closure,delivery.resend-rate-limit,database.accepted-migrations,database.ai-route-authority,database.migration-target-separation,database.adaptive-launch-authority
       G29_OUTPUT: tmp/g29/product-baseline.json
     steps:
       - uses: actions/checkout@v4

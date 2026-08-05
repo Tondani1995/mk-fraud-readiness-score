@@ -15,7 +15,7 @@ const expectedSuiteIds = [
   'commercial.quality-a', 'commercial.quality-b', 'commercial.quality-c', 'commercial.quality-d', 'commercial.quality-e',
   'delivery.email', 'delivery.webhook-adversarial', 'delivery.provider-faults', 'delivery.storage-faults',
   'delivery.access-eligibility', 'delivery.security-closure', 'delivery.resend-rate-limit',
-  'database.accepted-migrations', 'database.service-role-contract', 'database.old-schema-freeze', 'database.migration-replay', 'database.ai-route-authority', 'database.migration-target-separation',
+  'database.accepted-migrations', 'database.service-role-contract', 'database.old-schema-freeze', 'database.migration-replay', 'database.ai-route-authority', 'database.migration-target-separation', 'database.adaptive-launch-authority',
   'responsive.browser', 'integration.adaptive-db', 'integration.payment-db'
 ].sort();
 

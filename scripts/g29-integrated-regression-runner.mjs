@@ -56,6 +56,7 @@ const suites = [
   { id: 'database.migration-replay', category: 'database', ...npm('v7:test-checkpoint-e-migration') },
   { id: 'database.ai-route-authority', category: 'database', ...npm('pre-g30:test-ai-route-authority') },
   { id: 'database.migration-target-separation', category: 'database', ...npm('pre-g30:test-migration-targets') },
+  { id: 'database.adaptive-launch-authority', category: 'database', ...npm('pre-g30:test-adaptive-launch') },
   { id: 'responsive.browser', category: 'responsive', live: true, ...npm('phase23:test-browser') },
   { id: 'integration.adaptive-db', category: 'integration', live: true, ...npm('g25:test-adaptive-db') },
   { id: 'integration.payment-db', category: 'integration', live: true, ...npm('phase23:test-payment-db') }

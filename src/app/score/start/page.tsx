@@ -1,4 +1,4 @@
-import { StartAssessmentForm } from '@/components/assessment/StartAssessmentForm';
+import { AdaptiveStartForm } from '@/components/adaptive/AdaptiveStartForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
@@ -26,7 +26,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
           <CardContent className="space-y-4 text-sm leading-6 text-white/80">
             <p>Capture the respondent and organisation details once.</p>
             <p>Move directly into the fraud readiness questions without asking the respondent to create an account.</p>
-            <p>Use the free snapshot to decide whether to request the detailed MK report or a fuller Fraud Health Check.</p>
+            <p>Use the adaptive customer assessment to decide whether to request the detailed MK report or a fuller Fraud Health Check.</p>
           </CardContent>
         </Card>
 
@@ -36,7 +36,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
             <p className="mt-2 text-sm leading-6 text-mk-muted">Use a work email and the organisation’s registered or trading name.</p>
           </CardHeader>
           <CardContent>
-            <StartAssessmentForm />
+            <AdaptiveStartForm />
           </CardContent>
         </Card>
       </div>
