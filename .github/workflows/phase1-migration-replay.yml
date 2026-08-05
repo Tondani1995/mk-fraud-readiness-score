@@ -126,6 +126,7 @@ jobs:
             --set=rc1_disposable_expected_boundary=0023 \
             --file=scripts/rc1-disposable-old-schema-release-status.sql
           test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
           MK_RC1_OPERATION_FREEZE_MODE=released \
