@@ -20,6 +20,8 @@ export type PaymentVerificationEvidence = {
   manualVerifierRole: string | null;
   priorValidSourceEvent: boolean;
   transitionCount: number;
+  /** Only true for the isolated pre-0024 compatibility schema, where transition events do not exist. */
+  legacyOrderVerification?: boolean;
 };
 
 export type PaymentVerificationResult = {

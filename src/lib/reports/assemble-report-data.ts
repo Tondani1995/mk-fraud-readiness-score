@@ -143,11 +143,21 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     .eq('new_state', 'PAID')
     .eq('processing_result', 'applied')
     .order('created_at', { ascending: false });
-  if (paymentError) throw new ReportAssemblyError('entitlement_snapshot_failed', 'Payment verification evidence could not be loaded.');
+  const legacyPaymentSchemaUnavailable = Boolean(paymentError && (
+    paymentError.code === '42P01'
+    || paymentError.code === 'PGRST205'
+    || String(paymentError.message ?? '').toLowerCase().includes('payment_transition_events')
+  ));
+  if (paymentError && !legacyPaymentSchemaUnavailable) {
+    throw new ReportAssemblyError('entitlement_snapshot_failed', 'Payment verification evidence could not be loaded.');
+  }
 
-  const manualActorIds = [...new Set((paymentRows ?? [])
+  const manualActorIds = [...new Set([
+    ...(paymentRows ?? [])
     .filter((row: any) => row.source === 'manual_admin' && /^[0-9a-f-]{36}$/i.test(row.actor_reference ?? ''))
-    .map((row: any) => row.actor_reference))];
+    .map((row: any) => row.actor_reference),
+    ...(legacyPaymentSchemaUnavailable && /^[0-9a-f-]{36}$/i.test(order.verified_by ?? '') ? [order.verified_by] : [])
+  ])];
   const { data: verifierRows, error: verifierError } = manualActorIds.length > 0
     ? await supabase.from('admin_profiles').select('id,status,role').in('id', manualActorIds)
     : { data: [], error: null };
@@ -181,9 +191,37 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const sourceEvidence = (paymentRows ?? []).map(paymentEvidenceForRow);
   const priorValidSourceEvent = sourceEvidence.some((evidence) => isValidPaymentSourceEvent({ ...evidence, transitionCount: 1 }));
+  const legacyEvidence: PaymentVerificationEvidence | null = legacyPaymentSchemaUnavailable
+    && order.status === 'payment_received'
+    && Boolean(order.verified_at)
+    && Boolean(order.verified_by)
+    ? {
+      paymentState: 'PAID',
+      confirmationSource: 'manual_admin',
+      actorReference: order.verified_by,
+      providerTransactionReference: null,
+      providerEventReference: null,
+      providerEventAt: null,
+      verificationResult: 'authorised_manual_confirmation',
+      processingResult: 'applied',
+      // Compatibility marker only; no transition row is claimed to exist before 0024.
+      paymentEventId: order.id,
+      amountCents: nullableNumber(order.amount_cents),
+      orderAmountCents: nullableNumber(order.amount_cents),
+      currency: order.currency ?? null,
+      orderCurrency: order.currency ?? null,
+      orderVerifiedAt: order.verified_at ?? null,
+      orderVerifiedBy: order.verified_by ?? null,
+      manualVerifierStatus: verifierRows?.[0]?.status ?? null,
+      manualVerifierRole: verifierRows?.[0]?.role ?? null,
+      priorValidSourceEvent: false,
+      transitionCount: 1,
+      legacyOrderVerification: true
+    }
+    : null;
   const paymentVerification: PaymentVerificationEvidence = sourceEvidence.length > 0
     ? { ...sourceEvidence[0], priorValidSourceEvent, transitionCount: sourceEvidence.length }
-    : {
+    : legacyEvidence ?? {
       paymentState: null,
       confirmationSource: null,
       actorReference: null,

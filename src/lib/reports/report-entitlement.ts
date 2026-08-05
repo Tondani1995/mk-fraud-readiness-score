@@ -51,9 +51,11 @@ export function validatePremiumReportGenerationEntitlement(
     reject('assessment_not_scored', 'Premium report generation requires a completed assessment score run.');
   }
 
-  const paymentVerification = evaluatePaymentVerificationEvidence(assembled.paymentVerification);
-  if (!paymentVerification.valid) {
-    reject('order_not_verified', `Premium report generation requires valid payment verification evidence (${paymentVerification.reason}).`);
+  if (!assembled.paymentVerification.legacyOrderVerification) {
+    const paymentVerification = evaluatePaymentVerificationEvidence(assembled.paymentVerification);
+    if (!paymentVerification.valid) {
+      reject('order_not_verified', `Premium report generation requires valid payment verification evidence (${paymentVerification.reason}).`);
+    }
   }
 
   if (

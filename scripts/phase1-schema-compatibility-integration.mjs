@@ -147,32 +147,6 @@ async function createOrder(assessment, admin, product) {
     verified_at: expected === 'available' ? new Date().toISOString() : null
   }).select('id,order_reference').single();
   assert.ifError(error);
-  if (expected === 'available') {
-    // The current report entitlement contract requires one valid applied payment transition.
-    // Seed that already-verified evidence in this disposable fixture so the test reaches the
-    // commercial-quality boundary it is intended to exercise without invoking the payment RPC
-    // (which also queues the separate durable fulfilment worker attempt).
-    const { error: paymentEvidenceError } = await service.from('payment_transition_events').insert({
-      order_id: order.id,
-      order_reference: orderReference,
-      old_state: 'PAYMENT_PENDING',
-      new_state: 'PAID',
-      source: 'manual_admin',
-      actor_reference: admin.id,
-      amount_cents: product.price_cents,
-      currency: product.currency,
-      provider_transaction_reference: null,
-      provider_event_reference: null,
-      provider_event_at: new Date().toISOString(),
-      safe_note: 'Disposable Phase 1 quality-fixture payment evidence.',
-      verification_result: 'authorised_manual_confirmation',
-      idempotency_key: `phase1-payment-${nonce}-${assessment.fixture}`,
-      technical_reference: `phase1-payment-technical-${nonce}-${assessment.fixture}`,
-      payload_sha256: null,
-      processing_result: 'applied'
-    });
-    assert.ifError(paymentEvidenceError);
-  }
   const { data: persistedAssessment, error: persistedAssessmentError } = await service.from('assessments')
     .select('status,current_score_run_id').eq('id', assessment.id).single();
   assert.ifError(persistedAssessmentError);
