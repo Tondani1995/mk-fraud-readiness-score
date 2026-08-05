@@ -150,10 +150,13 @@ try {
   };
   const claims = await Promise.all(Array.from({ length: 8 }, () => db.rpc('claim_payment_report_generation', claimParameters)));
   for (const claim of claims) assert.ifError(claim.error);
-  // The isolated 0024/0025 boundary predates Release B's atomic queue extension, so the first
-  // payment-owned claim creates the one attempt and the seven concurrent replays reuse it.
-  assert.equal(claims.filter((claim) => claim.data?.claimed === true).length, 1, 'Concurrent claims must create exactly one attempt.');
-  assert.equal(claims.filter((claim) => claim.data?.reason === 'already_active').length, 7, 'Concurrent follow-up claims must reuse the active attempt.');
+  // The isolated 0024/0025 boundary creates the attempt in the first payment-owned claim,
+  // while the later Release B boundary queues it atomically with the payment transition. Both
+  // are valid: concurrent follow-ups must never create more than one active attempt.
+  const claimedCount = claims.filter((claim) => claim.data?.claimed === true).length;
+  const alreadyActiveCount = claims.filter((claim) => claim.data?.reason === 'already_active').length;
+  assert.ok([0, 1].includes(claimedCount), `Concurrent claims must create at most one attempt; got ${claimedCount}.`);
+  assert.equal(alreadyActiveCount, 8 - claimedCount, 'All remaining concurrent claims must reuse the one active attempt.');
   const { data: webhookOrder } = await db.from('orders').select('id').eq('order_reference', orderReferences[0]).single();
   const { count: attemptCount, error: attemptError } = await db.from('manual_report_generation_attempts')
     .select('id', { count: 'exact', head: true }).eq('order_id', webhookOrder.id);

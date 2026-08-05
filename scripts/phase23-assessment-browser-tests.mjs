@@ -40,6 +40,8 @@ async function startLocalServer() {
 
 if (!configuredBaseUrl) await startLocalServer();
 const baseUrl = (configuredBaseUrl ?? localBaseUrl).replace(/\/$/, '');
+const baseHostname = new URL(baseUrl).hostname;
+const isLoopbackBase = ['127.0.0.1', 'localhost', '::1'].includes(baseHostname);
 
 const browser = await puppeteer.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
 const viewports = [
@@ -82,7 +84,7 @@ function cookieHeader(jar) {
 
 async function previewPreflight() {
   const target = `${baseUrl}/score/start`;
-  if (!configuredBaseUrl) {
+  if (!configuredBaseUrl || isLoopbackBase) {
     return { ok: true, category: 'application_route_reached', targetPath: '/score/start', finalHost: expectedPreviewHost, status: null, local: true };
   }
   if (!protectionBypass) {
