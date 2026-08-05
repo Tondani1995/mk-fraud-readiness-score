@@ -225,10 +225,12 @@ jobs:
           LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
             npm run consolidation:test-respondent
           LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
             npm run phase23:test-payment-db
           PHASE23_BASE_URL="http://127.0.0.1:$post_port" \
           NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \

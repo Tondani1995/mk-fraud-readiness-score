@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
+import { writeFile } from 'node:fs/promises';
 
 const baseUrl = (process.env.LOCAL_INTEGRATION_BASE_URL ?? '').replace(/\/$/, '');
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
@@ -180,6 +181,22 @@ const snapshotResponse = await fetch(submitted.snapshotUrl);
 assert.equal(snapshotResponse.status, 200);
 const snapshotHtml = await snapshotResponse.text();
 assert.match(snapshotHtml, new RegExp(assessmentReference));
+
+const { data: persistedAssessment, error: persistedAssessmentError } = await service
+  .from('assessments')
+  .select('id,status,current_score_run_id')
+  .eq('id', assessmentId)
+  .single();
+assert.ifError(persistedAssessmentError);
+assert.equal(persistedAssessment.status, 'scored');
+assert.equal(persistedAssessment.current_score_run_id, submitted.scoreRunId);
+if (process.env.PHASE23_RESPONDENT_EVIDENCE_PATH) {
+  await writeFile(process.env.PHASE23_RESPONDENT_EVIDENCE_PATH, JSON.stringify({
+    assessmentId,
+    assessmentReference,
+    scoreRunId: submitted.scoreRunId
+  }));
+}
 
 console.log(JSON.stringify({
   ok: true,
