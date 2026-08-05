@@ -72,6 +72,26 @@ function nullableNumber(value: unknown) {
   return value === null || value === undefined ? null : Number(value);
 }
 
+async function loadScoredAssessment(supabase: any, assessmentId: string) {
+  // The local migration-replay suites restart PostgREST while retaining the same
+  // application process. Give the committed score pointer a short read-after-write
+  // window before classifying the order as commercially incomplete.
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await supabase
+      .from('assessments')
+      .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+      .eq('id', assessmentId)
+      .maybeSingle();
+    if (result.error || result.data?.current_score_run_id) return result;
+    if (attempt < 4) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return await supabase
+    .from('assessments')
+    .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+    .eq('id', assessmentId)
+    .maybeSingle();
+}
+
 export async function assembleReportData(orderReference: string): Promise<AssembledReportData> {
   const supabase = createSupabaseServiceClient();
 
@@ -83,11 +103,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   if (orderError || !order) throw new ReportAssemblyError('order_not_found', `Order ${orderReference} was not found.`);
 
-  const { data: assessment, error: assessmentError } = await supabase
-    .from('assessments')
-    .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
-    .eq('id', order.assessment_id)
-    .maybeSingle();
+  const { data: assessment, error: assessmentError } = await loadScoredAssessment(supabase, order.assessment_id);
 
   if (assessmentError || !assessment || !assessment.current_score_run_id) {
     throw new ReportAssemblyError('assessment_not_scored', `Assessment for order ${orderReference} has no current score run.`);
