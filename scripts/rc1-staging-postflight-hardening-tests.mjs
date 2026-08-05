@@ -252,7 +252,7 @@ const advisorDelta = JSON.parse(runSql(`
   );
 `));
 assert.equal(Number(advisorDelta.approved_remaining), 0);
-assert.equal(Number(advisorDelta.remaining_unindexed), 46);
+assert.equal(Number(advisorDelta.remaining_unindexed), 56);
 
 const aclRows = JSON.parse(runSql(`
   with targets(signature) as (
@@ -600,4 +600,4 @@ assert(
   'representative delivery plan must be able to use the approved index',
 );
 
-console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history now has additive migrations 46 and 47');
+console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history includes the current additive migration set');

@@ -147,6 +147,11 @@ async function createOrder(assessment, admin, product) {
     verified_at: expected === 'available' ? new Date().toISOString() : null
   }).select('id,order_reference').single();
   assert.ifError(error);
+  const { data: persistedAssessment, error: persistedAssessmentError } = await service.from('assessments')
+    .select('status,current_score_run_id').eq('id', assessment.id).single();
+  assert.ifError(persistedAssessmentError);
+  assert.equal(persistedAssessment.status, 'scored', `${assessment.fixture} assessment must remain scored after order creation`);
+  assert.equal(persistedAssessment.current_score_run_id, assessment.current_score_run_id, `${assessment.fixture} score pointer changed during order creation`);
   return { ...order, reference: orderReference, assessment };
 }
 
@@ -212,6 +217,11 @@ async function createPreviousValidReportFixture(order, admin) {
     generated_at: new Date().toISOString()
   }).select('id,status,report_reference,version_number,storage_bucket,storage_path,checksum,file_size_bytes,storage_status,supersedes_report_id').single();
   assert.ifError(reportError);
+  const { data: persistedAssessment, error: persistedAssessmentError } = await service.from('assessments')
+    .select('status,current_score_run_id').eq('id', order.assessment.id).single();
+  assert.ifError(persistedAssessmentError);
+  assert.equal(persistedAssessment.status, 'scored', 'quality fixture must retain scored assessment state');
+  assert.equal(persistedAssessment.current_score_run_id, order.assessment.current_score_run_id, 'previous report fixture must not clear the current score pointer');
   return { ...report, bytes };
 }
 
