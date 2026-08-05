@@ -15,6 +15,7 @@ import {
   isValidPaymentSourceEvent,
   type PaymentVerificationEvidence
 } from '@/lib/payments/payment-verification';
+import type { AdaptiveResultMetrics, AdaptiveResultStatus } from '@/lib/scoring/adaptive-scoring';
 
 /**
  * Parses a recommendation rule's numeric score band from its structured condition_json where
@@ -109,14 +110,31 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     throw new ReportAssemblyError('assessment_not_scored', `Assessment for order ${orderReference} has no current score run.`);
   }
 
-  const { data: scoreRunRow, error: scoreRunError } = await supabase
+  const { data: scoreRunBase, error: scoreRunError } = await supabase
     .from('score_runs')
-    .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash, adaptive_result_status, adaptive_metrics_json')
+    .select('id, assessment_id, methodology_version_id, overall_score, calculated_maturity, final_maturity, exposure_score, exposure_band, coverage_pct, n_a_rate_pct, critical_gap_count, major_gap_count, cap_applied, cap_reason, status, locked_at, input_hash')
     .eq('id', assessment.current_score_run_id)
     .eq('status', 'completed')
     .maybeSingle();
 
-  if (scoreRunError || !scoreRunRow) throw new ReportAssemblyError('assessment_not_scored', `Score run ${assessment.current_score_run_id} is missing or incomplete.`);
+  if (scoreRunError || !scoreRunBase) throw new ReportAssemblyError('assessment_not_scored', `Score run ${assessment.current_score_run_id} is missing or incomplete.`);
+
+  const scoreRunRow = scoreRunBase as typeof scoreRunBase & {
+    adaptive_result_status?: AdaptiveResultStatus | null;
+    adaptive_metrics_json?: AdaptiveResultMetrics | null;
+  };
+
+  const { data: adaptiveColumns, error: adaptiveColumnsError } = await supabase
+    .from('score_runs')
+    .select('adaptive_result_status,adaptive_metrics_json')
+    .eq('id', scoreRunRow.id)
+    .maybeSingle();
+  if (adaptiveColumnsError
+    && adaptiveColumnsError.code !== '42703'
+    && !String(adaptiveColumnsError.message ?? '').toLowerCase().includes('does not exist')) {
+    throw adaptiveColumnsError;
+  }
+  if (adaptiveColumns) Object.assign(scoreRunRow, adaptiveColumns);
 
   const { data: paymentRows, error: paymentError } = await supabase
     .from('payment_transition_events')

@@ -1268,7 +1268,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "f62ee94a5f94ae0e869ef45d9451b6372bfd5dc3fda654a46a24fdb59f319471"
+    "fullAstInventorySha256": "eb6b9f8a281775de863286874d6193c63baddad33a9ad9bbb460c80eada2b0f4"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
