@@ -27,6 +27,6 @@
   "requiredProductionGroups": [
     {"group":"adaptive_foundation","patterns":["20260804170000_g24_adaptive_foundation_g28_evidence_guidance.sql","20260804171000_g28_evidence_guidance_seed_repair.sql","20260804200000_g25_adaptive_engine.sql","20260804210000_g27_adaptive_scoring_integration.sql","20260804223000_g27_adaptive_visibility_score_guard.sql","20260805100000_g24_adaptive_history_least_privilege.sql","20260805110000_g24_adaptive_rpc_least_privilege.sql","20260805120000_g27_adaptive_scoring_search_path.sql"],"justification":"Approved adaptive customer product schema, scoring, evidence and least-privilege controls."},
     {"group":"commercial_launch","patterns":["20260804194001_g29_payment_verification_contract.sql","20260804203520_g29_customer_report_access_audit.sql","20260803220000_rc1_premium_delivery_active_uniqueness.sql"],"justification":"Payment, report access and delivery integrity required by the launch candidate."},
-    {"group":"ai_route_authority","patterns":["20260805090000_pre_g30_ai_route_authority.sql"],"justification":"Fail-closed AI provider/model/environment/SHA authority schema."}
+    {"group":"ai_route_authority","patterns":["20260805090000_pre_g30_ai_route_authority.sql","20260805140000_pre_g30_adaptive_launch_authority.sql","20260805150000_pre_g30_staging_ai_authority_guard_fix.sql"],"justification":"Fail-closed AI provider/model/environment/SHA authority schema and the additive Staging service-role binding correction."}
   ]
 }
