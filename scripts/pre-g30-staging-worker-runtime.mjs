@@ -193,6 +193,8 @@ async function main() {
     if (parsed?.ok !== true) reject('Worker response did not report ok=true.', 'worker_ok_false');
     if (returnedAttemptId !== attemptId) reject('Worker returned a different attempt ID.', 'worker_attempt_mismatch');
     if (!claimed) reject('Worker did not claim or idempotently complete the requested attempt.', 'worker_not_claimed');
+    if (parsed?.outcome !== 'automatic_release_complete') reject('Worker did not complete automatic release.', 'worker_release_incomplete');
+    if (parsed?.delivery?.outcome !== 'delivered') reject('Worker did not complete delivery.', 'worker_delivery_incomplete');
     evidence.ok = true;
     writeEvidence(evidence);
     console.log(JSON.stringify({
