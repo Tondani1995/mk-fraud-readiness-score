@@ -57,6 +57,13 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 - Result: focused local gates pass — Checkpoint E migration replay 4/4, near-real-time fulfilment 37/37, service-role AST analysis passes with inventory hash `69e85167c4d40f32d0973999c3e8f04705587b0312a4c46d2304225e384934f0`.
 - Safety: no database, provider, payment, email, Storage, or Production mutation was performed by this correction slice. The six explicit test/manifest files are ready for the next successor commit and exact-SHA workflow rerun.
 
+### 2026-08-06 00:29 SAST — synthetic notification manifest alignment
+
+- Decision: update only the manifest’s line-bound references for the premium report delivery function and dispatch statement after the telemetry insertion; no application behavior changed.
+- Evidence: exact-SHA V1 and Supabase runs stopped at `premium_report_pdf function source line drifted`; the implementation is intact and the local contract test passes after updating `functionLine` 126→127 and `messageLine` 280→289.
+- Result: `npm run rc1:test-synthetic-notification-contract` passes with four expected external messages, four expected callbacks, seven deterministic failure cases, and duplicate-prevention assertions.
+- Safety: this is the third corrective commit in the authorized overnight budget; no runtime or Production mutation was performed. A successor exact-SHA workflow batch is required.
+
 ## Safe action ledger
 
 | Time | Action | Environment | Result | Evidence |

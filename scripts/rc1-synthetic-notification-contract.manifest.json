@@ -78,8 +78,8 @@
       "sourceFunction": "deliverPremiumReportEmail",
       "source": {
         "file": "src/lib/reports/email/report-delivery-service-core.ts",
-        "functionLine": 126,
-        "messageLine": 280
+        "functionLine": 127,
+        "messageLine": 289
       },
       "dedupeKeyConstruction": "premium-report-delivery:<report_id>:<lowercase_recipient>:attempt-<attempt_number>",
       "providerIdempotencyKeyConstruction": "<email_events.provider_request_key>, equal to the durable delivery dedupe key",
