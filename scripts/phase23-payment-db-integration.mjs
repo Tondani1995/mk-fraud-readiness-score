@@ -32,9 +32,30 @@ assert.ok(['scored', 'snapshot_available', 'report_requested', 'under_review', '
 assert.ok(assessment.current_score_run_id, `Completed assessment ${assessment.id} has no current score run.`);
 const { data: product, error: productError } = await db.from('products').select('id').eq('active', true).limit(1).single();
 assert.ifError(productError);
-const { data: verifier, error: verifierError } = await db.from('admin_profiles')
-  .select('id').eq('status', 'active').in('role', ['platform_admin', 'finance_admin']).limit(1).single();
+let { data: verifier, error: verifierError } = await db.from('admin_profiles')
+  .select('id').eq('status', 'active').in('role', ['platform_admin', 'finance_admin']).limit(1).maybeSingle();
 assert.ifError(verifierError);
+let createdVerifierUserId = null;
+if (!verifier) {
+  const email = `phase23-admin-${nonce}@example.test`;
+  const { data: createdUser, error: createUserError } = await db.auth.admin.createUser({
+    email,
+    password: `Phase23-${nonce}-A9!`,
+    email_confirm: true
+  });
+  assert.ifError(createUserError);
+  assert.ok(createdUser.user?.id);
+  createdVerifierUserId = createdUser.user.id;
+  const { data: createdProfile, error: createProfileError } = await db.from('admin_profiles').insert({
+    id: createdVerifierUserId,
+    email,
+    full_name: 'Phase 2-3 Disposable Verifier',
+    role: 'platform_admin',
+    status: 'active'
+  }).select('id').single();
+  assert.ifError(createProfileError);
+  verifier = createdProfile;
+}
 
 const orderReferences = [`MKORD-DB-WEBHOOK-${nonce}`, `MKORD-DB-MANUAL-${nonce}`];
 const { error: orderError } = await db.from('orders').insert(orderReferences.map((orderReference) => ({
@@ -139,4 +160,9 @@ try {
 } finally {
   const { error: orderCleanupError } = await db.from('orders').delete().in('order_reference', orderReferences);
   assert.ifError(orderCleanupError);
+  if (createdVerifierUserId) {
+    await db.from('admin_profiles').delete().eq('id', createdVerifierUserId);
+    const { error: deleteUserError } = await db.auth.admin.deleteUser(createdVerifierUserId);
+    assert.ifError(deleteUserError);
+  }
 }

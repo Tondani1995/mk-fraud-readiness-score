@@ -81,7 +81,7 @@ async function createCompletedAssessment(fixture = 'unavailable') {
     ]);
     const answers = questions.map((question) => ({
       questionId: question.id,
-      responseValue: fixture === 'passing' && checkpointCPlaybookQuestions.has(question.question_code) ? 0 : 4,
+      responseValue: fixture === 'violating' && checkpointCPlaybookQuestions.has(question.question_code) ? 0 : 4,
       isNotApplicable: false,
       nAReason: ''
     }));
