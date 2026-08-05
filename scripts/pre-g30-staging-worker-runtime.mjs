@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -75,39 +76,48 @@ async function main() {
       { mode: 0o600 }
     );
 
-    const response = await fetch(`${previewBaseUrl}/score/api/internal/fulfilment-worker`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${cronSecret}`,
-        'content-type': 'application/json',
-        'x-vercel-protection-bypass': protectionBypass,
-        'x-vercel-set-bypass-cookie': 'true'
-      },
-      body: JSON.stringify({ attemptId, correlationReference })
-    });
-    const responseBody = await response.text();
-    fs.writeFileSync(responsePath, responseBody, { mode: 0o600 });
+    const responseHeadersPath = path.join(tempDir, 'response-headers.txt');
+    const curl = childProcess.spawnSync('curl', [
+      '--silent',
+      '--show-error',
+      '--output', responsePath,
+      '--dump-header', responseHeadersPath,
+      '--write-out', '%{http_code}',
+      '--connect-timeout', '30',
+      '--max-time', '120',
+      '--request', 'POST',
+      '--header', `@${headerPath}`,
+      '--data-binary', `@${bodyPath}`,
+      `${previewBaseUrl}/score/api/internal/fulfilment-worker`
+    ], { encoding: 'utf8' });
+    if (curl.error || curl.status === null) fail('Protected worker request could not be completed.');
+    const responseBody = fs.readFileSync(responsePath, 'utf8');
+    const responseHeaders = fs.readFileSync(responseHeadersPath, 'utf8');
     if (responseBody.includes(cronSecret)) fail('Worker response contained the protected secret.');
+
+    const httpStatus = Number.parseInt(String(curl.stdout ?? '').trim(), 10);
+    if (!Number.isInteger(httpStatus)) fail('Worker did not return an HTTP status.');
+    const vercelRequestId = responseHeaders.match(/^x-vercel-id:\s*(.+)$/im)?.[1]?.trim() ?? null;
 
     let parsed;
     try {
       parsed = JSON.parse(responseBody);
     } catch {
-      fail(`Worker returned a non-JSON response with HTTP ${response.status}.`);
+      fail(`Worker returned a non-JSON response with HTTP ${httpStatus}.`);
     }
     const returnedAttemptId = typeof parsed?.attemptId === 'string' ? parsed.attemptId : null;
     const idempotentlyCompleted = parsed?.idempotentReplay === true;
     const claimed = parsed?.claimed === true || idempotentlyCompleted;
-    if (response.status < 200 || response.status >= 300) fail(`Worker returned HTTP ${response.status}.`);
+    if (httpStatus < 200 || httpStatus >= 300) fail(`Worker returned HTTP ${httpStatus}.`);
     if (parsed?.ok !== true) fail('Worker response did not report ok=true.');
     if (returnedAttemptId !== attemptId) fail('Worker returned a different attempt ID.');
     if (!claimed) fail('Worker did not claim or idempotently complete the requested attempt.');
 
     const evidence = {
       ok: true,
-      httpStatus: response.status,
+      httpStatus,
       responseBody: parsed,
-      vercelRequestId: response.headers.get('x-vercel-id') ?? response.headers.get('x-request-id') ?? null,
+      vercelRequestId,
       attemptId,
       correlationReference,
       deploymentUrl: previewBaseUrl,
