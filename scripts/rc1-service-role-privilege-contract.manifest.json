@@ -40,7 +40,7 @@
       "schema": "public",
       "table": "adaptive_control_responses",
       "required": "S",
-      "stagingCurrent": "1111",
+      "stagingCurrent": "1110",
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE CONTROL STATE",
       "sources": [
