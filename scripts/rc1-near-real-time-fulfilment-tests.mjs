@@ -680,8 +680,11 @@ await test('full migration postflight matches the committed migration set', asyn
   const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
     .filter((file) => file.endsWith('.sql'))
     .sort();
-  const newest = migrationFiles[migrationFiles.length - 1].split('_')[0];
-  includes(postflight, `count(*) = ${migrationFiles.length}`, `postflight total is ${migrationFiles.length}`);
+  // The timeout-window migration is Staging-only and must not be counted against the
+  // Production postflight ledger. Production remains at its approved 88-file baseline.
+  const productionMigrationFiles = migrationFiles.filter((file) => file !== '20260805200000_pre_g30_ai_timeout_window.sql');
+  const newest = productionMigrationFiles[productionMigrationFiles.length - 1].split('_')[0];
+  includes(postflight, `count(*) = ${productionMigrationFiles.length}`, `postflight total is ${productionMigrationFiles.length}`);
   includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
 });
 await test('protected 18-order fixtures remain guarded and timing SLOs pass synthetically', async () => {

@@ -49,6 +49,14 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 - PDF decision: V7 Checkpoint F initially found four isolated near-empty continuation pages. Normal-flow domain cards and an intact roadmap-table boundary removed those pages; the rerendered four-candidate audit has zero blocking failures and is pixel-identical on repeated renders.
 - Owner approval tomorrow: none for this correction slice; successor-SHA workflow and Preview deployment evidence are still required before any synthetic AI call.
 
+### 2026-08-06 00:24 SAST — exact-SHA regression-gate alignment
+
+- Decision: correct only the test and contract boundaries exposed by the additive Staging timeout migration; no product or Production behavior was changed.
+- Evidence: the migration replay fixture failed because it still exercised the former 45,000 ms constraint; Production postflight failed because it counted the Staging-only migration against the approved 88-file Production ledger; the service-role manifest had stale line-bound exclusions after telemetry additions.
+- Corrections: the disposable migration replay now applies `20260805200000_pre_g30_ai_timeout_window.sql`; Staging canonical-set checks expect 89 files; Production postflight explicitly excludes that Staging-only migration; service-role manifest line bindings were updated without changing the inventory hash.
+- Result: focused local gates pass — Checkpoint E migration replay 4/4, near-real-time fulfilment 37/37, service-role AST analysis passes with inventory hash `69e85167c4d40f32d0973999c3e8f04705587b0312a4c46d2304225e384934f0`.
+- Safety: no database, provider, payment, email, Storage, or Production mutation was performed by this correction slice. The six explicit test/manifest files are ready for the next successor commit and exact-SHA workflow rerun.
+
 ## Safe action ledger
 
 | Time | Action | Environment | Result | Evidence |
@@ -58,6 +66,7 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 | 2026-08-05 23:49 | Read-only baseline | Staging/Production | Production aggregate unchanged; Staging retained V1–V4 | Supabase SQL/readback |
 | 2026-08-06 00:07 | Applied Staging-only timeout migration | Staging | constraint now 1,000–300,000 ms; Production unchanged | migration `20260805215454` and constraint readback |
 | 2026-08-06 00:07 | Focused local correction tests | Local | V7 E 28/28, V7 F audit 0 failures, AI accounting, attempt budget, narrative integrity, typecheck and build passed | local test output; build warning unchanged |
+| 2026-08-06 00:24 | Regression-gate alignment tests | Local | migration replay 4/4, near-real-time fulfilment 37/37, service-role AST analysis passed | local test output; no runtime mutation |
 
 ## Provider ledger
 

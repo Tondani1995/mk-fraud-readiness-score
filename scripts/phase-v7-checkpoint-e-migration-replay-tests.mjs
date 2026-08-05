@@ -17,6 +17,8 @@ const root = process.cwd();
 const migrationName = '20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql';
 const migrationPath = path.join(root, 'supabase/migrations', migrationName);
 const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+const timeoutMigrationPath = path.join(root, 'supabase/migrations', '20260805200000_pre_g30_ai_timeout_window.sql');
+const timeoutMigrationSql = fs.readFileSync(timeoutMigrationPath, 'utf8');
 const port = 56300 + ((process.pid + 197) % 300);
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-e-migration-pg-'));
 const postgres = new EmbeddedPostgres({
@@ -131,6 +133,7 @@ try {
   console.log('  ok - pre-migration state upgrades without activating AI, routes or delivery');
 
   await db.query(migrationSql);
+  await db.query(timeoutMigrationSql);
   assert.equal(await activationSnapshot(db), beforeActivation);
   const functionCount = await db.query(`
     select count(*)::int as count from pg_proc p join pg_namespace n on n.oid=p.pronamespace
