@@ -13,14 +13,15 @@ let assessment = null;
 let assessmentError = null;
 for (let attempt = 0; attempt < 10 && !assessment; attempt += 1) {
   const result = await db.from('assessments')
-    .select('id,organisation_id').in('status', ['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'])
-    .not('current_score_run_id', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    .select('id,organisation_id,status,current_score_run_id').not('current_score_run_id', 'is', null)
+    .order('updated_at', { ascending: false }).limit(1).maybeSingle();
   assessment = result.data;
   assessmentError = result.error;
   if (!assessment && !assessmentError) await new Promise((resolve) => setTimeout(resolve, 100));
 }
 assert.ifError(assessmentError);
 assert.ok(assessment, 'A completed scored assessment must be available after respondent integration.');
+assert.ok(['scored', 'snapshot_available', 'report_requested', 'under_review', 'closed'].includes(assessment.status), `Assessment is not in a completed status: ${assessment.status}`);
 const { data: product, error: productError } = await db.from('products').select('id').eq('active', true).limit(1).single();
 assert.ifError(productError);
 const { data: verifier, error: verifierError } = await db.from('admin_profiles')
