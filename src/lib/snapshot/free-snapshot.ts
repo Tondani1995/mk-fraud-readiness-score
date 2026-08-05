@@ -64,7 +64,9 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
   const [{ data: scoreRun, error: scoreRunError }, { data: organisation }, { data: respondent }] = await Promise.all([
     service
       .from('score_runs')
-      .select('id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at,adaptive_result_status,adaptive_metrics_json')
+      // Keep the legacy 0025 snapshot contract usable before G27's additive score-run columns
+      // exist. Adaptive metadata is loaded opportunistically below on newer staging schemas.
+      .select('id,run_number,status,overall_score,calculated_maturity,final_maturity,exposure_score,exposure_band,coverage_pct,n_a_rate_pct,critical_gap_count,major_gap_count,cap_applied,cap_reason,locked_at,created_at')
       .eq('id', scoreRunId)
       .eq('assessment_id', assessment.id)
       .maybeSingle(),
@@ -76,6 +78,22 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
 
   if (scoreRunError) throw scoreRunError;
   if (!scoreRun || scoreRun.status !== 'completed') return null;
+
+  const { data: adaptiveColumns, error: adaptiveColumnsError } = await service
+    .from('score_runs')
+    .select('adaptive_result_status,adaptive_metrics_json')
+    .eq('id', scoreRun.id)
+    .maybeSingle();
+  if (adaptiveColumnsError
+    && adaptiveColumnsError.code !== '42703'
+    && !String(adaptiveColumnsError.message ?? '').toLowerCase().includes('does not exist')) {
+    throw adaptiveColumnsError;
+  }
+  const scoreRunWithAdaptive = scoreRun as typeof scoreRun & {
+    adaptive_result_status?: AdaptiveResultStatus | null;
+    adaptive_metrics_json?: any;
+  };
+  if (adaptiveColumns) Object.assign(scoreRunWithAdaptive, adaptiveColumns);
 
   const { data: domainRows, error: domainRowsError } = await service
     .from('score_domain_results')
@@ -130,8 +148,8 @@ export async function loadFreeSnapshotByReference(assessmentReference: string, e
     capReason: scoreRun.cap_reason,
     scoredAt: scoreRun.locked_at ?? scoreRun.created_at ?? null,
     domains: snapshotDomains
-    ,resultStatus: scoreRun.adaptive_result_status ?? null
-    ,adaptiveMetrics: scoreRun.adaptive_metrics_json && Object.keys(scoreRun.adaptive_metrics_json).length ? scoreRun.adaptive_metrics_json as AdaptiveResultMetrics : null
-    ,comparabilityStatement: scoreRun.adaptive_metrics_json?.scoreComparabilityStatement ?? null
+    ,resultStatus: scoreRunWithAdaptive.adaptive_result_status ?? null
+    ,adaptiveMetrics: scoreRunWithAdaptive.adaptive_metrics_json && Object.keys(scoreRunWithAdaptive.adaptive_metrics_json).length ? scoreRunWithAdaptive.adaptive_metrics_json as AdaptiveResultMetrics : null
+    ,comparabilityStatement: scoreRunWithAdaptive.adaptive_metrics_json?.scoreComparabilityStatement ?? null
   };
 }
