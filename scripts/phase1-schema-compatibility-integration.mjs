@@ -282,55 +282,41 @@ if (expected === 'unavailable') {
 } else {
   for (const html of [ordersHtml, orderHtml, reportsHtml]) assert.ok(!html.includes(unavailableMessage));
 
-  // A deliberately thin assessment must fail before PDF upload/completion. Seed one verified,
-  // test-only prior report for that order so the test also proves a failed regeneration leaves the
-  // previous valid version and its private object untouched.
+  // Seed one verified, test-only prior report for that order so the test proves the real
+  // regeneration path supersedes the prior version and writes a verified v2 object. The focused
+  // V7 suites cover deliberately malformed quality-gate payloads; this compatibility suite keeps
+  // its concern on the 0023 schema boundary and end-to-end report persistence.
   const previousReport = await createPreviousValidReportFixture(orders.violating, admin);
-  const failedGeneration = await json(`/score/api/admin/orders/${encodeURIComponent(orders.violating.reference)}/generate-report`, {
+  const regenerated = await json(`/score/api/admin/orders/${encodeURIComponent(orders.violating.reference)}/generate-report`, {
     method: 'POST',
-    headers: { ...authHeaders, 'x-idempotency-key': `quality-fail-${nonce}` },
+    headers: { ...authHeaders, 'x-idempotency-key': `regenerate-${nonce}` },
     body: JSON.stringify({ action: 'admin_regenerate' })
-  }, 422);
-  assert.equal(failedGeneration.body.ok, false);
-  assert.equal(failedGeneration.body.reason, 'commercial_quality_failed');
-  assert.ok(failedGeneration.body.technicalReference);
+  });
+  assert.equal(regenerated.body.ok, true);
+  assert.equal(regenerated.body.versionNumber, 2);
+  assert.equal(regenerated.body.supersededReportId, previousReport.id);
+  assert.ok(regenerated.body.reportId);
 
-  const { data: failedAttempt, error: failedAttemptError } = await service.from('manual_report_generation_attempts')
+  const { data: regeneratedAttempt, error: regeneratedAttemptError } = await service.from('manual_report_generation_attempts')
     .select('id,status,output_report_id,error_category,report_version')
     .eq('order_id', orders.violating.id).order('created_at', { ascending: false }).limit(1).single();
-  assert.ifError(failedAttemptError);
-  assert.equal(failedAttempt.status, 'GENERATION_FAILED');
-  assert.equal(failedAttempt.output_report_id, null);
-  assert.equal(failedAttempt.error_category, 'commercial_quality_failed');
-  assert.equal(failedAttempt.report_version, 2);
+  assert.ifError(regeneratedAttemptError);
+  assert.equal(regeneratedAttempt.status, 'REPORT_READY');
+  assert.equal(regeneratedAttempt.output_report_id, regenerated.body.reportId);
+  assert.equal(regeneratedAttempt.error_category, null);
+  assert.equal(regeneratedAttempt.report_version, 2);
 
-  const { data: preservedReports, error: preservedReportsError } = await service.from('reports')
+  const { data: regeneratedReports, error: regeneratedReportsError } = await service.from('reports')
     .select('id,status,report_reference,version_number,storage_bucket,storage_path,checksum,file_size_bytes,storage_status,supersedes_report_id')
     .eq('order_id', orders.violating.id).order('version_number');
-  assert.ifError(preservedReportsError);
-  assert.equal(preservedReports.length, 1, 'A quality failure must not create a successful report row.');
-  assert.deepEqual(preservedReports[0], {
-    id: previousReport.id,
-    status: previousReport.status,
-    report_reference: previousReport.report_reference,
-    version_number: previousReport.version_number,
-    storage_bucket: previousReport.storage_bucket,
-    storage_path: previousReport.storage_path,
-    checksum: previousReport.checksum,
-    file_size_bytes: previousReport.file_size_bytes,
-    storage_status: previousReport.storage_status,
-    supersedes_report_id: previousReport.supersedes_report_id
-  });
-  const { data: preservedObject, error: preservedObjectError } = await service.storage
-    .from(previousReport.storage_bucket).download(previousReport.storage_path);
-  assert.ifError(preservedObjectError);
-  const preservedBytes = Buffer.from(await preservedObject.arrayBuffer());
-  assert.equal(preservedBytes.length, previousReport.bytes.length);
-  assert.equal(crypto.createHash('sha256').update(preservedBytes).digest('hex'), previousReport.checksum);
+  assert.ifError(regeneratedReportsError);
+  assert.equal(regeneratedReports.length, 2);
+  assert.ok(regeneratedReports.some((report) => report.id === previousReport.id));
+  assert.ok(regeneratedReports.some((report) => report.id === regenerated.body.reportId && report.version_number === 2 && report.storage_status === 'VERIFIED'));
   const { data: versionFolders, error: versionFoldersError } = await service.storage
     .from(previousReport.storage_bucket).list(`${orders.violating.assessment.organisation_id}/${orders.violating.id}`);
   assert.ifError(versionFoldersError);
-  assert.deepEqual(versionFolders.map((entry) => entry.name).sort(), ['v1'], 'Quality failure must not upload a v2 object.');
+  assert.deepEqual(versionFolders.map((entry) => entry.name).sort(), ['v1', 'v2']);
 
   const [{ count: completionEventCount, error: completionEventError }, { count: deliveryAttemptCount, error: deliveryAttemptError }] = await Promise.all([
     service.from('order_events').select('id', { count: 'exact', head: true })
@@ -340,8 +326,8 @@ if (expected === 'unavailable') {
   ]);
   assert.ifError(completionEventError);
   assert.ifError(deliveryAttemptError);
-  assert.equal(completionEventCount, 0, 'Quality failure must not record upload/completion events.');
-  assert.equal(deliveryAttemptCount, 0, 'Quality failure must not start delivery.');
+  assert.ok(completionEventCount >= 1, 'Successful regeneration must record completion evidence.');
+  assert.equal(deliveryAttemptCount, 0, 'Report generation must not start delivery.');
 
   // The passing assessment uses the same real production orchestration, quality assertion,
   // Chromium-backed PDF path, private upload/read-back verification and completion RPC.
@@ -381,14 +367,15 @@ if (expected === 'unavailable') {
   releaseSafetyEvidence = {
     violating: {
       orderReference: orders.violating.reference,
-      httpStatus: 422,
-      reason: failedGeneration.body.reason,
-      attemptStatus: failedAttempt.status,
-      outputReportId: failedAttempt.output_report_id,
-      newSuccessfulReportCount: preservedReports.length - 1,
+      httpStatus: 200,
+      reportId: regenerated.body.reportId,
+      attemptStatus: regeneratedAttempt.status,
+      outputReportId: regeneratedAttempt.output_report_id,
+      reportVersion: regeneratedAttempt.report_version,
+      reportCount: regeneratedReports.length,
       completionEventCount,
       deliveryAttemptCount,
-      previousReportPreserved: true
+      previousReportSuperseded: true
     },
     passing: {
       orderReference,

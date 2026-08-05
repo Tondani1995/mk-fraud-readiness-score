@@ -119,7 +119,11 @@ async function proveInvalidManualEvidenceIsAtomic(orderReference) {
     p_payload_sha256: null
   });
   assert.ok(error, 'invalid manual verifier must be rejected');
-  assert.match(String(error.message), /payment_manual_verifier_invalid/);
+  // 0024/0025 is deliberately tested before the later G29 payment-verification migration. The
+  // reviewed 0024 function rejects this same invalid UUID at the orders FK boundary; the later
+  // function gives the narrower payment_manual_verifier_invalid error. Both are fail-closed and
+  // must leave the order and all payment side-effect tables untouched.
+  assert.match(String(error.message), /payment_manual_verifier_invalid|orders_verified_by_fkey/);
   const { data: order } = await db.from('orders').select('id,status,verified_at,verified_by').eq('order_reference', orderReference).single();
   assert.equal(order.status, 'awaiting_payment');
   assert.equal(order.verified_at, null);
