@@ -26,7 +26,7 @@ jobs:
     env:
       LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       G29_RUN_LIVE: '1'
-      G29_SUITE_IDS: database.old-schema-freeze,database.migration-replay,integration.payment-db
+      G29_SUITE_IDS: database.old-schema-freeze,database.migration-replay,delivery.access-eligibility,integration.payment-db
       G29_OUTPUT: tmp/g29/loopback-database.json
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +120,7 @@ jobs:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: responsive.browser
       G29_OUTPUT: tmp/g29/responsive-preview.json
-      PHASE23_BASE_URL: https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app
+      PHASE23_BASE_URL: https://mk-fraud-platform-owk46e8ho-tondanis-projects.vercel.app
       PHASE23_SYNTHETIC_MARKER: MKG29-QA-
       PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -147,10 +147,36 @@ jobs:
           path: tmp/g29
           if-no-files-found: warn
 
+  product-baseline:
+    name: G29 product baseline suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      G29_RUN_LIVE: '1'
+      G29_SUITE_IDS: adaptive.branch-matrix,adaptive.engine,adaptive.scoring,adaptive.correction,adaptive.gateway-audit,adaptive.customer-copy,legacy.engine,legacy.scenarios,legacy.snapshot,legacy.report-contract,commercial.events,commercial.conversion,commercial.report-engine,commercial.payment-verification,commercial.numeric-claims,commercial.quality-a,commercial.quality-b,commercial.quality-c,commercial.quality-d,commercial.quality-e,delivery.email,delivery.webhook-adversarial,delivery.provider-faults,delivery.storage-faults,delivery.security-closure,delivery.resend-rate-limit,database.accepted-migrations
+      G29_OUTPUT: tmp/g29/product-baseline.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Run product baseline suites
+        run: npm run g29:regression -- --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-product-baseline
+          path: tmp/g29/product-baseline.json
+          if-no-files-found: warn
+
   merge:
     name: G29 merged certification result
     if: always()
-    needs: [loopback-database, adaptive-staging, responsive-preview]
+    needs: [loopback-database, adaptive-staging, responsive-preview, product-baseline]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -174,7 +200,8 @@ jobs:
             tmp/g29-artifacts/g29-loopback-database/loopback-database.json \
             tmp/g29-artifacts/g29-loopback-database/service-role-contract.json \
             tmp/g29-artifacts/g29-adaptive-staging/adaptive-staging.json \
-            tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json
+            tmp/g29-artifacts/g29-responsive-preview/responsive-preview.json \
+            tmp/g29-artifacts/g29-product-baseline/product-baseline.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
