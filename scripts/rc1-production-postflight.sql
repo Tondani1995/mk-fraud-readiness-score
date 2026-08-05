@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 84 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 85 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260805100000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260805110000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 50
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 51
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -123,14 +123,15 @@ with authorised(version, name) as (
     ('20260804210000','g27_adaptive_scoring_integration'),
     ('20260804223000','g27_adaptive_visibility_score_guard'),
     ('20260805090000','pre_g30_ai_route_authority'),
-    ('20260805100000','g24_adaptive_history_least_privilege')
+    ('20260805100000','g24_adaptive_history_least_privilege'),
+    ('20260805110000','g24_adaptive_rpc_least_privilege')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 50 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 51 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -140,7 +141,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000','20260803230000','20260804090000','20260804110000','20260804130000','20260804140000','20260804150000','20260804170000','20260804171000','20260804194001','20260804200000','20260804203520','20260804210000','20260804223000','20260805090000','20260805100000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000','20260803230000','20260804090000','20260804110000','20260804130000','20260804140000','20260804150000','20260804170000','20260804171000','20260804194001','20260804200000','20260804203520','20260804210000','20260804223000','20260805090000','20260805100000','20260805110000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
