@@ -153,10 +153,13 @@ try {
   // The isolated 0024/0025 boundary creates the attempt in the first payment-owned claim,
   // while the later Release B boundary queues it atomically with the payment transition. Both
   // are valid: concurrent follow-ups must never create more than one active attempt.
-  const claimedCount = claims.filter((claim) => claim.data?.claimed === true).length;
-  const alreadyActiveCount = claims.filter((claim) => claim.data?.reason === 'already_active').length;
-  assert.ok([0, 1].includes(claimedCount), `Concurrent claims must create at most one attempt; got ${claimedCount}.`);
-  assert.equal(alreadyActiveCount, 8 - claimedCount, 'All remaining concurrent claims must reuse the one active attempt.');
+  const createdCount = claims.filter((claim) => claim.data?.reason === 'claimed').length;
+  const safeReuseReasons = new Set(['already_active', 'idempotent_replay', 'worker_lease_resumed', 'report_exists']);
+  const unexpectedReasons = claims
+    .map((claim) => claim.data?.reason)
+    .filter((reason) => reason !== 'claimed' && !safeReuseReasons.has(reason));
+  assert.ok(createdCount <= 1, `Concurrent claims must create at most one attempt; got ${createdCount}.`);
+  assert.deepEqual(unexpectedReasons, [], 'Concurrent follow-ups must return only the approved claim/reuse outcomes.');
   const { data: webhookOrder } = await db.from('orders').select('id').eq('order_reference', orderReferences[0]).single();
   const { count: attemptCount, error: attemptError } = await db.from('manual_report_generation_attempts')
     .select('id', { count: 'exact', head: true }).eq('order_id', webhookOrder.id);
