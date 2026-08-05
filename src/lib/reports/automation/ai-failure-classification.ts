@@ -63,6 +63,9 @@ const PROVIDER_DECLARED_ERROR_NAMES = new Set([
 ]);
 
 export function classifyAiProviderFailure(error: unknown): AiProviderFailureClass {
+  if (error instanceof Error && error.name === 'AiGatewayIdentityVerificationError') {
+    return 'provider_declared';
+  }
   if (error instanceof Error && PRE_DISPATCH_ERROR_NAMES.has(error.name)) {
     return 'pre_dispatch';
   }

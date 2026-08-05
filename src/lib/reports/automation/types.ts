@@ -185,12 +185,24 @@ export interface NarrativeGenerationUsage {
   estimatedCostMicros?: number;
 }
 
+export interface AiGatewayExecutionProvenance {
+  generationId: string;
+  originalModelId?: string;
+  canonicalSlug?: string;
+  resolvedProvider?: string;
+  finalProvider?: string;
+  resolvedProviderApiModelId: string;
+  sdkResponseModelId?: string;
+  identitySource: 'gateway.routing';
+}
+
 export interface NarrativeGenerationResult {
   output: PremiumReportAiEditorialPlan;
   provider: string;
   model: string;
   latencyMs: number;
   usage?: NarrativeGenerationUsage;
+  gateway?: AiGatewayExecutionProvenance;
 }
 
 export interface NarrativeRepairScope {

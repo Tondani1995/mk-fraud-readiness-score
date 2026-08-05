@@ -11,6 +11,7 @@ import type {
   PremiumReportAiEditorialPlan,
   PremiumReportNarrativeGenerator
 } from './types';
+import { parseAiGatewayExecutionIdentity } from './ai-gateway-identity';
 
 import { PREMIUM_REPORT_AI_BODY_MAX_CHARS } from './types';
 
@@ -68,18 +69,14 @@ async function runStructuredGeneration(input: {
 
   if (!result.output) throw new Error('AI provider returned no structured narrative output.');
 
-  const gatewayMetadata = (result.providerMetadata as any)?.gateway;
-  const gatewayCost = Number(gatewayMetadata?.cost);
-  const resolvedProvider = String(
-    gatewayMetadata?.provider ?? gatewayMetadata?.providerName ?? gatewayMetadata?.routing?.provider ?? ''
-  ).trim().toLowerCase();
-  const resolvedModel = String(result.response.modelId ?? '').trim();
-  if (!resolvedProvider || !resolvedModel) {
-    throw new Error('AI Gateway response omitted authoritative provider or model identity.');
-  }
-  if (resolvedProvider !== requestedProvider.toLowerCase()) {
-    throw new Error(`AI Gateway routed to an unapproved provider: ${resolvedProvider}.`);
-  }
+  const parsedIdentity = parseAiGatewayExecutionIdentity({
+    requestedProvider,
+    requestedModel: input.model,
+    providerMetadata: result.providerMetadata,
+    response: result.response
+  });
+  const resolvedProvider = parsedIdentity.identity.finalProvider ?? parsedIdentity.identity.resolvedProvider ?? requestedProvider;
+  const resolvedModel = parsedIdentity.identity.resolvedProviderApiModelId;
   return {
     output: result.output as PremiumReportAiEditorialPlan,
     provider: resolvedProvider,
@@ -89,8 +86,9 @@ async function runStructuredGeneration(input: {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       totalTokens: result.usage.totalTokens,
-      estimatedCostMicros: Number.isFinite(gatewayCost) ? Math.round(gatewayCost * 1_000_000) : undefined
-    }
+      estimatedCostMicros: parsedIdentity.gatewayCostMicros
+    },
+    gateway: parsedIdentity.identity
   };
 }
 
