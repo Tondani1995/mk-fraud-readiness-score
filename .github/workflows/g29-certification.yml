@@ -22,12 +22,45 @@ on:
 
 permissions:
   contents: read
+  deployments: read
 
 env:
   SUPABASE_CLI_VERSION: '2.110.0'
   G29_CERTIFICATION_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
+  resolve-preview:
+    name: Resolve immutable Preview deployment
+    runs-on: ubuntu-latest
+    outputs:
+      preview_base_url: ${{ steps.resolve.outputs.preview_base_url }}
+    steps:
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if [ -n "${{ inputs.preview_base_url }}" ]; then
+            printf 'preview_base_url=%s\n' "${{ inputs.preview_base_url }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          for attempt in $(seq 1 30); do
+            deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?sha=${sha}&environment=Preview&per_page=20" \
+              --jq '[.[] | select(.environment == "Preview")] | first | .id // empty')"
+            if [ -n "$deployment_id" ]; then
+              preview_url="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+                --jq '[.[] | select(.state == "success" and (.environment_url // "") != "") | .environment_url] | last // empty')"
+              if [ -n "$preview_url" ]; then
+                printf 'preview_base_url=%s\n' "$preview_url" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "No successful immutable Preview deployment was reported for ${sha}." >&2
+          exit 1
+
   loopback-database:
     name: G29 loopback database suites
     runs-on: ubuntu-latest
@@ -188,13 +221,14 @@ jobs:
 
   responsive-preview:
     name: G29 Preview responsive browser suite
+    needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       G29_RUN_LIVE: '1'
       G29_SUITE_IDS: responsive.browser
       G29_OUTPUT: tmp/g29/responsive-preview.json
-      PHASE23_BASE_URL: ${{ inputs.preview_base_url || 'https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app' }}
+      PHASE23_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
       PHASE23_SYNTHETIC_MARKER: MKG29-QA-
       PHASE23_BROWSER_EVIDENCE_DIR: tmp/g29/browser
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
@@ -249,11 +283,12 @@ jobs:
 
   retained-pdf-review:
     name: G29 retained PDF evidence review
+    needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       G29_STAGING_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
-      G29_PREVIEW_BASE_URL: ${{ inputs.preview_base_url || 'https://mk-fraud-platform-git-feature-adaptive-ce4a16-tondanis-projects.vercel.app' }}
+      G29_PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
       G29_PDF_OUTPUT: tmp/g29/retained-pdf
@@ -284,7 +319,7 @@ jobs:
   merge:
     name: G29 merged certification result
     if: always()
-    needs: [loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
+    needs: [resolve-preview, loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
