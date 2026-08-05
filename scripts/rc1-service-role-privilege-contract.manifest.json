@@ -75,6 +75,18 @@
     },
     {
       "schema": "public",
+      "table": "adaptive_activation_policies",
+      "required": "S",
+      "stagingCurrent": "1000",
+      "productionCurrent": "0000",
+      "classification": "PREVIEW/STAGING ADAPTIVE ACTIVATION READ",
+      "sources": [
+        "src/lib/adaptive/server.ts:47 S"
+      ],
+      "justification": "Adaptive customer starts read the exact Staging activation binding; activation changes remain service-role RPC-owned."
+    },
+    {
+      "schema": "public",
       "table": "assessment_evidence_guidance",
       "required": "S",
       "stagingCurrent": "1000",
@@ -1268,7 +1280,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "eb6b9f8a281775de863286874d6193c63baddad33a9ad9bbb460c80eada2b0f4"
+    "fullAstInventorySha256": "69e85167c4d40f32d0973999c3e8f04705587b0312a4c46d2304225e384934f0"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
