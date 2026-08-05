@@ -30,7 +30,7 @@ const report = {
 const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const result = {
   ok: false,
-  commit: process.env.GITHUB_SHA ?? null,
+  commit: process.env.G29_CERTIFICATION_SHA ?? process.env.GITHUB_SHA ?? null,
   report,
   customerAccess: null,
   storage: null,

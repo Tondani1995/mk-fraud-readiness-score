@@ -25,6 +25,7 @@ permissions:
 
 env:
   SUPABASE_CLI_VERSION: '2.110.0'
+  G29_CERTIFICATION_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   loopback-database:
@@ -158,6 +159,7 @@ jobs:
           printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY" >> "$GITHUB_ENV"
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/rc1-release-disposable-test-database.sql
       - name: Build and start the real application route
         run: |
           set -Eeuo pipefail
