@@ -79,7 +79,7 @@ async function loadScoredAssessment(supabase: any, assessmentId: string) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const result = await supabase
       .from('assessments')
-      .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+      .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
       .eq('id', assessmentId)
       .maybeSingle();
     if (result.error || result.data?.current_score_run_id) return result;
@@ -87,7 +87,7 @@ async function loadScoredAssessment(supabase: any, assessmentId: string) {
   }
   return await supabase
     .from('assessments')
-    .select('id, assessment_reference, organisation_id, current_score_run_id, assessment_mode, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
+    .select('id, assessment_reference, organisation_id, current_score_run_id, organisations:organisation_id(legal_name,trading_name), respondents:primary_respondent_id(full_name,email)')
     .eq('id', assessmentId)
     .maybeSingle();
 }
