@@ -85,8 +85,14 @@ export function parseAiGatewayExecutionIdentity(input: {
   if (effectiveProvider !== requestedProvider) {
     throw new AiGatewayIdentityVerificationError(`Gateway resolved provider ${effectiveProvider} is not authorised.`);
   }
+  // The live Gateway routing payload currently omits providerApiModelId both at the
+  // routing level and inside providerAttempts. The AI SDK response modelId is the
+  // remaining execution identity, but it is accepted only after the Gateway has
+  // proved a successful attempt for the authorised provider and the model agrees
+  // with the requested model below.
   const resolvedProviderApiModelId = text(routing.resolvedProviderApiModelId)
-    ?? nestedResolvedProviderApiModelId(routing, effectiveProvider);
+    ?? nestedResolvedProviderApiModelId(routing, effectiveProvider)
+    ?? (sdkResponseModelId && modelsAgree(sdkResponseModelId, input.requestedModel, requestedProvider) ? sdkResponseModelId : undefined);
   if (!resolvedProviderApiModelId) throw new AiGatewayIdentityVerificationError('Gateway resolvedProviderApiModelId is missing.');
   if (!originalModelId && !canonicalSlug) throw new AiGatewayIdentityVerificationError('Gateway model proof is missing.');
   if (originalModelId && originalModelId !== input.requestedModel) {

@@ -82,13 +82,38 @@ assert.equal(nestedParsed.identity.generationId, 'gen_nested_001');
 assert.equal(nestedParsed.identity.resolvedProviderApiModelId, 'gpt-5.5');
 assert.equal(nestedParsed.gatewayCostMicros, 725);
 
+const liveShape = {
+  gateway: {
+    generationId: 'gen_live_shape_001',
+    cost: '0.000725',
+    routing: {
+      originalModelId: requestedModel,
+      canonicalSlug: requestedModel,
+      resolvedProvider: 'openai',
+      finalProvider: 'openai',
+      modelAttempts: [{
+        canonicalSlug: requestedModel,
+        success: true,
+        providerAttempts: [{ provider: 'openai', success: true }]
+      }]
+    }
+  }
+};
+const liveShapeParsed = identity.parseAiGatewayExecutionIdentity({
+  requestedProvider,
+  requestedModel,
+  providerMetadata: liveShape,
+  response: { modelId: requestedModel }
+});
+assert.equal(liveShapeParsed.identity.resolvedProviderApiModelId, requestedModel);
+
 const cases = [
   ['routing missing', (m) => ({ ...m, gateway: { generationId: 'g', routing: null } })],
   ['generation id missing', (m) => ({ ...m, gateway: { ...m.gateway, generationId: '' } })],
   ['provider missing', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, finalProvider: '', resolvedProvider: '' } } })],
   ['non-openai provider', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, finalProvider: 'anthropic' } } })],
   ['provider disagreement', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, finalProvider: 'openai', resolvedProvider: 'azure' } } })],
-  ['resolved api model missing', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, resolvedProviderApiModelId: '' } } })],
+  ['resolved api model missing', (m) => ({ metadata: { ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, resolvedProviderApiModelId: '' } } }, response: { modelId: '' } })],
   ['original model rewrite', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, originalModelId: 'openai/gpt-4.1' } } })],
   ['canonical model rewrite', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, canonicalSlug: 'openai/gpt-4.1' } } })],
   ['no model proof', (m) => ({ ...m, gateway: { ...m.gateway, routing: { ...m.gateway.routing, originalModelId: '', canonicalSlug: '' } } })],
