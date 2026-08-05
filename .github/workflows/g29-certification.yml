@@ -173,6 +173,36 @@ jobs:
           path: tmp/g29/product-baseline.json
           if-no-files-found: warn
 
+  retained-pdf-review:
+    name: G29 retained PDF evidence review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      G29_STAGING_SUPABASE_URL: https://penhenkzfrtmcxklodtu.supabase.co
+      G29_PREVIEW_BASE_URL: https://mk-fraud-platform-9gl2zmtc7-tondanis-projects.vercel.app
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      G29_PDF_OUTPUT: tmp/g29/retained-pdf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify PDF tooling
+        run: command -v pdfinfo && command -v pdftoppm && command -v pdftotext
+      - name: Download and review retained PDF
+        run: node scripts/g29-retained-pdf-review.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-retained-pdf-review
+          path: tmp/g29/retained-pdf
+          if-no-files-found: warn
+
   merge:
     name: G29 merged certification result
     if: always()
