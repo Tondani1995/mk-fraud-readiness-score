@@ -36,10 +36,10 @@ const pkg = JSON.parse(read('package.json'));
 assert(pkg.engines?.node === '24.x', 'package.json must declare Node 24');
 assert(read('.nvmrc').trim() === '24', '.nvmrc must contain 24');
 includes('.github/workflows/phase7-verification.yml', "node-version: '24'", 'CI must run Node 24');
-assert(pkg.dependencies?.workflow === '4.6.0', 'Supported Workflow SDK 4.6.0 must be pinned');
+assert(pkg.dependencies?.workflow === '4.8.0', 'Supported Workflow SDK 4.8.0 must be pinned');
 assert(pkg.dependencies?.['@sparticuz/chromium'] === '143.0.4', 'Node 24 Chromium 143.0.4 must be exactly pinned');
 assert(pkg.dependencies?.['puppeteer-core'] === '24.34.0', 'Puppeteer 24.34.0 must be exactly pinned for Chrome 143.0.7499.169');
-assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next must remain 14.x');
+assert(/^[^0-9]*15\./.test(pkg.dependencies?.next ?? ''), 'Next must remain on the patched 15.x release line');
 assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain 18.x');
 assert(pkg.dependencies?.['react-dom']?.startsWith('^18.'), 'React DOM must remain 18.x');
 
@@ -49,14 +49,14 @@ assert(lock.lockfileVersion === 3, 'lockfileVersion must remain 3');
 assert(lock.packages?.['']?.name === pkg.name, 'lockfile root name must match package');
 assert(lock.packages?.['']?.version === pkg.version, 'lockfile root version must match package');
 assert(lock.packages?.['']?.engines?.node === pkg.engines.node, 'lockfile root engine must match package');
-assert(lock.packages?.['node_modules/workflow']?.version === '4.6.0', 'lockfile must contain Workflow 4.6.0');
+assert(lock.packages?.['node_modules/workflow']?.version === '4.8.0', 'lockfile must contain Workflow 4.8.0');
 assert(lock.packages?.['node_modules/@sparticuz/chromium']?.version === '143.0.4', 'lockfile must contain Chromium 143.0.4');
 assert(lock.packages?.['node_modules/puppeteer-core']?.version === '24.34.0', 'lockfile must contain puppeteer-core 24.34.0');
 assert(lock.packages?.['node_modules/@puppeteer/browsers']?.version === '2.11.0', 'lockfile must contain @puppeteer/browsers 2.11.0');
 for (const swc of [
   '@next/swc-darwin-arm64','@next/swc-darwin-x64','@next/swc-linux-arm64-gnu',
   '@next/swc-linux-arm64-musl','@next/swc-linux-x64-gnu','@next/swc-linux-x64-musl',
-  '@next/swc-win32-arm64-msvc','@next/swc-win32-ia32-msvc','@next/swc-win32-x64-msvc'
+  '@next/swc-win32-arm64-msvc','@next/swc-win32-x64-msvc'
 ]) assert(Boolean(lock.packages?.[`node_modules/${swc}`]), `lockfile must include ${swc}`);
 
 includes('scripts/phase10-premium-report-tests.mjs', 'Node 24 compatibility boundary', 'Phase 10 must explicitly guard Node 24');

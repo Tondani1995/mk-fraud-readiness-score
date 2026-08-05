@@ -31,7 +31,7 @@ for (const file of [
 
 const pkg = JSON.parse(read('package.json'));
 assert(pkg.engines?.node === '24.x', 'Node 24 must be explicit after the controlled compatibility spike');
-assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next must remain on 14.x');
+assert(/^[^0-9]*15\./.test(pkg.dependencies?.next ?? ''), 'Next must remain on the patched 15.x release line');
 assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain on 18.x');
 assert(pkg.dependencies?.['@sparticuz/chromium'], 'Chromium package must remain installed');
 assert(pkg.dependencies?.['puppeteer-core'], 'puppeteer-core must remain installed');

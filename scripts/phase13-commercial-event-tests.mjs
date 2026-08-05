@@ -183,8 +183,8 @@ assertNotIncludes(reportService, 'resend.emails.send', 'Phase 14A report service
 
 const packageJson = JSON.parse(read('package.json'));
 assert(packageJson.scripts?.['phase13:test-events'] === 'node scripts/phase13-commercial-event-tests.mjs', 'package.json must expose phase13:test-events.');
-assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Phase 13 must keep Next 14.x.');
-assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'Phase 13 must keep eslint-config-next 14.x.');
+assert(/^[^0-9]*15\./.test(String(packageJson.dependencies?.next ?? '')), 'Phase 13 must keep the patched Next 15.x line.');
+assert(/^[^0-9]*15\./.test(String(packageJson.devDependencies?.['eslint-config-next'] ?? '')), 'Phase 13 must keep the patched eslint-config-next 15.x line.');
 assertIncludes('.github/workflows/phase7-verification.yml', 'npm run phase13:test-events', 'V1 verification workflow runs Phase 13 event tests');
 
 console.log('Phase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped customer events, R50 post-persistence boundary, shared report-generated tracking and no-email boundary are covered.');

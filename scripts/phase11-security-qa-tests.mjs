@@ -94,8 +94,8 @@ function runStaticChecks() {
   assert(exists('src/lib/reports/report-entitlement.ts'), 'Shared premium report entitlement guard must exist.');
 
   const packageJson = JSON.parse(read('package.json'));
-  assert(String(packageJson.dependencies?.next ?? '').startsWith('^14.'), 'Next must remain on 14.x in the Phase 11 security patch.');
-  assert(String(packageJson.devDependencies?.['eslint-config-next'] ?? '').startsWith('^14.'), 'eslint-config-next must remain on 14.x in the Phase 11 security patch.');
+  assert(/^[^0-9]*15\./.test(String(packageJson.dependencies?.next ?? '')), 'Next must remain on the patched 15.x release line in the Phase 11 security patch.');
+  assert(/^[^0-9]*15\./.test(String(packageJson.devDependencies?.['eslint-config-next'] ?? '')), 'eslint-config-next must remain on the patched 15.x release line in the Phase 11 security patch.');
   assertIncludes('next.config.mjs', 'experimental', 'Next 14 config must keep experimental config block');
   assertIncludes('next.config.mjs', 'outputFileTracingIncludes', 'Next 14 config must keep experimental outputFileTracingIncludes');
   assertIncludes('src/lib/auth/session-cookies.ts', 'export function getAdminAccessTokenFromCookies(): string | null', 'Next 14 cookie helper must remain synchronous');
