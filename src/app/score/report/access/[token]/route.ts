@@ -5,7 +5,7 @@ import { grantCustomerReportAccess, CustomerReportAccessError } from '@/lib/repo
 // Release C secure customer report access -- no admin session, no customer auth (none exists in
 // this codebase, per docs/safe-launch/14-release-c-existing-delivery-audit.md Q24). Possession
 // of the URL (the token) is the access control. Never returns the raw storage path; issues a
-// fresh 60-second signed URL per successful validated access and redirects to it -- the durable
+// fresh short-lived signed URL per successful validated access and redirects to it -- the durable
 // token and the temporary storage URL are never the same object.
 
 export const runtime = 'nodejs';

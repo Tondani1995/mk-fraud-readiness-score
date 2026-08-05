@@ -24,7 +24,7 @@ const report = {
   storageBucket: 'generated-reports',
   storagePath: 'e40d1f06-24d9-4bd7-a34a-da252737fd13/1038733e-b4d5-482f-8bb9-386a80d5c0b7/v1/RPT-MKFRS-2026-956FEA052B-V1-49e8509cb93b9e44.pdf',
   expectedBytes: 329740,
-  expectedChecksum: '49e8509cb93e44b8f8e3f561c3d475872d90f068f644ac696cbef6848939b5'
+  expectedChecksum: '49e8509cb93b9e44b8f8e3f561c3d475872d90f068f644ac696cbef6848939b5'
 };
 
 const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -97,6 +97,7 @@ async function followRedirects(startUrl) {
   const cookies = new Map();
   let currentUrl = startUrl;
   for (let redirectCount = 0; redirectCount <= 6; redirectCount += 1) {
+    const requestStartedAt = Date.now();
     const headers = { 'x-vercel-protection-bypass': protectionBypass, 'x-vercel-set-bypass-cookie': 'true' };
     const cookie = [...cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
     if (cookie) headers.cookie = cookie;
@@ -115,6 +116,7 @@ async function followRedirects(startUrl) {
     }
     const body = Buffer.from(await response.arrayBuffer());
     const item = await responseEvidence(response, body);
+    item.elapsedMs = Date.now() - requestStartedAt;
     chain.push(item);
     if (response.status < 300 || response.status >= 400) return { initial: chain[0], final: item, chain };
     const location = response.headers.get('location');
@@ -158,7 +160,9 @@ try {
 
   const routeFinal = result.customerAccess.route.final;
   const routeInitial = result.customerAccess.route.initial;
-  const routeLocationValid = Boolean(routeInitial?.status >= 300 && routeInitial.status < 400 && routeInitial.location?.valid && routeInitial.location.expectedBucket && routeInitial.location.expectedObjectPath);
+  const applicationRedirect = result.customerAccess.route.chain.find((item) => item.location?.expectedBucket && item.location?.expectedObjectPath) ?? null;
+  const routeLocationValid = Boolean(applicationRedirect?.status >= 300 && applicationRedirect.status < 400 && applicationRedirect.location?.valid && applicationRedirect.location.expectedBucket && applicationRedirect.location.expectedObjectPath);
+  result.customerAccess.applicationRedirect = applicationRedirect;
   const customerMatches = Boolean(routeFinal?.status === 200 && routeFinal.contentType?.toLowerCase().startsWith('application/pdf') && routeFinal.pdfMagic && routeFinal.bytes === report.expectedBytes && routeFinal.checksum === report.expectedChecksum);
   result.customerAccess.initialRouteValid = routeLocationValid;
   result.customerAccess.final = routeFinal;

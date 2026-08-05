@@ -5,7 +5,7 @@ import { assertReportAccessEligible, resolveCurrentReportId, ReportAccessEligibi
 
 // Release C customer-facing secure report access. Deliberately mirrors
 // createSecurePhase1ReportAccess (phase1-report-access.ts) as a pattern -- same order/status/
-// currentness/checksum/magic-byte verification, same short (60s) signed-URL TTL, same
+// currentness/checksum/magic-byte verification, same short signed-URL TTL, same
 // three-table audit fan-out, never returns the raw storage path -- but is a new, parallel
 // function for the 'customer_download' purpose, since the admin one is admin-session-gated and
 // this route has no admin session at all. See docs/safe-launch/15-email-and-secure-delivery-design.md.
@@ -36,7 +36,11 @@ export class CustomerReportAccessError extends Error {
   }
 }
 
-const ACCESS_TTL_SECONDS = 60;
+// The URL is created before the final audit RPC and Vercel's redirect completes. A 60-second
+// token can expire during a cold start or a slow audited request even though the route has passed
+// every access and integrity check. Five minutes remains a short possession-link window while
+// leaving enough margin for the signed URL to reach Storage.
+const ACCESS_TTL_SECONDS = 300;
 const MAX_ACCESS_ATTEMPTS_PER_HOUR = 20;
 
 async function recordAccess(input: {
