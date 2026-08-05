@@ -82,7 +82,7 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 83, 'canonical migration directory must contain the complete 83-file SQL set');
+assert.equal(migrationFiles.length, 84, 'canonical migration directory must contain the complete 84-file SQL set');
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering
 // must not.
