@@ -144,10 +144,10 @@ jobs:
   pre-g30-full-scale-shadow:
     name: PRE-G30 branch-bound full-scale shadow
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true }}
-    needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      PRE_G30_PREVIEW_BASE_URL: ${{ inputs.preview_base_url }}
       PRE_G30_EXPECTED_SHA: ${{ github.sha }}
       PRE_G30_SHADOW_OUTPUT: tmp/g29/pre-g30-full-scale-shadow.json
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -163,7 +163,7 @@ jobs:
       - name: Assert exact branch, PR head and immutable Preview
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
+          PREVIEW_BASE_URL: ${{ inputs.preview_base_url }}
         run: |
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
@@ -179,7 +179,7 @@ jobs:
           chmod 700 "$runtime_tmp_dir"
           cleanup_runtime_tmp() { set +e; find "$runtime_tmp_dir" -type f -exec unlink {} + 2>/dev/null || true; rmdir "$runtime_tmp_dir" 2>/dev/null || true; }
           trap cleanup_runtime_tmp EXIT
-          PRE_G30_PREVIEW_BASE_URL="${{ needs.resolve-preview.outputs.preview_base_url }}" node scripts/pre-g30-full-scale-shadow-runtime.mjs
+          node scripts/pre-g30-full-scale-shadow-runtime.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
