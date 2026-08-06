@@ -50,6 +50,7 @@ env:
 jobs:
   resolve-preview:
     name: Resolve immutable Preview deployment
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     outputs:
       preview_base_url: ${{ steps.resolve.outputs.preview_base_url }}
@@ -82,7 +83,7 @@ jobs:
 
   pre-g30-staging-worker-runtime:
     name: PRE-G30 authorized Staging worker runtime
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_staging_worker == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_staging_worker == true && inputs.invoke_pre_g30_shadow != true }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -189,6 +190,7 @@ jobs:
 
   loopback-database:
     name: G29 loopback database suites
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -248,6 +250,7 @@ jobs:
 
   adaptive-staging:
     name: G29 adaptive Staging DB suite
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -282,6 +285,7 @@ jobs:
 
   legacy-respondent:
     name: G29 legacy respondent integration
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -347,6 +351,7 @@ jobs:
 
   responsive-preview:
     name: G29 Preview responsive browser suite
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -383,6 +388,7 @@ jobs:
 
   product-baseline:
     name: G29 product baseline suites
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -409,6 +415,7 @@ jobs:
 
   retained-pdf-review:
     name: G29 retained PDF evidence review
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -444,7 +451,7 @@ jobs:
 
   merge:
     name: G29 merged certification result
-    if: always()
+    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     needs: [resolve-preview, pre-g30-staging-worker-runtime, loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
