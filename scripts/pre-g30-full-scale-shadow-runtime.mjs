@@ -42,7 +42,7 @@ try {
   fs.writeFileSync(headerPath, `Authorization: Bearer ${cronSecret}\nContent-Type: application/json\nx-vercel-protection-bypass: ${protectionBypass}\nx-vercel-set-bypass-cookie: true\n`, { mode: 0o600 });
   fs.writeFileSync(bodyPath, '{}\n', { mode: 0o600 });
   const curl = childProcess.spawnSync('curl', [
-    '--silent', '--show-error', '--location', '--output', responsePath,
+    '--silent', '--show-error', '--output', responsePath,
     '--dump-header', responseHeadersPath, '--write-out', '%{http_code}',
     '--connect-timeout', '30', '--max-time', '360', '--request', 'POST',
     '--header', `@${headerPath}`, '--data-binary', `@${bodyPath}`,
@@ -54,7 +54,11 @@ try {
   const responseHeaders = fs.existsSync(responseHeadersPath) ? fs.readFileSync(responseHeadersPath, 'utf8') : '';
   if (responseBody.includes(cronSecret)) fail('Shadow response contained CRON_SECRET.');
   let parsed;
-  try { parsed = JSON.parse(responseBody); } catch { fail('Shadow response was not JSON.'); }
+  try { parsed = JSON.parse(responseBody); } catch {
+    const safeBody = responseBody.replace(/\s+/g, ' ').trim().slice(0, 120);
+    writeEvidence({ ok: false, httpStatus, response: { error: 'non_json_response', bodyPrefix: safeBody }, vercelRequestId: responseHeaders.match(/^x-vercel-id:\s*(.+)$/im)?.[1]?.trim() ?? null, timestamp: new Date().toISOString(), deploymentUrl: baseUrl, sha: expectedSha });
+    fail(`Shadow response was not JSON (HTTP ${httpStatus}).`);
+  }
   const evidence = {
     ok: parsed?.ok === true && httpStatus >= 200 && httpStatus < 300,
     httpStatus,
