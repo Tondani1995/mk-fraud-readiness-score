@@ -12,6 +12,7 @@ on:
       - 'scripts/pre-g30-migration-target-manifest.json'
       - 'scripts/pre-g30-adaptive-launch-tests.mjs'
       - 'scripts/pre-g30-staging-worker-runtime.mjs'
+      - 'src/app/score/api/internal/pre-g30-structured-output-probe/route.ts'
       - 'scripts/phase23-assessment-browser-tests.mjs'
       - 'src/lib/adaptive/server.ts'
       - 'src/app/score/start/page.tsx'
@@ -26,6 +27,11 @@ on:
         type: string
       invoke_staging_worker:
         description: 'Invoke the scoped Staging fulfilment worker for the retained G29 attempt'
+        required: false
+        default: false
+        type: boolean
+      invoke_pre_g30_structured_output_probe:
+        description: 'Invoke the one non-commercial Preview structured-output probe'
         required: false
         default: false
         type: boolean
@@ -135,6 +141,36 @@ jobs:
           name: pre-g30-staging-worker-runtime
           path: tmp/g29/pre-g30-staging-worker-runtime.json
           if-no-files-found: error
+
+  pre-g30-structured-output-probe:
+    name: PRE-G30 one non-commercial structured-output probe
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_structured_output_probe == true }}
+    needs: [resolve-preview]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PREVIEW_BASE_URL: ${{ needs.resolve-preview.outputs.preview_base_url }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Invoke one non-commercial probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CRON_SECRET"
+          test -n "$VERCEL_PROTECTION_BYPASS"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST "$PREVIEW_BASE_URL/score/api/internal/pre-g30-structured-output-probe" \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            --header "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" \
+            --header 'Content-Type: application/json' \
+            --data '{"probe":"pre-g30-structured-output"}')"
+          echo "HTTP status: $status"
+          tr -d '\n' < "$response_file"
+          echo
+          test "$status" = 200
 
   loopback-database:
     name: G29 loopback database suites
