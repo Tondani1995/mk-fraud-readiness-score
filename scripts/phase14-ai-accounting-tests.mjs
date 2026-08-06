@@ -32,6 +32,9 @@ new Function('require', 'module', 'exports', compiled)((specifier) => {
     PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 5000,
     PREMIUM_REPORT_AI_TIMEOUT_MS: 240_000
   };
+  if (specifier === './structured-output-diagnostics') return {
+    StructuredOutputGenerationError: class StructuredOutputGenerationError extends Error {}
+  };
   if (specifier === './phase-timing') return { logPremiumReportPhase() {} };
   if (specifier === './prompt') return {
     PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS: 'test system instructions',
