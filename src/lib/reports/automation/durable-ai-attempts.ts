@@ -4,6 +4,7 @@ import {
   PREMIUM_REPORT_AI_TIMEOUT_MS
 } from './ai-sdk-generator';
 import { aiAttemptStatusForFailureClass, classifyAiProviderFailure } from './ai-failure-classification';
+import { StructuredOutputGenerationError } from './structured-output-diagnostics';
 import {
   buildPremiumReportGenerationPrompt,
   buildPremiumReportRepairPrompt,
@@ -382,6 +383,39 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
       return result;
     } catch (error) {
       if (accountingStatePersisted) throw error;
+      if (error instanceof StructuredOutputGenerationError) {
+        const usage = error.usage;
+        const authoritativeAccounting = Boolean(
+          error.gateway?.generationId
+          && Number.isFinite(usage?.inputTokens)
+          && Number.isFinite(usage?.outputTokens)
+          && Number.isFinite(usage?.totalTokens)
+          && Number.isFinite(usage?.estimatedCostMicros)
+        );
+        let recoveryError: unknown = null;
+        try {
+          await store.settleAttempt(attempt.id, {
+            status: error.diagnostics.status,
+            accounting_status: authoritativeAccounting ? 'verified' : 'unverified',
+            output_json: null,
+            structured_output_diagnostics: error.diagnostics,
+            resolved_provider: error.provider,
+            resolved_model: error.model,
+            input_token_count: usage?.inputTokens ?? null,
+            output_token_count: usage?.outputTokens ?? null,
+            total_token_count: usage?.totalTokens ?? null,
+            estimated_cost_micros: usage?.estimatedCostMicros ?? null,
+            latency_ms: error.latencyMs,
+            error_message: `Structured output diagnostic: ${error.diagnostics.status}.`
+          });
+        } catch (caught) {
+          recoveryError = caught;
+        }
+        if (recoveryError) {
+          throw new Error(`Structured-output failure and durable recovery update both failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+        }
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       // M1: classify BEFORE persisting. Only a failure proven (by AI SDK error class) to
       // have happened before any HTTP request was dispatched is recorded as

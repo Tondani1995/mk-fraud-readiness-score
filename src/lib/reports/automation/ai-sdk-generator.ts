@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai';
+import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output } from 'ai';
 import { z } from 'zod';
 import {
   buildPremiumReportGenerationPrompt,
@@ -13,6 +13,10 @@ import type {
 } from './types';
 import { parseAiGatewayExecutionIdentity } from './ai-gateway-identity';
 import { classifyTimeoutDiagnostic } from './ai-failure-classification';
+import {
+  makeStructuredOutputDiagnostics,
+  StructuredOutputGenerationError
+} from './structured-output-diagnostics';
 import {
   logPremiumReportPhase,
   PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS
@@ -84,18 +88,109 @@ async function runStructuredGeneration(input: {
       model: input.model,
       timeoutDiagnostic: classifyTimeoutDiagnostic(error)
     });
+    // Some ai 6.0.83 paths throw the structured-output error from generateText itself
+    // instead of returning a result whose output getter throws. Preserve the same safe
+    // response/usage/finish evidence in that path as well.
+    if (NoObjectGeneratedError.isInstance(error) || NoOutputGeneratedError.isInstance(error)) {
+      const response = NoObjectGeneratedError.isInstance(error) ? error.response : undefined;
+      const usage = NoObjectGeneratedError.isInstance(error) ? error.usage : undefined;
+      const finishReason = NoObjectGeneratedError.isInstance(error) ? error.finishReason : undefined;
+      throw new StructuredOutputGenerationError({
+        diagnostics: makeStructuredOutputDiagnostics({
+          error,
+          response,
+          finishReason,
+          rawFinishReason: finishReason
+        }),
+        provider: requestedProvider,
+        model: input.model,
+        usage,
+        latencyMs: Date.now() - startedAt
+      });
+    }
     throw error;
   }
   logPremiumReportPhase({ phase: 'provider_response_received', status: 'completed', startedAt, provider: requestedProvider, model: input.model });
 
-  if (!result.output) throw new Error('AI provider returned no structured narrative output.');
-
-  const parsedIdentity = parseAiGatewayExecutionIdentity({
-    requestedProvider,
-    requestedModel: input.model,
-    providerMetadata: result.providerMetadata,
-    response: result.response
-  });
+  // Capture every safe response field before touching result.output. In ai 6.0.83 the
+  // output getter can throw a new bare NoOutputGeneratedError, while NoObjectGeneratedError
+  // carries the useful response/usage/finish metadata on the original failure.
+  const response = result.response;
+  const providerMetadata = result.providerMetadata;
+  const usage = result.usage;
+  const finishReason = result.finishReason;
+  const rawFinishReason = result.rawFinishReason;
+  let parsedIdentity: ReturnType<typeof parseAiGatewayExecutionIdentity> | null = null;
+  let gatewayIdentityError: string | undefined;
+  try {
+    parsedIdentity = parseAiGatewayExecutionIdentity({
+      requestedProvider,
+      requestedModel: input.model,
+      providerMetadata,
+      response
+    });
+  } catch (error) {
+    gatewayIdentityError = error instanceof Error ? error.name : 'identity_verification_failed';
+  }
+  const resolvedProvider = parsedIdentity?.identity.finalProvider
+    ?? parsedIdentity?.identity.resolvedProvider
+    ?? requestedProvider;
+  const resolvedModel = parsedIdentity?.identity.resolvedProviderApiModelId
+    ?? (typeof response?.modelId === 'string' ? response.modelId : input.model);
+  const usageSnapshot = {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    estimatedCostMicros: parsedIdentity?.gatewayCostMicros
+  };
+  if (!parsedIdentity) {
+    logPremiumReportPhase({
+      phase: 'gateway_identity_validated',
+      status: 'failed',
+      startedAt,
+      provider: resolvedProvider,
+      model: resolvedModel,
+      timeoutDiagnostic: null
+    });
+  }
+  let output: PremiumReportAiEditorialPlan;
+  try {
+    output = result.output as PremiumReportAiEditorialPlan;
+  } catch (error) {
+    const diagnostics = makeStructuredOutputDiagnostics({
+      error,
+      response,
+      providerMetadata,
+      finishReason,
+      rawFinishReason,
+      gatewayIdentityError
+    });
+    throw new StructuredOutputGenerationError({
+      diagnostics,
+      provider: resolvedProvider,
+      model: resolvedModel,
+      usage: usageSnapshot,
+      gateway: parsedIdentity?.identity,
+      gatewayCostMicros: parsedIdentity?.gatewayCostMicros,
+      latencyMs: Date.now() - startedAt
+    });
+  }
+  if (!parsedIdentity) {
+    throw new StructuredOutputGenerationError({
+      diagnostics: makeStructuredOutputDiagnostics({
+        error: new Error('AI Gateway identity was not verifiable after structured output.'),
+        response,
+        providerMetadata,
+        finishReason,
+        rawFinishReason,
+        gatewayIdentityError
+      }),
+      provider: resolvedProvider,
+      model: resolvedModel,
+      usage: usageSnapshot,
+      latencyMs: Date.now() - startedAt
+    });
+  }
   logPremiumReportPhase({
     phase: 'gateway_identity_validated',
     status: 'completed',
@@ -104,17 +199,15 @@ async function runStructuredGeneration(input: {
     model: parsedIdentity.identity.resolvedProviderApiModelId,
     gatewayGenerationId: parsedIdentity.identity.generationId
   });
-  const resolvedProvider = parsedIdentity.identity.finalProvider ?? parsedIdentity.identity.resolvedProvider ?? requestedProvider;
-  const resolvedModel = parsedIdentity.identity.resolvedProviderApiModelId;
   return {
-    output: result.output as PremiumReportAiEditorialPlan,
+    output,
     provider: resolvedProvider,
     model: resolvedModel,
     latencyMs: Date.now() - startedAt,
     usage: {
-      inputTokens: result.usage.inputTokens,
-      outputTokens: result.usage.outputTokens,
-      totalTokens: result.usage.totalTokens,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
       estimatedCostMicros: parsedIdentity.gatewayCostMicros
     },
     gateway: parsedIdentity.identity

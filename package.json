@@ -117,6 +117,7 @@
     "pre-g30:test-ai-route-authority": "node scripts/pre-g30-ai-route-authority-tests.mjs",
     "pre-g30:test-timeout-architecture": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-timeout-architecture-tests.mjs",
     "pre-g30:test-ai-budget-consistency": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-journey4-ai-budget-offline.mjs",
+    "pre-g30:test-structured-output-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-structured-output-diagnostics-tests.mjs",
     "pre-g30:test-migration-targets": "node scripts/pre-g30-migration-target-check.mjs",
     "pre-g30:test-adaptive-launch": "node scripts/pre-g30-adaptive-launch-tests.mjs",
     "g29:test-customer-report-access": "node scripts/g29-customer-report-access-tests.mjs",
