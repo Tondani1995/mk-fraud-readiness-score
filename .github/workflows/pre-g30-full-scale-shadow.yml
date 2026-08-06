@@ -1,0 +1,56 @@
+name: PRE-G30 branch-bound full-scale shadow
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+jobs:
+  shadow:
+    name: Invoke retained Journey 5 shadow once
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+      PRE_G30_EXPECTED_SHA: ${{ github.sha }}
+      PRE_G30_SHADOW_OUTPUT: tmp/g29/pre-g30-full-scale-shadow.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Resolve and fence the normal Git-integrated Preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/52 --jq '.head.sha')" = "$GITHUB_SHA"
+          deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?sha=${GITHUB_SHA}&environment=Preview&per_page=20" --jq '[.[] | select(.environment == "Preview")] | first | .id // empty')"
+          test -n "$deployment_id"
+          preview_url="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" --jq '[.[] | select(.state == "success" and (.environment_url // "") != "") | .environment_url] | last // empty')"
+          test -n "$preview_url"
+          printf 'PRE_G30_PREVIEW_BASE_URL=%s\n' "$preview_url" >> "$GITHUB_ENV"
+          printf 'PRE_G30_DEPLOYMENT_ID=%s\n' "$deployment_id" >> "$GITHUB_ENV"
+      - name: Invoke the protected route without exposing secrets
+        run: |
+          set +x
+          set -Eeuo pipefail
+          runtime_tmp_dir="$(mktemp -d)"
+          chmod 700 "$runtime_tmp_dir"
+          cleanup_runtime_tmp() { set +e; find "$runtime_tmp_dir" -type f -exec unlink {} + 2>/dev/null || true; rmdir "$runtime_tmp_dir" 2>/dev/null || true; }
+          trap cleanup_runtime_tmp EXIT
+          PRE_G30_RUNTIME_TMP="$runtime_tmp_dir" node scripts/pre-g30-full-scale-shadow-runtime.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-g30-full-scale-shadow
+          path: tmp/g29/pre-g30-full-scale-shadow.json
+          if-no-files-found: error

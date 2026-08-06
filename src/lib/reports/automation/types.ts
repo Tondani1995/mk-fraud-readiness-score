@@ -203,6 +203,11 @@ export interface NarrativeGenerationResult {
   latencyMs: number;
   usage?: NarrativeGenerationUsage;
   gateway?: AiGatewayExecutionProvenance;
+  responseId?: string;
+  finishReason?: string;
+  rawFinishReason?: string;
+  rawOutputLength?: number;
+  rawOutputSha256?: string;
 }
 
 export interface NarrativeRepairScope {

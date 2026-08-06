@@ -12,15 +12,16 @@ function currentSupabaseProject(): string {
 }
 
 function currentPullRequest(): string {
-  return (process.env.MK_RELEASE_PR_NUMBER
+  return (process.env.VERCEL_GIT_PULL_REQUEST_ID
+    ?? process.env.MK_RELEASE_PR_NUMBER
     ?? process.env.GITHUB_PR_NUMBER
     ?? process.env.VERCEL_GIT_COMMIT_REF?.match(/(?:pull|pr)[/-]?(\d+)/i)?.[1]
     ?? '').trim();
 }
 
 function currentHeadSha(): string {
-  return (process.env.MK_RELEASE_HEAD_SHA
-    ?? process.env.VERCEL_GIT_COMMIT_SHA
+  return (process.env.VERCEL_GIT_COMMIT_SHA
+    ?? process.env.MK_RELEASE_HEAD_SHA
     ?? process.env.GITHUB_SHA
     ?? '').trim().toLowerCase();
 }

@@ -23,6 +23,7 @@ import {
 } from './phase-timing';
 
 import { PREMIUM_REPORT_AI_BODY_MAX_CHARS } from './types';
+import crypto from 'node:crypto';
 
 const evidenceRefs = z.array(z.string().min(1)).min(1);
 const narrativeBody = z.string().min(1).max(PREMIUM_REPORT_AI_BODY_MAX_CHARS);
@@ -210,7 +211,14 @@ async function runStructuredGeneration(input: {
       totalTokens: usage.totalTokens,
       estimatedCostMicros: parsedIdentity.gatewayCostMicros
     },
-    gateway: parsedIdentity.identity
+    gateway: parsedIdentity.identity,
+    responseId: typeof response?.id === 'string' ? response.id : undefined,
+    finishReason: typeof finishReason === 'string' ? finishReason : undefined,
+    rawFinishReason: typeof rawFinishReason === 'string' ? rawFinishReason : undefined,
+    rawOutputLength: typeof result.text === 'string' ? result.text.length : undefined,
+    rawOutputSha256: typeof result.text === 'string'
+      ? crypto.createHash('sha256').update(result.text, 'utf8').digest('hex')
+      : undefined
   };
 }
 
