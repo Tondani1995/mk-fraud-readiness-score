@@ -93,7 +93,7 @@ try {
     '0026_phase14_workflow_start_admin_recovery', '0027_phase14_delivery_ambiguity_admin_resolution',
     '0028_phase14_attestation_canonicalisation_hardening', '0029_phase14_ai_attempt_cross_kind_budget',
     '0030_phase14_ai_attempt_pre_dispatch_budget_exclusion', '0031_phase14_delivery_event_recency_precision_fix',
-    '20260805200000_pre_g30_ai_timeout_window'
+    '20260805200000_pre_g30_ai_timeout_window', '20260806090000_pre_g30_ai_budget_diagnostics'
   ];
   for (const f of files) await migrator.query(fs.readFileSync(path.join(migrationsDir, `${f}.sql`), 'utf8'));
   console.log('All migrations applied.');

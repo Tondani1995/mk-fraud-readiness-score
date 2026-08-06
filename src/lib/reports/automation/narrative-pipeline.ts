@@ -23,6 +23,7 @@ import type {
   PremiumReportNarrativeGenerator
 } from './types';
 import { logPremiumReportPhase } from './phase-timing';
+import { PremiumReportAiBudgetError } from './durable-ai-attempts';
 
 export interface NarrativePipelineDependencies {
   buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
@@ -46,7 +47,8 @@ function fallbackResult(
   input: BuildPremiumReportNarrativeInput,
   reason: string,
   evidenceOverride?: ReturnType<typeof buildPremiumReportEvidencePack>,
-  checksumOverride?: string
+  checksumOverride?: string,
+  aiBudgetDiagnostics?: import('./phase-timing').PremiumReportAiBudgetDiagnostics | null
 ): PreparedPremiumReportNarrative {
   const evidence = evidenceOverride ?? buildPremiumReportEvidencePack(
     input.assembled,
@@ -94,7 +96,8 @@ function fallbackResult(
     evidence,
     evidenceChecksum: checksum,
     validation,
-    fallbackReason: reason
+    fallbackReason: reason,
+    aiBudgetDiagnostics: aiBudgetDiagnostics ?? null
   };
 }
 
@@ -341,6 +344,12 @@ export async function preparePremiumReportNarrative(
     });
   } catch (generationError) {
     const reason = generationError instanceof Error ? generationError.message : 'ai_generation_failed';
-    return fallbackResult(input, `ai_generation_failed:${reason}`, evidence, checksum);
+    return fallbackResult(
+      input,
+      `ai_generation_failed:${reason}`,
+      evidence,
+      checksum,
+      generationError instanceof PremiumReportAiBudgetError ? generationError.diagnostics : null
+    );
   }
 }

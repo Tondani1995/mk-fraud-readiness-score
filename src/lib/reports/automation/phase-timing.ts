@@ -9,6 +9,7 @@ export type PremiumReportPhase =
   | 'generation_attempt_claimed'
   | 'evidence_assembled'
   | 'ai_route_authorised'
+  | 'ai_budget_evaluated'
   | 'provider_dispatch_started'
   | 'provider_response_received'
   | 'gateway_identity_validated'
@@ -27,6 +28,21 @@ export type PremiumReportPhase =
 
 export type PremiumReportPhaseStatus = 'started' | 'completed' | 'failed';
 
+export interface PremiumReportAiBudgetDiagnostics {
+  inputSizeBytes: number;
+  estimatedInputTokens: number;
+  maxOutputTokens: number;
+  estimatedTotalTokens: number;
+  estimatedCostMicros: number;
+  limits: {
+    maxInputBytes: number;
+    maxEstimatedInputTokens: number;
+    maxTotalTokens: number;
+    maxEstimatedCostMicros: number;
+  };
+  reason: 'pre_dispatch_input_bytes_exceeded' | 'pre_dispatch_input_tokens_exceeded' | 'pre_dispatch_total_tokens_exceeded' | 'pre_dispatch_estimated_cost_exceeded' | null;
+}
+
 export function logPremiumReportPhase(input: {
   phase: PremiumReportPhase;
   status: PremiumReportPhaseStatus;
@@ -38,6 +54,7 @@ export function logPremiumReportPhase(input: {
   model?: string | null;
   gatewayGenerationId?: string | null;
   timeoutDiagnostic?: AiTimeoutDiagnostic | null;
+  aiBudgetDiagnostics?: PremiumReportAiBudgetDiagnostics | null;
 }) {
   console.info('phase14_report_generation_timing', {
     phase: input.phase,
@@ -49,6 +66,7 @@ export function logPremiumReportPhase(input: {
     provider: input.provider ?? null,
     model: input.model ?? null,
     gatewayGenerationId: input.gatewayGenerationId ?? null,
-    timeoutDiagnostic: input.timeoutDiagnostic ?? null
+    timeoutDiagnostic: input.timeoutDiagnostic ?? null,
+    aiBudgetDiagnostics: input.aiBudgetDiagnostics ?? null
   });
 }

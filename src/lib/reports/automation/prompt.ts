@@ -88,13 +88,42 @@ function projectedValue(kind: string, value: unknown) {
     contradiction: ['pattern','title','drivingResponses','whyItMatters','falseComfortRisk','fraudPathwayEnabled'],
     plausible_scenario: ['title','entryPoint','fraudSequence','concealmentMechanism','likelyImpact'],
     control_improvement: ['linkedQuestionCode','controlObjective'],
-    evidence_checklist: ['artefact','likelyOwner','provesWhat','expectedRecency','requiredPopulation','samplingExpectation','minimumAcceptableCharacteristics','reviewStatus'],
+    evidence_checklist: ['artefact','likelyOwner','provesWhat','expectedRecency','minimumAcceptableCharacteristics'],
     leadership_decision: ['decisionCategory','decisionRequired','whyNow','recommendedDecision'],
-    roadmap_action: ['period','domainCode','deliverable']
+    roadmap_action: ['period','domainCode','deliverable'],
+    // These fields are already encoded in the evidence item's stable ID and/or its outer kind.
+    // Keeping them in the model projection duplicated the same question/domain identity in every
+    // visibility record without adding a fact the validator can use.
+    visibility_gap: ['prompt','statement','whyVisibilityMatters','evidenceNeeded','likelyEvidenceOwner','recommendedVerificationAction','priority','targetTiming'],
+    maturity_cap: ['capTo']
   };
   const keys = keysByKind[kind];
-  return keys ? pick(value, keys) : value;
+  if (keys) {
+    const selected = pick(value, keys);
+    if (kind === 'evidence_checklist' && selected && typeof selected === 'object') {
+      const item = selected as Record<string, unknown>;
+      return { a: item.artefact, o: item.likelyOwner, p: item.provesWhat, r: item.expectedRecency, c: item.minimumAcceptableCharacteristics };
+    }
+    return selected;
+  }
+  if (kind === 'domain' && value && typeof value === 'object') return pick(value, ['domainName','weightPct','rawScore','maturityBand','coveragePct','criticalGapCount']);
+  if ((kind === 'gap' || kind === 'question_response') && value && typeof value === 'object') {
+    const item = value as Record<string, unknown>;
+    return { v: item.responseValue, c: item.isCritical, h: item.isHardGate, g: item.isCriticalGap, m: item.isMajorGap, ...(kind === 'question_response' ? { a: item.applicable } : {}) };
+  }
+  return value;
 }
+
+// Evidence IDs already carry the stable namespace; a short closed-vocabulary kind keeps the
+// projection self-describing while avoiding repeating long type names hundreds of times in a
+// large adaptive report. The legend is emitted once beside the projection.
+const COMPACT_EVIDENCE_KIND: Record<string, string> = {
+  score_scale: 'ss', overall_score: 'os', final_maturity: 'fm', calculated_maturity: 'cm',
+  exposure_score: 'es', exposure_band: 'eb', coverage: 'cv', gap_count: 'gc', domain: 'd', gap: 'g',
+  question_response: 'q', material_finding: 'f', maturity_cap: 'mc', contradiction: 'x',
+  plausible_scenario: 'ps', risk: 'r', control_improvement: 'ci', evidence_checklist: 'ec',
+  leadership_decision: 'ld', roadmap_action: 'ra', assessment_limitation: 'al', visibility_gap: 'vg', roadmap: 'rd'
+};
 
 function allSections(input: NarrativeGenerationInput) {
   return [
@@ -113,25 +142,31 @@ function evidenceProjection(
   const required = new Set(sections.flatMap((section) => section.requiredEvidenceRefs));
   return {
     projectionVersion: PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION,
+    kindLegend: COMPACT_EVIDENCE_KIND,
+    valueFieldLegend: {
+      ec: { a: 'artefact', o: 'likelyOwner', p: 'provesWhat', r: 'expectedRecency', c: 'minimumAcceptableCharacteristics' },
+      q: { v: 'responseValue', c: 'isCritical', h: 'isHardGate', g: 'isCriticalGap', m: 'isMajorGap', a: 'applicable' },
+      g: { v: 'responseValue', c: 'isCritical', h: 'isHardGate', g: 'isCriticalGap', m: 'isMajorGap' }
+    },
     schemaVersion: input.evidence.schemaVersion,
     organisationName: input.evidence.organisationName,
     selfAssessmentLimitation: input.evidence.selfAssessmentLimitation,
     items: input.evidence.items.filter((item) => required.has(item.id)).map((item) => ({
       id: item.id,
-      kind: item.kind,
-      domainCode: item.domainCode,
-      questionCode: item.questionCode,
-      ruleCode: item.ruleCode,
+      kind: COMPACT_EVIDENCE_KIND[item.kind] ?? item.kind,
       value: projectedValue(item.kind, item.value)
     }))
   };
 }
 
-function sectionBriefProjection(section: NarrativeGenerationInput['narrativeBrief']['executive']) {
+function sectionBriefProjection(
+  section: NarrativeGenerationInput['narrativeBrief']['executive'],
+  sharedThemeKey?: 'domain' | 'gap'
+) {
   return {
     sectionId: section.sectionId,
     requiredEvidenceRefs: section.requiredEvidenceRefs,
-    requiredThemes: section.requiredThemes,
+    ...(sharedThemeKey ? { themeSet: sharedThemeKey } : { requiredThemes: section.requiredThemes }),
     maxCharacters: section.maxCharacters
   };
 }
@@ -143,11 +178,15 @@ function narrativeBriefProjection(input: NarrativeGenerationInput) {
     executive: sectionBriefProjection(input.narrativeBrief.executive),
     falseComfort: sectionBriefProjection(input.narrativeBrief.falseComfort),
     leadership: sectionBriefProjection(input.narrativeBrief.leadership),
+    sharedThemes: {
+      domain: input.narrativeBrief.domains[Object.keys(input.narrativeBrief.domains)[0]]?.requiredThemes ?? [],
+      gap: input.narrativeBrief.gaps[Object.keys(input.narrativeBrief.gaps)[0]]?.requiredThemes ?? []
+    },
     domains: Object.fromEntries(
-      Object.entries(input.narrativeBrief.domains).map(([key, value]) => [key, sectionBriefProjection(value)])
+      Object.entries(input.narrativeBrief.domains).map(([key, value]) => [key, sectionBriefProjection(value, 'domain')])
     ),
     gaps: Object.fromEntries(
-      Object.entries(input.narrativeBrief.gaps).map(([key, value]) => [key, sectionBriefProjection(value)])
+      Object.entries(input.narrativeBrief.gaps).map(([key, value]) => [key, sectionBriefProjection(value, 'gap')])
     )
   };
 }
@@ -198,7 +237,7 @@ export function buildPremiumReportRepairPrompt(input: NarrativeGenerationInput) 
     '',
     '===NARRATIVE_BRIEF_START===',
     'FAILED SECTION BRIEFS',
-    JSON.stringify(failedSections.map(sectionBriefProjection)),
+    JSON.stringify(failedSections.map((section) => sectionBriefProjection(section))),
     '===NARRATIVE_BRIEF_END===',
     '',
     '===EVIDENCE_PROJECTION_START===',

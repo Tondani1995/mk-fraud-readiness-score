@@ -242,6 +242,8 @@ export interface PreparedPremiumReportNarrative {
   effectiveRepairOutput?: PremiumReportAiEditorialPlan;
   discardedCompliantRepairSectionIds?: string[];
   fallbackReason?: string;
+  /** Safe pre-dispatch budget measurements; raw prompt content is never retained. */
+  aiBudgetDiagnostics?: import('./phase-timing').PremiumReportAiBudgetDiagnostics | null;
 }
 
 export interface BuildPremiumReportNarrativeInput {
