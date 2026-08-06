@@ -33,11 +33,6 @@ on:
         description: 'Existing queued fulfilment attempt UUID; required when invoking the worker'
         required: false
         type: string
-      invoke_pre_g30_shadow:
-        description: 'Invoke the retained Journey 5 full-scale structured shadow exactly once'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -50,7 +45,6 @@ env:
 jobs:
   resolve-preview:
     name: Resolve immutable Preview deployment
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     outputs:
       preview_base_url: ${{ steps.resolve.outputs.preview_base_url }}
@@ -83,7 +77,7 @@ jobs:
 
   pre-g30-staging-worker-runtime:
     name: PRE-G30 authorized Staging worker runtime
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_staging_worker == true && inputs.invoke_pre_g30_shadow != true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_staging_worker == true }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -142,55 +136,8 @@ jobs:
           path: tmp/g29/pre-g30-staging-worker-runtime.json
           if-no-files-found: error
 
-  pre-g30-full-scale-shadow:
-    name: PRE-G30 branch-bound full-scale shadow
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      PRE_G30_PREVIEW_BASE_URL: ${{ inputs.preview_base_url }}
-      PRE_G30_EXPECTED_SHA: ${{ github.sha }}
-      PRE_G30_SHADOW_OUTPUT: tmp/g29/pre-g30-full-scale-shadow.json
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Assert exact branch, PR head and immutable Preview
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PREVIEW_BASE_URL: ${{ inputs.preview_base_url }}
-        run: |
-          set -Eeuo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/52 --jq '.head.sha')" = "$GITHUB_SHA"
-          deployment_id="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?sha=${GITHUB_SHA}&environment=Preview&per_page=20" --jq '[.[] | select(.environment == "Preview")] | first | .id // empty')"
-          test -n "$deployment_id"
-          test -n "$PREVIEW_BASE_URL"
-      - name: Invoke the protected route without exposing secrets
-        run: |
-          set +x
-          set -Eeuo pipefail
-          runtime_tmp_dir="$(mktemp -d)"
-          chmod 700 "$runtime_tmp_dir"
-          cleanup_runtime_tmp() { set +e; find "$runtime_tmp_dir" -type f -exec unlink {} + 2>/dev/null || true; rmdir "$runtime_tmp_dir" 2>/dev/null || true; }
-          trap cleanup_runtime_tmp EXIT
-          node scripts/pre-g30-full-scale-shadow-runtime.mjs
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: pre-g30-full-scale-shadow
-          path: tmp/g29/pre-g30-full-scale-shadow.json
-          if-no-files-found: error
-
   loopback-database:
     name: G29 loopback database suites
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -250,7 +197,6 @@ jobs:
 
   adaptive-staging:
     name: G29 adaptive Staging DB suite
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -285,7 +231,6 @@ jobs:
 
   legacy-respondent:
     name: G29 legacy respondent integration
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -351,7 +296,6 @@ jobs:
 
   responsive-preview:
     name: G29 Preview responsive browser suite
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -388,7 +332,6 @@ jobs:
 
   product-baseline:
     name: G29 product baseline suites
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -415,7 +358,6 @@ jobs:
 
   retained-pdf-review:
     name: G29 retained PDF evidence review
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
     needs: [resolve-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -451,7 +393,7 @@ jobs:
 
   merge:
     name: G29 merged certification result
-    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.invoke_pre_g30_shadow == true) }}
+    if: always()
     needs: [resolve-preview, pre-g30-staging-worker-runtime, loopback-database, adaptive-staging, legacy-respondent, responsive-preview, product-baseline, retained-pdf-review]
     runs-on: ubuntu-latest
     steps:
