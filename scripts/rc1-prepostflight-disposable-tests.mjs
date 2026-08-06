@@ -209,7 +209,8 @@ async function replayBaseline() {
   // the approved Production pre/postflight ledger, so neither enters either side of that replay.
   const productionExcluded = new Set([
     '20260805200000_pre_g30_ai_timeout_window.sql',
-    '20260806090000_pre_g30_ai_budget_diagnostics.sql'
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
   ]);
   const baseline = files.filter((name) => !pending.includes(name) && !productionExcluded.has(name));
   assert(baseline.length === 34, `expected 34 baseline migrations, got ${baseline.length}`);

@@ -85,7 +85,10 @@ const migrationFiles = fs
 // The AI-budget diagnostics migration is Staging-only and is outside this historical
 // postflight hardening contract.
 const postflightReplayMigrations = migrationFiles.filter(
-  (name) => name !== '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+  (name) => ![
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
+  ].includes(name),
 );
 assert.equal(
   postflightReplayMigrations.length,
