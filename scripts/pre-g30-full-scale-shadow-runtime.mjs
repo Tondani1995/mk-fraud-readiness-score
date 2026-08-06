@@ -34,19 +34,26 @@ function writeEvidence(value) {
 validate();
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-g30-shadow-'));
 fs.chmodSync(tempDir, 0o700);
-const headerPath = path.join(tempDir, 'headers.txt');
+const curlConfigPath = path.join(tempDir, 'curl.conf');
 const bodyPath = path.join(tempDir, 'body.json');
 const responsePath = path.join(tempDir, 'response.json');
 const responseHeadersPath = path.join(tempDir, 'response-headers.txt');
 try {
-  fs.writeFileSync(headerPath, `Authorization: Bearer ${cronSecret}\nContent-Type: application/json\nx-vercel-protection-bypass: ${protectionBypass}\nx-vercel-set-bypass-cookie: true\n`, { mode: 0o600 });
   fs.writeFileSync(bodyPath, '{}\n', { mode: 0o600 });
+  fs.writeFileSync(curlConfigPath, [
+    'silent',
+    'show-error',
+    'request = POST',
+    'header = "Authorization: Bearer ' + cronSecret + '"',
+    'header = "Content-Type: application/json"',
+    'header = "x-vercel-protection-bypass: ' + protectionBypass + '"',
+    'data-binary = "@' + bodyPath + '"',
+    'url = "' + baseUrl + '/score/api/internal/pre-g30/full-scale-structured-shadow"'
+  ].join('\n') + '\n', { mode: 0o600 });
   const curl = childProcess.spawnSync('curl', [
-    '--silent', '--show-error', '--output', responsePath,
+    '--config', curlConfigPath, '--output', responsePath,
     '--dump-header', responseHeadersPath, '--write-out', '%{http_code}',
-    '--connect-timeout', '30', '--max-time', '360', '--request', 'POST',
-    '--header', `@${headerPath}`, '--data-binary', `@${bodyPath}`,
-    `${baseUrl}/score/api/internal/pre-g30/full-scale-structured-shadow`
+    '--connect-timeout', '30', '--max-time', '360'
   ], { encoding: 'utf8' });
   if (curl.error || curl.status === null) fail('Shadow request could not be completed.');
   const httpStatus = Number.parseInt(String(curl.stdout ?? '').trim(), 10);
