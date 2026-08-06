@@ -680,9 +680,13 @@ await test('full migration postflight matches the committed migration set', asyn
   const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
     .filter((file) => file.endsWith('.sql'))
     .sort();
-  // The timeout-window migration is Staging-only and must not be counted against the
-  // Production postflight ledger. Production remains at its approved 88-file baseline.
-  const productionMigrationFiles = migrationFiles.filter((file) => file !== '20260805200000_pre_g30_ai_timeout_window.sql');
+  // Pre-G30 AI timeout and budget-diagnostics migrations are Staging-only and must not be
+  // counted against the Production postflight ledger. Production remains at its approved
+  // 88-file baseline.
+  const productionMigrationFiles = migrationFiles.filter((file) => ![
+    '20260805200000_pre_g30_ai_timeout_window.sql',
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql'
+  ].includes(file));
   const newest = productionMigrationFiles[productionMigrationFiles.length - 1].split('_')[0];
   includes(postflight, `count(*) = ${productionMigrationFiles.length}`, `postflight total is ${productionMigrationFiles.length}`);
   includes(postflight, `max(version) = '${newest}'`, 'postflight newest correction is exact');
