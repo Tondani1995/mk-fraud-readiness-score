@@ -295,5 +295,36 @@ export function validatePremiumReportEvidencePack(
   if (prohibitedKey.test(canonical) || leakedValue) {
     issues.push({ code: 'QG_AI_EVIDENCE_CONTAINS_PII', severity: 'violation', message: 'AI evidence pack contains a prohibited sensitive field or value.', source: 'ai-evidence' });
   }
+  const model = evidence.advisoryModel;
+  if (model) {
+    const checklistItems = evidence.items.filter((item) => item.kind === 'evidence_checklist');
+    const visibilityItems = checklistItems.filter((item) => (item.value as { visibilityGap?: boolean } | null)?.visibilityGap === true);
+    for (const gap of model.visibilityGaps) {
+      const matchingChecklist = visibilityItems.filter((item) => {
+        const value = item.value as { linkedQuestionCodes?: string[]; evidenceRef?: string };
+        return value.linkedQuestionCodes?.length === 1
+          && value.linkedQuestionCodes[0] === gap.questionCode
+          && value.evidenceRef === gap.evidenceRef;
+      });
+      const matchingCondition = evidence.items.filter((item) => item.kind === 'visibility_gap' && item.id === `visibility-gap:${gap.id}`);
+      const conditionRefs = matchingCondition.length === 1 ? matchingCondition[0].evidenceRefs ?? [] : [];
+      if (
+        matchingChecklist.length !== 1
+        || matchingCondition.length !== 1
+        || !conditionRefs.includes(`question:${gap.questionCode}`)
+        || !conditionRefs.includes(`domain:${gap.domainCode}`)
+        || !conditionRefs.includes(gap.evidenceRef)
+      ) {
+        issues.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility gap ${gap.id} has incomplete checklist and condition evidence linkage.`, entityId: gap.id, source: 'ai-evidence' });
+      }
+    }
+    for (const item of visibilityItems) {
+      const value = item.value as { linkedQuestionCodes?: string[]; evidenceRef?: string };
+      const matches = model.visibilityGaps.filter((gap) => gap.questionCode === value.linkedQuestionCodes?.[0] && gap.evidenceRef === value.evidenceRef);
+      if (matches.length !== 1) {
+        issues.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility checklist item ${item.id} has no unique authoritative visibility gap.`, entityId: item.id, source: 'ai-evidence' });
+      }
+    }
+  }
   return issues;
 }

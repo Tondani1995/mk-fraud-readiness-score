@@ -146,3 +146,81 @@ export function validatePremiumReportRepairPreservation(
     schemaVersion
   };
 }
+
+export class PremiumReportRepairMergeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PremiumReportRepairMergeError';
+  }
+}
+
+/** Merge only failed sections; the raw provider response remains in repairGeneration. */
+export function mergePremiumReportRepairOutput(
+  previousOutput: PremiumReportAiEditorialPlan,
+  repairedOutput: unknown,
+  scope: NarrativeRepairScope
+): { output: PremiumReportAiEditorialPlan; discardedCompliantRepairSectionIds: string[] } {
+  if (!record(repairedOutput)) throw new PremiumReportRepairMergeError('Repair output is not an object.');
+  const repaired = repairedOutput as Record<string, unknown>;
+  const failed = new Set(scope.failedSectionIds);
+  const known = new Set([
+    'executive', 'false_comfort', 'leadership',
+    ...previousOutput.domainEvidence.map((entry) => `domain:${entry.domainCode}`),
+    ...previousOutput.gapEvidence.map((entry) => `gap:${entry.questionCode}`)
+  ]);
+  for (const id of failed) {
+    if (!known.has(id) && !/^(?:domain|gap):.+$/.test(id)) throw new PremiumReportRepairMergeError(`Repair scope contains unknown section ${id}.`);
+  }
+
+  const output = { ...previousOutput } as PremiumReportAiEditorialPlan;
+  const discarded = new Set<string>();
+  const mergeRoot = (sectionId: string, bodyKey: keyof PremiumReportAiEditorialPlan, refsKey: keyof PremiumReportAiEditorialPlan) => {
+    if (failed.has(sectionId)) {
+      output[bodyKey] = repaired[bodyKey] as never;
+      output[refsKey] = repaired[refsKey] as never;
+    } else if (!sameBytes(previousOutput[bodyKey], repaired[bodyKey]) || !sameBytes(previousOutput[refsKey], repaired[refsKey])) {
+      discarded.add(sectionId);
+    }
+  };
+  mergeRoot('executive', 'executiveBody', 'executiveEvidenceRefs');
+  mergeRoot('false_comfort', 'falseComfortBody', 'falseComfortEvidenceRefs');
+  mergeRoot('leadership', 'leadershipBody', 'leadershipEvidenceRefs');
+
+  const mergeCollection = (
+    key: 'domainEvidence' | 'gapEvidence',
+    identifier: 'domainCode' | 'questionCode',
+    prefix: 'domain' | 'gap'
+  ) => {
+    const before = previousOutput[key];
+    const after = repaired[key];
+    if (!Array.isArray(before) || !Array.isArray(after)) throw new PremiumReportRepairMergeError(`Repair output omitted ${key}.`);
+    const beforeIds = before.map((entry) => record(entry) ? String((entry as Record<string, unknown>)[identifier]) : '');
+    const afterIds = after.map((entry) => record(entry) ? String((entry as Record<string, unknown>)[identifier]) : '');
+    if (beforeIds.some((id) => !id) || afterIds.some((id) => !id)) throw new PremiumReportRepairMergeError(`${key} contains an entry without ${identifier}.`);
+    if (new Set(beforeIds).size !== beforeIds.length || new Set(afterIds).size !== afterIds.length) throw new PremiumReportRepairMergeError(`${key} contains duplicate ${identifier} values.`);
+    if (beforeIds.some((id) => !afterIds.includes(id) && !failed.has(`${prefix}:${id}`))) throw new PremiumReportRepairMergeError(`${key} deleted a compliant section.`);
+    if (beforeIds.some((id) => !afterIds.includes(id) && failed.has(`${prefix}:${id}`))) throw new PremiumReportRepairMergeError(`${key} omitted a failed section that the repair was required to provide.`);
+    if (afterIds.some((id) => !beforeIds.includes(id) && !failed.has(`${prefix}:${id}`))) throw new PremiumReportRepairMergeError(`${key} inserted an unscoped section.`);
+    const afterById = new Map(after.map((entry) => [String((entry as Record<string, unknown>)[identifier]), entry]));
+    const merged = before.map((entry, index) => {
+      const id = beforeIds[index];
+      const sectionId = `${prefix}:${id}`;
+      const candidate = afterById.get(id);
+      if (failed.has(sectionId)) return candidate as never;
+      if (!sameBytes(entry, candidate) || afterIds[index] !== id) discarded.add(sectionId);
+      return entry;
+    }) as never;
+    const newFailed = after
+      .filter((entry) => {
+        const id = String((entry as Record<string, unknown>)[identifier]);
+        return !beforeIds.includes(id) && failed.has(`${prefix}:${id}`);
+      });
+    output[key] = [...(merged as unknown[]), ...newFailed] as never;
+  };
+  mergeCollection('domainEvidence', 'domainCode', 'domain');
+  mergeCollection('gapEvidence', 'questionCode', 'gap');
+  return {
+    output,
+    discardedCompliantRepairSectionIds: [...discarded].sort((left, right) => left.localeCompare(right))
+  };
+}

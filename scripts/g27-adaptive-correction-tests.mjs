@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
+import { buildAdvisoryEvidenceModel, checkQualityGates } from '../src/lib/reports/evidence-model/index.ts';
 import {
   buildPremiumReportEvidencePack,
   canonicalEvidenceJson,
@@ -88,6 +88,7 @@ assert.equal(canonicalEvidenceJson(repeatedEvidence), canonicalEvidenceJson(evid
 assert.equal(evidenceChecksum(repeatedEvidence), evidenceChecksum(evidence), 'corrected evidence checksum is stable');
 assert.equal(model.visibilityGaps.length, 1, 'one visibility gap is retained');
 assert.equal(model.evidenceChecklist.some((item) => item.visibilityGap === true), true, 'verification evidence is a checklist item');
+assert.deepEqual(checkQualityGates(model, data).violations, [], 'visibility-only checklist semantics pass the deterministic quality gate');
 assert.equal(model.scenarios.length >= 0, true, 'visibility-only reports do not fabricate scenarios');
 
 const duplicateVisibilityData = structuredClone(data);

@@ -238,6 +238,9 @@ export interface PreparedPremiumReportNarrative {
   repairValidation?: NarrativeValidationResult;
   generation?: NarrativeGenerationResult;
   repairGeneration?: NarrativeGenerationResult;
+  /** The effective plan after the scoped merge. The raw provider response remains in repairGeneration. */
+  effectiveRepairOutput?: PremiumReportAiEditorialPlan;
+  discardedCompliantRepairSectionIds?: string[];
   fallbackReason?: string;
 }
 

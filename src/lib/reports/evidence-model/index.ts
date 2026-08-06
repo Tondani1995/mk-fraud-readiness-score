@@ -270,10 +270,36 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
   }
 
   for (const item of model.evidenceChecklist) {
-    if (
+    const hasCommonCriteria = Boolean(
+      item.requiredPopulation.trim()
+      && item.samplingExpectation.trim()
+      && item.minimumAcceptableCharacteristics.length > 0
+      && item.minimumAcceptableCharacteristics.every((value) => value.trim())
+      && item.reviewStatus === 'Not yet requested'
+    );
+    if (item.visibilityGap === true) {
+      const gaps = model.visibilityGaps.filter((gap) => gap.questionCode === item.linkedQuestionCodes[0]);
+      const gap = gaps.length === 1 ? gaps[0] : undefined;
+      const validVisibilityLinkage = Boolean(
+        item.linkedFindingIds.length === 0
+        && item.linkedRiskIds.length === 0
+        && item.linkedFindingId === ''
+        && item.linkedRiskId === ''
+        && item.linkedQuestionCodes.length === 1
+        && gap
+        && item.id === gap.evidenceRef.slice('evidence:'.length)
+        && item.evidenceRef === gap.evidenceRef
+        && item.likelyOwner.trim()
+        && item.provesWhat.trim()
+        && item.expectedRecency.trim()
+        && hasCommonCriteria
+      );
+      if (!validVisibilityLinkage) {
+        violations.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility evidence checklist item ${item.id} does not resolve to exactly one visibility gap with the required evidence criteria.`, entityId: item.id, source: 'evidence-model' });
+      }
+    } else if (
       item.linkedFindingIds.length === 0 || item.linkedRiskIds.length === 0 || item.linkedQuestionCodes.length === 0 ||
-      !item.requiredPopulation.trim() || !item.samplingExpectation.trim() || item.minimumAcceptableCharacteristics.length === 0 ||
-      item.reviewStatus !== 'Not yet requested'
+      !hasCommonCriteria
     ) {
       violations.push({ code: 'QG_EVIDENCE_CRITERIA_MISSING', severity: 'violation', message: `Evidence checklist item ${item.id} lacks review criteria or starts in an invalid status.`, entityId: item.id, source: 'evidence-model' });
     }

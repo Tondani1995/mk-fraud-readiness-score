@@ -35,6 +35,7 @@ import {
   PREMIUM_REPORT_PROMPT_VERSION,
   PREMIUM_REPORT_SCHEMA_VERSION
 } from '../src/lib/reports/automation/types.ts';
+import { mergePremiumReportRepairOutput } from '../src/lib/reports/automation/repair-scope.ts';
 import { generateManualPhase1Report } from '../src/lib/reports/phase1-manual-fulfilment.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
@@ -751,7 +752,7 @@ await test('E26: executive, domain and gap bodies obey their exact section limit
   }
 });
 
-await test('E27: repair scope preserves every compliant byte and rejects ref, object or order drift after two calls', async () => {
+await test('E27: scoped repair merges only failed sections and keeps raw compliant changes out of the report', async () => {
   const invalid = { ...weakPlan, executiveBody: 'The organisation is Strategic overall.' };
   const successfulGenerator = recordingGenerator(invalid, weakPlan);
   const successfulStore = recordingAttemptStore();
@@ -810,12 +811,45 @@ await test('E27: repair scope preserves every compliant byte and rejects ref, ob
     const prepared = await preparePremiumReportNarrative(
       pipelineInput(weak, generatorState, storeState, `repair-preservation-${label}`)
     );
-    assert.equal(prepared.mode, 'deterministic_fallback', `${label} was accepted`);
-    assert.equal(prepared.fallbackReason, 'ai_repair_preservation_failed');
-    assert.ok(prepared.repairValidation.issues.some((issue) => issue.code === 'repair_modified_compliant_section'));
+    assert.equal(prepared.mode, 'ai_repair', `${label} did not use the scoped merge`);
+    assert.deepEqual(prepared.effectiveRepairOutput.domainEvidence, weakPlan.domainEvidence, `${label} changed a compliant domain`);
+    assert.deepEqual(prepared.effectiveRepairOutput.gapEvidence, weakPlan.gapEvidence, `${label} changed a compliant gap`);
+    assert.ok(prepared.discardedCompliantRepairSectionIds.length > 0, `${label} did not record discarded compliant content`);
+    assert.deepEqual(prepared.repairGeneration.output, repairedPlan, `${label} did not retain raw provider output`);
     assert.deepEqual(generatorState.calls, { generate: 1, repair: 1 });
     assert.equal(storeState.calls.claim, 2);
   }
+
+  const badMerged = structuredClone(weakPlan);
+  badMerged.domainEvidence[0].body = `${badMerged.domainEvidence[0].body} changed after merge`;
+  assert.equal(
+    (await import('../src/lib/reports/automation/repair-scope.ts')).validatePremiumReportRepairPreservation(
+      weakPlan,
+      badMerged,
+      { failedSectionIds: ['executive'] },
+      PREMIUM_REPORT_SCHEMA_VERSION
+    ).ok,
+    false,
+    'an incorrectly constructed merged result was not rejected'
+  );
+  const merged = mergePremiumReportRepairOutput(weakPlan, changedDomain, { failedSectionIds: ['executive'] });
+  assert.deepEqual(merged.output.domainEvidence, weakPlan.domainEvidence);
+  assert.equal(merged.discardedCompliantRepairSectionIds.includes(`domain:${changedDomain.domainEvidence[0].domainCode}`), true);
+});
+
+await test('E27b: deterministic quality preflight blocks malformed visibility linkage before any AI attempt', async () => {
+  const malformed = structuredClone(weak);
+  const malformedChecklist = malformed.advisoryModel.evidenceChecklist[0];
+  malformedChecklist.linkedFindingIds = [];
+  malformedChecklist.linkedRiskIds = [];
+  const generatorState = recordingGenerator(weakPlan);
+  const storeState = recordingAttemptStore();
+  await assert.rejects(
+    () => preparePremiumReportNarrative(pipelineInput(malformed, generatorState, storeState, 'visibility-preflight')),
+    (error) => isReportCommercialQualityError(error) && error.violations.some((issue) => issue.code === 'QG_EVIDENCE_CRITERIA_MISSING')
+  );
+  assert.deepEqual(generatorState.calls, { generate: 0, repair: 0 });
+  assert.equal(storeState.calls.claim, 0);
 });
 
 await test('E28: official response-state validation distinguishes values 0 through 5', () => {
