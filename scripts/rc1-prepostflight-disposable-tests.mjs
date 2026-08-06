@@ -205,9 +205,12 @@ async function applyMigration(name) {
 }
 async function replayBaseline() {
   const files = fs.readdirSync(path.join(root, 'supabase', 'migrations')).filter((name) => name.endsWith('.sql')).sort();
-  // The timeout-window migration is Staging-only. This harness models the approved
-  // Production pre/postflight ledger, so it must not enter either side of that replay.
-  const productionExcluded = new Set(['20260805200000_pre_g30_ai_timeout_window.sql']);
+  // Pre-G30 timeout and AI-budget diagnostic migrations are Staging-only. This harness models
+  // the approved Production pre/postflight ledger, so neither enters either side of that replay.
+  const productionExcluded = new Set([
+    '20260805200000_pre_g30_ai_timeout_window.sql',
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql'
+  ]);
   const baseline = files.filter((name) => !pending.includes(name) && !productionExcluded.has(name));
   assert(baseline.length === 34, `expected 34 baseline migrations, got ${baseline.length}`);
   for (const name of baseline) {
