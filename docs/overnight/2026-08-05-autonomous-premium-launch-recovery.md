@@ -78,6 +78,20 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 - Focused result: identity parser fixture including nested provider attempts, timeout architecture, and typecheck all pass locally. The failed probe is not a certification journey and produced no report, payment, Storage, or email mutation.
 - Safety: this is the fifth corrective commit in the overnight budget. The exact affected workflows and Preview deployment must be rerun before any further provider call.
 
+### 2026-08-06 00:55 SAST — live SDK response identity correction
+
+- Decision: accept the live AI Gateway shape’s successful OpenAI provider attempt together with the AI SDK `response.modelId` as the resolved model identity when Gateway routing omits `providerApiModelId`; retain provider, requested/canonical model, generation ID and SDK contradiction checks.
+- Evidence considered: two safe live metadata probes showed `routing.modelAttempts[].providerAttempts[]` contains `provider=openai` and `success=true` but no API-model field, while the response contains `modelId=openai/gpt-5.5`. The first post-`2321a37` probe therefore failed only at the missing resolved-model field.
+- Options rejected: accepting an unverified default model, weakening the provider or model checks, retrying the retired V4 attempt, or treating deterministic fallback as G40 success.
+- Result: focused identity and typecheck tests pass; commit `cc24dc3` is the sixth and final authorized corrective commit. No report, payment, Storage, email or Production mutation occurred.
+- Owner approval tomorrow: no approval for this Preview/Staging parser correction; merge and all Production actions remain owner-controlled.
+
+### 2026-08-06 00:58 SAST — exact-SHA G29 evidence review
+
+- Result: the deployment-bound G29 run completed with all product baseline, adaptive Staging, loopback DB, legacy respondent, responsive Preview and immutable deployment jobs green. Its retained-PDF review confirmed Storage bytes `329740`, PDF magic, checksum `49e8509c…8939b5`, and all required content checks.
+- Bounded failure: the application signed-access route returned `423 RC1_OPERATION_FROZEN` because Staging was frozen. Direct signed Storage probes returned HTTP 200 with the exact expected PDF. The route’s freeze response is preserved as a safety control; no unfreeze or route bypass was performed.
+- Migration replay: exact-SHA run `31053847465` passed. Dispatch-bound G29 run `31054039673` failed only on the frozen customer-token route and its merged result consequently failed; this is not carried as a green G29 claim.
+
 ## Safe action ledger
 
 | Time | Action | Environment | Result | Evidence |
@@ -88,21 +102,27 @@ This log records the authorised Preview/Staging recovery window beginning 2026-0
 | 2026-08-06 00:07 | Applied Staging-only timeout migration | Staging | constraint now 1,000–300,000 ms; Production unchanged | migration `20260805215454` and constraint readback |
 | 2026-08-06 00:07 | Focused local correction tests | Local | V7 E 28/28, V7 F audit 0 failures, AI accounting, attempt budget, narrative integrity, typecheck and build passed | local test output; build warning unchanged |
 | 2026-08-06 00:24 | Regression-gate alignment tests | Local | migration replay 4/4, near-real-time fulfilment 37/37, service-role AST analysis passed | local test output; no runtime mutation |
+| 2026-08-06 00:54 | Safe live Gateway metadata probes | Preview | successful OpenAI responses; `routing.modelAttempts` has no provider API-model field; SDK response model is `openai/gpt-5.5` | generation IDs recorded only in local safe output |
+| 2026-08-06 00:56 | Staging authority rebind | Staging | exact SHA `2321a37…`, PR 52, Preview, OpenAI `openai/gpt-5.5`, epoch 2 | `set_pre_g30_staging_ai_authority` and readback |
+| 2026-08-06 00:58 | Deployment-bound G29 evidence | Preview/Staging | core jobs green; retained route blocked by intentional frozen state; direct Storage PDF exact | workflow `31054039673` |
 
 ## Provider ledger
 
 | Call | Purpose | Type | Model | Status | Cost |
 |---|---|---|---|---|---|
 | V4 historical | Retired diagnostic journey | synthetic Staging | `openai/gpt-5.5` | timeout / uncertain; excluded from overnight calls | unverified |
-| Overnight calls | None yet | — | — | budget available | 0 recorded |
+| Small structured probe (pre-parser correction) | Provider diagnostic | Preview | reached OpenAI; rejected by parser for missing resolved model | `gen_01KZA25MBHY2MCK869FSP94HHR`; cost `0.000725` |
+| Metadata inspection (pre-parser correction) | Provider diagnostic | Preview | confirmed live routing shape | `gen_01KZA267BVYBP2GQXCD946PT4B`; cost `0.000725` |
+| Post-`2321a37` small structured probe | Provider diagnostic | Preview | reached OpenAI; parser still rejected missing resolved model | safe result; no report mutation |
+| Live-shape metadata inspection | Provider diagnostic | Preview | successful OpenAI; response model `openai/gpt-5.5`; no provider API-model field | `gen_01KZA267BVYBP2GQXCD946PT4B`-class safe metadata; cost `0.000725` |
 
 ## Checkpoints
 
 - [x] Root-cause confirmation and initial baseline
 - [x] Timeout and observability correction (local and Staging correction complete)
-- [ ] Provider diagnostic
-- [ ] Successful exact-SHA workflow set
-- [ ] New Preview deployment
+- [x] Provider diagnostic (model discovery and safe metadata probes; full synthetic probe pending parser correction)
+- [ ] Successful exact-SHA workflow set for final `cc24dc3`
+- [ ] New Preview deployment for final `cc24dc3`
 - [ ] Synthetic certification
 - [ ] G40/G41 decision
 - [ ] G30 decision
@@ -115,3 +135,26 @@ The confirmed initial defect was an application-side 45-second timeout that matc
 ## Morning approvals
 
 Only owner-level approvals remain eligible for the morning handover: PR merge, Production database/environment/AI authority changes, Production model selection, domain promotion, real payment/email activation, public launch, and acceptance of any residual launch risk.
+
+## 2026-08-06 01:45 SAST — final-SHA G29 runtime attempt and closure decision
+
+- Authoritative final SHA: `cc24dc34de7c3a394d92839e30cba70b7773079c`.
+- Authoritative Preview deployment: `dpl_GL8yN7MoGJFuCEfHFaoCPv5jJryv`, READY at `https://mk-fraud-platform-llay7r9ds-tondanis-projects.vercel.app`.
+- Exact-SHA mandatory workflows all passed: Security Scans `31054564210`, V1 Verification `31054564194`, G29 certification evidence `31054564237`, V7 Report Hardening `31054564202`, Phase 2-3 Release Safety `31054564209`, Phase 1 Release Safety `31054564193`, and Supabase Migration Replay `31054564197`.
+- Decision: use the authorised single new synthetic journey through the customer UI, then the existing service-role payment RPC and the existing protected Staging worker workflow. No owner authentication, real payment, Production operation, or new code path was used.
+- Baseline before commercial mutation: assessment `MKFRS-2026-54F543F55A` was `scored`, score run `completed`, graph snapshot `MFRS-V1.1-ADAPTIVE-DRAFT-20260804`, order/payment/report/email counts were `0/0/0/0`.
+- Journey result: order `MKORD-2026-ZYZAAFEI`; one `PAID` transition (`c445a683-3379-42fc-b12c-d78c3177a753`, `manual_admin`, `authorised_manual_confirmation`, processing result `applied`); exactly one queued attempt `cf7ca395-48d5-4415-bc1c-c3d4f631e4b8`.
+- Existing order side effects remained bounded: three email events only (`internal_eft_order_created` queued, customer confirmation delivered, admin notification delivered), with no premium-report email. No report, generation run, AI attempt, delivery authorisation, delivery finalisation, or synthetic report Storage object was created.
+- Worker workflow `31057188098` reached the exact SHA and deployment and returned HTTP `200` with `claimed=true`, `outcome=RETRY_SCHEDULED`, `errorCategory=commercial_quality_failed`, and Vercel request ID `iad1::69vqr-1785973262038-e77c7302c95f`. The safe runtime artifact reported `worker_release_incomplete`.
+- Staging diagnostic: `QG_AI_EVIDENCE_REF_DUPLICATE` from `ai-evidence`. The failure occurred before AI dispatch (`generation_runs=0`, `ai_attempts=0`), so no provider spend or ambiguous provider identity was created by the journey.
+- Root cause: the visibility-only adaptive evidence model emits the same `evidence:VIS-*` identifiers through both the evidence checklist and visibility-gap evidence entries. This is a genuine application defect, not a provider failure. The six-commit overnight correction allowance is exhausted, so no further correction commit is authorised in this window; the journey is preserved for diagnosis and no retry was attempted.
+- Production read-only post-check remains unchanged: orders `23`, reports `23`, email events `75`, provider events `0`, migrations `34`.
+- Decision: G40 and G41 remain open; G30 must not begin. The exact remaining blocker is the uncorrected `QG_AI_EVIDENCE_REF_DUPLICATE` defect preventing a real-AI report from reaching PDF, Storage, delivery, and independent runtime evidence.
+
+## 2026-08-06 09:55 SAST — authorised visibility-evidence identity correction
+
+- Decision: use the explicitly authorised additional narrow corrective commit to separate the visibility condition identity from its evidence-checklist artefact. The checklist keeps its existing `evidence:VIS-*` reference; the condition uses `visibility-gap:<gap.id>` and links to the checklist, question and domain references.
+- Focused evidence: `g27:test-adaptive-correction` passes; it proves unique visibility identities, one condition and one checklist artefact per gap, exact linkage, deterministic canonical JSON/checksum, fail-closed duplicate visibility identity handling, narrative evidence retention, and unchanged ordinary exposure-assessed output. V7 Checkpoint D passes 23/23 and Checkpoint E passes 28/28. The G29 runner already includes the adaptive-correction, V7 D and V7 E suites.
+- First journey containment: attempt `cf7ca395-48d5-4415-bc1c-c3d4f631e4b8` was parked through the existing authoritative `rc1_park_fulfilment_attempt` control with reason `superseded_by_visibility_evidence_identity_fix`. It is now `MANUAL_REVIEW_REQUIRED`, has no lease and no next retry time, and is not claimable. The original `QG_AI_EVIDENCE_REF_DUPLICATE` diagnostic, assessment/order/payment and three existing email events remain unchanged; AI attempts, reports, delivery authorisations, premium email and report Storage remain zero. One authoritative parking audit event exists.
+- Safety: no migration, Production operation, provider configuration, payment state, report state or email was changed by this correction. The pre-existing dirty log was retained and extended; `supabase/.temp` and `tmp` remain unstaged.
+- Next exact-SHA gates: typecheck/build, one narrow commit and push, mandatory exact-SHA workflows, READY Preview deployment and Staging authority rebind, then one fresh and final second synthetic journey. No third journey is authorised. G40/G41 remain open until real-AI, PDF/Storage, delivery and independent evidence all pass.
