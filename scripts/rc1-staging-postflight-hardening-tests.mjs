@@ -82,7 +82,16 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 89, 'canonical migration directory must contain the complete 89-file SQL set');
+// The AI-budget diagnostics migration is Staging-only and is outside this historical
+// postflight hardening contract.
+const postflightReplayMigrations = migrationFiles.filter(
+  (name) => name !== '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+);
+assert.equal(
+  postflightReplayMigrations.length,
+  89,
+  'canonical migration directory must contain the complete 89-file SQL set',
+);
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering
 // must not.
