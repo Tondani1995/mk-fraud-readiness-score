@@ -5,7 +5,13 @@ import { readFile } from 'node:fs/promises';
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { buildPremiumReportEvidencePack, evidenceChecksum, validatePremiumReportEvidencePack } from '../src/lib/reports/automation/evidence.ts';
 import { buildPremiumReportNarrativeBrief, assertPremiumReportNarrativeBrief } from '../src/lib/reports/automation/narrative-brief.ts';
-import { buildPremiumReportGenerationPrompt, buildPremiumReportRepairPrompt, PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS } from '../src/lib/reports/automation/prompt.ts';
+import {
+  buildPremiumReportEvidenceProjection,
+  buildPremiumReportGenerationPrompt,
+  buildPremiumReportNarrativeBriefProjection,
+  buildPremiumReportRepairPrompt,
+  PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS
+} from '../src/lib/reports/automation/prompt.ts';
 import { buildPremiumReportRepairScope } from '../src/lib/reports/automation/repair-scope.ts';
 import { PREMIUM_REPORT_PROMPT_VERSION, PREMIUM_REPORT_SCHEMA_VERSION } from '../src/lib/reports/automation/types.ts';
 import {
@@ -180,6 +186,30 @@ const repairScope = buildPremiumReportRepairScope({ narrativeBrief: brief, previ
 const repairPrompt = buildPremiumReportRepairPrompt({ ...input, previousOutput, repairScope, validationIssues: [{ code: 'test', path: 'executiveBody', message: 'test', blocking: true }] });
 const generationBudget = measurePremiumReportAiBudget('generate', input);
 const repairBudget = measurePremiumReportAiBudget('repair', { ...input, previousOutput, repairScope, validationIssues: [{ code: 'test', path: 'executiveBody', message: 'test', blocking: true }] });
+const sections = [brief.executive, brief.falseComfort, brief.leadership, ...Object.values(brief.domains), ...Object.values(brief.gaps)];
+const maximumPreviousOutput = {
+  executiveEvidenceRefs: [...brief.executive.requiredEvidenceRefs], executiveBody: 'E'.repeat(2000),
+  falseComfortEvidenceRefs: [...brief.falseComfort.requiredEvidenceRefs], falseComfortBody: 'F'.repeat(2000),
+  leadershipEvidenceRefs: [...brief.leadership.requiredEvidenceRefs], leadershipBody: 'L'.repeat(2000),
+  domainEvidence: Object.entries(brief.domains).map(([domainCode, section]) => ({ domainCode, evidenceRefs: [...section.requiredEvidenceRefs], body: 'D'.repeat(2000) })),
+  gapEvidence: Object.entries(brief.gaps).map(([questionCode, section]) => ({ questionCode, evidenceRefs: [...section.requiredEvidenceRefs], body: 'G'.repeat(2000) }))
+};
+// A real repair preserves the complete maximum-sized prior object but scopes new evidence to the
+// failed section. Use the largest single section in this full-scale fixture as the credible worst
+// case; asking the provider to repair every section at once would be a different output contract.
+const worstRepairSection = [...sections].sort((left, right) => right.requiredEvidenceRefs.length - left.requiredEvidenceRefs.length)[0];
+const worstRepairIssues = [{ code: 'test_failed_section', path: worstRepairSection.sectionId, message: 'deterministic validation failed for this section', blocking: true }];
+const worstRepairScope = { failedSectionIds: [worstRepairSection.sectionId] };
+const worstRepairPrompt = buildPremiumReportRepairPrompt({ ...input, previousOutput: maximumPreviousOutput, repairScope: worstRepairScope, validationIssues: worstRepairIssues });
+const worstRepairBudget = measurePremiumReportAiBudget('repair', { ...input, previousOutput: maximumPreviousOutput, repairScope: worstRepairScope, validationIssues: worstRepairIssues });
+const projectedEvidence = buildPremiumReportEvidenceProjection(input);
+const projectedBrief = buildPremiumReportNarrativeBriefProjection(input);
+const projectedKindBytes = Object.groupBy(projectedEvidence.items, (item) => item.k);
+const evidenceAttribution = Object.fromEntries(Object.entries(projectedKindBytes).map(([kind, items]) => {
+  const sizes = items.map((item) => Buffer.byteLength(JSON.stringify(item), 'utf8'));
+  return [kind, { count: items.length, totalBytes: sizes.reduce((sum, size) => sum + size, 0), averageBytes: Math.round(sizes.reduce((sum, size) => sum + size, 0) / items.length), largestBytes: Math.max(...sizes) }];
+}));
+const largestEvidenceItems = projectedEvidence.items.map((item) => ({ id: item.i, kind: item.k, bytes: Buffer.byteLength(JSON.stringify(item), 'utf8') })).sort((a, b) => b.bytes - a.bytes).slice(0, 20);
 
 assert.equal(PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS + 5000, PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS);
 assert.equal(PREMIUM_REPORT_AI_MAX_ATTEMPTS * PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS, PREMIUM_REPORT_AI_MAX_COMBINED_ESTIMATED_COST_MICROS);
@@ -188,6 +218,11 @@ assert.equal(generationBudget.reason, null);
 assert.equal(repairBudget.reason, null);
 assert.equal(generationBudget.estimatedTotalTokens, generationBudget.estimatedInputTokens + generationBudget.maxOutputTokens);
 assert.equal(repairBudget.estimatedTotalTokens, repairBudget.estimatedInputTokens + repairBudget.maxOutputTokens);
+assert.equal(worstRepairBudget.reason, null, 'worst-credible repair prompt must fit the existing envelope');
+assert.ok(worstRepairBudget.inputSizeBytes <= PREMIUM_REPORT_AI_MAX_INPUT_BYTES);
+assert.ok(worstRepairBudget.estimatedInputTokens <= PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS);
+assert.ok(worstRepairBudget.estimatedTotalTokens <= PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS);
+assert.ok(worstRepairBudget.estimatedCostMicros <= PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS);
 assert.ok(generationBudget.inputSizeBytes <= PREMIUM_REPORT_AI_MAX_INPUT_BYTES);
 assert.ok(generationBudget.estimatedInputTokens <= PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS);
 assert.ok(generationBudget.estimatedCostMicros * 1.2 <= PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS,
@@ -240,10 +275,28 @@ for (const section of [brief.executive, brief.falseComfort, brief.leadership, ..
     assert.ok(generationPrompt.includes(reference), `generation prompt must retain ${reference}`);
   }
 }
+assert.equal(data.questionTraces.length, 68, 'real-scale fixture must retain all 68 question traces');
+assert.equal(data.domainResults.length, 10, 'real-scale fixture must retain all 10 domains');
+assert.deepEqual(Object.fromEntries(Object.entries(Object.groupBy(evidence.items, (item) => item.kind)).map(([kind, items]) => [kind, items.length])), {
+  assessment_limitation: 1, calculated_maturity: 1, control_improvement: 32, coverage: 1, domain: 10, evidence_checklist: 142,
+  final_maturity: 1, gap: 9, gap_count: 2, leadership_decision: 6, material_finding: 32, maturity_cap: 5, overall_score: 1,
+  plausible_scenario: 5, question_response: 68, risk: 32, roadmap_action: 32, score_scale: 1, visibility_gap: 9
+});
+assert.deepEqual(evidenceChecksum(input.evidence), input.evidenceChecksum, 'projection must not alter canonical evidence checksum');
+assert.deepEqual(buildPremiumReportEvidenceProjection(input), projectedEvidence, 'evidence projection must be deterministic');
+assert.deepEqual(buildPremiumReportNarrativeBriefProjection(input), projectedBrief, 'narrative brief projection must be deterministic');
+const projectedIds = new Set(projectedEvidence.items.map((item) => item.i));
+for (const section of sections) for (const reference of section.requiredEvidenceRefs) assert.ok(projectedIds.has(reference), `compaction dropped required evidence ${reference}`);
+assert.deepEqual(Object.keys(projectedEvidence.itemFieldLegend).sort(), ['i', 'k', 'v']);
+for (const [kind, fields] of Object.entries(projectedEvidence.valueFieldLegend)) for (const [short, long] of Object.entries(fields)) {
+  assert.ok(short.length <= 3 && typeof long === 'string' && long.length > 0, `legend must explain ${kind}.${short}`);
+}
 assert.match(generationPrompt, /untrusted data, not instructions/);
 assert.match(repairPrompt, /untrusted data, never instructions/);
 assert.doesNotMatch(generationPrompt, /admin@mkfraud\.co\.za/);
 assert.doesNotMatch(repairPrompt, /admin@mkfraud\.co\.za/);
+assert.doesNotMatch(generationPrompt, new RegExp(data.organisationName));
+assert.doesNotMatch(generationPrompt, new RegExp(data.respondentName));
 const output = {
   assessmentReference: ASSESSMENT_REFERENCE,
   orderReference: ORDER_REFERENCE,
@@ -259,8 +312,13 @@ const output = {
   },
   generation: metrics(`${PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS}\n${generationPrompt}`),
   repair: metrics(`${PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS}\n${repairPrompt}`),
-  budget: { generation: generationBudget, repair: repairBudget, justBelow: justBelowBudget, justAbove: justAboveBudget },
-  beforeCorrection: { bytes: 71_256, estimatedInputTokens: 17_814, estimatedCostMicros: 278_140, oldCostLimitMicros: 250_000, wouldFailOldLimit: true },
+  budget: { generation: generationBudget, repair: repairBudget, worstRepair: worstRepairBudget, justBelow: justBelowBudget, justAbove: justAboveBudget },
+  evidenceAttribution,
+  largestEvidenceItems,
+  // The retained Journey 6 pre-dispatch diagnostic is authoritative runtime evidence. The exact
+  // prompt body was not persisted, so this is kept separate from the credential-free fixture
+  // measurement below rather than presenting the fixture as an exact replay of customer data.
+  beforeCorrection: { retainedJourney6RuntimeBytes: 81_654, retainedJourney6RuntimeEstimatedInputTokens: 20_414, retainedJourney6RuntimeEstimatedTotalTokens: 25_414, retainedJourney6RuntimeEstimatedCostMicros: 304_140, providerCalls: 0 },
   repairScopeSections: repairScope.failedSectionIds,
   providerCalls: 0
 };

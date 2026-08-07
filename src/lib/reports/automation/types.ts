@@ -3,7 +3,7 @@ import type { AdvisoryEvidenceModel } from '../evidence-model';
 
 export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v4-advisory-editor';
 export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v4';
-export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v2-compact';
+export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v3-compact';
 
 /** Maximum characters the AI may write for any single narrative body field. Mirrors the
  * deterministic-validator body length ceiling in automation/validation.ts (2500). */
