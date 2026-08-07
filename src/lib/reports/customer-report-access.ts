@@ -51,7 +51,7 @@ async function recordAccess(input: {
   success: boolean;
   reason?: CustomerAccessReason;
   technicalReference: string;
-  artefact?: CustomerArtefact;
+  artefact: CustomerArtefact;
 }) {
   const eventType = input.success ? 'customer_report_accessed' : 'customer_report_access_failed';
   // Deliberately no raw token, no IP address, no user-agent in the persisted metadata -- only
@@ -60,15 +60,18 @@ async function recordAccess(input: {
     token_id: input.tokenId,
     technical_reference: input.technicalReference,
     success: input.success,
-    error_category: input.reason ?? null,
-    // Reuses the existing structured metadata_json audit path; no schema or RPC signature change.
-    artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf'
+    error_category: input.reason ?? null
   };
-  const { error: auditError } = await input.db.rpc('record_customer_report_access', {
+  // Artefact-aware audit: the persisted event/audit trail must identify which artefact of the
+  // authorised report was requested or served. The accepted six-argument
+  // record_customer_report_access() builds its own metadata and cannot carry that discriminator,
+  // so this path uses the additive artefact-aware function. Exactly one audit call per attempt.
+  const { error: auditError } = await input.db.rpc('record_customer_report_artefact_access', {
     p_token_id: input.tokenId,
     p_order_id: input.orderId,
     p_report_id: input.reportId,
     p_success: input.success,
+    p_artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf',
     p_reason: input.reason ?? null,
     p_technical_reference: input.technicalReference
   });
@@ -94,6 +97,10 @@ export type CustomerArtefact = 'pdf' | 'register';
  */
 export async function grantCustomerReportAccess(input: { rawToken: string; ipAddress?: string | null; artefact?: CustomerArtefact }) {
   const technicalReference = crypto.randomUUID();
+  // One requested artefact per access attempt. Every audit row for this attempt carries it, so the
+  // persisted trail always states which artefact of the report the customer asked for -- including
+  // on failures raised before the artefact selector is reached.
+  const requestedArtefact: CustomerArtefact = input.artefact ?? 'pdf';
   const db = createSupabaseServiceClient() as any;
   const tokenHash = hashCustomerReportAccessToken(input.rawToken);
 
@@ -104,15 +111,15 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     .maybeSingle();
 
   if (tokenError || !tokenRow) {
-    await recordAccess({ db, tokenId: null, orderId: null, reportId: null, success: false, reason: 'invalid_token', technicalReference });
+    await recordAccess({ db, tokenId: null, orderId: null, reportId: null, success: false, reason: 'invalid_token', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('invalid_token', 'This link is not valid.', 404, technicalReference);
   }
   if (tokenRow.revoked_at) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'revoked_token', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'revoked_token', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('revoked_token', 'This link has been revoked. Contact support for a new one.', 410, technicalReference);
   }
   if (new Date(tokenRow.expires_at).getTime() <= Date.now()) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'expired_token', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'expired_token', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('expired_token', 'This link has expired. Contact support for a new one.', 410, technicalReference);
   }
 
@@ -121,7 +128,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
   // as a coarse guard rather than a new table -- sufficient for a possession-link model where
   // the realistic abuse case is a leaked link being hammered, not distributed credential stuffing.
   if (tokenRow.access_count >= MAX_ACCESS_ATTEMPTS_PER_HOUR) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'rate_limited', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'rate_limited', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('rate_limited', 'Too many attempts. Try again later or contact support.', 429, technicalReference);
   }
 
@@ -131,11 +138,11 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     .eq('id', tokenRow.report_id)
     .maybeSingle();
   if (reportError || !report) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'report_record_missing', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'report_record_missing', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('report_record_missing', 'The report record does not exist.', 404, technicalReference);
   }
   if (report.order_id !== tokenRow.order_id) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_order_mismatch', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_order_mismatch', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('report_order_mismatch', 'This link does not match the report it was issued for.', 409, technicalReference);
   }
 
@@ -154,21 +161,21 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     if (eligibilityError instanceof ReportAccessEligibilityError) {
       const reason: CustomerAccessReason = eligibilityError.reason === 'report_not_current_version'
         ? 'report_not_current_version' : 'report_status_ineligible';
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason, technicalReference });
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason, technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError(reason, eligibilityError.message, 409, technicalReference);
     }
     throw eligibilityError;
   }
 
   if (!report.storage_bucket || !report.storage_path || !report.checksum || ['MISSING', 'FAILED'].includes(report.storage_status)) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'storage_path_mismatch', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'storage_path_mismatch', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('storage_path_mismatch', 'This report has no verified private storage metadata.', 409, technicalReference);
   }
 
   const { data: object, error: objectError } = await db.storage.from(report.storage_bucket).download(report.storage_path);
   if (objectError || !object) {
     await db.from('reports').update({ storage_status: 'MISSING' }).eq('id', report.id);
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('stored_file_missing', 'The report file could not be found. Contact support.', 404, technicalReference);
   }
   const bytes = Buffer.from(await object.arrayBuffer());
@@ -177,7 +184,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     || (object.type && object.type !== 'application/pdf')
     || checksum !== report.checksum || (report.file_size_bytes && bytes.length !== Number(report.file_size_bytes))) {
     await db.from('reports').update({ storage_status: 'FAILED' }).eq('id', report.id);
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('integrity_failed', 'This report failed its integrity check. Contact support.', 409, technicalReference);
   }
 
@@ -197,20 +204,20 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     // integrity mismatch. Never fall back to serving the PDF under a register request.
     if (artefactError || !artefact || artefact.storage_status !== 'VERIFIED'
       || !artefact.storage_bucket || !artefact.storage_path) {
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference });
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('stored_file_missing', 'The supporting register is not available for this report.', 404, technicalReference);
     }
     const { data: registerObject, error: registerError } = await db.storage
       .from(artefact.storage_bucket).download(artefact.storage_path);
     if (registerError || !registerObject) {
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference });
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('stored_file_missing', 'The supporting register file could not be found.', 404, technicalReference);
     }
     const registerBytes = Buffer.from(await registerObject.arrayBuffer());
     const registerChecksum = crypto.createHash('sha256').update(registerBytes).digest('hex');
     if (registerChecksum !== artefact.checksum_sha256
       || (artefact.file_size_bytes && registerBytes.length !== Number(artefact.file_size_bytes))) {
-      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference });
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('integrity_failed', 'The supporting register failed its integrity check.', 409, technicalReference);
     }
     servedBucket = artefact.storage_bucket;
@@ -226,7 +233,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     // served through the service-role client.
     .createSignedUrl(servedPath, ACCESS_TTL_SECONDS);
   if (signError || !signed?.signedUrl) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'signed_link_creation_failed', technicalReference });
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'signed_link_creation_failed', technicalReference, artefact: requestedArtefact });
     throw new CustomerReportAccessError('signed_link_creation_failed', 'A secure link could not be created. Contact support.', 500, technicalReference);
   }
 
@@ -235,7 +242,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     access_count: tokenRow.access_count + 1
   }).eq('id', tokenRow.id);
 
-  await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: input.artefact ?? 'pdf' });
+  await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: requestedArtefact });
 
   return { url: signed.signedUrl, expiresInSeconds: ACCESS_TTL_SECONDS, reportReference: report.report_reference, technicalReference, artefact: input.artefact ?? 'pdf' };
 }

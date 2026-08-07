@@ -27,10 +27,23 @@ export const SUPPORTING_REGISTER_UNAVAILABLE = 'supporting_register_capability_u
 function isSecondaryArtefactSchemaAbsent(error: unknown): boolean {
   const candidate = error as { code?: string; message?: string } | null;
   if (!candidate) return false;
-  if (candidate.code === '42P01' || candidate.code === 'PGRST202' || candidate.code === 'PGRST205') return true;
+  // Absence is decided by the SQLSTATE / PostgREST code alone. Matching on the object name was too
+  // broad: `42501 permission denied for table report_artifacts` names the object but is a privilege
+  // failure, not absence, and must fail closed. Same for unique violations, connection faults and
+  // any generic RPC failure that happens to mention the function.
+  const code = String(candidate.code ?? '');
+  if (code === '42P01') return true;   // undefined_table
+  if (code === 'PGRST202') return true; // function not found in schema cache
+  if (code === 'PGRST205') return true; // table not found in schema cache
+  if (code) return false;
+  // No code at all: accept only an explicit does-not-exist statement naming one of our objects.
   const message = String(candidate.message ?? '').toLowerCase();
-  return message.includes('report_artifacts')
+  const namesOurObject = message.includes('report_artifacts')
     || message.includes('complete_report_secondary_artefact');
+  const statesAbsence = message.includes('does not exist')
+    || message.includes('could not find')
+    || message.includes('schema cache');
+  return namesOurObject && statesAbsence;
 }
 
 export interface SupportingRegisterPersistResult {

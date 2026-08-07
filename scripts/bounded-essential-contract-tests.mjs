@@ -311,11 +311,17 @@ import { __testables as registerDelivery } from '../src/lib/reports/supporting-r
 await test('min-M8: pre-migration schema absence degrades narrowly, everything else fails closed', () => {
   const absent = registerDelivery.isSecondaryArtefactSchemaAbsent;
   // Exactly the three accepted signals.
-  assert.equal(absent({ code: '42P01' }), true);
-  assert.equal(absent({ code: 'PGRST202' }), true);
-  assert.equal(absent({ code: 'PGRST205' }), true);
+  // Genuine absence only.
+  assert.equal(absent({ code: '42P01', message: 'relation "report_artifacts" does not exist' }), true);
+  assert.equal(absent({ code: 'PGRST202', message: 'Could not find complete_report_secondary_artefact' }), true);
+  assert.equal(absent({ code: 'PGRST205', message: 'Could not find the table report_artifacts in the schema cache' }), true);
   assert.equal(absent({ message: 'relation "report_artifacts" does not exist' }), true);
-  // Everything else must NOT be swallowed.
+  // Privilege, constraint and runtime failures must FAIL CLOSED even when they name the object.
+  assert.equal(absent({ code: '42501', message: 'permission denied for table report_artifacts' }), false);
+  assert.equal(absent({ code: '23505', message: 'duplicate key value violates report_artifacts_report_type_uidx' }), false);
+  assert.equal(absent({ message: 'connection terminated unexpectedly while querying report_artifacts' }), false);
+  assert.equal(absent({ code: 'P0001', message: 'complete_report_secondary_artefact failed unexpectedly' }), false);
+  assert.equal(absent({ message: 'complete_report_secondary_artefact raised report_artifact_already_verified' }), false);
   assert.equal(absent({ code: '23505', message: 'duplicate key value' }), false);
   assert.equal(absent({ code: '42501', message: 'permission denied' }), false);
   assert.equal(absent({ message: 'connection terminated unexpectedly' }), false);
@@ -430,6 +436,64 @@ await test('PDF_LEGACY_FULL_REGISTER_PRESENT detects structure, not prose', () =
   const template = readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');
   assert.ok(template.includes('The complete evidence checklist is not reproduced in this report'),
     'explanatory prose referencing the old register must remain permitted');
+});
+
+
+// ------------------------------------------------------- artefact-aware customer access audit
+await test('C: persisted access audit identifies pdf vs supporting_register', () => {
+  const route = readFileSync('src/lib/reports/customer-report-access.ts', 'utf8');
+  const audit = readFileSync('supabase/migrations/20260807130000_report_artefact_access_audit.sql', 'utf8');
+  const accepted = readFileSync('supabase/migrations/20260804203520_g29_customer_report_access_audit.sql', 'utf8');
+
+  // 1 + 2: the artefact discriminator reaches the RPC for both artefacts.
+  assert.ok(route.includes('record_customer_report_artefact_access'), 'route must use the artefact-aware RPC');
+  assert.ok(route.includes("p_artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf'"),
+    'both artefact values must be supplied');
+  // ...and is persisted in all three trails, not just returned.
+  assert.ok(/'artefact_type', p_artefact_type/.test(audit), 'artefact_type must be persisted in metadata');
+  for (const sink of ['public.report_events', 'public.order_events', 'public.audit_logs']) {
+    assert.ok(audit.includes(sink), `${sink} must receive the artefact-aware metadata`);
+  }
+
+  // 3: a failed register retrieval after valid parent authority still records the register.
+  const calls = route.match(/await recordAccess\(\{[^\n]*\}\);/g) ?? [];
+  assert.ok(calls.length >= 10, 'expected the full set of audit call sites');
+  for (const call of calls) {
+    assert.ok(call.includes('artefact: requestedArtefact'),
+      `every access audit must state the requested artefact: ${call}`);
+  }
+  assert.ok(/artefact: CustomerArtefact;/.test(route), 'the audit artefact must be a required field');
+
+  // 4: closed vocabulary, rejected rather than recorded.
+  assert.ok(/not in \('pdf', 'supporting_register'\)/.test(audit), 'vocabulary must be closed');
+  assert.ok(/customer_report_access_artefact_type_invalid/.test(audit), 'invalid artefact must fail closed');
+
+  // 5: identical binding rules to the accepted audit.
+  for (const guard of [
+    'customer_report_access_service_role_required',
+    'customer_report_access_token_missing',
+    'customer_report_access_binding_mismatch',
+    'customer_report_access_partial_binding'
+  ]) assert.ok(audit.includes(guard), `binding guard ${guard} must be preserved`);
+  assert.ok(/security definer/.test(audit) && /set search_path = ''/.test(audit));
+  assert.ok(/revoke all on function public\.record_customer_report_artefact_access/.test(audit));
+  assert.ok(/grant execute on function public\.record_customer_report_artefact_access[\s\S]{0,120}to service_role/.test(audit));
+
+  // 6: the accepted six-argument RPC is untouched and still callable.
+  assert.ok(/create or replace function public\.record_customer_report_access\(/.test(accepted));
+  assert.ok(!/drop function[\s\S]{0,80}record_customer_report_access/.test(audit),
+    'the accepted RPC must not be dropped');
+  // Strip SQL comments first: the header prose names the accepted function deliberately.
+  const auditSql = audit.replace(/^\s*--.*$/gm, '');
+  assert.ok(!/record_customer_report_access\s*\(/.test(auditSql.replace(/record_customer_report_artefact_access/g, '')),
+    'the new migration must not redefine the accepted RPC');
+
+  // 7: exactly one audit call per access attempt.
+  assert.equal((route.match(/\.rpc\('record_customer_report_/g) ?? []).length, 1,
+    'a single access attempt must write one event trail');
+
+  // No raw token, IP or user-agent may be persisted.
+  assert.ok(!/p_raw_token|ip_address|user_agent/.test(audit), 'no token/IP/user-agent in the audit');
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

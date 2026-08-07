@@ -707,6 +707,18 @@
         "src/lib/snapshot/free-snapshot.ts:58 S"
       ],
       "justification": "Read-only score result, snapshot and report assembly."
+    },
+    {
+      "schema": "public",
+      "table": "report_artifacts",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:197 S"
+      ],
+      "justification": "Read-only secondary-artefact lookup, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
     }
   ],
   "serviceRoleRpcs": [
@@ -1010,13 +1022,13 @@
       ]
     },
     {
-      "signature": "public.record_customer_report_access(uuid,uuid,uuid,boolean,text,text)",
+      "signature": "public.record_customer_report_artefact_access(uuid,uuid,uuid,boolean,text,text,text)",
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:64"
+        "src/lib/reports/customer-report-access.ts:69"
       ],
-      "classification": "Customer access audit RPC"
+      "classification": "Customer access audit RPC (artefact-aware)"
     },
     {
       "signature": "public.preview_development_finalize_premium_report_delivery(uuid,uuid,text)",
@@ -1143,6 +1155,15 @@
       "sources": [
         "src/lib/reports/phase14-security.ts:317 dynamic resolution"
       ]
+    },
+    {
+      "signature": "public.complete_report_secondary_artefact(uuid,text,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/supporting-register-delivery.ts:89"
+      ],
+      "classification": "Secondary report-artefact completion RPC"
     }
   ],
   "nonServiceRpcClassifications": {
@@ -1199,14 +1220,9 @@
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
-    "src/lib/reports/customer-report-access.ts:158",
-    "src/lib/reports/customer-report-access.ts:174",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:225",
-    "src/lib/reports/phase1-manual-fulfilment.ts:507",
-    "src/lib/reports/phase1-manual-fulfilment.ts:585",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
@@ -1214,7 +1230,14 @@
     "src/lib/reports/storage-publication.ts:47",
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
-    "src/lib/reports/storage-publication.ts:88"
+    "src/lib/reports/storage-publication.ts:88",
+    "src/lib/reports/customer-report-access.ts:175",
+    "src/lib/reports/customer-report-access.ts:210",
+    "src/lib/reports/customer-report-access.ts:227",
+    "src/lib/reports/phase1-manual-fulfilment.ts:227",
+    "src/lib/reports/phase1-manual-fulfilment.ts:518",
+    "src/lib/reports/phase1-manual-fulfilment.ts:634",
+    "src/lib/reports/supporting-register-delivery.ts:75"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1232,7 +1255,8 @@
       "src/lib/reports/download-verification.ts",
       "src/lib/reports/email/delivery-dispatch.ts",
       "src/lib/reports/report-access-eligibility.ts",
-      "src/lib/reports/storage-publication.ts"
+      "src/lib/reports/storage-publication.ts",
+      "src/lib/reports/supporting-register-delivery.ts"
     ],
     "nonServiceCallSites": [
       "src/lib/reports/phase14-security.ts:76:rpc",
@@ -1276,7 +1300,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "69e85167c4d40f32d0973999c3e8f04705587b0312a4c46d2304225e384934f0"
+    "fullAstInventorySha256": "840a1ec30299994e329e37297a4e35cce1306c5a119f88d7e8852ee55317e6b2"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
