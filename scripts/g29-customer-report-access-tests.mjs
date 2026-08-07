@@ -12,6 +12,8 @@ const artefactMigration = read('supabase/migrations/20260807130000_report_artefa
 
 assert.match(service, /rpc\('record_customer_report_artefact_access'/, 'customer path uses the atomic audit RPC');
 assert.match(service, /p_artefact_type:/, 'the audit RPC receives the requested artefact');
+assert.match(service, /rpc\('record_customer_report_access', binding\)/, 'the accepted audit RPC remains the pre-migration fallback');
+assert.match(service, /isAuditFunctionAbsent/, 'the fallback is gated on schema absence only');
 assert.match(artefactMigration, /create or replace function public\.record_customer_report_artefact_access\(/, 'artefact-aware audit RPC exists');
 assert.match(artefactMigration, /'artefact_type', p_artefact_type/, 'artefact type is persisted in metadata_json');
 assert.match(artefactMigration, /not in \('pdf', 'supporting_register'\)/, 'artefact vocabulary is closed');
@@ -26,4 +28,4 @@ assert.match(migration, /insert into public\.order_events/, 'RPC records order a
 assert.match(migration, /service_role_required/, 'RPC is service-role restricted');
 assert.match(migration, /grant execute on function public\.record_customer_report_access[\s\S]*to service_role/, 'only service_role receives execute');
 
-console.log(JSON.stringify({ ok: true, assertions: 14, atomicAudit: true, actorType: 'respondent_token' }));
+console.log(JSON.stringify({ ok: true, assertions: 16, atomicAudit: true, actorType: 'respondent_token' }));

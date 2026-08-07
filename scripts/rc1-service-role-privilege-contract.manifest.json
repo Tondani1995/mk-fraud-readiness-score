@@ -716,7 +716,7 @@
       "productionCurrent": "0000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:197 S"
+        "src/lib/reports/customer-report-access.ts:221 S"
       ],
       "justification": "Read-only secondary-artefact lookup, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
     }
@@ -1026,9 +1026,18 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:69"
+        "src/lib/reports/customer-report-access.ts:89"
       ],
       "classification": "Customer access audit RPC (artefact-aware)"
+    },
+    {
+      "signature": "public.record_customer_report_access(uuid,uuid,uuid,boolean,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:100"
+      ],
+      "classification": "Customer access audit RPC (pre-migration fallback)"
     },
     {
       "signature": "public.preview_development_finalize_premium_report_delivery(uuid,uuid,text)",
@@ -1231,13 +1240,13 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/customer-report-access.ts:175",
-    "src/lib/reports/customer-report-access.ts:210",
-    "src/lib/reports/customer-report-access.ts:227",
     "src/lib/reports/phase1-manual-fulfilment.ts:227",
     "src/lib/reports/phase1-manual-fulfilment.ts:518",
     "src/lib/reports/phase1-manual-fulfilment.ts:634",
-    "src/lib/reports/supporting-register-delivery.ts:75"
+    "src/lib/reports/supporting-register-delivery.ts:75",
+    "src/lib/reports/customer-report-access.ts:199",
+    "src/lib/reports/customer-report-access.ts:234",
+    "src/lib/reports/customer-report-access.ts:251"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1300,7 +1309,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "840a1ec30299994e329e37297a4e35cce1306c5a119f88d7e8852ee55317e6b2"
+    "fullAstInventorySha256": "f6334a10a3721eaca92be9d3f1fdf712fe4a7cdcda30aac31d74fa77b2862fd1"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

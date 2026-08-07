@@ -343,7 +343,7 @@ await test('min-M8: register retrieval is fail-closed on every non-verified arte
   // Unverified status and integrity mismatch both fail closed.
   assert.ok(source.includes("artefact.storage_status !== 'VERIFIED'"), 'unverified artefact must fail closed');
   assert.ok(source.includes("registerChecksum !== artefact.checksum_sha256"), 'checksum must be verified');
-  assert.ok(source.includes("artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf'"), 'audit must distinguish artefacts');
+  assert.ok(source.includes("const artefactType = input.artefact === 'register' ? 'supporting_register' : 'pdf';"), 'audit must distinguish artefacts');
 });
 
 await test('min-M8: no second report row, no second auth model, no changed RPC signature', () => {
@@ -447,7 +447,7 @@ await test('C: persisted access audit identifies pdf vs supporting_register', ()
 
   // 1 + 2: the artefact discriminator reaches the RPC for both artefacts.
   assert.ok(route.includes('record_customer_report_artefact_access'), 'route must use the artefact-aware RPC');
-  assert.ok(route.includes("p_artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf'"),
+  assert.ok(route.includes("const artefactType = input.artefact === 'register' ? 'supporting_register' : 'pdf';"),
     'both artefact values must be supplied');
   // ...and is persisted in all three trails, not just returned.
   assert.ok(/'artefact_type', p_artefact_type/.test(audit), 'artefact_type must be persisted in metadata');
@@ -488,9 +488,19 @@ await test('C: persisted access audit identifies pdf vs supporting_register', ()
   assert.ok(!/record_customer_report_access\s*\(/.test(auditSql.replace(/record_customer_report_artefact_access/g, '')),
     'the new migration must not redefine the accepted RPC');
 
-  // 7: exactly one audit call per access attempt.
-  assert.equal((route.match(/\.rpc\('record_customer_report_/g) ?? []).length, 1,
-    'a single access attempt must write one event trail');
+  // 7: one audit trail per attempt -- the artefact-aware call, with the accepted six-argument
+  // function reachable only when the artefact-aware one is absent from the schema.
+  assert.equal((route.match(/\.rpc\('record_customer_report_/g) ?? []).length, 2,
+    'the audit path is the artefact-aware call plus its pre-migration fallback');
+  assert.ok(/if \(auditError && isAuditFunctionAbsent\(auditError\)\) \{[\s\S]{0,200}rpc\('record_customer_report_access', binding\)/.test(route),
+    'the fallback must be reachable only when the artefact-aware function is absent');
+  assert.ok(/return code === '42883' \|\| code === 'PGRST202';/.test(route),
+    'absence must be decided by SQLSTATE/PostgREST code alone');
+  // A privilege failure or binding rejection must NOT downgrade to the fallback.
+  for (const code of ['42501', '23505', 'ECONNREFUSED']) {
+    assert.ok(!new RegExp(`'${code}'`).test(route), `${code} must not be treated as absence`);
+  }
+  assert.ok(/p_artefact_type: artefactType/.test(route), 'the artefact type is sent on the primary call');
 
   // No raw token, IP or user-agent may be persisted.
   assert.ok(!/p_raw_token|ip_address|user_agent/.test(audit), 'no token/IP/user-agent in the audit');

@@ -54,20 +54,37 @@ const APPENDIX_ROOT_ENTRY = APPENDIX_ENTRIES[0];
 const APPENDIX_CHILD_ENTRIES = APPENDIX_ENTRIES.slice(1);
 if (!APPENDIX_ROOT_ENTRY) throw new Error('render-validated-commercial-pdf: REPORT_TOC_ENTRIES has no appendix root entry.');
 
+// Bound on the fixed-point search. Real numbers stop moving almost immediately; this exists so a
+// pathological oscillation fails closed instead of looping.
+const MAX_NAVIGATION_PASSES = 4;
+
 /**
  * V7 Checkpoint F controller review blocker 7 -- adds a customer-facing contents page with real
- * page numbers and a matching PDF bookmark/outline tree, using a deterministic two-pass render:
+ * page numbers and a matching PDF bookmark/outline tree, using a deterministic render that
+ * iterates to a fixed point:
  *
  *   pass 1: render through the existing fail-closed renderValidatedCommercialPdf() seam exactly as
  *           before (so the quality gate still runs first, unchanged and untouched) with the
  *           contents page showing placeholder page numbers;
- *   pass 2: read the real page number of every tracked heading out of that PDF
+ *   pass 2+: read the real page number of every tracked heading out of that PDF
  *           (extractHeadingPageMap(), pdf-navigation.ts), re-render the *same* HTML with those
- *           numbers filled in, and write a matching PDF outline into that second render.
+ *           numbers filled in, and repeat until re-measuring reproduces the numbers that were
+ *           printed; write a matching PDF outline into that final render.
  *
- * The two passes render byte-for-byte the same content except the contents-page numbers
- * themselves (same heading text, same section order), so the second pass's own page numbers are
- * exactly what the first pass measured -- nothing is hand-maintained or guessed.
+ * The passes render byte-for-byte the same content except the contents-page numbers themselves
+ * (same heading text, same section order) -- nothing is hand-maintained or guessed.
+ *
+ * Two passes are not sufficient on their own. Filling in the real numbers changes the contents
+ * page's own text, and every tracked heading except one starts on a forced page break
+ * (`.report-section`), so those are immune; "Complete supporting detail" is a tracked entry
+ * rendered as a nested subsection and therefore flows with the text before it. On the longest
+ * fixtures that reflow moved it across a page boundary, and the printed contents page and the PDF
+ * bookmark both pointed one page early. Forcing a break on it would pin the number at the cost of
+ * a near-empty page in every report, so instead the render iterates to a fixed point: repeat until
+ * the map measured *from* a render equals the map that produced it, which makes the printed numbers
+ * and the outline correct by construction. Convergence is normally immediate (the numbers stop
+ * moving once they are real); failing to converge means the contents page cannot be trusted, so it
+ * fails closed rather than shipping a PDF whose navigation lies.
  */
 export async function renderValidatedCommercialPdfWithNavigation(
   input: {
@@ -85,8 +102,8 @@ export async function renderValidatedCommercialPdfWithNavigation(
   // Page 1 is the fixed cover and page 2 is the contents page itself (which prints every tracked
   // heading's label as plain text) -- see pdf-navigation.ts's TocEntry doc comment for why the
   // heading scan must start after both.
-  const pageMap = await extractHeadingPageMap(
-    new Uint8Array(firstPassPdf),
+  const measure = (pdf: Uint8Array) => extractHeadingPageMap(
+    pdf,
     REPORT_TOC_ENTRIES,
     3,
     // Generation diagnostics: which tier resolved each heading. Headings resolved below tier 1
@@ -106,9 +123,26 @@ export async function renderValidatedCommercialPdfWithNavigation(
     }
   );
 
-  const secondPassHtml = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap);
-  const secondPassPdf = await dependencies.renderPdf(secondPassHtml);
+  // The first render used placeholder numbers, so the loop starts from the first real map.
+  let pageMap = await measure(new Uint8Array(firstPassPdf));
+  for (let attempt = 0; attempt < MAX_NAVIGATION_PASSES; attempt += 1) {
+    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap);
+    const numberedPdf = await dependencies.renderPdf(html);
+    const measured = await measure(new Uint8Array(numberedPdf));
+    // Fixed point: what the contents page prints is what the render actually paginated to, so the
+    // outline written below describes the very bytes being returned.
+    if (REPORT_TOC_ENTRIES.every((entry) => measured[entry.key] === pageMap[entry.key])) {
+      return await withNavigationBookmarks(numberedPdf, pageMap);
+    }
+    pageMap = measured;
+  }
+  throw new Error(
+    'render-validated-commercial-pdf: contents-page numbering did not converge; '
+    + 'refusing to publish a report whose contents page and bookmarks disagree with its pages.'
+  );
+}
 
+async function withNavigationBookmarks(secondPassPdf: Buffer, pageMap: Record<string, number>): Promise<Buffer> {
   const bookmarks: BookmarkNode[] = [
     ...CORE_TOC_ENTRIES.map((entry) => ({ title: entry.label, pageNumber: pageMap[entry.key] })),
     {

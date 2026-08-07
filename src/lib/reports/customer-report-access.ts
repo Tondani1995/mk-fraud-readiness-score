@@ -43,6 +43,17 @@ export class CustomerReportAccessError extends Error {
 const ACCESS_TTL_SECONDS = 300;
 const MAX_ACCESS_ATTEMPTS_PER_HOUR = 20;
 
+/**
+ * Narrowly scoped: only "this function does not exist in the schema" may trigger the audit
+ * fallback. Same rule as the secondary-artefact capability check -- the code decides, never the
+ * message -- so a permission denial, a binding rejection or a connection fault propagates and the
+ * access attempt fails closed instead of silently downgrading its audit trail.
+ */
+function isAuditFunctionAbsent(error: unknown): boolean {
+  const code = String((error as { code?: string } | null)?.code ?? '');
+  return code === '42883' || code === 'PGRST202';
+}
+
 async function recordAccess(input: {
   db: any;
   tokenId: string | null;
@@ -65,16 +76,29 @@ async function recordAccess(input: {
   // Artefact-aware audit: the persisted event/audit trail must identify which artefact of the
   // authorised report was requested or served. The accepted six-argument
   // record_customer_report_access() builds its own metadata and cannot carry that discriminator,
-  // so this path uses the additive artefact-aware function. Exactly one audit call per attempt.
-  const { error: auditError } = await input.db.rpc('record_customer_report_artefact_access', {
+  // so this path prefers the additive artefact-aware function.
+  const artefactType = input.artefact === 'register' ? 'supporting_register' : 'pdf';
+  const binding = {
     p_token_id: input.tokenId,
     p_order_id: input.orderId,
     p_report_id: input.reportId,
     p_success: input.success,
-    p_artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf',
     p_reason: input.reason ?? null,
     p_technical_reference: input.technicalReference
+  };
+  let { error: auditError } = await input.db.rpc('record_customer_report_artefact_access', {
+    ...binding,
+    p_artefact_type: artefactType
   });
+  // Pre-migration compatibility. 20260807130000 creates the artefact-aware function; until it is
+  // applied, the PDF journey must keep working exactly as accepted rather than 500. The accepted
+  // six-argument function is deliberately still present, so fall back to it and lose only the
+  // artefact discriminator -- which on a pre-migration schema can only ever be the PDF, because
+  // report_artifacts does not exist either. Absence is decided by the SQLSTATE / PostgREST code
+  // alone: a privilege failure or any other fault still fails closed on the primary call.
+  if (auditError && isAuditFunctionAbsent(auditError)) {
+    ({ error: auditError } = await input.db.rpc('record_customer_report_access', binding));
+  }
   if (auditError) {
     console.error('customer_report_access_audit', { technicalReference: input.technicalReference, errorCategory: 'access_audit_failed' });
     if (input.success) {
