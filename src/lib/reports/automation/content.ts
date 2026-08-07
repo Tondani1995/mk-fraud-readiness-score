@@ -1,4 +1,5 @@
 import type { AssembledReportData, SelectedContent } from '../types';
+import type { EssentialProjection } from '../essential-projection';
 import { gapKey } from '../select-content-blocks';
 import type { PremiumReportAiEditorialPlan, PremiumReportNarrative } from './types';
 import { requiredMetricRefsFor } from './validation';
@@ -7,14 +8,39 @@ function nonEmpty(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value));
 }
 
+/**
+ * The exact gap set the Essential narrative contract covers. With a bounded projection this is the
+ * MFS v1 selection; without one the legacy full critical/major set is retained for legacy paths.
+ */
+function essentialGapTargets(data: AssembledReportData, projection?: EssentialProjection) {
+  if (!projection) return data.criticalMajorGaps;
+  return projection.findings.map((finding) => ({
+    questionCode: finding.questionCode,
+    domainCode: finding.domainCode,
+    domainName: finding.domainName,
+    prompt: finding.questionPrompt,
+    responseValue: finding.responseValue,
+    isCritical: finding.isCriticalControl,
+    isHardGate: finding.isHardGate,
+    isCriticalGap: finding.gapClassification === 'critical',
+    isMajorGap: finding.gapClassification === 'major'
+  })) as typeof data.criticalMajorGaps;
+}
+
 export function buildDeterministicNarrative(
   data: AssembledReportData,
-  content: SelectedContent
+  content: SelectedContent,
+  projection?: EssentialProjection
 ): PremiumReportNarrative {
   const capRefs = data.maturityCapEvents.map((event) =>
     `cap:${event.ruleCode}:${event.relatedQuestionCode ?? event.relatedDomainCode ?? 'global'}`
   );
-  const gapRefs = data.criticalMajorGaps.map((gap) => `gap:${gap.questionCode}`);
+  // Every `gap:` reference this narrative emits must exist in the bounded evidence pack. Bounding
+  // reduces the pack's gap items to the projection selection, so any ref derived from the full L1
+  // critical/major set would be an unknown_evidence_ref. Joined by stable question code, never by
+  // array position.
+  const boundedGaps = essentialGapTargets(data, projection);
+  const gapRefs = boundedGaps.map((gap) => `gap:${gap.questionCode}`);
   const domainRefs = data.domainResults.map((domain) => `domain:${domain.domainCode}`);
   const coreRefs = [
     'score:scale_max', 'score:overall', 'score:calculated_maturity', 'score:final_maturity',
@@ -32,7 +58,7 @@ export function buildDeterministicNarrative(
       || (event.relatedQuestionCode ?? '').startsWith(`${domainCode}-`))
     .map((event) => `cap:${event.ruleCode}:${event.relatedQuestionCode ?? event.relatedDomainCode ?? 'global'}`);
 
-  const gapRefsForDomain = (domainCode: string) => data.criticalMajorGaps
+  const gapRefsForDomain = (domainCode: string) => boundedGaps
     .filter((gap) => gap.domainCode === domainCode)
     .map((gap) => `gap:${gap.questionCode}`);
 
@@ -73,7 +99,10 @@ export function buildDeterministicNarrative(
         ])
       };
     }),
-    gapCommentary: data.criticalMajorGaps.map((gap) => {
+    // M2: one narrative section per BOUNDED selected finding, not one per L1 critical/major gap.
+    // data.criticalMajorGaps stays complete in L1 and every unselected gap remains fail-closed in
+    // L3; it simply no longer creates its own AI narrative section.
+    gapCommentary: essentialGapTargets(data, projection).map((gap) => {
       const body = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)]?.body ?? gap.prompt;
       return {
         questionCode: gap.questionCode,
@@ -138,10 +167,14 @@ export function aiPlanToNarrative(
 export function narrativeToSelectedContent(
   data: AssembledReportData,
   narrative: PremiumReportNarrative,
-  usedFallback: boolean
+  usedFallback: boolean,
+  projection?: EssentialProjection
 ): SelectedContent {
   const domainByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain.domainName]));
-  const gapByQuestion = new Map(data.criticalMajorGaps.map((gap) => [gap.questionCode, gap]));
+  // Accept any section the bounded contract could legitimately have produced.
+  const gapByQuestion = new Map(
+    [...data.criticalMajorGaps, ...essentialGapTargets(data, projection)].map((gap) => [gap.questionCode, gap])
+  );
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
   for (const section of narrative.domainNarratives) {

@@ -53,10 +53,11 @@ function fallbackResult(
   const evidence = evidenceOverride ?? buildPremiumReportEvidencePack(
     input.assembled,
     input.advisoryModel ?? input.roadmap,
-    input.flags.schemaVersion
+    input.flags.schemaVersion,
+    input.essentialProjection
   );
   const checksum = checksumOverride ?? evidenceChecksum(evidence);
-  const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent);
+  const narrative = buildDeterministicNarrative(input.assembled, input.deterministicContent, input.essentialProjection);
   const validation = validatePremiumReportNarrative(narrative, evidence);
 
   if (!validation.ok) {
@@ -91,7 +92,7 @@ function fallbackResult(
 
   return {
     narrative,
-    selectedContent: narrativeToSelectedContent(input.assembled, narrative, true),
+    selectedContent: narrativeToSelectedContent(input.assembled, narrative, true, input.essentialProjection),
     mode: 'deterministic_fallback',
     evidence,
     evidenceChecksum: checksum,
@@ -194,7 +195,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
     if (repaired.validation.ok) {
       return {
         narrative: repaired.narrative,
-        selectedContent: narrativeToSelectedContent(input.assembled, repaired.narrative, false),
+        selectedContent: narrativeToSelectedContent(input.assembled, repaired.narrative, false, input.essentialProjection),
         mode: 'ai_repair',
         evidence,
         evidenceChecksum: checksum,
@@ -233,7 +234,8 @@ export async function preparePremiumReportNarrative(
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
     input.advisoryModel ?? input.roadmap,
-    input.flags.schemaVersion
+    input.flags.schemaVersion,
+    input.essentialProjection
   );
   const evidenceIssues = validatePremiumReportEvidencePack(
     evidence,
@@ -249,7 +251,7 @@ export async function preparePremiumReportNarrative(
   const checksum = evidenceChecksum(evidence);
   const narrativeBrief = assertPremiumReportNarrativeBrief(
     evidence,
-    (dependencies.buildNarrativeBrief ?? buildPremiumReportNarrativeBrief)(evidence)
+    (dependencies.buildNarrativeBrief ?? buildPremiumReportNarrativeBrief)(evidence, input.essentialProjection)
   );
   if (input.advisoryModel) {
     const quality = checkQualityGates(input.advisoryModel, input.assembled);
@@ -323,7 +325,7 @@ export async function preparePremiumReportNarrative(
       logPremiumReportPhase({ phase: 'narrative_validation_completed', status: 'completed', startedAt: validationStartedAt, provider: generation.provider, model: generation.model, gatewayGenerationId: generation.gateway?.generationId ?? null });
       return {
         narrative,
-        selectedContent: narrativeToSelectedContent(input.assembled, narrative, false),
+        selectedContent: narrativeToSelectedContent(input.assembled, narrative, false, input.essentialProjection),
         mode: 'ai',
         evidence,
         evidenceChecksum: checksum,

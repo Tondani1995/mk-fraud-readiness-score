@@ -5,6 +5,8 @@ import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } fr
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
+import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
+import { generateAndPersistSupportingRegister } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import type { ContentBlock } from './types';
@@ -388,9 +390,17 @@ export async function generateManualPhase1Report(
       status: block.status
     }));
     generationStage = 'build_deterministic_advisory';
-    const deterministicContent = selectContent(assembled, contentBlocks);
     const advisoryModel = buildAdvisoryEvidenceModel(assembled);
-    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
+    // ONE bounded projection instance for this generation: the deterministic fallback content,
+    // the narrative brief, the renderer and the commercial-quality validator all consume it.
+    const essentialProjection = buildEssentialProjection(assembled, advisoryModel);
+    // Fail closed before provider dispatch or any customer-visible output.
+    assertEssentialProjectionPresent(reportType, essentialProjection, 'Essential narrative preparation');
+    const deterministicContent = selectContent(assembled, contentBlocks, essentialProjection);
+    // Bounded Essential: the rendered roadmap is the shared projection's dependency-closed
+    // selection, which is also what validateRoadmapSource() checks provenance against. Deriving it
+    // from full L1 here would render an unbounded roadmap and fail QG_ROADMAP_SOURCE_MISMATCH.
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
     generationStage = 'load_automation_flags';
     const flags = await doGetAutomationFlags(db);
     const generator = dependencies.narrativeGenerator
@@ -418,6 +428,7 @@ export async function generateManualPhase1Report(
       prepared = await doPrepareNarrative({
         assembled,
         deterministicContent,
+        essentialProjection,
         roadmap,
         advisoryModel,
         flags,
@@ -544,6 +555,44 @@ export async function generateManualPhase1Report(
       });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
+    // min-M8: the L3 supporting register is generated from authoritative L1, checksum-verified and
+    // bound to the parent report. Before the accepted migration is applied the capability degrades
+    // narrowly (see supporting-register-delivery.ts); every other path is unchanged.
+    generationStage = 'persist_supporting_register';
+    try {
+      const register = await generateAndPersistSupportingRegister({
+        db,
+        data: assembled,
+        model: advisoryModel,
+        projection: essentialProjection,
+        reportId: completed.report.id,
+        storageBucket,
+        organisationId: assembled.organisationId,
+        orderId: assembled.orderId,
+        versionNumber,
+        verifyStoredObject: verifyPrivateObject
+      });
+      console.info('supporting_register', {
+        technicalReference,
+        reportId: completed.report.id,
+        status: register.status,
+        fileSizeBytes: register.fileSizeBytes ?? null
+      });
+    } catch (registerError) {
+      console.error('supporting_register', {
+        technicalReference,
+        reportId: completed.report.id,
+        outcome: 'failed',
+        errorCategory: messageOf(registerError)
+      });
+      throw new Phase1GenerationError(
+        'report_persistence_failed',
+        'The supporting register could not be produced and verified for this report.',
+        500,
+        technicalReference
+      );
+    }
+
     logPremiumReportPhase({ phase: 'report_finalised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: completed.report.report_reference });
 
     console.info('phase1_manual_generation', {

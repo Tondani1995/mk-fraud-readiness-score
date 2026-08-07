@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { AssembledReportData, RoadmapItem } from '../types';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue } from '../evidence-model';
+import type { EssentialProjection } from '../essential-projection';
 import { bandForScore } from '../select-content-blocks';
 import {
   PREMIUM_REPORT_SCHEMA_VERSION,
@@ -73,8 +74,32 @@ function domainEvidence(data: AssembledReportData): ReportEvidenceItem[] {
   }));
 }
 
-function gapEvidence(data: AssembledReportData): ReportEvidenceItem[] {
-  return data.criticalMajorGaps.map((gap) => ({
+/**
+ * M2: the `gap:` evidence items define which gap narrative sections the brief creates, which
+ * sections the model must return, and which sections the narrative validator requires. Bounding
+ * them to the Essential projection is therefore the single seam that bounds the AI contract.
+ *
+ * data.criticalMajorGaps stays complete in L1; every unselected critical/major gap remains
+ * fail-closed in L3 and still contributes to counts, systemic diagnosis and selection scoring.
+ */
+function gapEvidence(
+  data: AssembledReportData,
+  projection?: EssentialProjection
+): ReportEvidenceItem[] {
+  const gaps = projection
+    ? projection.findings.map((finding) => ({
+      questionCode: finding.questionCode,
+      domainCode: finding.domainCode,
+      domainName: finding.domainName,
+      prompt: finding.questionPrompt,
+      responseValue: finding.responseValue,
+      isCritical: finding.isCriticalControl,
+      isHardGate: finding.isHardGate,
+      isCriticalGap: finding.gapClassification === 'critical',
+      isMajorGap: finding.gapClassification === 'major'
+    }))
+    : data.criticalMajorGaps;
+  return gaps.map((gap) => ({
     id: `gap:${gap.questionCode}`,
     kind: 'gap' as const,
     domainCode: gap.domainCode,
@@ -243,13 +268,14 @@ export function scanForPromptInjection(value: string): PromptInjectionScan {
 export function buildPremiumReportEvidencePack(
   data: AssembledReportData,
   roadmapOrModel: { agenda: RoadmapItem[] } | AdvisoryEvidenceModel,
-  schemaVersion = PREMIUM_REPORT_SCHEMA_VERSION
+  schemaVersion = PREMIUM_REPORT_SCHEMA_VERSION,
+  projection?: EssentialProjection
 ): PremiumReportEvidencePack {
   const advisoryModel = 'roadmapActions' in roadmapOrModel ? roadmapOrModel : undefined;
   const items = [
     ...coreEvidence(data),
     ...domainEvidence(data),
-    ...gapEvidence(data),
+    ...gapEvidence(data, projection),
     ...(advisoryModel ? questionEvidence(data) : []),
     ...maturityCapEvidence(data),
     ...(advisoryModel ? advisoryEvidence(advisoryModel) : roadmapEvidence(roadmapOrModel as { agenda: RoadmapItem[] }))

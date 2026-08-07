@@ -46,8 +46,13 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
     return errorPage(CUSTOMER_SAFE_MESSAGES.invalid_token, 'no-token', 404);
   }
 
+  // Selector only -- report-level token authority is evaluated first inside
+  // grantCustomerReportAccess(). Unknown values fall back to the PDF; they never widen access.
+  const requested = new URL(request.url).searchParams.get('artefact');
+  const artefact = requested === 'register' ? 'register' as const : 'pdf' as const;
+
   try {
-    const result = await grantCustomerReportAccess({ rawToken });
+    const result = await grantCustomerReportAccess({ rawToken, artefact });
     return NextResponse.redirect(result.url, { status: 307, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (error instanceof CustomerReportAccessError) {

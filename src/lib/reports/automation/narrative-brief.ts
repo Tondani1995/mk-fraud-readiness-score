@@ -223,10 +223,20 @@ export function assertPremiumReportNarrativeBrief(
 }
 
 export function buildPremiumReportNarrativeBrief(
-  evidence: PremiumReportEvidencePack
+  evidence: PremiumReportEvidencePack,
+  projection?: { findings: Array<{ id: string }> }
 ): PremiumReportNarrativeBrief {
   const items = [...evidence.items].sort((left, right) => left.id.localeCompare(right.id));
-  const model = evidence.advisoryModel;
+  const rawModel = evidence.advisoryModel;
+  // AI-facing serialisation view only. The canonical L1 pack, its checksum, its counts and the
+  // supporting register are untouched -- this narrows which material findings the *narrative
+  // brief* may cite, so AI domain sections cannot reacquire unselected findings through
+  // linkedAuthoritativeItems(). Risks, contradictions, scenarios, controls, decisions and roadmap
+  // remain the authoritative model's own; only the finding set is projection-scoped.
+  const selectedFindingIds = projection ? new Set(projection.findings.map((f) => f.id)) : null;
+  const model = rawModel && selectedFindingIds
+    ? { ...rawModel, materialFindings: rawModel.materialFindings.filter((f) => selectedFindingIds.has(f.id)) }
+    : rawModel;
   const risks = model
     ? resolveAuthoritativeItems(evidence, 'risk', model.riskRegister, 'risk')
     : items.filter((item) => item.kind === 'risk');

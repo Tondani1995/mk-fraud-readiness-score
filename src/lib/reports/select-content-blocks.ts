@@ -1,3 +1,4 @@
+import type { EssentialProjection } from './essential-projection';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
   FALLBACK_CAPPED_DIAGNOSIS,
@@ -37,7 +38,11 @@ function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => 
   return [...matches].sort((a, b) => a.blockKey.localeCompare(b.blockKey))[0];
 }
 
-export function selectContent(data: AssembledReportData, blocks: ContentBlock[]): SelectedContent {
+export function selectContent(
+  data: AssembledReportData,
+  blocks: ContentBlock[],
+  projection?: EssentialProjection
+): SelectedContent {
   const capped = data.scoreRun.capApplied;
   const hasPriorityGaps = data.criticalMajorGaps.length > 0;
 
@@ -69,7 +74,25 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   }
 
   const gapCommentary: SelectedContent['gapCommentary'] = {};
-  data.criticalMajorGaps.forEach((gap) => {
+  // D6 layer 2: commentary must exist for the exact bounded selection the validator enforces, as
+  // well as for the legacy critical/major gap set. MFS v1 can select a finding that is not itself
+  // a critical/major gap (for example the strongest representative of an otherwise-unrepresented
+  // domain), and that finding still requires narrative in the main report.
+  const commentaryTargets = [
+    ...data.criticalMajorGaps,
+    ...(projection?.findings ?? []).map((finding) => ({
+      domainCode: finding.domainCode,
+      domainName: finding.domainName,
+      questionCode: finding.questionCode,
+      prompt: finding.questionPrompt,
+      isCriticalGap: finding.gapClassification === 'critical',
+      isMajorGap: finding.gapClassification === 'major',
+      isHardGate: finding.isHardGate
+    }))
+  ].filter((gap, index, all) =>
+    all.findIndex((other) => gapKey(other.domainCode, other.questionCode) === gapKey(gap.domainCode, gap.questionCode)) === index
+  );
+  commentaryTargets.forEach((gap) => {
     const severity = gap.isCriticalGap ? 'critical' : 'major';
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && item.severity === severity

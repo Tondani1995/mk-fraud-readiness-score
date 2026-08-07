@@ -45,9 +45,14 @@ export async function renderValidatedCommercialPdf(
 }
 
 const CORE_TOC_ENTRIES = REPORT_TOC_ENTRIES.filter((entry) => !entry.appendix);
-const APPENDIX_ROOT_ENTRY = REPORT_TOC_ENTRIES.find((entry) => entry.appendix && entry.label === 'Appendix');
-const APPENDIX_CHILD_ENTRIES = REPORT_TOC_ENTRIES.filter((entry) => entry.appendix && entry.label !== 'Appendix');
-if (!APPENDIX_ROOT_ENTRY) throw new Error('render-validated-commercial-pdf: REPORT_TOC_ENTRIES is missing its "Appendix" root entry.');
+// Structural identity, never display text. The appendix root is the FIRST entry flagged
+// `appendix: true`; the remainder are its children. Selecting the root by a hard-coded label
+// literal silently dropped the appendix TOC row and bookmark the moment the customer-facing
+// heading was renamed, even though the section itself still rendered.
+const APPENDIX_ENTRIES = REPORT_TOC_ENTRIES.filter((entry) => entry.appendix);
+const APPENDIX_ROOT_ENTRY = APPENDIX_ENTRIES[0];
+const APPENDIX_CHILD_ENTRIES = APPENDIX_ENTRIES.slice(1);
+if (!APPENDIX_ROOT_ENTRY) throw new Error('render-validated-commercial-pdf: REPORT_TOC_ENTRIES has no appendix root entry.');
 
 /**
  * V7 Checkpoint F controller review blocker 7 -- adds a customer-facing contents page with real

@@ -19,6 +19,7 @@ import { aiPlanToNarrative, narrativeToSelectedContent } from '../src/lib/report
 import { PREMIUM_REPORT_SCHEMA_VERSION } from '../src/lib/reports/automation/types.ts';
 import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
 
 const ROOT = process.cwd();
 const OUTPUT = path.join(ROOT, 'output', 'pdf');
@@ -55,11 +56,16 @@ const DOMAIN_FOCUS = {
 
 function context(data) {
   const advisoryModel = buildAdvisoryEvidenceModel(data);
-  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
-  const deterministicContent = selectContent(data, []);
-  const evidence = buildPremiumReportEvidencePack(data, advisoryModel, PREMIUM_REPORT_SCHEMA_VERSION);
+  // Mirrors production: the rendered roadmap is the shared projection's dependency-closed
+  // selection, which is also the provenance source validateRoadmapSource() checks against.
+  const essentialProjection = buildEssentialProjection(data, advisoryModel);
+  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
+  // Bounded Essential production chain: one projection, threaded through content, evidence and
+  // the renderer, exactly as the fulfilment seam does.
+  const deterministicContent = selectContent(data, [], essentialProjection);
+  const evidence = buildPremiumReportEvidencePack(data, advisoryModel, PREMIUM_REPORT_SCHEMA_VERSION, essentialProjection);
   const brief = buildPremiumReportNarrativeBrief(evidence);
-  return { data, advisoryModel, roadmap, deterministicContent, evidence, brief };
+  return { data, advisoryModel, roadmap, deterministicContent, evidence, brief, essentialProjection };
 }
 
 function bandForScore(rawScore) {
@@ -94,7 +100,23 @@ function validatedPlan(current) {
   const { data, brief, advisoryModel } = current;
   const clean = data.criticalMajorGaps.length === 0;
   const domainByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain]));
+  // Bounded contract: brief.gaps is the projection selection, which may include findings that are
+  // not themselves L1 critical/major gaps. Join by stable question code, never array position.
   const gapByCode = new Map(data.criticalMajorGaps.map((gap) => [gap.questionCode, gap]));
+  for (const finding of advisoryModel.materialFindings) {
+    if (gapByCode.has(finding.questionCode)) continue;
+    gapByCode.set(finding.questionCode, {
+      questionCode: finding.questionCode,
+      domainCode: finding.domainCode,
+      domainName: finding.domainName,
+      prompt: finding.questionPrompt,
+      responseValue: finding.responseValue,
+      isCritical: finding.isCriticalControl,
+      isHardGate: finding.isHardGate,
+      isCriticalGap: finding.gapClassification === 'critical',
+      isMajorGap: finding.gapClassification === 'major'
+    });
+  }
   const criticalCount = data.criticalMajorGaps.filter((gap) => gap.isCriticalGap).length;
   const majorCount = data.criticalMajorGaps.filter((gap) => gap.isMajorGap).length;
 
@@ -165,7 +187,9 @@ function validatedPlan(current) {
   assert.equal(validatePremiumReportAiEditorialPlan(plan, current.evidence, current.brief).ok, true);
   const narrative = aiPlanToNarrative(current.data, current.deterministicContent, plan);
   assert.equal(validatePremiumReportNarrative(narrative, current.evidence).ok, true);
-  return narrativeToSelectedContent(current.data, narrative, false);
+  // Same bounded projection the renderer and validator use, so gap commentary keys resolve for
+  // every projection-selected finding rather than only for L1 critical/major gaps.
+  return narrativeToSelectedContent(current.data, narrative, false, current.essentialProjection);
 }
 
 function synthetic(base, organisation, assessmentReference, reportReference) {
@@ -264,7 +288,7 @@ for (const band of EXPOSURE_BANDS) {
   const data = synthetic(buildModerateDecisionFixture(), 'Exposure Heading Fixture ' + band, 'CPF-EXPOSURE-' + band, 'CPF-EXPOSURE-' + band + '-REPORT');
   data.scoreRun = { ...data.scoreRun, exposureBand: band };
   const current = context(data);
-  const html = renderReportHtml(data, current.deterministicContent, current.roadmap, current.advisoryModel);
+  const html = renderReportHtml(data, current.deterministicContent, current.roadmap, current.advisoryModel, undefined, current.essentialProjection);
   assert.ok(html.includes(`${band} exposure with`), `expected the "${band} exposure with…" headline for the ${band} band fixture`);
   for (const other of EXPOSURE_BANDS.filter((value) => value !== band)) {
     assert.ok(!html.includes(`${other} exposure with`), `${band}-band report must never render "${other} exposure with…"`);
@@ -291,7 +315,8 @@ const text = Object.fromEntries(await Promise.all(candidates.map(async (candidat
   await readFile(path.join(ARTIFACT, 'extracted-text', `${candidate.name}.txt`), 'utf8')
 ])));
 const sha = (value) => createHash('sha256').update(value).digest('hex');
-const models = candidates.map((candidate) => context(synthetic(candidate.base, candidate.organisation, candidate.assessmentReference, candidate.reportReference)).advisoryModel);
+const contexts = candidates.map((candidate) => context(synthetic(candidate.base, candidate.organisation, candidate.assessmentReference, candidate.reportReference)));
+const models = contexts.map((entry) => entry.advisoryModel);
 
 const tests = [
   ['F1 real render seam produced four valid PDF signatures', () => assert.equal(Object.keys(audit.candidateResults).length, 4)],
@@ -307,7 +332,10 @@ const tests = [
   ['F11 AI and fallback use identical deterministic authority', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_AI_FALLBACK_AUTHORITY_MISMATCH').every((x) => x.passed))],
   ['F12 clean assurance avoids false failure language', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_CLEAN_FALSE_FAILURE_LANGUAGE').every((x) => x.passed))],
   ['F13 risk, decision and roadmap authority contains no semantic duplicates', () => { for (const model of models) for (const key of ['riskRegister', 'leadershipDecisions', 'roadmapActions']) { const values = model[key].map((item) => sha(JSON.stringify(item))); assert.equal(new Set(values).size, values.length); } }],
-  ['F14 every evidence checklist item renders its required status', () => { for (const [index, candidate] of candidates.entries()) assert.ok((text[candidate.name].match(/Not yet\s+requested/g) ?? []).length >= models[index].evidenceChecklist.length); }],
+  // Bounded Essential contract: the PDF renders the capped evidence PRIORITIES (projection), not
+  // the complete L1 checklist -- that lives in the L3 supporting register. The status obligation is
+  // unchanged and still fail-closed: every rendered evidence row must carry its required status.
+  ['F14 every rendered evidence priority renders its required status', () => { for (const [index, candidate] of candidates.entries()) { const expected = contexts[index].essentialProjection.evidenceToObtain.length; assert.ok(expected > 0); assert.ok((text[candidate.name].match(/Not yet\s+requested/g) ?? []).length >= expected); } }],
   ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }],
   ['F16 review metadata uses the real PR head SHA, never the checkout merge-ref, when the two diverge', () => {
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');

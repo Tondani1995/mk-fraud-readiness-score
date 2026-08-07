@@ -51,6 +51,7 @@ async function recordAccess(input: {
   success: boolean;
   reason?: CustomerAccessReason;
   technicalReference: string;
+  artefact?: CustomerArtefact;
 }) {
   const eventType = input.success ? 'customer_report_accessed' : 'customer_report_access_failed';
   // Deliberately no raw token, no IP address, no user-agent in the persisted metadata -- only
@@ -59,7 +60,9 @@ async function recordAccess(input: {
     token_id: input.tokenId,
     technical_reference: input.technicalReference,
     success: input.success,
-    error_category: input.reason ?? null
+    error_category: input.reason ?? null,
+    // Reuses the existing structured metadata_json audit path; no schema or RPC signature change.
+    artefact_type: input.artefact === 'register' ? 'supporting_register' : 'pdf'
   };
   const { error: auditError } = await input.db.rpc('record_customer_report_access', {
     p_token_id: input.tokenId,
@@ -82,7 +85,14 @@ async function recordAccess(input: {
   }
 }
 
-export async function grantCustomerReportAccess(input: { rawToken: string; ipAddress?: string | null }) {
+export type CustomerArtefact = 'pdf' | 'register';
+
+/**
+ * min-M8: the artefact selector is applied ONLY after the existing report-level authority has
+ * already succeeded. The token still authorises exactly (order_id, report_id); it never addresses
+ * an artefact directly, so an artefact belonging to another report is unreachable by construction.
+ */
+export async function grantCustomerReportAccess(input: { rawToken: string; ipAddress?: string | null; artefact?: CustomerArtefact }) {
   const technicalReference = crypto.randomUUID();
   const db = createSupabaseServiceClient() as any;
   const tokenHash = hashCustomerReportAccessToken(input.rawToken);
@@ -171,14 +181,50 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     throw new CustomerReportAccessError('integrity_failed', 'This report failed its integrity check. Contact support.', 409, technicalReference);
   }
 
+  // Report-level authority has now fully passed (token validity, revocation, expiry, rate limit,
+  // report/order binding, eligibility, storage metadata, byte-level PDF integrity). Only now may a
+  // secondary artefact of THIS report be selected.
+  let servedBucket: string = report.storage_bucket;
+  let servedPath: string = report.storage_path;
+  if (input.artefact === 'register') {
+    const { data: artefact, error: artefactError } = await db
+      .from('report_artifacts')
+      .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,artefact_type')
+      .eq('report_id', report.id)
+      .eq('artefact_type', 'supporting_register')
+      .maybeSingle();
+    // Fail closed on absence, on a pre-migration schema, on an unverified artefact and on any
+    // integrity mismatch. Never fall back to serving the PDF under a register request.
+    if (artefactError || !artefact || artefact.storage_status !== 'VERIFIED'
+      || !artefact.storage_bucket || !artefact.storage_path) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference });
+      throw new CustomerReportAccessError('stored_file_missing', 'The supporting register is not available for this report.', 404, technicalReference);
+    }
+    const { data: registerObject, error: registerError } = await db.storage
+      .from(artefact.storage_bucket).download(artefact.storage_path);
+    if (registerError || !registerObject) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference });
+      throw new CustomerReportAccessError('stored_file_missing', 'The supporting register file could not be found.', 404, technicalReference);
+    }
+    const registerBytes = Buffer.from(await registerObject.arrayBuffer());
+    const registerChecksum = crypto.createHash('sha256').update(registerBytes).digest('hex');
+    if (registerChecksum !== artefact.checksum_sha256
+      || (artefact.file_size_bytes && registerBytes.length !== Number(artefact.file_size_bytes))) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference });
+      throw new CustomerReportAccessError('integrity_failed', 'The supporting register failed its integrity check.', 409, technicalReference);
+    }
+    servedBucket = artefact.storage_bucket;
+    servedPath = artefact.storage_path;
+  }
+
   const { data: signed, error: signError } = await db.storage
-    .from(report.storage_bucket)
+    .from(servedBucket)
     // Keep the signed object URL canonical. Supabase Storage accepts the boolean
     // download option, but the filename form is not portable across Storage API
     // versions and can make an otherwise valid signed URL return HTTP 400. The
     // customer route remains possession-token and integrity gated; no object is
     // served through the service-role client.
-    .createSignedUrl(report.storage_path, ACCESS_TTL_SECONDS);
+    .createSignedUrl(servedPath, ACCESS_TTL_SECONDS);
   if (signError || !signed?.signedUrl) {
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'signed_link_creation_failed', technicalReference });
     throw new CustomerReportAccessError('signed_link_creation_failed', 'A secure link could not be created. Contact support.', 500, technicalReference);
@@ -189,7 +235,7 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     access_count: tokenRow.access_count + 1
   }).eq('id', tokenRow.id);
 
-  await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference });
+  await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: input.artefact ?? 'pdf' });
 
-  return { url: signed.signedUrl, expiresInSeconds: ACCESS_TTL_SECONDS, reportReference: report.report_reference, technicalReference };
+  return { url: signed.signedUrl, expiresInSeconds: ACCESS_TTL_SECONDS, reportReference: report.report_reference, technicalReference, artefact: input.artefact ?? 'pdf' };
 }

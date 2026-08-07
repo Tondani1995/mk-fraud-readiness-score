@@ -9,6 +9,7 @@ import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult }
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { RoadmapDependencyError } from './evidence-model/roadmap-dependencies';
 import { buildPremiumReportEvidencePack, validatePremiumReportEvidencePack } from './automation/evidence';
+import { ESSENTIAL_CAPS, type EssentialProjection } from './essential-projection';
 
 /**
  * V7 Checkpoint B -- fail-closed commercial quality gate.
@@ -147,6 +148,18 @@ export interface CommercialReportPayload {
   content: SelectedContent;
   roadmap: { agenda: RoadmapItem[] };
   evidenceModel: AdvisoryEvidenceModel;
+  /**
+   * D6 layer 2. The EXACT bounded projection used to build the narrative brief, drive the
+   * deterministic fallback and render the PDF. When present, rendered-content completeness is
+   * enforced against this bounded contract rather than against the full L1 gap universe, and the
+   * accepted Essential caps become fail-closed. Never recompute a second selection here.
+   */
+  projection?: EssentialProjection;
+  /**
+   * D6 layer 3. Result of reconciling the generated supporting-register artefact against
+   * authoritative L1. Supplied by the generation path once the artefact bytes exist.
+   */
+  supportingRegister?: { reconciled: boolean; mismatches: string[] };
 }
 
 /**
@@ -175,7 +188,11 @@ function containsPlaceholder(...values: (string | null | undefined)[]): boolean 
  * fallback-vs-real-content coverage thresholds belong to a later checkpoint (per the brief: "Do not
  * introduce final fallback-percentage thresholds here").
  */
-export function validateRenderedContent(content: SelectedContent, data: AssembledReportData): QualityGateResult {
+export function validateRenderedContent(
+  content: SelectedContent,
+  data: AssembledReportData,
+  projection?: EssentialProjection
+): QualityGateResult {
   const violations: CommercialQualityIssue[] = [];
   const warnings: CommercialQualityIssue[] = [];
 
@@ -219,8 +236,21 @@ export function validateRenderedContent(content: SelectedContent, data: Assemble
     checkTitledSection(entityId, content?.domainNarratives?.[domain.domainName]);
   }
 
-  // Gap commentary -- every rendered critical or major gap must have commentary.
-  for (const gap of data.criticalMajorGaps) {
+  // Gap commentary.
+  //
+  // D6: when a bounded projection is supplied this iterates the EXACT selected findings that the
+  // narrative brief, deterministic fallback and renderer all consume -- not the full L1 gap
+  // universe. No critical or major gap is deleted by that rebind: an unselected gap's obligation
+  // moves to complete deterministic representation in the L3 supporting register, which is
+  // separately fail-closed below. Without a projection the legacy full-universe obligation is
+  // retained unchanged.
+  const gapObligations = projection
+    ? projection.findings.map((finding) => ({
+      domainCode: finding.domainCode,
+      questionCode: finding.questionCode
+    }))
+    : data.criticalMajorGaps;
+  for (const gap of gapObligations) {
     const key = gapKey(gap.domainCode, gap.questionCode);
     const entityId = `gap_commentary:${key}`;
     const commentary = content?.gapCommentary?.[key];
@@ -285,10 +315,20 @@ export function validateRenderedRoadmap(agenda: RoadmapItem[]): QualityGateResul
 }
 
 /** Ensures the rendered compatibility shape is a pure projection of the authoritative roadmap. */
-export function validateRoadmapSource(agenda: RoadmapItem[], model: AdvisoryEvidenceModel): QualityGateResult {
+export function validateRoadmapSource(
+  agenda: RoadmapItem[],
+  model: AdvisoryEvidenceModel,
+  projection?: EssentialProjection
+): QualityGateResult {
+  // Bounded Essential: the authoritative roadmap source is the SAME shared projection the renderer
+  // consumed -- its dependency-closed selection -- not the full L1 register. Comparing a bounded
+  // rendered roadmap against all of L1 would fail every Essential report, and truncating after
+  // validation would defeat the control. L1 itself is untouched; legacy/non-Essential paths keep
+  // validating against the complete model exactly as before.
+  const authoritativeActions = projection ? projection.roadmapActions : model.roadmapActions;
   let expected: RoadmapItem[];
   try {
-    expected = adaptAdvisoryRoadmapToLegacyAgenda(model.roadmapActions).agenda;
+    expected = adaptAdvisoryRoadmapToLegacyAgenda(authoritativeActions).agenda;
   } catch (error) {
     if (!(error instanceof RoadmapDependencyError)) throw error;
     return {
@@ -334,21 +374,81 @@ export function validateRoadmapSource(agenda: RoadmapItem[], model: AdvisoryEvid
  *   - throws ReportCommercialQualityError with a single QG_QUALITY_EVALUATION_FAILED violation if
  *     the evaluation itself throws unexpectedly (never catches and continues).
  */
+/**
+ * D6 layer 2 -- bounded volume. Fail-closed on any main-report list exceeding its accepted cap.
+ * The existing QG_COMMERCIAL_VOLUME_WARNING enforces a *minimum* substantive volume; this is its
+ * missing upper bound, and it is a violation rather than a warning.
+ */
+export function validateBoundedVolume(projection: EssentialProjection): QualityGateResult {
+  const violations: CommercialQualityIssue[] = [];
+  const systemic = projection.systemic.systemic;
+  const limits: Array<[string, number, number]> = [
+    ['findings', projection.findings.length, systemic ? ESSENTIAL_CAPS.findingsSystemic : ESSENTIAL_CAPS.findings],
+    ['risks', projection.risks.length, ESSENTIAL_CAPS.risks],
+    ['control_action_records', projection.controlActionRecords.length, systemic ? ESSENTIAL_CAPS.controlActionRecordsSystemic : ESSENTIAL_CAPS.controlActionRecords],
+    ['scenarios', projection.scenarios.length, systemic ? ESSENTIAL_CAPS.scenariosSystemic : ESSENTIAL_CAPS.scenarios],
+    ['evidence_to_obtain', projection.evidenceToObtain.length, ESSENTIAL_CAPS.evidenceToObtain],
+    ['leadership_decisions', projection.leadershipDecisions.length, ESSENTIAL_CAPS.leadershipDecisions],
+    ['roadmap_actions', projection.roadmapActions.length, ESSENTIAL_CAPS.roadmapTotalCeiling],
+    ['appendix_control_action_records', projection.appendixControlActionRecords.length, ESSENTIAL_CAPS.appendixControlActionRecords]
+  ];
+  for (const [entityId, actual, cap] of limits) {
+    if (actual > cap) {
+      violations.push({
+        code: 'QG_COMMERCIAL_VOLUME_EXCEEDED',
+        severity: 'violation',
+        message: `Bounded Essential contract exceeded for ${entityId}: ${actual} present, maximum ${cap}.`,
+        entityId,
+        source: 'commercial-quality'
+      });
+    }
+  }
+  return { passed: violations.length === 0, violations, warnings: [] };
+}
+
+/**
+ * D6 layer 3 -- supporting-register completeness. The reconciliation itself is performed against
+ * the generated artefact bytes by the caller; this turns any mismatch into a release-blocking
+ * commercial-quality violation so a bounded report can never claim supporting detail that the
+ * delivered register does not physically contain.
+ */
+export function validateSupportingRegister(
+  result: { reconciled: boolean; mismatches: string[] } | undefined
+): QualityGateResult {
+  if (!result) return { passed: true, violations: [], warnings: [] };
+  if (result.reconciled) return { passed: true, violations: [], warnings: [] };
+  return {
+    passed: false,
+    violations: result.mismatches.slice(0, 24).map((mismatch) => ({
+      code: 'QG_SUPPORTING_REGISTER_INCOMPLETE' as const,
+      severity: 'violation' as const,
+      message: `Supporting register does not reconcile against the authoritative evidence model: ${mismatch}.`,
+      entityId: mismatch.split(':')[0],
+      source: 'commercial-quality'
+    })),
+    warnings: []
+  };
+}
+
 export function assertCommercialReportQuality(payload: CommercialReportPayload): QualityGateResult {
   let violations: CommercialQualityIssue[];
   let warnings: CommercialQualityIssue[];
 
   try {
     const evidenceGate = checkQualityGates(payload.evidenceModel, payload.data);
-    const contentGate = validateRenderedContent(payload.content, payload.data);
+    const contentGate = validateRenderedContent(payload.content, payload.data, payload.projection);
+    const volumeGate = payload.projection
+      ? validateBoundedVolume(payload.projection)
+      : { passed: true, violations: [], warnings: [] };
+    const registerGate = validateSupportingRegister(payload.supportingRegister);
     const roadmapGate = validateRenderedRoadmap(payload.roadmap.agenda);
-    const roadmapSourceGate = validateRoadmapSource(payload.roadmap.agenda, payload.evidenceModel);
+    const roadmapSourceGate = validateRoadmapSource(payload.roadmap.agenda, payload.evidenceModel, payload.projection);
     const aiEvidenceIssues = validatePremiumReportEvidencePack(
-      buildPremiumReportEvidencePack(payload.data, payload.evidenceModel),
+      buildPremiumReportEvidencePack(payload.data, payload.evidenceModel, undefined, payload.projection),
       [payload.data.customerEmail, payload.data.respondentName]
     );
 
-    violations = [...evidenceGate.violations, ...contentGate.violations, ...roadmapGate.violations, ...roadmapSourceGate.violations, ...aiEvidenceIssues];
+    violations = [...evidenceGate.violations, ...contentGate.violations, ...roadmapGate.violations, ...roadmapSourceGate.violations, ...volumeGate.violations, ...registerGate.violations, ...aiEvidenceIssues];
     warnings = [...evidenceGate.warnings, ...contentGate.warnings, ...roadmapGate.warnings];
   } catch (error) {
     const evaluationFailure: CommercialQualityIssue = {

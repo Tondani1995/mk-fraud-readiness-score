@@ -354,6 +354,12 @@ export type CommercialQualityIssueCode =
   | 'QG_RENDERED_CONTENT_BODY_MISSING'
   | 'QG_PLACEHOLDER_TEXT_PRESENT'
   | 'QG_COMMERCIAL_VOLUME_WARNING'
+  // Bounded Essential output contract (D6 layer 2): the main report exceeded an accepted cap.
+  // Distinct from QG_COMMERCIAL_VOLUME_WARNING, which enforces a *minimum* substantive volume.
+  | 'QG_COMMERCIAL_VOLUME_EXCEEDED'
+  // Bounded Essential output contract (D6 layer 3): the generated supporting register does not
+  // reconcile against the authoritative L1 universe.
+  | 'QG_SUPPORTING_REGISTER_INCOMPLETE'
   | 'QG_QUALITY_EVALUATION_FAILED'
   // Stage-specific narrative grounding codes, projected from the validatePremiumReportNarrative
   // rule vocabulary by narrativeGroundingDiagnosticCode(). Kept open as a template literal so a

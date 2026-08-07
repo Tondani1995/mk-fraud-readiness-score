@@ -298,8 +298,15 @@ function createRecordingDb(overrides = {}) {
 
   const pdfBytes = overrides.pdfBytes ?? Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`);
 
+  const storedObjects = new Map();
   const db = {
     rpc: async (name, args) => {
+      // Bounded Essential min-M8: the supporting-register artefact is persisted through this
+      // additive RPC after the PDF completion RPC. Stubbed so the double models the real
+      // generation contract; the accepted PDF completion signature is unchanged.
+      if (name === 'complete_report_secondary_artefact') {
+        return { data: { artifact: { id: 'artifact-1' }, created: true }, error: null };
+      }
       calls.rpc.push({ name, args });
       const response = rpcResponses[name];
       if (!response) throw new Error(`Unstubbed rpc: ${name}`);
@@ -310,12 +317,17 @@ function createRecordingDb(overrides = {}) {
       from: (bucket) => ({
         upload: async (path, bytes, opts) => {
           calls.storageUpload.push({ bucket, path, size: bytes?.length, opts });
-          return overrides.uploadResponse ?? { error: null };
+          if (overrides.uploadResponse) return overrides.uploadResponse;
+          // Stored per path: the supporting register can never overwrite the PDF, and neither
+          // artefact can satisfy the other's byte-identity verification.
+          storedObjects.set(`${bucket}/${path}`, Buffer.from(bytes));
+          return { error: null };
         },
         download: async (path) => {
           calls.storageDownload.push({ bucket, path });
           if (overrides.downloadResponse) return overrides.downloadResponse;
-          return { data: { arrayBuffer: async () => pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength) }, error: null };
+          const stored = storedObjects.get(`${bucket}/${path}`) ?? pdfBytes;
+          return { data: { arrayBuffer: async () => stored.buffer.slice(stored.byteOffset, stored.byteOffset + stored.byteLength) }, error: null };
         },
         remove: async (paths) => {
           calls.storageRemove.push({ bucket, paths });
@@ -691,8 +703,16 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
   );
 
   assert.equal(result.reportId, 'report-1');
-  assert.equal(calls.storageUpload.length, 1);
-  assert.equal(calls.storageDownload.length, 1);
+  // Per-artefact, not a global count: the PDF and the L3 supporting register are each stored
+  // once and each verified once, in the expected bucket, at their own distinct paths.
+  const pdfUploads = calls.storageUpload.filter((c) => c.path.endsWith('.pdf'));
+  const registerUploads = calls.storageUpload.filter((c) => c.path.endsWith('.xlsx'));
+  assert.equal(pdfUploads.length, 1);
+  assert.equal(registerUploads.length, 1);
+  assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.pdf')).length, 1);
+  assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.xlsx')).length, 1);
+  assert.ok([...pdfUploads, ...registerUploads].every((c) => c.bucket === 'generated-reports'));
+  assert.notEqual(pdfUploads[0].path, registerUploads[0].path);
   assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 1);
   assert.equal(calls.rpc.filter((c) => c.name === 'fail_manual_report_generation').length, 0);
 });

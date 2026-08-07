@@ -254,6 +254,11 @@ export interface PreparedPremiumReportNarrative {
 export interface BuildPremiumReportNarrativeInput {
   assembled: AssembledReportData;
   deterministicContent: SelectedContent;
+  /**
+   * The single bounded Essential projection instance for this generation. Required on the Essential
+   * paid path; absent only on legacy report paths that predate the bounded architecture.
+   */
+  essentialProjection?: import('../essential-projection').EssentialProjection;
   roadmap: { agenda: RoadmapItem[] };
   advisoryModel?: AdvisoryEvidenceModel;
   flags: PremiumReportAutomationFlags;
