@@ -717,7 +717,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/reports/customer-report-access.ts:221 S",
-        "src/lib/reports/supporting-register-delivery.ts:77 S"
+        "src/lib/reports/supporting-register-delivery.ts:78 S"
       ],
       "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
     }
@@ -1171,7 +1171,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/supporting-register-delivery.ts:89"
+        "src/lib/reports/supporting-register-delivery.ts:106"
       ],
       "classification": "Secondary report-artefact completion RPC"
     }
@@ -1247,7 +1247,7 @@
     "src/lib/reports/customer-report-access.ts:199",
     "src/lib/reports/customer-report-access.ts:234",
     "src/lib/reports/customer-report-access.ts:251",
-    "src/lib/reports/supporting-register-delivery.ts:88"
+    "src/lib/reports/supporting-register-delivery.ts:92"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1310,7 +1310,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "c192cc4dc2979e510587031c41819786a2b7fc7e841ffe4f07c6b19073610d4d"
+    "fullAstInventorySha256": "1089648a30432e9648aafbbb481cb0b9a4e241158135065e5199652fe0d4cfb2"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

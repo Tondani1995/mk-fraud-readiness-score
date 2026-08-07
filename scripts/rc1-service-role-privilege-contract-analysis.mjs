@@ -132,7 +132,14 @@ for (const absolute of sourceFiles) {
   visit(sourceFile);
 }
 
-inventory.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+// Byte-stable ordering. localeCompare() is ICU/locale dependent, so the same commit hashed to
+// different values on macOS and on the Linux CI runner and the contract could never be verified
+// from a developer machine. A plain code-unit comparison is identical everywhere.
+inventory.sort((left, right) => {
+  const a = JSON.stringify(left);
+  const b = JSON.stringify(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+});
 const stableInventory = inventory.map(({ line: _line, importsServiceFactory: _imports, ...item }) => item);
 const fullAstInventorySha256 = crypto
   .createHash('sha256')
