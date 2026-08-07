@@ -424,7 +424,11 @@ export function renderReportHtml(
     <td>${esc(item.reviewStatus)}</td>
   </tr>`);
   const evidencePriorityBlock = `
-    <p class="lede">The items below are the immediate validation priorities linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see "Complete supporting detail" below).</p>
+    <!-- Cross-references must never quote a tracked REPORT_TOC_ENTRIES heading verbatim: the
+         contents-page scan locates each entry by its heading text, so a prose copy of that text on
+         an earlier page is found first and the printed page number and bookmark then point at the
+         mention rather than the section. -->
+    <p class="lede">The items below are the immediate validation priorities linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see the closing section of this report).</p>
     <div class="evidence-priority-table">
     ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
     <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require an evidence-review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>

@@ -74,17 +74,17 @@ const MAX_NAVIGATION_PASSES = 4;
  * The passes render byte-for-byte the same content except the contents-page numbers themselves
  * (same heading text, same section order) -- nothing is hand-maintained or guessed.
  *
- * Two passes are not sufficient on their own. Filling in the real numbers changes the contents
- * page's own text, and every tracked heading except one starts on a forced page break
- * (`.report-section`), so those are immune; "Complete supporting detail" is a tracked entry
- * rendered as a nested subsection and therefore flows with the text before it. On the longest
- * fixtures that reflow moved it across a page boundary, and the printed contents page and the PDF
- * bookmark both pointed one page early. Forcing a break on it would pin the number at the cost of
- * a near-empty page in every report, so instead the render iterates to a fixed point: repeat until
- * the map measured *from* a render equals the map that produced it, which makes the printed numbers
- * and the outline correct by construction. Convergence is normally immediate (the numbers stop
- * moving once they are real); failing to converge means the contents page cannot be trusted, so it
- * fails closed rather than shipping a PDF whose navigation lies.
+ * Filling real numbers into the contents page changes that page's own text, which can reflow
+ * anything that is not pinned by a forced page break. Rather than assume the first measurement
+ * survives, the render iterates to a fixed point: repeat until the map measured *from* a render
+ * equals the map that produced it, so the printed numbers and the outline describe the very bytes
+ * returned. Convergence is normally immediate; failing to converge means the contents page cannot
+ * be trusted, so it fails closed rather than shipping a PDF whose navigation lies.
+ *
+ * Note this guards reflow only. It cannot detect a heading located on the wrong page in the first
+ * place -- extractHeadingPageMap() finds an entry by its heading text, so prose that quotes a
+ * tracked heading verbatim is matched instead (see the comment on the evidence-priority lede in
+ * templates/report-template.ts). Cross-references must therefore never quote a tracked heading.
  */
 export async function renderValidatedCommercialPdfWithNavigation(
   input: {

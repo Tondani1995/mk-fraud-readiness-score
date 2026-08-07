@@ -293,6 +293,9 @@ function createRecordingDb(overrides = {}) {
   const tableResponses = {
     report_templates: { data: { id: 'template-1', template_code: 'essential-v1', version_number: 1 }, error: null },
     report_content_blocks: { data: [], error: null },
+    // No secondary artefact exists yet for a fresh report; the capability probe reads this before
+    // any Storage work, so the double must model the table's presence.
+    report_artifacts: { data: null, error: null },
     ...overrides.tableResponses
   };
 

@@ -716,9 +716,10 @@
       "productionCurrent": "0000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:221 S"
+        "src/lib/reports/customer-report-access.ts:221 S",
+        "src/lib/reports/supporting-register-delivery.ts:77 S"
       ],
-      "justification": "Read-only secondary-artefact lookup, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
+      "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
     }
   ],
   "serviceRoleRpcs": [
@@ -1243,10 +1244,10 @@
     "src/lib/reports/phase1-manual-fulfilment.ts:227",
     "src/lib/reports/phase1-manual-fulfilment.ts:518",
     "src/lib/reports/phase1-manual-fulfilment.ts:634",
-    "src/lib/reports/supporting-register-delivery.ts:75",
     "src/lib/reports/customer-report-access.ts:199",
     "src/lib/reports/customer-report-access.ts:234",
-    "src/lib/reports/customer-report-access.ts:251"
+    "src/lib/reports/customer-report-access.ts:251",
+    "src/lib/reports/supporting-register-delivery.ts:88"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1309,7 +1310,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "f6334a10a3721eaca92be9d3f1fdf712fe4a7cdcda30aac31d74fa77b2862fd1"
+    "fullAstInventorySha256": "c192cc4dc2979e510587031c41819786a2b7fc7e841ffe4f07c6b19073610d4d"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

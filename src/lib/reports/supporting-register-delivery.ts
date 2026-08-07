@@ -68,6 +68,23 @@ export async function generateAndPersistSupportingRegister(input: {
     db: any, bucket: string, path: string, checksum: string, size: number
   ) => Promise<void>;
 }): Promise<SupportingRegisterPersistResult> {
+  // Capability probe FIRST. The completion RPC used to be the only place absence was detected, but
+  // it runs after the workbook has already been built and uploaded -- so on a schema without
+  // report_artifacts (a Preview or a historical-schema replay) the upload was attempted anyway and
+  // its failure propagated as a hard error, taking the whole report down with it. Nothing may touch
+  // Storage until the artefact schema is known to exist. The probe deliberately uses the same
+  // select/eq/maybeSingle shape the customer path already uses against this table, so it exercises
+  // only the surface every caller and double already models.
+  const { error: probeError } = await input.db
+    .from('report_artifacts')
+    .select('report_id')
+    .eq('report_id', input.reportId)
+    .maybeSingle();
+  if (probeError && isSecondaryArtefactSchemaAbsent(probeError)) {
+    return { status: 'capability_unavailable' };
+  }
+  if (probeError) throw new Error('supporting_register_persistence_failed');
+
   const workbook = await buildSupportingRegisterWorkbook(input.data, input.model, input.projection);
   const storagePath = `${input.organisationId}/${input.orderId}/v${input.versionNumber}/`
     + `${workbook.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}`;

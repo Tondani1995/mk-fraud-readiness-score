@@ -269,6 +269,7 @@ function recordingManualDb({ payment = false, replayOnSecondClaim = false } = {}
       if (table === 'report_templates') return makeQueryBuilder({ data: { id: 'template-1', template_code: 'essential-v1', version_number: 1 }, error: null });
       if (table === 'report_content_blocks') return makeQueryBuilder({ data: [], error: null });
       if (table === 'reports') return makeQueryBuilder({ data: { id: 'report-1', report_reference: 'RPT-CHECKPOINT-E-V1', version_number: 1, supersedes_report_id: null }, error: null });
+      if (table === 'report_artifacts') return makeQueryBuilder({ data: null, error: null }); // no artefact yet for a fresh report
       return makeQueryBuilder({ data: null, error: new Error(`Unstubbed table ${table}`) });
     },
     storage: {

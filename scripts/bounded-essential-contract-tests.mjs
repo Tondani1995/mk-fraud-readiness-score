@@ -506,5 +506,26 @@ await test('C: persisted access audit identifies pdf vs supporting_register', ()
   assert.ok(!/p_raw_token|ip_address|user_agent/.test(audit), 'no token/IP/user-agent in the audit');
 });
 
+
+await test('navigation: no tracked contents heading is quoted in prose', () => {
+  // extractHeadingPageMap() locates each REPORT_TOC_ENTRIES entry by its heading text. A prose
+  // cross-reference that quotes a tracked heading verbatim is matched instead, so the printed page
+  // number and the PDF bookmark point at the mention rather than the section -- exactly the
+  // PDF_TOC_PAGE_MISMATCH defect Checkpoint F caught on the two longest fixtures.
+  const template = readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');
+  const entries = [...template.matchAll(/^  \{ key: '([^']+)', label: '([^']+)'/gm)]
+    .map((match) => match[2]);
+  assert.ok(entries.length >= 8, 'expected the tracked contents entries to be discoverable');
+  // Strip the entry table and the section()/subsection() call sites, which legitimately name them.
+  const prose = template
+    .replace(/export const REPORT_TOC_ENTRIES[\s\S]*?\n\];/, '')
+    .replace(/(?:^|[^A-Za-z])(?:section|subsection)\('[^']*'(?:, '[^']*')?/g, '')
+    .replace(/^\s*(?:\/\/|<!--).*$/gm, '');
+  for (const label of entries) {
+    assert.ok(!prose.includes(`"${label}"`),
+      `prose must not quote the tracked contents heading ${JSON.stringify(label)}`);
+  }
+});
+
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length > 0) process.exit(1);
