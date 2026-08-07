@@ -121,7 +121,9 @@
     "pre-g30:test-migration-targets": "node scripts/pre-g30-migration-target-check.mjs",
     "pre-g30:test-adaptive-launch": "node scripts/pre-g30-adaptive-launch-tests.mjs",
     "g29:test-customer-report-access": "node scripts/g29-customer-report-access-tests.mjs",
-    "g29:regression": "node scripts/g29-integrated-regression-runner.mjs"
+    "g29:regression": "node scripts/g29-integrated-regression-runner.mjs",
+    "g30:test-static-a11y-contract": "node scripts/g30-static-a11y-contract-tests.mjs",
+    "g30:test-device-a11y": "node scripts/g30-device-a11y-browser-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
