@@ -958,11 +958,9 @@ async function proveBootstrapEnforcement() {
  * These tests run the real RPC against a real database.
  */
 async function proveManualAiSettlementParity(adminId) {
-  // NOT YET WIRED IN. The assertions below are complete; the fixture is not. Inserting a synthetic
-  // report_ai_attempts row still trips report_ai_attempts_manual_binding_chk -- the manual binding
-  // columns (fulfilment_id / manual_* / generation_identity) have a combination rule this seed does
-  // not yet satisfy. Read that constraint, fix the seed, then restore the call in main(). Nothing
-  // here touches product code, and leaving it uncalled keeps the suite green rather than red.
+  // The seed satisfies both real constraints: exactly one parent
+  // (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual binding.
+  // Neither constraint is weakened or dropped to make these tests pass.
   const STRUCTURED = [
     'structured_output_invalid', 'structured_output_truncated', 'structured_output_refused',
     'structured_output_schema_failed', 'structured_output_json_invalid',
@@ -986,18 +984,55 @@ async function proveManualAiSettlementParity(adminId) {
         requested_provider,requested_model,manual_generation_attempt_id,
         manual_order_id,manual_assessment_id,manual_score_run_id,input_size_bytes,estimated_input_tokens)
       values ('P1A-'||gen_random_uuid(),'generate',1,'P1A-'||gen_random_uuid(),'openai','openai/gpt-5.5',
-        repeat('a',64),5000,1000000,240000,'started','openai','openai/gpt-5.5',$1,
+        -- 120000 not 240000: the 300s widening lives in the Staging-only 20260805200000, which this
+        -- Production-ledger replay excludes, so the baseline cap of 120000 applies here.
+        repeat('a',64),5000,1000000,120000,'started','openai','openai/gpt-5.5',$1,
+        -- report_ai_attempts requires exactly one parent
+        -- (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual
+        -- binding, so fulfilment_id stays NULL and all four manual columns are populated from one
+        -- internally consistent synthetic chain. current_score_run_id is not set on the fixture
+        -- assessment, so the score run is resolved from score_runs directly.
         (select o.id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
         (select o.assessment_id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
-        (select a.current_score_run_id from public.orders o
-           join public.assessments a on a.id=o.assessment_id
-           where o.id='00000000-0000-0000-0000-00000000e001'),
+        (select sr.id from public.score_runs sr
+           join public.orders o on o.assessment_id = sr.assessment_id
+           where o.id='00000000-0000-0000-0000-00000000e001' limit 1),
         37179,9295)
       returning *`, [parentId]);
     return row;
   });
   const settle = (attemptId, result) => db.query(
     'select public.settle_manual_report_ai_attempt($1,$2::jsonb) as r', [attemptId, JSON.stringify(result)]);
+
+  // report_ai_attempts is on the 'generation' freeze surface and this suite reaches here with the
+  // freeze engaged, so the settlement RPC's own UPDATE would be refused. Release generation for the
+  // duration of the proof and restore whatever was in place afterwards. The RPC under test always
+  // runs with triggers live -- only the freeze STATE is driven, never bypassed.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  try {
 
   // 1-6. Every structured-output status settles, persists diagnostics, and leaves bindings intact.
   for (const status of STRUCTURED) {
@@ -1110,6 +1145,9 @@ async function proveManualAiSettlementParity(adminId) {
     await db.query('delete from public.report_ai_attempts where manual_generation_attempt_id=$1', [parentId]);
     await db.query('delete from public.manual_report_generation_attempts where id=$1', [parentId]);
   });
+  } finally {
+    await restoreFreeze();
+  }
 }
 
 async function proveFreezeSurfaceMappingInvariant() {
@@ -2221,6 +2259,7 @@ try {
   await proveFrozenCertificationControlPlane();
   await proveNearRealTimeAutomaticFulfilment();
   await proveFreezeSurfaceMappingInvariant();
+  await proveManualAiSettlementParity(adminId);
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});
