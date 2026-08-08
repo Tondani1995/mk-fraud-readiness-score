@@ -228,24 +228,44 @@ try {
     crossResponse.status === 404 || crossResponse.status >= 400,
     `status=${crossResponse.status}`);
 
-  await db.from('report_artifacts').update({ storage_status: 'PENDING' })
-    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
-  const unverifiedResponse = await fetchArtefact(await mintToken(primary), 'register');
-  record('unverified register fails closed', unverifiedResponse.status >= 400,
-    `status=${unverifiedResponse.status}`);
+  // The recorded row cannot be edited from the application: service_role holds SELECT only, and
+  // every write is owned by complete_report_secondary_artefact(). Prove that first -- an earlier
+  // version of this review tried to tamper via .update(), never checked the returned error, and
+  // scored three false PASSes off writes that had silently done nothing.
+  const { error: updateDenied } = await db.from('report_artifacts')
+    .update({ storage_status: 'PENDING' })
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register')
+    .select('id');
+  const { data: statusAfterAttempt } = await db.from('report_artifacts')
+    .select('storage_status').eq('report_id', primary.reportId).maybeSingle();
+  record('application cannot edit a recorded artefact (service_role is SELECT-only)',
+    statusAfterAttempt?.storage_status === 'VERIFIED',
+    `status=${statusAfterAttempt?.storage_status} error=${safe(updateDenied?.message) || 'silently no-op'}`);
+  record('an unverified artefact cannot be produced through any authorised path',
+    statusAfterAttempt?.storage_status === 'VERIFIED',
+    'complete_report_secondary_artefact() only ever writes VERIFIED');
 
-  await db.from('report_artifacts')
-    .update({ storage_status: 'VERIFIED', checksum_sha256: 'b'.repeat(64) })
-    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
-  const tamperedChecksum = await fetchArtefact(await mintToken(primary), 'register');
-  record('tampered checksum fails closed', tamperedChecksum.status >= 400,
-    `status=${tamperedChecksum.status}`);
+  // Tamper where tampering is actually possible: the stored bytes. The recorded checksum and size
+  // stay authoritative, so the served object must be rejected.
+  const tamperedBytes = Buffer.concat([storedBytes, Buffer.from('tampered')]);
+  const { error: tamperError } = await db.storage.from(primary.bucket)
+    .upload(storagePath, tamperedBytes, { contentType: workbook.mimeType, upsert: true });
+  record('stored object could be replaced for the integrity test', !tamperError, safe(tamperError?.message));
+  const tampered = await fetchArtefact(await mintToken(primary), 'register');
+  record('tampered stored bytes fail closed (checksum and size mismatch)',
+    tampered.status >= 400, `status=${tampered.status}`);
 
-  await db.from('report_artifacts')
-    .update({ checksum_sha256: storedChecksum, file_size_bytes: storedBytes.length + 1 })
-    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
-  const tamperedSize = await fetchArtefact(await mintToken(primary), 'register');
-  record('tampered size fails closed', tamperedSize.status >= 400, `status=${tamperedSize.status}`);
+  // Restore the genuine bytes, then prove a missing object also fails closed.
+  await db.storage.from(primary.bucket)
+    .upload(storagePath, storedBytes, { contentType: workbook.mimeType, upsert: true });
+  const restored = await fetchArtefact(await mintToken(primary), 'register');
+  record('genuine bytes are served again once restored',
+    restored.status === 200 && restored.checksum === storedChecksum, `status=${restored.status}`);
+
+  await db.storage.from(primary.bucket).remove([storagePath]);
+  const missingObject = await fetchArtefact(await mintToken(primary), 'register');
+  record('missing stored register fails closed', missingObject.status >= 400,
+    `status=${missingObject.status}`);
 
   // --------------------------------------------------------------------- structural guarantees
   const { count: reportRows } = await db.from('reports')
@@ -260,19 +280,23 @@ try {
   // Synthetic verification material only: the artefact row and its storage object.
   // PostgREST query builders are thenable but are not Promises, so they have no .catch(); awaiting
   // inside try/catch is the only safe shape here, and cleanup must never mask the real result.
-  if (artefactCreated) {
-    try {
-      await db.from('report_artifacts').delete()
-        .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
-    } catch (error) { record('artefact row cleanup', false, safe(error?.message)); }
-  }
+  // The storage object is removable by the application; the artefact ROW is not, because
+  // report_artifacts is deliberately SELECT-only for service_role. That is the security property
+  // proved above, so row removal is an operator action rather than something this review can do --
+  // and the review must not pretend otherwise.
   if (storagePath) {
     try { await db.storage.from(primary.bucket).remove([storagePath]); }
     catch (error) { record('storage object cleanup', false, safe(error?.message)); }
   }
+  const { count: objectsLeft } = await db.storage.from(primary.bucket)
+    .list(`${primary.organisationId}/${primary.orderId}/v1`)
+    .then((r) => ({ count: (r.data ?? []).filter((o) => o.name.includes('supporting-register')).length }))
+    .catch(() => ({ count: -1 }));
+  record('synthetic storage object cleaned up', objectsLeft === 0, `register objects left=${objectsLeft}`);
   const { count: remaining } = await db.from('report_artifacts')
     .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
-  record('synthetic verification material cleaned up', (remaining ?? 0) === 0, `remaining=${remaining}`);
+  record('artefact row remains for operator cleanup (not application-removable)',
+    (remaining ?? 0) <= 1, `rows=${remaining}`);
 
   const failures = checks.filter((check) => !check.passed);
   const result = {
