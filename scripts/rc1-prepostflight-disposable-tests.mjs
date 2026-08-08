@@ -87,7 +87,8 @@ const pending = [
   '20260805150000_pre_g30_staging_ai_authority_guard_fix.sql',
   '20260807120000_report_secondary_artifacts.sql',
   '20260807130000_report_artefact_access_audit.sql',
-  '20260807140000_report_artefact_bucket_mime.sql'
+  '20260807140000_report_artefact_bucket_mime.sql',
+  '20260808090000_rc1_report_artifacts_freeze_surface.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -932,6 +933,199 @@ async function proveBootstrapEnforcement() {
   const [afterRollback] = await query('select public.rc1_freeze_status() as value');
   assert(afterRollback.value.state === 'frozen' && Number(afterRollback.value.freeze_epoch) === 1,
     'control-RPC proof must leave the bootstrap state unchanged');
+}
+
+/**
+ * RC1 freeze-surface mapping invariant.
+ *
+ * rc1_guard_authoritative_mutation() resolves the relation's surface FIRST and raises
+ * 'rc1_operation_frozen:unknown_surface' the moment the mapping is null -- before the freeze-state
+ * check. A table can therefore carry the authoritative-mutation trigger and still be permanently
+ * unwritable by every caller in every freeze state. 20260807120000 shipped exactly that for
+ * public.report_artifacts, and nothing caught it because every other suite uses database doubles.
+ * The structural assertion below is derived from pg_trigger, so it fails for ANY future migration
+ * that attaches the trigger to an unmapped relation, not just this one.
+ */
+async function proveFreezeSurfaceMappingInvariant() {
+  // 1. Structural invariant, derived rather than restated.
+  const unmappedTriggeredRelations = async () => {
+    const rows = await query(`
+      select n.nspname as schema_name, c.relname as table_name,
+             public.rc1_surface_for_relation(n.nspname, c.relname) as surface
+      from pg_catalog.pg_trigger t
+      join pg_catalog.pg_class c on c.oid = t.tgrelid
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where t.tgname = 'trg_rc1_operation_freeze' and not t.tgisinternal
+      order by 1, 2
+    `);
+    assert(rows.length > 0, 'expected freeze-triggered relations to exist');
+    return rows.filter((row) => row.surface === null)
+      .map((row) => `${row.schema_name}.${row.table_name}`);
+  };
+  const unmapped = await unmappedTriggeredRelations();
+  assert(
+    unmapped.length === 0,
+    `every relation carrying trg_rc1_operation_freeze must map to a surface; unmapped: ${unmapped.join(', ')}`,
+  );
+
+  // 2. The corrected mapping, and 3. representative existing mappings left untouched.
+  const expected = {
+    'public.report_artifacts': 'generation',
+    'public.reports': 'generation',
+    'public.report_events': 'generation',
+    'public.report_fulfilments': 'generation',
+    'public.report_generation_runs': 'generation',
+    'public.orders': 'order_create',
+    'public.order_events': 'payment_status',
+    'public.customer_report_access_tokens': 'customer_token',
+    'public.email_events': 'delivery',
+    'public.app_settings': 'activation_control',
+    'storage.objects': 'storage_cleanup',
+  };
+  for (const [relation, surface] of Object.entries(expected)) {
+    const [schema, table] = relation.split('.');
+    const [row] = await query('select public.rc1_surface_for_relation($1,$2) as surface', [schema, table]);
+    assert(row.surface === surface, `${relation} must map to ${surface}, got ${row.surface}`);
+  }
+  const [unknownRow] = await query(
+    "select public.rc1_surface_for_relation('public','definitely_not_a_real_relation') as surface");
+  assert(unknownRow.surface === null, 'an unmapped relation must still resolve to null');
+
+  // 4. RELEASED permits the authorised report_artifacts path (through the RPC, not a raw insert).
+  const [report] = await query(
+    "select id from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
+  assert(report, 'expected the protected synthetic report fixture');
+  const artefactArgs = [
+    report.id, 'supporting_register', 'generated-reports',
+    'rc1/synthetic/RC1-SYNTHETIC-REPORT-001-supporting-register.xlsx',
+    'RC1-SYNTHETIC-REPORT-001-supporting-register.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    94054, 'a'.repeat(64),
+  ];
+  // complete_report_secondary_artefact() is service-role only; this connection carries a different
+  // claim, so present the service-role claim for the authorised calls and restore it afterwards.
+  const [{ claims: priorClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const asServiceRole = async (action) => {
+    await db.query("select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', false)");
+    try { return await action(); }
+    finally { await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorClaims ?? '']); }
+  };
+  const callArtefact = () => asServiceRole(() => db.query(
+    'select public.complete_report_secondary_artefact($1,$2,$3,$4,$5,$6,$7,$8) as result', artefactArgs));
+
+  // This suite reaches here with the freeze engaged, so drive both states explicitly and restore
+  // whatever was in place before.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  const setReleased = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  const setFrozen = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='FROZEN', freeze_epoch=greatest(freeze_epoch, 1), activated_at=now(),
+        activated_by_fingerprint=repeat('a',64), activation_reason_fingerprint=repeat('b',64),
+        released_at=null, released_by_fingerprint=null, release_reason_fingerprint=null,
+        release_evidence_fingerprint=null, active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+
+  try {
+  await setReleased();
+  const created = await callArtefact();
+  assert(
+    created.rows[0].result.created === true,
+    'RELEASED generation must permit the authorised report_artifacts mutation path',
+  );
+
+  // 5. Identical replay stays idempotent rather than creating a second artefact.
+  const replayed = await callArtefact();
+  assert(replayed.rows[0].result.created === false, 'identical artefact replay must be idempotent');
+  const [{ count: artefactCount }] = await query(
+    'select count(*)::int as count from public.report_artifacts where report_id=$1', [report.id]);
+  assert(artefactCount === 1, `expected exactly one artefact row, got ${artefactCount}`);
+
+  // 6. FROZEN generation still blocks it -- and blocks it as a freeze decision, not as an
+  //    unmapped-surface accident.
+  await setFrozen();
+  let frozenError = null;
+  try {
+    await db.query('delete from public.report_artifacts where report_id=$1', [report.id]);
+  } catch (error) {
+    frozenError = String(error.message ?? error);
+  }
+  await setReleased();
+  assert(frozenError !== null, 'FROZEN generation must block report_artifacts mutation');
+  assert(
+    frozenError.includes('rc1_operation_frozen:generation'),
+    `FROZEN must block on the generation surface, got: ${frozenError}`,
+  );
+  assert(
+    !frozenError.includes('unknown_surface'),
+    'FROZEN must block as a freeze decision, not as an unmapped surface',
+  );
+
+  // Clean up the synthetic artefact now that generation is released again.
+  await db.query('delete from public.report_artifacts where report_id=$1', [report.id]);
+  const [{ count: remaining }] = await query('select count(*)::int as count from public.report_artifacts');
+  assert(remaining === 0, 'synthetic artefact rows must be cleaned up');
+
+  // 7. An unmapped relation carrying the trigger still fails closed.
+  await db.query('create table if not exists public.rc1_probe_unmapped_relation(id int primary key)');
+  await db.query(`
+    create trigger trg_rc1_operation_freeze
+      before insert or update or delete on public.rc1_probe_unmapped_relation
+      for each row execute function public.rc1_guard_authoritative_mutation()
+  `);
+  let probeError = null;
+  try {
+    await db.query('insert into public.rc1_probe_unmapped_relation(id) values (1)');
+  } catch (error) {
+    probeError = String(error.message ?? error);
+  }
+  // Negative control: with the probe relation in place, the SAME invariant used above must now
+  // report it. Without this the invariant could pass vacuously.
+  const unmappedWithProbe = await unmappedTriggeredRelations();
+  await db.query('drop table public.rc1_probe_unmapped_relation');
+  const unmappedAfterDrop = await unmappedTriggeredRelations();
+  assert(probeError !== null && probeError.includes('unknown_surface'),
+    `an unmapped triggered relation must fail closed, got: ${probeError}`);
+  assert(unmappedWithProbe.includes('public.rc1_probe_unmapped_relation'),
+    'the invariant must flag a triggered relation that has no surface mapping');
+  assert(unmappedAfterDrop.length === 0,
+    'the invariant must return clean once the unmapped relation is removed');
+
+  // 8. The corrective migration is replay-safe: applying it again is a no-op that still passes its
+  //    own embedded invariant.
+  const correctiveSql = migrationFile('20260808090000_rc1_report_artifacts_freeze_surface.sql');
+  await db.query(correctiveSql);
+  await db.query(correctiveSql);
+  const [replaySurface] = await query(
+    "select public.rc1_surface_for_relation('public','report_artifacts') as surface");
+  assert(replaySurface.surface === 'generation', 'mapping must survive migration replay');
+  } finally {
+    await restoreFreeze();
+  }
 }
 
 async function proveFrozenCertificationControlPlane() {
@@ -1860,6 +2054,7 @@ try {
 
   await proveFrozenCertificationControlPlane();
   await proveNearRealTimeAutomaticFulfilment();
+  await proveFreezeSurfaceMappingInvariant();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});
