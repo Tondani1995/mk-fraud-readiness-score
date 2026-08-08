@@ -897,6 +897,9 @@ await asyncTest('P1B-10. committed transaction with a lost response preserves bo
   assert.equal(result, null, 'P1B-10: the caller still surfaces the transport error');
   assert.equal(removedPaths(calls).length, 0,
     'P1B-10: a committed transaction must never have its artefacts deleted');
+  assert.equal(calls.rpc.filter((c) => c.name === 'fail_manual_report_generation').length, 0,
+    'P1B-10: a committed attempt must never be downgraded by a failure RPC');
+  assert.equal(finaliseCalls(calls).length, 1, 'P1B-10: no duplicate finalisation');
 });
 
 await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes nothing', async () => {
@@ -910,6 +913,12 @@ await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes 
   assert.equal(removedPaths(calls).length, 0,
     'P1B-11: uncertainty must retain both private orphan candidates rather than delete them');
   assert.equal(finaliseCalls(calls).length, 1, 'P1B-11: exactly one finalisation attempt, no retry');
+  // The database may already hold a committed REPORT_READY transaction the client cannot read, so
+  // no mutation may assume a rollback that was never established.
+  assert.equal(calls.rpc.filter((c) => c.name === 'fail_manual_report_generation').length, 0,
+    'P1B-11: failure state must not be persisted on an unproven rollback');
+  assert.equal(calls.rpc.filter((c) => c.name === 'complete_report_secondary_artefact').length, 0,
+    'P1B-11: no second artefact completion');
 });
 
 

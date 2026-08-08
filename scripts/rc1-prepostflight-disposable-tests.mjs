@@ -958,6 +958,162 @@ async function proveBootstrapEnforcement() {
  * phase14_ai_result_status_invalid, the attempt stayed 'started', and the diagnostic was destroyed.
  * These tests run the real RPC against a real database.
  */
+/**
+ * P1-B database proof: finalise_manual_report_with_supporting_register() is genuinely atomic.
+ *
+ * The caller-level doubles prove the orchestration never supersedes outside the RPC. This proves the
+ * transaction itself: the report INSERT succeeds inside the function, then a REAL constraint failure
+ * on the report_artifacts INSERT must roll the whole thing back -- no new report, no supersede, no
+ * artefact, attempt still pre-final. No constraint is weakened to manufacture the failure; the
+ * checksum-format check on report_artifacts does the work.
+ */
+async function proveAtomicFinalisationRollback(adminId) {
+  // NOT YET WIRED IN -- fixture question outstanding, NOT a product defect found.
+  //
+  // The report INSERT now executes and collides on reports_one_current_assessment_type_uidx,
+  // because the RPC inserts the new report BEFORE superseding the previous one -- exactly the
+  // ordering the accepted complete_manual_report_generation() uses, and which demonstrably works on
+  // Staging (V1 -> V2 -> V3 -> V4 all succeeded through it). So the collision is a property of this
+  // disposable fixture, not of the new RPC: the synthetic report is 'generated' for the same
+  // assessment/type the proof targets.
+  //
+  // Before wiring this in, establish WHY Staging tolerates insert-then-supersede: inspect whether
+  // reports_one_current_assessment_type_uidx is DEFERRABLE, or whether its predicate excludes the
+  // states involved. If it is deferrable the fixture is simply missing that, and the proof stands as
+  // written. If it is NOT deferrable, that is a genuine ordering question for BOTH RPCs and must be
+  // raised rather than worked around in a fixture.
+  const orderId = '00000000-0000-0000-0000-00000000e001';
+  const attemptId = '00000000-0000-0000-0000-0000000fb001';
+  const [order] = await query('select assessment_id from public.orders where id=$1', [orderId]);
+  const [template] = await query('select id from public.report_templates limit 1');
+  const [previous] = await query(
+    "select id,version_number,status from public.reports where order_id=$1 and status not in ('superseded','voided') order by version_number desc limit 1",
+    [orderId]);
+  assert(previous, 'expected an existing current report for the synthetic order');
+
+  const seedAttempt = (version) => withTriggerBypass(() => db.query(`
+    insert into public.manual_report_generation_attempts(
+      id,request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+    values ($1,gen_random_uuid(),'P1B-DB-'||gen_random_uuid(),$2,$3,'admin_generate',$4,'REPORT_GENERATING','synthetic')
+    on conflict (id) do update set status='REPORT_GENERATING',output_report_id=null,report_version=$3
+  `, [attemptId, orderId, version, adminId]));
+
+  const pdfPath = `org/${orderId}/v${previous.version_number + 1}/P1B-DB.pdf`;
+  const xlsxPath = `org/${orderId}/v${previous.version_number + 1}/P1B-DB-supporting-register.xlsx`;
+  const call = (registerChecksum) => db.query(
+    `select public.finalise_manual_report_with_supporting_register(
+       $1,$2,'essential_self_assessment','generated-reports',$3,'P1B-DB.pdf','application/pdf',1234,$4,
+       $5,'P1B-DB-supporting-register.xlsx',
+       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',5678,$6) as r`,
+    [attemptId, template.id, pdfPath, 'a'.repeat(64), xlsxPath, registerChecksum]);
+
+  const counts = async () => {
+    const [r] = await query(`select
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artefacts,
+      (select status from public.reports where id=$2) as previous_status,
+      (select status from public.manual_report_generation_attempts where id=$3) as attempt_status,
+      (select output_report_id from public.manual_report_generation_attempts where id=$3) as output_report_id`,
+      [orderId, previous.id, attemptId]);
+    return r;
+  };
+
+  // reports / report_artifacts sit on the frozen 'generation' surface; the RPC under test always
+  // runs with triggers live, so the freeze STATE is driven rather than bypassed, and restored after.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+
+  // The RPC takes score_run_id from assessments.current_score_run_id (exactly as the accepted
+  // complete_manual_report_generation does). The synthetic assessment does not set it, so the
+  // fixture supplies it and restores the prior value afterwards.
+  const [assessmentBefore] = await query(
+    'select current_score_run_id from public.assessments where id=$1', [order.assessment_id]);
+  await withTriggerBypass(() => db.query(`
+    update public.assessments set current_score_run_id =
+      (select sr.id from public.score_runs sr where sr.assessment_id=$1 limit 1)
+    where id=$1`, [order.assessment_id]));
+
+  try {
+  await seedAttempt(previous.version_number + 1);
+  const before = await counts();
+
+  // Force the artefact INSERT to fail on a real constraint: report_artifacts_checksum_chk requires
+  // 64 lowercase hex. The report INSERT above it succeeds first, so this is exactly the
+  // "report inserted, artefact insert fails" case.
+  let rolledBack = null;
+  try {
+    await call('NOT-A-VALID-SHA256');
+    rolledBack = false;
+  } catch (error) {
+    rolledBack = String(error.message ?? error);
+  }
+  assert(rolledBack && rolledBack !== false, 'the invalid register checksum must abort the transaction');
+
+  const after = await counts();
+  assert(after.reports === before.reports, `rollback must leave no new report (${before.reports} -> ${after.reports})`);
+  assert(after.artefacts === before.artefacts, 'rollback must leave no artefact row');
+  assert(after.previous_status === before.previous_status,
+    `previous report must not be superseded by a failed replacement (${before.previous_status} -> ${after.previous_status})`);
+  assert(after.previous_status !== 'superseded', 'previous report must still be current');
+  assert(after.attempt_status === 'REPORT_GENERATING', 'attempt must remain pre-final');
+  assert(after.output_report_id === null, 'output_report_id must remain unset');
+
+  // Now the success transaction, same fixture, valid register checksum.
+  const [{ r: success }] = await query(
+    `select public.finalise_manual_report_with_supporting_register(
+       $1,$2,'essential_self_assessment','generated-reports',$3,'P1B-DB.pdf','application/pdf',1234,$4,
+       $5,'P1B-DB-supporting-register.xlsx',
+       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',5678,$6) as r`,
+    [attemptId, template.id, pdfPath, 'a'.repeat(64), xlsxPath, 'b'.repeat(64)]);
+  const committed = await counts();
+  assert(committed.reports === before.reports + 1, 'success must create exactly one new report');
+  assert(committed.artefacts === before.artefacts + 1, 'success must create exactly one artefact');
+  assert(committed.previous_status === 'superseded', 'the previous report must be superseded exactly once');
+  assert(committed.attempt_status === 'REPORT_READY', 'attempt must become REPORT_READY');
+  assert(committed.output_report_id === success.report.id, 'output_report_id must bind the new report');
+  assert(success.report.supersedes_report_id === previous.id, 'supersedes lineage must point at the previous report');
+  assert(success.report.version_number === previous.version_number + 1, 'version must increment by one');
+  assert(success.supporting_register.storage_status === 'VERIFIED', 'the register must be VERIFIED');
+  assert(success.supporting_register.report_id === success.report.id, 'the register must bind the new report');
+
+  // Restore: remove only what this proof created.
+  await withTriggerBypass(async () => {
+    await db.query('delete from public.report_artifacts where report_id=$1', [success.report.id]);
+    await db.query('delete from public.report_events where report_id=$1', [success.report.id]);
+    await db.query('delete from public.reports where id=$1', [success.report.id]);
+    await db.query("update public.reports set status=$2 where id=$1", [previous.id, previous.status]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [attemptId]);
+  });
+  } finally {
+    await withTriggerBypass(() => db.query(
+      'update public.assessments set current_score_run_id=$2 where id=$1',
+      [order.assessment_id, assessmentBefore?.current_score_run_id ?? null]));
+    await restoreFreeze();
+  }
+}
+
 async function proveManualAiSettlementParity(adminId) {
   // The seed satisfies both real constraints: exactly one parent
   // (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual binding.

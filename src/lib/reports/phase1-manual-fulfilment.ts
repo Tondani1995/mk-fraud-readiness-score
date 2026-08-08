@@ -759,17 +759,21 @@ export async function generateManualPhase1Report(
         console.info('phase1_generation_storage_cleanup', cleanupLog);
       }
     }
-    // Never downgrade an attempt the database has already committed as REPORT_READY. Persisting a
-    // failure over it would corrupt a completed paid generation on the strength of a lost response.
-    if (finalisationOutcome === 'committed') {
-      console.error('phase1_finalisation_committed_despite_transport_error', {
+    // Failure state may only be persisted when non-commit is POSITIVELY proven. 'committed' would
+    // corrupt a completed paid generation; 'uncertain' would assert a rollback that was never
+    // established -- the database may already hold a committed REPORT_READY transaction the client
+    // simply cannot read. Both cases emit reconciliation-required evidence instead of mutating.
+    if (finalisationOutcome === 'not_committed') {
+      await recordFailure(db, attemptId, mapped.reason, mapped.message);
+    } else {
+      console.error('phase1_finalisation_reconciliation_required', {
         technicalReference,
         attemptId,
+        outcome: finalisationOutcome,
         failureSuppressed: true,
+        artefactsRetained: true,
         reason: mapped.reason
       });
-    } else {
-      await recordFailure(db, attemptId, mapped.reason, mapped.message);
     }
     console.error('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
