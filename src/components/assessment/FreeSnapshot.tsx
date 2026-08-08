@@ -82,9 +82,16 @@ export function FreeSnapshotCard({
   const [enquiryState, setEnquiryState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [enquiryMessage, setEnquiryMessage] = useState('');
   const [enquiryConfirmation, setEnquiryConfirmation] = useState<EnquiryConfirmation | null>(null);
+  const reportRevealRef = useRef<HTMLDivElement>(null);
 
   const defaultFocus = useMemo(() => defaultFocusAreasForInsights(commercialInsights), [commercialInsights]);
   const [areasOfFocus, setAreasOfFocus] = useState<string[]>(defaultFocus);
+
+  useEffect(() => {
+    if (!selectedOption) return;
+    const frame = window.requestAnimationFrame(() => reportRevealRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedOption]);
 
   async function emitCommercialEvent(eventType: string, optionCode?: CommercialOptionCode | null, sourceSection = 'free_snapshot') {
     const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
@@ -199,7 +206,8 @@ export function FreeSnapshotCard({
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <section className="grid gap-4 md:grid-cols-5" aria-label="Snapshot metrics">
+          <section className="grid gap-4 md:grid-cols-5" aria-labelledby="snapshot-metrics-heading">
+            <h2 id="snapshot-metrics-heading" className="sr-only">Readiness metrics</h2>
             <Metric label="Overall readiness score" value={snapshot.overallScore === null ? 'Not issued' : `${formatScore(snapshot.overallScore)}/100`} supporting={snapshot.overallScore === null ? 'More visibility is needed' : 'Persisted score result'} />
             <Metric label="Final maturity level" value={snapshot.finalMaturity ?? 'Not issued'} supporting={snapshot.finalMaturity === null ? 'No band is issued' : 'Based on submitted answers'} />
             <Metric label="Coverage status" value={`${formatScore(snapshot.coveragePct)}%`} supporting={snapshot.adaptiveMetrics ? `${formatScore(snapshot.adaptiveMetrics.unknownSharePct)}% uncertainty` : `${formatScore(snapshot.nARatePct)}% not applicable`} />
@@ -208,8 +216,8 @@ export function FreeSnapshotCard({
           </section>
 
           {snapshot.adaptiveMetrics ? (
-            <section className="rounded-2xl border border-mk-brass/30 bg-mk-brass/10 p-5 text-sm leading-6 text-mk-ink" aria-label="Assessment scope">
-              <p className="font-semibold">Assessment scope and visibility</p>
+            <section className="rounded-2xl border border-mk-brass/30 bg-mk-brass/10 p-5 text-sm leading-6 text-mk-ink" aria-labelledby="assessment-scope-heading">
+              <h2 id="assessment-scope-heading" className="text-lg font-semibold text-mk-ink">Assessment scope and visibility</h2>
               <p className="mt-2">{snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY' ? 'Your assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. The result below explains the areas that could be assessed, the information gaps identified and the evidence needed to complete a reliable view.' : 'This result reflects the control areas that were applicable to your organisation, including any areas assessed through oversight responses.'}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <ScopeMetric label="Applicable controls" value={`${snapshot.adaptiveMetrics.applicableCount} (${snapshot.adaptiveMetrics.applicableWeight} weight)`} />
@@ -223,16 +231,17 @@ export function FreeSnapshotCard({
             </section>
           ) : null}
 
-          <section className="grid gap-3 md:grid-cols-4" aria-label="Assessment trust facts">
+          <section className="grid gap-3 md:grid-cols-4" aria-labelledby="assessment-trust-heading">
+            <h2 id="assessment-trust-heading" className="sr-only">Assessment trust facts</h2>
             {['68 controlled questions', '10 fraud-readiness domains', ...(showExposure ? ['Exposure profile included'] : []), 'Deterministic scoring'].map((item) => (
               <div key={item} className="rounded-xl border border-mk-line bg-mk-cream/50 p-3 text-sm font-semibold text-mk-ink">{item}</div>
             ))}
           </section>
 
-          <div className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted">
-            <p className="font-semibold text-mk-ink">Concise readiness interpretation</p>
+          <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="concise-interpretation-heading">
+            <h2 id="concise-interpretation-heading" className="font-semibold text-mk-ink">Concise readiness interpretation</h2>
             <p className="mt-2">{commercialInsights.conciseInterpretation}</p>
-          </div>
+          </section>
 
           {commercialInsights.criticalGapIndicator ? (
             <div className="rounded-2xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
@@ -245,6 +254,7 @@ export function FreeSnapshotCard({
 
           <TrackedSection snapshot={snapshot} snapshotUrl={snapshotUrl} eventType="executive_summary_viewed" sourceSection="executive_summary" id="executive-summary" className="rounded-2xl border border-mk-line bg-white p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Executive interpretation</p>
+            <h2 className="sr-only">Executive interpretation</h2>
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
               <InterpretationBlock title="Current position" body={commercialInsights.currentPosition} />
               <InterpretationBlock title="Risk implication" body={commercialInsights.riskImplication} />
@@ -263,9 +273,9 @@ export function FreeSnapshotCard({
             <InsightList title="Foundations you can build on" insights={commercialInsights.strengths} empty="Important context" footer={commercialInsights.strengthContext} />
           </section>
 
-          <section className="rounded-2xl border border-mk-line bg-white p-5">
+          <section className="rounded-2xl border border-mk-line bg-white p-5" aria-labelledby="free-snapshot-heading">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Free readiness snapshot</p>
-            <h3 className="mt-2 text-xl font-semibold text-mk-ink">Your snapshot identifies the position. The detailed report explains what to do next.</h3>
+            <h2 id="free-snapshot-heading" className="mt-2 text-xl font-semibold text-mk-ink">Your snapshot identifies the position. The detailed report explains what to do next.</h2>
             <p className="mt-2 text-sm leading-6 text-mk-muted">
               The free result gives you a high-level view of your organisation&apos;s readiness. The detailed report converts that result into a structured management response.
             </p>
@@ -279,7 +289,7 @@ export function FreeSnapshotCard({
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Report options</p>
-                <h3 className="mt-2 text-xl font-semibold text-mk-ink">Choose the level of support your organisation needs</h3>
+                <h2 id="report-options-heading" className="mt-2 text-xl font-semibold text-mk-ink">Choose the level of support your organisation needs</h2>
               </div>
               <Badge>MK quality review</Badge>
             </div>
@@ -326,8 +336,9 @@ export function FreeSnapshotCard({
               />
             </div>
 
+            {selectedOption ? <div ref={reportRevealRef} tabIndex={-1} role="region" aria-live="polite" aria-labelledby="report-options-heading" className="mt-5 rounded-2xl border border-mk-line bg-white p-5 focus:outline-none focus:ring-2 focus:ring-mk-brass focus:ring-offset-2">
             {selectedOption === COMMERCIAL_OPTION_CODES.fullReport ? (
-              <div className="mt-5 rounded-2xl border border-mk-line bg-white p-5">
+              <div>
                 {orderConfirmation ? (
                   <OrderConfirmationPanel order={orderConfirmation} />
                 ) : (
@@ -347,10 +358,11 @@ export function FreeSnapshotCard({
                 onSubmit={submitPersonalisedEnquiry}
               />
             ) : null}
+            </div> : null}
           </TrackedSection>
 
-          <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted">
-            <p className="font-semibold text-mk-ink">How MK protects the integrity of your result</p>
+          <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="integrity-heading">
+            <h2 id="integrity-heading" className="font-semibold text-mk-ink">How MK protects the integrity of your result</h2>
             <p className="mt-2">
               Your readiness score is calculated using a controlled, deterministic methodology. Paid reports are prepared from persisted assessment results and are subject to MK quality review before release.
             </p>
@@ -387,7 +399,7 @@ function TrackedSection({ snapshot, snapshotUrl, eventType, sourceSection, id, c
     if (sent || !ref.current || !('IntersectionObserver' in window)) return;
     const node = ref.current;
     const observer = new IntersectionObserver((entries) => {
-      const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio > 0);
       if (!visible) return;
       setSent(true);
       const snapshotToken = snapshotTokenFromUrl(snapshotUrl);
@@ -397,7 +409,7 @@ function TrackedSection({ snapshot, snapshotUrl, eventType, sourceSection, id, c
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshotToken, eventType, sourceSection })
       }).catch(() => null);
-    }, { threshold: [0.5] });
+    }, { threshold: [0, 0.25], rootMargin: '0px 0px -10% 0px' });
     observer.observe(node);
     return () => observer.disconnect();
   }, [eventType, sent, snapshot.assessmentReference, snapshotUrl, sourceSection]);
@@ -595,7 +607,7 @@ function OptionCard({ selected, badge, title, price, description, bullets, deliv
       <div className="flex items-start justify-between gap-3">
         <div>
           <Badge>{badge}</Badge>
-          <p className="mt-3 text-lg font-semibold text-mk-ink">{title}</p>
+          <h3 className="mt-3 text-lg font-semibold text-mk-ink">{title}</h3>
           <p className="mt-1 text-2xl font-semibold text-mk-brassDark">{price}</p>
         </div>
         {selected ? <Badge>Selected</Badge> : null}
@@ -614,7 +626,7 @@ function OptionCard({ selected, badge, title, price, description, bullets, deliv
 function ValueList({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4">
-      <p className="font-semibold text-mk-ink">{title}</p>
+      <h3 className="font-semibold text-mk-ink">{title}</h3>
       <ul className="mt-3 space-y-2 text-sm leading-6 text-mk-muted">
         {items.map((item) => <li key={item}>- {item}</li>)}
       </ul>
@@ -625,16 +637,17 @@ function ValueList({ title, items }: { title: string; items: string[] }) {
 function InterpretationBlock({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-xl border border-mk-line bg-mk-cream/40 p-4">
-      <p className="font-semibold text-mk-ink">{title}</p>
+      <h3 className="font-semibold text-mk-ink">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-mk-muted">{body}</p>
     </div>
   );
 }
 
 function InsightList({ title, insights, empty, footer }: { title: string; insights: CommercialDomainInsight[]; empty: string; footer?: string }) {
+  const headingId = `snapshot-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <div className="rounded-2xl border border-mk-line bg-white p-5">
-      <p className="font-semibold text-mk-ink">{title}</p>
+    <section className="rounded-2xl border border-mk-line bg-white p-5" aria-labelledby={headingId}>
+      <h2 id={headingId} className="font-semibold text-mk-ink">{title}</h2>
       <div className="mt-4 space-y-3">
         {insights.length ? insights.map((insight) => (
           <div key={insight.domainCode || insight.domainName} className="rounded-xl border border-mk-line bg-mk-cream/40 p-4 text-sm leading-6">
@@ -654,7 +667,7 @@ function InsightList({ title, insights, empty, footer }: { title: string; insigh
         )}
       </div>
       {footer && insights.length ? <p className="mt-4 text-sm leading-6 text-mk-muted">{footer}</p> : null}
-    </div>
+    </section>
   );
 }
 
