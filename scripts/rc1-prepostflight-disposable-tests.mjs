@@ -90,7 +90,8 @@ const pending = [
   '20260807140000_report_artefact_bucket_mime.sql',
   '20260808090000_rc1_report_artifacts_freeze_surface.sql',
   '20260808150000_manual_ai_structured_output_settlement_parity.sql',
-  '20260808160000_atomic_report_finalisation_with_register.sql'
+  '20260808160000_atomic_report_finalisation_with_register.sql',
+  '20260808170000_ai_attempt_timeout_contract_parity.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -984,9 +985,9 @@ async function proveManualAiSettlementParity(adminId) {
         requested_provider,requested_model,manual_generation_attempt_id,
         manual_order_id,manual_assessment_id,manual_score_run_id,input_size_bytes,estimated_input_tokens)
       values ('P1A-'||gen_random_uuid(),'generate',1,'P1A-'||gen_random_uuid(),'openai','openai/gpt-5.5',
-        -- 120000 not 240000: the 300s widening lives in the Staging-only 20260805200000, which this
-        -- Production-ledger replay excludes, so the baseline cap of 120000 applies here.
-        repeat('a',64),5000,1000000,120000,'started','openai','openai/gpt-5.5',$1,
+        -- 240000 is the runtime's real AI budget, representable now that 20260808170000 carries the
+        -- 1000..300000 contract into the Production-bound chain.
+        repeat('a',64),5000,1000000,240000,'started','openai','openai/gpt-5.5',$1,
         -- report_ai_attempts requires exactly one parent
         -- (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual
         -- binding, so fulfilment_id stays NULL and all four manual columns are populated from one
