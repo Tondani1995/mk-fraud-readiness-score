@@ -223,6 +223,68 @@ async function recordQualityDiagnostics(
   }
 }
 
+/**
+ * Authoritative resolution of an ambiguous finalisation.
+ *
+ * The atomic RPC may have COMMITTED even though the client saw an error: a lost response, an
+ * aborted connection or a timeout all produce a client-side failure over a transaction that
+ * succeeded. The local flag cannot distinguish those, so the database is asked instead.
+ *
+ * Returns 'committed' only on positive proof, 'not_committed' only on positive proof of absence,
+ * and 'uncertain' whenever the read itself cannot settle it. Uncertainty must never be collapsed
+ * into 'not_committed' -- that is what would delete artefacts backing a real paid report.
+ */
+async function resolveFinalisationOutcome(
+  db: any,
+  attemptId: string,
+  expected: { storageBucket: string; storagePath: string; checksum: string; registerStoragePath: string | null }
+): Promise<'committed' | 'not_committed' | 'uncertain'> {
+  try {
+    const { data: attempt, error: attemptError } = await db
+      .from('manual_report_generation_attempts')
+      .select('id,status,output_report_id')
+      .eq('id', attemptId)
+      .maybeSingle();
+    if (attemptError || !attempt) return 'uncertain';
+
+    if (attempt.status !== 'REPORT_READY' || !attempt.output_report_id) {
+      // Positive proof of absence requires the attempt to be BOTH pre-final and unbound. A bound
+      // attempt in an unexpected status is ambiguous, not absent.
+      if (attempt.output_report_id) return 'uncertain';
+      return 'not_committed';
+    }
+
+    const { data: report, error: reportError } = await db
+      .from('reports')
+      .select('id,storage_bucket,storage_path,checksum,status')
+      .eq('id', attempt.output_report_id)
+      .maybeSingle();
+    if (reportError || !report) return 'uncertain';
+    if (report.storage_bucket !== expected.storageBucket
+      || report.storage_path !== expected.storagePath
+      || report.checksum !== expected.checksum) {
+      // Bound to a different object than this attempt produced: not our commit, and not safe to
+      // treat as absence either.
+      return 'uncertain';
+    }
+
+    const { data: artefact, error: artefactError } = await db
+      .from('report_artifacts')
+      .select('storage_path,storage_status')
+      .eq('report_id', report.id)
+      .eq('artefact_type', 'supporting_register')
+      .maybeSingle();
+    if (artefactError) return 'uncertain';
+    if (!artefact || artefact.storage_status !== 'VERIFIED') return 'uncertain';
+    if (expected.registerStoragePath && artefact.storage_path !== expected.registerStoragePath) {
+      return 'uncertain';
+    }
+    return 'committed';
+  } catch {
+    return 'uncertain';
+  }
+}
+
 async function verifyPrivateObject(db: any, bucket: string, path: string, expectedChecksum: string, expectedSize: number) {
   const { data, error } = await db.storage.from(bucket).download(path);
   if (error || !data) {
@@ -346,8 +408,14 @@ export async function generateManualPhase1Report(
   // how a register failure came to delete the PDF of an already-completed report.
   let pdfUploaded = false;
   let registerUploaded = false;
+  // finalisationInvoked is the honest boundary. Once the atomic RPC has been dispatched, a
+  // transport error tells us the RESPONSE failed -- it does not tell us the transaction failed.
+  // Treating that as "not committed" and deleting the objects would recreate the original defect
+  // against a report that is already current.
+  let finalisationInvoked = false;
   let finalisationCommitted = false;
   let registerStoragePath: string | null = null;
+  let pdfChecksumForReconciliation: string | null = null;
   let generationStage = 'start_generation';
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
@@ -515,6 +583,7 @@ export async function generateManualPhase1Report(
 
     generationStage = 'store_pdf';
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
+    pdfChecksumForReconciliation = checksum;
     const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
     storageBucket = 'generated-reports';
@@ -561,6 +630,7 @@ export async function generateManualPhase1Report(
     // complete_manual_report_generation() -- that would reintroduce the ordering defect whenever the
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
+    finalisationInvoked = true;
     const { data: completed, error: completeError } = await db.rpc(
       'finalise_manual_report_with_supporting_register', {
       p_attempt_id: attemptId,
@@ -628,7 +698,29 @@ export async function generateManualPhase1Report(
     // Cleanup is only ever safe BEFORE the authoritative finalisation commits. After it, both the
     // PDF and the register are committed customer artefacts referenced by authoritative database
     // state, and no generation-failure path -- logging, audit, or anything else -- may delete them.
-    const cleanupCandidates: string[] = finalisationCommitted
+    //
+    // The hard case is an error raised AFTER the RPC was dispatched: that says the response failed,
+    // not that the transaction did. Ask the database rather than assume. Only positive proof of
+    // absence permits deletion; uncertainty deliberately leaks two private orphan candidates for
+    // later operator cleanup, which is far cheaper than deleting the artefacts behind a paid report.
+    let finalisationOutcome: 'committed' | 'not_committed' | 'uncertain' =
+      finalisationCommitted ? 'committed' : 'not_committed';
+    if (finalisationInvoked && !finalisationCommitted) {
+      finalisationOutcome = await resolveFinalisationOutcome(db, attemptId, {
+        storageBucket: storageBucket ?? '',
+        storagePath: storagePath ?? '',
+        checksum: pdfChecksumForReconciliation ?? '',
+        registerStoragePath: registerStoragePath
+      });
+      console.error('phase1_finalisation_ambiguous', {
+        technicalReference,
+        attemptId,
+        outcome: finalisationOutcome,
+        objectsRetained: finalisationOutcome !== 'not_committed'
+      });
+    }
+
+    const cleanupCandidates: string[] = finalisationOutcome !== 'not_committed'
       ? []
       : [
         ...(pdfUploaded && storagePath ? [storagePath] : []),
@@ -664,7 +756,18 @@ export async function generateManualPhase1Report(
         console.info('phase1_generation_storage_cleanup', cleanupLog);
       }
     }
-    await recordFailure(db, attemptId, mapped.reason, mapped.message);
+    // Never downgrade an attempt the database has already committed as REPORT_READY. Persisting a
+    // failure over it would corrupt a completed paid generation on the strength of a lost response.
+    if (finalisationOutcome === 'committed') {
+      console.error('phase1_finalisation_committed_despite_transport_error', {
+        technicalReference,
+        attemptId,
+        failureSuppressed: true,
+        reason: mapped.reason
+      });
+    } else {
+      await recordFailure(db, attemptId, mapped.reason, mapped.message);
+    }
     console.error('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,

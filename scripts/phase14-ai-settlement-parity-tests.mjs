@@ -183,8 +183,15 @@ test('the paid Essential path has no fallback to the old completion RPC', () => 
 test('cleanup can never delete a committed customer artefact', () => {
   const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
   assert.match(caller, /finalisationCommitted/, 'an explicit finalisation boundary is required');
-  assert.match(caller, /const cleanupCandidates: string\[\] = finalisationCommitted\s*\?\s*\[\]/,
-    'cleanup must select nothing once finalisation has committed');
+  assert.match(caller, /finalisationInvoked/, 'dispatch must be tracked separately from commit');
+  // Cleanup may only proceed on POSITIVE proof of non-commit. 'committed' and 'uncertain' both
+  // retain the objects: a lost response over a successful COMMIT must never delete the artefacts
+  // backing an already-current paid report.
+  assert.match(caller, /const cleanupCandidates: string\[\] = finalisationOutcome !== 'not_committed'\s*\n?\s*\?\s*\[\]/,
+    'cleanup must select nothing unless non-commit is positively proven');
+  assert.match(caller, /finalisationInvoked && !finalisationCommitted/,
+    'an error after dispatch must trigger authoritative reconciliation');
+  assert.match(caller, /resolveFinalisationOutcome\(/, 'reconciliation must read authoritative state');
   assert.match(caller, /pdfUploaded/, 'PDF upload state must be explicit');
   assert.match(caller, /registerUploaded/, 'register upload state must be explicit');
   assert.ok(!/\blet uploaded\b/.test(caller), 'the ambiguous single `uploaded` flag must be gone');
@@ -205,6 +212,39 @@ test('both physical artefacts are stored and verified before finalisation', () =
   assert.ok(helperStart > 0 && !helperBody.includes('complete_report_secondary_artefact'),
     'the store helper must not create the database artefact row');
   assert.ok(!helperBody.includes('.rpc('), 'the store helper must perform no database completion');
+});
+
+test('an ambiguous finalisation is reconciled against authoritative state, never assumed', () => {
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  const resolver = caller.slice(caller.indexOf('async function resolveFinalisationOutcome'),
+    caller.indexOf('async function verifyPrivateObject'));
+  assert.ok(resolver.length > 0, 'the reconciliation resolver must exist');
+  // It must read the attempt, the bound report and the register artefact.
+  for (const source of ['manual_report_generation_attempts', 'reports', 'report_artifacts']) {
+    assert.ok(resolver.includes(source), `reconciliation must inspect ${source}`);
+  }
+  assert.ok(resolver.includes("attempt.status !== 'REPORT_READY'"),
+    'reconciliation must key on REPORT_READY');
+  assert.ok(resolver.includes('output_report_id'), 'reconciliation must key on output_report_id');
+  assert.ok(resolver.includes("storage_status !== 'VERIFIED'"),
+    'a non-VERIFIED register must not count as a committed finalisation');
+  // Every failure path in the resolver returns 'uncertain', never 'not_committed'.
+  const uncertainReturns = (resolver.match(/return 'uncertain'/g) ?? []).length;
+  const notCommittedReturns = (resolver.match(/return 'not_committed'/g) ?? []).length;
+  assert.ok(uncertainReturns >= 5, 'unreadable state must resolve to uncertain, not absence');
+  assert.equal(notCommittedReturns, 1,
+    'only one positively-proven path may conclude the transaction did not commit');
+  assert.ok(resolver.includes('} catch {'), 'a thrown reconciliation must be uncertain, not absence');
+});
+
+test('a committed attempt is never downgraded by a transport error', () => {
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  assert.match(caller, /if \(finalisationOutcome === 'committed'\)[\s\S]{0,400}failureSuppressed/,
+    'fail_manual_report_generation must be suppressed when the attempt is already REPORT_READY');
+  const failCall = caller.indexOf('await recordFailure(db, attemptId, mapped.reason');
+  const guard = caller.lastIndexOf("finalisationOutcome === 'committed'", failCall);
+  assert.ok(guard > 0 && guard < failCall,
+    'the failure-persistence call must sit behind the committed guard');
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
