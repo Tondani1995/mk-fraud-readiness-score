@@ -45,11 +45,22 @@ function safeContentDisposition(fileName: string): string {
 }
 
 function errorPage(message: string, technicalReference: string, status: number) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character] ?? character);
   return new NextResponse(
-    `<!doctype html><html><body style="font-family:sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;">` +
-    `<h1>Report access</h1><p>${message}</p>` +
-    `<p style="color:#666;font-size:0.85rem;">Reference: ${technicalReference}</p>` +
-    `</body></html>`,
+    `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8">` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1">` +
+    `<title>Report access | MK Fraud Insights</title></head>` +
+    `<body style="font-family:sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;">` +
+    `<main id="report-access-error" tabindex="-1" aria-labelledby="report-access-title">` +
+    `<h1 id="report-access-title">Report access</h1><p>${escapeHtml(message)}</p>` +
+    `<p style="color:#666;font-size:0.85rem;">Reference: ${escapeHtml(technicalReference)}</p>` +
+    `</main></body></html>`,
     { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
   );
 }
