@@ -54,6 +54,71 @@ export interface SupportingRegisterPersistResult {
   rowCounts?: Record<string, number>;
 }
 
+export interface StoredSupportingRegister {
+  storagePath: string;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  checksumSha256: string;
+  rowCounts: Record<string, number>;
+}
+
+/**
+ * Build the register, publish it privately, and verify the STORED bytes -- without creating any
+ * database row.
+ *
+ * The artefact row is created inside finalise_manual_report_with_supporting_register(), in the same
+ * transaction as the report row. That ordering is the point: the previous design completed the
+ * report first and persisted the register afterwards, so a register failure left a VERIFIED,
+ * current report whose PDF the failure cleanup then deleted. Nothing here is customer-final; if the
+ * caller fails before finalisation commits, this object is a safe orphan that may be cleaned.
+ *
+ * Workbook construction, the eight sheets, complete L1 coverage, formula neutralisation, name/XML
+ * safety and actual-byte checksum integrity are unchanged -- this only separates persistence from
+ * database binding.
+ */
+export async function buildAndStoreSupportingRegister(input: {
+  db: any;
+  data: AssembledReportData;
+  model: AdvisoryEvidenceModel;
+  projection: EssentialProjection;
+  storageBucket: string;
+  organisationId: string;
+  orderId: string;
+  versionNumber: number;
+  verifyStoredObject: (
+    db: any, bucket: string, path: string, checksum: string, size: number
+  ) => Promise<void>;
+}): Promise<StoredSupportingRegister> {
+  const workbook = await buildSupportingRegisterWorkbook(input.data, input.model, input.projection);
+  const storagePath = `${input.organisationId}/${input.orderId}/v${input.versionNumber}/`
+    + `${workbook.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+
+  const { error: uploadError } = await input.db.storage
+    .from(input.storageBucket)
+    .upload(storagePath, workbook.bytes, {
+      contentType: workbook.mimeType,
+      upsert: false,
+      metadata: { sha256: workbook.checksumSha256 }
+    });
+  if (uploadError) throw new Error('supporting_register_upload_failed');
+
+  // Same verification the PDF gets: re-download and re-check checksum and size against the stored
+  // object, never against the in-memory bytes that produced it.
+  await input.verifyStoredObject(
+    input.db, input.storageBucket, storagePath, workbook.checksumSha256, workbook.bytes.length
+  );
+
+  return {
+    storagePath,
+    fileName: workbook.fileName,
+    mimeType: workbook.mimeType,
+    fileSizeBytes: workbook.bytes.length,
+    checksumSha256: workbook.checksumSha256,
+    rowCounts: workbook.rowCounts
+  };
+}
+
 export async function generateAndPersistSupportingRegister(input: {
   db: any;
   data: AssembledReportData;

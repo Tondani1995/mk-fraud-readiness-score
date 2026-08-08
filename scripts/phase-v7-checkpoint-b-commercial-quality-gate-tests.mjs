@@ -280,7 +280,7 @@ function createRecordingDb(overrides = {}) {
     },
     fail_manual_report_generation: { data: { ok: true }, error: null },
     record_manual_report_narrative_provenance: { data: { ok: true }, error: null },
-    complete_manual_report_generation: {
+    finalise_manual_report_with_supporting_register: {
       data: {
         report: { id: 'report-1', report_reference: 'RPT-TEST-2026-CPB-PASSING', version_number: 1 },
         superseded_report_id: null
@@ -614,7 +614,7 @@ await asyncTest('C1-C8,C14. Quality failure: no storage upload/verification/comp
 
   assert.equal(calls.storageUpload.length, 0, 'No storage upload may occur on a quality failure.'); // C1
   assert.equal(calls.storageDownload.length, 0, 'No storage verification may occur on a quality failure.'); // C2
-  const completeCalls = calls.rpc.filter((c) => c.name === 'complete_manual_report_generation');
+  const completeCalls = calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register');
   assert.equal(completeCalls.length, 0, 'The completion RPC must never be called on a quality failure.'); // C3/C4/C5/C6
   const failCalls = calls.rpc.filter((c) => c.name === 'fail_manual_report_generation');
   assert.equal(failCalls.length, 1, 'The failure RPC must be called exactly once.'); // C7
@@ -645,6 +645,8 @@ await asyncTest('C10. output_report_id is never observed as set on a quality fai
     // expected
   }
   assert.equal(sawSuccessfulResult, false);
+  assert.equal(calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register').length, 0);
+  // The old two-step completion must never reappear in the paid path.
   assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0);
 });
 
@@ -716,7 +718,9 @@ await asyncTest('C13. Warnings-only output continues through the normal generati
   assert.equal(calls.storageDownload.filter((c) => c.path.endsWith('.xlsx')).length, 1);
   assert.ok([...pdfUploads, ...registerUploads].every((c) => c.bucket === 'generated-reports'));
   assert.notEqual(pdfUploads[0].path, registerUploads[0].path);
-  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 1);
+  assert.equal(calls.rpc.filter((c) => c.name === 'finalise_manual_report_with_supporting_register').length, 1);
+  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0,
+    'the paid path must not call the old completion RPC');
   assert.equal(calls.rpc.filter((c) => c.name === 'fail_manual_report_generation').length, 0);
 });
 

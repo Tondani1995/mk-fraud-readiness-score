@@ -6,7 +6,7 @@ import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
 import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
-import { generateAndPersistSupportingRegister } from './supporting-register-delivery';
+import { buildAndStoreSupportingRegister } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import type { ContentBlock } from './types';
@@ -341,7 +341,13 @@ export async function generateManualPhase1Report(
   let assembled: Awaited<ReturnType<typeof assembleReportData>> | undefined;
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
-  let uploaded = false;
+  // Explicit physical/authoritative state. The old single `uploaded` boolean could not distinguish
+  // "objects exist but nothing is committed" from "the report is customer-final", which is exactly
+  // how a register failure came to delete the PDF of an already-completed report.
+  let pdfUploaded = false;
+  let registerUploaded = false;
+  let finalisationCommitted = false;
+  let registerStoragePath: string | null = null;
   let generationStage = 'start_generation';
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
@@ -523,12 +529,40 @@ export async function generateManualPhase1Report(
     if (uploadError) {
       throw new Phase1GenerationError('storage_upload_failed', 'The PDF could not be stored in private report storage.', 500, technicalReference);
     }
-    uploaded = true;
+    pdfUploaded = true;
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
     logPremiumReportPhase({ phase: 'storage_publication_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
 
-    generationStage = 'complete_generation';
-    const { data: completed, error: completeError } = await db.rpc('complete_manual_report_generation', {
+    // Both physical artefacts must exist and be verified before anything becomes customer-final.
+    generationStage = 'store_supporting_register';
+    const storedRegister = await buildAndStoreSupportingRegister({
+      db,
+      data: assembled,
+      model: advisoryModel,
+      projection: essentialProjection,
+      storageBucket,
+      organisationId: assembled.organisationId,
+      orderId: assembled.orderId,
+      versionNumber,
+      verifyStoredObject: verifyPrivateObject
+    });
+    registerUploaded = true;
+    registerStoragePath = storedRegister.storagePath;
+    console.info('supporting_register', {
+      technicalReference,
+      status: 'stored',
+      fileSizeBytes: storedRegister.fileSizeBytes
+    });
+
+    // ONE authoritative completion boundary. The report row, its VERIFIED supporting-register row,
+    // the supersede of the previous current report and the REPORT_READY transition all happen in a
+    // single database transaction: if any of them fails, none of them happened and the previous
+    // version simply remains current. There is deliberately NO fallback to
+    // complete_manual_report_generation() -- that would reintroduce the ordering defect whenever the
+    // migration is absent or misapplied, so a missing contract must fail closed.
+    generationStage = 'finalise_generation';
+    const { data: completed, error: completeError } = await db.rpc(
+      'finalise_manual_report_with_supporting_register', {
       p_attempt_id: attemptId,
       p_template_id: template.id,
       p_report_type: reportType,
@@ -537,7 +571,12 @@ export async function generateManualPhase1Report(
       p_file_name: fileName,
       p_mime_type: 'application/pdf',
       p_file_size_bytes: pdf.length,
-      p_checksum: checksum
+      p_checksum: checksum,
+      p_register_storage_path: storedRegister.storagePath,
+      p_register_file_name: storedRegister.fileName,
+      p_register_mime_type: storedRegister.mimeType,
+      p_register_file_size_bytes: storedRegister.fileSizeBytes,
+      p_register_checksum: storedRegister.checksumSha256
     });
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
@@ -555,44 +594,12 @@ export async function generateManualPhase1Report(
       });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
-    // min-M8: the L3 supporting register is generated from authoritative L1, checksum-verified and
-    // bound to the parent report. Before the accepted migration is applied the capability degrades
-    // narrowly (see supporting-register-delivery.ts); every other path is unchanged.
-    generationStage = 'persist_supporting_register';
-    try {
-      const register = await generateAndPersistSupportingRegister({
-        db,
-        data: assembled,
-        model: advisoryModel,
-        projection: essentialProjection,
-        reportId: completed.report.id,
-        storageBucket,
-        organisationId: assembled.organisationId,
-        orderId: assembled.orderId,
-        versionNumber,
-        verifyStoredObject: verifyPrivateObject
-      });
-      console.info('supporting_register', {
-        technicalReference,
-        reportId: completed.report.id,
-        status: register.status,
-        fileSizeBytes: register.fileSizeBytes ?? null
-      });
-    } catch (registerError) {
-      console.error('supporting_register', {
-        technicalReference,
-        reportId: completed.report.id,
-        outcome: 'failed',
-        errorCategory: messageOf(registerError)
-      });
-      throw new Phase1GenerationError(
-        'report_persistence_failed',
-        'The supporting register could not be produced and verified for this report.',
-        500,
-        technicalReference
-      );
-    }
-
+    // Committed. From here the PDF and the register are customer artefacts and generation-failure
+    // cleanup must never delete either of them.
+    finalisationCommitted = true;
+    // The supporting register was built, stored, verified and bound inside the atomic finalisation
+    // above. There is deliberately no separate post-completion register step any more: that
+    // ordering is what allowed a completed report to lose its PDF when the register failed.
     logPremiumReportPhase({ phase: 'report_finalised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: completed.report.report_reference });
 
     console.info('phase1_manual_generation', {
@@ -618,7 +625,16 @@ export async function generateManualPhase1Report(
     const mapped = error instanceof Phase1GenerationError
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
       : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
-    if (uploaded && storageBucket && storagePath) {
+    // Cleanup is only ever safe BEFORE the authoritative finalisation commits. After it, both the
+    // PDF and the register are committed customer artefacts referenced by authoritative database
+    // state, and no generation-failure path -- logging, audit, or anything else -- may delete them.
+    const cleanupCandidates: string[] = finalisationCommitted
+      ? []
+      : [
+        ...(pdfUploaded && storagePath ? [storagePath] : []),
+        ...(registerUploaded && registerStoragePath ? [registerStoragePath] : [])
+      ];
+    if (cleanupCandidates.length > 0 && storageBucket) {
       // M9: this is the Phase 1 (manual, synchronous) generation path's cleanup of an
       // orphaned upload after a downstream failure -- distinct from the Phase 14 premium
       // report engine's durable phase14_storage_cleanup_queue (which already persists
@@ -630,8 +646,8 @@ export async function generateManualPhase1Report(
       // without the log itself exposing the path. Phase 1's generation flow is
       // synchronous and single-attempt (there is no background retry of this cleanup
       // step), so retryCount is always 0 here; that is accurately reported, not omitted.
-      const storagePathReference = crypto.createHash('sha256').update(`${storageBucket}:${storagePath}`).digest('hex').slice(0, 16);
-      const { error: cleanupError } = await db.storage.from(storageBucket).remove([storagePath]);
+      const storagePathReference = crypto.createHash('sha256').update(`${storageBucket}:${cleanupCandidates.join('|')}`).digest('hex').slice(0, 16);
+      const { error: cleanupError } = await db.storage.from(storageBucket).remove(cleanupCandidates);
       const cleanupLog = {
         technicalReference,
         attemptId,

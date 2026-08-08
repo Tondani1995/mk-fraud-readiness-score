@@ -162,5 +162,50 @@ test('durable-ai-attempts still forwards the diagnostic status into settlement',
   assert.match(durable, /status/, 'the durable wrapper must forward a status');
 });
 
+test('the paid Essential path has no fallback to the old completion RPC', () => {
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  // A missing atomic-finalisation contract must fail closed. Falling back to
+  // complete_manual_report_generation() would reinstate the ordering defect that let a completed,
+  // VERIFIED report lose its PDF when the supporting register failed.
+  assert.ok(!caller.includes("rpc('complete_manual_report_generation'"),
+    'the paid path must not call the old completion RPC');
+  assert.ok(!caller.includes("rpc('complete_report_secondary_artefact'"),
+    'the paid path must not complete the artefact separately after the report');
+  assert.ok(caller.includes("'finalise_manual_report_with_supporting_register'"),
+    'the paid path must complete through the atomic finalisation RPC');
+  // No absence-detection fallback around the finalisation call.
+  for (const marker of ['PGRST202', '42883', 'isFinalisationAbsent', 'finalisation_absent']) {
+    assert.ok(!caller.includes(marker),
+      `the paid path must not branch on finalisation-RPC absence (${marker})`);
+  }
+});
+
+test('cleanup can never delete a committed customer artefact', () => {
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  assert.match(caller, /finalisationCommitted/, 'an explicit finalisation boundary is required');
+  assert.match(caller, /const cleanupCandidates: string\[\] = finalisationCommitted\s*\?\s*\[\]/,
+    'cleanup must select nothing once finalisation has committed');
+  assert.match(caller, /pdfUploaded/, 'PDF upload state must be explicit');
+  assert.match(caller, /registerUploaded/, 'register upload state must be explicit');
+  assert.ok(!/\blet uploaded\b/.test(caller), 'the ambiguous single `uploaded` flag must be gone');
+});
+
+test('both physical artefacts are stored and verified before finalisation', () => {
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  const storeRegister = caller.indexOf('buildAndStoreSupportingRegister');
+  const finalise = caller.indexOf("'finalise_manual_report_with_supporting_register'");
+  assert.ok(storeRegister > 0 && finalise > storeRegister,
+    'the register must be stored and verified before the finalisation call');
+  const register = read('src/lib/reports/supporting-register-delivery.ts');
+  assert.match(register, /verifyStoredObject\(/, 'stored register bytes must be verified');
+  // Scope to the new helper's own body: the legacy generateAndPersistSupportingRegister() still
+  // exists below it and legitimately calls the completion RPC for the non-paid capability path.
+  const helperStart = register.indexOf('export async function buildAndStoreSupportingRegister');
+  const helperBody = register.slice(helperStart, register.indexOf('export async function', helperStart + 10));
+  assert.ok(helperStart > 0 && !helperBody.includes('complete_report_secondary_artefact'),
+    'the store helper must not create the database artefact row');
+  assert.ok(!helperBody.includes('.rpc('), 'the store helper must perform no database completion');
+});
+
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length > 0) process.exit(1);
