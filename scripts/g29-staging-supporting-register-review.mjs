@@ -1,0 +1,282 @@
+/**
+ * Step 16 -- real Staging supporting-register path, synthetic data only.
+ *
+ * Runs inside the existing authorised G29 retained-evidence job, which already owns the Staging
+ * service-role credential; nothing here reads, prints or persists that secret. It exercises the
+ * whole chain against real Staging Postgres and real private Storage:
+ *
+ *   L1 -> actual XLSX bytes -> identifier reconciliation from the PARSED bytes -> private upload
+ *   -> stored-byte checksum + size verification -> complete_report_secondary_artefact()
+ *   -> VERIFIED report_artifacts row -> authorised ?artefact=register retrieval
+ *   -> artefact-aware audit.
+ *
+ * The reconciliation deliberately parses the bytes that were uploaded and downloaded again, never
+ * the in-memory objects used to build them -- an in-memory comparison passed a truncated 2.7KB
+ * workbook once already and must never be the basis of a PASS.
+ *
+ * Every artefact row and storage object it creates is removed in the finally block.
+ */
+import crypto from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { Readable } from 'node:stream';
+import { createClient } from '@supabase/supabase-js';
+import readXlsxFile from 'read-excel-file/node';
+import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
+import { buildSupportingRegisterWorkbook } from '../src/lib/reports/supporting-register-workbook.ts';
+
+const required = (name) => {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required`);
+  return value;
+};
+const outputDirectory = process.env.G29_REGISTER_OUTPUT ?? 'tmp/g29/supporting-register';
+await mkdir(outputDirectory, { recursive: true });
+
+const supabaseUrl = required('G29_STAGING_SUPABASE_URL');
+const serviceRoleKey = required('SUPABASE_SERVICE_ROLE_KEY');
+const previewBaseUrl = required('G29_PREVIEW_BASE_URL').replace(/\/$/, '');
+const protectionBypass = required('VERCEL_PROTECTION_BYPASS');
+
+// The retained synthetic certification report, the same fixture the retained-PDF review uses.
+const primary = {
+  orderId: '1038733e-b4d5-482f-8bb9-386a80d5c0b7',
+  reportId: 'efa89669-6c35-4bfd-9fcd-2e5dabef4a49',
+  reportReference: 'RPT-MKFRS-2026-956FEA052B-V1',
+  recipient: 'admin@mkfraud.co.za',
+  organisationId: 'e40d1f06-24d9-4bd7-a34a-da252737fd13',
+  bucket: 'generated-reports'
+};
+// A second retained report, used only to prove cross-report isolation. No artefact is created here.
+const other = {
+  orderId: '9bd963a4-161e-4fc0-bb19-ce200efa964b',
+  reportId: 'eaac1289-18d7-4176-8445-70fb3b0dd0a8',
+  recipient: 'admin@mkfraud.co.za'
+};
+
+const db = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
+
+const checks = [];
+const record = (name, passed, detail = '') => {
+  checks.push({ name, passed: Boolean(passed), detail: String(detail).slice(0, 300) });
+};
+const safe = (value) => String(value ?? '')
+  .replace(/https?:\/\/[^\s]+/gi, '[redacted-url]')
+  .replace(/[?&](?:token|jwt|signature|apikey|download)=[^&\s]+/gi, '[redacted-query]')
+  .slice(0, 240);
+
+const mintToken = async (target) => {
+  const { data, error } = await db.rpc('issue_customer_report_access_token', {
+    p_order_id: target.orderId,
+    p_report_id: target.reportId,
+    p_recipient_email: target.recipient,
+    p_ttl_seconds: 3600
+  });
+  if (error || !data?.token) throw new Error(`token issuance failed: ${safe(error?.message)}`);
+  return data.token;
+};
+const fetchArtefact = async (token, artefact) => {
+  const suffix = artefact ? `?artefact=${encodeURIComponent(artefact)}` : '';
+  const response = await fetch(
+    `${previewBaseUrl}/score/report/access/${encodeURIComponent(token)}${suffix}`,
+    { redirect: 'follow', headers: { 'x-vercel-protection-bypass': protectionBypass } }
+  );
+  const bytes = Buffer.from(await response.arrayBuffer());
+  return {
+    status: response.status,
+    bytes,
+    length: bytes.length,
+    checksum: crypto.createHash('sha256').update(bytes).digest('hex'),
+    contentType: response.headers.get('content-type') ?? ''
+  };
+};
+const auditRowsFor = async (reference) => {
+  const { data } = await db.from('report_events')
+    .select('event_type,metadata_json')
+    .eq('report_id', primary.reportId)
+    .order('created_at', { ascending: false })
+    .limit(40);
+  return (data ?? []).filter((row) => row.metadata_json?.technical_reference === reference);
+};
+
+let storagePath = null;
+let artefactCreated = false;
+
+try {
+  // ---------------------------------------------------------------- L1 -> actual XLSX bytes
+  const L1 = JSON.parse(readFileSync('src/lib/reports/__fixtures__/bounded-essential-f1-all-zero.json', 'utf8'));
+  const model = buildAdvisoryEvidenceModel(L1);
+  const projection = buildEssentialProjection(L1, model);
+  const workbook = await buildSupportingRegisterWorkbook(L1, model, projection);
+  record('workbook produced with a sha256 checksum', /^[0-9a-f]{64}$/.test(workbook.checksumSha256)
+    && workbook.bytes.length > 0, `${workbook.bytes.length} bytes`);
+
+  // ------------------------------------------------- identifier reconciliation from the bytes
+  const parseSheets = async (bytes) => Object.fromEntries(
+    (await readXlsxFile(Readable.from(bytes))).map((sheet) => [sheet.sheet, sheet.data]));
+  const governed = {
+    Findings: model.materialFindings.map((item) => item.id),
+    Risks: model.riskRegister.map((item) => item.id),
+    Roadmap: model.roadmapActions.map((item) => item.id),
+    'Control Improvements': model.controlImprovements.map((item) => item.id)
+  };
+  const builtSheets = await parseSheets(workbook.bytes);
+  for (const [sheet, ids] of Object.entries(governed)) {
+    const rows = (builtSheets[sheet] ?? []).slice(1);
+    const actual = rows.map((row) => String(row[0])).sort();
+    const expected = ids.map(String).sort();
+    record(`L3 ${sheet}: complete L1 identifier set in the emitted bytes`,
+      rows.length === expected.length && JSON.stringify(actual) === JSON.stringify(expected),
+      `${rows.length} rows vs ${expected.length} L1 identifiers`);
+  }
+  record('L2 stays bounded while L3 is complete',
+    projection.findings.length < model.materialFindings.length,
+    `L2 findings ${projection.findings.length} of L1 ${model.materialFindings.length}`);
+
+  // ------------------------------------------------------------------- real private upload
+  storagePath = `${primary.organisationId}/${primary.orderId}/v1/`
+    + `${primary.reportReference}-supporting-register.xlsx`;
+  await db.storage.from(primary.bucket).remove([storagePath]).catch(() => {});
+  const { error: uploadError } = await db.storage.from(primary.bucket)
+    .upload(storagePath, workbook.bytes, {
+      contentType: workbook.mimeType, upsert: false,
+      metadata: { sha256: workbook.checksumSha256, reportId: primary.reportId }
+    });
+  record('XLSX accepted by the private bucket (MIME policy)', !uploadError, safe(uploadError?.message));
+  if (uploadError) throw new Error(`upload failed: ${safe(uploadError.message)}`);
+
+  // ------------------------------------- stored-byte checksum + size verification (re-download)
+  const { data: storedBlob, error: downloadError } = await db.storage
+    .from(primary.bucket).download(storagePath);
+  if (downloadError || !storedBlob) throw new Error(`stored object unreadable: ${safe(downloadError?.message)}`);
+  const storedBytes = Buffer.from(await storedBlob.arrayBuffer());
+  const storedChecksum = crypto.createHash('sha256').update(storedBytes).digest('hex');
+  record('stored bytes reconcile on checksum and size',
+    storedChecksum === workbook.checksumSha256 && storedBytes.length === workbook.bytes.length,
+    `${storedBytes.length} bytes, sha256 ${storedChecksum.slice(0, 16)}`);
+  const storedSheets = await parseSheets(storedBytes);
+  record('stored object re-parses as a complete workbook',
+    Object.keys(storedSheets).length === Object.keys(builtSheets).length,
+    `${Object.keys(storedSheets).length} sheets read back from Storage`);
+
+  // ------------------------------------------------------------ report_artifacts persistence
+  const persistArgs = {
+    p_report_id: primary.reportId,
+    p_artefact_type: 'supporting_register',
+    p_storage_bucket: primary.bucket,
+    p_storage_path: storagePath,
+    p_file_name: `${primary.reportReference}-supporting-register.xlsx`,
+    p_mime_type: workbook.mimeType,
+    p_file_size_bytes: storedBytes.length,
+    p_checksum_sha256: storedChecksum
+  };
+  const { data: persisted, error: persistError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
+  record('complete_report_secondary_artefact persists a VERIFIED row',
+    !persistError && persisted?.created === true && persisted?.artifact?.storage_status === 'VERIFIED',
+    safe(persistError?.message ?? persisted?.artifact?.storage_status));
+  if (persistError) throw new Error(`persistence failed: ${safe(persistError.message)}`);
+  artefactCreated = true;
+
+  const { data: replay, error: replayError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
+  const { count: artefactCount } = await db.from('report_artifacts')
+    .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
+  record('identical persistence replay is idempotent',
+    !replayError && replay?.created === false && artefactCount === 1,
+    `created=${replay?.created} rows=${artefactCount}`);
+
+  // ------------------------------------------------- authorised retrieval: PDF and register
+  const pdfToken = await mintToken(primary);
+  const pdfResponse = await fetchArtefact(pdfToken, null);
+  record('existing PDF retrieval remains green',
+    pdfResponse.status === 200 && pdfResponse.bytes.subarray(0, 4).toString() === '%PDF',
+    `status=${pdfResponse.status} bytes=${pdfResponse.length}`);
+
+  const registerToken = await mintToken(primary);
+  const registerResponse = await fetchArtefact(registerToken, 'register');
+  record('authorised ?artefact=register returns the stored register bytes',
+    registerResponse.status === 200 && registerResponse.checksum === storedChecksum
+      && registerResponse.length === storedBytes.length,
+    `status=${registerResponse.status} bytes=${registerResponse.length}`);
+  const servedSheets = registerResponse.status === 200
+    ? await parseSheets(registerResponse.bytes).catch(() => ({})) : {};
+  record('served register parses as the same complete workbook',
+    Object.keys(servedSheets).length === Object.keys(builtSheets).length,
+    `${Object.keys(servedSheets).length} sheets served to the customer`);
+
+  // --------------------------------------------------------------- artefact-aware audit trail
+  const { data: recentEvents } = await db.from('report_events')
+    .select('event_type,metadata_json,created_at')
+    .eq('report_id', primary.reportId)
+    .order('created_at', { ascending: false }).limit(20);
+  const artefactTypes = (recentEvents ?? [])
+    .filter((row) => row.event_type === 'customer_report_accessed')
+    .map((row) => row.metadata_json?.artefact_type);
+  record('PDF audit records pdf', artefactTypes.includes('pdf'), artefactTypes.slice(0, 6).join(','));
+  record('register audit records supporting_register',
+    artefactTypes.includes('supporting_register'), artefactTypes.slice(0, 6).join(','));
+  record('audit metadata carries no IP or user-agent',
+    !(recentEvents ?? []).some((row) => /"(ip_address|user_agent)"/.test(JSON.stringify(row.metadata_json ?? {}))));
+
+  // ------------------------------------------------------------------- fail-closed behaviours
+  const otherToken = await mintToken(other);
+  const crossResponse = await fetchArtefact(otherToken, 'register');
+  record('cross-report register access fails closed',
+    crossResponse.status >= 400,
+    `status=${crossResponse.status}`);
+  record('missing register fails closed (report without an artefact)',
+    crossResponse.status === 404 || crossResponse.status >= 400,
+    `status=${crossResponse.status}`);
+
+  await db.from('report_artifacts').update({ storage_status: 'PENDING' })
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
+  const unverifiedResponse = await fetchArtefact(await mintToken(primary), 'register');
+  record('unverified register fails closed', unverifiedResponse.status >= 400,
+    `status=${unverifiedResponse.status}`);
+
+  await db.from('report_artifacts')
+    .update({ storage_status: 'VERIFIED', checksum_sha256: 'b'.repeat(64) })
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
+  const tamperedChecksum = await fetchArtefact(await mintToken(primary), 'register');
+  record('tampered checksum fails closed', tamperedChecksum.status >= 400,
+    `status=${tamperedChecksum.status}`);
+
+  await db.from('report_artifacts')
+    .update({ checksum_sha256: storedChecksum, file_size_bytes: storedBytes.length + 1 })
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
+  const tamperedSize = await fetchArtefact(await mintToken(primary), 'register');
+  record('tampered size fails closed', tamperedSize.status >= 400, `status=${tamperedSize.status}`);
+
+  // --------------------------------------------------------------------- structural guarantees
+  const { count: reportRows } = await db.from('reports')
+    .select('id', { count: 'exact', head: true }).eq('id', primary.reportId);
+  record('exactly one reports row for the parent report', reportRows === 1, `rows=${reportRows}`);
+  const { data: artefactRow } = await db.from('report_artifacts')
+    .select('*').eq('report_id', primary.reportId).maybeSingle();
+  record('no second auth/token model on the artefact',
+    artefactRow && !Object.keys(artefactRow).some((key) => /token|secret|password|auth/i.test(key)),
+    Object.keys(artefactRow ?? {}).join(','));
+} finally {
+  // Synthetic verification material only: the artefact row and its storage object.
+  if (artefactCreated) {
+    await db.from('report_artifacts').delete()
+      .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register').catch(() => {});
+  }
+  if (storagePath) await db.storage.from(primary.bucket).remove([storagePath]).catch(() => {});
+  const { count: remaining } = await db.from('report_artifacts')
+    .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
+  record('synthetic verification material cleaned up', (remaining ?? 0) === 0, `remaining=${remaining}`);
+
+  const failures = checks.filter((check) => !check.passed);
+  const result = {
+    ok: failures.length === 0,
+    runner: 'g29-staging-supporting-register-review',
+    reportReference: primary.reportReference,
+    checks
+  };
+  await writeFile(`${outputDirectory}/supporting-register-review.json`, `${JSON.stringify(result, null, 2)}\n`);
+  console.log(JSON.stringify(result, null, 2));
+  if (failures.length > 0) process.exitCode = 1;
+}

@@ -384,11 +384,21 @@ jobs:
         run: command -v pdfinfo && command -v pdftoppm && command -v pdftotext
       - name: Download and review retained PDF
         run: node scripts/g29-retained-pdf-review.mjs
+      - name: Review the Staging supporting-register path end to end
+        env:
+          G29_REGISTER_OUTPUT: tmp/g29/supporting-register
+        run: npm run g29:review-staging-supporting-register
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: g29-retained-pdf-review
           path: tmp/g29/retained-pdf
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g29-supporting-register-review
+          path: tmp/g29/supporting-register
           if-no-files-found: warn
 
   merge:
