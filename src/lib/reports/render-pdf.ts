@@ -1,3 +1,5 @@
+import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+
 let browserPromise: Promise<any> | null = null;
 
 // Tracks consecutive render failures across renderer instances (i.e. across HTTP invocations
@@ -17,6 +19,49 @@ export const DEFAULT_PDF_RENDER_TIMEOUT_MS = 30_000;
 function resolvePdfRenderTimeoutMs(): number {
   const configured = Number(process.env.PDF_RENDER_TIMEOUT_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PDF_RENDER_TIMEOUT_MS;
+}
+
+function documentTitleFromHtml(html: string): string {
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? 'MK Fraud Insights report';
+  return title
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+    .slice(0, 240) || 'MK Fraud Insights report';
+}
+
+/**
+ * Chromium is launched with tagged-PDF and document-outline generation enabled. These metadata
+ * fields are safe post-processing of the existing PDF bytes; deliberately do not manufacture a
+ * structure tree because the renderer must own the tag relationships.
+ */
+async function addPdfAccessibilityMetadata(pdfBytes: Buffer, html: string): Promise<Buffer> {
+  try {
+    const pdf = await PDFDocument.load(pdfBytes);
+    const title = documentTitleFromHtml(html);
+    pdf.setTitle(title, { showInWindowTitleBar: true });
+    pdf.setAuthor('MK Fraud Insights');
+    pdf.setSubject('Fraud readiness advisory report');
+    pdf.setKeywords(['fraud readiness', 'MK Fraud Insights', 'advisory report']);
+    pdf.setCreator('MK Fraud Insights');
+    pdf.setProducer('MK Fraud Insights PDF renderer');
+    pdf.catalog.set(PDFName.of('Lang'), PDFString.of('en-ZA'));
+    if (!pdf.catalog.has(PDFName.of('StructTreeRoot'))) {
+      console.warn('pdf_accessibility_tagged_structure_unavailable', {
+        message: 'Chromium did not retain a tagged-PDF structure tree; metadata and source semantics remain available.'
+      });
+    }
+    return Buffer.from(await pdf.save({ useObjectStreams: false }));
+  } catch (error) {
+    console.warn('pdf_accessibility_metadata_postprocess_skipped', {
+      message: error instanceof Error ? error.message : String(error)
+    });
+    return pdfBytes;
+  }
 }
 
 /** Test-only hook: forces the next getBrowser() call to relaunch regardless of cached state. */
@@ -100,9 +145,10 @@ async function launchBrowser() {
   const chromium = normalizeChromiumModule(chromiumModule);
   const executablePath = await resolveChromiumExecutablePath(chromium);
   const localOverride = Boolean(process.env.PUPPETEER_EXECUTABLE_PATH?.trim());
+  const pdfAccessibilityArgs = ['--export-tagged-pdf', '--generate-pdf-document-outline'];
   const args = localOverride
-    ? puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: true })
-    : puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' });
+    ? puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
+    : puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
 
   return puppeteer.launch({
     args,
@@ -177,7 +223,7 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
       timeout: pdfRenderTimeoutMs
     });
     consecutiveRenderFailures = 0;
-    return Buffer.from(pdf as Parameters<typeof Buffer.from>[0]);
+    return addPdfAccessibilityMetadata(Buffer.from(pdf as Parameters<typeof Buffer.from>[0]), html);
   } catch (error) {
     // Never reuse a browser that failed to launch, open a page, load content, or render -- any of
     // these can indicate a crashed or hung renderer process. Discard the cached handle so the

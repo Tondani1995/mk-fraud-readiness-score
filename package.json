@@ -126,7 +126,9 @@
     "g29:review-staging-supporting-register": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g29-staging-supporting-register-review.mjs",
     "g29:test-verified-byte-delivery": "node scripts/g29-verified-byte-delivery-tests.mjs",
     "phase14:test-ai-settlement-parity": "node scripts/phase14-ai-settlement-parity-tests.mjs",
-    "rc1:test-replay-matrix-c": "node scripts/rc1-replay-matrix-c-tests.mjs"
+    "rc1:test-replay-matrix-c": "node scripts/rc1-replay-matrix-c-tests.mjs",
+    "g30:test-pdf-accessibility": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g30-pdf-accessibility-contract.mjs",
+    "g30:test-keyboard-a11y": "node scripts/g30-keyboard-a11y-check.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
