@@ -268,5 +268,43 @@ test('the atomic RPC supersedes the previous report before inserting the new one
     'the artefact must bind a report that already exists in the transaction');
 });
 
+test('P2: all three counter families use the atomic primitive, not read-then-write', () => {
+  const tokens = read('src/lib/respondent/tokens.ts');
+  const access = read('src/lib/reports/customer-report-access.ts');
+
+  // No reachable legacy security mutation on any of the three surfaces.
+  assert.ok(!tokens.includes('use_count: tokenRow.use_count + 1'),
+    'resume/snapshot must not increment use_count from a previously read row');
+  assert.ok(!access.includes('access_count: tokenRow.access_count + 1'),
+    'customer access must not increment access_count from a previously read row');
+
+  // Both token paths consume atomically, one per token type.
+  assert.ok(tokens.includes("consumeAssessmentTokenAtomically(\n      service, tokenHash, 'resume'")
+    || /consumeAssessmentTokenAtomically\([\s\S]{0,80}'resume'/.test(tokens),
+    'the resume path must consume atomically');
+  assert.ok(/consumeAssessmentTokenAtomically\([\s\S]{0,80}'snapshot'/.test(tokens),
+    'the snapshot path must consume atomically');
+  assert.ok(tokens.includes("rpc('consume_assessment_token'"),
+    'the atomic assessment-token RPC must be called');
+  assert.ok(access.includes("rpc('consume_customer_report_access_token'"),
+    'the atomic customer-access RPC must be called');
+
+  // The JS limit comparison may only serve the deliberately non-consuming validation path.
+  const limitChecks = tokens.match(/tokenRow\.use_count >= tokenRow\.max_uses/g) ?? [];
+  const guarded = tokens.match(/input\.consume === false && tokenRow\.use_count >= tokenRow\.max_uses/g) ?? [];
+  assert.equal(limitChecks.length, guarded.length,
+    'every remaining JS limit comparison must be gated to the non-consuming path');
+
+  // Fail closed: no fallback to the old path when the RPC errors.
+  assert.ok(tokens.includes('token_consumption_unavailable'),
+    'an unavailable consumer must deny, not grant');
+  assert.match(access, /if \(consumeError \|\| !consumed \|\| consumed\.ok !== true\)/,
+    'customer access must fail closed on any non-success consumption');
+
+  // Consumption must precede the first Storage read on the report path.
+  assert.ok(access.indexOf("consume_customer_report_access_token") < access.indexOf('.download('),
+    'the allowance must be consumed before any Storage read');
+});
+
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length > 0) process.exit(1);

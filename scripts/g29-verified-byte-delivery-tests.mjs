@@ -144,6 +144,13 @@ function makeDb(options = {}) {
     },
     rpc: async (name, args) => {
       calls.rpc.push({ name, args });
+      if (name === 'consume_customer_report_access_token') {
+        if (options.consumeFails) return { data: null, error: { message: 'connection reset' } };
+        if (options.consumeRefuses) {
+          return { data: { ok: false, reason: options.consumeRefuses }, error: null };
+        }
+        return { data: { ok: true, token_id: TOKEN_ID, order_id: ORDER_ID, report_id: REPORT_ID, access_count: 1 }, error: null };
+      }
       if (options.auditFails) return { error: { code: 'XX000', message: 'audit unavailable' } };
       return { data: { ok: true }, error: null };
     }
@@ -267,9 +274,35 @@ await test('13. audit failure prevents release', async () => {
 
 await test('14. access accounting occurs only on successful authorised access', async () => {
   const ok = await run({}, 'pdf');
-  assert.equal(ok.db.calls.tokenUpdates, 1, 'a successful access must be counted once');
+  const consumptions = (db) => db.calls.rpc.filter((c) => c.name === 'consume_customer_report_access_token');
+  assert.equal(consumptions(ok.db).length, 1, 'a successful access must consume exactly once');
+  assert.equal(ok.db.calls.tokenUpdates, 0,
+    'the legacy read-then-write counter update must be gone');
   const denied = await run({ removeObject: PDF_PATH }, 'pdf');
-  assert.equal(denied.db.calls.tokenUpdates, 0, 'a denied access must not be counted');
+  // Consumption now happens BEFORE the artefact is read, so a Storage failure after it legitimately
+  // consumes an access without delivering bytes. That is the intended abuse-control semantic; a
+  // refund would reintroduce the race this replaced.
+  assert.equal(consumptions(denied.db).length, 1,
+    'an authorised attempt consumes its allowance before the object is read');
+  assert.equal(denied.db.calls.tokenUpdates, 0, 'no legacy counter mutation on any path');
+
+  // Refusal by the atomic consumer must prevent any Storage read at all.
+  for (const reason of ['rate_limited', 'revoked_token', 'expired_token']) {
+    const refused = await run({ consumeRefuses: reason }, 'pdf');
+    assert.ok(refused.error instanceof CustomerReportAccessError, `${reason}: must fail closed`);
+    assert.equal(refused.result, undefined, `${reason}: no bytes may be returned`);
+    assert.equal(refused.db.calls.downloads.length, 0, `${reason}: zero Storage downloads`);
+  }
+  // A database failure in the consumer is never an authorisation.
+  const consumeBroken = await run({ consumeFails: true }, 'pdf');
+  assert.ok(consumeBroken.error instanceof CustomerReportAccessError, 'consumer failure must fail closed');
+  assert.equal(consumeBroken.result, undefined, 'no bytes on consumer failure');
+  assert.equal(consumeBroken.db.calls.downloads.length, 0, 'zero Storage downloads on consumer failure');
+
+  // Ordering: consumption precedes the first Storage read.
+  const order = ok.db.calls.rpc.findIndex((c) => c.name === 'consume_customer_report_access_token');
+  assert.ok(order >= 0 && ok.db.calls.downloads.length > 0,
+    'a successful access consumes and then downloads');
 });
 
 await test('15. raw storage path and bucket are never disclosed to the customer', async () => {

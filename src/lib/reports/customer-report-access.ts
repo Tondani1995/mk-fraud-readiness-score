@@ -150,9 +150,25 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
   // recorded against this token in the last hour. Uses the token's own access_count/updated_at
   // as a coarse guard rather than a new table -- sufficient for a possession-link model where
   // the realistic abuse case is a leaked link being hammered, not distributed credential stuffing.
-  if (tokenRow.access_count >= MAX_ACCESS_ATTEMPTS_PER_HOUR) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason: 'rate_limited', technicalReference, artefact: requestedArtefact });
-    throw new CustomerReportAccessError('rate_limited', 'Too many attempts. Try again later or contact support.', 429, technicalReference);
+  // The allowance decision is made atomically in the database, immediately before the first Storage
+  // read, so two concurrent requests cannot both spend the same remaining access. A JS comparison
+  // against a previously selected access_count could grant both.
+  const { data: consumed, error: consumeError } = await db.rpc('consume_customer_report_access_token', {
+    p_token_hash: tokenHash,
+    p_max_uses: MAX_ACCESS_ATTEMPTS_PER_HOUR
+  });
+  // Fail closed: a database or transport failure is never an authorisation, and no legacy counter
+  // path may take over.
+  if (consumeError || !consumed || consumed.ok !== true) {
+    const reason: CustomerAccessReason = consumed?.reason === 'revoked_token' ? 'revoked_token'
+      : consumed?.reason === 'expired_token' ? 'expired_token'
+      : consumed?.reason === 'invalid_token' ? 'invalid_token'
+      : 'rate_limited';
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason, technicalReference, artefact: requestedArtefact });
+    const message = reason === 'rate_limited'
+      ? 'Too many attempts. Try again later or contact support.'
+      : 'This link is no longer valid. Contact support for a new one.';
+    throw new CustomerReportAccessError(reason, message, reason === 'rate_limited' ? 429 : 410, technicalReference);
   }
 
   const { data: report, error: reportError } = await db
@@ -263,10 +279,9 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
 
   // Audit before release: recordAccess() throws on a failed success-audit, so an unauditable access
   // still yields no bytes. Access accounting stays on the successful-authorised path only.
-  await db.from('customer_report_access_tokens').update({
-    last_accessed_at: new Date().toISOString(),
-    access_count: tokenRow.access_count + 1
-  }).eq('id', tokenRow.id);
+  // No counter mutation here: the allowance was consumed atomically before the artefact was read.
+  // A later Storage or integrity failure therefore consumes an access without delivering bytes,
+  // which is correct for an abuse-control counter -- refunding would reintroduce a race.
 
   await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: requestedArtefact });
 
