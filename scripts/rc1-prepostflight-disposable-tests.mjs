@@ -91,7 +91,8 @@ const pending = [
   '20260808090000_rc1_report_artifacts_freeze_surface.sql',
   '20260808150000_manual_ai_structured_output_settlement_parity.sql',
   '20260808160000_atomic_report_finalisation_with_register.sql',
-  '20260808170000_ai_attempt_timeout_contract_parity.sql'
+  '20260808170000_ai_attempt_timeout_contract_parity.sql',
+  '20260808180000_atomic_access_token_consumption.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -967,6 +968,154 @@ async function proveBootstrapEnforcement() {
  * artefact, attempt still pre-final. No constraint is weakened to manufacture the failure; the
  * checksum-format check on report_artifacts does the work.
  */
+/**
+ * P2: the three access-token counters must be atomic under genuine concurrency.
+ *
+ * Every family previously did select use_count -> compare in JS -> update later, so two instances
+ * could observe the same pre-increment count and both consume the same remaining allowance. These
+ * fire real simultaneous statements (Promise.all over separate pooled connections is genuine
+ * concurrency in Postgres, not simulated) and require exact allowance accounting.
+ */
+async function proveAtomicTokenConsumption() {
+  // assessment_tokens and customer_report_access_tokens sit on frozen surfaces (assessment_write,
+  // customer_token). The consumption RPCs under test always run with triggers live, so the freeze
+  // STATE is driven and restored -- never bypassed.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  try {
+  const raceCount = async (attempts, fn) =>
+    (await Promise.all(Array.from({ length: attempts }, () => fn()))).map((r) => r.rows[0].r);
+
+  // ---------------------------------------------------------- assessment tokens (resume + snapshot)
+  const [assessment] = await query(
+    "select id from public.assessments order by created_at limit 1");
+  assert(assessment, 'expected a synthetic assessment fixture');
+
+  for (const tokenType of ['resume', 'snapshot']) {
+    const N = 3;
+    const K = 5;
+    const hash = `p2-${tokenType}-${Math.random().toString(16).slice(2)}`.padEnd(64, '0').slice(0, 64);
+    await withTriggerBypass(() => db.query(`
+      insert into public.assessment_tokens(assessment_id,token_type,token_hash,expires_at,max_uses,use_count)
+      values ($1,$2::public.assessment_token_type,$3, now() + interval '1 hour', $4, 0)`, [assessment.id, tokenType, hash, N]));
+
+    const results = await raceCount(N + K, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    const accepted = results.filter((r) => r.ok === true);
+    const refused = results.filter((r) => r.ok === false);
+    assert(accepted.length === N,
+      `${tokenType}: exactly ${N} of ${N + K} concurrent consumptions must succeed, saw ${accepted.length}`);
+    assert(refused.length === K, `${tokenType}: exactly ${K} must be refused, saw ${refused.length}`);
+    assert(refused.every((r) => r.reason === 'token_use_limit_reached'),
+      `${tokenType}: refusals must be limit-reached, saw ${[...new Set(refused.map((r) => r.reason))].join(',')}`);
+    // No lost update, no overrun: the durable counter equals accepted consumptions exactly.
+    const [{ use_count: durable }] = await query(
+      'select use_count from public.assessment_tokens where token_hash=$1', [hash]);
+    assert(durable === N, `${tokenType}: durable counter must equal ${N}, saw ${durable}`);
+    // Every accepted result reported a distinct use_count -- proof no two shared an allowance slot.
+    const slots = new Set(accepted.map((r) => r.use_count));
+    assert(slots.size === N, `${tokenType}: accepted consumptions must occupy distinct slots`);
+
+    // Last-use race: exactly one winner.
+    await withTriggerBypass(() => db.query(
+      'update public.assessment_tokens set use_count = max_uses - 1 where token_hash=$1', [hash]));
+    const lastUse = await raceCount(6, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(lastUse.filter((r) => r.ok === true).length === 1,
+      `${tokenType}: exactly one caller may take the final use`);
+
+    // An exhausted token cannot be revived by racing.
+    const revive = await raceCount(4, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(revive.every((r) => r.ok === false), `${tokenType}: exhausted token must stay exhausted`);
+
+    // Revocation and expiry are enforced inside the same statement.
+    await withTriggerBypass(() => db.query(
+      'update public.assessment_tokens set use_count=0, revoked_at=now() where token_hash=$1', [hash]));
+    const [revoked] = await raceCount(1, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(revoked.ok === false && revoked.reason === 'revoked_token',
+      `${tokenType}: revoked token must be refused, saw ${revoked.reason}`);
+    await withTriggerBypass(() => db.query(
+      "update public.assessment_tokens set revoked_at=null, expires_at=now() - interval '1 minute' where token_hash=$1", [hash]));
+    const [expired] = await raceCount(1, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(expired.ok === false && expired.reason === 'expired_token',
+      `${tokenType}: expired token must be refused, saw ${expired.reason}`);
+    // A refusal must never have consumed a use.
+    const [{ use_count: afterRefusals }] = await query(
+      'select use_count from public.assessment_tokens where token_hash=$1', [hash]);
+    assert(afterRefusals === 0, `${tokenType}: refusals must not consume an allowance`);
+
+    await withTriggerBypass(() => db.query(
+      'delete from public.assessment_tokens where token_hash=$1', [hash]));
+  }
+
+  // ------------------------------------------------------------- customer report access token
+  const [report] = await query(
+    "select id, order_id from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
+  assert(report, 'expected the protected synthetic report fixture');
+  const N = 4;
+  const K = 6;
+  const hash = `p2-customer-${Math.random().toString(16).slice(2)}`.padEnd(64, '0').slice(0, 64);
+  await withTriggerBypass(() => db.query(`
+    insert into public.customer_report_access_tokens(
+      order_id,report_id,token_hash,recipient_email,purpose,expires_at,access_count)
+    values ($1,$2,$3,'p2-synthetic@invalid.test','report_ready', now() + interval '1 hour', 0)`,
+    [report.order_id, report.id, hash]));
+
+  const results = await raceCount(N + K, () => db.query(
+    'select public.consume_customer_report_access_token($1,$2) as r', [hash, N]));
+  const accepted = results.filter((r) => r.ok === true);
+  assert(accepted.length === N,
+    `customer access: exactly ${N} of ${N + K} concurrent accesses must succeed, saw ${accepted.length}`);
+  assert(results.filter((r) => r.ok === false).every((r) => r.reason === 'rate_limited'),
+    'customer access: refusals must be rate-limited');
+  const [{ access_count: durable }] = await query(
+    'select access_count from public.customer_report_access_tokens where token_hash=$1', [hash]);
+  assert(durable === N, `customer access: durable counter must equal ${N}, saw ${durable}`);
+  assert(new Set(accepted.map((r) => r.access_count)).size === N,
+    'customer access: accepted accesses must occupy distinct slots');
+  // Bindings are returned so the caller can enforce them; they must be the token's own.
+  assert(accepted.every((r) => r.report_id === report.id && r.order_id === report.order_id),
+    'customer access: every accepted access must carry its own binding');
+
+  await withTriggerBypass(() => db.query(
+    'update public.customer_report_access_tokens set access_count = $2 - 1 where token_hash=$1', [hash, N]));
+  const lastUse = await raceCount(6, () => db.query(
+    'select public.consume_customer_report_access_token($1,$2) as r', [hash, N]));
+  assert(lastUse.filter((r) => r.ok === true).length === 1,
+    'customer access: exactly one caller may take the final allowance');
+
+  await withTriggerBypass(() => db.query(
+    'delete from public.customer_report_access_tokens where token_hash=$1', [hash]));
+  } finally {
+    await restoreFreeze();
+  }
+}
+
 async function proveAtomicFinalisationRollback(adminId) {
   // This proof found a real defect. An earlier draft of the RPC inserted the new report BEFORE
   // superseding the previous one, which collides with reports_one_current_assessment_type_uidx --
@@ -2427,6 +2576,7 @@ try {
   await proveFreezeSurfaceMappingInvariant();
   await proveManualAiSettlementParity(adminId);
   await proveAtomicFinalisationRollback(adminId);
+  await proveAtomicTokenConsumption();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});
