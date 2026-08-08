@@ -119,7 +119,12 @@ test('the migration carries its own apply-time and replay-time parity assertion'
   const sql = read(MANUAL_SQL);
   assert.match(sql, /manual_ai_settlement_missing_status/);
   assert.match(sql, /manual_ai_settlement_does_not_persist_structured_output_diagnostics/);
-  assert.match(sql, /autonomous_ai_settlement_does_not_persist_structured_output_diagnostics/);
+  // Deliberately scoped to the manual function: the autonomous upgrade lives in the Staging-only
+  // 20260806143000, excluded from the Production ledger, so asserting it in a Production-bound
+  // migration would fail on environments that legitimately lack it. File-level parity is asserted
+  // above instead, which is environment-independent.
+  assert.doesNotMatch(sql, /autonomous_ai_settlement_missing_status/,
+    'the migration must not assert against a Staging-only function upgrade');
 });
 
 test('durable-ai-attempts still forwards the diagnostic status into settlement', () => {

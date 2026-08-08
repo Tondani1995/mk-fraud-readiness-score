@@ -91,13 +91,16 @@ begin
 end;
 $$;
 
--- Apply-time and replay-time parity assertion: the two settlement functions must accept the same
--- structured-output terminal statuses and must both persist the diagnostics. This is the drift the
--- V4 run paid for, and it must not be able to reopen silently.
+-- Apply-time and replay-time assertion, scoped to what THIS migration controls.
+--
+-- It deliberately does not assert against settle_phase14_ai_attempt(): that function's
+-- structured-output upgrade lives in 20260806143000, which is Staging-only and excluded from the
+-- Production ledger, so a cross-function assertion here would fail on any environment that
+-- legitimately does not carry it. Cross-contract parity is asserted at file level instead, in
+-- phase14:test-ai-settlement-parity, where it is environment-independent.
 do $$
 declare
   v_manual text := pg_catalog.pg_get_functiondef('public.settle_manual_report_ai_attempt(uuid,jsonb)'::regprocedure);
-  v_auto   text := pg_catalog.pg_get_functiondef('public.settle_phase14_ai_attempt(uuid,uuid,jsonb)'::regprocedure);
   v_status text;
 begin
   foreach v_status in array array[
@@ -105,19 +108,13 @@ begin
     'structured_output_schema_failed', 'structured_output_json_invalid',
     'failed_before_provider', 'provider_result_uncertain', 'reconciliation_required'
   ] loop
-    if pg_catalog.position(v_status in v_manual) = 0 then
+    if pg_catalog.strpos(v_manual, v_status) = 0 then
       raise exception 'manual_ai_settlement_missing_status: %', v_status;
-    end if;
-    if pg_catalog.position(v_status in v_auto) = 0 then
-      raise exception 'autonomous_ai_settlement_missing_status: %', v_status;
     end if;
   end loop;
 
-  if pg_catalog.position('structured_output_diagnostics = p_result->''structured_output_diagnostics''' in v_manual) = 0 then
+  if pg_catalog.strpos(v_manual, 'structured_output_diagnostics = p_result->''structured_output_diagnostics''') = 0 then
     raise exception 'manual_ai_settlement_does_not_persist_structured_output_diagnostics';
-  end if;
-  if pg_catalog.position('structured_output_diagnostics = p_result->''structured_output_diagnostics''' in v_auto) = 0 then
-    raise exception 'autonomous_ai_settlement_does_not_persist_structured_output_diagnostics';
   end if;
 end;
 $$;

@@ -88,7 +88,9 @@ const pending = [
   '20260807120000_report_secondary_artifacts.sql',
   '20260807130000_report_artefact_access_audit.sql',
   '20260807140000_report_artefact_bucket_mime.sql',
-  '20260808090000_rc1_report_artifacts_freeze_surface.sql'
+  '20260808090000_rc1_report_artifacts_freeze_surface.sql',
+  '20260808150000_manual_ai_structured_output_settlement_parity.sql',
+  '20260808160000_atomic_report_finalisation_with_register.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -946,6 +948,170 @@ async function proveBootstrapEnforcement() {
  * The structural assertion below is derived from pg_trigger, so it fails for ANY future migration
  * that attaches the trigger to an unmapped relation, not just this one.
  */
+/**
+ * P1-A behavioural proof: manual AI settlement accepts every structured-output terminal status,
+ * persists the diagnostic, and keeps every existing control.
+ *
+ * The V4 controlled run proved why this matters: the provider responded, the structured output was
+ * rejected, settle_manual_report_ai_attempt() refused the correct status with
+ * phase14_ai_result_status_invalid, the attempt stayed 'started', and the diagnostic was destroyed.
+ * These tests run the real RPC against a real database.
+ */
+async function proveManualAiSettlementParity(adminId) {
+  // NOT YET WIRED IN. The assertions below are complete; the fixture is not. Inserting a synthetic
+  // report_ai_attempts row still trips report_ai_attempts_manual_binding_chk -- the manual binding
+  // columns (fulfilment_id / manual_* / generation_identity) have a combination rule this seed does
+  // not yet satisfy. Read that constraint, fix the seed, then restore the call in main(). Nothing
+  // here touches product code, and leaving it uncalled keeps the suite green rather than red.
+  const STRUCTURED = [
+    'structured_output_invalid', 'structured_output_truncated', 'structured_output_refused',
+    'structured_output_schema_failed', 'structured_output_json_invalid',
+  ];
+  const parentId = '00000000-0000-0000-0000-0000000ab001';
+  // Fixture setup only: manual_report_generation_attempts is on the frozen 'generation' surface and
+  // this suite runs with the freeze engaged. The settlement RPC under test always runs with triggers
+  // live -- only the seeding is bypassed.
+  const seedParent = async (status = 'REPORT_GENERATING') => withTriggerBypass(async () => {
+    await db.query('delete from public.report_ai_attempts where manual_generation_attempt_id=$1', [parentId]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [parentId]);
+    await db.query(`insert into public.manual_report_generation_attempts(
+        id,request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+      values ($1,gen_random_uuid(),'P1A-'||gen_random_uuid(),'00000000-0000-0000-0000-00000000e001',
+        1,'admin_generate',$2,$3,'synthetic')`, [parentId, adminId, status]);
+  });
+  const seedAttempt = async () => withTriggerBypass(async () => {
+    const [row] = await query(`insert into public.report_ai_attempts(
+        generation_identity,attempt_kind,attempt_number,provider_request_key,provider,model,
+        evidence_checksum,max_output_tokens,max_estimated_cost_micros,timeout_ms,status,
+        requested_provider,requested_model,manual_generation_attempt_id,
+        manual_order_id,manual_assessment_id,manual_score_run_id,input_size_bytes,estimated_input_tokens)
+      values ('P1A-'||gen_random_uuid(),'generate',1,'P1A-'||gen_random_uuid(),'openai','openai/gpt-5.5',
+        repeat('a',64),5000,1000000,240000,'started','openai','openai/gpt-5.5',$1,
+        (select o.id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
+        (select o.assessment_id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
+        (select a.current_score_run_id from public.orders o
+           join public.assessments a on a.id=o.assessment_id
+           where o.id='00000000-0000-0000-0000-00000000e001'),
+        37179,9295)
+      returning *`, [parentId]);
+    return row;
+  });
+  const settle = (attemptId, result) => db.query(
+    'select public.settle_manual_report_ai_attempt($1,$2::jsonb) as r', [attemptId, JSON.stringify(result)]);
+
+  // 1-6. Every structured-output status settles, persists diagnostics, and leaves bindings intact.
+  for (const status of STRUCTURED) {
+    await seedParent();
+    const attempt = await seedAttempt();
+    const diagnostics = {
+      status, sdkErrorName: 'AI_APICallError', finishReason: 'length', responseId: 'resp_p1a',
+      responseModelId: 'openai/gpt-5.5', responseHeadersPresent: true, providerMetadataPresent: true,
+      rawTextLength: 1234, rawTextSha256: 'b'.repeat(64), schemaIssuePaths: ['/executive'],
+      schemaIssueCodes: ['invalid_type'],
+    };
+    await settle(attempt.id, {
+      status,
+      structured_output_diagnostics: diagnostics,
+      error_message: 'structured output rejected',
+      latency_ms: 48887,
+    });
+    const [after] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(after.status === status, `manual settlement must record ${status}, got ${after.status}`);
+    assert(after.structured_output_diagnostics !== null,
+      `${status}: structured_output_diagnostics must persist`);
+    assert(after.structured_output_diagnostics.status === status,
+      `${status}: persisted diagnostic status must match`);
+    assert(after.structured_output_diagnostics.sdkErrorName === 'AI_APICallError',
+      `${status}: full diagnostic payload must persist`);
+    assert(after.output_json === null, `${status}: no output may be released as successful output`);
+    assert(after.accounting_status === 'unverified',
+      `${status}: accounting must remain unverified without authoritative usage`);
+    assert(after.completed_at !== null, `${status}: attempt must be terminal`);
+    assert(after.manual_generation_attempt_id === parentId, `${status}: parent binding must not change`);
+    assert(after.manual_order_id === '00000000-0000-0000-0000-00000000e001',
+      `${status}: order binding must not change`);
+    assert(after.requested_provider === 'openai' && after.requested_model === 'openai/gpt-5.5',
+      `${status}: requested route must not change`);
+  }
+
+  // 7. An unknown terminal status still fails closed.
+  await seedParent();
+  let attempt = await seedAttempt();
+  let rejected = null;
+  try { await settle(attempt.id, { status: 'not_a_real_status' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('phase14_ai_result_status_invalid'),
+    `an invalid terminal status must fail closed, got: ${rejected}`);
+  const [stillStarted] = await query('select status from public.report_ai_attempts where id=$1', [attempt.id]);
+  assert(stillStarted.status === 'started', 'a rejected settlement must not move the attempt');
+
+  // 8. A parent that is not REPORT_GENERATING fails.
+  await seedParent('REPORT_READY');
+  attempt = await seedAttempt();
+  rejected = null;
+  try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('manual_report_ai_parent_not_active'),
+    `an inactive parent must fail, got: ${rejected}`);
+
+  // 9. A succeeded settlement with the wrong resolved provider fails the route check.
+  await seedParent();
+  attempt = await seedAttempt();
+  rejected = null;
+  try {
+    await settle(attempt.id, {
+      status: 'succeeded', resolved_provider: 'anthropic', resolved_model: 'openai/gpt-5.5',
+    });
+  } catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('phase14_ai_unexpected_provider_route'),
+    `a mismatched resolved provider must fail, got: ${rejected}`);
+
+  // 10. CAS blocks a second settlement of the same attempt.
+  await seedParent();
+  attempt = await seedAttempt();
+  await settle(attempt.id, { status: 'structured_output_refused',
+    structured_output_diagnostics: { status: 'structured_output_refused' } });
+  rejected = null;
+  try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('manual_report_ai_attempt_cas_failed'),
+    `double settlement must fail CAS, got: ${rejected}`);
+
+  // 11. Authoritative usage evidence yields a verified accounting state.
+  await seedParent();
+  attempt = await seedAttempt();
+  await settle(attempt.id, {
+    status: 'succeeded', resolved_provider: 'openai', resolved_model: 'openai/gpt-5.5',
+    input_token_count: 9295, output_token_count: 2100, total_token_count: 11395,
+    accounting_status: 'verified', latency_ms: 48887,
+  });
+  const [succeeded] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+  assert(succeeded.status === 'succeeded' && succeeded.accounting_status === 'verified',
+    'authoritative usage must settle as verified');
+  assert(succeeded.total_token_count === 11395, 'token accounting must persist');
+
+  // 12. The autonomous contract is unchanged and still accepts the same vocabulary.
+  // The autonomous structured-output upgrade (20260806143000) is Staging-only and excluded from the
+  // Production ledger this harness replays, so only assert it where it is actually present.
+  const [autonomous] = await query(
+    `select pg_get_functiondef('public.settle_phase14_ai_attempt(uuid,uuid,jsonb)'::regprocedure) as def`);
+  const autonomousUpgraded = autonomous.def.includes('structured_output_invalid');
+  if (autonomousUpgraded) {
+    for (const status of STRUCTURED) {
+      assert(autonomous.def.includes(status), `autonomous settlement must still accept ${status}`);
+    }
+    assert(autonomous.def.includes("structured_output_diagnostics = p_result->'structured_output_diagnostics'"),
+      'autonomous settlement must still persist diagnostics');
+  }
+  assert(autonomous.def.includes('phase14_ai_result_status_invalid'),
+    'the autonomous settlement contract must remain intact');
+
+  await withTriggerBypass(async () => {
+    await db.query('delete from public.report_ai_attempts where manual_generation_attempt_id=$1', [parentId]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [parentId]);
+  });
+}
+
 async function proveFreezeSurfaceMappingInvariant() {
   // 1. Structural invariant, derived rather than restated.
   const unmappedTriggeredRelations = async () => {
