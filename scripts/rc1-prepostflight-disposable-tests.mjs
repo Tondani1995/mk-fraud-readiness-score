@@ -976,6 +976,199 @@ async function proveBootstrapEnforcement() {
  * fire real simultaneous statements (Promise.all over separate pooled connections is genuine
  * concurrency in Postgres, not simulated) and require exact allowance accounting.
  */
+/**
+ * P1-A tail: the AUTONOMOUS settlement contract, proved against the real RPC.
+ *
+ * The manual proof already covers settle_manual_report_ai_attempt(). This covers
+ * settle_phase14_ai_attempt(), which the Production-bound migration also upgrades, so both halves of
+ * the structured-output contract are behaviourally proven rather than only structurally compared.
+ * Deliberately minimal: a fulfilment-parented attempt and a leased worker capability, not an
+ * autonomous commercial journey.
+ */
+async function proveAutonomousAiSettlementParity(adminId) {
+  // NOT YET WIRED IN -- fixture only; the assertions are complete.
+  //
+  // Remaining obstacle: settle_phase14_ai_attempt() calls phase14_activate_worker_operation(),
+  // which requires a LEASED capability whose security_gate_version equals the satisfied gate
+  // version. In this disposable replay the phase14-premium-report gate is not satisfied at this
+  // point, so satisfied_version does not yield a value the capability's
+  // phase14_worker_capabilities_security_gate_version_check will accept (> 0).
+  //
+  // To finish: satisfy the gate for the proof exactly as the accepted control does (or seed a
+  // capability against an already-satisfied gate version), then restore it in the finally alongside
+  // the freeze state. Do NOT relax the capability constraints or the gate requirement -- that is
+  // the control being exercised. Five earlier obstacles here were all resolved this way:
+  // enum cast, freeze surface, lease_secret_hash, lease_owner, and the service-role claim.
+  const STRUCTURED = [
+    'structured_output_invalid', 'structured_output_truncated', 'structured_output_refused',
+    'structured_output_schema_failed', 'structured_output_json_invalid',
+  ];
+  // Seed a dedicated fulfilment: the shared one belongs to the cleanup proof and is removed by it.
+  const fulfilmentId = '00000000-0000-0000-0000-0000000af001';
+  const [chain] = await query(`select o.id as order_id, o.assessment_id,
+      (select sr.id from public.score_runs sr where sr.assessment_id=o.assessment_id limit 1) as score_run_id,
+      (select r.id from public.reports r where r.order_id=o.id limit 1) as report_id
+    from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'`);
+  assert(chain?.score_run_id, 'expected a synthetic order/score-run chain');
+  await withTriggerBypass(() => db.query(`
+    insert into public.report_fulfilments(
+      id,order_id,assessment_id,score_run_id,report_id,idempotency_key,trigger_source,status,
+      generation_mode,attempt_count,workflow_start_status)
+    values ($1,$2,$3,$4,$5,'p1a-autonomous-'||gen_random_uuid(),'payment_confirmation','queued',
+      'deterministic_fallback',1,'started')
+    on conflict (id) do nothing`,
+    [fulfilmentId, chain.order_id, chain.assessment_id, chain.score_run_id, chain.report_id]));
+  const [fulfilment] = await query(
+    'select id, order_id, assessment_id, score_run_id, report_id from public.report_fulfilments where id=$1',
+    [fulfilmentId]);
+  assert(fulfilment, 'expected the seeded autonomous fulfilment fixture');
+
+  const capabilityId = '00000000-0000-0000-0000-0000000ac001';
+  const seedCapability = () => withTriggerBypass(() => db.query(`
+    insert into public.phase14_worker_capabilities(
+      id,capability_type,policy_key,operation_key,issue_secret_hash,order_id,assessment_id,
+      score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,
+      reason,expires_at,status,lease_expires_at,lease_secret_hash,lease_owner)
+    values ($1,'automatic_generation','automatic_fulfilment','p1a-autonomous',repeat('a',64),
+      $2,$3,$4,$5,$6,
+      (select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+      $7,'00000000-0000-4000-8000-00000000a003','autonomous settlement proof',
+      now() + interval '1 day','leased', now() + interval '1 hour', repeat('b',64),'p1a-autonomous-worker')
+    on conflict (id) do update set status='leased', lease_expires_at=now() + interval '1 hour',
+      lease_secret_hash=repeat('b',64), lease_owner='p1a-autonomous-worker',
+      security_gate_version=(select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report')
+  `, [capabilityId, fulfilment.order_id, fulfilment.assessment_id, fulfilment.score_run_id,
+      fulfilment.id, fulfilment.report_id, adminId]));
+
+  const seedAttempt = () => withTriggerBypass(async () => {
+    const [row] = await query(`insert into public.report_ai_attempts(
+        generation_identity,fulfilment_id,attempt_kind,attempt_number,provider_request_key,
+        provider,model,evidence_checksum,max_output_tokens,max_estimated_cost_micros,timeout_ms,
+        status,requested_provider,requested_model,input_size_bytes,estimated_input_tokens)
+      values ('P1A-AUTO-'||gen_random_uuid(),$1,'generate',1,'P1A-AUTO-'||gen_random_uuid(),
+        'openai','openai/gpt-5.5',repeat('a',64),5000,1000000,240000,'started',
+        'openai','openai/gpt-5.5',37179,9295)
+      returning *`, [fulfilment.id]);
+    return row;
+  });
+  // phase14_activate_worker_operation() inside the RPC requires the service-role claim; this
+  // connection carries a different one. Presented for the call and restored afterwards.
+  const [{ claims: priorClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const settle = async (attemptId, result) => {
+    await db.query(`select set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    try {
+      return await db.query('select public.settle_phase14_ai_attempt($1,$2,$3::jsonb) as r',
+        [capabilityId, attemptId, JSON.stringify(result)]);
+    } finally {
+      await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorClaims ?? '']);
+    }
+  };
+
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1`, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch,1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton`));
+
+  try {
+    await seedCapability();
+    for (const status of STRUCTURED) {
+      await seedCapability();
+      const attempt = await seedAttempt();
+      await settle(attempt.id, {
+        status,
+        structured_output_diagnostics: { status, sdkErrorName: 'AI_APICallError', finishReason: 'length' },
+        error_message: 'structured output rejected'
+      });
+      const [after] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+      assert(after.status === status, `autonomous ${status}: exact status must persist, saw ${after.status}`);
+      assert(after.structured_output_diagnostics?.status === status,
+        `autonomous ${status}: diagnostics must persist`);
+      assert(after.output_json === null, `autonomous ${status}: no output may be released`);
+      assert(after.accounting_status === 'unverified',
+        `autonomous ${status}: accounting must stay unverified without authoritative usage`);
+      assert(after.fulfilment_id === fulfilment.id, `autonomous ${status}: fulfilment binding unchanged`);
+      assert(after.manual_generation_attempt_id === null,
+        `autonomous ${status}: must remain a fulfilment-parented attempt`);
+      assert(after.requested_provider === 'openai' && after.requested_model === 'openai/gpt-5.5',
+        `autonomous ${status}: requested route unchanged`);
+    }
+
+    // Invalid terminal status fails closed.
+    await seedCapability();
+    let attempt = await seedAttempt();
+    let rejected = null;
+    try { await settle(attempt.id, { status: 'not_a_real_status' }); }
+    catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_result_status_invalid'),
+      `autonomous: invalid status must fail closed, got ${rejected}`);
+    const [untouched] = await query('select status from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(untouched.status === 'started', 'autonomous: a rejected settlement must not move the attempt');
+
+    // Provider mismatch fails closed.
+    await seedCapability();
+    attempt = await seedAttempt();
+    rejected = null;
+    try {
+      await settle(attempt.id, { status: 'succeeded', resolved_provider: 'anthropic', resolved_model: 'openai/gpt-5.5' });
+    } catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_unexpected_provider_route'),
+      `autonomous: provider mismatch must fail closed, got ${rejected}`);
+
+    // CAS blocks double settlement.
+    await seedCapability();
+    attempt = await seedAttempt();
+    await settle(attempt.id, { status: 'structured_output_refused',
+      structured_output_diagnostics: { status: 'structured_output_refused' } });
+    rejected = null;
+    await seedCapability();
+    try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+    catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_attempt_cas_failed'),
+      `autonomous: double settlement must fail CAS, got ${rejected}`);
+
+    // Authoritative usage settles verified.
+    await seedCapability();
+    attempt = await seedAttempt();
+    await settle(attempt.id, {
+      status: 'succeeded', resolved_provider: 'openai', resolved_model: 'openai/gpt-5.5',
+      input_token_count: 9295, output_token_count: 2100, total_token_count: 11395,
+      accounting_status: 'verified', latency_ms: 48887
+    });
+    const [succeeded] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(succeeded.status === 'succeeded' && succeeded.accounting_status === 'verified',
+      'autonomous: authoritative usage must settle verified');
+    assert(succeeded.total_token_count === 11395, 'autonomous: token accounting must persist');
+
+    await withTriggerBypass(async () => {
+      await db.query('delete from public.report_ai_attempts where fulfilment_id=$1 and generation_identity like $2',
+        [fulfilment.id, 'P1A-AUTO-%']);
+      await db.query('delete from public.phase14_worker_capabilities where id=$1', [capabilityId]);
+      await db.query('delete from public.report_fulfilments where id=$1', [fulfilmentId]);
+    });
+  } finally {
+    await restoreFreeze();
+  }
+}
+
 async function proveAtomicTokenConsumption() {
   // assessment_tokens and customer_report_access_tokens sit on frozen surfaces (assessment_write,
   // customer_token). The consumption RPCs under test always run with triggers live, so the freeze
