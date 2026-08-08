@@ -36,6 +36,12 @@ alter table public.report_ai_attempts
 
 alter table public.report_ai_attempts
   drop constraint if exists report_ai_attempts_structured_output_diagnostics_chk;
+-- The Staging-only 20260806143000 created the same object-shape constraint under a different name.
+-- Without dropping it too, an environment that already carries the Staging effects would end up
+-- with BOTH constraints while a Production baseline has one -- the two paths would not converge.
+-- Replay Matrix C caught exactly that. Dropping by name here is safe in both directions.
+alter table public.report_ai_attempts
+  drop constraint if exists report_ai_attempts_structured_output_diagnostics_object_chk;
 alter table public.report_ai_attempts
   add constraint report_ai_attempts_structured_output_diagnostics_chk
     check (structured_output_diagnostics is null

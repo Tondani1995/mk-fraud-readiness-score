@@ -215,14 +215,14 @@
     {
       "schema": "public",
       "table": "customer_report_access_tokens",
-      "required": "SU",
+      "required": "S",
       "stagingCurrent": "0000",
       "productionCurrent": "ABSENT",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:108 S",
-        "src/lib/reports/customer-report-access.ts:200 U",
-        "src/lib/reports/delivery-recovery-service.ts:166 S"
+        "src/lib/reports/customer-report-access.ts:130 S",
+        "src/lib/reports/delivery-recovery-service.ts:166 S",
+        "src/lib/reports/delivery-recovery-service.ts:303 S"
       ],
       "justification": "Token validation/consumption and recovery-state inspection."
     },
@@ -744,7 +744,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/automation/ai-route-policy.ts:31"
+        "src/lib/reports/automation/ai-route-policy.ts:35"
       ],
       "justification": "Fail-closed pre-dispatch authorization bound to Preview, Staging, provider, model, PR, head SHA, gate epoch and expiry."
     },
@@ -753,7 +753,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/adaptive/server.ts:209"
+        "src/lib/adaptive/server.ts:225"
       ],
       "classification": "PREVIEW/STAGING adaptive state mutation RPC"
     },
@@ -762,7 +762,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/adaptive/server.ts:241"
+        "src/lib/adaptive/server.ts:257"
       ],
       "classification": "PREVIEW/STAGING adaptive submit RPC"
     },
@@ -828,7 +828,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:235"
+        "src/lib/reports/phase1-manual-fulfilment.ts:347"
       ]
     },
     {
@@ -852,7 +852,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:230"
+        "src/lib/reports/phase1-manual-fulfilment.ts:342"
       ]
     },
     {
@@ -861,14 +861,6 @@
       "searchPath": "public, pg_temp",
       "sources": [
         "src/lib/reports/phase1-manual-delivery.ts:125"
-      ]
-    },
-    {
-      "signature": "public.complete_manual_report_generation(uuid,uuid,report_type,text,text,text,text,bigint,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "public, pg_temp",
-      "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:457"
       ]
     },
     {
@@ -884,8 +876,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/phase14-security.ts:170",
-        "src/lib/reports/phase14-security.ts:317 dynamic resolution"
+        "src/lib/reports/phase14-security.ts:170"
       ]
     },
     {
@@ -901,7 +892,8 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/app/score/api/internal/fulfilment-worker/route.ts:191"
+        "src/app/score/api/internal/fulfilment-worker/route.ts:191",
+        "src/app/score/api/internal/fulfilment-worker/route.ts:303"
       ]
     },
     {
@@ -909,7 +901,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:165"
+        "src/lib/reports/phase1-manual-fulfilment.ts:170"
       ]
     },
     {
@@ -930,28 +922,11 @@
       ]
     },
     {
-      "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/app/score/api/webhooks/resend/route.ts:109"
-      ]
-    },
-    {
-      "signature": "public.preview_development_ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/app/score/api/webhooks/resend/route.ts:171"
-      ],
-      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
-    },
-    {
       "signature": "public.preview_development_record_resend_webhook_reconciliation(text)",
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:28"
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:31"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
     },
@@ -960,7 +935,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:19"
+        "src/app/score/api/internal/rc1-preview-resend-reconciliation/route.ts:18"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
     },
@@ -1054,7 +1029,8 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/email/delivery-dispatch.ts:125"
+        "src/lib/reports/email/delivery-dispatch.ts:120",
+        "src/lib/reports/email/delivery-dispatch.ts:167"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
     },
@@ -1063,7 +1039,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:180"
+        "src/lib/reports/email/report-delivery-service-core.ts:182"
       ],
       "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
     },
@@ -1098,7 +1074,7 @@
       "sources": [
         "src/lib/reports/automation/workflow-start.ts:94",
         "src/lib/reports/download-verification.ts:21",
-        "src/lib/reports/email/delivery-dispatch.ts:39"
+        "src/lib/reports/email/delivery-dispatch.ts:40"
       ]
     },
     {
@@ -1106,7 +1082,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/email/report-delivery-service-core.ts:362"
+        "src/lib/reports/email/report-delivery-service-core.ts:384"
       ]
     },
     {
@@ -1114,7 +1090,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:202"
+        "src/lib/reports/phase1-manual-fulfilment.ts:207"
       ]
     },
     {
@@ -1138,7 +1114,7 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/app/score/assessment/[assessmentRef]/page.tsx:129",
+        "src/app/score/assessment/[assessmentRef]/page.tsx:133",
         "src/lib/respondent/assessment-save.ts:230"
       ]
     },
@@ -1155,8 +1131,61 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:298"
+        "src/lib/reports/phase1-manual-fulfilment.ts:423"
       ]
+    },
+    {
+      "signature": "public.complete_report_secondary_artefact(uuid,text,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/supporting-register-delivery.ts:171"
+      ],
+      "classification": "Secondary report-artefact completion RPC"
+    },
+    {
+      "signature": "public.consume_assessment_token(text,text,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/respondent/tokens.ts:94"
+      ],
+      "classification": "Atomic assessment-token consumption (resume/snapshot)"
+    },
+    {
+      "signature": "public.consume_customer_report_access_token(text,integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts:156"
+      ],
+      "classification": "Atomic customer report-access consumption"
+    },
+    {
+      "signature": "public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:637"
+      ],
+      "classification": "Atomic report + supporting-register finalisation"
+    },
+    {
+      "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:109"
+      ]
+    },
+    {
+      "signature": "public.preview_development_ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/app/score/api/webhooks/resend/route.ts:171"
+      ],
+      "classification": "PREVIEW/STAGING ONLY; absent from Production-target replay"
     },
     {
       "signature": "public.terminal_phase14_generation_publication(jsonb,text,text)",
@@ -1165,15 +1194,6 @@
       "sources": [
         "src/lib/reports/phase14-security.ts:317 dynamic resolution"
       ]
-    },
-    {
-      "signature": "public.complete_report_secondary_artefact(uuid,text,text,text,text,text,bigint,text)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/reports/supporting-register-delivery.ts:106"
-      ],
-      "classification": "Secondary report-artefact completion RPC"
     }
   ],
   "nonServiceRpcClassifications": {
@@ -1241,12 +1261,13 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/phase1-manual-fulfilment.ts:227",
-    "src/lib/reports/phase1-manual-fulfilment.ts:518",
-    "src/lib/reports/phase1-manual-fulfilment.ts:634",
-    "src/lib/reports/supporting-register-delivery.ts:92",
-    "src/lib/reports/customer-report-access.ts:198",
-    "src/lib/reports/customer-report-access.ts:242"
+    "src/lib/reports/customer-report-access.ts:214",
+    "src/lib/reports/customer-report-access.ts:258",
+    "src/lib/reports/phase1-manual-fulfilment.ts:291",
+    "src/lib/reports/phase1-manual-fulfilment.ts:595",
+    "src/lib/reports/phase1-manual-fulfilment.ts:745",
+    "src/lib/reports/supporting-register-delivery.ts:157",
+    "src/lib/reports/supporting-register-delivery.ts:97"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1309,7 +1330,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "de4b4c6d753bf5c1f7d0b04865e9aa244501ff3a58526586ab7a582ee195a496"
+    "fullAstInventorySha256": "1c48b51a68c1f22f959ae5f077ddd2b7cfc0199d897ce414e49720a3962eb693"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
