@@ -7,7 +7,10 @@ import { Footer } from '@/components/layout/Footer';
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const assessmentActive = pathname === '/score/start' || pathname.startsWith('/score/assessment/');
+  const assessmentActive = pathname === '/score/start'
+    || pathname.startsWith('/score/assessment/')
+    || pathname === '/score/adaptive'
+    || pathname.startsWith('/score/adaptive/');
 
   if (assessmentActive) {
     return (

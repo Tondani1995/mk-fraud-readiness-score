@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 
 type AdaptiveState = any;
 
@@ -23,6 +24,9 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
   const [submitted, setSubmitted] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const nodes = state.path?.nodes ?? [];
   const activeNodes = state.path?.activeNodes ?? [];
@@ -38,6 +42,49 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
 
   useEffect(() => { headingRef.current?.focus(); }, [currentId, screen]);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !invalidation) {
+      root?.removeAttribute('inert');
+      return;
+    }
+
+    root.setAttribute('inert', '');
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const getFocusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )).filter((element) => element.getClientRects().length > 0);
+    const focusFrame = window.requestAnimationFrame(() => getFocusable()[0]?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setInvalidation(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      dialog.removeEventListener('keydown', onKeyDown);
+      root.removeAttribute('inert');
+      if (previousFocusRef.current?.isConnected) previousFocusRef.current.focus();
+    };
+  }, [invalidation]);
+
   async function persist(nextGatewayAnswers = gatewayAnswers, nextControlResponses = controlResponses, nextScreen = screen, nextId = currentId, confirmGatewayChange = false, preservePosition = false) {
     setSaveState('saving'); setMessage(null);
     const response = await fetch(`/score/api/adaptive/${encodeURIComponent(assessmentReference)}/state`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
@@ -46,7 +93,12 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       gatewayAnswers: nextGatewayAnswers, controlResponses: nextControlResponses, confirmGatewayChange
     }) });
     const body = await response.json().catch(() => ({}));
-    if (body.reason === 'gateway_change_confirmation_required') { setSaveState('ready'); setInvalidation({ ...body, nextGatewayAnswers, nextControlResponses, nextScreen, nextId }); return false; }
+    if (body.reason === 'gateway_change_confirmation_required') {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setSaveState('ready');
+      setInvalidation({ ...body, nextGatewayAnswers, nextControlResponses, nextScreen, nextId });
+      return false;
+    }
     if (body.reason === 'save_conflict') { setSaveState('error'); setMessage('This assessment was updated in another tab. Reloading the current saved state.'); await reload(); return false; }
     if (!response.ok || !body.ok) { setSaveState('error'); setMessage((body.errors ?? ['Save failed. Please retry.']).join(' ')); return false; }
     setState(body.state); setGatewayAnswers(body.state.gatewayAnswers ?? nextGatewayAnswers); setControlResponses(body.state.controlResponses ?? nextControlResponses);
@@ -95,7 +147,7 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
 
   const gateway = currentNode.kind === 'gateway' ? state.gateways.find((item: any) => item.questionId === currentNode.nodeId) : null;
   const response = currentNode.kind !== 'gateway' ? controlResponses[currentNode.nodeId] : null;
-  return <div className="space-y-5" data-adaptive-assessment="true">
+  return <><div ref={rootRef} className="space-y-5" data-adaptive-assessment="true">
     <div className="rounded-2xl border border-mk-line bg-white p-4" aria-live="polite"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-mk-ink">Assessment · {progress}% complete</p><p className="mt-1 text-xs text-mk-muted">{state.path.completedApplicableCount} of {state.path.activePathCount} applicable controls complete · {state.path.unansweredApplicableCount} remaining</p></div><p className="text-xs text-mk-muted">{saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save needs attention' : 'Ready'}</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-mk-line" role="progressbar" aria-label="Assessment completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><div className="h-full bg-mk-charcoal" style={{ width: `${progress}%` }} /></div></div>
     {message ? <div role="alert" className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">{message}<Button type="button" variant="secondary" className="mt-3" onClick={() => void reload()}>Reload saved state</Button></div> : null}
     <Card><CardHeader><Badge>{currentNode.kind === 'gateway' ? 'About your organisation' : `Domain ${currentNode.domainCode}`}</Badge><h1 ref={headingRef} tabIndex={-1} className="mt-3 text-2xl font-semibold leading-tight text-mk-ink">{label(currentNode.prompt)}</h1>{currentNode.controlObjective ? <p className="mt-3 text-sm leading-6 text-mk-muted">Why this matters: {currentNode.controlObjective}</p> : <p className="mt-3 text-sm leading-6 text-mk-muted">This short question helps tailor which controls are relevant to your organisation.</p>}</CardHeader><CardContent className="space-y-5">
@@ -103,7 +155,20 @@ export function AdaptiveAssessmentExperience({ assessmentReference, token, initi
       {gateway ? <fieldset><legend className="sr-only">Select one answer</legend><div className="grid gap-3 sm:grid-cols-2">{gateway.responseOptions.map((option: any) => <label key={option.value} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-4 text-sm ${gatewayAnswers[gateway.questionId] === option.value ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={gateway.questionId} value={option.value} checked={gatewayAnswers[gateway.questionId] === option.value} onChange={() => void chooseGateway(currentNode, option.value)} disabled={saveState === 'saving'} /><span>{label(option.label)}</span></label>)}</div></fieldset> : <fieldset><legend className="sr-only">Select a maturity response</legend><div className="grid gap-3 sm:grid-cols-2">{state.responseScale.map((option: any) => <label key={option.responseValue} className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm ${response?.responseState === 'maturity' && response.responseValue === option.responseValue ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={currentNode.nodeId} checked={response?.responseState === 'maturity' && response.responseValue === option.responseValue} onChange={() => void chooseControl(currentNode, { responseState: 'maturity', responseValue: option.responseValue })} disabled={saveState === 'saving'} /><span><span className="block">{label(option.label)}</span><span className="mt-1 block text-xs font-normal text-mk-muted">{label(option.operationalMeaning ?? '')}</span></span></label>)}<label className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm ${response?.responseState === 'unknown' ? 'border-mk-charcoal bg-mk-cream font-semibold' : 'border-mk-line bg-white'}`}><input type="radio" name={currentNode.nodeId} checked={response?.responseState === 'unknown'} onChange={() => void chooseControl(currentNode, { responseState: 'unknown', responseValue: null })} disabled={saveState === 'saving'} /><span><span className="block">I do not know</span><span className="mt-1 block text-xs font-normal text-mk-muted">This remains an applicable response and is recorded as uncertainty.</span></span></label></div></fieldset>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-mk-line pt-5"><Button type="button" variant="secondary" disabled={!previousNode || saveState === 'saving'} onClick={() => { if (previousNode) { setCurrentId(previousNode.nodeId); setScreen(previousNode.kind === 'gateway' ? 'gateway' : 'question'); void persist(gatewayAnswers, controlResponses, previousNode.kind === 'gateway' ? 'gateway' : 'question', previousNode.nodeId, false, true); } }}>Back</Button><div className="flex gap-3"><Button type="button" variant="ghost" disabled={saveState === 'saving'} onClick={() => void persist(gatewayAnswers, controlResponses, screen, currentId, false, true)}>Save now</Button><Button type="button" disabled={saveState === 'saving' || !response && !gatewayAnswers[currentNode.nodeId]} onClick={() => void continueFromCurrent()}>Continue</Button></div></div>
     </CardContent></Card>
-    {invalidation ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/45 p-5" role="dialog" aria-modal="true" aria-labelledby="adaptive-invalidation-title"><div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><h2 id="adaptive-invalidation-title" className="text-xl font-semibold text-mk-ink">This change affects saved answers</h2><p className="mt-3 text-sm leading-6 text-mk-muted">Changing this answer removes {invalidation.affectedQuestionIds.length} saved response(s) from the current assessment scope. Their history is retained. Do you want to continue?</p><div className="mt-5 flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setInvalidation(null)}>Keep current answer</Button><Button type="button" onClick={() => { const value = invalidation; setInvalidation(null); void persist(value.nextGatewayAnswers, value.nextControlResponses, value.nextScreen, value.nextId, true); }}>Change scope and continue</Button></div></div></div> : null}
     <div className="grid gap-3 sm:grid-cols-2">{domainProgress.map((domain: any) => <div key={domain.domainCode} className="rounded-xl border border-mk-line bg-white p-4 text-xs text-mk-muted"><div className="flex justify-between gap-3"><span>{domain.domainCode} · {label(domain.name)}</span><span>{domain.completedCount}/{domain.activeCount}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-mk-line"><div className="h-full bg-mk-charcoal" style={{ width: `${domain.activeCount ? (domain.completedCount / domain.activeCount) * 100 : 0}%` }} /></div></div>)}</div>
-  </div>;
+  </div>{invalidation && typeof document !== 'undefined' ? createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-mk-ink/45 p-4 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="adaptive-invalidation-title" aria-describedby="adaptive-invalidation-description" ref={dialogRef}>
+      <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-0">
+        <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+          <h2 id="adaptive-invalidation-title" className="text-xl font-semibold text-mk-ink">This change affects saved answers</h2>
+          <p id="adaptive-invalidation-description" className="mt-3 text-sm leading-6 text-mk-muted">Changing this answer removes {invalidation.affectedQuestionIds.length} saved response(s) from the current assessment scope. Their history is retained. Do you want to continue?</p>
+          <div className="mt-5 flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setInvalidation(null)}>Keep current answer</Button>
+            <Button type="button" onClick={() => { const value = invalidation; setInvalidation(null); void persist(value.nextGatewayAnswers, value.nextControlResponses, value.nextScreen, value.nextId, true); }}>Change scope and continue</Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null}</>;
 }
