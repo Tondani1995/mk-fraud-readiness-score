@@ -39,6 +39,8 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
+  /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
+  buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
   getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
   createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
   narrativeGenerator?: PremiumReportNarrativeGenerator;
@@ -604,7 +606,8 @@ export async function generateManualPhase1Report(
 
     // Both physical artefacts must exist and be verified before anything becomes customer-final.
     generationStage = 'store_supporting_register';
-    const storedRegister = await buildAndStoreSupportingRegister({
+    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
+    const storedRegister = await storeSupportingRegister({
       db,
       data: assembled,
       model: advisoryModel,

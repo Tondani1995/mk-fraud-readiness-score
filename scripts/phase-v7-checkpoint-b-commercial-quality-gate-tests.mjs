@@ -320,6 +320,10 @@ function createRecordingDb(overrides = {}) {
       from: (bucket) => ({
         upload: async (path, bytes, opts) => {
           calls.storageUpload.push({ bucket, path, size: bytes?.length, opts });
+          // Per-path injection so the PDF and the register can fail independently.
+          if (overrides.failUploadMatching && path.includes(overrides.failUploadMatching)) {
+            return { error: new Error('injected upload failure') };
+          }
           if (overrides.uploadResponse) return overrides.uploadResponse;
           // Stored per path: the supporting register can never overwrite the PDF, and neither
           // artefact can satisfy the other's byte-identity verification.
@@ -328,6 +332,15 @@ function createRecordingDb(overrides = {}) {
         },
         download: async (path) => {
           calls.storageDownload.push({ bucket, path });
+          if (overrides.failDownloadMatching && path.includes(overrides.failDownloadMatching)) {
+            return { data: null, error: new Error('injected download failure') };
+          }
+          // Corrupt the STORED bytes so verification (checksum/size) fails, exactly as a real
+          // storage-side corruption would.
+          if (overrides.corruptDownloadMatching && path.includes(overrides.corruptDownloadMatching)) {
+            const corrupt = Buffer.from('corrupted-stored-bytes');
+            return { data: { arrayBuffer: async () => corrupt.buffer.slice(corrupt.byteOffset, corrupt.byteOffset + corrupt.byteLength) }, error: null };
+          }
           if (overrides.downloadResponse) return overrides.downloadResponse;
           const stored = storedObjects.get(`${bucket}/${path}`) ?? pdfBytes;
           return { data: { arrayBuffer: async () => stored.buffer.slice(stored.byteOffset, stored.byteOffset + stored.byteLength) }, error: null };
@@ -746,6 +759,159 @@ test('D1. No environment variable, flag or parameter bypasses the quality gate f
     }
   }
 });
+
+// ---------------------------------------------------------------------------------------------
+// Section P1B: atomic finalisation failure proofs.
+//
+// A paid Essential report may become current/VERIFIED only when BOTH artefacts are durable and
+// verified. Previously the report was completed first and the register persisted afterwards, so a
+// register failure left a committed report whose PDF the cleanup then deleted. These prove the
+// ordering, the rollback, and -- proofs 10 and 11 -- that a lost RPC response is never mistaken for
+// a failed transaction.
+// ---------------------------------------------------------------------------------------------
+const FINALISE_RPC = 'finalise_manual_report_with_supporting_register';
+const REGISTER_MATCH = 'supporting-register';
+const PDF_MATCH = '.pdf';
+
+async function runGeneration(overrides = {}, deps = {}) {
+  const { data, content, roadmap } = buildCommerciallyPassingFixture();
+  const { db, calls } = createRecordingDb(overrides);
+  let result = null;
+  let error = null;
+  try {
+    result = await generateManualPhase1Report(
+      { orderReference: data.orderReference, requestedBy: 'admin-1', requestKey: `p1b-${Math.random()}`, action: 'admin_generate' },
+      {
+        db,
+        assembleReportData: fakeAssembleReportData(data),
+        validatePremiumReportGenerationEntitlement: fakeValidateEntitlement(),
+        getPhase1SchemaCapability: fakeSchemaCapability(),
+        getPremiumReportAutomationFlags: fakeAutomationFlags(),
+        preparePremiumReportNarrative: fakePrepareNarrative,
+        // Same shape C13 uses: the PDF renderer is faked (no real Chromium) and emits the exact
+        // bytes the storage double stores, so checksum/size verification is genuine.
+        renderValidatedCommercialPdf: async ({ data: d }) => renderValidatedCommercialPdf(
+          { data: d, content, roadmap },
+          { renderHtml: renderReportHtml, renderPdf: async () => Buffer.from(`%PDF-1.4\n${'0'.repeat(1200)}`) }
+        ),
+        ...deps
+      }
+    );
+  } catch (thrown) { error = thrown; }
+  return { result, error, calls };
+}
+const finaliseCalls = (calls) => calls.rpc.filter((c) => c.name === FINALISE_RPC);
+const removedPaths = (calls) => calls.storageRemove.flatMap((c) => c.paths ?? []);
+const assertNoFinalReport = (result, calls, label) => {
+  assert.equal(result, null, `${label}: no successful result may be returned`);
+  assert.equal(finaliseCalls(calls).length, 0, `${label}: finalisation must not be reached`);
+  assert.equal(calls.rpc.filter((c) => c.name === 'complete_manual_report_generation').length, 0,
+    `${label}: the old completion RPC must never be used`);
+};
+
+await asyncTest('P1B-1. PDF upload failure leaves no final report', async () => {
+  const { result, calls } = await runGeneration({ failUploadMatching: PDF_MATCH });
+  assertNoFinalReport(result, calls, 'P1B-1');
+});
+
+await asyncTest('P1B-2. PDF verification failure leaves no final report', async () => {
+  const { result, calls } = await runGeneration({ corruptDownloadMatching: PDF_MATCH });
+  assertNoFinalReport(result, calls, 'P1B-2');
+});
+
+await asyncTest('P1B-3. XLSX build failure leaves no final report', async () => {
+  const { result, calls } = await runGeneration({}, {
+    buildAndStoreSupportingRegister: async () => { throw new Error('injected workbook build failure'); }
+  });
+  assertNoFinalReport(result, calls, 'P1B-3');
+});
+
+await asyncTest('P1B-4. XLSX upload failure leaves no final report', async () => {
+  const { result, calls } = await runGeneration({ failUploadMatching: REGISTER_MATCH });
+  assertNoFinalReport(result, calls, 'P1B-4');
+});
+
+await asyncTest('P1B-5. XLSX verification failure leaves no final report', async () => {
+  const { result, calls } = await runGeneration({ corruptDownloadMatching: REGISTER_MATCH });
+  assertNoFinalReport(result, calls, 'P1B-5');
+});
+
+await asyncTest('P1B-6. finalisation failure before report insert leaves no final report', async () => {
+  const { result, calls } = await runGeneration({
+    rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'phase1_generation_attempt_not_active' } } },
+    // Positive proof of non-commit: the attempt is still pre-final and unbound. Without this the
+    // resolver correctly returns 'uncertain' and retains the objects -- which is the safe default.
+    tableResponses: {
+      manual_report_generation_attempts: { data: { id: 'attempt-1', status: 'REPORT_GENERATING', output_report_id: null }, error: null }
+    }
+  });
+  assert.equal(result, null, 'P1B-6: no successful result');
+  assert.equal(finaliseCalls(calls).length, 1, 'P1B-6: finalisation was attempted exactly once');
+  // Both physical objects were uploaded before finalisation, and reconciliation proves non-commit,
+  // so both are eligible for cleanup.
+  const removed = removedPaths(calls);
+  assert.ok(removed.some((path) => path.endsWith('.pdf')), 'P1B-6: orphan PDF is cleaned');
+  assert.ok(removed.some((path) => path.includes(REGISTER_MATCH)), 'P1B-6: orphan register is cleaned');
+});
+
+await asyncTest('P1B-7/8. artefact insert failure inside the transaction rolls back; previous version survives', async () => {
+  // The RPC raising is exactly how an in-transaction artefact insert failure surfaces: the report
+  // insert and the supersede roll back with it, so no partial state can be observed.
+  const { result, calls } = await runGeneration({
+    rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'null value in column "report_id" violates not-null constraint' } } }
+  });
+  assert.equal(result, null, 'P1B-7: rollback must yield no result');
+  assert.equal(calls.rpc.filter((c) => c.name === 'complete_report_secondary_artefact').length, 0,
+    'P1B-7: the artefact is never completed outside the transaction');
+  // No supersede or report mutation is issued by the caller at all -- it is the RPC's job -- so a
+  // failed replacement cannot disturb the existing current report.
+  assert.equal(calls.rpc.filter((c) => c.name === 'supersede_report').length, 0,
+    'P1B-8: the caller never supersedes outside the atomic transaction');
+});
+
+await asyncTest('P1B-9. success yields one atomic finalisation and both objects intact', async () => {
+  const { result, error, calls } = await runGeneration();
+  assert.equal(error, null, `P1B-9: unexpected error ${error?.message}`);
+  assert.ok(result?.reportId, 'P1B-9: a report must be returned');
+  assert.equal(finaliseCalls(calls).length, 1, 'P1B-9: exactly one atomic finalisation');
+  const uploads = calls.storageUpload.map((c) => c.path);
+  assert.ok(uploads.some((path) => path.endsWith('.pdf')), 'P1B-9: PDF uploaded');
+  assert.ok(uploads.some((path) => path.includes(REGISTER_MATCH)), 'P1B-9: register uploaded');
+  assert.equal(removedPaths(calls).length, 0, 'P1B-9: nothing is deleted on success');
+  // Both artefacts are verified by re-download before finalisation.
+  const downloads = calls.storageDownload.map((c) => c.path);
+  assert.ok(downloads.some((path) => path.endsWith('.pdf')), 'P1B-9: PDF verified from storage');
+  assert.ok(downloads.some((path) => path.includes(REGISTER_MATCH)), 'P1B-9: register verified from storage');
+});
+
+await asyncTest('P1B-10. committed transaction with a lost response preserves both artefacts', async () => {
+  // The RPC commits, then the response is lost. Authoritative reconciliation must detect
+  // REPORT_READY and keep both objects, and must not persist a failure over a committed attempt.
+  const committedReportId = 'report-committed-1';
+  const { result, calls } = await runGeneration({
+    rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'fetch failed: socket hang up' } } },
+    tableResponses: {
+      manual_report_generation_attempts: { data: { id: 'attempt-1', status: 'REPORT_READY', output_report_id: committedReportId }, error: null }
+    }
+  });
+  assert.equal(result, null, 'P1B-10: the caller still surfaces the transport error');
+  assert.equal(removedPaths(calls).length, 0,
+    'P1B-10: a committed transaction must never have its artefacts deleted');
+});
+
+await asyncTest('P1B-11. unknown outcome with unreadable reconciliation deletes nothing', async () => {
+  const { result, calls } = await runGeneration({
+    rpcResponses: { [FINALISE_RPC]: { data: null, error: { message: 'statement timeout' } } },
+    tableResponses: {
+      manual_report_generation_attempts: { data: null, error: { message: 'connection reset during reconciliation' } }
+    }
+  });
+  assert.equal(result, null, 'P1B-11: no customer success may be claimed');
+  assert.equal(removedPaths(calls).length, 0,
+    'P1B-11: uncertainty must retain both private orphan candidates rather than delete them');
+  assert.equal(finaliseCalls(calls).length, 1, 'P1B-11: exactly one finalisation attempt, no retry');
+});
+
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
