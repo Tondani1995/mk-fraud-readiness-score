@@ -986,7 +986,10 @@ async function proveBootstrapEnforcement() {
  * autonomous commercial journey.
  */
 async function proveAutonomousAiSettlementParity(adminId) {
-  // NOT YET WIRED IN -- fixture only; the assertions are complete.
+  // The capability the RPC activates must carry security_gate_version = the SATISFIED gate version,
+  // and phase14_require_policy('automatic_fulfilment') must also pass. Both are established through
+  // their real administrative APIs under a genuine platform-admin AAL2 claim -- neither the gate
+  // table nor the policy row is written around its guard, and no constraint is relaxed.
   //
   // Remaining obstacle: settle_phase14_ai_attempt() calls phase14_activate_worker_operation(),
   // which requires a LEASED capability whose security_gate_version equals the satisfied gate
@@ -1030,15 +1033,18 @@ async function proveAutonomousAiSettlementParity(adminId) {
       score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,
       reason,expires_at,status,lease_expires_at,lease_secret_hash,lease_owner)
     values ($1,'automatic_generation','automatic_fulfilment','p1a-autonomous',repeat('a',64),
-      $2,$3,$4,$5,$6,
+      -- settle_phase14_ai_attempt() activates with report_id => null, so the capability binding
+      -- must be null too or phase14_activate_worker_operation() raises
+      -- worker_capability_report_mismatch.
+      $2,$3,$4,$5,null,
       (select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
-      $7,'00000000-0000-4000-8000-00000000a003','autonomous settlement proof',
+      $6,'00000000-0000-4000-8000-00000000a003','autonomous settlement proof',
       now() + interval '1 day','leased', now() + interval '1 hour', repeat('b',64),'p1a-autonomous-worker')
     on conflict (id) do update set status='leased', lease_expires_at=now() + interval '1 hour',
       lease_secret_hash=repeat('b',64), lease_owner='p1a-autonomous-worker',
       security_gate_version=(select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report')
   `, [capabilityId, fulfilment.order_id, fulfilment.assessment_id, fulfilment.score_run_id,
-      fulfilment.id, fulfilment.report_id, adminId]));
+      fulfilment.id, adminId]));
 
   const seedAttempt = () => withTriggerBypass(async () => {
     const [row] = await query(`insert into public.report_ai_attempts(
@@ -1065,6 +1071,21 @@ async function proveAutonomousAiSettlementParity(adminId) {
     }
   };
 
+  // Snapshot the control state this proof touches, so it cannot contaminate later tests.
+  const [gateBefore] = await query(
+    "select status, required_version, satisfied_version, authority_epoch, reason from public.phase14_security_gates where gate_key='phase14-premium-report'");
+  const [policyBefore] = await query(
+    "select enabled, reason from public.phase14_feature_policies where policy_key='automatic_fulfilment'");
+  assert(gateBefore, 'expected the phase14-premium-report gate fixture');
+
+  const [{ claims: priorAdminClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const asPlatformAdmin = async (action) => {
+    await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-4000-8000-00000000a002"}',false)`);
+    try { return await action(); }
+    finally { await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorAdminClaims ?? '']); }
+  };
+
   const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
   const restoreFreeze = () => withTriggerBypass(() => db.query(`
     update public.rc1_operation_freeze_state
@@ -1089,6 +1110,20 @@ async function proveAutonomousAiSettlementParity(adminId) {
     where singleton`));
 
   try {
+    // Satisfy the gate at exactly required_version, through the accepted API.
+    await asPlatformAdmin(() => db.query(
+      'select public.set_phase14_security_gate_version($1,$2) as r',
+      [gateBefore.required_version, 'fixture-only: autonomous settlement parity proof']));
+    // Gate alone is insufficient: phase14_require_policy('automatic_fulfilment') also checks the
+    // policy's approved gate version and authority epoch, which the accepted API maintains.
+    await asPlatformAdmin(() => db.query(
+      'select public.set_phase14_feature_policy($1,$2,$3) as r',
+      ['automatic_fulfilment', true, 'fixture-only: autonomous settlement parity proof']));
+    const [gateNow] = await query(
+      "select satisfied_version, required_version from public.phase14_security_gates where gate_key='phase14-premium-report'");
+    assert(gateNow.satisfied_version === gateNow.required_version,
+      'the fixture gate must be satisfied at exactly required_version');
+
     await seedCapability();
     for (const status of STRUCTURED) {
       await seedCapability();
@@ -1165,6 +1200,19 @@ async function proveAutonomousAiSettlementParity(adminId) {
       await db.query('delete from public.report_fulfilments where id=$1', [fulfilmentId]);
     });
   } finally {
+    // Restore the control semantics later tests depend on, through the same accepted APIs.
+    try {
+      if (policyBefore) {
+        await asPlatformAdmin(() => db.query(
+          'select public.set_phase14_feature_policy($1,$2,$3) as r',
+          ['automatic_fulfilment', policyBefore.enabled, policyBefore.reason ?? 'fixture restore']));
+      }
+      if (gateBefore?.satisfied_version !== null && gateBefore?.satisfied_version !== undefined) {
+        await asPlatformAdmin(() => db.query(
+          'select public.set_phase14_security_gate_version($1,$2) as r',
+          [gateBefore.satisfied_version, gateBefore.reason ?? 'fixture restore']));
+      }
+    } catch { /* disposable database: control semantics restored best-effort */ }
     await restoreFreeze();
   }
 }
@@ -2768,6 +2816,7 @@ try {
   await proveNearRealTimeAutomaticFulfilment();
   await proveFreezeSurfaceMappingInvariant();
   await proveManualAiSettlementParity(adminId);
+  await proveAutonomousAiSettlementParity(adminId);
   await proveAtomicFinalisationRollback(adminId);
   await proveAtomicTokenConsumption();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
