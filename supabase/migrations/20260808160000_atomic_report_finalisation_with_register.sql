@@ -20,6 +20,11 @@
 -- uploaded objects are safe orphans that generation-failure cleanup may remove; after it commits,
 -- generation-failure cleanup must never delete either object.
 --
+-- Ordering note: the previous current report is superseded BEFORE the new report is inserted,
+-- matching the accepted complete_manual_report_generation(). reports_one_current_assessment_type_uidx
+-- is an immediately-enforced partial unique index, not a deferrable constraint, so the reverse order
+-- collides. Both live environments were inspected read-only to confirm this.
+--
 -- Additive: complete_manual_report_generation() is left exactly as accepted and is not redefined,
 -- so every existing caller and its contract are unchanged. All validation, binding, versioning,
 -- supersede, event and privilege behaviour here is reproduced from that accepted function; the only
@@ -92,6 +97,21 @@ begin
     and status not in ('superseded','voided') order by version_number desc limit 1 for update;
   v_reference := 'RPT-' || v_assessment.assessment_reference || '-V' || v_attempt.report_version;
 
+  -- Supersede the previous current report FIRST. reports_one_current_assessment_type_uidx is a
+  -- partial UNIQUE INDEX on (assessment_id, report_type) covering generated/under_review/approved/
+  -- released, and it is enforced immediately -- it is not a deferrable constraint. Inserting the new
+  -- 'generated' row while the previous one is still live therefore collides. The accepted
+  -- complete_manual_report_generation() supersedes first for exactly this reason, and an earlier
+  -- draft of this function inherited the wrong order.
+  --
+  -- Superseding first opens no window: this is one transaction. If the report insert, the artefact
+  -- insert, the attempt update or any event insert below fails, the supersede rolls back with them
+  -- and the previous report is restored to its original live status. Supersede + insert + bind
+  -- register + REPORT_READY are indivisible.
+  if v_previous.id is not null then
+    update public.reports set status='superseded',updated_at=now() where id=v_previous.id;
+  end if;
+
   insert into public.reports (
     assessment_id,organisation_id,order_id,score_run_id,template_id,report_type,status,
     report_reference,version_number,storage_bucket,storage_path,checksum,file_name,mime_type,
@@ -103,8 +123,8 @@ begin
     v_attempt.requested_by,now(),v_previous.id
   ) returning * into v_report;
 
-  -- Same transaction: the FK resolves against the row just inserted, and if this raises the report
-  -- insert above rolls back with it. This is the whole point of the correction.
+  -- Same transaction: the FK resolves against the row just inserted, and if this raises, the insert
+  -- above AND the supersede roll back with it. This is the whole point of the correction.
   insert into public.report_artifacts (
     report_id,artefact_type,storage_bucket,storage_path,checksum_sha256,
     file_name,mime_type,file_size_bytes,storage_status,storage_verified_at
@@ -112,11 +132,6 @@ begin
     v_report.id,'supporting_register',p_storage_bucket,p_register_storage_path,p_register_checksum,
     p_register_file_name,p_register_mime_type,p_register_file_size_bytes,'VERIFIED',now()
   ) returning * into v_artifact;
-
-  -- Only once BOTH rows exist does the previous version stop being current.
-  if v_previous.id is not null then
-    update public.reports set status='superseded',updated_at=now() where id=v_previous.id;
-  end if;
   update public.manual_report_generation_attempts
   set status='REPORT_READY',output_report_id=v_report.id,completed_at=now(),updated_at=now(),
       safe_operational_error=null,error_category=null

@@ -968,20 +968,11 @@ async function proveBootstrapEnforcement() {
  * checksum-format check on report_artifacts does the work.
  */
 async function proveAtomicFinalisationRollback(adminId) {
-  // NOT YET WIRED IN -- fixture question outstanding, NOT a product defect found.
-  //
-  // The report INSERT now executes and collides on reports_one_current_assessment_type_uidx,
-  // because the RPC inserts the new report BEFORE superseding the previous one -- exactly the
-  // ordering the accepted complete_manual_report_generation() uses, and which demonstrably works on
-  // Staging (V1 -> V2 -> V3 -> V4 all succeeded through it). So the collision is a property of this
-  // disposable fixture, not of the new RPC: the synthetic report is 'generated' for the same
-  // assessment/type the proof targets.
-  //
-  // Before wiring this in, establish WHY Staging tolerates insert-then-supersede: inspect whether
-  // reports_one_current_assessment_type_uidx is DEFERRABLE, or whether its predicate excludes the
-  // states involved. If it is deferrable the fixture is simply missing that, and the proof stands as
-  // written. If it is NOT deferrable, that is a genuine ordering question for BOTH RPCs and must be
-  // raised rather than worked around in a fixture.
+  // This proof found a real defect. An earlier draft of the RPC inserted the new report BEFORE
+  // superseding the previous one, which collides with reports_one_current_assessment_type_uidx --
+  // an immediately-enforced partial unique index, not a deferrable constraint. The RPC now
+  // supersedes first, matching the accepted complete_manual_report_generation(). Neither the index
+  // nor the fixture was weakened to make this pass.
   const orderId = '00000000-0000-0000-0000-00000000e001';
   const attemptId = '00000000-0000-0000-0000-0000000fb001';
   const [order] = await query('select assessment_id from public.orders where id=$1', [orderId]);
@@ -1013,7 +1004,9 @@ async function proveAtomicFinalisationRollback(adminId) {
       (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artefacts,
       (select status from public.reports where id=$2) as previous_status,
       (select status from public.manual_report_generation_attempts where id=$3) as attempt_status,
-      (select output_report_id from public.manual_report_generation_attempts where id=$3) as output_report_id`,
+      (select output_report_id from public.manual_report_generation_attempts where id=$3) as output_report_id,
+      (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+      (select count(*)::int from public.order_events where order_id=$1) as order_events`,
       [orderId, previous.id, attemptId]);
     return r;
   };
@@ -1079,6 +1072,15 @@ async function proveAtomicFinalisationRollback(adminId) {
   assert(after.previous_status !== 'superseded', 'previous report must still be current');
   assert(after.attempt_status === 'REPORT_GENERATING', 'attempt must remain pre-final');
   assert(after.output_report_id === null, 'output_report_id must remain unset');
+  assert(after.report_events === before.report_events, 'no partial report events may survive rollback');
+  assert(after.order_events === before.order_events, 'no partial order events may survive rollback');
+  // The unique-current invariant must still hold: exactly one live report for this assessment/type.
+  const [live] = await query(`select count(*)::int as n from public.reports r
+    join public.assessments a on a.id=r.assessment_id
+    where r.assessment_id=$1 and r.report_type=$2
+      and r.status in ('generated','under_review','approved','released')`,
+    [order.assessment_id, 'essential_self_assessment']);
+  assert(live.n === 1, `unique-current invariant must hold after rollback, saw ${live.n}`);
 
   // Now the success transaction, same fixture, valid register checksum.
   const [{ r: success }] = await query(
@@ -1097,6 +1099,13 @@ async function proveAtomicFinalisationRollback(adminId) {
   assert(success.report.version_number === previous.version_number + 1, 'version must increment by one');
   assert(success.supporting_register.storage_status === 'VERIFIED', 'the register must be VERIFIED');
   assert(success.supporting_register.report_id === success.report.id, 'the register must bind the new report');
+  assert(committed.report_events > before.report_events, 'the committed transaction must write report events');
+  assert(committed.order_events > before.order_events, 'the committed transaction must write order events');
+  const [liveAfter] = await query(`select count(*)::int as n from public.reports
+    where assessment_id=$1 and report_type=$2
+      and status in ('generated','under_review','approved','released')`,
+    [order.assessment_id, 'essential_self_assessment']);
+  assert(liveAfter.n === 1, `exactly one current report must remain, saw ${liveAfter.n}`);
 
   // Restore: remove only what this proof created.
   await withTriggerBypass(async () => {
@@ -2417,6 +2426,7 @@ try {
   await proveNearRealTimeAutomaticFulfilment();
   await proveFreezeSurfaceMappingInvariant();
   await proveManualAiSettlementParity(adminId);
+  await proveAtomicFinalisationRollback(adminId);
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});

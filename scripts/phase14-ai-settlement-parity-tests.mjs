@@ -239,12 +239,33 @@ test('an ambiguous finalisation is reconciled against authoritative state, never
 
 test('a committed attempt is never downgraded by a transport error', () => {
   const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
-  assert.match(caller, /if \(finalisationOutcome === 'committed'\)[\s\S]{0,400}failureSuppressed/,
-    'fail_manual_report_generation must be suppressed when the attempt is already REPORT_READY');
+  // Stronger than the original guard: failure state may be persisted ONLY on positive proof of
+  // non-commit. 'committed' would corrupt a completed generation; 'uncertain' would assert a
+  // rollback that was never established.
+  assert.match(caller, /if \(finalisationOutcome === 'not_committed'\)[\s\S]{0,200}recordFailure\(/,
+    'failure persistence must require positive proof of non-commit');
+  assert.match(caller, /phase1_finalisation_reconciliation_required[\s\S]{0,300}failureSuppressed/,
+    'committed and uncertain outcomes must emit reconciliation evidence instead of mutating');
   const failCall = caller.indexOf('await recordFailure(db, attemptId, mapped.reason');
-  const guard = caller.lastIndexOf("finalisationOutcome === 'committed'", failCall);
+  const guard = caller.lastIndexOf("finalisationOutcome === 'not_committed'", failCall);
   assert.ok(guard > 0 && guard < failCall,
-    'the failure-persistence call must sit behind the committed guard');
+    'the failure-persistence call must sit behind the not_committed guard');
+});
+
+test('the atomic RPC supersedes the previous report before inserting the new one', () => {
+  const sql = read('supabase/migrations/20260808160000_atomic_report_finalisation_with_register.sql');
+  const supersede = sql.indexOf("update public.reports set status='superseded'");
+  const insertReport = sql.indexOf('insert into public.reports (');
+  const insertArtefact = sql.indexOf('insert into public.report_artifacts (');
+  assert.ok(supersede > 0 && insertReport > 0 && insertArtefact > 0, 'all three operations required');
+  // reports_one_current_assessment_type_uidx is an immediately-enforced partial unique index on
+  // (assessment_id, report_type), not a deferrable constraint, so inserting the new 'generated' row
+  // while the previous is still live collides. The accepted complete_manual_report_generation()
+  // supersedes first for this reason.
+  assert.ok(supersede < insertReport,
+    'the previous report must be superseded BEFORE the new report is inserted');
+  assert.ok(insertReport < insertArtefact,
+    'the artefact must bind a report that already exists in the transaction');
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
