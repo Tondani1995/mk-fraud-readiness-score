@@ -40,7 +40,6 @@ export class CustomerReportAccessError extends Error {
 // token can expire during a cold start or a slow audited request even though the route has passed
 // every access and integrity check. Five minutes remains a short possession-link window while
 // leaving enough margin for the signed URL to reach Storage.
-const ACCESS_TTL_SECONDS = 300;
 const MAX_ACCESS_ATTEMPTS_PER_HOUR = 20;
 
 /**
@@ -215,12 +214,21 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
   // Report-level authority has now fully passed (token validity, revocation, expiry, rate limit,
   // report/order binding, eligibility, storage metadata, byte-level PDF integrity). Only now may a
   // secondary artefact of THIS report be selected.
-  let servedBucket: string = report.storage_bucket;
-  let servedPath: string = report.storage_path;
+  //
+  // `bytes` above is the PDF instance that just passed %PDF, MIME, SHA-256 and size validation.
+  // Whatever is selected here is the exact buffer the customer receives: the route returns these
+  // bytes directly and never signs a URL, because a signed URL is a SECOND Storage read and the
+  // instance it serves need not be the instance that was verified. On Staging that gap was real --
+  // the verification read returned the genuine object from cache while the signed URL served a
+  // freshly tampered one, and the customer got 94,062 tampered bytes behind a passing checksum.
+  let servedBytes: Buffer = bytes;
+  let servedChecksum: string = checksum;
+  let servedMimeType: string = report.mime_type || 'application/pdf';
+  let servedFileName: string = report.file_name || `${report.report_reference}.pdf`;
   if (input.artefact === 'register') {
     const { data: artefact, error: artefactError } = await db
       .from('report_artifacts')
-      .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,artefact_type')
+      .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,artefact_type,file_name,mime_type')
       .eq('report_id', report.id)
       .eq('artefact_type', 'supporting_register')
       .maybeSingle();
@@ -244,23 +252,17 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
       await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('integrity_failed', 'The supporting register failed its integrity check.', 409, technicalReference);
     }
-    servedBucket = artefact.storage_bucket;
-    servedPath = artefact.storage_path;
+    // The register is validated on SHA-256 and size only. The %PDF magic check above belongs to the
+    // parent report and must not be applied to a spreadsheet.
+    servedBytes = registerBytes;
+    servedChecksum = registerChecksum;
+    servedMimeType = artefact.mime_type
+      || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    servedFileName = artefact.file_name || `${report.report_reference}-supporting-register.xlsx`;
   }
 
-  const { data: signed, error: signError } = await db.storage
-    .from(servedBucket)
-    // Keep the signed object URL canonical. Supabase Storage accepts the boolean
-    // download option, but the filename form is not portable across Storage API
-    // versions and can make an otherwise valid signed URL return HTTP 400. The
-    // customer route remains possession-token and integrity gated; no object is
-    // served through the service-role client.
-    .createSignedUrl(servedPath, ACCESS_TTL_SECONDS);
-  if (signError || !signed?.signedUrl) {
-    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'signed_link_creation_failed', technicalReference, artefact: requestedArtefact });
-    throw new CustomerReportAccessError('signed_link_creation_failed', 'A secure link could not be created. Contact support.', 500, technicalReference);
-  }
-
+  // Audit before release: recordAccess() throws on a failed success-audit, so an unauditable access
+  // still yields no bytes. Access accounting stays on the successful-authorised path only.
   await db.from('customer_report_access_tokens').update({
     last_accessed_at: new Date().toISOString(),
     access_count: tokenRow.access_count + 1
@@ -268,5 +270,15 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
 
   await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: true, technicalReference, artefact: requestedArtefact });
 
-  return { url: signed.signedUrl, expiresInSeconds: ACCESS_TTL_SECONDS, reportReference: report.report_reference, technicalReference, artefact: input.artefact ?? 'pdf' };
+  // The verified instance itself. No bucket, no path, no signed URL, no second Storage read.
+  return {
+    bytes: servedBytes,
+    checksumSha256: servedChecksum,
+    fileSizeBytes: servedBytes.length,
+    mimeType: servedMimeType,
+    fileName: servedFileName,
+    reportReference: report.report_reference,
+    technicalReference,
+    artefact: requestedArtefact
+  };
 }

@@ -191,6 +191,15 @@ try {
   record('existing PDF retrieval remains green',
     pdfResponse.status === 200 && pdfResponse.bytes.subarray(0, 4).toString() === '%PDF',
     `status=${pdfResponse.status} bytes=${pdfResponse.length}`);
+  const { data: pdfReport } = await db.from('reports')
+    .select('checksum,file_size_bytes').eq('id', primary.reportId).maybeSingle();
+  record('PDF delivered bytes equal the recorded authoritative checksum and size',
+    pdfResponse.checksum === pdfReport?.checksum
+      && pdfResponse.length === Number(pdfReport?.file_size_bytes),
+    `served=${pdfResponse.checksum.slice(0, 16)} recorded=${String(pdfReport?.checksum).slice(0, 16)} bytes=${pdfResponse.length}`);
+  record('PDF is delivered by the application, not a Storage redirect',
+    !/supabase\.co\/storage/.test(pdfResponse.contentType) && pdfResponse.contentType.includes('application/pdf'),
+    `content-type=${pdfResponse.contentType}`);
 
   const registerToken = await mintToken(primary);
   const registerResponse = await fetchArtefact(registerToken, 'register');
@@ -263,11 +272,17 @@ try {
   const tampered = await fetchArtefact(await mintToken(primary), 'register');
   const servedWhich = tampered.checksum === tamperedChecksum ? 'TAMPERED'
     : tampered.checksum === storedChecksum ? 'genuine(cached)' : 'other';
-  record('tampered stored bytes fail closed (checksum and size mismatch)',
-    tampered.status >= 400, `status=${tampered.status} served=${servedWhich} bytes=${tampered.length}`);
+  // The invariant is not "a tamper always 4xx" -- it is that the customer only ever receives the
+  // byte instance MK verified. Storage may serve the verification read from cache, in which case
+  // the genuine instance is verified AND delivered, which satisfies the invariant completely. What
+  // must never happen is the tampered instance reaching the customer, which is exactly what the
+  // old signed-URL redirect allowed.
   record('tampered bytes are never delivered to the customer',
     tampered.checksum !== tamperedChecksum,
-    `served=${servedWhich} status=${tampered.status}`);
+    `served=${servedWhich} status=${tampered.status} bytes=${tampered.length}`);
+  record('tampered register either fails closed or serves the verified instance',
+    tampered.status >= 400 || tampered.checksum === storedChecksum,
+    `status=${tampered.status} served=${servedWhich}`);
 
   // Restore the genuine bytes, then prove a missing object also fails closed.
   await db.storage.from(primary.bucket)
@@ -278,8 +293,8 @@ try {
 
   await db.storage.from(primary.bucket).remove([storagePath]);
   const missingObject = await fetchArtefact(await mintToken(primary), 'register');
-  record('missing stored register fails closed', missingObject.status >= 400,
-    `status=${missingObject.status}`);
+  record('missing stored register fails closed with a customer-safe 404',
+    missingObject.status === 404, `status=${missingObject.status}`);
 
   // --------------------------------------------------------------------- structural guarantees
   const { count: reportRows } = await db.from('reports')

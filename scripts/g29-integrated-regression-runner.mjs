@@ -48,6 +48,7 @@ const suites = [
   { id: 'delivery.provider-faults', category: 'delivery', ...npm('phase14:test-provider-faults') },
   { id: 'delivery.storage-faults', category: 'delivery', ...npm('phase14:test-storage-faults') },
   { id: 'delivery.access-eligibility', category: 'delivery', ...npm('phase14:test-report-access-eligibility') },
+  { id: 'delivery.verified-byte-delivery', category: 'delivery', ...npm('g29:test-verified-byte-delivery') },
   { id: 'delivery.security-closure', category: 'delivery', ...npm('phase14:test-security-closure') },
   { id: 'delivery.resend-rate-limit', category: 'delivery', ...npm('phase14:test-resend-webhook-rate-limit') },
   { id: 'database.accepted-migrations', category: 'database', ...npm('rc1:verify-accepted-migrations') },
