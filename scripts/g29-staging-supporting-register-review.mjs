@@ -93,15 +93,6 @@ const fetchArtefact = async (token, artefact) => {
     contentType: response.headers.get('content-type') ?? ''
   };
 };
-const auditRowsFor = async (reference) => {
-  const { data } = await db.from('report_events')
-    .select('event_type,metadata_json')
-    .eq('report_id', primary.reportId)
-    .order('created_at', { ascending: false })
-    .limit(40);
-  return (data ?? []).filter((row) => row.metadata_json?.technical_reference === reference);
-};
-
 let storagePath = null;
 let artefactCreated = false;
 
@@ -139,7 +130,14 @@ try {
   // ------------------------------------------------------------------- real private upload
   storagePath = `${primary.organisationId}/${primary.orderId}/v1/`
     + `${primary.reportReference}-supporting-register.xlsx`;
-  await db.storage.from(primary.bucket).remove([storagePath]).catch(() => {});
+  // Self-healing setup. A VERIFIED artefact is immutable by design, so any row left behind by an
+  // interrupted earlier run would make complete_report_secondary_artefact() reject this one as a
+  // conflicting rewrite. Clear both sides first so the review is repeatable.
+  try {
+    await db.from('report_artifacts').delete()
+      .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
+  } catch { /* nothing to clear */ }
+  try { await db.storage.from(primary.bucket).remove([storagePath]); } catch { /* absent is fine */ }
   const { error: uploadError } = await db.storage.from(primary.bucket)
     .upload(storagePath, workbook.bytes, {
       contentType: workbook.mimeType, upsert: false,
@@ -260,11 +258,18 @@ try {
     Object.keys(artefactRow ?? {}).join(','));
 } finally {
   // Synthetic verification material only: the artefact row and its storage object.
+  // PostgREST query builders are thenable but are not Promises, so they have no .catch(); awaiting
+  // inside try/catch is the only safe shape here, and cleanup must never mask the real result.
   if (artefactCreated) {
-    await db.from('report_artifacts').delete()
-      .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register').catch(() => {});
+    try {
+      await db.from('report_artifacts').delete()
+        .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
+    } catch (error) { record('artefact row cleanup', false, safe(error?.message)); }
   }
-  if (storagePath) await db.storage.from(primary.bucket).remove([storagePath]).catch(() => {});
+  if (storagePath) {
+    try { await db.storage.from(primary.bucket).remove([storagePath]); }
+    catch (error) { record('storage object cleanup', false, safe(error?.message)); }
+  }
   const { count: remaining } = await db.from('report_artifacts')
     .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
   record('synthetic verification material cleaned up', (remaining ?? 0) === 0, `remaining=${remaining}`);
