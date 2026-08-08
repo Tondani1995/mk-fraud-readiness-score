@@ -160,14 +160,24 @@ try {
 
   const routeFinal = result.customerAccess.route.final;
   const routeInitial = result.customerAccess.route.initial;
-  const applicationRedirect = result.customerAccess.route.chain.find((item) => item.location?.expectedBucket && item.location?.expectedObjectPath) ?? null;
-  const routeLocationValid = Boolean(applicationRedirect?.status >= 300 && applicationRedirect.status < 400 && applicationRedirect.location?.valid && applicationRedirect.location.expectedBucket && applicationRedirect.location.expectedObjectPath);
-  result.customerAccess.applicationRedirect = applicationRedirect;
+  // Migrated from the old signed-URL contract. The route used to redirect the customer to Supabase
+  // Storage, so this asserted a redirect whose Location carried the expected bucket and object path.
+  // The customer now receives the exact byte instance the application verified, so the correct
+  // assertion is the opposite: the customer must NEVER be redirected to Storage. Any hop to a
+  // storage host would be a second read of a possibly different instance -- the defect this change
+  // removed. (Vercel's own protection-bypass hop stays on the deployment host and is not one.)
+  const storageRedirect = result.customerAccess.route.chain.find(
+    (item) => item.location?.expectedBucket || item.location?.expectedObjectPath
+      || /supabase\.co\/storage/i.test(String(item.location?.host ?? ''))) ?? null;
+  const routeLocationValid = storageRedirect === null;
+  result.customerAccess.storageRedirect = storageRedirect;
+  result.customerAccess.applicationRedirect = null;
   const customerMatches = Boolean(routeFinal?.status === 200 && routeFinal.contentType?.toLowerCase().startsWith('application/pdf') && routeFinal.pdfMagic && routeFinal.bytes === report.expectedBytes && routeFinal.checksum === report.expectedChecksum);
   result.customerAccess.initialRouteValid = routeLocationValid;
   result.customerAccess.final = routeFinal;
   result.customerAccess.matchedStorage = customerMatches;
-  if (!customerMatches || !routeLocationValid) result.productFailures.push('customer_signed_access_did_not_return_matching_pdf');
+  if (!customerMatches) result.productFailures.push('customer_access_did_not_return_the_authoritative_pdf');
+  if (!routeLocationValid) result.productFailures.push('customer_access_redirected_to_storage');
 } catch (error) {
   result.customerAccess = { error: safeMessage(error?.message ?? error) };
   result.environmentFailures.push('customer_signed_access_request_failed');
