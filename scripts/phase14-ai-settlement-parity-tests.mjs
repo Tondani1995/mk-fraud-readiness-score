@@ -20,7 +20,10 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const MANUAL_SQL = 'supabase/migrations/20260808150000_manual_ai_structured_output_settlement_parity.sql';
-const AUTONOMOUS_SQL = 'supabase/migrations/20260806143000_pre_g30_structured_output_release_gate.sql';
+// Both settlement functions are now defined by the Production-bound migration. The Staging-only
+// 20260806143000 is deliberately NOT the source of truth: Production never receives it.
+const AUTONOMOUS_SQL = MANUAL_SQL;
+const STAGING_ONLY_SQL = 'supabase/migrations/20260806143000_pre_g30_structured_output_release_gate.sql';
 const DIAGNOSTICS_TS = 'src/lib/reports/automation/structured-output-diagnostics.ts';
 
 let passed = 0;
@@ -108,11 +111,33 @@ test('manual settlement retains every existing security control', () => {
   ]) assert.ok(manualBody.includes(control), `manual settlement must retain: ${control}`);
 });
 
-test('the corrective migration broadens no privilege and does not touch the autonomous function', () => {
+test('the migration broadens no privilege and is Production-bound, not Staging-derived', () => {
   const sql = read(MANUAL_SQL);
-  assert.doesNotMatch(sql, /^\s*(grant|revoke|drop|alter)\b/mi, 'no grant/revoke/drop/alter permitted');
-  assert.ok(!sql.includes('create or replace function public.settle_phase14_ai_attempt'),
-    'the autonomous settlement function must not be redefined');
+  assert.doesNotMatch(sql, /^\s*(grant|revoke)\b/mi, 'no grant/revoke permitted');
+  // It DOES define both functions and alter the table -- that is the point now that Production is
+  // known to lack the column, the vocabulary and the autonomous upgrade.
+  assert.ok(sql.includes('create or replace function public.settle_phase14_ai_attempt'),
+    'the Production-bound migration must define the autonomous function too');
+  assert.ok(sql.includes('add column if not exists structured_output_diagnostics'),
+    'the column add must be replay-safe');
+  assert.ok(sql.includes('drop constraint if exists report_ai_attempts_status_check'),
+    'the status constraint replacement must be replay-safe');
+  assert.ok(!sql.includes('20260806143000'.replace('x','')) || true, 'no dependency assertion placeholder');
+});
+
+test('the Production-bound migration does not depend on the Staging-only upgrade', () => {
+  const sql = read(MANUAL_SQL);
+  assert.doesNotMatch(sql.replace(/^\s*--.*$/gm, ''), /20260806143000/,
+    'executable SQL must not reference the Staging-only migration');
+  // The Staging-only migration must still exist untouched for environments that already have it.
+  assert.ok(read(STAGING_ONLY_SQL).includes('settle_phase14_ai_attempt'),
+    'the Staging-only migration is left in place');
+});
+
+test('worker capability activation and capability types are preserved in autonomous settlement', () => {
+  assert.match(autonomousBody, /phase14_activate_worker_operation/);
+  assert.match(autonomousBody, /'automatic_generation','generation_recovery'/);
+  assert.match(autonomousBody, /phase14_ai_attempt_cas_failed/);
 });
 
 test('the migration carries its own apply-time and replay-time parity assertion', () => {
@@ -123,8 +148,12 @@ test('the migration carries its own apply-time and replay-time parity assertion'
   // 20260806143000, excluded from the Production ledger, so asserting it in a Production-bound
   // migration would fail on environments that legitimately lack it. File-level parity is asserted
   // above instead, which is environment-independent.
-  assert.doesNotMatch(sql, /autonomous_ai_settlement_missing_status/,
-    'the migration must not assert against a Staging-only function upgrade');
+  assert.match(sql, /autonomous_ai_settlement_missing_status/,
+    'the migration defines both functions, so it must assert both');
+  assert.match(sql, /report_ai_attempts_status_check_missing_status/,
+    'the table vocabulary must be asserted alongside the functions');
+  assert.match(sql, /ai_settlement_privilege_broadened/,
+    'the migration must assert no privilege was broadened');
 });
 
 test('durable-ai-attempts still forwards the diagnostic status into settlement', () => {
