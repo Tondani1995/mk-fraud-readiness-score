@@ -251,9 +251,23 @@ try {
   const { error: tamperError } = await db.storage.from(primary.bucket)
     .upload(storagePath, tamperedBytes, { contentType: workbook.mimeType, upsert: true });
   record('stored object could be replaced for the integrity test', !tamperError, safe(tamperError?.message));
+  const tamperedChecksum = crypto.createHash('sha256').update(tamperedBytes).digest('hex');
+  // Read the object straight back through the Storage API to establish what is actually stored now,
+  // independently of what the customer route serves. Without this a 200 is ambiguous: it could mean
+  // the integrity gate failed to fire, or that a cache replayed the genuine bytes.
+  const { data: reread } = await db.storage.from(primary.bucket).download(storagePath);
+  const rereadBytes = reread ? Buffer.from(await reread.arrayBuffer()) : Buffer.alloc(0);
+  const rereadChecksum = crypto.createHash('sha256').update(rereadBytes).digest('hex');
+  record('tamper actually landed in Storage', rereadChecksum === tamperedChecksum,
+    `stored=${rereadChecksum.slice(0, 16)} tampered=${tamperedChecksum.slice(0, 16)} genuine=${storedChecksum.slice(0, 16)}`);
   const tampered = await fetchArtefact(await mintToken(primary), 'register');
+  const servedWhich = tampered.checksum === tamperedChecksum ? 'TAMPERED'
+    : tampered.checksum === storedChecksum ? 'genuine(cached)' : 'other';
   record('tampered stored bytes fail closed (checksum and size mismatch)',
-    tampered.status >= 400, `status=${tampered.status}`);
+    tampered.status >= 400, `status=${tampered.status} served=${servedWhich} bytes=${tampered.length}`);
+  record('tampered bytes are never delivered to the customer',
+    tampered.checksum !== tamperedChecksum,
+    `served=${servedWhich} status=${tampered.status}`);
 
   // Restore the genuine bytes, then prove a missing object also fails closed.
   await db.storage.from(primary.bucket)
