@@ -16,7 +16,8 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   testRecipientOverride: null,
   model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.5',
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
-  schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION
+  schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
+  contractVersionMismatch: null
 });
 
 function enabled(value: unknown) {
@@ -43,11 +44,31 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
     model: optionalText(source.premium_report_ai_model)
       ?? process.env.MK_REPORT_AI_MODEL?.trim()
       ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.model,
-    promptVersion: optionalText(source.premium_report_prompt_version)
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.promptVersion,
-    schemaVersion: optionalText(source.premium_report_schema_version)
-      ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.schemaVersion
+    // The COMPILED constants are the contract. A database setting cannot relabel the executable
+    // prompt and schema: it may only assert what it expects to be deployed. Where it asserts
+    // something different, that is a deployment error and AI must fail closed rather than run under
+    // a false version label -- the labels participate in durable-attempt identity and reuse.
+    promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
+    schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
+    contractVersionMismatch: contractVersionMismatch(source)
   };
+}
+
+/**
+ * Returns a safe diagnostic when the database asserts a different contract version, or null when it
+ * asserts nothing or agrees. Deliberately carries no prose or evidence -- only the version labels.
+ */
+export function contractVersionMismatch(source: Record<string, unknown>): string | null {
+  const declaredPrompt = optionalText(source.premium_report_prompt_version);
+  const declaredSchema = optionalText(source.premium_report_schema_version);
+  const mismatched: string[] = [];
+  if (declaredPrompt !== null && declaredPrompt !== PREMIUM_REPORT_PROMPT_VERSION) {
+    mismatched.push(`prompt_version declared ${declaredPrompt}, compiled ${PREMIUM_REPORT_PROMPT_VERSION}`);
+  }
+  if (declaredSchema !== null && declaredSchema !== PREMIUM_REPORT_SCHEMA_VERSION) {
+    mismatched.push(`schema_version declared ${declaredSchema}, compiled ${PREMIUM_REPORT_SCHEMA_VERSION}`);
+  }
+  return mismatched.length > 0 ? `ai_contract_version_mismatch: ${mismatched.join('; ')}` : null;
 }
 
 export async function getPremiumReportAutomationFlags(dbOverride?: any): Promise<PremiumReportAutomationFlags> {

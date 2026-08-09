@@ -137,10 +137,19 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
   generator: GeneratorHandle;
   baseGenerationInput: Parameters<GeneratorHandle['repair']>[0];
   generation: NarrativeGenerationResult;
-  planValidation: ReturnType<typeof validatePremiumReportAiEditorialPlan>;
+  /**
+   * The FIRST BLOCKING validation result -- the one that actually caused this repair. When the
+   * structural plan check fails it is that check; when the plan passes and the full narrative
+   * fact-check fails it is the narrative check. V6 recorded the passing plan check here while the
+   * narrative check had failed with adaptive_exposure_unsupported, so the audit row read ok:true
+   * for a generation that was repaired and ultimately fell back. A successful structural check must
+   * not masquerade as the repair-triggering validation.
+   */
+  initialValidation: ReturnType<typeof validatePremiumReportNarrative>
+    | ReturnType<typeof validatePremiumReportAiEditorialPlan>;
   priorValidationIssues: ReturnType<typeof validatePremiumReportNarrative>['issues'];
 }): Promise<PreparedPremiumReportNarrative> {
-  const { evidence, checksum, generator, baseGenerationInput, generation, planValidation } = params;
+  const { evidence, checksum, generator, baseGenerationInput, generation, initialValidation } = params;
   try {
     const repairScope = buildPremiumReportRepairScope({
       narrativeBrief: baseGenerationInput.narrativeBrief,
@@ -182,7 +191,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
           evidence,
           checksum
         ),
-        initialValidation: planValidation,
+        initialValidation,
         repairValidation: repairContractValidation,
         generation,
         repairGeneration,
@@ -200,7 +209,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
         evidence,
         evidenceChecksum: checksum,
         validation: repaired.validation,
-        initialValidation: planValidation,
+        initialValidation,
         repairValidation: repairContractValidation,
         generation,
         repairGeneration,
@@ -210,7 +219,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
     }
     return {
       ...fallbackResult(input, 'ai_repair_narrative_validation_failed', evidence, checksum),
-      initialValidation: planValidation,
+      initialValidation,
       repairValidation: repaired.validation,
       generation,
       repairGeneration,
@@ -221,7 +230,7 @@ async function attemptRepair(input: BuildPremiumReportNarrativeInput, params: {
     const reason = repairError instanceof Error ? repairError.message : 'repair_generation_failed';
     return {
       ...fallbackResult(input, `ai_repair_failed:${reason}`, evidence, checksum),
-      initialValidation: planValidation,
+      initialValidation,
       generation
     };
   }
@@ -315,7 +324,7 @@ export async function preparePremiumReportNarrative(
         generator,
         baseGenerationInput,
         generation,
-        planValidation,
+        initialValidation: planValidation,
         priorValidationIssues: planValidation.issues
       });
     }
@@ -341,7 +350,7 @@ export async function preparePremiumReportNarrative(
       generator,
       baseGenerationInput,
       generation,
-      planValidation,
+      initialValidation: validation,
       priorValidationIssues: validation.issues
     });
   } catch (generationError) {

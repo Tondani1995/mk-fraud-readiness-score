@@ -92,8 +92,8 @@ const postflightReplayMigrations = migrationFiles.filter(
 );
 assert.equal(
   postflightReplayMigrations.length,
-  98,
-  'canonical migration directory must contain the complete 98-file SQL set',
+  99,
+  'canonical migration directory must contain the complete 99-file SQL set',
 );
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering

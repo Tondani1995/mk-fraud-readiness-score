@@ -180,7 +180,9 @@ test('truncation still classifies as structured_output_truncated with full diagn
 // ------------------------------------------------------- 13-14: versioning and the repair path
 test('the prompt and schema versions were bumped for a real contract change', () => {
   assert.equal(PREMIUM_REPORT_SCHEMA_VERSION, 'mk-essential-ai-advisory-editor-v5');
-  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v5-advisory-editor');
+  // The prompt moved to v6 when it gained the no-exposure grounding instruction; the schema's
+  // structure and maxima did not change, so it stays v5. They are separate contracts.
+  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v6-advisory-editor-grounding');
 });
 test('the repair path shares one output envelope with the first attempt', () => {
   const generator = readFileSync('src/lib/reports/automation/ai-sdk-generator.ts', 'utf8');

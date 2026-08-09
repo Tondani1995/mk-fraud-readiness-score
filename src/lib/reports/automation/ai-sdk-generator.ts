@@ -22,7 +22,7 @@ import {
   PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS
 } from './phase-timing';
 
-import { PREMIUM_REPORT_AI_BODY_MAX_CHARS, PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS } from './types';
+import { PREMIUM_REPORT_AI_BODY_MAX_CHARS, PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS, PREMIUM_REPORT_SCHEMA_VERSION } from './types';
 import { ESSENTIAL_CAPS } from '../essential-projection';
 import crypto from 'node:crypto';
 
@@ -51,6 +51,15 @@ export const PREMIUM_REPORT_AI_MAX_DOMAIN_SECTIONS = 10;
  * an invented number. Systemic reports select fewer (findingsSystemic); this is the ceiling.
  */
 export const PREMIUM_REPORT_AI_MAX_GAP_SECTIONS = ESSENTIAL_CAPS.findings;
+
+/**
+ * Provider-facing structured-output name, DERIVED from the authoritative schema version so it can
+ * never lag it again. It read mk_essential_report_v4_advisory_editor while the executable schema
+ * was v5, which put a third version label on a single real attempt alongside the v2 the stale
+ * config row supplied.
+ */
+export const PREMIUM_REPORT_STRUCTURED_OUTPUT_NAME =
+  PREMIUM_REPORT_SCHEMA_VERSION.replace(/[^a-zA-Z0-9]+/g, '_');
 
 export const premiumReportNarrativeSchema = z.object({
   executiveEvidenceRefs: evidenceRefs,
@@ -93,7 +102,7 @@ async function runStructuredGeneration(input: {
       prompt: input.prompt,
       output: Output.object({
         schema: premiumReportNarrativeSchema,
-        name: 'mk_essential_report_v4_advisory_editor',
+        name: PREMIUM_REPORT_STRUCTURED_OUTPUT_NAME,
         description: 'Controlled customer-facing narrative bodies with section-scoped deterministic evidence references. Titles, scores, findings, controls, decisions, owners and roadmap actions are excluded.'
       }),
       maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,

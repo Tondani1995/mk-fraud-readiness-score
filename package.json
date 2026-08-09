@@ -129,7 +129,8 @@
     "rc1:test-replay-matrix-c": "node scripts/rc1-replay-matrix-c-tests.mjs",
     "g30:test-pdf-accessibility": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g30-pdf-accessibility-contract.mjs",
     "g30:test-keyboard-a11y": "node scripts/g30-keyboard-a11y-check.mjs",
-    "ai:test-output-envelope": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-output-envelope-contract-tests.mjs"
+    "ai:test-output-envelope": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-output-envelope-contract-tests.mjs",
+    "ai:test-contract-grounding": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-contract-grounding-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

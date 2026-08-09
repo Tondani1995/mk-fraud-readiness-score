@@ -6,7 +6,11 @@ import type { AdvisoryEvidenceModel } from '../evidence-model';
 // carries explicit concision direction. schema_version is part of the attempt-reuse fingerprint in
 // durable-ai-attempts.ts, so leaving it at v4 would let a persisted v4 attempt be matched against
 // the tighter contract and reused with bodies that no longer conform.
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v5-advisory-editor';
+// v6: the prompt now carries a deterministic no-exposure grounding instruction when the evidence
+// pack contains no exposure score or band. That changes model behaviour materially, so the PROMPT
+// version moves. The schema's structure and maxima are unchanged, so it deliberately stays v5 --
+// they are versioned separately because they are separate contracts.
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v6-advisory-editor-grounding';
 export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v5';
 export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v3-compact';
 
@@ -73,6 +77,14 @@ export interface PremiumReportAutomationFlags {
   model: string;
   promptVersion: string;
   schemaVersion: string;
+  /**
+   * Set when the database explicitly declares a prompt/schema version that disagrees with the
+   * compiled contract. The compiled code IS the contract -- a config row must never be able to
+   * label v6/v5 executable prompt and schema code as something else. V6's two real AI attempts were
+   * stamped v2 exactly that way, defeating the reason the version was bumped, because
+   * prompt_version and schema_version participate in durable-attempt identity and reuse.
+   */
+  contractVersionMismatch: string | null;
 }
 
 export type ReportEvidenceKind =

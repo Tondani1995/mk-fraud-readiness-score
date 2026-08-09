@@ -479,8 +479,18 @@ export async function generateManualPhase1Report(
     const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
     generationStage = 'load_automation_flags';
     const flags = await doGetAutomationFlags(db);
+    // Fail closed on a contract-version disagreement rather than running the provider under a false
+    // version label. V6's attempts were stamped v2 by a stale config row while executing v5 code;
+    // because those labels participate in durable-attempt identity and reuse, that is a correctness
+    // problem, not cosmetics. The deterministic path still produces a complete report.
+    if (flags.contractVersionMismatch) {
+      console.error('premium_report_ai_contract_version_mismatch', {
+        outcome: 'ai_disabled_fail_closed', detail: flags.contractVersionMismatch
+      });
+    }
+    const aiNarrativeAllowed = flags.aiNarrativeEnabled && !flags.contractVersionMismatch;
     const generator = dependencies.narrativeGenerator
-      ?? (flags.aiNarrativeEnabled
+      ?? (aiNarrativeAllowed
         ? dependencies.createNarrativeGenerator
           ? dependencies.createNarrativeGenerator(flags.model)
           : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
@@ -492,7 +502,7 @@ export async function generateManualPhase1Report(
       assembled.scoreRun.id,
       `v${versionNumber}`
     ].join(':');
-    const attemptStore = flags.aiNarrativeEnabled && generator
+    const attemptStore = aiNarrativeAllowed && generator
       ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
       : undefined;
     generationStage = 'prepare_narrative';

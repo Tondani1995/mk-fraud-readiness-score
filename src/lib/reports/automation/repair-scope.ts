@@ -30,6 +30,18 @@ export function buildPremiumReportRepairScope(
 
   for (const validationIssue of input.validationIssues ?? []) {
     const path = validationIssue.path ?? '';
+
+    // Code-aware mapping for whole-narrative rules. adaptive_exposure_unsupported carries the path
+    // 'narrative', which no section matcher recognises, so wanted stayed empty and the fallback
+    // below expanded the repair to all 19 sections. The rule is evaluated over exactly three root
+    // bodies, so exactly those three are repaired -- domains and gaps are left byte-preserved.
+    if (validationIssue.code === 'adaptive_exposure_unsupported') {
+      wanted.add('executive');
+      wanted.add('false_comfort');
+      wanted.add('leadership');
+      continue;
+    }
+
     if (/executive(?:Body|EvidenceRefs|Diagnosis)?/i.test(path)) wanted.add('executive');
     if (/falseComfort|false_comfort/i.test(path)) wanted.add('false_comfort');
     if (/leadership(?:Body|EvidenceRefs|Attention)?/i.test(path)) wanted.add('leadership');
