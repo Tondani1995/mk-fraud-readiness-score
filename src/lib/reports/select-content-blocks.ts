@@ -129,9 +129,27 @@ export function gapKey(domainCode: string, questionCode: string) {
 
 function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined): SelectedContent['executiveSummary'] {
   if (data.adaptiveScope) {
+    // An adaptive assessment is not automatically a visibility-limited one. V7 reported coverage
+    // 100%, control visibility 100% and zero uncertainty responses, yet the executive title still
+    // read "Visibility-limited assessment" -- a title that contradicted the metrics printed beside
+    // it on the same page. The condition below is the same one commercial-insights.ts already uses
+    // to decide whether visibility genuinely constrained the result.
+    const scope = data.adaptiveScope;
+    const visibilityLimited = scope.resultStatus === 'INSUFFICIENT_VISIBILITY'
+      || scope.unknownSharePct > 0
+      || scope.unansweredApplicableCount > 0;
+    if (visibilityLimited) {
+      return {
+        title: 'Visibility-limited assessment',
+        body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+        usedFallback: true
+      };
+    }
+    // Full visibility, but the foundational control baseline is reported as absent. The diagnosis
+    // is systemic rather than uncertain, and the title must say so.
     return {
-      title: 'Visibility-limited assessment',
-      body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+      title: 'Systemic foundational control gap',
+      body: 'The assessment was answered with complete visibility, and it reports that the foundational fraud-control baseline is not yet in place. This is a systemic condition rather than an uncertainty: the control position is known, and it is that the baseline controls this report sets out have not been established.',
       usedFallback: true
     };
   }

@@ -400,7 +400,7 @@ export function renderReportHtml(
 
   // Bounded L2, exactly as the evidence-priority block below already does. This read
   // evidenceModel.roadmapActions -- the COMPLETE L1 action set -- so V7 printed all 60 recommended
-  // actions against the accepted 12-target/15-ceiling from selectDependencyClosedRoadmap(), filling
+  // actions against the accepted 12-target/15-ceiling the projection's dependency-closed roadmap
   // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
   // the accepted ordering; never render the full L1 roadmap here.
   const roadmapRows = projection.roadmapActions.map((action) => `<tr>
@@ -610,7 +610,7 @@ export function renderReportHtml(
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
       : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
-    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section'),
+    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-roadmap'),
     section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`),
     appendixSections
   ].join('\n');
@@ -658,14 +658,21 @@ export function renderReportHtml(
      V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
   .subsection-heading + .section-note,
   .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
-  /* Roadmap rows are the tallest in the report -- each carries a full control design and success
-     measure -- so only about two fit per page. With break-inside:avoid on tr, a leftover row can
-     only ever be pushed whole onto a fresh page, where it sits alone: that is the checkpoint-f
-     PDF_NEAR_EMPTY_PAGE failure on Linux CI (materially-weak fixture, page 21 -- 1,199 characters,
-     comfortably over the 600 text threshold, failing the 0.26 occupied-area floor at roughly a
-     fifth of the body height). Letting this one table's rows flow across a page boundary means the
-     content fills continuously and no lone-row page can form. Rows elsewhere stay intact. */
-  .roadmap-table tbody tr { break-inside: auto; page-break-inside: auto; }
+  /* Layout-boundary exception, and the ONLY one. Every .report-section forces a page break before
+     itself. Roadmap rows are large whole control designs and about two fit a page, so when the
+     final row lands alone the compulsory break before the next section guarantees the rest of that
+     page stays empty -- the checkpoint-f PDF_NEAR_EMPTY_PAGE failure (F1 AI page 20 at 0.1334
+     occupied area, F1 fallback page 19 at 0.1772, against the 0.26 floor).
+     Letting only Evidence validation priorities begin in that remaining space fills the page with
+     real content. An earlier attempt allowed roadmap rows to split instead; CI disproved it -- a
+     row that fits a page is never split, it simply moves whole -- and splitting a control objective
+     from its owner, timing and success measure is not what a commercial report should do. */
+  .report-section.continue-after-roadmap { break-before: auto; page-break-before: auto; }
+  /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
+     its first meaningful content wherever it starts on the page. */
+  .continue-after-roadmap .section-kicker,
+  .continue-after-roadmap h2,
+  .continue-after-roadmap .lede { break-after: avoid; page-break-after: avoid; }
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
