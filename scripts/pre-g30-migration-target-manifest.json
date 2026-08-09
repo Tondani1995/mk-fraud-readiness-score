@@ -1,0 +1,32 @@
+{
+  "manifestVersion": 1,
+  "checksumAlgorithm": "sha256",
+  "classificationDefault": "production",
+  "stagingOnly": [
+    {"migration":"20260728190000_rc1_staging_postflight_least_privilege.sql","justification":"Explicit Staging postflight/test-harness ACL correction."},
+    {"migration":"20260730130000_rc1_synthetic_certification_cleanup.sql","justification":"Synthetic certification cleanup control; never part of customer Production history."},
+    {"migration":"20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql","justification":"Synthetic cleanup Storage API correction."},
+    {"migration":"20260731150000_rc1_synthetic_cleanup_guard_allowances.sql","justification":"Synthetic cleanup-only guard allowance."},
+    {"migration":"20260731170000_rc1_synthetic_storage_cleanup_closure.sql","justification":"Synthetic Storage cleanup closure."},
+    {"migration":"20260801070000_rc1_synthetic_cleanup_attestation_routes.sql","justification":"Synthetic cleanup attestation route."},
+    {"migration":"20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql","justification":"Synthetic cleanup attestation allowance."},
+    {"migration":"20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql","justification":"Synthetic cleanup authoritative context."},
+    {"migration":"20260801160000_rc1_orphan_remediation.sql","justification":"Synthetic/provider orphan remediation control."},
+    {"migration":"20260801180000_rc1_certification_enablement_control.sql","justification":"RC1 synthetic certification enablement control."},
+    {"migration":"20260801200000_rc1_orphan_remediation_guard_allowance.sql","justification":"Synthetic orphan-remediation guard allowance."},
+    {"migration":"20260801220000_rc1_synthetic_certification_marking.sql","justification":"Synthetic certification marking and fixture provenance."},
+    {"migration":"20260802120000_rc1_synthetic_marking_placeholder_allowance.sql","justification":"Synthetic marking test allowance."},
+    {"migration":"20260803090000_rc1_certification_closure.sql","justification":"RC1 synthetic certification closure path."},
+    {"migration":"20260803230000_preview_development_delivery.sql","justification":"Preview development delivery facade."},
+    {"migration":"20260804090000_preview_development_authoritative_context.sql","justification":"Preview development mutation context."},
+    {"migration":"20260804110000_rc1_preview_resend_webhook_ingestion.sql","justification":"Preview provider webhook simulation/ingestion facade."},
+    {"migration":"20260804130000_rc1_preview_resend_reconciliation_once.sql","justification":"Preview provider reconciliation simulation."},
+    {"migration":"20260804140000_rc1_preview_resend_reconciliation_status.sql","justification":"Preview provider reconciliation status facade."},
+    {"migration":"20260804150000_rc1_preview_resend_apply_context.sql","justification":"Preview provider callback apply context."}
+  ],
+  "requiredProductionGroups": [
+    {"group":"adaptive_foundation","patterns":["20260804170000_g24_adaptive_foundation_g28_evidence_guidance.sql","20260804171000_g28_evidence_guidance_seed_repair.sql","20260804200000_g25_adaptive_engine.sql","20260804210000_g27_adaptive_scoring_integration.sql","20260804223000_g27_adaptive_visibility_score_guard.sql","20260805100000_g24_adaptive_history_least_privilege.sql","20260805110000_g24_adaptive_rpc_least_privilege.sql","20260805120000_g27_adaptive_scoring_search_path.sql"],"justification":"Approved adaptive customer product schema, scoring, evidence and least-privilege controls."},
+    {"group":"commercial_launch","patterns":["20260804194001_g29_payment_verification_contract.sql","20260804203520_g29_customer_report_access_audit.sql","20260803220000_rc1_premium_delivery_active_uniqueness.sql"],"justification":"Payment, report access and delivery integrity required by the launch candidate."},
+    {"group":"ai_route_authority","patterns":["20260805090000_pre_g30_ai_route_authority.sql","20260805140000_pre_g30_adaptive_launch_authority.sql","20260805150000_pre_g30_staging_ai_authority_guard_fix.sql"],"justification":"Fail-closed AI provider/model/environment/SHA authority schema and the additive Staging service-role binding correction."}
+  ]
+}

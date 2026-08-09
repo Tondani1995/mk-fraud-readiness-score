@@ -35,7 +35,7 @@ function buildFixture(
   scores: Record<string, number>,
   overallScore: number,
   exposureScore: number,
-  exposureBand: AssembledReportData['scoreRun']['exposureBand'],
+  exposureBand: Exclude<AssembledReportData['scoreRun']['exposureBand'], null>,
   maturityCapEvents: AssembledReportData['maturityCapEvents']
 ): AssembledReportData {
   const criticalMajorGaps = traces.filter((item) => item.isCriticalGap || item.isMajorGap).map(({ normalisedScore: _n, applicable: _a, triggeredRules: _t, ...gap }) => gap);
@@ -48,6 +48,27 @@ function buildFixture(
     currentScoreRunId: 'decision-run-' + key,
     orderVerifiedAt: null,
     orderVerifiedBy: null,
+    paymentVerification: {
+      paymentState: null,
+      confirmationSource: null,
+      actorReference: null,
+      providerTransactionReference: null,
+      providerEventReference: null,
+      providerEventAt: null,
+      verificationResult: null,
+      processingResult: null,
+      paymentEventId: null,
+      amountCents: null,
+      orderAmountCents: 500000,
+      currency: null,
+      orderCurrency: 'ZAR',
+      orderVerifiedAt: null,
+      orderVerifiedBy: null,
+      manualVerifierStatus: null,
+      manualVerifierRole: null,
+      priorValidSourceEvent: false,
+      transitionCount: 0
+    },
     organisationName: key === 'clean' ? 'Clean Assurance Organisation' : key === 'moderate' ? 'Moderate Decision Organisation' : 'Weak Decision Organisation',
     respondentName: 'Private Respondent ' + key,
     customerEmail: key + '.private@example.test',

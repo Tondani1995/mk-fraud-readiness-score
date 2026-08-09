@@ -254,14 +254,15 @@ function round(value: number) {
   return Math.round(value);
 }
 
-export function commercialScoreBand(score: number): CommercialScoreBand {
+export function commercialScoreBand(score: number | null): CommercialScoreBand {
+  if (score === null) return 'Reactive';
   if (score < 40) return 'Reactive';
   if (score < 60) return 'Developing';
   if (score < 80) return 'Structured';
   return 'Strategic';
 }
 
-function commercialMaturityBand(maturity: string): CommercialScoreBand {
+function commercialMaturityBand(maturity: string | null): CommercialScoreBand {
   if (maturity === 'Reactive' || maturity === 'Developing' || maturity === 'Structured' || maturity === 'Strategic') return maturity;
   return 'Reactive';
 }
@@ -329,6 +330,9 @@ function scoredDomains(snapshot: FreeSnapshot) {
 }
 
 function leadershipPriority(snapshot: FreeSnapshot, band: CommercialScoreBand) {
+  if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
+    return 'Leadership should obtain and independently verify the evidence needed to confirm the applicable control position. Unknown responses are not treated as confirmed weaknesses or control absence.';
+  }
   if (snapshot.capApplied) return 'Leadership should address the control weakness that triggered the readiness cap before relying on the broader score as evidence of a dependable fraud-control environment.';
   if (snapshot.criticalGapCount > 0) return 'Leadership attention should prioritise the identified critical-control weaknesses and establish clear ownership, remediation dates and evidence of sustained operation.';
   if (band === 'Reactive' || band === 'Developing') return 'Leadership attention should move from individual control activities to a coordinated fraud-readiness programme with clear ownership, measurable oversight and prioritised remediation.';
@@ -336,10 +340,19 @@ function leadershipPriority(snapshot: FreeSnapshot, band: CommercialScoreBand) {
 }
 
 function riskImplication(snapshot: FreeSnapshot) {
-  return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] ?? RISK_IMPLICATION_BY_EXPOSURE.Low;
+  if (snapshot.adaptiveMetrics?.exposureAssessed === false || snapshot.resultStatus) {
+    return 'Adaptive exposure was not assessed. No exposure-based risk implication is issued; leadership should focus on the visibility gaps and evidence needed to verify the control position.';
+  }
+  return snapshot.exposureBand ? RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] : RISK_IMPLICATION_BY_EXPOSURE.Low;
 }
 
 function coverageMessage(snapshot: FreeSnapshot) {
+  if (snapshot.adaptiveMetrics) {
+    if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY' || snapshot.adaptiveMetrics.unknownSharePct > 0 || snapshot.adaptiveMetrics.unansweredApplicableCount > 0) {
+      return `Assessment coverage is ${round(snapshot.adaptiveMetrics.assessmentCoveragePct)}%. Control visibility is ${round(snapshot.adaptiveMetrics.controlVisibilityPct)}%; unknown responses account for ${round(snapshot.adaptiveMetrics.unknownSharePct)}% of applicable control weight. Unknown responses are uncertainty, not confirmed control absence.`;
+    }
+    return null;
+  }
   if (snapshot.nARatePct <= 0 && snapshot.coveragePct >= 100) return null;
   return `Coverage is ${round(snapshot.coveragePct)}%. Not-applicable responses are excluded from the score, so they do not inflate readiness; they reduce the evidence base available for interpretation.`;
 }
@@ -386,12 +399,17 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
   const priority = priorityAreas(snapshot);
   const positive = strengths(snapshot);
 
+  const insufficient = snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY';
   return {
     scoreBand,
-    currentPosition: CURRENT_POSITION_BY_BAND[maturityBand],
+    currentPosition: insufficient
+      ? 'The applicable assessment scope was recorded, but the supplied responses do not provide enough visibility to confirm the organisation\'s control position. This result does not classify unknown responses as absent, failed or ineffective.'
+      : CURRENT_POSITION_BY_BAND[maturityBand],
     riskImplication: riskImplication(snapshot),
     leadershipPriority: leadershipPriority(snapshot, maturityBand),
-    conciseInterpretation: `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
+    conciseInterpretation: insufficient
+      ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. The result identifies the assessed scope, information gaps and evidence needed for a reliable view.'
+      : `The submitted assessment places the organisation in a ${snapshot.finalMaturity} fraud-readiness position with ${readinessLabelForScore(snapshot.overallScore).toLowerCase()} overall readiness.`,
     criticalGapIndicator: snapshot.criticalGapCount > 0 || snapshot.capApplied,
     coverageMessage: coverageMessage(snapshot),
     priorityAreas: priority,

@@ -8,6 +8,7 @@ import {
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
 import { selectContent } from '../src/lib/reports/select-content-blocks.ts';
+import { buildEssentialProjection } from '../src/lib/reports/essential-projection.ts';
 import {
   buildPremiumReportEvidencePack,
   evidenceChecksum
@@ -35,6 +36,7 @@ import {
   PREMIUM_REPORT_PROMPT_VERSION,
   PREMIUM_REPORT_SCHEMA_VERSION
 } from '../src/lib/reports/automation/types.ts';
+import { mergePremiumReportRepairOutput } from '../src/lib/reports/automation/repair-scope.ts';
 import { generateManualPhase1Report } from '../src/lib/reports/phase1-manual-fulfilment.ts';
 import { renderValidatedCommercialPdf } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
@@ -86,18 +88,37 @@ const DOMAIN_FOCUS = {
 
 function buildContext(data) {
   const advisoryModel = buildAdvisoryEvidenceModel(data);
-  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
-  const deterministicContent = selectContent(data, []);
-  const evidence = buildPremiumReportEvidencePack(data, advisoryModel, PREMIUM_REPORT_SCHEMA_VERSION);
+  // Mirrors production: the rendered roadmap is the shared projection's dependency-closed
+  // selection, which is also the provenance source validateRoadmapSource() checks against.
+  const essentialProjection = buildEssentialProjection(data, advisoryModel);
+  const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
+  // Bounded Essential contract: the fixture builds the same projection production builds, and
+  // every downstream artefact (content, evidence pack, brief) is derived from it. The expected
+  // gap universe is therefore the MFS v1 selection, never data.criticalMajorGaps.
+  const deterministicContent = selectContent(data, [], essentialProjection);
+  const evidence = buildPremiumReportEvidencePack(data, advisoryModel, PREMIUM_REPORT_SCHEMA_VERSION, essentialProjection);
   const brief = buildPremiumReportNarrativeBrief(evidence);
-  return { data, advisoryModel, roadmap, deterministicContent, evidence, brief };
+  return { data, advisoryModel, roadmap, deterministicContent, evidence, brief, essentialProjection };
 }
 
 function validV4Plan(context, voice) {
-  const { data, brief } = context;
+  const { data, brief, essentialProjection } = context;
   const clean = data.criticalMajorGaps.length === 0;
   const domainByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain]));
-  const gapByCode = new Map(data.criticalMajorGaps.map((gap) => [gap.questionCode, gap]));
+  // Derived from the bounded projection so every brief.gaps section resolves, including selected
+  // findings that are not themselves critical/major gaps.
+  const gapByCode = new Map((essentialProjection?.findings ?? []).map((finding) => [finding.questionCode, {
+    questionCode: finding.questionCode,
+    domainCode: finding.domainCode,
+    domainName: finding.domainName,
+    prompt: finding.questionPrompt,
+    responseValue: finding.responseValue,
+    isCritical: finding.isCriticalControl,
+    isHardGate: finding.isHardGate,
+    isCriticalGap: finding.gapClassification === 'critical',
+    isMajorGap: finding.gapClassification === 'major'
+  }]));
+  for (const gap of data.criticalMajorGaps) if (!gapByCode.has(gap.questionCode)) gapByCode.set(gap.questionCode, gap);
   const riskPhrase = clean
     ? 'The strongest reported controls remain assurance priorities until their operating evidence is independently examined.'
     : 'The cited material risks and control conditions explain why leadership attention must extend beyond the headline result.';
@@ -216,9 +237,19 @@ function makeQueryBuilder(response) {
 
 function recordingManualDb({ payment = false, replayOnSecondClaim = false } = {}) {
   const calls = { rpc: [], upload: [], download: [], remove: [], claimCount: 0 };
-  let uploadedBytes = null;
+  // Objects are modelled per storage path so the PDF and the supporting register are stored,
+  // downloaded and verified independently. Neither can overwrite the other, and neither can
+  // satisfy the other's byte-identity verification.
+  const storedObjects = new Map();
   const db = {
     rpc: async (name, args) => {
+      // Bounded Essential min-M8: the supporting-register artefact is persisted through this
+      // additive RPC after the PDF completion RPC. Stubbed so the double models the real
+      // generation contract; the accepted PDF completion signature is unchanged.
+      if (name === 'complete_report_secondary_artefact') {
+        calls.rpc.push({ name, args });
+        return { data: { artifact: { id: 'artifact-1' }, created: true }, error: null };
+      }
       calls.rpc.push({ name, args });
       if (name === 'claim_manual_report_generation' || name === 'claim_payment_report_generation') {
         calls.claimCount += 1;
@@ -227,9 +258,11 @@ function recordingManualDb({ payment = false, replayOnSecondClaim = false } = {}
         }
         return { data: { claimed: true, attempt: { id: 'manual-attempt-1', report_version: 1, request_id: 'manual-request-1', retry_count: 0 } }, error: null };
       }
+      if (name === 'authorize_phase14_ai_route') return { data: { allowed: true, reason: 'test_route_approved' }, error: null };
       if (name === 'start_manual_report_generation') return { data: { ok: true }, error: null };
       if (name === 'record_manual_report_narrative_provenance') return { data: { id: 'manual-attempt-1', ...args.p_provenance }, error: null };
-      if (name === 'complete_manual_report_generation') return { data: { report: { id: 'report-1', report_reference: 'RPT-CHECKPOINT-E-V1', version_number: 1 }, superseded_report_id: null }, error: null };
+      if (name === 'finalise_manual_report_with_supporting_register') return { data: { report: { id: 'report-1', report_reference: 'RPT-CHECKPOINT-E-V1', version_number: 1 }, supporting_register: { id: 'artifact-1', storage_status: 'VERIFIED' }, superseded_report_id: null }, error: null };
+      if (name === 'complete_manual_report_generation') throw new Error('the paid path must not call the old completion RPC');
       if (name === 'fail_manual_report_generation') return { data: { updated: true }, error: null };
       throw new Error(`Unstubbed RPC ${name}`);
     },
@@ -237,12 +270,23 @@ function recordingManualDb({ payment = false, replayOnSecondClaim = false } = {}
       if (table === 'report_templates') return makeQueryBuilder({ data: { id: 'template-1', template_code: 'essential-v1', version_number: 1 }, error: null });
       if (table === 'report_content_blocks') return makeQueryBuilder({ data: [], error: null });
       if (table === 'reports') return makeQueryBuilder({ data: { id: 'report-1', report_reference: 'RPT-CHECKPOINT-E-V1', version_number: 1, supersedes_report_id: null }, error: null });
+      if (table === 'report_artifacts') return makeQueryBuilder({ data: null, error: null }); // no artefact yet for a fresh report
       return makeQueryBuilder({ data: null, error: new Error(`Unstubbed table ${table}`) });
     },
     storage: {
       from: (bucket) => ({
-        upload: async (path, bytes) => { uploadedBytes = Buffer.from(bytes); calls.upload.push({ bucket, path }); return { error: null }; },
-        download: async (path) => { calls.download.push({ bucket, path }); return { data: { arrayBuffer: async () => uploadedBytes.buffer.slice(uploadedBytes.byteOffset, uploadedBytes.byteOffset + uploadedBytes.byteLength) }, error: null }; },
+        upload: async (path, bytes) => {
+          if (storedObjects.has(`${bucket}/${path}`)) return { error: new Error('object already exists') };
+          storedObjects.set(`${bucket}/${path}`, Buffer.from(bytes));
+          calls.upload.push({ bucket, path });
+          return { error: null };
+        },
+        download: async (path) => {
+          calls.download.push({ bucket, path });
+          const stored = storedObjects.get(`${bucket}/${path}`);
+          if (!stored) return { data: null, error: new Error(`no stored object at ${bucket}/${path}`) };
+          return { data: { arrayBuffer: async () => stored.buffer.slice(stored.byteOffset, stored.byteOffset + stored.byteLength) }, error: null };
+        },
         remove: async (paths) => { calls.remove.push({ bucket, paths }); return { error: null }; }
       })
     }
@@ -288,6 +332,9 @@ async function runManual(context, { flags = ENABLED_FLAGS, plan, repairPlan = pl
 function pipelineInput(context, generatorState, storeState, generationIdentity) {
   return {
     assembled: context.data,
+    // Same bounded projection the fixture's plan and brief were derived from, exactly as the
+    // production fulfilment seam threads it.
+    essentialProjection: context.essentialProjection,
     deterministicContent: context.deterministicContent,
     roadmap: context.roadmap,
     advisoryModel: context.advisoryModel,
@@ -318,12 +365,24 @@ const moderatePlan = validV4Plan(moderate, 'Moderate Decision Organisation');
 const cleanPlan = validV4Plan(clean, 'Clean Assurance Organisation');
 
 await test('E1: V4 prompt/schema versions and deterministic briefs are explicit and fixture-specific', () => {
-  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v4-advisory-editor');
-  assert.equal(PREMIUM_REPORT_SCHEMA_VERSION, 'mk-essential-ai-advisory-editor-v4');
+  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v6-advisory-editor-grounding');
+  assert.equal(PREMIUM_REPORT_SCHEMA_VERSION, 'mk-essential-ai-advisory-editor-v5');
   assert.notDeepEqual(weak.brief, moderate.brief);
   assert.notDeepEqual(moderate.brief, clean.brief);
   assert.equal(Object.keys(weak.brief.domains).length, weak.data.domainResults.length);
-  assert.equal(Object.keys(weak.brief.gaps).length, weak.data.criticalMajorGaps.length);
+  // Bounded Essential contract: the brief's gap universe is the MFS v1 projection selection, not
+  // the full L1 critical/major set. The invariant is unchanged -- the brief must cover exactly its
+  // expected gap universe, completely and with no extras -- only its authoritative source moves.
+  assert.equal(Object.keys(weak.brief.gaps).length, weak.essentialProjection.findings.length);
+  assert.deepEqual(
+    Object.keys(weak.brief.gaps).sort(),
+    weak.essentialProjection.findings.map((finding) => finding.questionCode).sort(),
+    'brief gap sections must be exactly the projection-selected findings'
+  );
+  assert.ok(
+    weak.essentialProjection.findings.length <= weak.data.criticalMajorGaps.length,
+    'bounded brief must never exceed the L1 critical/major universe'
+  );
 });
 
 await test('E2: weak, moderate and clean V4 outputs pass section-scoped structural and factual validation', () => {
@@ -349,6 +408,12 @@ await test('E3: generation and repair prompts remain within byte/token limits fo
       assert.ok(estimatedTokens < PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS, `${context.data.assessmentReference} prompt exceeded token estimate`);
       assert.ok(estimatedCostMicros < PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS, `${context.data.assessmentReference} prompt exceeded cost estimate`);
       assert.doesNotMatch(prompt, /customerEmail|respondentName|@example\.test/);
+      for (const section of [context.brief.executive, context.brief.falseComfort, context.brief.leadership, ...Object.values(context.brief.domains), ...Object.values(context.brief.gaps)]) {
+        for (const ref of section.requiredEvidenceRefs) assert.ok(prompt.includes(ref), `${context.data.assessmentReference} prompt dropped required evidence ref ${ref}`);
+      }
+      assert.match(prompt, /NARRATIVE_BRIEF_START/);
+      assert.match(prompt, /EVIDENCE_PROJECTION_START/);
+      if (context === weak && prompt === prompts[0]) assert.ok(bytes <= 45_000, `compact weak-fixture generation prompt is ${bytes} bytes`);
     }
   }
 });
@@ -363,7 +428,13 @@ await test('E4: administrator Phase 1 AI mode reaches the real shared pipeline, 
   assert.equal(run.storeState.calls.settle, 1);
   assert.equal(run.html.length, 1);
   assert.ok(run.html[0].includes(weakPlan.executiveBody));
-  assert.ok(run.dbState.calls.upload.length === 1 && run.dbState.calls.download.length === 1);
+  assert.ok(
+    run.dbState.calls.upload.filter((c) => c.path.endsWith('.pdf')).length === 1
+    && run.dbState.calls.download.filter((c) => c.path.endsWith('.pdf')).length === 1
+    && run.dbState.calls.upload.filter((c) => c.path.endsWith('.xlsx')).length === 1
+    && run.dbState.calls.download.filter((c) => c.path.endsWith('.xlsx')).length === 1
+    && run.dbState.calls.upload.every((c) => c.bucket === 'generated-reports')
+  );
   const provenance = run.dbState.calls.rpc.find((call) => call.name === 'record_manual_report_narrative_provenance');
   assert.equal(provenance.args.p_provenance.generation_mode, 'ai');
   assert.equal(provenance.args.p_provenance.final_narrative.executiveDiagnosis.body, weakPlan.executiveBody);
@@ -430,6 +501,7 @@ await test('E11: Phase 14-style use of the shared pipeline retains durable autho
   const storeState = recordingAttemptStore();
   const prepared = await preparePremiumReportNarrative({
     assembled: moderate.data,
+    essentialProjection: moderate.essentialProjection,
     deterministicContent: moderate.deterministicContent,
     roadmap: moderate.roadmap,
     advisoryModel: moderate.advisoryModel,
@@ -514,8 +586,8 @@ await test('E18: AI and fallback preserve byte-identical deterministic advisory 
   const before = JSON.stringify(weak.advisoryModel);
   const generatorState = recordingGenerator(weakPlan);
   const storeState = recordingAttemptStore();
-  const ai = await preparePremiumReportNarrative({ assembled: weak.data, deterministicContent: weak.deterministicContent, roadmap: weak.roadmap, advisoryModel: weak.advisoryModel, flags: ENABLED_FLAGS, generator: generatorState.generator, generationIdentity: 'authority-ai', attemptStore: storeState.store });
-  const fallback = await preparePremiumReportNarrative({ assembled: weak.data, deterministicContent: weak.deterministicContent, roadmap: weak.roadmap, advisoryModel: weak.advisoryModel, flags: DISABLED_FLAGS, generationIdentity: 'authority-fallback' });
+  const ai = await preparePremiumReportNarrative({ assembled: weak.data, essentialProjection: weak.essentialProjection, deterministicContent: weak.deterministicContent, roadmap: weak.roadmap, advisoryModel: weak.advisoryModel, flags: ENABLED_FLAGS, generator: generatorState.generator, generationIdentity: 'authority-ai', attemptStore: storeState.store });
+  const fallback = await preparePremiumReportNarrative({ assembled: weak.data, essentialProjection: weak.essentialProjection, deterministicContent: weak.deterministicContent, roadmap: weak.roadmap, advisoryModel: weak.advisoryModel, flags: DISABLED_FLAGS, generationIdentity: 'authority-fallback' });
   assert.equal(JSON.stringify(weak.advisoryModel), before);
   assert.equal(JSON.stringify(ai.evidence.advisoryModel), JSON.stringify(fallback.evidence.advisoryModel));
   assert.notEqual(ai.selectedContent.executiveSummary.body, fallback.selectedContent.executiveSummary.body);
@@ -530,7 +602,7 @@ await test('E19: weak AI, weak fallback and clean AI render smoke produces valid
   for (const [context, flags, plan, label] of cases) {
     const generatorState = recordingGenerator(plan);
     const storeState = recordingAttemptStore();
-    const prepared = await preparePremiumReportNarrative({ assembled: context.data, deterministicContent: context.deterministicContent, roadmap: context.roadmap, advisoryModel: context.advisoryModel, flags, generator: generatorState.generator, generationIdentity: `render:${label}`, attemptStore: flags.aiNarrativeEnabled ? storeState.store : undefined });
+    const prepared = await preparePremiumReportNarrative({ assembled: context.data, essentialProjection: context.essentialProjection, deterministicContent: context.deterministicContent, roadmap: context.roadmap, advisoryModel: context.advisoryModel, flags, generator: generatorState.generator, generationIdentity: `render:${label}`, attemptStore: flags.aiNarrativeEnabled ? storeState.store : undefined });
     let html = '';
     const pdf = await renderValidatedCommercialPdf({ data: context.data, content: prepared.selectedContent, roadmap: context.roadmap, evidenceModel: context.advisoryModel }, {
       renderHtml: (...args) => { html = renderReportHtml(...args); return html; },
@@ -560,6 +632,7 @@ await test('E20: migration extends the existing ledger, enforces one parent and 
 await test('E21: the exact pre-Checkpoint E Phase 1 schema remains deterministic-compatible only while AI is disabled', async () => {
   const prepared = await preparePremiumReportNarrative({
     assembled: clean.data,
+    essentialProjection: clean.essentialProjection,
     deterministicContent: clean.deterministicContent,
     roadmap: clean.roadmap,
     advisoryModel: clean.advisoryModel,
@@ -597,6 +670,7 @@ await test('E23: deterministic narrative grounding defects fail through the comm
   await assert.rejects(
     preparePremiumReportNarrative({
       assembled: clean.data,
+      essentialProjection: clean.essentialProjection,
       deterministicContent: invalidDeterministicContent,
       roadmap: clean.roadmap,
       advisoryModel: clean.advisoryModel,
@@ -744,7 +818,7 @@ await test('E26: executive, domain and gap bodies obey their exact section limit
   }
 });
 
-await test('E27: repair scope preserves every compliant byte and rejects ref, object or order drift after two calls', async () => {
+await test('E27: scoped repair merges only failed sections and keeps raw compliant changes out of the report', async () => {
   const invalid = { ...weakPlan, executiveBody: 'The organisation is Strategic overall.' };
   const successfulGenerator = recordingGenerator(invalid, weakPlan);
   const successfulStore = recordingAttemptStore();
@@ -803,12 +877,45 @@ await test('E27: repair scope preserves every compliant byte and rejects ref, ob
     const prepared = await preparePremiumReportNarrative(
       pipelineInput(weak, generatorState, storeState, `repair-preservation-${label}`)
     );
-    assert.equal(prepared.mode, 'deterministic_fallback', `${label} was accepted`);
-    assert.equal(prepared.fallbackReason, 'ai_repair_preservation_failed');
-    assert.ok(prepared.repairValidation.issues.some((issue) => issue.code === 'repair_modified_compliant_section'));
+    assert.equal(prepared.mode, 'ai_repair', `${label} did not use the scoped merge`);
+    assert.deepEqual(prepared.effectiveRepairOutput.domainEvidence, weakPlan.domainEvidence, `${label} changed a compliant domain`);
+    assert.deepEqual(prepared.effectiveRepairOutput.gapEvidence, weakPlan.gapEvidence, `${label} changed a compliant gap`);
+    assert.ok(prepared.discardedCompliantRepairSectionIds.length > 0, `${label} did not record discarded compliant content`);
+    assert.deepEqual(prepared.repairGeneration.output, repairedPlan, `${label} did not retain raw provider output`);
     assert.deepEqual(generatorState.calls, { generate: 1, repair: 1 });
     assert.equal(storeState.calls.claim, 2);
   }
+
+  const badMerged = structuredClone(weakPlan);
+  badMerged.domainEvidence[0].body = `${badMerged.domainEvidence[0].body} changed after merge`;
+  assert.equal(
+    (await import('../src/lib/reports/automation/repair-scope.ts')).validatePremiumReportRepairPreservation(
+      weakPlan,
+      badMerged,
+      { failedSectionIds: ['executive'] },
+      PREMIUM_REPORT_SCHEMA_VERSION
+    ).ok,
+    false,
+    'an incorrectly constructed merged result was not rejected'
+  );
+  const merged = mergePremiumReportRepairOutput(weakPlan, changedDomain, { failedSectionIds: ['executive'] });
+  assert.deepEqual(merged.output.domainEvidence, weakPlan.domainEvidence);
+  assert.equal(merged.discardedCompliantRepairSectionIds.includes(`domain:${changedDomain.domainEvidence[0].domainCode}`), true);
+});
+
+await test('E27b: deterministic quality preflight blocks malformed visibility linkage before any AI attempt', async () => {
+  const malformed = structuredClone(weak);
+  const malformedChecklist = malformed.advisoryModel.evidenceChecklist[0];
+  malformedChecklist.linkedFindingIds = [];
+  malformedChecklist.linkedRiskIds = [];
+  const generatorState = recordingGenerator(weakPlan);
+  const storeState = recordingAttemptStore();
+  await assert.rejects(
+    () => preparePremiumReportNarrative(pipelineInput(malformed, generatorState, storeState, 'visibility-preflight')),
+    (error) => isReportCommercialQualityError(error) && error.violations.some((issue) => issue.code === 'QG_EVIDENCE_CRITERIA_MISSING')
+  );
+  assert.deepEqual(generatorState.calls, { generate: 0, repair: 0 });
+  assert.equal(storeState.calls.claim, 0);
 });
 
 await test('E28: official response-state validation distinguishes values 0 through 5', () => {

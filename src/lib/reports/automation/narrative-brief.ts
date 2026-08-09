@@ -1,5 +1,6 @@
 import {
   PREMIUM_REPORT_AI_BODY_MAX_CHARS,
+  PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS,
   type NarrativeSectionBrief,
   type PremiumReportEvidencePack,
   type PremiumReportNarrativeBrief,
@@ -223,10 +224,20 @@ export function assertPremiumReportNarrativeBrief(
 }
 
 export function buildPremiumReportNarrativeBrief(
-  evidence: PremiumReportEvidencePack
+  evidence: PremiumReportEvidencePack,
+  projection?: { findings: Array<{ id: string }> }
 ): PremiumReportNarrativeBrief {
   const items = [...evidence.items].sort((left, right) => left.id.localeCompare(right.id));
-  const model = evidence.advisoryModel;
+  const rawModel = evidence.advisoryModel;
+  // AI-facing serialisation view only. The canonical L1 pack, its checksum, its counts and the
+  // supporting register are untouched -- this narrows which material findings the *narrative
+  // brief* may cite, so AI domain sections cannot reacquire unselected findings through
+  // linkedAuthoritativeItems(). Risks, contradictions, scenarios, controls, decisions and roadmap
+  // remain the authoritative model's own; only the finding set is projection-scoped.
+  const selectedFindingIds = projection ? new Set(projection.findings.map((f) => f.id)) : null;
+  const model = rawModel && selectedFindingIds
+    ? { ...rawModel, materialFindings: rawModel.materialFindings.filter((f) => selectedFindingIds.has(f.id)) }
+    : rawModel;
   const risks = model
     ? resolveAuthoritativeItems(evidence, 'risk', model.riskRegister, 'risk')
     : items.filter((item) => item.kind === 'risk');
@@ -252,15 +263,16 @@ export function buildPremiumReportNarrativeBrief(
       item.kind === 'material_finding' && itemMentions(item.value, 'assurance_priority')
     );
 
+  const exposureKinds = items.some((item) => item.kind === 'exposure_band') ? ['exposure_score', 'exposure_band'] : [];
   const executiveAllowed = ids([
     ...items.filter((item) => [
-      'overall_score', 'final_maturity', 'calculated_maturity', 'exposure_score', 'exposure_band',
+      'overall_score', 'final_maturity', 'calculated_maturity', ...exposureKinds,
       'material_finding', 'maturity_cap', 'contradiction', 'risk', 'leadership_decision',
       'assessment_limitation'
     ].includes(item.kind)),
   ]);
   const executiveRequired = orderedIds([
-    ...items.filter((item) => ['overall_score', 'final_maturity', 'exposure_band'].includes(item.kind)),
+    ...items.filter((item) => ['overall_score', 'final_maturity', ...exposureKinds].includes(item.kind)),
     ...risks.slice(0, 2), ...caps.slice(0, 2), ...contradictions.slice(0, 1),
     ...decisions.slice(0, 2), ...limitation
   ]);
@@ -272,13 +284,13 @@ export function buildPremiumReportNarrativeBrief(
       : assurance;
   const falseComfortAllowedItems = stableUnique(ids([
     ...items.filter((item) => [
-      'overall_score', 'final_maturity', 'exposure_band', 'domain', 'gap', 'question_response', 'material_finding',
+      'overall_score', 'final_maturity', ...exposureKinds, 'domain', 'gap', 'question_response', 'material_finding',
       'maturity_cap', 'contradiction', 'risk', 'evidence_checklist', 'assessment_limitation'
     ].includes(item.kind))
   ])).map((id) => items.find((item) => item.id === id)!).filter(Boolean);
   const falseComfortRequired = orderedIds([
     ...falseComfortDrivers.slice(0, 2), ...limitation,
-    ...firstByKind(items, 'final_maturity'), ...firstByKind(items, 'exposure_band')
+    ...firstByKind(items, 'final_maturity'), ...(exposureKinds.length ? firstByKind(items, 'exposure_band') : [])
   ]);
 
   const advisoryLeadershipItems = items.filter((item) => [
@@ -325,7 +337,8 @@ export function buildPremiumReportNarrativeBrief(
       'Explain this domain’s evidence, material implications and relevant cross-domain relationship in one substantive paragraph.',
       required,
       stableUnique([...ids([...related, ...limitation]), ...required]),
-      ['domain-specific evidence', 'material advisory implication', 'self-assessment limitation']
+      ['domain-specific evidence', 'material advisory implication', 'self-assessment limitation'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.domain
     );
   }
 
@@ -358,7 +371,7 @@ export function buildPremiumReportNarrativeBrief(
       required,
       stableUnique([...ids(related), ...required]),
       ['control condition', 'fraud mechanism', 'implication', 'control and evidence priority'],
-      1_200
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.gap
     );
   }
 
@@ -369,21 +382,24 @@ export function buildPremiumReportNarrativeBrief(
       'Synthesize the overall position, material drivers and leadership meaning in two or three compact paragraphs.',
       executiveRequired,
       executiveAllowed,
-      ['overall score and final maturity', 'exposure position', 'material risks or caps', 'leadership meaning', 'self-assessment limitation']
+      ['overall score and final maturity', 'exposure position', 'material risks or caps', 'leadership meaning', 'self-assessment limitation'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.executive
     ),
     falseComfort: section(
       'false_comfort',
       'Explain the precise masking or assurance issue and what evidence requires independent validation in one or two paragraphs.',
       falseComfortRequired,
       ids(falseComfortAllowedItems),
-      ['why the headline result is insufficient alone', 'specific masking or assurance issue', 'independent evidence to validate']
+      ['why the headline result is insufficient alone', 'specific masking or assurance issue', 'independent evidence to validate'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.falseComfort
     ),
     leadership: section(
       'leadership',
       'Explain decisions, sequencing, accountability categories and consequence of delay in one or two paragraphs; do not repeat a task list.',
       leadershipRequired,
       ids(leadershipAllowedItems),
-      ['leadership decisions', 'sequencing and dependencies', 'accountability', 'consequence of delay']
+      ['leadership decisions', 'sequencing and dependencies', 'accountability', 'consequence of delay'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.leadership
     ),
     domains,
     gaps

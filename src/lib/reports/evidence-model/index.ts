@@ -5,6 +5,7 @@ import { buildMaterialFindings } from './material-findings';
 import { buildControlImprovementRegister, buildEvidenceChecklist, buildRiskRegister } from './registers';
 import { buildPlausibleScenarios } from './scenarios';
 import { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
+import { buildVisibilityGaps } from './visibility-gaps';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './types';
 
 export * from './types';
@@ -20,7 +21,11 @@ export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependenc
  */
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
-  let riskRegister = buildRiskRegister(materialFindings);
+  const visibilityGaps = buildVisibilityGaps(data);
+  // Authoritative: the adaptive metrics say whether exposure was assessed at all. Absent metrics
+  // means the non-adaptive path, where exposure evidence is part of the ordinary model.
+  const exposureAssessed = data.adaptiveScope ? data.adaptiveScope.exposureAssessed === true : true;
+  let riskRegister = buildRiskRegister(materialFindings, exposureAssessed);
   const scenarios = buildPlausibleScenarios(data, materialFindings, riskRegister);
   riskRegister = riskRegister.map((risk) => ({
     ...risk,
@@ -28,7 +33,7 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
   }));
   const contradictions = buildContradictions(data, materialFindings, riskRegister);
   const controlImprovements = buildControlImprovementRegister(materialFindings, riskRegister);
-  const evidenceChecklist = buildEvidenceChecklist(materialFindings, riskRegister);
+  const evidenceChecklist = buildEvidenceChecklist(materialFindings, riskRegister, visibilityGaps);
   const leadershipDecisions = buildLeadershipDecisions(materialFindings, riskRegister);
   const functionalAgenda = buildFunctionalAgenda(materialFindings, riskRegister);
   const roadmapActions = buildRoadmapActions(materialFindings, riskRegister);
@@ -42,7 +47,8 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
     evidenceChecklist,
     leadershipDecisions,
     roadmapActions,
-    functionalAgenda
+    functionalAgenda,
+    visibilityGaps
   };
 }
 
@@ -187,7 +193,8 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
 
   // Checkpoint D: scenario volume follows the evidence context instead of fabricating failures.
   const assuranceOnly = model.materialFindings.length > 0 && model.materialFindings.every((finding) => finding.materialityClass === 'assurance_priority');
-  const scenarioMinimum = assuranceOnly ? 2 : 3;
+  const visibilityOnly = data.scoreRun.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY' && model.visibilityGaps.length > 0;
+  const scenarioMinimum = visibilityOnly ? 0 : assuranceOnly ? 2 : 3;
   if (model.scenarios.length < scenarioMinimum) {
     violations.push({
       code: 'QG_SCENARIO_MINIMUM_NOT_MET',
@@ -195,6 +202,14 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
       message: `Only ${model.scenarios.length} plausible scenarios generated; ${scenarioMinimum} are required for this assessment context.`,
       source: 'evidence-model'
     });
+  }
+  for (const gap of model.visibilityGaps) {
+    if (!gap.questionCode || !gap.evidenceRef || !gap.likelyEvidenceOwner || !gap.recommendedVerificationAction) {
+      violations.push({ code: 'QG_EVIDENCE_CRITERIA_MISSING', severity: 'violation', message: `Visibility gap ${gap.id} is missing verification evidence criteria.`, entityId: gap.id, source: 'evidence-model' });
+    }
+  }
+  if (data.adaptiveScope?.unknownCount && model.visibilityGaps.length === 0) {
+    violations.push({ code: 'QG_EVIDENCE_CHECKLIST_MISSING', severity: 'violation', message: 'Adaptive unknown responses have no visibility-gap evidence records.', source: 'evidence-model' });
   }
   for (const scenario of model.scenarios) {
     if (!['control_gap', 'assurance_validation'].includes(scenario.scenarioBasis)) {
@@ -258,10 +273,36 @@ export function checkQualityGates(model: AdvisoryEvidenceModel, data: AssembledR
   }
 
   for (const item of model.evidenceChecklist) {
-    if (
+    const hasCommonCriteria = Boolean(
+      item.requiredPopulation.trim()
+      && item.samplingExpectation.trim()
+      && item.minimumAcceptableCharacteristics.length > 0
+      && item.minimumAcceptableCharacteristics.every((value) => value.trim())
+      && item.reviewStatus === 'Not yet requested'
+    );
+    if (item.visibilityGap === true) {
+      const gaps = model.visibilityGaps.filter((gap) => gap.questionCode === item.linkedQuestionCodes[0]);
+      const gap = gaps.length === 1 ? gaps[0] : undefined;
+      const validVisibilityLinkage = Boolean(
+        item.linkedFindingIds.length === 0
+        && item.linkedRiskIds.length === 0
+        && item.linkedFindingId === ''
+        && item.linkedRiskId === ''
+        && item.linkedQuestionCodes.length === 1
+        && gap
+        && item.id === gap.evidenceRef.slice('evidence:'.length)
+        && item.evidenceRef === gap.evidenceRef
+        && item.likelyOwner.trim()
+        && item.provesWhat.trim()
+        && item.expectedRecency.trim()
+        && hasCommonCriteria
+      );
+      if (!validVisibilityLinkage) {
+        violations.push({ code: 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID', severity: 'violation', message: `Visibility evidence checklist item ${item.id} does not resolve to exactly one visibility gap with the required evidence criteria.`, entityId: item.id, source: 'evidence-model' });
+      }
+    } else if (
       item.linkedFindingIds.length === 0 || item.linkedRiskIds.length === 0 || item.linkedQuestionCodes.length === 0 ||
-      !item.requiredPopulation.trim() || !item.samplingExpectation.trim() || item.minimumAcceptableCharacteristics.length === 0 ||
-      item.reviewStatus !== 'Not yet requested'
+      !hasCommonCriteria
     ) {
       violations.push({ code: 'QG_EVIDENCE_CRITERIA_MISSING', severity: 'violation', message: `Evidence checklist item ${item.id} lacks review criteria or starts in an invalid status.`, entityId: item.id, source: 'evidence-model' });
     }

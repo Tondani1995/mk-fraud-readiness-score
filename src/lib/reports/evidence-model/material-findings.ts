@@ -247,7 +247,7 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
     if (trace.isCritical && responseValue > 0 && responseValue <= 2 && exposureLinks.length > 0) reasons.add('PARTIAL_KEY_CONTROL_HIGH_EXPOSURE');
     if (weakest.has(trace.questionCode)) reasons.add('WEAKEST_DOMAIN');
     if (responseValue <= 2 && exposureLinks.length > 0) reasons.add('EXPOSURE_CONTROL_MISMATCH');
-    if (trace.isCritical && responseValue <= 2 && data.scoreRun.overallScore >= 60) reasons.add('STRONG_AGGREGATE_MASKING_CRITICAL_WEAKNESS');
+    if (trace.isCritical && responseValue <= 2 && (data.scoreRun.overallScore ?? 0) >= 60) reasons.add('STRONG_AGGREGATE_MASKING_CRITICAL_WEAKNESS');
     if (responseValue <= 2 && (SCENARIO_TYPES_BY_QUESTION[trace.questionCode]?.length ?? 0) > 0) reasons.add('PRIORITY_SCENARIO_ENABLER');
 
     const partners = CROSS_DOMAIN_PARTNERS[trace.domainCode] ?? [];

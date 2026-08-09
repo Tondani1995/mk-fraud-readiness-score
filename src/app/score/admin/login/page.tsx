@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 
-export default function AdminLoginPage({ searchParams }: { searchParams?: { error?: string } }) {
+export default async function AdminLoginPage(props: { searchParams?: Promise<{ error?: string }> }) {
+  const searchParams = await props.searchParams;
   const error = searchParams?.error === 'forbidden' ? 'Your admin role is not allowed to access that page.' : null;
 
   return (

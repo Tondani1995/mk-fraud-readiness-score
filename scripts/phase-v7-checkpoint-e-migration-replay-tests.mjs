@@ -17,6 +17,8 @@ const root = process.cwd();
 const migrationName = '20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql';
 const migrationPath = path.join(root, 'supabase/migrations', migrationName);
 const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+const timeoutMigrationPath = path.join(root, 'supabase/migrations', '20260805200000_pre_g30_ai_timeout_window.sql');
+const timeoutMigrationSql = fs.readFileSync(timeoutMigrationPath, 'utf8');
 const port = 56300 + ((process.pid + 197) % 300);
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkpoint-e-migration-pg-'));
 const postgres = new EmbeddedPostgres({
@@ -94,6 +96,9 @@ try {
 
   const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations'))
     .filter((name) => name.endsWith('.sql') && name !== migrationName)
+    // Checkpoint E is a historical migration-replay contract. Later RC1/G29 migrations
+    // require schema introduced after this fixture boundary and do not belong in this replay.
+    .filter((name) => name.slice(0, 14) < '20260722143000')
     .sort();
   for (const name of migrationFiles) {
     await db.query(fs.readFileSync(path.join(root, 'supabase/migrations', name), 'utf8'));
@@ -128,6 +133,7 @@ try {
   console.log('  ok - pre-migration state upgrades without activating AI, routes or delivery');
 
   await db.query(migrationSql);
+  await db.query(timeoutMigrationSql);
   assert.equal(await activationSnapshot(db), beforeActivation);
   const functionCount = await db.query(`
     select count(*)::int as count from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -195,7 +201,7 @@ try {
     evidence_checksum: 'a'.repeat(64), prompt_version: 'checkpoint-e-prompt-v4',
     schema_version: 'checkpoint-e-schema-v4', input_size_bytes: 100,
     estimated_input_tokens: 25, max_output_tokens: 5000,
-    max_estimated_cost_micros: 250000, timeout_ms: 45000
+    max_estimated_cost_micros: 250000, timeout_ms: 240000
   })])).rows[0].value;
   assert.equal(claimed.manual_generation_attempt_id, manualAttemptId);
   assert.equal(claimed.manual_order_id, orderId);

@@ -1,3 +1,5 @@
+import type { EssentialProjection } from './essential-projection';
+import { detectSystemicCondition } from './essential-projection';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
   FALLBACK_CAPPED_DIAGNOSIS,
@@ -12,10 +14,10 @@ import {
 function applyTokens(text: string, data: AssembledReportData) {
   return text
     .replaceAll('{{organisationName}}', data.organisationName)
-    .replaceAll('{{overallScore}}', String(Math.round(data.scoreRun.overallScore)))
-    .replaceAll('{{calculatedMaturity}}', data.scoreRun.calculatedMaturity)
-    .replaceAll('{{finalMaturity}}', data.scoreRun.finalMaturity)
-    .replaceAll('{{exposureBand}}', data.scoreRun.exposureBand);
+    .replaceAll('{{overallScore}}', data.scoreRun.overallScore === null ? 'not issued' : String(Math.round(data.scoreRun.overallScore)))
+    .replaceAll('{{calculatedMaturity}}', data.scoreRun.calculatedMaturity ?? 'not issued')
+    .replaceAll('{{finalMaturity}}', data.scoreRun.finalMaturity ?? 'not issued')
+    .replaceAll('{{exposureBand}}', data.scoreRun.exposureBand ?? 'not assessed');
 }
 
 function activeBlocks(blocks: ContentBlock[]) {
@@ -37,17 +39,63 @@ function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => 
   return [...matches].sort((a, b) => a.blockKey.localeCompare(b.blockKey))[0];
 }
 
-export function selectContent(data: AssembledReportData, blocks: ContentBlock[]): SelectedContent {
+
+/**
+ * Three distinct customer-facing conditions an adaptive assessment can be in. Presence of
+ * adaptiveScope is NOT one of them: AdaptiveResultStatus permits NORMAL and PROVISIONAL as well as
+ * INSUFFICIENT_VISIBILITY, so treating "is adaptive" as "visibility was insufficient" put false
+ * statements in front of customers -- V7 reported coverage 100%, control visibility 100% and zero
+ * unknown responses while the report said visibility was insufficient and explained how unknown
+ * responses are treated.
+ */
+type AdaptiveNarrativeState = 'visibility_limited' | 'systemic' | 'adaptive_normal';
+
+/**
+ * Returns null for a non-adaptive assessment, which keeps the existing path untouched.
+ * The systemic test is the authoritative one -- projection.systemic where a projection was
+ * supplied, otherwise the same detectSystemicCondition() helper the projection itself uses. The
+ * thresholds are never recomputed here.
+ */
+function adaptiveNarrativeState(
+  data: AssembledReportData,
+  projection?: EssentialProjection
+): AdaptiveNarrativeState | null {
+  const scope = data.adaptiveScope;
+  if (!scope) return null;
+  const visibilityLimited = scope.resultStatus === 'INSUFFICIENT_VISIBILITY'
+    || scope.unknownSharePct > 0
+    || scope.unansweredApplicableCount > 0;
+  if (visibilityLimited) return 'visibility_limited';
+  const systemic = projection?.systemic ?? detectSystemicCondition(data);
+  return systemic.systemic ? 'systemic' : 'adaptive_normal';
+}
+
+export function selectContent(
+  data: AssembledReportData,
+  blocks: ContentBlock[],
+  projection?: EssentialProjection
+): SelectedContent {
   const capped = data.scoreRun.capApplied;
   const hasPriorityGaps = data.criticalMajorGaps.length > 0;
 
-  const executive = firstBlock(blocks, (block) =>
+  const adaptiveState = adaptiveNarrativeState(data, projection);
+  const adaptiveOverride = adaptiveState === 'visibility_limited' || adaptiveState === 'systemic';
+
+  const executive = adaptiveOverride ? undefined : firstBlock(blocks, (block) =>
     block.blockType === 'executive_summary' && (capped ? block.severity === 'capped' : block.maturityBand === data.scoreRun.finalMaturity)
   );
-  const leadership = firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
+  const leadership = adaptiveOverride ? undefined : firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
   for (const domain of data.domainResults) {
+    if (adaptiveState === 'visibility_limited') {
+      domainNarratives[domain.domainName] = {
+        title: 'Visibility and verification priority',
+        body: 'The available response did not provide enough visibility to confirm this control position. Obtain the evidence listed in the report before treating this area as operating or as a confirmed weakness.',
+        usedFallback: true
+      };
+      continue;
+    }
     const band = bandForScore(domain.rawScore);
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
@@ -61,7 +109,25 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   }
 
   const gapCommentary: SelectedContent['gapCommentary'] = {};
-  data.criticalMajorGaps.forEach((gap) => {
+  // D6 layer 2: commentary must exist for the exact bounded selection the validator enforces, as
+  // well as for the legacy critical/major gap set. MFS v1 can select a finding that is not itself
+  // a critical/major gap (for example the strongest representative of an otherwise-unrepresented
+  // domain), and that finding still requires narrative in the main report.
+  const commentaryTargets = [
+    ...data.criticalMajorGaps,
+    ...(projection?.findings ?? []).map((finding) => ({
+      domainCode: finding.domainCode,
+      domainName: finding.domainName,
+      questionCode: finding.questionCode,
+      prompt: finding.questionPrompt,
+      isCriticalGap: finding.gapClassification === 'critical',
+      isMajorGap: finding.gapClassification === 'major',
+      isHardGate: finding.isHardGate
+    }))
+  ].filter((gap, index, all) =>
+    all.findIndex((other) => gapKey(other.domainCode, other.questionCode) === gapKey(gap.domainCode, gap.questionCode)) === index
+  );
+  commentaryTargets.forEach((gap) => {
     const severity = gap.isCriticalGap ? 'critical' : 'major';
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && item.severity === severity
@@ -73,10 +139,10 @@ export function selectContent(data: AssembledReportData, blocks: ContentBlock[])
   });
 
   return {
-    executiveSummary: selectExecutiveSummary(data, executive),
-    falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps),
+    executiveSummary: selectExecutiveSummary(data, executive, adaptiveState),
+    falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps, adaptiveState),
     leadershipAttention: {
-      body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity], data),
+      body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity ?? 'Reactive'], data),
       usedFallback: !leadership
     },
     domainNarratives,
@@ -96,7 +162,24 @@ export function gapKey(domainCode: string, questionCode: string) {
   return `${domainCode}::${questionCode}`;
 }
 
-function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined): SelectedContent['executiveSummary'] {
+function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined, adaptiveState: AdaptiveNarrativeState | null): SelectedContent['executiveSummary'] {
+  // Three distinct conditions, decided once in adaptiveNarrativeState(). An adaptive assessment
+  // that is neither visibility-limited nor systemic falls through to the ordinary deterministic
+  // diagnosis below -- it must never be labelled systemic merely because adaptiveScope exists.
+  if (adaptiveState === 'visibility_limited') {
+    return {
+      title: 'Visibility-limited assessment',
+      body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+      usedFallback: true
+    };
+  }
+  if (adaptiveState === 'systemic') {
+    return {
+      title: 'Systemic foundational control gap',
+      body: 'The assessment was answered with complete visibility, and it reports that the foundational fraud-control baseline is not yet in place. This is a systemic condition rather than an uncertainty: the control position is known, and it is that the baseline controls this report sets out have not been established.',
+      usedFallback: true
+    };
+  }
   if (block) {
     return {
       title: applyTokens(block.title ?? '', data),
@@ -105,10 +188,10 @@ function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock |
     };
   }
 
-  const fallback = data.scoreRun.capApplied ? FALLBACK_CAPPED_DIAGNOSIS : FALLBACK_EXECUTIVE_DIAGNOSIS[data.scoreRun.finalMaturity];
+  const fallback = data.scoreRun.capApplied ? FALLBACK_CAPPED_DIAGNOSIS : FALLBACK_EXECUTIVE_DIAGNOSIS[data.scoreRun.finalMaturity ?? 'Reactive'];
   const body = data.scoreRun.capApplied
     ? fallback.body
-    : `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore)} out of 100. ${fallback.body}`;
+    : `${data.organisationName} scored ${Math.round(data.scoreRun.overallScore ?? 0)} out of 100. ${fallback.body}`;
 
   return {
     title: applyTokens(fallback.headline, data),
@@ -121,8 +204,18 @@ function selectFalseComfort(
   data: AssembledReportData,
   blocks: ContentBlock[],
   capped: boolean,
-  hasPriorityGaps: boolean
+  hasPriorityGaps: boolean,
+  adaptiveState: AdaptiveNarrativeState | null
 ): SelectedContent['falseComfort'] {
+  // Only a genuine visibility limitation may say anything about unknown responses; with zero
+  // unknowns this copy was simply false.
+  if (adaptiveState === 'visibility_limited') {
+    return {
+      title: 'Visibility and verification priority',
+      body: 'Unknown responses are not treated as confirmed control gaps. Obtain the evidence listed in this report before relying on a readiness conclusion.',
+      usedFallback: true
+    };
+  }
   const severity = capped ? 'capped' : hasPriorityGaps ? 'not_capped' : 'clean';
   const block = firstBlock(blocks, (item) => item.blockType === 'false_comfort' && item.severity === severity);
   const fallback = capped

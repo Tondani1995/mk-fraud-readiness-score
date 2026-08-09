@@ -6,10 +6,12 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: Request, { params }: { params: { orderReference: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const capability = await getPaymentAutomationCapability();
   if (capability.status !== 'available') return NextResponse.json({ ok: false, message: capability.message }, { status: 503 });
-  const token = cookies().get('mk_payment_return')?.value;
+  const cookieStore = await cookies() as unknown as { get(name: string): { value?: string } | undefined };
+  const token = cookieStore.get('mk_payment_return')?.value;
   if (!token) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   const hash = crypto.createHash('sha256').update(token).digest('hex');
   const db = createSupabaseServiceClient() as any;

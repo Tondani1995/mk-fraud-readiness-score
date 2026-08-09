@@ -34,6 +34,34 @@ import { APICallError } from 'ai';
  */
 export type AiProviderFailureClass = 'pre_dispatch' | 'provider_declared' | 'ambiguous';
 
+export type AiTimeoutDiagnostic =
+  | 'application_total_timeout'
+  | 'platform_function_timeout'
+  | 'gateway_timeout'
+  | 'provider_declared_timeout'
+  | 'network_timeout_ambiguous';
+
+export function classifyTimeoutDiagnostic(error: unknown): AiTimeoutDiagnostic | null {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const name = error instanceof Error ? error.name : '';
+  if (name === 'TimeoutError' || name === 'AbortError' || /operation was aborted|AbortSignal\.timeout/i.test(message)) {
+    return 'application_total_timeout';
+  }
+  if (/FUNCTION_INVOCATION_TIMEOUT|FUNCTION_INVOCATION_FAILED|platform function timeout/i.test(message)) {
+    return 'platform_function_timeout';
+  }
+  if (/AI Gateway|gateway.*timeout|gateway request failed/i.test(message)) {
+    return 'gateway_timeout';
+  }
+  if (APICallError.isInstance(error) && [408, 504].includes(error.statusCode ?? 0)) {
+    return 'provider_declared_timeout';
+  }
+  if (/ETIMEDOUT|ECONNRESET|fetch failed|network timeout|socket timeout/i.test(message)) {
+    return 'network_timeout_ambiguous';
+  }
+  return null;
+}
+
 // AI SDK error class `.name` values that are only ever thrown during argument, prompt,
 // model-resolution or credential/setting validation -- all of which happen
 // synchronously, before `fetch` is ever called. Confirmed by direct inspection of the
@@ -63,6 +91,9 @@ const PROVIDER_DECLARED_ERROR_NAMES = new Set([
 ]);
 
 export function classifyAiProviderFailure(error: unknown): AiProviderFailureClass {
+  if (error instanceof Error && error.name === 'AiGatewayIdentityVerificationError') {
+    return 'provider_declared';
+  }
   if (error instanceof Error && PRE_DISPATCH_ERROR_NAMES.has(error.name)) {
     return 'pre_dispatch';
   }

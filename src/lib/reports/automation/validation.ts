@@ -85,6 +85,25 @@ function evidenceContainsText(item: ReportEvidenceItem, expected: string) {
   return JSON.stringify(item.value).toLowerCase().includes(expected.toLowerCase());
 }
 
+function numericTokenBelongsToOrganisationName(
+  text: string,
+  tokenStart: number,
+  tokenLength: number,
+  evidence: PremiumReportEvidencePack
+) {
+  const organisationName = evidence.organisationName.trim();
+  if (!organisationName) return false;
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const nameStart = text.indexOf(organisationName, searchFrom);
+    if (nameStart === -1) return false;
+    const nameEnd = nameStart + organisationName.length;
+    if (tokenStart >= nameStart && tokenStart + tokenLength <= nameEnd) return true;
+    searchFrom = nameEnd;
+  }
+  return false;
+}
+
 const METRIC_CLAIMS: Array<{ code: string; pattern: RegExp; requiredRefs: string[] }> = [
   { code: 'overall_score', pattern: /\b(?:overall|readiness|assessment)\s+(?:score|percentage|percent)\b/i, requiredRefs: ['score:overall'] },
   { code: 'coverage', pattern: /\b(?:assessment\s+)?coverage(?:\s+(?:score|percentage|rate))?\b/i, requiredRefs: ['score:coverage'] },
@@ -184,9 +203,11 @@ function validateText(
     if (rule.pattern.test(text)) issues.push(issue(rule.code, path, rule.message));
   }
 
-  const numbers = text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
+  const numberMatches = [...text.matchAll(/\b\d+(?:\.\d+)?%?\b/g)];
   const citedNumbers = numbersForItems(citedItems(value.evidenceRefs, evidence));
-  for (const token of numbers) {
+  for (const match of numberMatches) {
+    const token = match[0];
+    if (numericTokenBelongsToOrganisationName(text, match.index ?? -1, token.length, evidence)) continue;
     const normalised = token.replace('%', '');
     if (!allowedNumbers.has(normalised)) {
       issues.push(issue('unsupported_numeric_claim', path, `Numeric claim "${token}" is not present in the deterministic evidence pack.`));
@@ -353,6 +374,10 @@ export function validatePremiumReportNarrative(
   }
 
   const output = narrative as unknown as PremiumReportNarrative;
+  const exposureAssessed = evidence.items.some((item) => item.kind === 'exposure_band' || item.kind === 'exposure_score');
+  if (!exposureAssessed && /\b(?:exposure|inherent fraud risk)\b/i.test(sectionText(output.executiveDiagnosis) + ' ' + sectionText(output.falseComfort) + ' ' + sectionText(output.leadershipAttention))) {
+    issues.push(issue('adaptive_exposure_unsupported', 'narrative', 'Adaptive narrative must not include exposure claims when exposure was not assessed.'));
+  }
   const executive = output.executiveDiagnosis;
   const falseComfort = output.falseComfort;
   const leadership = output.leadershipAttention;

@@ -11,8 +11,8 @@ import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insig
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
 
 type SnapshotPageProps = {
-  params: { assessmentRef: string };
-  searchParams?: { token?: string };
+  params: Promise<{ assessmentRef: string }>;
+  searchParams?: Promise<{ token?: string }>;
 };
 
 function requestOriginFor(requestHeaders: Pick<Headers, 'get'>) {
@@ -48,7 +48,9 @@ function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason:
   );
 }
 
-export default async function SnapshotShellPage({ params, searchParams }: SnapshotPageProps) {
+export default async function SnapshotShellPage(props: SnapshotPageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const token = searchParams?.token;
 
   if (!token) return <AccessError assessmentRef={params.assessmentRef} reason="missing_token" />;

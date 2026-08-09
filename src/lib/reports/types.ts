@@ -1,5 +1,49 @@
 export type MaturityBand = 'Reactive' | 'Developing' | 'Structured' | 'Strategic';
 export type ExposureBand = 'Low' | 'Moderate' | 'High' | 'Severe';
+export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
+export type AdaptiveResultMetrics = {
+  resultStatus: AdaptiveResultStatus;
+  graphVersion: string;
+  graphFingerprint: string;
+  applicableCount: number;
+  applicableWeight: number;
+  excludedCount: number;
+  excludedWeight: number;
+  redirectedCount: number;
+  redirectedWeight: number;
+  invalidatedCount: number;
+  invalidatedWeight: number;
+  profileOnlyCount: number;
+  unknownCount: number;
+  unknownWeight: number;
+  unansweredApplicableCount: number;
+  unansweredApplicableWeight: number;
+  assessmentCoveragePct: number;
+  controlVisibilityPct: number;
+  exposureAssessed: boolean;
+  visibilityGaps: Array<{
+    id: string;
+    questionCode: string;
+    domainCode: string;
+    prompt: string;
+    statement: string;
+    whyVisibilityMatters: string;
+    evidenceNeeded: string;
+    likelyEvidenceOwner: string;
+    recommendedVerificationAction: string;
+    priority: 'High' | 'Medium';
+    targetTiming: '30 days' | '60 days';
+  }>;
+  materialExclusionSharePct: number;
+  unknownSharePct: number;
+  scoreComparabilityStatement: string;
+  limitationReasons: string[];
+  excludedQuestionCodes: string[];
+  redirectedQuestionCodes: string[];
+  invalidatedQuestionCodes: string[];
+  unknownQuestionCodes: string[];
+  questionTraces: unknown[];
+};
 
 export interface ScoreRunRecord {
   id: string;
@@ -15,17 +59,19 @@ export interface ScoreRunRecord {
   status: string;
   lockedAt: string | null;
   inputHash: string | null;
-  overallScore: number;
-  calculatedMaturity: MaturityBand;
-  finalMaturity: MaturityBand;
-  exposureScore: number;
-  exposureBand: ExposureBand;
+  overallScore: number | null;
+  calculatedMaturity: MaturityBand | null;
+  finalMaturity: MaturityBand | null;
+  exposureScore: number | null;
+  exposureBand: ExposureBand | null;
   coveragePct: number;
   nARatePct: number;
   criticalGapCount: number;
   majorGapCount: number;
   capApplied: boolean;
   capReason: string | null;
+  adaptiveResultStatus?: AdaptiveResultStatus | null;
+  adaptiveMetrics?: AdaptiveResultMetrics | null;
 }
 
 export interface DomainResultRecord {
@@ -110,6 +156,7 @@ export interface AssembledReportData {
   currentScoreRunId: string;
   orderVerifiedAt: string | null;
   orderVerifiedBy: string | null;
+  paymentVerification: import('@/lib/payments/payment-verification').PaymentVerificationEvidence;
   organisationName: string;
   respondentName: string;
   customerEmail: string;
@@ -140,6 +187,7 @@ export interface AssembledReportData {
   actualDomainResultCount: number;
   expectedQuestionTraceCount: number;
   actualQuestionTraceCount: number;
+  adaptiveScope?: AdaptiveResultMetrics | null;
 }
 
 export interface ContentBlock {

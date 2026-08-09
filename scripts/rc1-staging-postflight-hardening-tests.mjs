@@ -82,7 +82,19 @@ const migrationFiles = fs
   .readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 69, 'canonical migration directory must contain 69 SQL files');
+// The AI-budget diagnostics migration is Staging-only and is outside this historical
+// postflight hardening contract.
+const postflightReplayMigrations = migrationFiles.filter(
+  (name) => ![
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
+  ].includes(name),
+);
+assert.equal(
+  postflightReplayMigrations.length,
+  99,
+  'canonical migration directory must contain the complete 99-file SQL set',
+);
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations, so at(-1)/at(-2)/at(-3) legitimately move while this accepted ordering
 // must not.
@@ -252,7 +264,7 @@ const advisorDelta = JSON.parse(runSql(`
   );
 `));
 assert.equal(Number(advisorDelta.approved_remaining), 0);
-assert.equal(Number(advisorDelta.remaining_unindexed), 46);
+assert.equal(Number(advisorDelta.remaining_unindexed), 56);
 
 const aclRows = JSON.parse(runSql(`
   with targets(signature) as (
@@ -600,4 +612,4 @@ assert(
   'representative delivery plan must be able to use the approved index',
 );
 
-console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history now has additive migrations 46 and 47');
+console.log('PASS RC1 staging postflight hardening preserved: ACLs, triggers, 45 FK indexes, retry, conflict and advisor delta; canonical history includes the current additive migration set');

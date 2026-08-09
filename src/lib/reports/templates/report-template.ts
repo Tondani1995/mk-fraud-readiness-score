@@ -1,6 +1,7 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
 import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
+import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
 import { gapKey } from '../select-content-blocks';
 import type { TocEntry } from '../pdf-navigation';
 
@@ -57,17 +58,19 @@ export const REPORT_TOC_ENTRIES: TocEntry[] = [
   { key: 'Leadership decisions and roadmap', label: 'Leadership decisions and roadmap' },
   { key: 'Evidence validation priorities', label: 'Evidence validation priorities' },
   { key: 'Methodology, limitations and next steps', label: 'Methodology, limitations and next steps' },
+  // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference
+  // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the
+  // appendix bookmark root it no longer belongs to.
+  { key: 'Complete supporting detail', label: 'Complete supporting detail' },
   // key is deliberately not the bare word "Appendix" -- the core sections cross-reference the
-  // appendix by name ("...is in Appendix A1"), so a plain "Appendix" search key would match that
-  // cross-reference text on an earlier page instead of the actual appendix divider page.
-  { key: 'The complete, authoritative registers behind the executive summary', label: 'Appendix', appendix: true },
-  { key: 'A1. Complete material findings register', label: 'A1. Complete material findings register', appendix: true },
-  { key: 'A2. Complete risk register', label: 'A2. Complete risk register', appendix: true },
-  { key: 'A3. Complete control improvement register', label: 'A3. Complete control improvement register', appendix: true },
-  { key: 'A4. Complete evidence checklist', label: 'A4. Complete evidence checklist', appendix: true },
-  { key: 'A5. Functional agenda', label: 'A5. Functional agenda', appendix: true },
-  { key: 'A6. Methodology question-code mapping', label: 'A6. Methodology question-code mapping', appendix: true },
-  { key: 'A7. Definitions and score basis', label: 'A7. Definitions and score basis', appendix: true }
+  // appendix by name, so a plain "Appendix" search key would match that cross-reference text on an
+  // earlier page instead of the actual appendix divider page.
+  // One canonical mapping: the printed TOC label, the rendered h2 and the audit's required-section
+  // heading are the SAME string. checkpoint-f-pdf-audit.py keys tocPrinted by the printed row text
+  // and looks it up by REQUIRED_SECTIONS heading, so a divergent label silently breaks the contract.
+  { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },
+  { key: 'E1. Supporting control actions', label: 'E1. Supporting control actions', appendix: true },
+  { key: 'E2. Definitions and score basis', label: 'E2. Definitions and score basis', appendix: true }
 ];
 
 /** The exact marker text that begins the appendix -- used by the audit script to scope its
@@ -183,11 +186,16 @@ export function renderReportHtml(
   content: SelectedContent,
   roadmap: { agenda: RoadmapItem[] },
   preparedEvidenceModel?: AdvisoryEvidenceModel,
-  tocPageMap?: Record<string, number>
+  tocPageMap?: Record<string, number>,
+  preparedProjection?: EssentialProjection
 ): string {
   const sr = data.scoreRun;
   const evidenceModel = preparedEvidenceModel ?? buildAdvisoryEvidenceModel(data);
-  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel });
+  // ONE bounded projection instance for this render. The narrative brief, deterministic fallback,
+  // commercial-quality validator and every bounded list below consume exactly this object -- no
+  // module recomputes its own "top findings" or effective gap set.
+  const projection = preparedProjection ?? buildEssentialProjection(data, evidenceModel);
+  const quality = assertCommercialReportQuality({ data, content, roadmap, evidenceModel, projection });
   if (quality.warnings.length > 0) {
     console.warn('COMMERCIAL_QUALITY_WARNING', {
       assessmentReference: data.assessmentReference,
@@ -202,7 +210,10 @@ export function renderReportHtml(
     day: 'numeric',
     timeZone: 'UTC'
   });
-  const bandColor = BAND_COLOR[sr.finalMaturity] ?? '#173f68';
+  const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? '#173f68';
+  const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
+  const adaptiveScope = data.adaptiveScope;
+  const adaptiveExposureAssessed = !adaptiveScope || adaptiveScope.exposureAssessed !== false;
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
@@ -212,7 +223,19 @@ export function renderReportHtml(
   // re-derived from raw exposurePct/readinessPct thresholds), so it can never diverge from the
   // exposure band shown elsewhere in the report. See Checkpoint F controller review blocker 2.
   const readinessDescriptor = readinessPct >= 50 ? 'stronger reported readiness' : 'developing reported readiness';
-  const exposurePosition = `${sr.exposureBand} exposure with ${readinessDescriptor}`;
+  const exposurePosition = `${sr.exposureBand ?? 'Not assessed'} exposure with ${readinessDescriptor}`;
+  const adaptiveScopeBlock = adaptiveScope ? subsection('Assessment scope and limitations', `
+    <div class="metric-grid">
+      <div><span>Applicable controls</span><strong>${adaptiveScope.applicableCount}</strong></div>
+      <div><span>Control visibility</span><strong>${pct(adaptiveScope.controlVisibilityPct)}</strong></div>
+      <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
+      <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
+    </div>
+    <p class="lede">${esc(insufficientVisibility ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. This report explains the assessed scope, information gaps and evidence needed for a reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and verification priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
+    <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
 
   const heatmap = data.domainResults.map((domain) => {
     const band = bandFor(domain.rawScore);
@@ -232,6 +255,12 @@ export function renderReportHtml(
     </div>`;
   }).join('');
 
+  const exposureSection = adaptiveExposureAssessed ? subsection(exposurePosition, `
+      <div class="exposure-layout">
+        <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
+        <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
+      </div>`) : '';
+
   const priorityGaps = data.criticalMajorGaps.map((gap) => {
     const commentary = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)];
     return `<div class="compact-card alert-card">
@@ -246,6 +275,31 @@ export function renderReportHtml(
     <h3>${esc(event.relatedQuestionPrompt ?? event.reason)}</h3>
     <p>This recorded condition limits the final maturity reading to <strong>${esc(event.capTo)}</strong>. The constraint remains a self-assessment result until operating evidence is independently examined.</p>
   </div>`).join('');
+
+  const systemic = projection.systemic;
+  // M3: at systemic weakness the report leads with the condition, not with an enumeration of
+  // individual controls -- listing more controls when none exist reduces decision value.
+  const systemicDiagnosisBlock = systemic.systemic
+    ? `<div class="attention-box"><strong>Systemic condition</strong><p>This assessment records an absence of foundational fraud controls across ${systemic.domainsFailing} of ${systemic.domainsScored} assessed domains, covering ${Math.round(systemic.failedShare * 100)}% of the applicable controls. Individual control findings are therefore of limited value on their own: the organisation does not yet have a fraud control baseline to improve. This report prioritises establishing that baseline.</p></div>`
+    : '';
+  // Domain-level aggregation replaces ten per-domain essays when the condition is systemic.
+  const systemicDomainAggregation = systemic.systemic
+    ? table(
+      ['Domain', 'Weight', 'Score', 'Controls in scope', 'Recorded absent'],
+      data.domainResults.map((domain) => {
+        const inScope = data.questionTraces.filter((trace) => trace.domainCode === domain.domainCode && trace.applicable);
+        const absent = inScope.filter((trace) => (trace.responseValue ?? 5) <= 2).length;
+        return `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.weightPct)}</td><td>${score(domain.rawScore)}/100</td><td>${inScope.length}</td><td>${absent}</td></tr>`;
+      })
+    )
+    : '';
+  // Foundational programme: the selected findings sequenced as a baseline-establishment plan.
+  const foundationalProgramme = systemic.systemic
+    ? `<p class="lede">Establishing a control baseline, in dependency order. Each step names the exact control recorded as absent.</p>${table(
+      ['Step', 'Domain', 'Control to establish', 'Accountable owner', 'Target'],
+      projection.findings.map((finding, index) => `<tr><td>${index + 1}</td><td>${esc(finding.domainName)}</td><td>${esc(finding.questionPrompt)}</td><td>${esc(finding.accountableOwner)}</td><td>${esc(finding.targetPeriod)}</td></tr>`)
+    )}`
+    : '';
 
   const domainGroupBlocks = DOMAIN_GROUPS.map((group) => {
     const cards = group.domains.map((domainName) => {
@@ -265,15 +319,16 @@ export function renderReportHtml(
     return `<p class="lede">${esc(group.subtitle)}</p><div class="stack">${cards}</div>`;
   });
 
+  // Appendix ordering still needs the full L1 register; the *main report* uses the projection.
   const sortedFindings = [...evidenceModel.materialFindings].sort((a, b) => b.materialityScore - a.materialityScore);
-  const topFindings = sortedFindings.slice(0, TOP_FINDINGS_COUNT);
   const sortedRisks = [...evidenceModel.riskRegister].sort((a, b) => {
     const rank: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
     return rank[b.priority] - rank[a.priority];
   });
-  const topRisks = sortedRisks.slice(0, TOP_RISKS_COUNT);
-  const topContradictions = evidenceModel.contradictions.slice(0, TOP_CONTRADICTIONS_COUNT);
-  const topScenarios = evidenceModel.scenarios.slice(0, TOP_SCENARIOS_COUNT);
+  const topFindings = projection.findings;
+  const topRisks = projection.risks;
+  const topContradictions = projection.contradictions;
+  const topScenarios = projection.scenarios;
 
   const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">
     <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(finding.materialityClass.replaceAll('_', ' '))}</span></div>
@@ -343,7 +398,12 @@ export function renderReportHtml(
     <p class="section-note">Every decision below carries a named accountable executive and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the appendix.</p>
     ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
 
-  const roadmapRows = evidenceModel.roadmapActions.map((action) => `<tr>
+  // Bounded L2, exactly as the evidence-priority block below already does. This read
+  // evidenceModel.roadmapActions -- the COMPLETE L1 action set -- so V7 printed all 60 recommended
+  // actions against the accepted 12-target/15-ceiling the projection's dependency-closed roadmap
+  // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
+  // the accepted ordering; never render the full L1 roadmap here.
+  const roadmapRows = projection.roadmapActions.map((action) => `<tr>
     <td>${esc(action.period)}</td>
     <td>${esc(action.domainName)}</td>
     <td>${esc(action.deliverable)}</td>
@@ -352,14 +412,16 @@ export function renderReportHtml(
   </tr>`);
   const roadmapBlock = subsection('30/60/90-day roadmap', `
     <p class="section-note">This is the report's only action roadmap. Dependencies and measures are carried directly from the material findings, risks and controls set out in this report.</p>
-    ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows)}`);
+    ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows, 'compact-register roadmap-table')}`);
 
   const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
   for (const item of evidenceModel.evidenceChecklist) {
     const key = item.linkedFindingIds[0] ?? 'unlinked';
     evidenceGroupedByFinding.set(key, [...(evidenceGroupedByFinding.get(key) ?? []), item]);
   }
-  const priorityEvidenceRows = topFindings.flatMap((finding) => (evidenceGroupedByFinding.get(finding.id) ?? []).slice(0, 2)).map((item, index) => `<tr>
+  // Bounded L2: the projection already applied the accepted 15-item cap and the accepted ordering
+  // (selected-finding priority first, then artefact rank). Never regroup the full L1 checklist here.
+  const priorityEvidenceRows = projection.evidenceToObtain.map((item, index) => `<tr>
     <td>${index + 1}</td>
     <td>${esc(item.artefact)}</td>
     <td>${esc(item.provesWhat)}</td>
@@ -367,9 +429,15 @@ export function renderReportHtml(
     <td>${esc(item.reviewStatus)}</td>
   </tr>`);
   const evidencePriorityBlock = `
-    <p class="lede">The complete evidence checklist (${evidenceModel.evidenceChecklist.length} items) is in the appendix. The items below are the immediate validation priorities linked to the top material findings above.</p>
+    <!-- Cross-references must never quote a tracked REPORT_TOC_ENTRIES heading verbatim: the
+         contents-page scan locates each entry by its heading text, so a prose copy of that text on
+         an earlier page is found first and the printed page number and bookmark then point at the
+         mention rather than the section. -->
+    <p class="lede">The items below are the immediate validation priorities linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see the closing section of this report).</p>
+    <div class="evidence-priority-table">
     ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
-    <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require an evidence-review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>`;
+    <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require an evidence-review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
+    </div>`;
 
   const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity constraints and advisory model use only the recorded assessment inputs and the deterministic methodology.</p>
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and test the specified operating evidence before treating a control as effective or a finding as resolved.</p>
@@ -457,16 +525,40 @@ export function renderReportHtml(
   // table-header-group }` and `tr { break-inside: avoid }` (all pre-existing) keep each heading
   // attached to its first row, repeat table headers across the resulting page breaks, and keep
   // individual rows intact -- so this only removes wasted whitespace, it never splits content.
+  // E1 is explicitly "further control actions BEYOND the priority set above", so anything the
+  // roadmap already selected must not reappear here. Matched on the linked control-action identity
+  // the roadmap carries, so the two views cannot describe the same action twice.
+  // The projection already excludes anything the roadmap selected (via linkedRoadmapActionIds) and
+  // applies the 40 cap. Never re-filter here on mismatched identifier namespaces.
+  const carAppendixRows = projection.appendixControlActionRecords.map((record, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${esc(record.domainName)}</td>
+    <td>${esc(record.controlObjective)}</td>
+    <td>${esc(record.controlDesign)}</td>
+    <td>${esc(record.accountableOwner)} / ${esc(record.targetPeriod)}</td>
+  </tr>`);
+  const u = projection.universe;
+  // Invariant I3: the bounded report must state the complete authoritative L1 counts and say
+  // exactly where the omitted detail lives. It must never claim detail is available that the
+  // supporting register does not actually contain.
+  const supportingReferenceBlock = `
+    <div class="keep-together">
+    <p class="lede">This report presents the highest-priority matters from a complete assessment of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
+    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>
+    </div>`;
+  // The appendix root opens the same physical page as E1. The former standalone
+  // `.appendix-divider` section carried `min-height: 250mm`, which -- proportionate when the
+  // appendix held ~60 pages of full L1 registers -- spent an entire page on ~240 characters once
+  // the appendix became bounded. Navigation identity is unchanged: the root is still its own
+  // REPORT_TOC_ENTRIES entry and h2, and E1/E2/Complete supporting detail remain independently
+  // discoverable subsection headings.
   const appendixSections = [
-    `<section class="report-section appendix-divider"><div class="section-kicker">Appendix</div><h2>Appendix</h2><p class="lede">The complete, authoritative registers behind the executive summary above. Every material finding, risk, control, evidence item and functional-agenda item is listed here in full, whether or not it was highlighted earlier in this report.</p></section>`,
-    section('A1', 'A1. Complete material findings register', `
-      ${table(['No.', 'Domain', 'Recorded condition', 'Diagnosis', 'Recommended control', 'Owner / Target'], findingsAppendixRows)}
-      ${subsection('A2. Complete risk register', table(['No.', 'Priority', 'Risk', 'Cause', 'Risk event', 'Required treatment'], risksAppendixRows))}
-      ${subsection('A3. Complete control improvement register', table(['No.', 'Objective', 'Current state', 'Control design', 'Owner / Target'], controlsAppendixRows))}
-      ${subsection('A4. Complete evidence checklist', table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], evidenceAppendixRows))}
-      ${subsection('A5. Functional agenda', table(['No.', 'Function', 'Question for the review'], agendaAppendixRows))}
-      ${subsection('A6. Methodology question-code mapping', `<p class="section-note">Internal methodology reference codes are shown here only, for auditability -- they do not appear in the executive summary above.</p>${table(['No.', 'Domain', 'Recorded condition', 'Methodology reference'], methodologyMappingRows)}`)}
-      ${subsection('A7. Definitions and score basis', definitionsBlock)}`, 'long-section')
+    section('Appendix', 'Appendix: supporting material', `
+      <p class="lede">Bounded supporting material for the priority matters above. The complete authoritative registers are provided in the supporting register, not reproduced here.</p>
+      ${subsection('E1. Supporting control actions', `
+        <p class="section-note">Further control actions beyond the priority set above, in materiality order.</p>
+        ${table(['No.', 'Domain', 'Control objective', 'Control design', 'Owner / Target'], carAppendixRows)}`)}
+      ${subsection('E2. Definitions and score basis', definitionsBlock)}`, 'long-section')
   ].join('\n');
 
   const tocRows = REPORT_TOC_ENTRIES.map((entry) => {
@@ -491,34 +583,35 @@ export function renderReportHtml(
     section('Executive summary', 'Executive summary', `
       ${subsection(content.executiveSummary.title, `
       <div class="diagnosis">
-        <div class="score-tile"><strong>${score(sr.overallScore)}</strong><span>out of 100</span><b style="background:${bandColor}">${esc(sr.finalMaturity)}</b></div>
-        <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p><div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
+        <div class="score-tile"><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
+        <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
       </div>
       <div class="metric-grid">
-        <div><span>Exposure</span><strong>${esc(sr.exposureBand)}</strong></div>
+        ${adaptiveExposureAssessed ? `<div><span>Exposure</span><strong>${esc(sr.exposureBand ?? 'Not assessed')}</strong></div>` : ''}
         <div><span>Coverage</span><strong>${pct(sr.coveragePct)}</strong></div>
         <div><span>Critical gaps</span><strong>${sr.criticalGapCount}</strong></div>
         <div><span>Major gaps</span><strong>${sr.majorGapCount}</strong></div>
       </div>`)}
-      ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity)} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
-      ${subsection(exposurePosition, `
-      <div class="exposure-layout">
-        <div><div class="matrix"><i style="left:${plotX}mm;top:${plotY}mm"></i></div><div class="axis-note">Exposure increases left to right. Reported readiness increases bottom to top.</div></div>
-        <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
-      </div>`)}
+      ${adaptiveScopeBlock}
+      ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity ?? 'visibility-limited')} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
+      ${exposureSection}
       ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
-    section('Domain overview', 'Domain overview', domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
+    section('Domain overview', 'Domain overview', systemic.systemic
+      ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
+      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
-      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register is in Appendix A1.</p>
+      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the supporting register issued with this report.</p>
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
       ${priorityScenariosBlock}`, 'long-section'),
     section('Priority risks', 'Priority risks', `
-      <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is in Appendix A2.</p>
+      <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is provided in the supporting register issued with this report.</p>
       ${priorityRisksBlock}`, 'long-section'),
-    section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${decisionsBlock}${roadmapBlock}`, 'long-section'),
-    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section'),
-    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`),
+    section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
+      ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
+      : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
+    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-long-register'),
+    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
     appendixSections
   ].join('\n');
 
@@ -552,11 +645,37 @@ export function renderReportHtml(
   .cover-meta, .cover-confidential { color: #c8d5e5; font: 8pt/1.7 Arial,sans-serif; }
   .cover-confidential { text-transform: uppercase; letter-spacing: 1px; }
   .report-section { padding: 1mm 1mm 0; }
-  .appendix-divider { min-height: 250mm; }
   .section-kicker { display: inline-block; background: #071b3d; color: #fff; font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }
   .lede { color: #5b554b; font-size: 10pt; max-width: 170mm; }
+  .keep-together { break-inside: avoid; page-break-inside: avoid; }
+  /* Scoped to the bounded 15-item evidence-priority table only; global table rules are unchanged. */
+  .evidence-priority-table td, .evidence-priority-table th { padding-top: 1.1mm; padding-bottom: 1.1mm; }
+  .evidence-priority-table .section-note { break-before: avoid; page-break-before: avoid; }
   .section-note, .disclaimer { color: #686158; font-size: 8pt; font-style: italic; }
   .subsection-heading { margin-top: 8mm; break-after: avoid; page-break-after: avoid; }
+  /* A heading already avoids breaking after itself, but an intervening .section-note did not, so a
+     heading plus its one-line intro could sit alone on a page while the table began on the next --
+     V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
+  .subsection-heading + .section-note,
+  .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
+  /* Layout-boundary exception, and the ONLY one. Every .report-section forces a page break before
+     itself. Roadmap rows are large whole control designs and about two fit a page, so when the
+     final row lands alone the compulsory break before the next section guarantees the rest of that
+     page stays empty -- the checkpoint-f PDF_NEAR_EMPTY_PAGE failure (F1 AI page 20 at 0.1334
+     occupied area, F1 fallback page 19 at 0.1772, against the 0.26 floor).
+     Letting the FOLLOWING section begin in that remaining space fills the page with
+     real content. Applied to the two sections that follow a long register -- Evidence validation
+     priorities after the roadmap, and Methodology after the evidence table, which stranded its own
+     last rows on CI page 21 once the roadmap page was fixed. Every other section keeps its forced
+     break. An earlier attempt allowed roadmap rows to split instead; CI disproved it -- a
+     row that fits a page is never split, it simply moves whole -- and splitting a control objective
+     from its owner, timing and success measure is not what a commercial report should do. */
+  .report-section.continue-after-long-register { break-before: auto; page-break-before: auto; }
+  /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
+     its first meaningful content wherever it starts on the page. */
+  .continue-after-long-register .section-kicker,
+  .continue-after-long-register h2,
+  .continue-after-long-register .lede { break-after: avoid; page-break-after: avoid; }
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
@@ -613,7 +732,10 @@ export function renderReportHtml(
   .bar-row span { color:#6c665b; }
   .bar-track,.mini-track { height:2.4mm;background:#e7dfd2;margin-top:1.2mm;overflow:hidden;border-radius:2mm; }
   .bar-track i,.mini-track i { display:block;height:100%; }
-  .stack { display:flex;flex-direction:column;gap:1mm; }
+  /* Let related domain cards fragment as ordinary flow content. A flex column can strand a
+     single short card on a fresh page when the preceding group fills the current one. */
+  .stack { display:block; }
+  .stack .compact-card { margin-bottom: 1mm; }
   .domain-top { display:flex;justify-content:space-between;gap:4mm;align-items:baseline; }
   .domain-top span { font:700 10pt Arial,sans-serif; }
   .inline-alert { margin-top:2mm;padding:2mm 3mm;background:#fff2f2;border-left:.8mm solid #a61b1b;font-size:8pt; }
@@ -639,6 +761,7 @@ export function renderReportHtml(
   table { width:100%;border-collapse:collapse; }
   thead { display:table-header-group; }
   tr { break-inside:avoid;page-break-inside:avoid; }
+  .roadmap-table { break-inside: avoid; page-break-inside: avoid; }
   th,td { border:.2mm solid #dcd3c4;padding:2.2mm 3mm;text-align:left;vertical-align:top; }
   th { background:#071b3d;color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
   td { font-size:8pt; }

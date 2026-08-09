@@ -65,7 +65,36 @@ const pending = [
   '20260803190000_rc1_park_fulfilment_attempt_search_path_fix.sql',
   '20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql',
   '20260803210000_rc1_structured_band_operating_state_overclaim.sql',
-  '20260803220000_rc1_premium_delivery_active_uniqueness.sql'
+  '20260803220000_rc1_premium_delivery_active_uniqueness.sql',
+  '20260803230000_preview_development_delivery.sql',
+  '20260804090000_preview_development_authoritative_context.sql',
+  '20260804110000_rc1_preview_resend_webhook_ingestion.sql',
+  '20260804130000_rc1_preview_resend_reconciliation_once.sql',
+  '20260804140000_rc1_preview_resend_reconciliation_status.sql',
+  '20260804150000_rc1_preview_resend_apply_context.sql',
+  '20260804170000_g24_adaptive_foundation_g28_evidence_guidance.sql',
+  '20260804171000_g28_evidence_guidance_seed_repair.sql',
+  '20260804194001_g29_payment_verification_contract.sql',
+  '20260804200000_g25_adaptive_engine.sql',
+  '20260804203520_g29_customer_report_access_audit.sql',
+  '20260804210000_g27_adaptive_scoring_integration.sql',
+  '20260804223000_g27_adaptive_visibility_score_guard.sql',
+  '20260805090000_pre_g30_ai_route_authority.sql',
+  '20260805100000_g24_adaptive_history_least_privilege.sql',
+  '20260805110000_g24_adaptive_rpc_least_privilege.sql',
+  '20260805120000_g27_adaptive_scoring_search_path.sql',
+  '20260805140000_pre_g30_adaptive_launch_authority.sql',
+  '20260805150000_pre_g30_staging_ai_authority_guard_fix.sql',
+  '20260807120000_report_secondary_artifacts.sql',
+  '20260807130000_report_artefact_access_audit.sql',
+  '20260807140000_report_artefact_bucket_mime.sql',
+  '20260808090000_rc1_report_artifacts_freeze_surface.sql',
+  '20260808150000_manual_ai_structured_output_settlement_parity.sql',
+  '20260808160000_atomic_report_finalisation_with_register.sql',
+  '20260808170000_ai_attempt_timeout_contract_parity.sql',
+  '20260808180000_atomic_access_token_consumption.sql',
+  '20260809120000_ai_attempt_output_token_envelope.sql',
+  '20260809140000_ai_contract_version_alignment.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -132,7 +161,7 @@ function runGate(file, variables) {
   const result = spawnSync(psql, args, { env: localOnlyEnv, encoding: 'utf8' });
   return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
-function passResult(result, label) {
+async function passResult(result, label) {
   assert(result.code === 0, `${label} exited ${result.code}: ${result.output}`);
   const stops = result.output.split('\n').filter((line) => /\|STOP$/.test(line));
   assert(stops.length === 0, `${label} emitted STOP: ${stops.join(', ')}`);
@@ -186,7 +215,14 @@ async function applyMigration(name) {
 }
 async function replayBaseline() {
   const files = fs.readdirSync(path.join(root, 'supabase', 'migrations')).filter((name) => name.endsWith('.sql')).sort();
-  const baseline = files.filter((name) => !pending.includes(name));
+  // Pre-G30 timeout and AI-budget diagnostic migrations are Staging-only. This harness models
+  // the approved Production pre/postflight ledger, so neither enters either side of that replay.
+  const productionExcluded = new Set([
+    '20260805200000_pre_g30_ai_timeout_window.sql',
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
+  ]);
+  const baseline = files.filter((name) => !pending.includes(name) && !productionExcluded.has(name));
   assert(baseline.length === 34, `expected 34 baseline migrations, got ${baseline.length}`);
   for (const name of baseline) {
     console.log(`Applying baseline ${name}`);
@@ -194,10 +230,10 @@ async function replayBaseline() {
   }
 }
 async function ensureAdmin() {
-  await db.query(`insert into auth.users(id,email) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test') on conflict do nothing`);
-  await db.query(`insert into auth.sessions(id,user_id,not_after) values ('00000000-0000-0000-0000-00000000a002','00000000-0000-0000-0000-00000000a001',now()+interval '1 hour') on conflict (id) do update set not_after=excluded.not_after`);
-  await db.query(`insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) values ('00000000-0000-0000-0000-00000000a001','rc1-synthetic-admin@invalid.test','Synthetic RC1 Admin','platform_admin','active',false) on conflict (id) do nothing`);
-  return '00000000-0000-0000-0000-00000000a001';
+  await db.query(`insert into auth.users(id,email) values ('00000000-0000-4000-8000-00000000a001','rc1-synthetic-admin@invalid.test') on conflict do nothing`);
+  await db.query(`insert into auth.sessions(id,user_id,not_after) values ('00000000-0000-4000-8000-00000000a002','00000000-0000-4000-8000-00000000a001',now()+interval '1 hour') on conflict (id) do update set not_after=excluded.not_after`);
+  await db.query(`insert into public.admin_profiles(id,email,full_name,role,status,mfa_required) values ('00000000-0000-4000-8000-00000000a001','rc1-synthetic-admin@invalid.test','Synthetic RC1 Admin','platform_admin','active',false) on conflict (id) do nothing`);
+  return '00000000-0000-4000-8000-00000000a001';
 }
 async function seedOrders(adminId) {
   const method = await query("select id from public.methodology_versions where status='active' limit 1");
@@ -558,7 +594,7 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
       select id,'disabled','rc1-cleanup-provider-'||row_number() over (), 'rc1-cleanup-message-'||row_number() over (), 'email.sent','{}'::jsonb
       from public.email_events where id in ($24,$25,$26,$27);
       insert into public.report_delivery_authorizations(id,report_id,report_checksum,recipient_email,order_id,assessment_id,score_run_id,security_gate_version,authorised_by,authorised_session_id,provider,email_event_id,status)
-      values ($28,$15,$6,'rc1-cleanup-report@invalid.test',$12,$3,$5,1,$10,'00000000-0000-0000-0000-00000000a002','disabled',$24,'finalized');
+      values ($28,$15,$6,'rc1-cleanup-report@invalid.test',$12,$3,$5,1,$10,'00000000-0000-4000-8000-00000000a002','disabled',$24,'finalized');
       insert into public.report_delivery_finalizations(authorization_id,email_event_id,report_id,provider,provider_message_id)
       values ($28,$24,$15,'disabled','rc1-cleanup-message');
       insert into public.report_delivery_remediations(id,prior_email_event_id,report_id,recipient_email,remediation_type,reason,evidence_json,authorised_by)
@@ -568,13 +604,13 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
       from unnest(array['00000000-0000-0000-0000-00000000b201'::uuid,'00000000-0000-0000-0000-00000000b202'::uuid,'00000000-0000-0000-0000-00000000b203'::uuid,'00000000-0000-0000-0000-00000000b204'::uuid]) with ordinality x(id,n)
       join unnest(array[$24,$25,$26,$27]::uuid[]) with ordinality e(id,n) on e.n=x.n;
       insert into public.phase14_provider_attestation_consumptions(attestation_id,authorization_id,consumed_by,consumed_session_id)
-      select id,$28,$10,'00000000-0000-0000-0000-00000000a002' from public.phase14_provider_attestations where id = any($30::uuid[]);
+      select id,$28,$10,'00000000-0000-4000-8000-00000000a002' from public.phase14_provider_attestations where id = any($30::uuid[]);
       insert into public.customer_report_access_tokens(id,order_id,report_id,recipient_email,token_hash,expires_at,issued_by)
       values ($31,$12,$15,'rc1-cleanup-report@invalid.test','rc1-cleanup-access-token',now()+interval '1 day',$10);
       insert into public.customer_contact_verifications(id,order_id,assessment_id,customer_identity,previous_email,corrected_email,verification_method,evidence_reference,verified_at,verified_by_actor,expires_at)
       values ($32,$12,$3,'rc1-cleanup-customer','old@invalid.test','new@invalid.test','support_callback','rc1-cleanup-contact',now(),$10,now()+interval '1 day');
       insert into public.phase14_worker_capabilities(id,capability_type,policy_key,operation_key,issue_secret_hash,order_id,assessment_id,score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,reason,expires_at,status)
-      values ($33,'automatic_generation','automatic_fulfilment','rc1-cleanup-capability',$6,$12,$3,$5,$17,$15,1,$10,'00000000-0000-0000-0000-00000000a002','synthetic fixture',now()+interval '1 day','consumed');
+      values ($33,'automatic_generation','automatic_fulfilment','rc1-cleanup-capability',$6,$12,$3,$5,$17,$15,1,$10,'00000000-0000-4000-8000-00000000a002','synthetic fixture',now()+interval '1 day','consumed');
       insert into phase14_private.worker_attestation_nonces(nonce,capability_id,action,lease_generation,request_payload_hash,issued_at,expires_at)
       values ('00000000-0000-0000-0000-00000000b117',$33,'cleanup',0,$6,now(),now()+interval '1 day');
       insert into phase14_private.worker_recovery_nonces(nonce,capability_id,old_execution_id,proposed_execution_id,lease_generation,reason,issued_at,expires_at)
@@ -595,7 +631,7 @@ async function proveHealthySyntheticCertificationCleanup(adminId) {
     await db.query(fixtureSql);
   });
 
-  await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-0000-0000-00000000a002"}',false)`);
+  await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-4000-8000-00000000a002"}',false)`);
   let unmarkedRefused = false;
   try {
     await query(
@@ -878,9 +914,9 @@ async function proveBootstrapEnforcement() {
     role: 'authenticated',
     aal: 'aal1',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    session_id: '00000000-0000-0000-0000-00000000a002',
+    session_id: '00000000-0000-4000-8000-00000000a002',
   });
-  await db.query("select set_config('request.jwt.claim.sub',$1,false)", ['00000000-0000-0000-0000-00000000a001']);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", ['00000000-0000-4000-8000-00000000a001']);
   await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
   await expectQueryStop(
     'AAL1 release',
@@ -905,9 +941,958 @@ async function proveBootstrapEnforcement() {
     'control-RPC proof must leave the bootstrap state unchanged');
 }
 
+/**
+ * RC1 freeze-surface mapping invariant.
+ *
+ * rc1_guard_authoritative_mutation() resolves the relation's surface FIRST and raises
+ * 'rc1_operation_frozen:unknown_surface' the moment the mapping is null -- before the freeze-state
+ * check. A table can therefore carry the authoritative-mutation trigger and still be permanently
+ * unwritable by every caller in every freeze state. 20260807120000 shipped exactly that for
+ * public.report_artifacts, and nothing caught it because every other suite uses database doubles.
+ * The structural assertion below is derived from pg_trigger, so it fails for ANY future migration
+ * that attaches the trigger to an unmapped relation, not just this one.
+ */
+/**
+ * P1-A behavioural proof: manual AI settlement accepts every structured-output terminal status,
+ * persists the diagnostic, and keeps every existing control.
+ *
+ * The V4 controlled run proved why this matters: the provider responded, the structured output was
+ * rejected, settle_manual_report_ai_attempt() refused the correct status with
+ * phase14_ai_result_status_invalid, the attempt stayed 'started', and the diagnostic was destroyed.
+ * These tests run the real RPC against a real database.
+ */
+/**
+ * P1-B database proof: finalise_manual_report_with_supporting_register() is genuinely atomic.
+ *
+ * The caller-level doubles prove the orchestration never supersedes outside the RPC. This proves the
+ * transaction itself: the report INSERT succeeds inside the function, then a REAL constraint failure
+ * on the report_artifacts INSERT must roll the whole thing back -- no new report, no supersede, no
+ * artefact, attempt still pre-final. No constraint is weakened to manufacture the failure; the
+ * checksum-format check on report_artifacts does the work.
+ */
+/**
+ * P2: the three access-token counters must be atomic under genuine concurrency.
+ *
+ * Every family previously did select use_count -> compare in JS -> update later, so two instances
+ * could observe the same pre-increment count and both consume the same remaining allowance. These
+ * fire real simultaneous statements (Promise.all over separate pooled connections is genuine
+ * concurrency in Postgres, not simulated) and require exact allowance accounting.
+ */
+/**
+ * P1-A tail: the AUTONOMOUS settlement contract, proved against the real RPC.
+ *
+ * The manual proof already covers settle_manual_report_ai_attempt(). This covers
+ * settle_phase14_ai_attempt(), which the Production-bound migration also upgrades, so both halves of
+ * the structured-output contract are behaviourally proven rather than only structurally compared.
+ * Deliberately minimal: a fulfilment-parented attempt and a leased worker capability, not an
+ * autonomous commercial journey.
+ */
+async function proveAutonomousAiSettlementParity(adminId) {
+  // The capability the RPC activates must carry security_gate_version = the SATISFIED gate version,
+  // and phase14_require_policy('automatic_fulfilment') must also pass. Both are established through
+  // their real administrative APIs under a genuine platform-admin AAL2 claim -- neither the gate
+  // table nor the policy row is written around its guard, and no constraint is relaxed.
+  //
+  // Remaining obstacle: settle_phase14_ai_attempt() calls phase14_activate_worker_operation(),
+  // which requires a LEASED capability whose security_gate_version equals the satisfied gate
+  // version. In this disposable replay the phase14-premium-report gate is not satisfied at this
+  // point, so satisfied_version does not yield a value the capability's
+  // phase14_worker_capabilities_security_gate_version_check will accept (> 0).
+  //
+  // To finish: satisfy the gate for the proof exactly as the accepted control does (or seed a
+  // capability against an already-satisfied gate version), then restore it in the finally alongside
+  // the freeze state. Do NOT relax the capability constraints or the gate requirement -- that is
+  // the control being exercised. Five earlier obstacles here were all resolved this way:
+  // enum cast, freeze surface, lease_secret_hash, lease_owner, and the service-role claim.
+  const STRUCTURED = [
+    'structured_output_invalid', 'structured_output_truncated', 'structured_output_refused',
+    'structured_output_schema_failed', 'structured_output_json_invalid',
+  ];
+  // Seed a dedicated fulfilment: the shared one belongs to the cleanup proof and is removed by it.
+  const fulfilmentId = '00000000-0000-0000-0000-0000000af001';
+  const [chain] = await query(`select o.id as order_id, o.assessment_id,
+      (select sr.id from public.score_runs sr where sr.assessment_id=o.assessment_id limit 1) as score_run_id,
+      (select r.id from public.reports r where r.order_id=o.id limit 1) as report_id
+    from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'`);
+  assert(chain?.score_run_id, 'expected a synthetic order/score-run chain');
+  await withTriggerBypass(() => db.query(`
+    insert into public.report_fulfilments(
+      id,order_id,assessment_id,score_run_id,report_id,idempotency_key,trigger_source,status,
+      generation_mode,attempt_count,workflow_start_status)
+    values ($1,$2,$3,$4,$5,'p1a-autonomous-'||gen_random_uuid(),'payment_confirmation','queued',
+      'deterministic_fallback',1,'started')
+    on conflict (id) do nothing`,
+    [fulfilmentId, chain.order_id, chain.assessment_id, chain.score_run_id, chain.report_id]));
+  const [fulfilment] = await query(
+    'select id, order_id, assessment_id, score_run_id, report_id from public.report_fulfilments where id=$1',
+    [fulfilmentId]);
+  assert(fulfilment, 'expected the seeded autonomous fulfilment fixture');
+
+  const capabilityId = '00000000-0000-0000-0000-0000000ac001';
+  const seedCapability = () => withTriggerBypass(() => db.query(`
+    insert into public.phase14_worker_capabilities(
+      id,capability_type,policy_key,operation_key,issue_secret_hash,order_id,assessment_id,
+      score_run_id,fulfilment_id,report_id,security_gate_version,authorised_by,authorised_session_id,
+      reason,expires_at,status,lease_expires_at,lease_secret_hash,lease_owner)
+    values ($1,'automatic_generation','automatic_fulfilment','p1a-autonomous',repeat('a',64),
+      -- settle_phase14_ai_attempt() activates with report_id => null, so the capability binding
+      -- must be null too or phase14_activate_worker_operation() raises
+      -- worker_capability_report_mismatch.
+      $2,$3,$4,$5,null,
+      (select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report'),
+      $6,'00000000-0000-4000-8000-00000000a003','autonomous settlement proof',
+      now() + interval '1 day','leased', now() + interval '1 hour', repeat('b',64),'p1a-autonomous-worker')
+    on conflict (id) do update set status='leased', lease_expires_at=now() + interval '1 hour',
+      lease_secret_hash=repeat('b',64), lease_owner='p1a-autonomous-worker',
+      security_gate_version=(select satisfied_version from public.phase14_security_gates where gate_key='phase14-premium-report')
+  `, [capabilityId, fulfilment.order_id, fulfilment.assessment_id, fulfilment.score_run_id,
+      fulfilment.id, adminId]));
+
+  const seedAttempt = () => withTriggerBypass(async () => {
+    const [row] = await query(`insert into public.report_ai_attempts(
+        generation_identity,fulfilment_id,attempt_kind,attempt_number,provider_request_key,
+        provider,model,evidence_checksum,max_output_tokens,max_estimated_cost_micros,timeout_ms,
+        status,requested_provider,requested_model,input_size_bytes,estimated_input_tokens)
+      values ('P1A-AUTO-'||gen_random_uuid(),$1,'generate',1,'P1A-AUTO-'||gen_random_uuid(),
+        'openai','openai/gpt-5.5',repeat('a',64),5000,1000000,240000,'started',
+        'openai','openai/gpt-5.5',37179,9295)
+      returning *`, [fulfilment.id]);
+    return row;
+  });
+  // phase14_activate_worker_operation() inside the RPC requires the service-role claim; this
+  // connection carries a different one. Presented for the call and restored afterwards.
+  const [{ claims: priorClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const settle = async (attemptId, result) => {
+    await db.query(`select set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    try {
+      return await db.query('select public.settle_phase14_ai_attempt($1,$2,$3::jsonb) as r',
+        [capabilityId, attemptId, JSON.stringify(result)]);
+    } finally {
+      await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorClaims ?? '']);
+    }
+  };
+
+  // Snapshot the control state this proof touches, so it cannot contaminate later tests.
+  const [gateBefore] = await query(
+    "select status, required_version, satisfied_version, authority_epoch, reason from public.phase14_security_gates where gate_key='phase14-premium-report'");
+  const [policyBefore] = await query(
+    "select enabled, reason from public.phase14_feature_policies where policy_key='automatic_fulfilment'");
+  assert(gateBefore, 'expected the phase14-premium-report gate fixture');
+
+  const [{ claims: priorAdminClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const asPlatformAdmin = async (action) => {
+    await db.query(`select set_config('request.jwt.claims','{"sub":"${adminId}","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"00000000-0000-4000-8000-00000000a002"}',false)`);
+    try { return await action(); }
+    finally { await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorAdminClaims ?? '']); }
+  };
+
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1`, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch,1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton`));
+
+  try {
+    // Satisfy the gate at exactly required_version, through the accepted API.
+    await asPlatformAdmin(() => db.query(
+      'select public.set_phase14_security_gate_version($1,$2) as r',
+      [gateBefore.required_version, 'fixture-only: autonomous settlement parity proof']));
+    // Gate alone is insufficient: phase14_require_policy('automatic_fulfilment') also checks the
+    // policy's approved gate version and authority epoch, which the accepted API maintains.
+    await asPlatformAdmin(() => db.query(
+      'select public.set_phase14_feature_policy($1,$2,$3) as r',
+      ['automatic_fulfilment', true, 'fixture-only: autonomous settlement parity proof']));
+    const [gateNow] = await query(
+      "select satisfied_version, required_version from public.phase14_security_gates where gate_key='phase14-premium-report'");
+    assert(gateNow.satisfied_version === gateNow.required_version,
+      'the fixture gate must be satisfied at exactly required_version');
+
+    await seedCapability();
+    for (const status of STRUCTURED) {
+      await seedCapability();
+      const attempt = await seedAttempt();
+      await settle(attempt.id, {
+        status,
+        structured_output_diagnostics: { status, sdkErrorName: 'AI_APICallError', finishReason: 'length' },
+        error_message: 'structured output rejected'
+      });
+      const [after] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+      assert(after.status === status, `autonomous ${status}: exact status must persist, saw ${after.status}`);
+      assert(after.structured_output_diagnostics?.status === status,
+        `autonomous ${status}: diagnostics must persist`);
+      assert(after.output_json === null, `autonomous ${status}: no output may be released`);
+      assert(after.accounting_status === 'unverified',
+        `autonomous ${status}: accounting must stay unverified without authoritative usage`);
+      assert(after.fulfilment_id === fulfilment.id, `autonomous ${status}: fulfilment binding unchanged`);
+      assert(after.manual_generation_attempt_id === null,
+        `autonomous ${status}: must remain a fulfilment-parented attempt`);
+      assert(after.requested_provider === 'openai' && after.requested_model === 'openai/gpt-5.5',
+        `autonomous ${status}: requested route unchanged`);
+    }
+
+    // Invalid terminal status fails closed.
+    await seedCapability();
+    let attempt = await seedAttempt();
+    let rejected = null;
+    try { await settle(attempt.id, { status: 'not_a_real_status' }); }
+    catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_result_status_invalid'),
+      `autonomous: invalid status must fail closed, got ${rejected}`);
+    const [untouched] = await query('select status from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(untouched.status === 'started', 'autonomous: a rejected settlement must not move the attempt');
+
+    // Provider mismatch fails closed.
+    await seedCapability();
+    attempt = await seedAttempt();
+    rejected = null;
+    try {
+      await settle(attempt.id, { status: 'succeeded', resolved_provider: 'anthropic', resolved_model: 'openai/gpt-5.5' });
+    } catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_unexpected_provider_route'),
+      `autonomous: provider mismatch must fail closed, got ${rejected}`);
+
+    // CAS blocks double settlement.
+    await seedCapability();
+    attempt = await seedAttempt();
+    await settle(attempt.id, { status: 'structured_output_refused',
+      structured_output_diagnostics: { status: 'structured_output_refused' } });
+    rejected = null;
+    await seedCapability();
+    try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+    catch (error) { rejected = String(error.message ?? error); }
+    assert(rejected?.includes('phase14_ai_attempt_cas_failed'),
+      `autonomous: double settlement must fail CAS, got ${rejected}`);
+
+    // Authoritative usage settles verified.
+    await seedCapability();
+    attempt = await seedAttempt();
+    await settle(attempt.id, {
+      status: 'succeeded', resolved_provider: 'openai', resolved_model: 'openai/gpt-5.5',
+      input_token_count: 9295, output_token_count: 2100, total_token_count: 11395,
+      accounting_status: 'verified', latency_ms: 48887
+    });
+    const [succeeded] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(succeeded.status === 'succeeded' && succeeded.accounting_status === 'verified',
+      'autonomous: authoritative usage must settle verified');
+    assert(succeeded.total_token_count === 11395, 'autonomous: token accounting must persist');
+
+    await withTriggerBypass(async () => {
+      await db.query('delete from public.report_ai_attempts where fulfilment_id=$1 and generation_identity like $2',
+        [fulfilment.id, 'P1A-AUTO-%']);
+      await db.query('delete from public.phase14_worker_capabilities where id=$1', [capabilityId]);
+      await db.query('delete from public.report_fulfilments where id=$1', [fulfilmentId]);
+    });
+  } finally {
+    // Restore the control semantics later tests depend on, through the same accepted APIs.
+    try {
+      if (policyBefore) {
+        await asPlatformAdmin(() => db.query(
+          'select public.set_phase14_feature_policy($1,$2,$3) as r',
+          ['automatic_fulfilment', policyBefore.enabled, policyBefore.reason ?? 'fixture restore']));
+      }
+      if (gateBefore?.satisfied_version !== null && gateBefore?.satisfied_version !== undefined) {
+        await asPlatformAdmin(() => db.query(
+          'select public.set_phase14_security_gate_version($1,$2) as r',
+          [gateBefore.satisfied_version, gateBefore.reason ?? 'fixture restore']));
+      }
+    } catch { /* disposable database: control semantics restored best-effort */ }
+    await restoreFreeze();
+  }
+}
+
+async function proveAtomicTokenConsumption() {
+  // assessment_tokens and customer_report_access_tokens sit on frozen surfaces (assessment_write,
+  // customer_token). The consumption RPCs under test always run with triggers live, so the freeze
+  // STATE is driven and restored -- never bypassed.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  try {
+  const raceCount = async (attempts, fn) =>
+    (await Promise.all(Array.from({ length: attempts }, () => fn()))).map((r) => r.rows[0].r);
+
+  // ---------------------------------------------------------- assessment tokens (resume + snapshot)
+  const [assessment] = await query(
+    "select id from public.assessments order by created_at limit 1");
+  assert(assessment, 'expected a synthetic assessment fixture');
+
+  for (const tokenType of ['resume', 'snapshot']) {
+    const N = 3;
+    const K = 5;
+    const hash = `p2-${tokenType}-${Math.random().toString(16).slice(2)}`.padEnd(64, '0').slice(0, 64);
+    await withTriggerBypass(() => db.query(`
+      insert into public.assessment_tokens(assessment_id,token_type,token_hash,expires_at,max_uses,use_count)
+      values ($1,$2::public.assessment_token_type,$3, now() + interval '1 hour', $4, 0)`, [assessment.id, tokenType, hash, N]));
+
+    const results = await raceCount(N + K, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    const accepted = results.filter((r) => r.ok === true);
+    const refused = results.filter((r) => r.ok === false);
+    assert(accepted.length === N,
+      `${tokenType}: exactly ${N} of ${N + K} concurrent consumptions must succeed, saw ${accepted.length}`);
+    assert(refused.length === K, `${tokenType}: exactly ${K} must be refused, saw ${refused.length}`);
+    assert(refused.every((r) => r.reason === 'token_use_limit_reached'),
+      `${tokenType}: refusals must be limit-reached, saw ${[...new Set(refused.map((r) => r.reason))].join(',')}`);
+    // No lost update, no overrun: the durable counter equals accepted consumptions exactly.
+    const [{ use_count: durable }] = await query(
+      'select use_count from public.assessment_tokens where token_hash=$1', [hash]);
+    assert(durable === N, `${tokenType}: durable counter must equal ${N}, saw ${durable}`);
+    // Every accepted result reported a distinct use_count -- proof no two shared an allowance slot.
+    const slots = new Set(accepted.map((r) => r.use_count));
+    assert(slots.size === N, `${tokenType}: accepted consumptions must occupy distinct slots`);
+
+    // Last-use race: exactly one winner.
+    await withTriggerBypass(() => db.query(
+      'update public.assessment_tokens set use_count = max_uses - 1 where token_hash=$1', [hash]));
+    const lastUse = await raceCount(6, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(lastUse.filter((r) => r.ok === true).length === 1,
+      `${tokenType}: exactly one caller may take the final use`);
+
+    // An exhausted token cannot be revived by racing.
+    const revive = await raceCount(4, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(revive.every((r) => r.ok === false), `${tokenType}: exhausted token must stay exhausted`);
+
+    // Revocation and expiry are enforced inside the same statement.
+    await withTriggerBypass(() => db.query(
+      'update public.assessment_tokens set use_count=0, revoked_at=now() where token_hash=$1', [hash]));
+    const [revoked] = await raceCount(1, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(revoked.ok === false && revoked.reason === 'revoked_token',
+      `${tokenType}: revoked token must be refused, saw ${revoked.reason}`);
+    await withTriggerBypass(() => db.query(
+      "update public.assessment_tokens set revoked_at=null, expires_at=now() - interval '1 minute' where token_hash=$1", [hash]));
+    const [expired] = await raceCount(1, () => db.query(
+      'select public.consume_assessment_token($1,$2,$3) as r', [hash, tokenType, null]));
+    assert(expired.ok === false && expired.reason === 'expired_token',
+      `${tokenType}: expired token must be refused, saw ${expired.reason}`);
+    // A refusal must never have consumed a use.
+    const [{ use_count: afterRefusals }] = await query(
+      'select use_count from public.assessment_tokens where token_hash=$1', [hash]);
+    assert(afterRefusals === 0, `${tokenType}: refusals must not consume an allowance`);
+
+    await withTriggerBypass(() => db.query(
+      'delete from public.assessment_tokens where token_hash=$1', [hash]));
+  }
+
+  // ------------------------------------------------------------- customer report access token
+  const [report] = await query(
+    "select id, order_id from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
+  assert(report, 'expected the protected synthetic report fixture');
+  const N = 4;
+  const K = 6;
+  const hash = `p2-customer-${Math.random().toString(16).slice(2)}`.padEnd(64, '0').slice(0, 64);
+  await withTriggerBypass(() => db.query(`
+    insert into public.customer_report_access_tokens(
+      order_id,report_id,token_hash,recipient_email,purpose,expires_at,access_count)
+    values ($1,$2,$3,'p2-synthetic@invalid.test','report_ready', now() + interval '1 hour', 0)`,
+    [report.order_id, report.id, hash]));
+
+  const results = await raceCount(N + K, () => db.query(
+    'select public.consume_customer_report_access_token($1,$2) as r', [hash, N]));
+  const accepted = results.filter((r) => r.ok === true);
+  assert(accepted.length === N,
+    `customer access: exactly ${N} of ${N + K} concurrent accesses must succeed, saw ${accepted.length}`);
+  assert(results.filter((r) => r.ok === false).every((r) => r.reason === 'rate_limited'),
+    'customer access: refusals must be rate-limited');
+  const [{ access_count: durable }] = await query(
+    'select access_count from public.customer_report_access_tokens where token_hash=$1', [hash]);
+  assert(durable === N, `customer access: durable counter must equal ${N}, saw ${durable}`);
+  assert(new Set(accepted.map((r) => r.access_count)).size === N,
+    'customer access: accepted accesses must occupy distinct slots');
+  // Bindings are returned so the caller can enforce them; they must be the token's own.
+  assert(accepted.every((r) => r.report_id === report.id && r.order_id === report.order_id),
+    'customer access: every accepted access must carry its own binding');
+
+  await withTriggerBypass(() => db.query(
+    'update public.customer_report_access_tokens set access_count = $2 - 1 where token_hash=$1', [hash, N]));
+  const lastUse = await raceCount(6, () => db.query(
+    'select public.consume_customer_report_access_token($1,$2) as r', [hash, N]));
+  assert(lastUse.filter((r) => r.ok === true).length === 1,
+    'customer access: exactly one caller may take the final allowance');
+
+  await withTriggerBypass(() => db.query(
+    'delete from public.customer_report_access_tokens where token_hash=$1', [hash]));
+  } finally {
+    await restoreFreeze();
+  }
+}
+
+async function proveAtomicFinalisationRollback(adminId) {
+  // This proof found a real defect. An earlier draft of the RPC inserted the new report BEFORE
+  // superseding the previous one, which collides with reports_one_current_assessment_type_uidx --
+  // an immediately-enforced partial unique index, not a deferrable constraint. The RPC now
+  // supersedes first, matching the accepted complete_manual_report_generation(). Neither the index
+  // nor the fixture was weakened to make this pass.
+  const orderId = '00000000-0000-0000-0000-00000000e001';
+  const attemptId = '00000000-0000-0000-0000-0000000fb001';
+  const [order] = await query('select assessment_id from public.orders where id=$1', [orderId]);
+  const [template] = await query('select id from public.report_templates limit 1');
+  const [previous] = await query(
+    "select id,version_number,status from public.reports where order_id=$1 and status not in ('superseded','voided') order by version_number desc limit 1",
+    [orderId]);
+  assert(previous, 'expected an existing current report for the synthetic order');
+
+  const seedAttempt = (version) => withTriggerBypass(() => db.query(`
+    insert into public.manual_report_generation_attempts(
+      id,request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+    values ($1,gen_random_uuid(),'P1B-DB-'||gen_random_uuid(),$2,$3,'admin_generate',$4,'REPORT_GENERATING','synthetic')
+    on conflict (id) do update set status='REPORT_GENERATING',output_report_id=null,report_version=$3
+  `, [attemptId, orderId, version, adminId]));
+
+  const pdfPath = `org/${orderId}/v${previous.version_number + 1}/P1B-DB.pdf`;
+  const xlsxPath = `org/${orderId}/v${previous.version_number + 1}/P1B-DB-supporting-register.xlsx`;
+  const call = (registerChecksum) => db.query(
+    `select public.finalise_manual_report_with_supporting_register(
+       $1,$2,'essential_self_assessment','generated-reports',$3,'P1B-DB.pdf','application/pdf',1234,$4,
+       $5,'P1B-DB-supporting-register.xlsx',
+       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',5678,$6) as r`,
+    [attemptId, template.id, pdfPath, 'a'.repeat(64), xlsxPath, registerChecksum]);
+
+  const counts = async () => {
+    const [r] = await query(`select
+      (select count(*)::int from public.reports where order_id=$1) as reports,
+      (select count(*)::int from public.report_artifacts a join public.reports r on r.id=a.report_id where r.order_id=$1) as artefacts,
+      (select status from public.reports where id=$2) as previous_status,
+      (select status from public.manual_report_generation_attempts where id=$3) as attempt_status,
+      (select output_report_id from public.manual_report_generation_attempts where id=$3) as output_report_id,
+      (select count(*)::int from public.report_events e join public.reports r on r.id=e.report_id where r.order_id=$1) as report_events,
+      (select count(*)::int from public.order_events where order_id=$1) as order_events`,
+      [orderId, previous.id, attemptId]);
+    return r;
+  };
+
+  // reports / report_artifacts sit on the frozen 'generation' surface; the RPC under test always
+  // runs with triggers live, so the freeze STATE is driven rather than bypassed, and restored after.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+
+  // The RPC takes score_run_id from assessments.current_score_run_id (exactly as the accepted
+  // complete_manual_report_generation does). The synthetic assessment does not set it, so the
+  // fixture supplies it and restores the prior value afterwards.
+  const [assessmentBefore] = await query(
+    'select current_score_run_id from public.assessments where id=$1', [order.assessment_id]);
+  await withTriggerBypass(() => db.query(`
+    update public.assessments set current_score_run_id =
+      (select sr.id from public.score_runs sr where sr.assessment_id=$1 limit 1)
+    where id=$1`, [order.assessment_id]));
+
+  try {
+  await seedAttempt(previous.version_number + 1);
+  const before = await counts();
+
+  // Force the artefact INSERT to fail on a real constraint: report_artifacts_checksum_chk requires
+  // 64 lowercase hex. The report INSERT above it succeeds first, so this is exactly the
+  // "report inserted, artefact insert fails" case.
+  let rolledBack = null;
+  try {
+    await call('NOT-A-VALID-SHA256');
+    rolledBack = false;
+  } catch (error) {
+    rolledBack = String(error.message ?? error);
+  }
+  assert(rolledBack && rolledBack !== false, 'the invalid register checksum must abort the transaction');
+
+  const after = await counts();
+  assert(after.reports === before.reports, `rollback must leave no new report (${before.reports} -> ${after.reports})`);
+  assert(after.artefacts === before.artefacts, 'rollback must leave no artefact row');
+  assert(after.previous_status === before.previous_status,
+    `previous report must not be superseded by a failed replacement (${before.previous_status} -> ${after.previous_status})`);
+  assert(after.previous_status !== 'superseded', 'previous report must still be current');
+  assert(after.attempt_status === 'REPORT_GENERATING', 'attempt must remain pre-final');
+  assert(after.output_report_id === null, 'output_report_id must remain unset');
+  assert(after.report_events === before.report_events, 'no partial report events may survive rollback');
+  assert(after.order_events === before.order_events, 'no partial order events may survive rollback');
+  // The unique-current invariant must still hold: exactly one live report for this assessment/type.
+  const [live] = await query(`select count(*)::int as n from public.reports r
+    join public.assessments a on a.id=r.assessment_id
+    where r.assessment_id=$1 and r.report_type=$2
+      and r.status in ('generated','under_review','approved','released')`,
+    [order.assessment_id, 'essential_self_assessment']);
+  assert(live.n === 1, `unique-current invariant must hold after rollback, saw ${live.n}`);
+
+  // Now the success transaction, same fixture, valid register checksum.
+  const [{ r: success }] = await query(
+    `select public.finalise_manual_report_with_supporting_register(
+       $1,$2,'essential_self_assessment','generated-reports',$3,'P1B-DB.pdf','application/pdf',1234,$4,
+       $5,'P1B-DB-supporting-register.xlsx',
+       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',5678,$6) as r`,
+    [attemptId, template.id, pdfPath, 'a'.repeat(64), xlsxPath, 'b'.repeat(64)]);
+  const committed = await counts();
+  assert(committed.reports === before.reports + 1, 'success must create exactly one new report');
+  assert(committed.artefacts === before.artefacts + 1, 'success must create exactly one artefact');
+  assert(committed.previous_status === 'superseded', 'the previous report must be superseded exactly once');
+  assert(committed.attempt_status === 'REPORT_READY', 'attempt must become REPORT_READY');
+  assert(committed.output_report_id === success.report.id, 'output_report_id must bind the new report');
+  assert(success.report.supersedes_report_id === previous.id, 'supersedes lineage must point at the previous report');
+  assert(success.report.version_number === previous.version_number + 1, 'version must increment by one');
+  assert(success.supporting_register.storage_status === 'VERIFIED', 'the register must be VERIFIED');
+  assert(success.supporting_register.report_id === success.report.id, 'the register must bind the new report');
+  assert(committed.report_events > before.report_events, 'the committed transaction must write report events');
+  assert(committed.order_events > before.order_events, 'the committed transaction must write order events');
+  const [liveAfter] = await query(`select count(*)::int as n from public.reports
+    where assessment_id=$1 and report_type=$2
+      and status in ('generated','under_review','approved','released')`,
+    [order.assessment_id, 'essential_self_assessment']);
+  assert(liveAfter.n === 1, `exactly one current report must remain, saw ${liveAfter.n}`);
+
+  // Restore: remove only what this proof created.
+  await withTriggerBypass(async () => {
+    await db.query('delete from public.report_artifacts where report_id=$1', [success.report.id]);
+    await db.query('delete from public.report_events where report_id=$1', [success.report.id]);
+    await db.query('delete from public.reports where id=$1', [success.report.id]);
+    await db.query("update public.reports set status=$2 where id=$1", [previous.id, previous.status]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [attemptId]);
+  });
+  } finally {
+    await withTriggerBypass(() => db.query(
+      'update public.assessments set current_score_run_id=$2 where id=$1',
+      [order.assessment_id, assessmentBefore?.current_score_run_id ?? null]));
+    await restoreFreeze();
+  }
+}
+
+async function proveManualAiSettlementParity(adminId) {
+  // The seed satisfies both real constraints: exactly one parent
+  // (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual binding.
+  // Neither constraint is weakened or dropped to make these tests pass.
+  const STRUCTURED = [
+    'structured_output_invalid', 'structured_output_truncated', 'structured_output_refused',
+    'structured_output_schema_failed', 'structured_output_json_invalid',
+  ];
+  const parentId = '00000000-0000-0000-0000-0000000ab001';
+  // Fixture setup only: manual_report_generation_attempts is on the frozen 'generation' surface and
+  // this suite runs with the freeze engaged. The settlement RPC under test always runs with triggers
+  // live -- only the seeding is bypassed.
+  const seedParent = async (status = 'REPORT_GENERATING') => withTriggerBypass(async () => {
+    await db.query('delete from public.report_ai_attempts where manual_generation_attempt_id=$1', [parentId]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [parentId]);
+    await db.query(`insert into public.manual_report_generation_attempts(
+        id,request_id,request_key,order_id,report_version,trigger_source,requested_by,status,technical_reference)
+      values ($1,gen_random_uuid(),'P1A-'||gen_random_uuid(),'00000000-0000-0000-0000-00000000e001',
+        1,'admin_generate',$2,$3,'synthetic')`, [parentId, adminId, status]);
+  });
+  const seedAttempt = async () => withTriggerBypass(async () => {
+    const [row] = await query(`insert into public.report_ai_attempts(
+        generation_identity,attempt_kind,attempt_number,provider_request_key,provider,model,
+        evidence_checksum,max_output_tokens,max_estimated_cost_micros,timeout_ms,status,
+        requested_provider,requested_model,manual_generation_attempt_id,
+        manual_order_id,manual_assessment_id,manual_score_run_id,input_size_bytes,estimated_input_tokens)
+      values ('P1A-'||gen_random_uuid(),'generate',1,'P1A-'||gen_random_uuid(),'openai','openai/gpt-5.5',
+        -- 240000 is the runtime's real AI budget, representable now that 20260808170000 carries the
+        -- 1000..300000 contract into the Production-bound chain.
+        repeat('a',64),5000,1000000,240000,'started','openai','openai/gpt-5.5',$1,
+        -- report_ai_attempts requires exactly one parent
+        -- (num_nonnulls(fulfilment_id, manual_generation_attempt_id) = 1) and all-or-none manual
+        -- binding, so fulfilment_id stays NULL and all four manual columns are populated from one
+        -- internally consistent synthetic chain. current_score_run_id is not set on the fixture
+        -- assessment, so the score run is resolved from score_runs directly.
+        (select o.id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
+        (select o.assessment_id from public.orders o where o.id='00000000-0000-0000-0000-00000000e001'),
+        (select sr.id from public.score_runs sr
+           join public.orders o on o.assessment_id = sr.assessment_id
+           where o.id='00000000-0000-0000-0000-00000000e001' limit 1),
+        37179,9295)
+      returning *`, [parentId]);
+    return row;
+  });
+  const settle = (attemptId, result) => db.query(
+    'select public.settle_manual_report_ai_attempt($1,$2::jsonb) as r', [attemptId, JSON.stringify(result)]);
+
+  // report_ai_attempts is on the 'generation' freeze surface and this suite reaches here with the
+  // freeze engaged, so the settlement RPC's own UPDATE would be refused. Release generation for the
+  // duration of the proof and restore whatever was in place afterwards. The RPC under test always
+  // runs with triggers live -- only the freeze STATE is driven, never bypassed.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  await withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  try {
+
+  // 1-6. Every structured-output status settles, persists diagnostics, and leaves bindings intact.
+  for (const status of STRUCTURED) {
+    await seedParent();
+    const attempt = await seedAttempt();
+    const diagnostics = {
+      status, sdkErrorName: 'AI_APICallError', finishReason: 'length', responseId: 'resp_p1a',
+      responseModelId: 'openai/gpt-5.5', responseHeadersPresent: true, providerMetadataPresent: true,
+      rawTextLength: 1234, rawTextSha256: 'b'.repeat(64), schemaIssuePaths: ['/executive'],
+      schemaIssueCodes: ['invalid_type'],
+    };
+    await settle(attempt.id, {
+      status,
+      structured_output_diagnostics: diagnostics,
+      error_message: 'structured output rejected',
+      latency_ms: 48887,
+    });
+    const [after] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+    assert(after.status === status, `manual settlement must record ${status}, got ${after.status}`);
+    assert(after.structured_output_diagnostics !== null,
+      `${status}: structured_output_diagnostics must persist`);
+    assert(after.structured_output_diagnostics.status === status,
+      `${status}: persisted diagnostic status must match`);
+    assert(after.structured_output_diagnostics.sdkErrorName === 'AI_APICallError',
+      `${status}: full diagnostic payload must persist`);
+    assert(after.output_json === null, `${status}: no output may be released as successful output`);
+    assert(after.accounting_status === 'unverified',
+      `${status}: accounting must remain unverified without authoritative usage`);
+    assert(after.completed_at !== null, `${status}: attempt must be terminal`);
+    assert(after.manual_generation_attempt_id === parentId, `${status}: parent binding must not change`);
+    assert(after.manual_order_id === '00000000-0000-0000-0000-00000000e001',
+      `${status}: order binding must not change`);
+    assert(after.requested_provider === 'openai' && after.requested_model === 'openai/gpt-5.5',
+      `${status}: requested route must not change`);
+  }
+
+  // 7. An unknown terminal status still fails closed.
+  await seedParent();
+  let attempt = await seedAttempt();
+  let rejected = null;
+  try { await settle(attempt.id, { status: 'not_a_real_status' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('phase14_ai_result_status_invalid'),
+    `an invalid terminal status must fail closed, got: ${rejected}`);
+  const [stillStarted] = await query('select status from public.report_ai_attempts where id=$1', [attempt.id]);
+  assert(stillStarted.status === 'started', 'a rejected settlement must not move the attempt');
+
+  // 8. A parent that is not REPORT_GENERATING fails.
+  await seedParent('REPORT_READY');
+  attempt = await seedAttempt();
+  rejected = null;
+  try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('manual_report_ai_parent_not_active'),
+    `an inactive parent must fail, got: ${rejected}`);
+
+  // 9. A succeeded settlement with the wrong resolved provider fails the route check.
+  await seedParent();
+  attempt = await seedAttempt();
+  rejected = null;
+  try {
+    await settle(attempt.id, {
+      status: 'succeeded', resolved_provider: 'anthropic', resolved_model: 'openai/gpt-5.5',
+    });
+  } catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('phase14_ai_unexpected_provider_route'),
+    `a mismatched resolved provider must fail, got: ${rejected}`);
+
+  // 10. CAS blocks a second settlement of the same attempt.
+  await seedParent();
+  attempt = await seedAttempt();
+  await settle(attempt.id, { status: 'structured_output_refused',
+    structured_output_diagnostics: { status: 'structured_output_refused' } });
+  rejected = null;
+  try { await settle(attempt.id, { status: 'structured_output_invalid' }); }
+  catch (error) { rejected = String(error.message ?? error); }
+  assert(rejected !== null && rejected.includes('manual_report_ai_attempt_cas_failed'),
+    `double settlement must fail CAS, got: ${rejected}`);
+
+  // 11. Authoritative usage evidence yields a verified accounting state.
+  await seedParent();
+  attempt = await seedAttempt();
+  await settle(attempt.id, {
+    status: 'succeeded', resolved_provider: 'openai', resolved_model: 'openai/gpt-5.5',
+    input_token_count: 9295, output_token_count: 2100, total_token_count: 11395,
+    accounting_status: 'verified', latency_ms: 48887,
+  });
+  const [succeeded] = await query('select * from public.report_ai_attempts where id=$1', [attempt.id]);
+  assert(succeeded.status === 'succeeded' && succeeded.accounting_status === 'verified',
+    'authoritative usage must settle as verified');
+  assert(succeeded.total_token_count === 11395, 'token accounting must persist');
+
+  // 12. The autonomous contract is unchanged and still accepts the same vocabulary.
+  // The autonomous structured-output upgrade (20260806143000) is Staging-only and excluded from the
+  // Production ledger this harness replays, so only assert it where it is actually present.
+  const [autonomous] = await query(
+    `select pg_get_functiondef('public.settle_phase14_ai_attempt(uuid,uuid,jsonb)'::regprocedure) as def`);
+  const autonomousUpgraded = autonomous.def.includes('structured_output_invalid');
+  if (autonomousUpgraded) {
+    for (const status of STRUCTURED) {
+      assert(autonomous.def.includes(status), `autonomous settlement must still accept ${status}`);
+    }
+    assert(autonomous.def.includes("structured_output_diagnostics = p_result->'structured_output_diagnostics'"),
+      'autonomous settlement must still persist diagnostics');
+  }
+  assert(autonomous.def.includes('phase14_ai_result_status_invalid'),
+    'the autonomous settlement contract must remain intact');
+
+  await withTriggerBypass(async () => {
+    await db.query('delete from public.report_ai_attempts where manual_generation_attempt_id=$1', [parentId]);
+    await db.query('delete from public.manual_report_generation_attempts where id=$1', [parentId]);
+  });
+  } finally {
+    await restoreFreeze();
+  }
+}
+
+async function proveFreezeSurfaceMappingInvariant() {
+  // 1. Structural invariant, derived rather than restated.
+  const unmappedTriggeredRelations = async () => {
+    const rows = await query(`
+      select n.nspname as schema_name, c.relname as table_name,
+             public.rc1_surface_for_relation(n.nspname, c.relname) as surface
+      from pg_catalog.pg_trigger t
+      join pg_catalog.pg_class c on c.oid = t.tgrelid
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where t.tgname = 'trg_rc1_operation_freeze' and not t.tgisinternal
+      order by 1, 2
+    `);
+    assert(rows.length > 0, 'expected freeze-triggered relations to exist');
+    return rows.filter((row) => row.surface === null)
+      .map((row) => `${row.schema_name}.${row.table_name}`);
+  };
+  const unmapped = await unmappedTriggeredRelations();
+  assert(
+    unmapped.length === 0,
+    `every relation carrying trg_rc1_operation_freeze must map to a surface; unmapped: ${unmapped.join(', ')}`,
+  );
+
+  // 2. The corrected mapping, and 3. representative existing mappings left untouched.
+  const expected = {
+    'public.report_artifacts': 'generation',
+    'public.reports': 'generation',
+    'public.report_events': 'generation',
+    'public.report_fulfilments': 'generation',
+    'public.report_generation_runs': 'generation',
+    'public.orders': 'order_create',
+    'public.order_events': 'payment_status',
+    'public.customer_report_access_tokens': 'customer_token',
+    'public.email_events': 'delivery',
+    'public.app_settings': 'activation_control',
+    'storage.objects': 'storage_cleanup',
+  };
+  for (const [relation, surface] of Object.entries(expected)) {
+    const [schema, table] = relation.split('.');
+    const [row] = await query('select public.rc1_surface_for_relation($1,$2) as surface', [schema, table]);
+    assert(row.surface === surface, `${relation} must map to ${surface}, got ${row.surface}`);
+  }
+  const [unknownRow] = await query(
+    "select public.rc1_surface_for_relation('public','definitely_not_a_real_relation') as surface");
+  assert(unknownRow.surface === null, 'an unmapped relation must still resolve to null');
+
+  // 4. RELEASED permits the authorised report_artifacts path (through the RPC, not a raw insert).
+  const [report] = await query(
+    "select id from public.reports where report_reference='RC1-SYNTHETIC-REPORT-001'");
+  assert(report, 'expected the protected synthetic report fixture');
+  const artefactArgs = [
+    report.id, 'supporting_register', 'generated-reports',
+    'rc1/synthetic/RC1-SYNTHETIC-REPORT-001-supporting-register.xlsx',
+    'RC1-SYNTHETIC-REPORT-001-supporting-register.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    94054, 'a'.repeat(64),
+  ];
+  // complete_report_secondary_artefact() is service-role only; this connection carries a different
+  // claim, so present the service-role claim for the authorised calls and restore it afterwards.
+  const [{ claims: priorClaims }] = await query(
+    "select current_setting('request.jwt.claims', true) as claims");
+  const asServiceRole = async (action) => {
+    await db.query("select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', false)");
+    try { return await action(); }
+    finally { await db.query('select set_config($1,$2,false)', ['request.jwt.claims', priorClaims ?? '']); }
+  };
+  const callArtefact = () => asServiceRole(() => db.query(
+    'select public.complete_report_secondary_artefact($1,$2,$3,$4,$5,$6,$7,$8) as result', artefactArgs));
+
+  // This suite reaches here with the freeze engaged, so drive both states explicitly and restore
+  // whatever was in place before.
+  const [freezeBefore] = await query('select * from public.rc1_operation_freeze_state where singleton');
+  const restoreFreeze = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state=$2, activated_at=$3, activated_by_fingerprint=$4, activation_reason_fingerprint=$5,
+        released_at=$6, released_by_fingerprint=$7, release_reason_fingerprint=$8,
+        release_evidence_fingerprint=$9, active_canary_authorization_hash=$10,
+        active_canary_expires_at=$11, updated_at=$12
+    where singleton = $1
+  `, [
+    freezeBefore.singleton, freezeBefore.state, freezeBefore.activated_at,
+    freezeBefore.activated_by_fingerprint, freezeBefore.activation_reason_fingerprint,
+    freezeBefore.released_at, freezeBefore.released_by_fingerprint,
+    freezeBefore.release_reason_fingerprint, freezeBefore.release_evidence_fingerprint,
+    freezeBefore.active_canary_authorization_hash, freezeBefore.active_canary_expires_at,
+    freezeBefore.updated_at,
+  ]));
+  const setReleased = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='RELEASED', freeze_epoch=greatest(freeze_epoch, 1), released_at=now(),
+        released_by_fingerprint=repeat('c',64), release_reason_fingerprint=repeat('d',64),
+        release_evidence_fingerprint=repeat('e',64), active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+  const setFrozen = () => withTriggerBypass(() => db.query(`
+    update public.rc1_operation_freeze_state
+    set state='FROZEN', freeze_epoch=greatest(freeze_epoch, 1), activated_at=now(),
+        activated_by_fingerprint=repeat('a',64), activation_reason_fingerprint=repeat('b',64),
+        released_at=null, released_by_fingerprint=null, release_reason_fingerprint=null,
+        release_evidence_fingerprint=null, active_canary_authorization_hash=null,
+        active_canary_expires_at=null, updated_at=now()
+    where singleton
+  `));
+
+  try {
+  await setReleased();
+  const created = await callArtefact();
+  assert(
+    created.rows[0].result.created === true,
+    'RELEASED generation must permit the authorised report_artifacts mutation path',
+  );
+
+  // 5. Identical replay stays idempotent rather than creating a second artefact.
+  const replayed = await callArtefact();
+  assert(replayed.rows[0].result.created === false, 'identical artefact replay must be idempotent');
+  const [{ count: artefactCount }] = await query(
+    'select count(*)::int as count from public.report_artifacts where report_id=$1', [report.id]);
+  assert(artefactCount === 1, `expected exactly one artefact row, got ${artefactCount}`);
+
+  // 6. FROZEN generation still blocks it -- and blocks it as a freeze decision, not as an
+  //    unmapped-surface accident.
+  await setFrozen();
+  let frozenError = null;
+  try {
+    await db.query('delete from public.report_artifacts where report_id=$1', [report.id]);
+  } catch (error) {
+    frozenError = String(error.message ?? error);
+  }
+  await setReleased();
+  assert(frozenError !== null, 'FROZEN generation must block report_artifacts mutation');
+  assert(
+    frozenError.includes('rc1_operation_frozen:generation'),
+    `FROZEN must block on the generation surface, got: ${frozenError}`,
+  );
+  assert(
+    !frozenError.includes('unknown_surface'),
+    'FROZEN must block as a freeze decision, not as an unmapped surface',
+  );
+
+  // Clean up the synthetic artefact now that generation is released again.
+  await db.query('delete from public.report_artifacts where report_id=$1', [report.id]);
+  const [{ count: remaining }] = await query('select count(*)::int as count from public.report_artifacts');
+  assert(remaining === 0, 'synthetic artefact rows must be cleaned up');
+
+  // 7. An unmapped relation carrying the trigger still fails closed.
+  await db.query('create table if not exists public.rc1_probe_unmapped_relation(id int primary key)');
+  await db.query(`
+    create trigger trg_rc1_operation_freeze
+      before insert or update or delete on public.rc1_probe_unmapped_relation
+      for each row execute function public.rc1_guard_authoritative_mutation()
+  `);
+  let probeError = null;
+  try {
+    await db.query('insert into public.rc1_probe_unmapped_relation(id) values (1)');
+  } catch (error) {
+    probeError = String(error.message ?? error);
+  }
+  // Negative control: with the probe relation in place, the SAME invariant used above must now
+  // report it. Without this the invariant could pass vacuously.
+  const unmappedWithProbe = await unmappedTriggeredRelations();
+  await db.query('drop table public.rc1_probe_unmapped_relation');
+  const unmappedAfterDrop = await unmappedTriggeredRelations();
+  assert(probeError !== null && probeError.includes('unknown_surface'),
+    `an unmapped triggered relation must fail closed, got: ${probeError}`);
+  assert(unmappedWithProbe.includes('public.rc1_probe_unmapped_relation'),
+    'the invariant must flag a triggered relation that has no surface mapping');
+  assert(unmappedAfterDrop.length === 0,
+    'the invariant must return clean once the unmapped relation is removed');
+
+  // 8. The corrective migration is replay-safe: applying it again is a no-op that still passes its
+  //    own embedded invariant.
+  const correctiveSql = migrationFile('20260808090000_rc1_report_artifacts_freeze_surface.sql');
+  await db.query(correctiveSql);
+  await db.query(correctiveSql);
+  const [replaySurface] = await query(
+    "select public.rc1_surface_for_relation('public','report_artifacts') as surface");
+  assert(replaySurface.surface === 'generation', 'mapping must survive migration replay');
+  } finally {
+    await restoreFreeze();
+  }
+}
+
 async function proveFrozenCertificationControlPlane() {
-  const adminId = '00000000-0000-0000-0000-00000000a001';
-  const sessionId = '00000000-0000-0000-0000-00000000a002';
+  const adminId = '00000000-0000-4000-8000-00000000a001';
+  const sessionId = '00000000-0000-4000-8000-00000000a002';
   const secretA = 'rc1-synthetic-webhook-certification-secret-a';
   const secretB = 'rc1-synthetic-lookup-certification-secret-b';
   const claimsFor = (aal) => JSON.stringify({
@@ -1091,7 +2076,7 @@ async function proveFrozenCertificationControlPlane() {
   assert(Number(evidence.fingerprint_count) === 2, 'their fingerprints must be non-null and distinct');
   assert(Number(evidence.audit_count) === 2, 'each certification write must create RC1 audit evidence');
   assert(Number(evidence.token_count) === 0, 'one-use write tokens must be consumed');
-  passResult(runGate('rc1-production-post-provisioning-evidence.sql', {
+  await passResult(runGate('rc1-production-post-provisioning-evidence.sql', {
     rc1_expected_freeze_epoch: '1',
     rc1_expected_business_counts_json: JSON.stringify(countsBefore),
   }), 'post-provisioning read-only evidence');
@@ -1133,12 +2118,12 @@ async function proveFrozenCertificationControlPlane() {
 }
 
 async function proveNearRealTimeAutomaticFulfilment() {
-  const adminId = '00000000-0000-0000-0000-00000000a001';
+  const adminId = '00000000-0000-4000-8000-00000000a001';
   const claims = JSON.stringify({
     role: 'authenticated',
     aal: 'aal2',
     exp: Math.floor(Date.now() / 1000) + 3600,
-    session_id: '00000000-0000-0000-0000-00000000a002',
+    session_id: '00000000-0000-4000-8000-00000000a002',
   });
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [adminId]);
   await db.query("select set_config('request.jwt.claims',$1,false)", [claims]);
@@ -1582,7 +2567,7 @@ try {
     'historical email fixture must match the controller-approved 71/2/2 status baseline');
   assert(emailStatus.fingerprint === '76d196fb622eba89ec2c556ea8f65b8a183eee086e722fb43e2d94fa774e6fd2',
     'historical email status fingerprint must match the approved manifest');
-  passResult(await runPre(preVars), 'baseline preflight');
+  await passResult(await runPre(preVars), 'baseline preflight');
 
   await expectPreStop('duplicate current report', injectDuplicateReport, cleanDuplicate, 'duplicate_current_reports_result|STOP');
   await expectPreStop('active generation', () => injectActiveGeneration(adminId), cleanActiveGeneration, 'active_generation_result|STOP');
@@ -1629,7 +2614,7 @@ try {
 
   const dryPass = runDryEvaluation(dryEvaluationEnvironment());
   assertRestrictedDryOutput(dryPass, 'guarded disposable dry evaluation');
-  passResult(dryPass, 'guarded disposable dry evaluation');
+  await passResult(dryPass, 'guarded disposable dry evaluation');
   const requiredDryVariables = [
     'RC1_READ_ONLY_DATABASE_URL', 'RC1_APPROVED_TARGET_FINGERPRINT', 'RC1_CONNECTION_MODE',
     'RC1_APPROVED_RPC_BASELINE_JSON', 'RC1_EXPECTED_BASELINE_COUNTS_JSON',
@@ -1692,7 +2677,7 @@ try {
     ),
     rc1_approved_freeze_trigger_fingerprints_json: JSON.stringify(approvedFreeze.enforcement_trigger_fingerprints)
   };
-  passResult(await runPost(postVars), 'baseline postflight');
+  await passResult(await runPost(postVars), 'baseline postflight');
   await proveHealthySyntheticCertificationCleanup(adminId);
 
   const [freezeStateOriginal] = await query('select * from public.rc1_operation_freeze_state where singleton');
@@ -1831,6 +2816,11 @@ try {
 
   await proveFrozenCertificationControlPlane();
   await proveNearRealTimeAutomaticFulfilment();
+  await proveFreezeSurfaceMappingInvariant();
+  await proveManualAiSettlementParity(adminId);
+  await proveAutonomousAiSettlementParity(adminId);
+  await proveAtomicFinalisationRollback(adminId);
+  await proveAtomicTokenConsumption();
   console.log('RC1 preflight/postflight disposable tests passed, including all required defect STOP cases.');
 } finally {
   await db.end().catch(() => {});

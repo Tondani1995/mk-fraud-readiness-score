@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getRc1OperationFreezeResponse } from '@/lib/rc1/operation-freeze';
 import { getAdminSession } from '@/lib/auth/admin-route';
+import { logPremiumReportPhase } from '@/lib/reports/automation/phase-timing';
 import {
   generateManualPhase1Report,
   Phase1GenerationError,
@@ -10,11 +11,13 @@ import {
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Next.js requires this segment configuration to be statically analyzable.
+export const maxDuration = 300;
 
 const REPORT_GENERATION_ROLES = new Set(['platform_admin', 'reviewer', 'approver']);
 const ACTIONS = new Set<ManualGenerationAction>(['admin_generate', 'admin_retry', 'admin_regenerate']);
 
-type HandlerContext = { params: { orderReference: string } };
+type HandlerContext = { params: Promise<{ orderReference: string }> };
 
 function wantsHtml(request: Request) {
   return request.headers.get('accept')?.includes('text/html') ?? false;
@@ -43,12 +46,20 @@ async function submittedValues(request: Request) {
 }
 
 export async function POST(request: Request, context: HandlerContext) {
+  const routeStartedAt = Date.now();
+  const technicalReference = crypto.randomUUID();
+  logPremiumReportPhase({ phase: 'route_received', status: 'started', startedAt: routeStartedAt, technicalReference });
   const frozen = await getRc1OperationFreezeResponse('generation');
-  if (frozen) return frozen;
+  if (frozen) {
+    logPremiumReportPhase({ phase: 'request_completed', status: 'failed', startedAt: routeStartedAt, technicalReference });
+    return frozen;
+  }
 
   const admin = await getAdminSession();
-  const { orderReference } = context.params;
+  logPremiumReportPhase({ phase: 'admin_authenticated', status: admin ? 'completed' : 'failed', startedAt: routeStartedAt, technicalReference });
+  const { orderReference } = (await context.params);
   if (!admin || !REPORT_GENERATION_ROLES.has(admin.role)) {
+    logPremiumReportPhase({ phase: 'request_completed', status: 'failed', startedAt: routeStartedAt, technicalReference });
     return jsonOrRedirect(request, orderReference, {
       ok: false,
       reason: 'forbidden',
@@ -73,6 +84,7 @@ export async function POST(request: Request, context: HandlerContext) {
       requestKey,
       action
     });
+    logPremiumReportPhase({ phase: 'request_completed', status: 'completed', startedAt: routeStartedAt, technicalReference, generationAttemptId: result.attemptId, reportReference: result.reportReference });
     return jsonOrRedirect(request, orderReference, { ok: true, ...result });
   } catch (error) {
     const mapped = error instanceof Phase1GenerationError
@@ -84,6 +96,7 @@ export async function POST(request: Request, context: HandlerContext) {
       reason: mapped.reason,
       technicalReference: mapped.technicalReference ?? null
     });
+    logPremiumReportPhase({ phase: 'request_completed', status: 'failed', startedAt: routeStartedAt, technicalReference });
     return jsonOrRedirect(request, orderReference, {
       ok: false,
       reason: mapped.reason,

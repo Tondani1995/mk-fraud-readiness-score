@@ -35,7 +35,8 @@ function buildSnapshotUrl(request: Request, assessmentReference: string, rawToke
   return snapshotUrl.toString();
 }
 
-export async function POST(request: Request, { params }: { params: { assessmentRef: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ assessmentRef: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('assessment_submit');
   if (frozen) return frozen;
 

@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 69 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 98 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260803220000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260809140000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 35
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 64
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -108,14 +108,43 @@ with authorised(version, name) as (
     ('20260803190000','rc1_park_fulfilment_attempt_search_path_fix'),
     ('20260803200000','rc1_park_fulfilment_attempt_nullif_fix'),
     ('20260803210000','rc1_structured_band_operating_state_overclaim'),
-    ('20260803220000','rc1_premium_delivery_active_uniqueness')
+    ('20260803220000','rc1_premium_delivery_active_uniqueness'),
+    ('20260803230000','preview_development_delivery'),
+    ('20260804090000','preview_development_authoritative_context'),
+    ('20260804110000','rc1_preview_resend_webhook_ingestion'),
+    ('20260804130000','rc1_preview_resend_reconciliation_once'),
+    ('20260804140000','rc1_preview_resend_reconciliation_status'),
+    ('20260804150000','rc1_preview_resend_apply_context'),
+    ('20260804170000','g24_adaptive_foundation_g28_evidence_guidance'),
+    ('20260804171000','g28_evidence_guidance_seed_repair'),
+    ('20260804194001','g29_payment_verification_contract'),
+    ('20260804200000','g25_adaptive_engine'),
+    ('20260804203520','g29_customer_report_access_audit'),
+    ('20260804210000','g27_adaptive_scoring_integration'),
+    ('20260804223000','g27_adaptive_visibility_score_guard'),
+    ('20260805090000','pre_g30_ai_route_authority'),
+    ('20260805100000','g24_adaptive_history_least_privilege'),
+    ('20260805110000','g24_adaptive_rpc_least_privilege'),
+    ('20260805120000','g27_adaptive_scoring_search_path'),
+    ('20260805140000','pre_g30_adaptive_launch_authority'),
+    ('20260805150000','pre_g30_staging_ai_authority_guard_fix'),
+    ('20260807120000','report_secondary_artifacts'),
+    ('20260807130000','report_artefact_access_audit'),
+    ('20260807140000','report_artefact_bucket_mime'),
+    ('20260808090000','rc1_report_artifacts_freeze_surface'),
+    ('20260808150000','manual_ai_structured_output_settlement_parity'),
+    ('20260808160000','atomic_report_finalisation_with_register'),
+    ('20260808170000','ai_attempt_timeout_contract_parity'),
+    ('20260809120000','ai_attempt_output_token_envelope'),
+    ('20260809140000','ai_contract_version_alignment'),
+    ('20260808180000','atomic_access_token_consumption')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 35 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 64 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -125,7 +154,7 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000','20260803230000','20260804090000','20260804110000','20260804130000','20260804140000','20260804150000','20260804170000','20260804171000','20260804194001','20260804200000','20260804203520','20260804210000','20260804223000','20260805090000','20260805100000','20260805110000','20260805120000','20260805140000','20260805150000','20260807120000','20260807130000','20260807140000','20260808090000','20260808150000','20260808160000','20260808170000','20260808180000','20260809120000','20260809140000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when
@@ -427,7 +456,7 @@ with expected(name, args, search_path, positive_role) as (
     ('revoke_customer_report_access_token','uuid,text','public, pg_temp','authenticated'),
     ('issue_customer_report_access_token','uuid,uuid,text,integer','public, pg_temp','service_role'),
     ('reissue_customer_report_access_token','uuid,uuid,text,text,integer,boolean','public, pg_temp','authenticated'),
-    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','""', 'NONE'),
+    ('apply_email_provider_event_atomic','text,text,text,text,timestamptz,text,jsonb','""', 'service_role'),
     ('correct_delivery_recipient_and_queue','uuid,text,text','public, pg_temp','authenticated'),
     ('set_phase14_runtime_secret','text,text,text','""', 'authenticated'),
     ('transition_phase14_operational_alert','uuid,text,text','""', 'authenticated')

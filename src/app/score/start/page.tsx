@@ -1,10 +1,11 @@
-import { StartAssessmentForm } from '@/components/assessment/StartAssessmentForm';
+import { AdaptiveStartForm } from '@/components/adaptive/AdaptiveStartForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 import { redirect } from 'next/navigation';
 
-export default function StartAssessmentPage({ searchParams }: { searchParams?: { embed?: string } }) {
+export default async function StartAssessmentPage(props: { searchParams?: Promise<{ embed?: string }> }) {
+  const searchParams = await props.searchParams;
   if (searchParams?.embed === '1') redirect('/score/start');
   return (
     <SectionShell className="py-12 md:py-16">
@@ -25,7 +26,7 @@ export default function StartAssessmentPage({ searchParams }: { searchParams?: {
           <CardContent className="space-y-4 text-sm leading-6 text-white/80">
             <p>Capture the respondent and organisation details once.</p>
             <p>Move directly into the fraud readiness questions without asking the respondent to create an account.</p>
-            <p>Use the free snapshot to decide whether to request the detailed MK report or a fuller Fraud Health Check.</p>
+            <p>Use the adaptive customer assessment to decide whether to request the detailed MK report or a fuller Fraud Health Check.</p>
           </CardContent>
         </Card>
 
@@ -35,7 +36,7 @@ export default function StartAssessmentPage({ searchParams }: { searchParams?: {
             <p className="mt-2 text-sm leading-6 text-mk-muted">Use a work email and the organisation’s registered or trading name.</p>
           </CardHeader>
           <CardContent>
-            <StartAssessmentForm />
+            <AdaptiveStartForm />
           </CardContent>
         </Card>
       </div>

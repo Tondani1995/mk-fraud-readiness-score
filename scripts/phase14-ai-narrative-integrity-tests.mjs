@@ -98,7 +98,7 @@ const stubs = {
   // This suite injects fake generators directly and never touches ai-sdk-generator.ts's own HTTP
   // path, so its two constants are stubbed with their real current values rather than pulling in
   // the npm AI SDK as a test dependency.
-  './ai-sdk-generator': { PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 5000, PREMIUM_REPORT_AI_TIMEOUT_MS: 45_000 },
+  './ai-sdk-generator': { PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS: 6500, PREMIUM_REPORT_AI_TIMEOUT_MS: 240_000 },
   '../phase14-security': {
     requirePhase14Action: async () => {},
     async loadPhase14WorkerLease(capabilityId) { return { capabilityId, expectedStep: 'ai_attempt_claim' }; },
@@ -206,7 +206,7 @@ const flags = {
 
 function validGrounded(orgOverride) {
   return {
-    executiveEvidenceRefs: ['score:overall', 'score:final_maturity', 'score:exposure_band'],
+    executiveEvidenceRefs: ['score:overall', 'score:final_maturity', 'score:exposure', 'score:exposure_band'],
     executiveBody: 'The organisation shows a Developing overall position with one critical governance gap requiring attention.',
     falseComfortEvidenceRefs: ['score:final_maturity', 'score:exposure_band', 'gap:Q-GOV-01'],
     falseComfortBody: 'Existing activity does not offset the open ownership gap identified in governance.',

@@ -26,7 +26,15 @@ const freezeBootstrap = fs.readFileSync(
 const migrationFiles = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .filter((name) => name.endsWith('.sql'))
   .sort();
-assert.equal(migrationFiles.length, 69);
+// The AI-budget diagnostics migration is Staging-only and is outside this historical
+// authenticated-control-plane replay contract.
+const controlPlaneReplayMigrations = migrationFiles.filter(
+  (name) => ![
+    '20260806090000_pre_g30_ai_budget_diagnostics.sql',
+    '20260806143000_pre_g30_structured_output_release_gate.sql'
+  ].includes(name),
+);
+assert.equal(controlPlaneReplayMigrations.length, 99);
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations (quality diagnostics, synthetic cleanup), so at(-1)/at(-2) legitimately move
 // while the accepted ordering of these two must not.

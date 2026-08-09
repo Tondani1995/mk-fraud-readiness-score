@@ -160,6 +160,9 @@ async function persistGenerationProvenance(input: {
     output_token_count: usage?.outputTokens ?? null,
     total_token_count: usage?.totalTokens ?? null,
     estimated_cost_micros: usage?.estimatedCostMicros ?? null,
+    pre_dispatch_total_tokens: input.prepared.aiBudgetDiagnostics?.estimatedTotalTokens ?? null,
+    pre_dispatch_estimated_cost_micros: input.prepared.aiBudgetDiagnostics?.estimatedCostMicros ?? null,
+    pre_dispatch_budget_reason: input.prepared.aiBudgetDiagnostics?.reason ?? null,
     accounting_status: generation ? 'verified' : 'not_applicable',
     latency_ms: generation?.latencyMs ?? null,
     status: 'used',
@@ -500,6 +503,13 @@ export async function generatePremiumReport(
       workerCapabilityId: input.workerLease?.capabilityId ?? null,
       authorizeAiAction: input.workerLease
         ? () => requirePhase14WorkerAction(input.workerLease!, 'ai_narrative_generation')
+        : undefined,
+      authorizeAiRoute: input.generator
+        ? async () => (await import('./automation/ai-route-policy')).authorizePremiumReportAiRoute({
+          provider: input.generator!.provider,
+          model: input.generator!.model,
+          db: privilegedDb
+        })
         : undefined
     });
     const { error: leaseRenewalError } = await generationRpc({

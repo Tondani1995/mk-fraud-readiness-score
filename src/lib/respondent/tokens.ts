@@ -77,6 +77,31 @@ export async function createSnapshotTokenForAssessment(input: {
   return token;
 }
 
+/**
+ * Authoritative atomic consumption of an assessment token.
+ *
+ * The limit decision lives entirely in the database: check + increment happen in one statement, so
+ * two concurrent callers cannot both spend the same remaining use. Nothing here re-derives the
+ * allowance in JS, and there is no fallback to the old read-then-write UPDATE -- an unavailable or
+ * failing RPC must deny access, never grant it.
+ */
+async function consumeAssessmentTokenAtomically(
+  service: any,
+  tokenHash: string,
+  tokenType: 'resume' | 'snapshot',
+  ipAddress?: string | null
+): Promise<{ ok: true; tokenId: string } | { ok: false; reason: string }> {
+  const { data, error } = await service.rpc('consume_assessment_token', {
+    p_token_hash: tokenHash,
+    p_token_type: tokenType,
+    p_ip_hash: hashIpAddress(ipAddress)
+  });
+  // Fail closed: a transport or database failure is never an authorisation.
+  if (error || !data) return { ok: false, reason: 'token_consumption_unavailable' };
+  if (data.ok !== true) return { ok: false, reason: String(data.reason ?? 'invalid_token') };
+  return { ok: true, tokenId: String(data.token_id) };
+}
+
 export async function validateResumeToken(input: {
   assessmentReference: string;
   rawToken: string;
@@ -99,7 +124,9 @@ export async function validateResumeToken(input: {
 
   if (tokenRow.revoked_at) return { ok: false as const, reason: 'revoked_token' };
   if (new Date(tokenRow.expires_at).getTime() <= Date.now()) return { ok: false as const, reason: 'expired_token' };
-  if (tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
+  // Non-consuming validation only. For a consuming request the remaining allowance is decided
+  // atomically in the database below -- a JS comparison here could independently grant access.
+  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
@@ -120,14 +147,11 @@ export async function validateResumeToken(input: {
   ]);
 
   if (input.consume !== false) {
-    await service
-      .from('assessment_tokens')
-      .update({
-        use_count: tokenRow.use_count + 1,
-        last_used_at: new Date().toISOString(),
-        last_used_ip_hash: hashIpAddress(input.ipAddress)
-      })
-      .eq('id', tokenRow.id);
+    // Authoritative: the database decides whether an allowance remains and consumes it in the same
+    // statement. Protected data below is returned only if this succeeded.
+    const consumed = await consumeAssessmentTokenAtomically(
+      service, tokenHash, 'resume', input.ipAddress);
+    if (!consumed.ok) return { ok: false as const, reason: consumed.reason };
 
     await service.from('audit_logs').insert({
       actor_type: 'respondent_token',
@@ -161,7 +185,9 @@ export async function validateSnapshotToken(input: {
   if (tokenError || !tokenRow) return { ok: false as const, reason: 'invalid_token' };
   if (tokenRow.revoked_at) return { ok: false as const, reason: 'revoked_token' };
   if (new Date(tokenRow.expires_at).getTime() <= Date.now()) return { ok: false as const, reason: 'expired_token' };
-  if (tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
+  // Non-consuming validation only. For a consuming request the remaining allowance is decided
+  // atomically in the database below -- a JS comparison here could independently grant access.
+  if (input.consume === false && tokenRow.use_count >= tokenRow.max_uses) return { ok: false as const, reason: 'token_use_limit_reached' };
 
   const { data: assessment, error: assessmentError } = await service
     .from('assessments')
@@ -184,14 +210,11 @@ export async function validateSnapshotToken(input: {
   ]);
 
   if (input.consume !== false) {
-    await service
-      .from('assessment_tokens')
-      .update({
-        use_count: tokenRow.use_count + 1,
-        last_used_at: new Date().toISOString(),
-        last_used_ip_hash: hashIpAddress(input.ipAddress)
-      })
-      .eq('id', tokenRow.id);
+    // Authoritative: the database decides whether an allowance remains and consumes it in the same
+    // statement. Protected data below is returned only if this succeeded.
+    const consumed = await consumeAssessmentTokenAtomically(
+      service, tokenHash, 'snapshot', input.ipAddress);
+    if (!consumed.ok) return { ok: false as const, reason: consumed.reason };
 
     await service.from('audit_logs').insert({
       actor_type: 'respondent_token',

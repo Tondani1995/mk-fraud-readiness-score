@@ -8,15 +8,15 @@ begin;
 
 insert into auth.users (id, email)
 values (
-  '2d100000-0000-0000-0000-000000000001',
+  '2d100000-0000-4000-8000-000000000001',
   'rc1-disposable-ci@invalid.local'
 )
 on conflict (id) do nothing;
 
 insert into auth.sessions (id, user_id, not_after)
 values (
-  '2d100000-0000-0000-0000-000000000002',
-  '2d100000-0000-0000-0000-000000000001',
+  '2d100000-0000-4000-8000-000000000002',
+  '2d100000-0000-4000-8000-000000000001',
   pg_catalog.to_timestamp(4102444800)
 )
 on conflict (id) do nothing;
@@ -28,7 +28,7 @@ insert into public.admin_profiles (
   status,
   mfa_required
 ) values (
-  '2d100000-0000-0000-0000-000000000001',
+  '2d100000-0000-4000-8000-000000000001',
   'rc1-disposable-ci@invalid.local',
   'platform_admin',
   'active',
@@ -41,12 +41,12 @@ set role = 'platform_admin',
 
 select pg_catalog.set_config(
   'request.jwt.claims',
-  '{"sub":"2d100000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"2d100000-0000-0000-0000-000000000002"}',
+  '{"sub":"2d100000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2","exp":4102444800,"session_id":"2d100000-0000-4000-8000-000000000002"}',
   true
 );
 select pg_catalog.set_config(
   'request.jwt.claim.sub',
-  '2d100000-0000-0000-0000-000000000001',
+  '2d100000-0000-4000-8000-000000000001',
   true
 );
 

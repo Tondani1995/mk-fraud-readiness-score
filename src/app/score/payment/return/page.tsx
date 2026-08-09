@@ -3,7 +3,8 @@ import { PaymentReturnStatus } from '@/components/payments/PaymentReturnStatus';
 import { Button } from '@/components/ui/Button';
 import { SectionShell } from '@/components/ui/SectionShell';
 
-export default function PaymentReturnPage({ searchParams }: { searchParams?: { order_reference?: string } }) {
+export default async function PaymentReturnPage(props: { searchParams?: Promise<{ order_reference?: string }> }) {
+  const searchParams = await props.searchParams;
   const orderReference = String(searchParams?.order_reference ?? '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 100);
   return (
     <SectionShell className="py-12 md:py-16">

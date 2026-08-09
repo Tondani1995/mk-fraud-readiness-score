@@ -37,6 +37,8 @@ export async function persistManualNarrativeProvenance(input: {
       resolved_provider: selectedGeneration?.provider ?? null,
       resolved_model: selectedGeneration?.model ?? null,
       structured_ai_output: selectedGeneration?.output ?? null,
+      effective_repair_output: input.prepared.effectiveRepairOutput ?? null,
+      discarded_compliant_repair_section_ids: input.prepared.discardedCompliantRepairSectionIds ?? [],
       final_narrative: input.prepared.narrative,
       final_validation: input.prepared.validation,
       initial_validation: input.prepared.initialValidation ?? null,

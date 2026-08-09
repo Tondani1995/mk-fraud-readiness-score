@@ -220,6 +220,22 @@ export interface EvidenceChecklistItem {
   minimumAcceptableCharacteristics: string[];
   reviewStatus: 'Not yet requested' | 'Requested' | 'Received' | 'Insufficient' | 'Validated';
   evidenceRef: string;
+  visibilityGap?: boolean;
+}
+
+export interface VisibilityGap {
+  id: string;
+  questionCode: string;
+  domainCode: string;
+  prompt: string;
+  statement: string;
+  whyVisibilityMatters: string;
+  evidenceNeeded: string;
+  likelyEvidenceOwner: string;
+  recommendedVerificationAction: string;
+  priority: 'High' | 'Medium';
+  targetTiming: '30 days' | '60 days';
+  evidenceRef: string;
 }
 
 export type LeadershipDecisionCategory =
@@ -295,6 +311,7 @@ export interface AdvisoryEvidenceModel {
   leadershipDecisions: LeadershipDecision[];
   roadmapActions: RoadmapAction[];
   functionalAgenda: FunctionalAgendaItem[];
+  visibilityGaps: VisibilityGap[];
 }
 
 // --- Commercial quality gate (V7 Checkpoint B) -----------------------------------------------
@@ -337,6 +354,12 @@ export type CommercialQualityIssueCode =
   | 'QG_RENDERED_CONTENT_BODY_MISSING'
   | 'QG_PLACEHOLDER_TEXT_PRESENT'
   | 'QG_COMMERCIAL_VOLUME_WARNING'
+  // Bounded Essential output contract (D6 layer 2): the main report exceeded an accepted cap.
+  // Distinct from QG_COMMERCIAL_VOLUME_WARNING, which enforces a *minimum* substantive volume.
+  | 'QG_COMMERCIAL_VOLUME_EXCEEDED'
+  // Bounded Essential output contract (D6 layer 3): the generated supporting register does not
+  // reconcile against the authoritative L1 universe.
+  | 'QG_SUPPORTING_REGISTER_INCOMPLETE'
   | 'QG_QUALITY_EVALUATION_FAILED'
   // Stage-specific narrative grounding codes, projected from the validatePremiumReportNarrative
   // rule vocabulary by narrativeGroundingDiagnosticCode(). Kept open as a template literal so a
@@ -356,6 +379,7 @@ export type CommercialQualityIssueCode =
   | 'QG_DECISION_DUPLICATE'
   | 'QG_DECISION_LINKAGE_MISSING'
   | 'QG_EVIDENCE_CRITERIA_MISSING'
+  | 'QG_VISIBILITY_EVIDENCE_LINKAGE_INVALID'
   | 'QG_ROADMAP_SOURCE_MISMATCH'
   | 'QG_ROADMAP_DEPENDENCY_INVALID'
   | 'QG_AI_EVIDENCE_REF_DUPLICATE'

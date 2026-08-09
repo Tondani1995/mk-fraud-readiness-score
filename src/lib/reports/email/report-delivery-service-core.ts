@@ -16,6 +16,7 @@ import {
 import { executeClaimedReportDelivery, markReconciliationRequired } from './delivery-dispatch';
 import { createProviderLookupDatabaseAttestation } from './resend-webhook';
 import { assertReportAccessEligible, resolveCurrentReportId } from '../report-access-eligibility';
+import { logPremiumReportPhase } from '../automation/phase-timing';
 
 export type ReportDeliveryActor = {
   actorType: 'system' | 'admin';
@@ -124,6 +125,7 @@ function isProductionDeployment() {
 }
 
 export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmailInput): Promise<DeliverPremiumReportEmailResult> {
+  const deliveryStartedAt = Date.now();
   const developmentMode = input.developmentMode === true;
   const flags = developmentMode ? null : await getPremiumReportAutomationFlags();
   if (!developmentMode && input.actor.action === 'automatic_email' && !flags!.autoEmailEnabled) {
@@ -231,6 +233,13 @@ export async function deliverPremiumReportEmail(input: DeliverPremiumReportEmail
     throw authorizationError ?? new Error('Delivery authorization was not created.');
   }
   const authorization = authorizationData as DeliveryAuthorization;
+  logPremiumReportPhase({
+    phase: 'delivery_authorised',
+    status: 'completed',
+    startedAt: deliveryStartedAt,
+    reportReference: report.report_reference,
+    provider: 'resend'
+  });
   if (authorization.reused_existing_send) {
     return {
       emailEventId: authorization.email_event_id,

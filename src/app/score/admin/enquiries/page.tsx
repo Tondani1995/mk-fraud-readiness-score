@@ -24,7 +24,8 @@ function respondentEmail(enquiry: any) {
   return enquiry.respondents?.email ?? enquiry.requested_by_email ?? 'Email not captured';
 }
 
-export default async function AdminPersonalisedEnquiriesPage({ searchParams }: { searchParams?: { status?: string; search?: string } }) {
+export default async function AdminPersonalisedEnquiriesPage(props: { searchParams?: Promise<{ status?: string; search?: string }> }) {
+  const searchParams = await props.searchParams;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'finance_admin', 'read_only_admin']);
   const status = searchParams?.status ?? 'all';
   const search = searchParams?.search ?? '';

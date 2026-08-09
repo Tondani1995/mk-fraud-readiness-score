@@ -1,6 +1,6 @@
 import { earliestPeriod, stableToken, stableUnique } from './deterministic';
 import { riskPathwayForFinding } from './risk-pathways';
-import type { ControlImprovementEntry, EvidenceChecklistItem, Impact, Likelihood, MaterialFinding, RiskRegisterEntry } from './types';
+import type { ControlImprovementEntry, EvidenceChecklistItem, Impact, Likelihood, MaterialFinding, RiskRegisterEntry, VisibilityGap } from './types';
 
 const PRIORITY_MATRIX: Record<Likelihood, Record<Impact, RiskRegisterEntry['priority']>> = {
   Low: { Low: 'Low', Moderate: 'Medium', High: 'High', Severe: 'High' },
@@ -9,16 +9,46 @@ const PRIORITY_MATRIX: Record<Likelihood, Record<Impact, RiskRegisterEntry['prio
 };
 
 /** Qualitative self-assessment rules only; these labels are not statistical probabilities. */
-export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact) {
+/**
+ * Impact fragments are authored as complete sentences and some carry a directness label
+ * ("Direct -- ...", "Indirect -- ..."). Joining them raw with "; " after "resulting in" and then
+ * appending a full stop produced the V7 artefact:
+ *   "...resulting in Alert backlogs can conceal important anomalies.; Direct -- unreviewed
+ *    exceptions can allow losses to compound.."
+ * i.e. ".;", "..", a raw label, and a capitalised fragment mid-sentence.
+ *
+ * Each clause is normalised ONCE here -- label removed, trailing terminator removed, whitespace
+ * collapsed -- and the terminator is applied once by the caller. Nothing is "cleaned up" after
+ * concatenation, and no wording is invented: only the label prefix and duplicate punctuation go.
+ */
+export function consequenceClause(fragment: string | null | undefined): string {
+  return (fragment ?? '')
+    .replace(/^\s*(?:Direct|Indirect)\s*--\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s.;,]+$/, '')
+    .trim();
+}
+
+/**
+ * exposureAssessed defaults to true so existing callers are unchanged. When exposure was NOT
+ * assessed, no exposure evidence exists, so linkedExposureFactorCodes cannot legitimately influence
+ * either the rating or the rationale: V7 was an adaptive assessment with no exposure score or band,
+ * yet the register still spoke of "multiple linked exposure factors" and "critical, hard-gate,
+ * exposure and cap evidence". Nothing is substituted in its place -- the reasoning simply falls back
+ * to the control, hard-gate, cap, scenario and dependency evidence that IS supported.
+ */
+export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact, exposureAssessed = true) {
   const isAssuranceOnly = findings.every((finding) => finding.materialityClass === 'assurance_priority');
-  const linkedHighSevereExposureCodes = stableUnique(findings.flatMap((finding) => finding.linkedExposureFactorCodes));
+  const exposureCodesFor = (finding: MaterialFinding) =>
+    exposureAssessed ? finding.linkedExposureFactorCodes : [];
+  const linkedHighSevereExposureCodes = stableUnique(findings.flatMap(exposureCodesFor));
   const assuranceExposurePressure = isAssuranceOnly && linkedHighSevereExposureCodes.length > 0;
   const hasHighPressure = findings.some((finding) =>
     (finding.isHardGate || finding.maturityCapStatus === 'capping') &&
-    ((finding.responseValue ?? 5) <= 1 || finding.linkedExposureFactorCodes.length >= 2)
+    ((finding.responseValue ?? 5) <= 1 || exposureCodesFor(finding).length >= 2)
   );
   const hasMaterialPressure = findings.some((finding) =>
-    finding.isCriticalControl || finding.linkedExposureFactorCodes.length > 0 ||
+    finding.isCriticalControl || exposureCodesFor(finding).length > 0 ||
     finding.selectionReasons.includes('PRIORITY_SCENARIO_ENABLER') ||
     finding.selectionReasons.includes('CROSS_DOMAIN_DEPENDENCY')
   );
@@ -30,15 +60,21 @@ export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impa
       ? `The control is self-reported as operating and no control failure is asserted. Linked high/severe exposure (${linkedHighSevereExposureCodes.join(', ')}) increases the need for independent operating-evidence validation; this supports a Moderate qualitative likelihood, not a statistical probability.`
       : 'The control is self-reported as operating and no control failure is asserted. No linked high/severe exposure was identified; likelihood remains Low pending independent operating-evidence validation. This is a qualitative rating, not a statistical probability.'
     : hasHighPressure
-      ? 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response or multiple linked exposure factors; this supports a High qualitative likelihood, not a statistical probability.'
+      ? (exposureAssessed
+        ? 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response or multiple linked exposure factors; this supports a High qualitative likelihood, not a statistical probability.'
+        : 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response; this supports a High qualitative likelihood, not a statistical probability.')
       : hasMaterialPressure
-        ? 'Critical-control, exposure, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.'
+        ? (exposureAssessed
+          ? 'Critical-control, exposure, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.'
+          : 'Critical-control, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.')
         : 'The available self-assessment evidence supports a Low qualitative likelihood, subject to evidence validation.';
-  const impactRationale = `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate, exposure and cap evidence linked to the consolidated findings.`;
+  const impactRationale = exposureAssessed
+    ? `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate, exposure and cap evidence linked to the consolidated findings.`
+    : `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate and cap evidence linked to the consolidated findings.`;
   return { likelihood, likelihoodRationale, impact: consequence, impactRationale, priority: PRIORITY_MATRIX[likelihood][consequence] };
 }
 
-export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntry[] {
+export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed = true): RiskRegisterEntry[] {
   const groups = new Map<string, MaterialFinding[]>();
   for (const finding of [...findings].sort((a, b) => a.questionCode.localeCompare(b.questionCode))) {
     const pathway = riskPathwayForFinding(finding);
@@ -57,7 +93,7 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
     const title = isAssurance ? pathway.resilienceTitle : pathway.title;
     const cause = isAssurance ? pathway.resilienceCause : pathway.cause;
     const riskEvent = isAssurance ? pathway.resilienceRiskEvent : pathway.riskEvent;
-    const ratings = deriveRiskRatings(ordered, pathway.consequence);
+    const ratings = deriveRiskRatings(ordered, pathway.consequence, exposureAssessed);
     // The financial/operational/legal/reputational impact fields are rendered directly as their own
     // labelled fields in the PDF (see report-template.ts riskCards), not only inside riskStatement --
     // so an assurance-only risk must condition these individually too, not just the cause/riskEvent/
@@ -85,14 +121,28 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
       reputationalImpact,
       riskStatement: isAssurance
         ? `Because ${cause}, there is a risk that ${riskEvent}. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.`
-        : `Because ${cause}, there is a risk that ${riskEvent}, resulting in ${stableUnique([pathway.financialImpact, pathway.operationalImpact, pathway.legalRegulatoryImpact ?? '', pathway.reputationalImpact ?? '']).join('; ')}.`,
+        : (() => {
+          // Consequences are presented as their own sentence rather than inlined after "resulting
+          // in", so a clause that legitimately begins with a capitalised term reads correctly and
+          // no clause needs its first letter rewritten.
+          const clauses = stableUnique([
+            pathway.financialImpact,
+            pathway.operationalImpact,
+            pathway.legalRegulatoryImpact ?? '',
+            pathway.reputationalImpact ?? ''
+          ].map(consequenceClause).filter((clause) => clause.length > 0));
+          const base = `Because ${cause}, there is a risk that ${riskEvent}`;
+          return clauses.length > 0
+            ? `${base}. Consequence pathway: ${clauses.join('; ')}.`
+            : `${base}.`;
+        })(),
       linkedFindingIds: stableUnique(ordered.map((finding) => finding.id)),
       linkedQuestionCodes: stableUnique(ordered.map((finding) => finding.questionCode)),
       linkedScenarioIds: [],
       affectedDomains,
       affectedDomain: affectedDomains.join(', '),
       ...ratings,
-      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}`)).join('; '),
+      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.domainName}: ${consequenceClause(finding.responseMeaning)}`)).join('; '),
       requiredTreatment: isAssurance
         ? `Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: ${redesignClause}`
         : redesignClause,
@@ -153,7 +203,7 @@ export function buildControlImprovementRegister(findings: MaterialFinding[], ris
   });
 }
 
-export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[]): EvidenceChecklistItem[] {
+export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {
   const groups = new Map<string, { artefact: string; findings: MaterialFinding[] }>();
   for (const finding of [...findings].sort((a, b) => a.questionCode.localeCompare(b.questionCode))) {
     for (const artefact of stableUnique(finding.evidenceToRequest)) {
@@ -164,7 +214,7 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
     }
   }
 
-  return [...groups.values()].sort((a, b) => a.artefact.localeCompare(b.artefact)).map(({ artefact, findings: linked }) => {
+  const controlEvidence = [...groups.values()].sort((a, b) => a.artefact.localeCompare(b.artefact)).map(({ artefact, findings: linked }) => {
     const linkedFindingIds = stableUnique(linked.map((finding) => finding.id));
     const linkedQuestionCodes = stableUnique(linked.map((finding) => finding.questionCode));
     const linkedRiskIds = stableUnique(risks.filter((risk) => risk.linkedFindingIds.some((id) => linkedFindingIds.includes(id))).map((risk) => risk.id));
@@ -193,4 +243,23 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
       evidenceRef
     } satisfies EvidenceChecklistItem;
   });
+  const visibilityEvidence = visibilityGaps.map((gap) => ({
+    id: gap.evidenceRef.slice('evidence:'.length),
+    artefact: `Evidence pack for ${gap.questionCode}: ${gap.prompt}`,
+    linkedFindingIds: [],
+    linkedRiskIds: [],
+    linkedQuestionCodes: [gap.questionCode],
+    linkedFindingId: '',
+    linkedRiskId: '',
+    likelyOwner: gap.likelyEvidenceOwner,
+    provesWhat: gap.statement,
+    expectedRecency: gap.targetTiming,
+    requiredPopulation: 'Complete in-scope population for the control, including exceptions and changes.',
+    samplingExpectation: 'Review the complete population where feasible; otherwise use a documented risk-based sample including exceptions.',
+    minimumAcceptableCharacteristics: [gap.evidenceNeeded, gap.recommendedVerificationAction],
+    reviewStatus: 'Not yet requested' as const,
+    evidenceRef: gap.evidenceRef,
+    visibilityGap: true
+  } satisfies EvidenceChecklistItem));
+  return [...controlEvidence, ...visibilityEvidence];
 }

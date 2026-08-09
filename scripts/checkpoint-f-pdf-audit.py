@@ -40,6 +40,17 @@ def resolve_head_sha() -> str:
 # Kept in sync with REPORT_TOC_ENTRIES in src/lib/reports/templates/report-template.ts -- every
 # core (non-appendix) key there must appear here, plus "Contents" and the appendix divider/A1-A7
 # headings that TOC entry list also tracks.
+# CONTROL F-L2 -- required content of the bounded Essential advisory PDF.
+#
+# The legacy A1-A7 list required the PDF itself to carry the complete analytical universe
+# (60 findings / 56 risks / 60 controls / 243 evidence items / 60 roadmap actions / 130 agenda
+# items on the worst-case fixture). Under the accepted bounded architecture that responsibility
+# belongs to L3: the PDF carries prioritised advisory content, and the supporting register carries
+# the complete registers. Completeness is therefore proven by the workbook contract
+# (CONTROL F-L3, see the supporting-register certification), not by this document.
+#
+# Definitions/score basis are NOT L3-only -- the old A7 content survives in bounded form as E2 and
+# stays required here.
 REQUIRED_SECTIONS = [
     "Contents",
     "Executive summary",
@@ -50,14 +61,22 @@ REQUIRED_SECTIONS = [
     "Leadership decisions and roadmap",
     "Evidence validation priorities",
     "Methodology, limitations and next steps",
-    "Appendix",
-    "A1. Complete material findings register",
-    "A2. Complete risk register",
-    "A3. Complete control improvement register",
-    "A4. Complete evidence checklist",
+    "Appendix: supporting material",
+    "E1. Supporting control actions",
+    "E2. Definitions and score basis",
+    "Complete supporting detail",
+]
+
+# CONTROL F-NO-LEGACY -- the bounded Essential PDF must never reacquire the full L1 registers.
+# Scoped to the Essential product contract only; a future report type that legitimately ships full
+# registers must be certified by its own required-section list rather than by relaxing this one.
+PROHIBITED_ESSENTIAL_SECTIONS = [
+    "Complete material findings register",
+    "Complete risk register",
+    "Complete control improvement register",
+    "Complete evidence checklist",
     "A5. Functional agenda",
     "A6. Methodology question-code mapping",
-    "A7. Definitions and score basis",
 ]
 
 FORBIDDEN = {
@@ -713,7 +732,7 @@ def main() -> int:
         # The appendix's "A6. Methodology question-code mapping" table is the one place codes are
         # intentionally shown (see APPENDIX_START_MARKER in report-template.ts), so this only scans
         # the text before the appendix divider, matching "core report" in the brief's own wording.
-        core_text = full_text.split("A1. Complete material findings register", 1)[0]
+        core_text = full_text.split("E1. Supporting control actions", 1)[0]
         method_code_matches = METHOD_CODE.findall(core_text)
         record(checks, "PDF_INTERNAL_METHOD_CODE_OVERUSE", len(method_code_matches) <= METHOD_CODE_LIMIT, name, f"count={len(method_code_matches)} limit={METHOD_CODE_LIMIT}")
 
@@ -737,6 +756,37 @@ def main() -> int:
             pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]
             current_section_map[heading] = pages
             record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)
+        # Structural detection, not a raw substring scan. A legacy register is present only when
+        # its title appears as an actual section heading -- a line whose entire normalised content
+        # is that title -- or as a TOC/bookmark entry. Ordinary explanatory prose that merely
+        # mentions the old register ("the complete evidence checklist is not reproduced in this
+        # report") is not a legacy section and must pass. Comparison is case-insensitive and
+        # whitespace-normalised so a re-cased genuine heading cannot evade detection.
+        def _normalise_heading(value: str) -> str:
+            return re.sub(r"\s+", " ", value).strip().strip(".").casefold()
+
+        heading_lines = {
+            _normalise_heading(line)
+            for text in page_texts
+            for line in text.splitlines()
+            if line.strip()
+        }
+        # A TOC row is "<title>   <page>", so the trailing page number is stripped as well; that
+        # makes contents entries and real headings both detectable by the same normalised form.
+        structural_titles = heading_lines | {
+            _normalise_heading(re.sub(r"\s+\d{1,4}$", "", line))
+            for text in page_texts
+            for line in text.splitlines()
+            if line.strip()
+        }
+        for prohibited in PROHIBITED_ESSENTIAL_SECTIONS:
+            record(
+                checks,
+                "PDF_LEGACY_FULL_REGISTER_PRESENT",
+                _normalise_heading(prohibited) not in structural_titles,
+                name,
+                prohibited,
+            )
         section_map[name] = current_section_map
 
         for code, pattern in FORBIDDEN.items():

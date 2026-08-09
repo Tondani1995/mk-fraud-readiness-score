@@ -73,6 +73,7 @@
     "rc1:test-synthetic-cleanup-route": "node --experimental-loader=./scripts/lib/ts-transpile-loader.mjs scripts/rc1-synthetic-cleanup-route-tests.mjs",
     "v7:test-checkpoint-d": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs",
     "v7:test-checkpoint-e": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-e-ai-narrative-integration-tests.mjs",
+    "phase14:test-ai-gateway-identity": "node scripts/phase14-ai-gateway-identity-tests.mjs",
     "v7:test-checkpoint-e-migration": "node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs",
     "v7:test-checkpoint-f": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-f-rendered-pdf-tests.mjs",
     "v7:test-report-hardening": "npm run v7:test-checkpoint-a-unit && npm run v7:test-checkpoint-b && npm run v7:test-checkpoint-c && npm run v7:test-checkpoint-d && npm run v7:test-checkpoint-e && npm run v7:test-checkpoint-f",
@@ -105,7 +106,36 @@
     "rc1:test-premium-report-admin-initiation": "node scripts/rc1-premium-report-admin-initiation-tests.mjs",
     "rc1:test-preview-development-delivery-db": "node scripts/rc1-preview-development-delivery-db-test.mjs",
     "rc1:test-preview-resend-webhook": "node scripts/rc1-preview-resend-webhook-tests.mjs",
-    "rc1:reconcile-resend-preview-webhook": "node scripts/rc1-reconcile-resend-preview-webhook.mjs"
+    "rc1:reconcile-resend-preview-webhook": "node scripts/rc1-reconcile-resend-preview-webhook.mjs",
+    "g25:test-adaptive-engine": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g25-adaptive-engine-tests.mjs",
+    "g25:test-adaptive-db": "node scripts/g25-adaptive-db-integration.mjs",
+    "g25:test-customer-copy": "node scripts/g25-customer-copy-tests.mjs",
+    "g27:test-adaptive-scoring": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-scoring-tests.mjs",
+    "g27:test-adaptive-correction": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-correction-tests.mjs",
+    "g27:test-adaptive-gateway-audit": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-gateway-audit-tests.mjs",
+    "g29:test-payment-verification": "node scripts/g29-payment-verification-contract-tests.mjs",
+    "pre-g30:test-ai-route-authority": "node scripts/pre-g30-ai-route-authority-tests.mjs",
+    "pre-g30:test-timeout-architecture": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-timeout-architecture-tests.mjs",
+    "pre-g30:test-ai-budget-consistency": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-journey4-ai-budget-offline.mjs",
+    "pre-g30:test-structured-output-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/pre-g30-structured-output-diagnostics-tests.mjs",
+    "pre-g30:test-migration-targets": "node scripts/pre-g30-migration-target-check.mjs",
+    "pre-g30:test-adaptive-launch": "node scripts/pre-g30-adaptive-launch-tests.mjs",
+    "g29:test-customer-report-access": "node scripts/g29-customer-report-access-tests.mjs",
+    "g29:regression": "node scripts/g29-integrated-regression-runner.mjs",
+    "bounded:test-essential-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/bounded-essential-contract-tests.mjs",
+    "g29:review-staging-supporting-register": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g29-staging-supporting-register-review.mjs",
+    "g29:test-verified-byte-delivery": "node scripts/g29-verified-byte-delivery-tests.mjs",
+    "phase14:test-ai-settlement-parity": "node scripts/phase14-ai-settlement-parity-tests.mjs",
+    "rc1:test-replay-matrix-c": "node scripts/rc1-replay-matrix-c-tests.mjs",
+    "g30:test-pdf-accessibility": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g30-pdf-accessibility-contract.mjs",
+    "g30:test-keyboard-a11y": "node scripts/g30-keyboard-a11y-check.mjs",
+    "ai:test-output-envelope": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-output-envelope-contract-tests.mjs",
+    "ai:test-contract-grounding": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-contract-grounding-tests.mjs",
+    "pdf:test-commercial-composition": "node scripts/commercial-pdf-composition-tests.mjs",
+    "pdf:test-adaptive-semantics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/adaptive-semantic-behaviour-tests.mjs",
+    "pdf:test-risk-composition": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/risk-composition-behaviour-tests.mjs",
+    "pdf:test-scenario-mechanisms": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/scenario-mechanism-behaviour-tests.mjs",
+    "pdf:certify-v7-equivalent": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/essential-v7-equivalent-certification.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
@@ -127,14 +157,15 @@
     "jose": "6.1.3",
     "lucide-react": "0.562.0",
     "mongoose": "9.7.4",
-    "next": "^14.2.13",
+    "next": "15.5.22",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.1.200",
+    "pdfjs-dist": "6.2.108",
     "puppeteer-core": "24.34.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "3.4.0",
-    "workflow": "4.6.0",
+    "workflow": "4.8.0",
+    "write-excel-file": "^4.1.1",
     "zod": "4.1.8"
   },
   "devDependencies": {
@@ -144,14 +175,25 @@
     "autoprefixer": "^10.4.20",
     "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.13",
+    "eslint-config-next": "15.5.22",
+    "ip-address": "10.3.1",
     "pg": "^8.22.0",
     "postcss": "^8.5.23",
+    "read-excel-file": "^9.3.7",
     "tailwindcss": "^3.4.13",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "undici": "7.29.0"
   },
   "overrides": {
-    "postcss": "^8.5.23",
-    "brace-expansion": "^5.0.8"
+    "postcss": {
+      ".": "^8.5.23",
+      "nanoid": "^3.3.17"
+    },
+    "brace-expansion": "^5.0.8",
+    "sharp": "^0.35.3",
+    "undici": "$undici",
+    "@workflow/core": {
+      "nanoid": "^5.1.16"
+    }
   }
 }

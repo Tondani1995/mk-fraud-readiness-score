@@ -198,6 +198,11 @@ jobs:
         run: npm run phase23:test-exact-replay
       - name: Post-migration respondent, scoring and browser evidence
         run: |
+          # The pre-0023 compatibility step starts a Next.js child process that can outlive
+          # its shell trap on hosted runners. Use a distinct port and bind every post-0023
+          # integration command to that fresh server so stale pre-boundary code cannot satisfy
+          # the health check or receive the request.
+          post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
@@ -205,15 +210,32 @@ jobs:
             --set=rc1_disposable_expected_boundary=0025 \
             --file=scripts/rc1-disposable-old-schema-release-status.sql
           test "$(psql "$LOCAL_DB_URL" -XAtc "select public.rc1_freeze_status()->>'state'")" = 'released'
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
           MK_RC1_OPERATION_FREEZE_MODE=released \
-            npm start -- --port 3100 > tmp/phase23-evidence/post-0025-server.log 2>&1 &
+            npm start -- --port "$post_port" > tmp/phase23-evidence/post-0025-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..60}; do curl --fail --silent http://127.0.0.1:3100/ >/dev/null && break; sleep 1; done
-          npm run consolidation:test-routes
-          npm run consolidation:test-respondent
-          npm run phase23:test-payment-db
-          npm run phase23:test-browser
+          for attempt in {1..60}; do curl --fail --silent "http://127.0.0.1:$post_port/" >/dev/null && break; sleep 1; done
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+            npm run consolidation:test-routes
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
+            npm run consolidation:test-respondent
+          LOCAL_INTEGRATION_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+          PHASE23_RESPONDENT_EVIDENCE_PATH=tmp/phase23-evidence/respondent.json \
+            npm run phase23:test-payment-db
+          PHASE23_BASE_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:$post_port" \
+          NEXT_PUBLIC_SITE_URL="http://127.0.0.1:$post_port" \
+            npm run phase23:test-browser
       - name: Confirm prohibited history remains absent
         run: |
           test "$(psql "$LOCAL_DB_URL" -XAtq -c "select count(*) from supabase_migrations.schema_migrations where version between '0017' and '0022'")" = 0

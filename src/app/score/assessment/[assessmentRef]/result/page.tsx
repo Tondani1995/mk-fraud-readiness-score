@@ -4,11 +4,13 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionShell } from '@/components/ui/SectionShell';
 
 type ResultPageProps = {
-  params: { assessmentRef: string };
-  searchParams?: { token?: string };
+  params: Promise<{ assessmentRef: string }>;
+  searchParams?: Promise<{ token?: string }>;
 };
 
-export default async function ResultPage({ params, searchParams }: ResultPageProps) {
+export default async function ResultPage(props: ResultPageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   if (searchParams?.token) {
     const snapshotPath = `/score/snapshot/${encodeURIComponent(params.assessmentRef)}?token=${encodeURIComponent(searchParams.token)}`;
     redirect(snapshotPath);

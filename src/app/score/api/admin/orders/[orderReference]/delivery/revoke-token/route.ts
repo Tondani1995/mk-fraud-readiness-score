@@ -9,7 +9,8 @@ import { ACCESS_TOKEN_ROLES, revokeAccessToken } from '@/lib/reports/delivery-re
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request, { params }: { params: { orderReference: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ orderReference: string }> }) {
+  const params = await props.params;
   const frozen = await getRc1OperationFreezeResponse('customer_token');
   if (frozen) return frozen;
 

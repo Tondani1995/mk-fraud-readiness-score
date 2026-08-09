@@ -62,7 +62,11 @@ function publicSavedExposureAnswers(saved: Awaited<ReturnType<typeof loadAssessm
   }));
 }
 
-export default async function AssessmentShellPage({ params, searchParams }: { params: { assessmentRef: string }; searchParams?: { token?: string } }) {
+export default async function AssessmentShellPage(
+  props: { params: Promise<{ assessmentRef: string }>; searchParams?: Promise<{ token?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const accessCode = searchParams?.token;
   let validation: Awaited<ReturnType<typeof validateResumeToken>> | { ok: false; reason: 'missing_token' | 'rate_limited' };
 

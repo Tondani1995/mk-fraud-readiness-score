@@ -12,7 +12,8 @@ function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString('en-ZA') : '—';
 }
 
-export default async function AdminAssessmentsPage({ searchParams }: { searchParams?: { status?: string; page?: string } }) {
+export default async function AdminAssessmentsPage(props: { searchParams?: Promise<{ status?: string; page?: string }> }) {
+  const searchParams = await props.searchParams;
   const admin = await requireAdmin(['platform_admin', 'reviewer', 'approver', 'read_only_admin']);
   const status = statusOptions.includes(searchParams?.status ?? '') ? searchParams?.status : 'all';
   const page = Number(searchParams?.page ?? '1');

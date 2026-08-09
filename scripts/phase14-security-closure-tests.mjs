@@ -16,7 +16,14 @@ function loadPureModule(relativePath) {
       return loadPureModule('src/lib/reports/automation/narrative-brief.ts');
     }
     if (specifier === './types') {
-      return { PREMIUM_REPORT_AI_BODY_MAX_CHARS: 2500 };
+      return {
+        PREMIUM_REPORT_AI_BODY_MAX_CHARS: 2500,
+        // The brief now takes its per-section maxima from this table, so the stub must carry it or
+        // buildPremiumReportNarrativeBrief dereferences undefined.
+        PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS: {
+          executive: 1200, falseComfort: 800, leadership: 800, domain: 650, gap: 550
+        }
+      };
     }
     if (specifier === '../commercial-quality') {
       return {
@@ -89,7 +96,9 @@ for (const [label, prohibitedText] of [
 // silently discarded -- see Phase 14 Independent Review C1). It must never receive a "title"
 // field (titles stay MK-authored/deterministic) and every body field must be length-bounded.
 const aiSchema = read('src/lib/reports/automation/ai-sdk-generator.ts');
-assert.match(aiSchema, /body:\s*(z\.string|narrativeBody)/);
+// Provider-facing bodies are now section-typed rather than one generic body, so sectionBody() is
+// the expected shape; the assertion still refuses an untyped or unbounded body field.
+assert.match(aiSchema, /body:\s*(z\.string|narrativeBody|sectionBody\()/);
 assert.doesNotMatch(aiSchema, /title:\s*z\.string/);
 assert.match(aiSchema, /narrativeBody\s*=\s*z\.string\(\)\.min\(1\)\.max\(/, 'AI body fields must be length-bounded.');
 assert.match(aiSchema, /domainEvidence/);
@@ -142,7 +151,7 @@ assert.match(downloadVerification, /record_phase14_operational_alert/);
   };
   const baseNarrative = () => ({
     executiveDiagnosis: { title: 'Executive summary', body: 'The organisation shows a Developing maturity position.', evidenceRefs: ['score:final_maturity'] },
-    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other exposure.', evidenceRefs: [] },
+    falseComfort: { title: 'False comfort', body: 'A single strong control does not offset other open gaps.', evidenceRefs: [] },
     leadershipAttention: { body: 'Leadership should prioritise remediation.', evidenceRefs: [] },
     domainNarratives: [],
     gapCommentary: []

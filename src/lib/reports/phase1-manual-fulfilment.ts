@@ -5,6 +5,8 @@ import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } fr
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
+import { assertEssentialProjectionPresent, buildEssentialProjection } from './essential-projection';
+import { buildAndStoreSupportingRegister } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
 import type { ContentBlock } from './types';
@@ -20,6 +22,7 @@ import type {
   PremiumReportNarrativeGenerator,
   PreparedPremiumReportNarrative
 } from './automation/types';
+import { logPremiumReportPhase } from './automation/phase-timing';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -36,6 +39,8 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
+  /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
+  buildAndStoreSupportingRegister?: typeof buildAndStoreSupportingRegister;
   getPremiumReportAutomationFlags?: (db?: any) => Promise<PremiumReportAutomationFlags>;
   createNarrativeGenerator?: (model: string) => PremiumReportNarrativeGenerator;
   narrativeGenerator?: PremiumReportNarrativeGenerator;
@@ -220,6 +225,68 @@ async function recordQualityDiagnostics(
   }
 }
 
+/**
+ * Authoritative resolution of an ambiguous finalisation.
+ *
+ * The atomic RPC may have COMMITTED even though the client saw an error: a lost response, an
+ * aborted connection or a timeout all produce a client-side failure over a transaction that
+ * succeeded. The local flag cannot distinguish those, so the database is asked instead.
+ *
+ * Returns 'committed' only on positive proof, 'not_committed' only on positive proof of absence,
+ * and 'uncertain' whenever the read itself cannot settle it. Uncertainty must never be collapsed
+ * into 'not_committed' -- that is what would delete artefacts backing a real paid report.
+ */
+async function resolveFinalisationOutcome(
+  db: any,
+  attemptId: string,
+  expected: { storageBucket: string; storagePath: string; checksum: string; registerStoragePath: string | null }
+): Promise<'committed' | 'not_committed' | 'uncertain'> {
+  try {
+    const { data: attempt, error: attemptError } = await db
+      .from('manual_report_generation_attempts')
+      .select('id,status,output_report_id')
+      .eq('id', attemptId)
+      .maybeSingle();
+    if (attemptError || !attempt) return 'uncertain';
+
+    if (attempt.status !== 'REPORT_READY' || !attempt.output_report_id) {
+      // Positive proof of absence requires the attempt to be BOTH pre-final and unbound. A bound
+      // attempt in an unexpected status is ambiguous, not absent.
+      if (attempt.output_report_id) return 'uncertain';
+      return 'not_committed';
+    }
+
+    const { data: report, error: reportError } = await db
+      .from('reports')
+      .select('id,storage_bucket,storage_path,checksum,status')
+      .eq('id', attempt.output_report_id)
+      .maybeSingle();
+    if (reportError || !report) return 'uncertain';
+    if (report.storage_bucket !== expected.storageBucket
+      || report.storage_path !== expected.storagePath
+      || report.checksum !== expected.checksum) {
+      // Bound to a different object than this attempt produced: not our commit, and not safe to
+      // treat as absence either.
+      return 'uncertain';
+    }
+
+    const { data: artefact, error: artefactError } = await db
+      .from('report_artifacts')
+      .select('storage_path,storage_status')
+      .eq('report_id', report.id)
+      .eq('artefact_type', 'supporting_register')
+      .maybeSingle();
+    if (artefactError) return 'uncertain';
+    if (!artefact || artefact.storage_status !== 'VERIFIED') return 'uncertain';
+    if (expected.registerStoragePath && artefact.storage_path !== expected.registerStoragePath) {
+      return 'uncertain';
+    }
+    return 'committed';
+  } catch {
+    return 'uncertain';
+  }
+}
+
 async function verifyPrivateObject(db: any, bucket: string, path: string, expectedChecksum: string, expectedSize: number) {
   const { data, error } = await db.storage.from(bucket).download(path);
   if (error || !data) {
@@ -251,6 +318,7 @@ export async function generateManualPhase1Report(
   dependencies: ManualPhase1Dependencies = {}
 ): Promise<ManualGenerationResult> {
   const technicalReference = crypto.randomUUID();
+  const generationStartedAt = Date.now();
   const requestKey = input.requestKey.trim().slice(0, 200);
   if (!requestKey) {
     throw new Phase1GenerationError('generation_failed', 'A request key is required for safe report generation.', 400, technicalReference);
@@ -332,11 +400,24 @@ export async function generateManualPhase1Report(
   }
 
   const attemptId = String(claim.attempt.id);
+  logPremiumReportPhase({ phase: 'generation_attempt_claimed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
   const versionNumber = Number(claim.attempt.report_version);
   let assembled: Awaited<ReturnType<typeof assembleReportData>> | undefined;
   let storageBucket: string | null = null;
   let storagePath: string | null = null;
-  let uploaded = false;
+  // Explicit physical/authoritative state. The old single `uploaded` boolean could not distinguish
+  // "objects exist but nothing is committed" from "the report is customer-final", which is exactly
+  // how a register failure came to delete the PDF of an already-completed report.
+  let pdfUploaded = false;
+  let registerUploaded = false;
+  // finalisationInvoked is the honest boundary. Once the atomic RPC has been dispatched, a
+  // transport error tells us the RESPONSE failed -- it does not tell us the transaction failed.
+  // Treating that as "not committed" and deleting the objects would recreate the original defect
+  // against a report that is already current.
+  let finalisationInvoked = false;
+  let finalisationCommitted = false;
+  let registerStoragePath: string | null = null;
+  let pdfChecksumForReconciliation: string | null = null;
   let generationStage = 'start_generation';
   try {
     const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
@@ -347,6 +428,7 @@ export async function generateManualPhase1Report(
     try {
       assembled = await doAssembleReportData(input.orderReference);
       reportType = doValidateEntitlement(assembled);
+      logPremiumReportPhase({ phase: 'evidence_assembled', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
     } catch (error) {
       throw mapPreflightFailure(error, technicalReference);
     }
@@ -384,13 +466,31 @@ export async function generateManualPhase1Report(
       status: block.status
     }));
     generationStage = 'build_deterministic_advisory';
-    const deterministicContent = selectContent(assembled, contentBlocks);
     const advisoryModel = buildAdvisoryEvidenceModel(assembled);
-    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(advisoryModel.roadmapActions);
+    // ONE bounded projection instance for this generation: the deterministic fallback content,
+    // the narrative brief, the renderer and the commercial-quality validator all consume it.
+    const essentialProjection = buildEssentialProjection(assembled, advisoryModel);
+    // Fail closed before provider dispatch or any customer-visible output.
+    assertEssentialProjectionPresent(reportType, essentialProjection, 'Essential narrative preparation');
+    const deterministicContent = selectContent(assembled, contentBlocks, essentialProjection);
+    // Bounded Essential: the rendered roadmap is the shared projection's dependency-closed
+    // selection, which is also what validateRoadmapSource() checks provenance against. Deriving it
+    // from full L1 here would render an unbounded roadmap and fail QG_ROADMAP_SOURCE_MISMATCH.
+    const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
     generationStage = 'load_automation_flags';
     const flags = await doGetAutomationFlags(db);
+    // Fail closed on a contract-version disagreement rather than running the provider under a false
+    // version label. V6's attempts were stamped v2 by a stale config row while executing v5 code;
+    // because those labels participate in durable-attempt identity and reuse, that is a correctness
+    // problem, not cosmetics. The deterministic path still produces a complete report.
+    if (flags.contractVersionMismatch) {
+      console.error('premium_report_ai_contract_version_mismatch', {
+        outcome: 'ai_disabled_fail_closed', detail: flags.contractVersionMismatch
+      });
+    }
+    const aiNarrativeAllowed = flags.aiNarrativeEnabled && !flags.contractVersionMismatch;
     const generator = dependencies.narrativeGenerator
-      ?? (flags.aiNarrativeEnabled
+      ?? (aiNarrativeAllowed
         ? dependencies.createNarrativeGenerator
           ? dependencies.createNarrativeGenerator(flags.model)
           : (await import('./automation/ai-sdk-generator')).createAiSdkPremiumReportNarrativeGenerator(flags.model)
@@ -402,25 +502,35 @@ export async function generateManualPhase1Report(
       assembled.scoreRun.id,
       `v${versionNumber}`
     ].join(':');
-    const attemptStore = flags.aiNarrativeEnabled && generator
+    const attemptStore = aiNarrativeAllowed && generator
       ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
       : undefined;
     generationStage = 'prepare_narrative';
     let prepared: PreparedPremiumReportNarrative;
     try {
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
       const doPrepareNarrative = dependencies.preparePremiumReportNarrative
         ?? (await import('./automation/narrative-pipeline')).preparePremiumReportNarrative;
       prepared = await doPrepareNarrative({
         assembled,
         deterministicContent,
+        essentialProjection,
         roadmap,
         advisoryModel,
         flags,
         generator,
         generationIdentity,
         manualGenerationAttemptId: attemptId,
-        attemptStore
+        attemptStore,
+        authorizeAiRoute: generator
+          ? async () => (await import('./automation/ai-route-policy')).authorizePremiumReportAiRoute({
+              provider: generator!.provider,
+              model: generator!.model,
+              db
+            })
+          : undefined
       });
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
@@ -455,6 +565,7 @@ export async function generateManualPhase1Report(
     // logged with only safe structured fields (technical reference, order reference, issue codes,
     // counts), never full report content, HTML, or customer data.
     generationStage = 'render_pdf';
+    logPremiumReportPhase({ phase: 'pdf_rendering_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     let pdf: Buffer;
     try {
       pdf = await doRenderValidatedCommercialPdf({
@@ -463,6 +574,7 @@ export async function generateManualPhase1Report(
         roadmap,
         evidenceModel: advisoryModel
       });
+      logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
@@ -483,11 +595,13 @@ export async function generateManualPhase1Report(
 
     generationStage = 'store_pdf';
     const checksum = crypto.createHash('sha256').update(pdf).digest('hex');
+    pdfChecksumForReconciliation = checksum;
     const reportReference = assembled.reportReference;
     const fileName = `${sanitiseReference(reportReference)}.pdf`;
     storageBucket = 'generated-reports';
     storagePath = `${assembled.organisationId}/${assembled.orderId}/v${versionNumber}/${sanitiseReference(reportReference)}-${checksum.slice(0, 16)}.pdf`;
 
+    logPremiumReportPhase({ phase: 'storage_publication_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
     const { error: uploadError } = await db.storage.from(storageBucket).upload(storagePath, pdf, {
       contentType: 'application/pdf',
       upsert: false,
@@ -496,11 +610,42 @@ export async function generateManualPhase1Report(
     if (uploadError) {
       throw new Phase1GenerationError('storage_upload_failed', 'The PDF could not be stored in private report storage.', 500, technicalReference);
     }
-    uploaded = true;
+    pdfUploaded = true;
     await verifyPrivateObject(db, storageBucket, storagePath, checksum, pdf.length);
+    logPremiumReportPhase({ phase: 'storage_publication_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference });
 
-    generationStage = 'complete_generation';
-    const { data: completed, error: completeError } = await db.rpc('complete_manual_report_generation', {
+    // Both physical artefacts must exist and be verified before anything becomes customer-final.
+    generationStage = 'store_supporting_register';
+    const storeSupportingRegister = dependencies.buildAndStoreSupportingRegister ?? buildAndStoreSupportingRegister;
+    const storedRegister = await storeSupportingRegister({
+      db,
+      data: assembled,
+      model: advisoryModel,
+      projection: essentialProjection,
+      storageBucket,
+      organisationId: assembled.organisationId,
+      orderId: assembled.orderId,
+      versionNumber,
+      verifyStoredObject: verifyPrivateObject
+    });
+    registerUploaded = true;
+    registerStoragePath = storedRegister.storagePath;
+    console.info('supporting_register', {
+      technicalReference,
+      status: 'stored',
+      fileSizeBytes: storedRegister.fileSizeBytes
+    });
+
+    // ONE authoritative completion boundary. The report row, its VERIFIED supporting-register row,
+    // the supersede of the previous current report and the REPORT_READY transition all happen in a
+    // single database transaction: if any of them fails, none of them happened and the previous
+    // version simply remains current. There is deliberately NO fallback to
+    // complete_manual_report_generation() -- that would reintroduce the ordering defect whenever the
+    // migration is absent or misapplied, so a missing contract must fail closed.
+    generationStage = 'finalise_generation';
+    finalisationInvoked = true;
+    const { data: completed, error: completeError } = await db.rpc(
+      'finalise_manual_report_with_supporting_register', {
       p_attempt_id: attemptId,
       p_template_id: template.id,
       p_report_type: reportType,
@@ -509,7 +654,12 @@ export async function generateManualPhase1Report(
       p_file_name: fileName,
       p_mime_type: 'application/pdf',
       p_file_size_bytes: pdf.length,
-      p_checksum: checksum
+      p_checksum: checksum,
+      p_register_storage_path: storedRegister.storagePath,
+      p_register_file_name: storedRegister.fileName,
+      p_register_mime_type: storedRegister.mimeType,
+      p_register_file_size_bytes: storedRegister.fileSizeBytes,
+      p_register_checksum: storedRegister.checksumSha256
     });
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
@@ -527,6 +677,13 @@ export async function generateManualPhase1Report(
       });
       throw new Phase1GenerationError('report_persistence_failed', 'The verified PDF could not be linked to the order.', 500, technicalReference);
     }
+    // Committed. From here the PDF and the register are customer artefacts and generation-failure
+    // cleanup must never delete either of them.
+    finalisationCommitted = true;
+    // The supporting register was built, stored, verified and bound inside the atomic finalisation
+    // above. There is deliberately no separate post-completion register step any more: that
+    // ordering is what allowed a completed report to lose its PDF when the register failed.
+    logPremiumReportPhase({ phase: 'report_finalised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: completed.report.report_reference });
 
     console.info('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
@@ -551,7 +708,38 @@ export async function generateManualPhase1Report(
     const mapped = error instanceof Phase1GenerationError
       ? new Phase1GenerationError(error.reason, error.message, error.status, error.technicalReference ?? technicalReference)
       : new Phase1GenerationError('generation_failed', 'Report generation failed. Retry or inspect the technical reference.', 500, technicalReference);
-    if (uploaded && storageBucket && storagePath) {
+    // Cleanup is only ever safe BEFORE the authoritative finalisation commits. After it, both the
+    // PDF and the register are committed customer artefacts referenced by authoritative database
+    // state, and no generation-failure path -- logging, audit, or anything else -- may delete them.
+    //
+    // The hard case is an error raised AFTER the RPC was dispatched: that says the response failed,
+    // not that the transaction did. Ask the database rather than assume. Only positive proof of
+    // absence permits deletion; uncertainty deliberately leaks two private orphan candidates for
+    // later operator cleanup, which is far cheaper than deleting the artefacts behind a paid report.
+    let finalisationOutcome: 'committed' | 'not_committed' | 'uncertain' =
+      finalisationCommitted ? 'committed' : 'not_committed';
+    if (finalisationInvoked && !finalisationCommitted) {
+      finalisationOutcome = await resolveFinalisationOutcome(db, attemptId, {
+        storageBucket: storageBucket ?? '',
+        storagePath: storagePath ?? '',
+        checksum: pdfChecksumForReconciliation ?? '',
+        registerStoragePath: registerStoragePath
+      });
+      console.error('phase1_finalisation_ambiguous', {
+        technicalReference,
+        attemptId,
+        outcome: finalisationOutcome,
+        objectsRetained: finalisationOutcome !== 'not_committed'
+      });
+    }
+
+    const cleanupCandidates: string[] = finalisationOutcome !== 'not_committed'
+      ? []
+      : [
+        ...(pdfUploaded && storagePath ? [storagePath] : []),
+        ...(registerUploaded && registerStoragePath ? [registerStoragePath] : [])
+      ];
+    if (cleanupCandidates.length > 0 && storageBucket) {
       // M9: this is the Phase 1 (manual, synchronous) generation path's cleanup of an
       // orphaned upload after a downstream failure -- distinct from the Phase 14 premium
       // report engine's durable phase14_storage_cleanup_queue (which already persists
@@ -563,8 +751,8 @@ export async function generateManualPhase1Report(
       // without the log itself exposing the path. Phase 1's generation flow is
       // synchronous and single-attempt (there is no background retry of this cleanup
       // step), so retryCount is always 0 here; that is accurately reported, not omitted.
-      const storagePathReference = crypto.createHash('sha256').update(`${storageBucket}:${storagePath}`).digest('hex').slice(0, 16);
-      const { error: cleanupError } = await db.storage.from(storageBucket).remove([storagePath]);
+      const storagePathReference = crypto.createHash('sha256').update(`${storageBucket}:${cleanupCandidates.join('|')}`).digest('hex').slice(0, 16);
+      const { error: cleanupError } = await db.storage.from(storageBucket).remove(cleanupCandidates);
       const cleanupLog = {
         technicalReference,
         attemptId,
@@ -581,7 +769,22 @@ export async function generateManualPhase1Report(
         console.info('phase1_generation_storage_cleanup', cleanupLog);
       }
     }
-    await recordFailure(db, attemptId, mapped.reason, mapped.message);
+    // Failure state may only be persisted when non-commit is POSITIVELY proven. 'committed' would
+    // corrupt a completed paid generation; 'uncertain' would assert a rollback that was never
+    // established -- the database may already hold a committed REPORT_READY transaction the client
+    // simply cannot read. Both cases emit reconciliation-required evidence instead of mutating.
+    if (finalisationOutcome === 'not_committed') {
+      await recordFailure(db, attemptId, mapped.reason, mapped.message);
+    } else {
+      console.error('phase1_finalisation_reconciliation_required', {
+        technicalReference,
+        attemptId,
+        outcome: finalisationOutcome,
+        failureSuppressed: true,
+        artefactsRetained: true,
+        reason: mapped.reason
+      });
+    }
     console.error('phase1_manual_generation', {
       requestId: claim.attempt.request_id,
       technicalReference,

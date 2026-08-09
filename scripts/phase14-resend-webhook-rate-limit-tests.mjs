@@ -65,6 +65,9 @@ function loadRoute({ rateLimitAllowed, readBodyCalled }) {
     if (specifier === '@/lib/rc1/operation-freeze') {
       return { getRc1OperationFreezeResponse: async () => null };
     }
+    if (specifier === '@/lib/reports/email/premium-report-development-mode') {
+      return { isPremiumReportDevelopmentMode: () => false };
+    }
     throw new Error(`Unexpected route.ts dependency in test: ${specifier}`);
   });
 }

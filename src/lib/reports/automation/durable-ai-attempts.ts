@@ -4,6 +4,7 @@ import {
   PREMIUM_REPORT_AI_TIMEOUT_MS
 } from './ai-sdk-generator';
 import { aiAttemptStatusForFailureClass, classifyAiProviderFailure } from './ai-failure-classification';
+import { StructuredOutputGenerationError } from './structured-output-diagnostics';
 import {
   buildPremiumReportGenerationPrompt,
   buildPremiumReportRepairPrompt,
@@ -14,16 +15,70 @@ import type {
   NarrativeGenerationResult,
   PremiumReportNarrativeGenerator
 } from './types';
+import { logPremiumReportPhase, type PremiumReportAiBudgetDiagnostics } from './phase-timing';
 
 export const PREMIUM_REPORT_AI_MAX_ATTEMPTS = 2;
-export const PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS = 250_000;
-export const PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS = 20_000;
-export const PREMIUM_REPORT_AI_MAX_INPUT_BYTES = 196_608;
-export const PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS = 49_152;
+// The envelope is deliberately coherent: 19,000 estimated input tokens + 5,000 maximum output
+// tokens equals the 24,000 total-token ceiling. The per-call cost ceiling is $0.50 in the same
+// conservative micros model, so the combined one-generate + one-repair budget is $1.00.
+export const PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS = 500_000;
+export const PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS = 24_000;
+export const PREMIUM_REPORT_AI_MAX_INPUT_BYTES = 76_000;
+export const PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS = 19_000;
+export const PREMIUM_REPORT_AI_MAX_COMBINED_ESTIMATED_COST_MICROS = PREMIUM_REPORT_AI_MAX_ATTEMPTS * PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS;
 const CONSERVATIVE_INPUT_MICROS_PER_TOKEN = 10;
 const CONSERVATIVE_OUTPUT_MICROS_PER_TOKEN = 20;
-
 type AttemptKind = 'generate' | 'repair';
+
+export type PremiumReportAiBudgetReason = NonNullable<PremiumReportAiBudgetDiagnostics['reason']>;
+
+export class PremiumReportAiBudgetError extends Error {
+  readonly diagnostics: PremiumReportAiBudgetDiagnostics;
+
+  constructor(diagnostics: PremiumReportAiBudgetDiagnostics, message: string) {
+    super(message);
+    this.name = 'PremiumReportAiBudgetError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+export function evaluatePremiumReportAiBudget(inputSizeBytes: number, estimatedInputTokens: number): PremiumReportAiBudgetDiagnostics {
+  const estimatedTotalTokens = estimatedInputTokens + PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS;
+  const estimatedCostMicros = estimatedInputTokens * CONSERVATIVE_INPUT_MICROS_PER_TOKEN
+    + PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS * CONSERVATIVE_OUTPUT_MICROS_PER_TOKEN;
+  const reason: PremiumReportAiBudgetDiagnostics['reason'] = inputSizeBytes > PREMIUM_REPORT_AI_MAX_INPUT_BYTES
+    ? 'pre_dispatch_input_bytes_exceeded'
+    : estimatedInputTokens > PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS
+      ? 'pre_dispatch_input_tokens_exceeded'
+      : estimatedTotalTokens > PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS
+        ? 'pre_dispatch_total_tokens_exceeded'
+        : estimatedCostMicros > PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS
+          ? 'pre_dispatch_estimated_cost_exceeded'
+          : null;
+  return {
+    inputSizeBytes,
+    estimatedInputTokens,
+    maxOutputTokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
+    estimatedTotalTokens,
+    estimatedCostMicros,
+    limits: {
+      maxInputBytes: PREMIUM_REPORT_AI_MAX_INPUT_BYTES,
+      maxEstimatedInputTokens: PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS,
+      maxTotalTokens: PREMIUM_REPORT_AI_MAX_TOTAL_TOKENS,
+      maxEstimatedCostMicros: PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS
+    },
+    reason
+  };
+}
+
+export function measurePremiumReportAiBudget(kind: AttemptKind, generationInput: NarrativeGenerationInput): PremiumReportAiBudgetDiagnostics {
+  const providerPrompt = kind === 'generate'
+    ? buildPremiumReportGenerationPrompt(generationInput)
+    : buildPremiumReportRepairPrompt(generationInput);
+  const inputSizeBytes = Buffer.byteLength(`${PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS}\n${providerPrompt}`, 'utf8');
+  const estimatedInputTokens = Math.max(1, Math.ceil(inputSizeBytes / 4));
+  return evaluatePremiumReportAiBudget(inputSizeBytes, estimatedInputTokens);
+}
 
 export interface DurableAttemptFingerprint {
   generationIdentity: string;
@@ -143,23 +198,21 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
   const store = input.attemptStore ?? createPhase14NarrativeAttemptStore(input);
 
   async function run(kind: AttemptKind, generationInput: NarrativeGenerationInput) {
+    const runStartedAt = Date.now();
     await store.authorize(input.generator.provider);
-    const providerPrompt = kind === 'generate'
-      ? buildPremiumReportGenerationPrompt(generationInput)
-      : buildPremiumReportRepairPrompt(generationInput);
-    const inputSizeBytes = Buffer.byteLength(`${PREMIUM_REPORT_AI_SYSTEM_INSTRUCTIONS}\n${providerPrompt}`, 'utf8');
-    const estimatedInputTokens = Math.max(1, Math.ceil(inputSizeBytes / 4));
-    const preDispatchEstimatedCostMicros =
-      estimatedInputTokens * CONSERVATIVE_INPUT_MICROS_PER_TOKEN
-      + PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS * CONSERVATIVE_OUTPUT_MICROS_PER_TOKEN;
-    if (inputSizeBytes > PREMIUM_REPORT_AI_MAX_INPUT_BYTES) {
-      throw new Error('Premium report AI input exceeds the pre-dispatch byte limit.');
+    const budget = measurePremiumReportAiBudget(kind, generationInput);
+    logPremiumReportPhase({ phase: 'ai_budget_evaluated', status: budget.reason ? 'failed' : 'completed', startedAt: runStartedAt, aiBudgetDiagnostics: budget });
+    if (budget.reason === 'pre_dispatch_input_bytes_exceeded') {
+      throw new PremiumReportAiBudgetError(budget, 'Premium report AI input exceeds the pre-dispatch byte limit.');
     }
-    if (estimatedInputTokens > PREMIUM_REPORT_AI_MAX_ESTIMATED_INPUT_TOKENS) {
-      throw new Error('Premium report AI input exceeds the pre-dispatch estimated-token limit.');
+    if (budget.reason === 'pre_dispatch_input_tokens_exceeded') {
+      throw new PremiumReportAiBudgetError(budget, 'Premium report AI input exceeds the pre-dispatch estimated-token limit.');
     }
-    if (preDispatchEstimatedCostMicros > PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS) {
-      throw new Error('Premium report AI request exceeds the pre-dispatch estimated-cost limit.');
+    if (budget.reason === 'pre_dispatch_total_tokens_exceeded') {
+      throw new PremiumReportAiBudgetError(budget, 'Premium report AI input plus maximum output exceeds the pre-dispatch total-token limit.');
+    }
+    if (budget.reason === 'pre_dispatch_estimated_cost_exceeded') {
+      throw new PremiumReportAiBudgetError(budget, 'Premium report AI request exceeds the pre-dispatch estimated-cost limit.');
     }
     const fingerprint: DurableAttemptFingerprint = {
       generationIdentity: input.generationIdentity,
@@ -224,8 +277,11 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         evidence_checksum: generationInput.evidenceChecksum,
         prompt_version: generationInput.promptVersion,
         schema_version: generationInput.schemaVersion,
-        input_size_bytes: inputSizeBytes,
-        estimated_input_tokens: estimatedInputTokens,
+        input_size_bytes: budget.inputSizeBytes,
+        estimated_input_tokens: budget.estimatedInputTokens,
+        pre_dispatch_total_tokens: budget.estimatedTotalTokens,
+        pre_dispatch_estimated_cost_micros: budget.estimatedCostMicros,
+        pre_dispatch_budget_reason: budget.reason,
         max_output_tokens: PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS,
         max_estimated_cost_micros: PREMIUM_REPORT_AI_MAX_ESTIMATED_COST_MICROS,
         timeout_ms: PREMIUM_REPORT_AI_TIMEOUT_MS,
@@ -315,9 +371,51 @@ export function createDurablePremiumReportNarrativeGenerator(input: {
         }
         throw new Error('AI provider output is marked uncertain and must be reconciled before any retry.');
       }
+      logPremiumReportPhase({
+        phase: 'accounting_persisted',
+        status: 'completed',
+        startedAt: runStartedAt,
+        generationAttemptId: attempt.id,
+        provider: result.provider,
+        model: result.model,
+        gatewayGenerationId: result.gateway?.generationId ?? null
+      });
       return result;
     } catch (error) {
       if (accountingStatePersisted) throw error;
+      if (error instanceof StructuredOutputGenerationError) {
+        const usage = error.usage;
+        const authoritativeAccounting = Boolean(
+          error.gateway?.generationId
+          && Number.isFinite(usage?.inputTokens)
+          && Number.isFinite(usage?.outputTokens)
+          && Number.isFinite(usage?.totalTokens)
+          && Number.isFinite(usage?.estimatedCostMicros)
+        );
+        let recoveryError: unknown = null;
+        try {
+          await store.settleAttempt(attempt.id, {
+            status: error.diagnostics.status,
+            accounting_status: authoritativeAccounting ? 'verified' : 'unverified',
+            output_json: null,
+            structured_output_diagnostics: error.diagnostics,
+            resolved_provider: error.provider,
+            resolved_model: error.model,
+            input_token_count: usage?.inputTokens ?? null,
+            output_token_count: usage?.outputTokens ?? null,
+            total_token_count: usage?.totalTokens ?? null,
+            estimated_cost_micros: usage?.estimatedCostMicros ?? null,
+            latency_ms: error.latencyMs,
+            error_message: `Structured output diagnostic: ${error.diagnostics.status}.`
+          });
+        } catch (caught) {
+          recoveryError = caught;
+        }
+        if (recoveryError) {
+          throw new Error(`Structured-output failure and durable recovery update both failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+        }
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       // M1: classify BEFORE persisting. Only a failure proven (by AI SDK error class) to
       // have happened before any HTTP request was dispatched is recorded as

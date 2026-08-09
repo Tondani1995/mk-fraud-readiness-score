@@ -132,7 +132,14 @@ for (const absolute of sourceFiles) {
   visit(sourceFile);
 }
 
-inventory.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+// Byte-stable ordering. localeCompare() is ICU/locale dependent, so the same commit hashed to
+// different values on macOS and on the Linux CI runner and the contract could never be verified
+// from a developer machine. A plain code-unit comparison is identical everywhere.
+inventory.sort((left, right) => {
+  const a = JSON.stringify(left);
+  const b = JSON.stringify(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+});
 const stableInventory = inventory.map(({ line: _line, importsServiceFactory: _imports, ...item }) => item);
 const fullAstInventorySha256 = crypto
   .createHash('sha256')
@@ -213,8 +220,13 @@ for (const item of inventory) {
   }
   if (item.kind === 'rpc') {
     if (serviceCandidate) {
-      if (item.target === '<dynamic:rpcName>') {
-        for (const name of ['execute_phase14_worker_step', 'terminal_phase14_generation_publication']) {
+      if (item.target === '<dynamic:rpcName>' || `${item.file}:${item.line}` === 'src/app/score/api/webhooks/resend/route.ts:171') {
+        for (const name of [
+          'execute_phase14_worker_step',
+          'terminal_phase14_generation_publication',
+          'preview_development_ingest_phase14_provider_webhook',
+          'ingest_phase14_provider_webhook'
+        ]) {
           serviceRpcNames.add(name);
         }
       } else {
@@ -231,7 +243,8 @@ for (const item of inventory) {
       );
     } else {
       const allowedDynamic =
-        `${item.file}:${item.line}` === 'src/lib/rc1/control-plane.ts:99'
+        `${item.file}:${item.line}` === 'src/app/score/api/webhooks/resend/route.ts:171'
+        || `${item.file}:${item.line}` === 'src/lib/rc1/control-plane.ts:99'
         || `${item.file}:${item.line}` === 'src/lib/reports/premium-report-service-core.ts:74';
       assert(
         allowedDynamic,

@@ -151,7 +151,7 @@
     },
     "function_fingerprints": {
       "rc1_is_known_operation_surface(text)": "499d8a23e973bd1236aeb1b6a7024681",
-      "rc1_surface_for_relation(text,text)": "4c395edb1bf5d094796810efc1ce633c",
+      "rc1_surface_for_relation(text,text)": "ad11b3c9e029b7edf577ddf2b0816f20",
       "rc1_freeze_status()": "23a9c885e272c9254e41d0e2eac5943b",
       "rc1_require_operation_open(text)": "0d9eeb53c3e2dda89959b7117675212f",
       "rc1_require_platform_admin(boolean)": "76772f17ca0b3e2375231ace97e425df",
@@ -192,6 +192,7 @@
       "public.phase14_security_gates": "54f9defa2bc541bfdfddd334df2b5d76",
       "public.phase14_worker_capabilities": "efce089b0dac998f96a92afe25434862",
       "public.report_ai_attempts": "565a672c9e4df67a3a9530b58a70e250",
+      "public.report_artifacts": "9949d3ffc304923b4a042cced9e46af3",
       "public.report_delivery_authorizations": "cd0044c87b31f5037cc0bbe2fdae2292",
       "public.report_delivery_finalizations": "0bb345caf1277007650950ad3ba299c8",
       "public.report_delivery_remediations": "054a028ed09d43c4e0293afa1a2057c4",

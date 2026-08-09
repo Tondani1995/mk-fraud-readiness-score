@@ -31,7 +31,7 @@ for (const file of [
 
 const pkg = JSON.parse(read('package.json'));
 assert(pkg.engines?.node === '24.x', 'Node 24 must be explicit after the controlled compatibility spike');
-assert(pkg.dependencies?.next?.startsWith('^14.'), 'Next must remain on 14.x');
+assert(/^[^0-9]*15\./.test(pkg.dependencies?.next ?? ''), 'Next must remain on the patched 15.x release line');
 assert(pkg.dependencies?.react?.startsWith('^18.'), 'React must remain on 18.x');
 assert(pkg.dependencies?.['@sparticuz/chromium'], 'Chromium package must remain installed');
 assert(pkg.dependencies?.['puppeteer-core'], 'puppeteer-core must remain installed');
@@ -117,18 +117,33 @@ includes('src/lib/reports/phase1-report-access.ts', 'ACCESS_TTL_SECONDS = 60', '
 excludes(download, 'publicUrl', 'Reports must not expose public storage URLs');
 
 // Checkpoint F controller review blocker 4 restructured the report into an executive core +
-// implementation appendix (src/lib/reports/templates/report-template.ts), renaming several
-// section headings in the process ("Critical Flags and False Comfort" -> "What the result means"
-// with a false-comfort subsection; "30/60/90-Day Roadmap" -> "Leadership decisions and roadmap"
-// with a "30/60/90-day roadmap" subsection; "Leadership Agenda" -> appendix "A5. Functional
-// agenda"; the standalone "Report governance"/"Version Record" page was folded into the cover,
-// which still renders the report reference, generation date and package name). These checks are
-// updated to the new headings/markers rather than the old ones so they verify the same
-// substantive content (false-comfort narrative, the one roadmap, the functional agenda, and
-// report version metadata) actually still exists, not literal strings that no longer apply.
+// Bounded Essential contract: the PDF is the prioritised advisory layer (L2) and the complete
+// analytical universe lives in the L3 supporting register, so the legacy A1-A7 full-register
+// appendix no longer exists. These markers verify the same substantive content still renders --
+// false-comfort narrative, the one roadmap, the bounded appendix, the definitions/score basis that
+// was formerly A7, the L3 disclosure, and report version metadata.
 const template = read('src/lib/reports/templates/report-template.ts');
-for (const marker of ['content.falseComfort', '30/60/90-day roadmap', 'A5. Functional agenda', 'data.reportReference']) {
+for (const marker of [
+  'content.falseComfort',
+  '30/60/90-day roadmap',
+  'Appendix: supporting material',
+  'E1. Supporting control actions',
+  'E2. Definitions and score basis',
+  'Complete supporting detail',
+  'data.reportReference'
+]) {
   assert(template.includes(marker), `Template must include ${marker}`);
+}
+// Anti-regression: the full L1 registers must never return to the Essential PDF.
+for (const legacy of [
+  'A1. Complete material findings register',
+  'A2. Complete risk register',
+  'A3. Complete control improvement register',
+  'A4. Complete evidence checklist',
+  'A5. Functional agenda',
+  'A6. Methodology question-code mapping'
+]) {
+  assert(!template.includes(legacy), `Template must not reintroduce the legacy full register ${legacy}`);
 }
 assert(!/benchmark|peer average/i.test(template), 'Template must not claim unsupported benchmarks');
 assert(!/Phase 9|Phase 10/.test(template), 'Template must not expose internal phase labels');

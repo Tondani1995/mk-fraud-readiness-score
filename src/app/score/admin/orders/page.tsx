@@ -30,11 +30,12 @@ function cleanStatus(status: string | null | undefined) {
   return (status ?? 'not requested').replace(/_/g, ' ');
 }
 
-export default async function AdminOrdersPage({
-  searchParams
-}: {
-  searchParams?: { status?: string; search?: string; queue?: string };
-}) {
+export default async function AdminOrdersPage(
+  props: {
+    searchParams?: Promise<{ status?: string; search?: string; queue?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const admin = await requireAdmin(['platform_admin', 'finance_admin', 'reviewer', 'approver', 'read_only_admin']);
   const status = searchParams?.status ?? 'all';
   const search = searchParams?.search ?? '';

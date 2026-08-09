@@ -1,0 +1,75 @@
+{
+  "gitSha": null,
+  "pdf": {
+    "path": "tmp/essential-v7-certification/essential-v7-equivalent-commercial-certification.pdf",
+    "bytes": 975070,
+    "sha256": "4007c54a3020d5e1c4fcc9edebcb59f6a7dedf6426b942323fe72140a04369d2",
+    "pageCount": 28
+  },
+  "l1": {
+    "materialFindings": 60,
+    "riskRegister": 56,
+    "scenarios": 5,
+    "controlImprovements": 60,
+    "evidenceChecklist": 243,
+    "roadmapActions": 60,
+    "leadershipDecisions": 6,
+    "functionalAgenda": 130,
+    "contradictions": 1,
+    "visibilityGaps": 0
+  },
+  "l2": {
+    "findings": 6,
+    "risks": 6,
+    "scenarios": 5,
+    "controlActionRecords": 6,
+    "appendixControlActionRecords": 40,
+    "evidenceToObtain": 15,
+    "leadershipDecisions": 6,
+    "roadmapActions": 7,
+    "contradictions": 1
+  },
+  "roadmap": {
+    "preProjection": 60,
+    "selected": 7,
+    "ceiling": 15
+  },
+  "e1": {
+    "rows": 40,
+    "cap": 40,
+    "excludedForRoadmapLink": null,
+    "selectedRoadmapIds": [
+      "RA-D1-Q01",
+      "RA-D5-Q01",
+      "RA-D3-Q03",
+      "RA-D8-Q02",
+      "RA-D4-Q01",
+      "RA-D7-Q01",
+      "RA-D7-Q04"
+    ],
+    "zeroIntersection": true
+  },
+  "accessibility": {
+    "tagged": "yes",
+    "title": "MK Essential Report — Journey 6 Organisation",
+    "pages": 28
+  },
+  "scenarioExamples": [
+    {
+      "title": "Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+      "entryPoint": "An interaction covered by the recorded control condition: Continuous Improvement and Fraud Risk Monitoring: Persisted control statement for D10-Q01."
+    },
+    {
+      "title": "Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+      "entryPoint": "An interaction covered by the recorded control condition: Fraud Risk Identification: Persisted control statement for D2-Q01."
+    },
+    {
+      "title": "Organisation-level risk statements hide process-level opportunity, so a specific diversion route such as refund abuse or stock write-off manipulation is never mapped to a control owner",
+      "entryPoint": "An interaction covered by the recorded control condition: Fraud Risk Identification: Persisted control statement for D2-Q02."
+    },
+    {
+      "title": "Segregation-of-duties weakness enables end-to-end transaction control",
+      "entryPoint": "A user or role able to initiate and approve the same transaction without independent maker-checker evidence."
+    }
+  ]
+}
