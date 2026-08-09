@@ -103,11 +103,20 @@ test('exposure NOT assessed: no rationale may mention or imply exposure', () => 
 test('unassessed exposure cannot influence the rating through linked factor codes', () => {
   // This finding is High only because two exposure factors are linked; with exposure unassessed
   // that evidence does not exist and must not drive the rating.
-  const softGate = realFindings.find((f) =>
-    (f.isHardGate || f.maturityCapStatus === 'capping')
-    && (f.responseValue ?? 5) > 1
-    && f.linkedExposureFactorCodes.length >= 2);
-  if (!softGate) { console.log('    (skipped: fixture has no exposure-only High driver)'); return; }
+  // Built from a GENUINE finding, then minimally adjusted to isolate the exposure-only driver.
+  // The algorithm treats a hard-gate/capping finding as High when responseValue <= 1 OR two or more
+  // exposure factors are linked; setting responseValue above 1 removes the independent driver so
+  // only the linked exposure can produce High. Nothing else about the finding is invented.
+  const base = realFindings.find((f) => f.isHardGate || f.maturityCapStatus === 'capping');
+  assert.ok(base, 'the accepted fixture must contain a hard-gate or capping finding');
+  const softGate = {
+    ...base,
+    responseValue: 3,
+    isHardGate: true,
+    maturityCapStatus: 'capping',
+    materialityClass: base.materialityClass === 'assurance_priority' ? 'critical_gap' : base.materialityClass,
+    linkedExposureFactorCodes: ['EX-A', 'EX-B']
+  };
   const withExposure = deriveRiskRatings([softGate], 'Major', true);
   const withoutExposure = deriveRiskRatings([softGate], 'Major', false);
   assert.equal(withExposure.likelihood, 'High',

@@ -6,6 +6,90 @@ import type { MaterialFinding, PlausibleScenario, RiskRegisterEntry, ScenarioBas
 const GAP_DISCLAIMER = "This is a plausible scenario derived from the organisation's self-assessment evidence. It is not an allegation that the event has occurred.";
 const ASSURANCE_DISCLAIMER = "This is a plausible assurance-validation scenario derived from the organisation's self-assessment evidence. It tests resilience, is not an allegation, and does not assert that a control weakness or event exists.";
 
+
+/**
+ * Mechanism presentation for the scenario types the model ALREADY carries
+ * (SCENARIO_TYPES_BY_QUESTION / playbook relatedScenarioTypes). This introduces no new taxonomy and
+ * no new facts: each entry only renders a scenario type the linked evidence already asserts.
+ *
+ * V7 titled every scenario with the generic risk title ("Fraud Risk Identification control
+ * effectiveness risk") and gave every one the same entry point ("An ordinary process, system,
+ * person or third-party interaction relevant to <domain>."), so two materially different mechanisms
+ * were indistinguishable to a reader paying for advisory work.
+ *
+ * `rank` orders the choice when a scenario links several types, so output is deterministic.
+ */
+const SCENARIO_MECHANISMS: Record<string, { rank: number; title: string; entryPoint: string }> = {
+  privileged_access_exploitation: {
+    rank: 10,
+    title: 'Privileged-access misuse escapes independent review',
+    entryPoint: 'A privileged, administrative or emergency-access account operating without independent periodic review.'
+  },
+  segregation_of_duties_bypass: {
+    rank: 9,
+    title: 'Segregation-of-duties weakness enables end-to-end transaction control',
+    entryPoint: 'A user or role able to initiate and approve the same transaction without independent maker-checker evidence.'
+  },
+  supplier_payment_redirection: {
+    rank: 9,
+    title: 'Supplier bank-detail change enables payment diversion',
+    entryPoint: 'A supplier-master or bank-detail amendment progressing without independent verification of the requester.'
+  },
+  supplier_onboarding_fraud: {
+    rank: 8,
+    title: 'Supplier activation without verification admits a fictitious or conflicted vendor',
+    entryPoint: 'A new or reactivated supplier progressing to payment before independent registration and ownership verification.'
+  },
+  account_takeover: {
+    rank: 8,
+    title: 'Account takeover proceeds without detection',
+    entryPoint: 'A credential reset, device change or session anomaly on an account with transaction authority.'
+  },
+  digital_access_abuse: {
+    rank: 7,
+    title: 'Digital access rights outlive their business justification',
+    entryPoint: 'A user entitlement retained after a role change, exit or contract end without an access review.'
+  },
+  digital_transaction_abuse: {
+    rank: 7,
+    title: 'Anomalous digital transactions persist without challenge',
+    entryPoint: 'A digital payment or adjustment falling outside expected pattern with no operating review evidence.'
+  },
+  access_abuse: {
+    rank: 6,
+    title: 'Access rights are exercised beyond approved role requirements',
+    entryPoint: 'A user entitlement exercised outside the approved role matrix without independent review.'
+  },
+  incident_response_breakdown: {
+    rank: 5,
+    title: 'A reported incident stalls before containment or escalation',
+    entryPoint: 'A suspected-fraud report entering intake without a severity decision or named incident owner.'
+  },
+  evidence_compromise: {
+    rank: 5,
+    title: 'Evidence relating to a suspected matter is lost or altered',
+    entryPoint: 'Records relating to a suspected matter held without retention, legal-hold or custody control.'
+  },
+  suppressed_reporting: {
+    rank: 4,
+    title: 'Concerns go unreported or are routed to an implicated party',
+    entryPoint: 'A concern raised through a channel that an implicated manager can see, influence or close.'
+  }
+};
+
+/** The strongest supported mechanism across the linked findings, or null when none is asserted. */
+function selectedMechanism(findings: MaterialFinding[]) {
+  const types = stableUnique(findings.flatMap((finding) => finding.linkedScenarioTypes ?? []));
+  const known = types
+    .map((type) => ({ type, entry: SCENARIO_MECHANISMS[type] }))
+    .filter((candidate): candidate is { type: string; entry: typeof SCENARIO_MECHANISMS[string] } =>
+      Boolean(candidate.entry));
+  if (known.length === 0) return null;
+  // Deterministic: highest rank wins, ties broken lexically on the type name.
+  known.sort((left, right) => right.entry.rank - left.entry.rank || left.type.localeCompare(right.type));
+  return known[0];
+}
+
 function priorityRank(priority: RiskRegisterEntry['priority']): number {
   return { Critical: 4, High: 3, Medium: 2, Low: 1 }[priority];
 }
@@ -22,6 +106,7 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
   ]);
   const scenarioType = risk.id.replace(/^RISK-/, '').toLowerCase().replace(/-/g, '_');
   const resilience = basis === 'assurance_validation';
+  const mechanism = selectedMechanism(ordered);
   return {
     id: `SC-${stableToken(`${risk.id}|${suffix || 'primary'}`)}`,
     scenarioType,
@@ -29,9 +114,24 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
     // risk.title is already the resilience-safe variant when basis === 'assurance_validation' (see
     // registers.ts buildRiskRegister), so no separate "Resilience validation:" prefix is added here
     // -- that would just duplicate the framing already carried in the title text itself.
-    title: risk.title,
+    // Mechanism-specific where the linked evidence asserts a scenario type; otherwise the finding's
+    // own authored fraud mechanism, which is still evidence-derived. Only if neither exists does the
+    // risk title remain. Resilience scenarios keep the risk's own resilience-safe title so a
+    // self-reported operating control is never restated as an asserted weakness.
+    title: resilience
+      ? risk.title
+      : mechanism?.entry.title
+        ?? (lead?.fraudMechanism ? consequenceClause(lead.fraudMechanism) : risk.title),
     confirmedOperatingContext: ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}; self-assessed, not independently verified.`),
-    entryPoint: `An ordinary process, system, person or third-party interaction relevant to ${stableUnique(ordered.map((finding) => finding.domainName)).join(', ')}.`,
+    // Where no scenario type is asserted the entry point still comes from evidence -- the lead
+    // finding's own recorded control condition -- rather than the domain placeholder, which said
+    // nothing a reader could act on. Neutral, not invented: it restates a condition already in the
+    // report.
+    entryPoint: mechanism
+      ? mechanism.entry.entryPoint
+      : lead
+        ? `An interaction covered by the recorded control condition: ${consequenceClause(lead.title)}.`
+        : `An ordinary process, system, person or third-party interaction relevant to ${stableUnique(ordered.map((finding) => finding.domainName)).join(', ')}.`,
     linkedControlWeaknesses: resilience ? [] : ordered.map((finding) => finding.title),
     fraudSequence: resilience
       ? `Test whether the self-reported controls would prevent, detect and respond if ${risk.riskEvent}. This is a resilience exercise, not a claim that the control failed.`
