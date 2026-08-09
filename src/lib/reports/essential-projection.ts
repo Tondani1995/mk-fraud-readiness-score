@@ -415,11 +415,22 @@ export function buildEssentialProjection(
     .filter((record) => record.linkedFindingIds.some((id) => selectedFindingIds.has(id)))
     .slice(0, carCap);
   const shownRecordIds = new Set(controlActionRecords.map((record) => record.id));
-  const appendixControlActionRecords = allRecords
-    .filter((record) => !shownRecordIds.has(record.id))
-    .slice(0, ESSENTIAL_CAPS.appendixControlActionRecords);
 
   const roadmapActions = selectDependencyClosedRoadmap(model, selectedFindingIds);
+
+  // E1 is "further control actions BEYOND the priority set", so it must exclude both what the
+  // control-actions section already shows AND what the roadmap already selected. The relationship
+  // is authoritative on the record itself (linkedRoadmapActionIds, populated above from roadmap
+  // action ids) -- an earlier attempt compared CAR ids and question codes against RA/MF ids, which
+  // are different namespaces, so it matched nothing and removed nothing.
+  //
+  // Computed here, after roadmap selection and BEFORE the cap, so the 40-record allowance is spent
+  // on genuinely further actions rather than being silently reduced by a post-cap filter.
+  const selectedRoadmapActionIds = new Set(roadmapActions.map((action) => action.id));
+  const appendixControlActionRecords = allRecords
+    .filter((record) => !shownRecordIds.has(record.id))
+    .filter((record) => !record.linkedRoadmapActionIds.some((id) => selectedRoadmapActionIds.has(id)))
+    .slice(0, ESSENTIAL_CAPS.appendixControlActionRecords);
 
   // Accepted ordering rule: selected-finding priority first, then artefact rank. findingRank is
   // the position of the highest-priority selected finding the artefact supports.

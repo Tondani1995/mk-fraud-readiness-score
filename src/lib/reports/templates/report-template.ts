@@ -528,13 +528,9 @@ export function renderReportHtml(
   // E1 is explicitly "further control actions BEYOND the priority set above", so anything the
   // roadmap already selected must not reappear here. Matched on the linked control-action identity
   // the roadmap carries, so the two views cannot describe the same action twice.
-  const roadmapSelectedIds = new Set<string>(
-    projection.roadmapActions.flatMap((action) => [action.id, ...action.linkedFindingIds])
-  );
-  const carAppendixRows = projection.appendixControlActionRecords
-    .filter((record) => !roadmapSelectedIds.has(record.id)
-      && !roadmapSelectedIds.has(record.primaryQuestionCode))
-    .map((record, index) => `<tr>
+  // The projection already excludes anything the roadmap selected (via linkedRoadmapActionIds) and
+  // applies the 40 cap. Never re-filter here on mismatched identifier namespaces.
+  const carAppendixRows = projection.appendixControlActionRecords.map((record, index) => `<tr>
     <td>${index + 1}</td>
     <td>${esc(record.domainName)}</td>
     <td>${esc(record.controlObjective)}</td>
@@ -662,6 +658,14 @@ export function renderReportHtml(
      V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
   .subsection-heading + .section-note,
   .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
+  /* Roadmap rows are the tallest in the report -- each carries a full control design and success
+     measure -- so only about two fit per page. With break-inside:avoid on tr, a leftover row can
+     only ever be pushed whole onto a fresh page, where it sits alone: that is the checkpoint-f
+     PDF_NEAR_EMPTY_PAGE failure on Linux CI (materially-weak fixture, page 21 -- 1,199 characters,
+     comfortably over the 600 text threshold, failing the 0.26 occupied-area floor at roughly a
+     fifth of the body height). Letting this one table's rows flow across a page boundary means the
+     content fills continuously and no lone-row page can form. Rows elsewhere stay intact. */
+  .roadmap-table tbody tr { break-inside: auto; page-break-inside: auto; }
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
