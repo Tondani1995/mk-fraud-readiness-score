@@ -166,7 +166,20 @@ try {
   // ------------------------------------- stored-byte checksum + size verification (re-download)
   const { data: storedBlob, error: downloadError } = await db.storage
     .from(primary.bucket).download(storagePath);
-  if (downloadError || !storedBlob) throw new Error(`stored object unreadable: ${safe(downloadError?.message)}`);
+  if (downloadError || !storedBlob) {
+    // Name the one state this cannot repair itself. A VERIFIED artefact is immutable by contract and
+    // service_role holds only SELECT on report_artifacts, so if the row survives while its object
+    // does not, the review can neither adopt the row nor replace it. That pair is inconsistent and
+    // needs an administrative removal of the orphan row before certification can proceed.
+    if (retainedArtefact) {
+      throw new Error(
+        `orphaned VERIFIED artefact: row ${retainedArtefact.id} describes ${retainedArtefact.file_size_bytes} bytes `
+        + `(sha256 ${String(retainedArtefact.checksum_sha256).slice(0, 16)}) at ${storagePath}, but no Storage object `
+        + `exists there. The artefact contract makes a VERIFIED row immutable, so this must be removed `
+        + `administratively before the register can be re-certified.`);
+    }
+    throw new Error(`stored object unreadable: ${safe(downloadError?.message)}`);
+  }
   const storedBytes = Buffer.from(await storedBlob.arrayBuffer());
   const storedChecksum = crypto.createHash('sha256').update(storedBytes).digest('hex');
   // The authoritative expectation is the retained row when one exists, and the freshly built
