@@ -9,6 +9,26 @@ const PRIORITY_MATRIX: Record<Likelihood, Record<Impact, RiskRegisterEntry['prio
 };
 
 /** Qualitative self-assessment rules only; these labels are not statistical probabilities. */
+/**
+ * Impact fragments are authored as complete sentences and some carry a directness label
+ * ("Direct -- ...", "Indirect -- ..."). Joining them raw with "; " after "resulting in" and then
+ * appending a full stop produced the V7 artefact:
+ *   "...resulting in Alert backlogs can conceal important anomalies.; Direct -- unreviewed
+ *    exceptions can allow losses to compound.."
+ * i.e. ".;", "..", a raw label, and a capitalised fragment mid-sentence.
+ *
+ * Each clause is normalised ONCE here -- label removed, trailing terminator removed, whitespace
+ * collapsed -- and the terminator is applied once by the caller. Nothing is "cleaned up" after
+ * concatenation, and no wording is invented: only the label prefix and duplicate punctuation go.
+ */
+export function consequenceClause(fragment: string | null | undefined): string {
+  return (fragment ?? '')
+    .replace(/^\s*(?:Direct|Indirect)\s*--\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s.;,]+$/, '')
+    .trim();
+}
+
 export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact) {
   const isAssuranceOnly = findings.every((finding) => finding.materialityClass === 'assurance_priority');
   const linkedHighSevereExposureCodes = stableUnique(findings.flatMap((finding) => finding.linkedExposureFactorCodes));
@@ -85,14 +105,28 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
       reputationalImpact,
       riskStatement: isAssurance
         ? `Because ${cause}, there is a risk that ${riskEvent}. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.`
-        : `Because ${cause}, there is a risk that ${riskEvent}, resulting in ${stableUnique([pathway.financialImpact, pathway.operationalImpact, pathway.legalRegulatoryImpact ?? '', pathway.reputationalImpact ?? '']).join('; ')}.`,
+        : (() => {
+          // Consequences are presented as their own sentence rather than inlined after "resulting
+          // in", so a clause that legitimately begins with a capitalised term reads correctly and
+          // no clause needs its first letter rewritten.
+          const clauses = stableUnique([
+            pathway.financialImpact,
+            pathway.operationalImpact,
+            pathway.legalRegulatoryImpact ?? '',
+            pathway.reputationalImpact ?? ''
+          ].map(consequenceClause).filter((clause) => clause.length > 0));
+          const base = `Because ${cause}, there is a risk that ${riskEvent}`;
+          return clauses.length > 0
+            ? `${base}. Consequence pathway: ${clauses.join('; ')}.`
+            : `${base}.`;
+        })(),
       linkedFindingIds: stableUnique(ordered.map((finding) => finding.id)),
       linkedQuestionCodes: stableUnique(ordered.map((finding) => finding.questionCode)),
       linkedScenarioIds: [],
       affectedDomains,
       affectedDomain: affectedDomains.join(', '),
       ...ratings,
-      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}`)).join('; '),
+      currentControlPosition: stableUnique(ordered.map((finding) => `${finding.domainName}: ${consequenceClause(finding.responseMeaning)}`)).join('; '),
       requiredTreatment: isAssurance
         ? `Independently validate the reported control(s) across the complete population, required frequency and under pressure before relying on the self-assessment. If validation identifies a defect, apply: ${redesignClause}`
         : redesignClause,

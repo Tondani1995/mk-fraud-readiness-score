@@ -1,3 +1,4 @@
+import { consequenceClause } from './registers';
 import type { AssembledReportData } from '../types';
 import { stableToken, stableUnique } from './deterministic';
 import type { MaterialFinding, PlausibleScenario, RiskRegisterEntry, ScenarioBasis } from './types';
@@ -41,7 +42,7 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
       : 'The activity may appear routine until complete population review, independent approval or exception monitoring exposes it.',
     whyControlsMayNotCatchIt: resilience
       ? 'The controls are self-reported as operating but have not been independently validated with the required population and evidence.'
-      : ordered.map((finding) => `${finding.domainName}: ${finding.responseMeaning}`).join('; '),
+      : ordered.map((finding) => `${finding.domainName}: ${consequenceClause(finding.responseMeaning)}`).join('; '),
     earlyWarningIndicators: stableUnique([
       ...ordered.map((finding) => finding.escalationThreshold),
       'An exception, access, approval or incident record that cannot be reconciled to the complete in-scope population.'

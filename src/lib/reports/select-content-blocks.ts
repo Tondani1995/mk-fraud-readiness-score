@@ -1,4 +1,5 @@
 import type { EssentialProjection } from './essential-projection';
+import { detectSystemicCondition } from './essential-projection';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
   FALLBACK_CAPPED_DIAGNOSIS,
@@ -38,6 +39,37 @@ function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => 
   return [...matches].sort((a, b) => a.blockKey.localeCompare(b.blockKey))[0];
 }
 
+
+/**
+ * Three distinct customer-facing conditions an adaptive assessment can be in. Presence of
+ * adaptiveScope is NOT one of them: AdaptiveResultStatus permits NORMAL and PROVISIONAL as well as
+ * INSUFFICIENT_VISIBILITY, so treating "is adaptive" as "visibility was insufficient" put false
+ * statements in front of customers -- V7 reported coverage 100%, control visibility 100% and zero
+ * unknown responses while the report said visibility was insufficient and explained how unknown
+ * responses are treated.
+ */
+type AdaptiveNarrativeState = 'visibility_limited' | 'systemic' | 'adaptive_normal';
+
+/**
+ * Returns null for a non-adaptive assessment, which keeps the existing path untouched.
+ * The systemic test is the authoritative one -- projection.systemic where a projection was
+ * supplied, otherwise the same detectSystemicCondition() helper the projection itself uses. The
+ * thresholds are never recomputed here.
+ */
+function adaptiveNarrativeState(
+  data: AssembledReportData,
+  projection?: EssentialProjection
+): AdaptiveNarrativeState | null {
+  const scope = data.adaptiveScope;
+  if (!scope) return null;
+  const visibilityLimited = scope.resultStatus === 'INSUFFICIENT_VISIBILITY'
+    || scope.unknownSharePct > 0
+    || scope.unansweredApplicableCount > 0;
+  if (visibilityLimited) return 'visibility_limited';
+  const systemic = projection?.systemic ?? detectSystemicCondition(data);
+  return systemic.systemic ? 'systemic' : 'adaptive_normal';
+}
+
 export function selectContent(
   data: AssembledReportData,
   blocks: ContentBlock[],
@@ -46,14 +78,17 @@ export function selectContent(
   const capped = data.scoreRun.capApplied;
   const hasPriorityGaps = data.criticalMajorGaps.length > 0;
 
-  const executive = data.adaptiveScope ? undefined : firstBlock(blocks, (block) =>
+  const adaptiveState = adaptiveNarrativeState(data, projection);
+  const adaptiveOverride = adaptiveState === 'visibility_limited' || adaptiveState === 'systemic';
+
+  const executive = adaptiveOverride ? undefined : firstBlock(blocks, (block) =>
     block.blockType === 'executive_summary' && (capped ? block.severity === 'capped' : block.maturityBand === data.scoreRun.finalMaturity)
   );
-  const leadership = data.adaptiveScope ? undefined : firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
+  const leadership = adaptiveOverride ? undefined : firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
   for (const domain of data.domainResults) {
-    if (data.adaptiveScope) {
+    if (adaptiveState === 'visibility_limited') {
       domainNarratives[domain.domainName] = {
         title: 'Visibility and verification priority',
         body: 'The available response did not provide enough visibility to confirm this control position. Obtain the evidence listed in the report before treating this area as operating or as a confirmed weakness.',
@@ -104,8 +139,8 @@ export function selectContent(
   });
 
   return {
-    executiveSummary: selectExecutiveSummary(data, executive),
-    falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps),
+    executiveSummary: selectExecutiveSummary(data, executive, adaptiveState),
+    falseComfort: selectFalseComfort(data, blocks, capped, hasPriorityGaps, adaptiveState),
     leadershipAttention: {
       body: applyTokens(leadership?.body ?? FALLBACK_LEADERSHIP_ATTENTION[data.scoreRun.finalMaturity ?? 'Reactive'], data),
       usedFallback: !leadership
@@ -127,26 +162,18 @@ export function gapKey(domainCode: string, questionCode: string) {
   return `${domainCode}::${questionCode}`;
 }
 
-function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined): SelectedContent['executiveSummary'] {
-  if (data.adaptiveScope) {
-    // An adaptive assessment is not automatically a visibility-limited one. V7 reported coverage
-    // 100%, control visibility 100% and zero uncertainty responses, yet the executive title still
-    // read "Visibility-limited assessment" -- a title that contradicted the metrics printed beside
-    // it on the same page. The condition below is the same one commercial-insights.ts already uses
-    // to decide whether visibility genuinely constrained the result.
-    const scope = data.adaptiveScope;
-    const visibilityLimited = scope.resultStatus === 'INSUFFICIENT_VISIBILITY'
-      || scope.unknownSharePct > 0
-      || scope.unansweredApplicableCount > 0;
-    if (visibilityLimited) {
-      return {
-        title: 'Visibility-limited assessment',
-        body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
-        usedFallback: true
-      };
-    }
-    // Full visibility, but the foundational control baseline is reported as absent. The diagnosis
-    // is systemic rather than uncertain, and the title must say so.
+function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined, adaptiveState: AdaptiveNarrativeState | null): SelectedContent['executiveSummary'] {
+  // Three distinct conditions, decided once in adaptiveNarrativeState(). An adaptive assessment
+  // that is neither visibility-limited nor systemic falls through to the ordinary deterministic
+  // diagnosis below -- it must never be labelled systemic merely because adaptiveScope exists.
+  if (adaptiveState === 'visibility_limited') {
+    return {
+      title: 'Visibility-limited assessment',
+      body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+      usedFallback: true
+    };
+  }
+  if (adaptiveState === 'systemic') {
     return {
       title: 'Systemic foundational control gap',
       body: 'The assessment was answered with complete visibility, and it reports that the foundational fraud-control baseline is not yet in place. This is a systemic condition rather than an uncertainty: the control position is known, and it is that the baseline controls this report sets out have not been established.',
@@ -177,9 +204,12 @@ function selectFalseComfort(
   data: AssembledReportData,
   blocks: ContentBlock[],
   capped: boolean,
-  hasPriorityGaps: boolean
+  hasPriorityGaps: boolean,
+  adaptiveState: AdaptiveNarrativeState | null
 ): SelectedContent['falseComfort'] {
-  if (data.adaptiveScope) {
+  // Only a genuine visibility limitation may say anything about unknown responses; with zero
+  // unknowns this copy was simply false.
+  if (adaptiveState === 'visibility_limited') {
     return {
       title: 'Visibility and verification priority',
       body: 'Unknown responses are not treated as confirmed control gaps. Obtain the evidence listed in this report before relying on a readiness conclusion.',

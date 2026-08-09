@@ -1,3 +1,4 @@
+import { consequenceClause } from './registers';
 import type { AssembledReportData } from '../types';
 import { stableToken, stableUnique } from './deterministic';
 import type { Contradiction, ContradictionPattern, MaterialFinding, RiskRegisterEntry } from './types';
@@ -81,7 +82,7 @@ export function buildContradictions(
     add({
       pattern: 'strong_domain_failed_critical_control',
       title: `${domain.domainName} scores strongly but contains a failed critical control`,
-      drivingResponses: `Domain score ${Math.round(domain.rawScore as number)}/100; failed critical evidence: ${failed.map((finding) => `${finding.domainName} — ${finding.responseMeaning}`).join('; ')}.`,
+      drivingResponses: `Domain score ${Math.round(domain.rawScore as number)}/100; failed critical evidence: ${failed.map((finding) => `${finding.domainName} — ${consequenceClause(finding.responseMeaning)}`).join('; ')}.`,
       whyItMatters: 'A blended domain average can mask a control the methodology treats as non-negotiable.',
       falseComfortRisk: 'Leadership may rely on the aggregate domain score and miss the exact failed control.',
       whatLeadershipShouldVerify: `Can current operating evidence independently demonstrate the control(s) covering ${stableUnique(failed.map((finding) => finding.domainName)).join('; ')}?`,
@@ -116,7 +117,7 @@ export function buildContradictions(
     add({
       pattern: 'access_control_gap_operational_and_digital',
       title: 'Operational and privileged-access weaknesses indicate one systemic access-governance issue',
-      drivingResponses: access.map((finding) => `${finding.domainName} — ${finding.responseMeaning}`).sort().join('; '),
+      drivingResponses: access.map((finding) => `${finding.domainName} — ${consequenceClause(finding.responseMeaning)}`).sort().join('; '),
       whyItMatters: 'Excess access across ordinary and privileged environments can create an end-to-end manipulation and concealment route.',
       falseComfortRisk: 'Treating the findings as unrelated domain issues understates the common identity and recertification dependency.',
       whatLeadershipShouldVerify: 'Is one complete identity, role and recertification population used across ordinary and privileged access reviews?',

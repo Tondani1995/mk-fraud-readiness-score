@@ -34,7 +34,10 @@ export interface QuestionControlPlaybook {
 
 function diagnosis(control: string) {
   return (label: OfficialResponseLabel) =>
-    `${control} was self-assessed as "${label.label}" (${label.operationalMeaning}; normalised score ${label.normalisedScore}/100). This is self-reported and requires the listed operating evidence before it can be treated as verified.`;
+    // operationalMeaning is authored as a complete sentence, so interpolating it before "; normalised
+    // score" produced ".;" in the rendered report. Strip its terminator at the join, once, rather
+    // than rewriting the source strings or cleaning up after concatenation.
+    `${control} was self-assessed as "${label.label}" (${label.operationalMeaning.replace(/[\s.;,]+$/, '')}; normalised score ${label.normalisedScore}/100). This is self-reported and requires the listed operating evidence before it can be treated as verified.`;
 }
 
 /**
