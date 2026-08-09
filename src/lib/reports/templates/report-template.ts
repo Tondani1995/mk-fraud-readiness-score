@@ -610,8 +610,8 @@ export function renderReportHtml(
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
       : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
-    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-roadmap'),
-    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`),
+    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-long-register'),
+    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
     appendixSections
   ].join('\n');
 
@@ -663,16 +663,19 @@ export function renderReportHtml(
      final row lands alone the compulsory break before the next section guarantees the rest of that
      page stays empty -- the checkpoint-f PDF_NEAR_EMPTY_PAGE failure (F1 AI page 20 at 0.1334
      occupied area, F1 fallback page 19 at 0.1772, against the 0.26 floor).
-     Letting only Evidence validation priorities begin in that remaining space fills the page with
-     real content. An earlier attempt allowed roadmap rows to split instead; CI disproved it -- a
+     Letting the FOLLOWING section begin in that remaining space fills the page with
+     real content. Applied to the two sections that follow a long register -- Evidence validation
+     priorities after the roadmap, and Methodology after the evidence table, which stranded its own
+     last rows on CI page 21 once the roadmap page was fixed. Every other section keeps its forced
+     break. An earlier attempt allowed roadmap rows to split instead; CI disproved it -- a
      row that fits a page is never split, it simply moves whole -- and splitting a control objective
      from its owner, timing and success measure is not what a commercial report should do. */
-  .report-section.continue-after-roadmap { break-before: auto; page-break-before: auto; }
+  .report-section.continue-after-long-register { break-before: auto; page-break-before: auto; }
   /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
      its first meaningful content wherever it starts on the page. */
-  .continue-after-roadmap .section-kicker,
-  .continue-after-roadmap h2,
-  .continue-after-roadmap .lede { break-after: avoid; page-break-after: avoid; }
+  .continue-after-long-register .section-kicker,
+  .continue-after-long-register h2,
+  .continue-after-long-register .lede { break-after: avoid; page-break-after: avoid; }
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }

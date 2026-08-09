@@ -84,20 +84,22 @@ test('no reference to a non-existent Appendix A1 or A2 survives', () => {
 });
 
 // ------------------------------------------------------------------ pagination boundaries
-test('exactly one section may continue after the roadmap', () => {
-  assert.match(template, /\.report-section\.continue-after-roadmap \{ break-before: auto; page-break-before: auto; \}/,
+test('only sections following a long register may continue', () => {
+  assert.match(template, /\.report-section\.continue-after-long-register \{ break-before: auto; page-break-before: auto; \}/,
     'the continuation exception must be scoped to a class');
-  const uses = template.match(/continue-after-roadmap/g) ?? [];
-  // One CSS rule, one orphan-guard rule and one section that carries the class.
-  assert.ok(uses.length >= 3, 'the class must be applied to the Evidence validation section');
-  assert.match(template, /section\('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-roadmap'\)/);
+  const uses = template.match(/continue-after-long-register/g) ?? [];
+  // Two CSS rules plus the two sections that follow a long register.
+  assert.ok(uses.length >= 4, 'the class must be applied to both continuation sections');
+  assert.match(template, /'Methodology, limitations and next steps'[\s\S]{0,220}continue-after-long-register/,
+    'Methodology must be able to continue after the evidence table');
+  assert.match(template, /section\('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-long-register'\)/);
 });
 test('the forced page break is preserved for every other section', () => {
   assert.match(template, /\.cover, \.report-section \{ break-before: page; page-break-before: always; \}/,
     'the general rule must remain');
 });
 test('the continuing section cannot orphan its own heading', () => {
-  assert.match(template, /\.continue-after-roadmap \.section-kicker,[\s\S]*?break-after: avoid/,
+  assert.match(template, /\.continue-after-long-register \.section-kicker,[\s\S]*?break-after: avoid/,
     'kicker and heading must stay with the first content');
 });
 test('a roadmap heading cannot sit alone above its table', () => {
