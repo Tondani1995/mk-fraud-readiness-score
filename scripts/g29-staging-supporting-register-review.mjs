@@ -95,6 +95,7 @@ const fetchArtefact = async (token, artefact) => {
 };
 let storagePath = null;
 let artefactCreated = false;
+let retainedArtefact = null;
 
 try {
   // ---------------------------------------------------------------- L1 -> actual XLSX bytes
@@ -142,10 +143,10 @@ try {
   // Granting DELETE to make the old flow work would weaken artefact immutability, so instead the
   // retained artefact becomes the subject of the review. That is the stronger proof anyway: it
   // exercises the real customer-facing register rather than one created moments earlier.
-  const { data: retainedArtefact } = await db.from('report_artifacts')
+  ({ data: retainedArtefact } = await db.from('report_artifacts')
     .select('id,storage_path,file_name,mime_type,file_size_bytes,checksum_sha256,storage_status,created_at')
     .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register')
-    .eq('storage_status', 'VERIFIED').maybeSingle();
+    .eq('storage_status', 'VERIFIED').maybeSingle());
 
   if (retainedArtefact) {
     storagePath = retainedArtefact.storage_path;
@@ -369,7 +370,14 @@ try {
   // report_artifacts is deliberately SELECT-only for service_role. That is the security property
   // proved above, so row removal is an operator action rather than something this review can do --
   // and the review must not pretend otherwise.
-  if (storagePath) {
+  //
+  // Critically: the object must NOT be removed once a report_artifacts row references it. Removing
+  // it while the immutable row survives is what produced orphaned VERIFIED artefacts on Staging --
+  // rows describing bytes that no longer exist -- and it did so on EVERY run that bound a row,
+  // meaning this review could never pass twice in succession. Only an object this run uploaded and
+  // never bound is safe to remove.
+  const rowReferencesObject = artefactCreated || Boolean(retainedArtefact);
+  if (storagePath && !rowReferencesObject) {
     try { await db.storage.from(primary.bucket).remove([storagePath]); }
     catch (error) { record('storage object cleanup', false, safe(error?.message)); }
   }
@@ -377,7 +385,13 @@ try {
     .list(`${primary.organisationId}/${primary.orderId}/v1`)
     .then((r) => ({ count: (r.data ?? []).filter((o) => o.name.includes('supporting-register')).length }))
     .catch(() => ({ count: -1 }));
-  record('synthetic storage object cleaned up', objectsLeft === 0, `register objects left=${objectsLeft}`);
+  if (rowReferencesObject) {
+    record('bound register object is deliberately retained alongside its immutable row',
+      objectsLeft === 1, `register objects left=${objectsLeft} (row and object must stay consistent)`);
+  } else {
+    record('unbound synthetic storage object cleaned up',
+      objectsLeft === 0, `register objects left=${objectsLeft}`);
+  }
   const { count: remaining } = await db.from('report_artifacts')
     .select('id', { count: 'exact', head: true }).eq('report_id', primary.reportId);
   record('artefact row remains for operator cleanup (not application-removable)',
