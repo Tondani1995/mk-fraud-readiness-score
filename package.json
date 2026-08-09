@@ -134,7 +134,8 @@
     "pdf:test-commercial-composition": "node scripts/commercial-pdf-composition-tests.mjs",
     "pdf:test-adaptive-semantics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/adaptive-semantic-behaviour-tests.mjs",
     "pdf:test-risk-composition": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/risk-composition-behaviour-tests.mjs",
-    "pdf:test-scenario-mechanisms": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/scenario-mechanism-behaviour-tests.mjs"
+    "pdf:test-scenario-mechanisms": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/scenario-mechanism-behaviour-tests.mjs",
+    "pdf:certify-v7-equivalent": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/essential-v7-equivalent-certification.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

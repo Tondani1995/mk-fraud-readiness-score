@@ -106,6 +106,24 @@ jobs:
           V7_ARTIFACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run v7:test-report-hardening
 
+      # Local and Linux renders differ on font metrics, so the CI page count is the authoritative
+      # commercial measurement. This drives the real composition pipeline over the retained V7
+      # source data with a hard provider guard; it creates no attempt, report, artefact, Storage
+      # object, token or email.
+      - name: Certify the V7-equivalent commercial PDF (no provider)
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run pdf:certify-v7-equivalent
+
+      - name: Publish V7-equivalent commercial certification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-v7-equivalent-certification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: tmp/essential-v7-certification/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish Checkpoint F rendered PDF review artifacts
         if: always()
         uses: actions/upload-artifact@v4
