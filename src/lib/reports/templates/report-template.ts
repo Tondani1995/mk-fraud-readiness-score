@@ -398,7 +398,12 @@ export function renderReportHtml(
     <p class="section-note">Every decision below carries a named accountable executive and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the appendix.</p>
     ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
 
-  const roadmapRows = evidenceModel.roadmapActions.map((action) => `<tr>
+  // Bounded L2, exactly as the evidence-priority block below already does. This read
+  // evidenceModel.roadmapActions -- the COMPLETE L1 action set -- so V7 printed all 60 recommended
+  // actions against the accepted 12-target/15-ceiling from selectDependencyClosedRoadmap(), filling
+  // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
+  // the accepted ordering; never render the full L1 roadmap here.
+  const roadmapRows = projection.roadmapActions.map((action) => `<tr>
     <td>${esc(action.period)}</td>
     <td>${esc(action.domainName)}</td>
     <td>${esc(action.deliverable)}</td>
@@ -520,7 +525,16 @@ export function renderReportHtml(
   // table-header-group }` and `tr { break-inside: avoid }` (all pre-existing) keep each heading
   // attached to its first row, repeat table headers across the resulting page breaks, and keep
   // individual rows intact -- so this only removes wasted whitespace, it never splits content.
-  const carAppendixRows = projection.appendixControlActionRecords.map((record, index) => `<tr>
+  // E1 is explicitly "further control actions BEYOND the priority set above", so anything the
+  // roadmap already selected must not reappear here. Matched on the linked control-action identity
+  // the roadmap carries, so the two views cannot describe the same action twice.
+  const roadmapSelectedIds = new Set<string>(
+    projection.roadmapActions.flatMap((action) => [action.id, ...action.linkedFindingIds])
+  );
+  const carAppendixRows = projection.appendixControlActionRecords
+    .filter((record) => !roadmapSelectedIds.has(record.id)
+      && !roadmapSelectedIds.has(record.primaryQuestionCode))
+    .map((record, index) => `<tr>
     <td>${index + 1}</td>
     <td>${esc(record.domainName)}</td>
     <td>${esc(record.controlObjective)}</td>
@@ -590,12 +604,12 @@ export function renderReportHtml(
       ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
       : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
-      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register is in Appendix A1.</p>
+      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the supporting register issued with this report.</p>
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
       ${priorityScenariosBlock}`, 'long-section'),
     section('Priority risks', 'Priority risks', `
-      <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is in Appendix A2.</p>
+      <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is provided in the supporting register issued with this report.</p>
       ${priorityRisksBlock}`, 'long-section'),
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
@@ -643,6 +657,11 @@ export function renderReportHtml(
   .evidence-priority-table .section-note { break-before: avoid; page-break-before: avoid; }
   .section-note, .disclaimer { color: #686158; font-size: 8pt; font-style: italic; }
   .subsection-heading { margin-top: 8mm; break-after: avoid; page-break-after: avoid; }
+  /* A heading already avoids breaking after itself, but an intervening .section-note did not, so a
+     heading plus its one-line intro could sit alone on a page while the table began on the next --
+     V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
+  .subsection-heading + .section-note,
+  .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
