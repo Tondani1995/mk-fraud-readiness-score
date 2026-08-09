@@ -28,7 +28,8 @@ const CUSTOMER_SAFE_MESSAGES: Record<string, string> = {
   storage_path_mismatch: 'Your report could not be found. Contact support.',
   stored_file_missing: 'Your report file could not be found. Contact support.',
   integrity_failed: 'Your report failed a verification check. Contact support.',
-  signed_link_creation_failed: 'We could not prepare your report right now. Try again shortly or contact support.'
+  signed_link_creation_failed: 'We could not prepare your report right now. Try again shortly or contact support.',
+  access_unavailable: 'Secure report access is temporarily unavailable. Please try again later or contact support.'
 };
 
 // RFC 6266: quoted-string with the risky characters removed, so a stored file name can never break

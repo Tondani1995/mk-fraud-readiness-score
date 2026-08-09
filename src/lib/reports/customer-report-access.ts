@@ -22,7 +22,8 @@ export type CustomerAccessReason =
   | 'storage_path_mismatch'
   | 'stored_file_missing'
   | 'integrity_failed'
-  | 'signed_link_creation_failed';
+  | 'signed_link_creation_failed'
+  | 'access_unavailable';
 
 export class CustomerReportAccessError extends Error {
   constructor(
@@ -157,18 +158,37 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
     p_token_hash: tokenHash,
     p_max_uses: MAX_ACCESS_ATTEMPTS_PER_HOUR
   });
-  // Fail closed: a database or transport failure is never an authorisation, and no legacy counter
-  // path may take over.
+  // Two outcomes must be kept apart. An RPC that EXECUTED and denied is a legitimate access
+  // decision. An RPC that could not execute reliably -- missing function, PostgREST lookup failure,
+  // transport or execution error, malformed result -- is an operational fault, and telling the
+  // customer they exhausted their allowance would simply be false. Both fail closed with zero
+  // Storage reads and no legacy counter fallback; only the customer-facing outcome differs.
+  const DENIALS: Record<string, CustomerAccessReason> = {
+    invalid_token: 'invalid_token', revoked_token: 'revoked_token',
+    expired_token: 'expired_token', rate_limited: 'rate_limited'
+  };
+  const authoritativeDenial = !consumeError && consumed && consumed.ok === false
+    && typeof consumed.reason === 'string' && consumed.reason in DENIALS
+    ? DENIALS[consumed.reason] : null;
   if (consumeError || !consumed || consumed.ok !== true) {
-    const reason: CustomerAccessReason = consumed?.reason === 'revoked_token' ? 'revoked_token'
-      : consumed?.reason === 'expired_token' ? 'expired_token'
-      : consumed?.reason === 'invalid_token' ? 'invalid_token'
-      : 'rate_limited';
+    const reason: CustomerAccessReason = authoritativeDenial ?? 'access_unavailable';
+    if (!authoritativeDenial) {
+      // Allowance state is unknown, so no claim is made about it. No SQL or function detail leaks.
+      console.error('customer_report_access_consumption', {
+        technicalReference, errorCategory: 'access_consumption_unavailable',
+        rpcErrored: Boolean(consumeError)
+      });
+    }
     await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: tokenRow.report_id, success: false, reason, technicalReference, artefact: requestedArtefact });
+    const status = reason === 'rate_limited' ? 429
+      : reason === 'access_unavailable' ? 503
+      : reason === 'invalid_token' ? 404 : 410;
     const message = reason === 'rate_limited'
       ? 'Too many attempts. Try again later or contact support.'
-      : 'This link is no longer valid. Contact support for a new one.';
-    throw new CustomerReportAccessError(reason, message, reason === 'rate_limited' ? 429 : 410, technicalReference);
+      : reason === 'access_unavailable'
+        ? 'Secure report access is temporarily unavailable. Please try again later or contact support.'
+        : 'This link is no longer valid. Contact support for a new one.';
+    throw new CustomerReportAccessError(reason, message, status, technicalReference);
   }
 
   const { data: report, error: reportError } = await db

@@ -146,6 +146,32 @@ revoke all on function public.consume_customer_report_access_token(text, integer
   from public, anon, authenticated;
 grant execute on function public.consume_customer_report_access_token(text, integer) to service_role;
 
+-- 3. Least privilege follows the atomic consumer. The application no longer updates this table
+--    directly -- consumption goes through the SECURITY DEFINER function above, and issue/reissue/
+--    revoke lifecycle already runs through their own SECURITY DEFINER RPCs. Direct service_role
+--    UPDATE is therefore no longer required for any application authority, so it is withdrawn.
+--    SELECT is retained; the definer functions keep their own authority regardless of this grant.
+revoke update on public.customer_report_access_tokens from service_role;
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema='public' and table_name='customer_report_access_tokens'
+      and grantee='service_role' and privilege_type='UPDATE'
+  ) then
+    raise exception 'customer_report_access_tokens_direct_update_still_granted';
+  end if;
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema='public' and table_name='customer_report_access_tokens'
+      and grantee='service_role' and privilege_type='SELECT'
+  ) then
+    raise exception 'customer_report_access_tokens_select_unexpectedly_revoked';
+  end if;
+end;
+$$;
+
 -- Apply-time and replay-time assertion of the properties that matter.
 do $$
 declare

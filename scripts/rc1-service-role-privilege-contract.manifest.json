@@ -44,7 +44,8 @@
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE CONTROL STATE",
       "sources": [
-        "src/lib/adaptive/server.ts:100"
+        "src/lib/adaptive/server.ts:116 S",
+        "src/lib/scoring/adaptive-scoring.ts:362 S"
       ],
       "justification": "Adaptive customer control-state persistence is Staging-only and remains absent from Production grants."
     },
@@ -56,7 +57,8 @@
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE GATEWAY STATE",
       "sources": [
-        "src/lib/adaptive/server.ts:99"
+        "src/lib/adaptive/server.ts:115 S",
+        "src/lib/scoring/adaptive-scoring.ts:361 S"
       ],
       "justification": "Adaptive gateway answer persistence is Staging-only and remains absent from Production grants."
     },
@@ -68,8 +70,9 @@
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE GRAPH READ",
       "sources": [
-        "src/lib/adaptive/server.ts:56 S",
-        "src/lib/adaptive/server.ts:97 S"
+        "src/lib/adaptive/server.ts:113 S",
+        "src/lib/adaptive/server.ts:70 S",
+        "src/lib/scoring/adaptive-scoring.ts:360 S"
       ],
       "justification": "Adaptive graph selection is read-only; graph content and activation remain environment scoped."
     },
@@ -93,7 +96,7 @@
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE GUIDANCE READ",
       "sources": [
-        "src/lib/adaptive/server.ts:101 S"
+        "src/lib/adaptive/server.ts:117 S"
       ],
       "justification": "Adaptive evidence guidance is read-only for the customer state loader and remains Staging-only."
     },
@@ -105,8 +108,8 @@
       "productionCurrent": "0000",
       "classification": "PREVIEW/STAGING ADAPTIVE NAVIGATION STATE",
       "sources": [
-        "src/lib/adaptive/server.ts:98 S",
-        "src/lib/adaptive/server.ts:162 I"
+        "src/lib/adaptive/server.ts:114 SI",
+        "src/lib/adaptive/server.ts:178 SI"
       ],
       "justification": "Adaptive navigation state is created and updated through the existing server-side journey operations only."
     },
@@ -119,7 +122,11 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/app/score/api/admin/login/route.ts:60 S",
-        "src/lib/auth/admin-route.ts:23 S"
+        "src/app/score/api/internal/uat-start-check/route.ts:22 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:22 S",
+        "src/lib/auth/admin-route.ts:23 S",
+        "src/lib/rc1/control-plane.ts:76 S",
+        "src/lib/reports/assemble-report-data.ts:162 S"
       ],
       "justification": "Server-side admin login and session resolution require active-profile lookup; no service-role write is justified."
     },
@@ -131,7 +138,10 @@
       "productionCurrent": "1000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
+        "src/app/score/admin/phase14-activation/page.tsx:35 S",
+        "src/lib/admin/assessment-review.ts:198 S",
         "src/lib/assessment-experience/resume-capability.ts:10 S",
+        "src/lib/orders/manual-eft-orders.ts:84 S",
         "src/lib/payments/payment-capability.ts:21 S",
         "src/lib/reports/automation/feature-flags.ts:61 S",
         "src/lib/reports/phase1-schema-capability.ts:44 S"
@@ -146,10 +156,11 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/assessment-methodology.ts:168 S",
-        "src/lib/respondent/assessment-save.ts:152 D",
-        "src/lib/respondent/assessment-save.ts:162 I+U",
-        "src/lib/scoring/score-assessment.ts:78 S"
+        "src/lib/admin/assessment-review.ts:92 SIUD",
+        "src/lib/respondent/assessment-methodology.ts:168 SIUD",
+        "src/lib/respondent/assessment-save.ts:152 SIUD",
+        "src/lib/respondent/assessment-save.ts:162 SIUD",
+        "src/lib/scoring/score-assessment.ts:78 SIUD"
       ],
       "justification": "Draft replacement/upsert, journey load and scoring."
     },
@@ -161,9 +172,10 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/analytics/assessment-events.ts:85 U+S",
-        "src/lib/analytics/assessment-events.ts:113 S",
-        "src/lib/analytics/assessment-events.ts:125 I+S"
+        "src/lib/analytics/assessment-events.ts:113 SIU",
+        "src/lib/analytics/assessment-events.ts:125 SIU",
+        "src/lib/analytics/assessment-events.ts:146 SIU",
+        "src/lib/analytics/assessment-events.ts:85 SIU"
       ],
       "justification": "Idempotent customer journey event recording; DELETE is not required and is not newly granted."
     },
@@ -175,10 +187,16 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/start-assessment.ts:84 I+S",
-        "src/lib/respondent/tokens.ts:42 U",
-        "src/lib/respondent/tokens.ts:89 S",
-        "src/lib/respondent/tokens.ts:123 U"
+        "src/app/score/api/internal/uat-start-check/route.ts:55 SIU",
+        "src/app/score/api/readiness-runtime-check/route.ts:48 SIU",
+        "src/lib/adaptive/server.ts:181 SIU",
+        "src/lib/adaptive/server.ts:90 SIU",
+        "src/lib/respondent/assessment-save.ts:361 SIU",
+        "src/lib/respondent/start-assessment.ts:84 SIU",
+        "src/lib/respondent/tokens.ts:114 SIU",
+        "src/lib/respondent/tokens.ts:178 SIU",
+        "src/lib/respondent/tokens.ts:42 SIU",
+        "src/lib/respondent/tokens.ts:52 SIU"
       ],
       "justification": "Resume/snapshot token creation, validation and consumption."
     },
@@ -190,10 +208,31 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/start-assessment.ts:62 I+S",
-        "src/lib/respondent/start-assessment.ts:145 D",
-        "src/lib/respondent/assessment-save.ts:316 U+S",
-        "src/lib/scoring/score-assessment.ts:64 S"
+        "src/app/score/api/adaptive/[assessmentRef]/submit/route.ts:22 SIUD",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:72 SIUD",
+        "src/app/score/api/internal/uat-start-check/route.ts:54 SIUD",
+        "src/app/score/api/payments/[orderReference]/session/route.ts:25 SIUD",
+        "src/app/score/api/readiness-runtime-check/route.ts:47 SIUD",
+        "src/app/score/assessment/[assessmentRef]/page.tsx:125 SIUD",
+        "src/lib/adaptive/server.ts:171 SIUD",
+        "src/lib/adaptive/server.ts:187 SIUD",
+        "src/lib/adaptive/server.ts:98 SIUD",
+        "src/lib/admin/assessment-review.ts:26 SIUD",
+        "src/lib/admin/assessment-review.ts:65 SIUD",
+        "src/lib/admin/dashboard.ts:7 SIUD",
+        "src/lib/reports/assemble-report-data.ts:81 SIUD",
+        "src/lib/reports/assemble-report-data.ts:89 SIUD",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:249 SIUD",
+        "src/lib/reports/email/premium-report-preview-development.ts:163 SIUD",
+        "src/lib/respondent/assessment-save.ts:316 SIUD",
+        "src/lib/respondent/assessment-save.ts:334 SIUD",
+        "src/lib/respondent/start-assessment.ts:145 SIUD",
+        "src/lib/respondent/start-assessment.ts:62 SIUD",
+        "src/lib/respondent/tokens.ts:131 SIUD",
+        "src/lib/respondent/tokens.ts:192 SIUD",
+        "src/lib/scoring/adaptive-scoring.ts:350 SIUD",
+        "src/lib/scoring/score-assessment.ts:64 SIUD",
+        "src/lib/snapshot/free-snapshot.ts:49 SIUD"
       ],
       "justification": "Assessment creation, journey state, submission and compensating rollback."
     },
@@ -205,10 +244,27 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/app/score/api/admin/login/route.ts:71 I",
-        "src/lib/admin/assessment-review.ts:122 S",
-        "src/lib/respondent/start-assessment.ts:103 I",
-        "src/lib/respondent/assessment-save.ts:213 I"
+        "src/app/score/api/admin/login/route.ts:71 SI",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:248 SI",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:94 SI",
+        "src/app/score/api/internal/uat-start-check/route.ts:57 SI",
+        "src/app/score/api/readiness-runtime-check/route.ts:50 SI",
+        "src/lib/admin/assessment-review.ts:122 SI",
+        "src/lib/admin/assessment-review.ts:134 SI",
+        "src/lib/admin/assessment-review.ts:215 SI",
+        "src/lib/admin/dashboard.ts:12 SI",
+        "src/lib/admin/personalised-enquiries.ts:89 SI",
+        "src/lib/orders/manual-eft-orders.ts:284 SI",
+        "src/lib/orders/manual-eft-orders.ts:353 SI",
+        "src/lib/orders/manual-eft-orders.ts:430 SI",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:122 SI",
+        "src/lib/reports/phase1-report-access.ts:76 SI",
+        "src/lib/respondent/assessment-save.ts:213 SI",
+        "src/lib/respondent/assessment-save.ts:367 SI",
+        "src/lib/respondent/start-assessment.ts:103 SI",
+        "src/lib/respondent/tokens.ts:156 SI",
+        "src/lib/respondent/tokens.ts:219 SI",
+        "src/lib/respondent/tokens.ts:64 SI"
       ],
       "justification": "Append-only audit recording and authorised admin review; UPDATE/DELETE are not required."
     },
@@ -220,7 +276,7 @@
       "productionCurrent": "ABSENT",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:130 S",
+        "src/lib/reports/customer-report-access.ts:131 S",
         "src/lib/reports/delivery-recovery-service.ts:166 S",
         "src/lib/reports/delivery-recovery-service.ts:303 S"
       ],
@@ -234,9 +290,15 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:77 S",
-        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:92 U+S",
-        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:132 I+S"
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:132 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:77 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:92 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:42 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:54 SIU",
+        "src/lib/admin/assessment-review.ts:116 SIU",
+        "src/lib/admin/dashboard.ts:10 SIU",
+        "src/lib/admin/personalised-enquiries.ts:47 SIU",
+        "src/lib/admin/personalised-enquiries.ts:72 SIU"
       ],
       "justification": "Personalised/report request creation, deduplication and status progression."
     },
@@ -248,9 +310,12 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
+        "src/app/score/api/internal/uat-start-check/route.ts:19 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:19 S",
+        "src/lib/admin/assessment-review.ts:170 S",
+        "src/lib/reports/assemble-report-data.ts:252 S",
         "src/lib/respondent/assessment-methodology.ts:72 S",
-        "src/lib/reports/assemble-report-data.ts:106 S",
-        "src/lib/snapshot/free-snapshot.ts:82 S"
+        "src/lib/snapshot/free-snapshot.ts:107 S"
       ],
       "justification": "Read-only methodology and report assembly."
     },
@@ -262,8 +327,8 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/orders/manual-eft-orders.ts:62 S",
-        "src/lib/admin/assessment-review.ts:199 S"
+        "src/lib/admin/assessment-review.ts:199 S",
+        "src/lib/orders/manual-eft-orders.ts:62 S"
       ],
       "justification": "Read-only EFT configuration."
     },
@@ -275,10 +340,26 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/notifications/phase1-order-notifications.ts:83 S",
-        "src/lib/notifications/phase1-order-notifications.ts:97 I+S",
-        "src/lib/notifications/phase1-order-notifications.ts:139 U",
-        "src/lib/reports/email/report-delivery-service-core.ts:334 S"
+        "src/app/score/admin/operational-alerts/page.tsx:49 SIU",
+        "src/app/score/api/assessments/[assessmentRef]/report-request/route.ts:86 SIU",
+        "src/app/score/api/internal/uat-start-check/route.ts:56 SIU",
+        "src/app/score/api/readiness-runtime-check/route.ts:49 SIU",
+        "src/lib/notifications/internal-notifications.ts:118 SIU",
+        "src/lib/notifications/internal-notifications.ts:83 SIU",
+        "src/lib/notifications/internal-notifications.ts:95 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:153 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:172 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:198 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:249 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:276 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:295 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:318 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:599 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:602 SIU",
+        "src/lib/reports/delivery-recovery-service.ts:295 SIU",
+        "src/lib/reports/email/report-delivery-service-core.ts:356 SIU",
+        "src/lib/reports/phase1-operations.ts:98 SIU",
+        "src/lib/respondent/start-assessment.ts:115 SIU"
       ],
       "justification": "Durable notification creation, provider state and reconciliation."
     },
@@ -290,9 +371,11 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/assessment-methodology.ts:172 S",
-        "src/lib/respondent/assessment-save.ts:198 I+U",
-        "src/lib/scoring/score-assessment.ts:82 S"
+        "src/lib/admin/assessment-review.ts:97 SIU",
+        "src/lib/reports/assemble-report-data.ts:346 SIU",
+        "src/lib/respondent/assessment-methodology.ts:172 SIU",
+        "src/lib/respondent/assessment-save.ts:198 SIU",
+        "src/lib/scoring/score-assessment.ts:82 SIU"
       ],
       "justification": "Exposure answer load, upsert and scoring."
     },
@@ -304,8 +387,10 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/assessment-methodology.ts:83 S",
-        "src/lib/admin/assessment-review.ts:178 S"
+        "src/app/score/api/internal/uat-start-check/route.ts:21 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:21 S",
+        "src/lib/admin/assessment-review.ts:178 S",
+        "src/lib/respondent/assessment-methodology.ts:83 S"
       ],
       "justification": "Read-only methodology configuration."
     },
@@ -329,8 +414,9 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-operations.ts:92 S",
-        "src/lib/reports/phase1-operations.ts:134 S"
+        "src/lib/reports/phase1-manual-fulfilment.ts:245 S",
+        "src/lib/reports/phase1-operations.ts:134 S",
+        "src/lib/reports/phase1-operations.ts:92 S"
       ],
       "justification": "Admin operational history only."
     },
@@ -343,7 +429,7 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:110 S",
-        "src/lib/reports/assemble-report-data.ts:178 S"
+        "src/lib/reports/assemble-report-data.ts:324 S"
       ],
       "justification": "Score evidence and report assembly."
     },
@@ -355,9 +441,9 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/start-assessment.ts:12 S",
         "src/app/score/admin/methodology/page.tsx:10 S",
-        "src/lib/admin/assessment-review.ts:163 S"
+        "src/lib/admin/assessment-review.ts:163 S",
+        "src/lib/respondent/start-assessment.ts:12 S"
       ],
       "justification": "Assessment start and read-only admin methodology view; historical Production writes are deliberately not copied."
     },
@@ -369,9 +455,14 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/orders/manual-eft-orders.ts:258 I",
-        "src/lib/orders/manual-eft-orders.ts:352 S",
-        "src/lib/reports/delivery-recovery-service.ts:174 S"
+        "src/lib/notifications/phase1-order-notifications.ts:211 SI",
+        "src/lib/notifications/phase1-order-notifications.ts:267 SI",
+        "src/lib/notifications/phase1-order-notifications.ts:342 SI",
+        "src/lib/orders/manual-eft-orders.ts:258 SI",
+        "src/lib/orders/manual-eft-orders.ts:352 SI",
+        "src/lib/orders/manual-eft-orders.ts:428 SI",
+        "src/lib/reports/delivery-recovery-service.ts:174 SI",
+        "src/lib/reports/phase1-report-access.ts:69 SI"
       ],
       "justification": "Append-only order timeline and recovery reads."
     },
@@ -383,11 +474,24 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/orders/manual-eft-orders.ts:201 S",
-        "src/lib/orders/manual-eft-orders.ts:232 I+S",
-        "src/lib/orders/manual-eft-orders.ts:379 U+S",
-        "src/lib/payments/payment-service.ts:53 S",
-        "src/lib/fulfilment/delivery-worker.ts:132 S"
+        "src/app/score/api/admin/orders/[orderReference]/delivery/correct-recipient/route.ts:31 SIU",
+        "src/app/score/api/admin/orders/[orderReference]/delivery/reissue-token/route.ts:33 SIU",
+        "src/app/score/api/internal/fulfilment-worker/route.ts:184 SIU",
+        "src/app/score/api/payments/[orderReference]/session/route.ts:21 SIU",
+        "src/lib/admin/dashboard.ts:8 SIU",
+        "src/lib/fulfilment/delivery-worker.ts:132 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:490 SIU",
+        "src/lib/notifications/phase1-order-notifications.ts:540 SIU",
+        "src/lib/orders/manual-eft-orders.ts:201 SIU",
+        "src/lib/orders/manual-eft-orders.ts:232 SIU",
+        "src/lib/orders/manual-eft-orders.ts:315 SIU",
+        "src/lib/orders/manual-eft-orders.ts:339 SIU",
+        "src/lib/orders/manual-eft-orders.ts:379 SIU",
+        "src/lib/payments/payment-service.ts:150 SIU",
+        "src/lib/payments/payment-service.ts:53 SIU",
+        "src/lib/reports/assemble-report-data.ts:99 SIU",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:92 SIU",
+        "src/lib/reports/email/premium-report-preview-development.ts:83 SIU"
       ],
       "justification": "Order creation, admin/payment state and fulfilment binding."
     },
@@ -399,9 +503,16 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/start-assessment.ts:23 I+S",
-        "src/lib/respondent/start-assessment.ts:147 D",
-        "src/lib/respondent/tokens.ts:116 S"
+        "src/app/score/api/internal/uat-start-check/route.ts:52 SID",
+        "src/app/score/api/readiness-runtime-check/route.ts:45 SID",
+        "src/lib/adaptive/server.ts:105 SID",
+        "src/lib/adaptive/server.ts:158 SID",
+        "src/lib/adaptive/server.ts:189 SID",
+        "src/lib/respondent/start-assessment.ts:147 SID",
+        "src/lib/respondent/start-assessment.ts:23 SID",
+        "src/lib/respondent/tokens.ts:143 SID",
+        "src/lib/respondent/tokens.ts:206 SID",
+        "src/lib/snapshot/free-snapshot.ts:73 SID"
       ],
       "justification": "Accountless assessment creation, validation and compensating rollback."
     },
@@ -413,8 +524,10 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/payments/payment-operations.ts:25 S",
-        "src/lib/payments/payment-service.ts:95 U"
+        "src/app/score/api/payments/[orderReference]/status/route.ts:22 SU",
+        "src/lib/payments/payment-operations.ts:25 SU",
+        "src/lib/payments/payment-operations.ts:35 SU",
+        "src/lib/payments/payment-service.ts:95 SU"
       ],
       "justification": "Payment state lookup and post-transition annotation; INSERT is RPC-owned."
     },
@@ -426,8 +539,8 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/app/score/api/payments/[orderReference]/session/route.ts:34 I",
-        "src/app/score/api/payments/[orderReference]/status/route.ts:16 S"
+        "src/app/score/api/payments/[orderReference]/session/route.ts:35 SI",
+        "src/app/score/api/payments/[orderReference]/status/route.ts:18 SI"
       ],
       "justification": "Payment return-session creation and lookup."
     },
@@ -439,7 +552,10 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/payments/payment-operations.ts:26 S"
+        "src/lib/payments/payment-operations.ts:26 S",
+        "src/lib/reports/assemble-report-data.ts:139 S",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:234 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:153 S"
       ],
       "justification": "Admin payment timeline; writes remain inside the transition RPC."
     },
@@ -476,6 +592,10 @@
       "productionCurrent": "1000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
+        "src/app/score/admin/operational-alerts/page.tsx:106 S",
+        "src/app/score/admin/operational-alerts/page.tsx:117 S",
+        "src/app/score/admin/operational-alerts/page.tsx:118 S",
+        "src/app/score/admin/operational-alerts/page.tsx:119 S",
         "src/components/admin/AdminShell.tsx:37 S"
       ],
       "justification": "Server-rendered critical-alert count; transitions remain authenticated RPC-only."
@@ -501,8 +621,9 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/orders/manual-eft-orders.ts:118 S",
-        "src/lib/admin/dashboard.ts:11 S"
+        "src/lib/admin/assessment-review.ts:197 S",
+        "src/lib/admin/dashboard.ts:11 S",
+        "src/lib/orders/manual-eft-orders.ts:118 S"
       ],
       "justification": "Read-only product selection and admin counts."
     },
@@ -514,8 +635,11 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/assessment-methodology.ts:77 S",
-        "src/lib/reports/assemble-report-data.ts:110 S"
+        "src/app/score/api/internal/uat-start-check/route.ts:20 S",
+        "src/app/score/api/readiness-runtime-check/route.ts:20 S",
+        "src/lib/admin/assessment-review.ts:174 S",
+        "src/lib/reports/assemble-report-data.ts:256 S",
+        "src/lib/respondent/assessment-methodology.ts:77 S"
       ],
       "justification": "Read-only methodology and report evidence."
     },
@@ -527,7 +651,7 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/assemble-report-data.ts:221 S"
+        "src/lib/reports/assemble-report-data.ts:367 S"
       ],
       "justification": "Read-only report recommendation assembly."
     },
@@ -539,8 +663,10 @@
       "productionCurrent": "1000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/automation/durable-ai-attempts.ts:79 S",
-        "src/lib/reports/automation/manual-ai-attempt-store.ts:26 S"
+        "src/lib/reports/automation/durable-ai-attempts.ts:134 S",
+        "src/lib/reports/automation/durable-ai-attempts.ts:152 S",
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:26 S",
+        "src/lib/reports/automation/manual-ai-attempt-store.ts:43 S"
       ],
       "justification": "Idempotency/accounting reads; mutations remain controlled RPC-only."
     },
@@ -552,8 +678,9 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:327 S",
-        "src/lib/reports/premium-report-service-core.ts:463 S"
+        "src/lib/admin/assessment-review.ts:182 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:453 S",
+        "src/lib/reports/premium-report-service-core.ts:466 S"
       ],
       "justification": "Read-only report content assembly."
     },
@@ -566,8 +693,11 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/reports/delivery-recovery-service.ts:163 S",
-        "src/lib/reports/email/report-delivery-service-core.ts:201 S",
-        "src/lib/reports/email/report-delivery-service-core.ts:342 S"
+        "src/lib/reports/email/premium-report-admin-initiation.ts:140 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:119 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:213 S",
+        "src/lib/reports/email/report-delivery-service-core.ts:363 S",
+        "src/lib/reports/phase1-operations.ts:141 S"
       ],
       "justification": "Delivery state and reconciliation lookup; mutations remain controlled RPC-only."
     },
@@ -579,7 +709,6 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:66 I",
         "src/lib/reports/phase1-report-access.ts:62 I"
       ],
       "justification": "Append-only access audit. Direct SELECT/UPDATE/DELETE are not required."
@@ -592,6 +721,8 @@
       "productionCurrent": "0000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
+        "src/lib/reports/automation/fulfilment.ts:109 S",
+        "src/lib/reports/automation/fulfilment.ts:147 S",
         "src/lib/reports/automation/processor.ts:14 S",
         "src/workflows/premium-report-fulfilment.ts:38 S",
         "src/workflows/premium-report-fulfilment.ts:77 S"
@@ -608,7 +739,7 @@
       "sources": [
         "src/lib/reports/automation/processor.ts:35 S",
         "src/lib/reports/premium-report-service-core.ts:126 S",
-        "src/lib/reports/premium-report-service-core.ts:202 S"
+        "src/lib/reports/premium-report-service-core.ts:205 S"
       ],
       "justification": "Worker idempotency and generated-report metadata; writes remain controlled RPC-only."
     },
@@ -620,8 +751,8 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:315 S",
-        "src/lib/reports/premium-report-service-core.ts:461 S"
+        "src/lib/reports/phase1-manual-fulfilment.ts:441 S",
+        "src/lib/reports/premium-report-service-core.ts:464 S"
       ],
       "justification": "Read-only template selection."
     },
@@ -633,11 +764,32 @@
       "productionCurrent": "1110",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/phase1-report-access.ts:119 S",
-        "src/lib/reports/phase1-report-access.ts:181 U",
-        "src/lib/reports/customer-report-access.ts:136 S",
-        "src/lib/reports/customer-report-access.ts:178 U",
-        "src/lib/fulfilment/delivery-worker.ts:127 S"
+        "src/app/score/admin/operational-alerts/page.tsx:46 SU",
+        "src/app/score/admin/orders/[orderReference]/page.tsx:56 SU",
+        "src/app/score/admin/orders/[orderReference]/page.tsx:65 SU",
+        "src/app/score/admin/reports/page.tsx:19 SU",
+        "src/lib/admin/dashboard.ts:9 SU",
+        "src/lib/fulfilment/delivery-worker.ts:127 SU",
+        "src/lib/reports/automation/processor.ts:27 SU",
+        "src/lib/reports/customer-report-access.ts:194 SU",
+        "src/lib/reports/customer-report-access.ts:236 SU",
+        "src/lib/reports/customer-report-access.ts:245 SU",
+        "src/lib/reports/delivery-recovery-service.ts:181 SU",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:107 SU",
+        "src/lib/reports/email/premium-report-preview-development.ts:96 SU",
+        "src/lib/reports/email/report-delivery-service-core.ts:98 SU",
+        "src/lib/reports/phase1-manual-delivery.ts:51 SU",
+        "src/lib/reports/phase1-manual-delivery.ts:60 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:259 SU",
+        "src/lib/reports/phase1-manual-fulfilment.ts:376 SU",
+        "src/lib/reports/phase1-operations.ts:132 SU",
+        "src/lib/reports/phase1-report-access.ts:119 SU",
+        "src/lib/reports/phase1-report-access.ts:181 SU",
+        "src/lib/reports/phase1-report-access.ts:191 SU",
+        "src/lib/reports/phase1-report-access.ts:197 SU",
+        "src/lib/reports/premium-report-service-core.ts:198 SU",
+        "src/lib/reports/report-access-eligibility.ts:113 SU",
+        "src/workflows/premium-report-fulfilment.ts:85 SU"
       ],
       "justification": "Report lookup, Storage-state correction and delivery verification; creation remains controlled RPC-only."
     },
@@ -649,9 +801,17 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/start-assessment.ts:41 I+S",
-        "src/lib/respondent/start-assessment.ts:146 D",
-        "src/lib/respondent/tokens.ts:118 S"
+        "src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts:205 SID",
+        "src/app/score/api/internal/uat-start-check/route.ts:53 SID",
+        "src/app/score/api/readiness-runtime-check/route.ts:46 SID",
+        "src/lib/adaptive/server.ts:106 SID",
+        "src/lib/adaptive/server.ts:165 SID",
+        "src/lib/adaptive/server.ts:188 SID",
+        "src/lib/respondent/start-assessment.ts:146 SID",
+        "src/lib/respondent/start-assessment.ts:41 SID",
+        "src/lib/respondent/tokens.ts:145 SID",
+        "src/lib/respondent/tokens.ts:208 SID",
+        "src/lib/snapshot/free-snapshot.ts:75 SID"
       ],
       "justification": "Accountless assessment creation, validation and compensating rollback."
     },
@@ -663,8 +823,8 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/respondent/assessment-methodology.ts:67 S",
-        "src/lib/reports/response-labels.ts:313 S"
+        "src/lib/reports/response-labels.ts:313 S",
+        "src/lib/respondent/assessment-methodology.ts:67 S"
       ],
       "justification": "Read-only official response labels."
     },
@@ -676,8 +836,10 @@
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/assemble-report-data.ts:108 S",
-        "src/lib/snapshot/free-snapshot.ts:73 S"
+        "src/lib/admin/assessment-review.ts:86 S",
+        "src/lib/reports/assemble-report-data.ts:254 S",
+        "src/lib/reports/assemble-report-data.ts:265 S",
+        "src/lib/snapshot/free-snapshot.ts:98 S"
       ],
       "justification": "Read-only score evidence and snapshot/report output."
     },
@@ -690,7 +852,8 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:103 S",
-        "src/lib/reports/assemble-report-data.ts:112 S"
+        "src/lib/reports/assemble-report-data.ts:258 S",
+        "src/lib/reports/assemble-report-data.ts:288 S"
       ],
       "justification": "Read-only scoring trace evidence."
     },
@@ -703,8 +866,14 @@
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
         "src/lib/admin/assessment-review.ts:44 S",
-        "src/lib/reports/assemble-report-data.ts:91 S",
-        "src/lib/snapshot/free-snapshot.ts:58 S"
+        "src/lib/admin/assessment-review.ts:78 S",
+        "src/lib/notifications/phase1-order-notifications.ts:372 S",
+        "src/lib/reports/assemble-report-data.ts:113 S",
+        "src/lib/reports/assemble-report-data.ts:127 S",
+        "src/lib/reports/email/premium-report-admin-initiation.ts:253 S",
+        "src/lib/reports/email/premium-report-preview-development.ts:164 S",
+        "src/lib/snapshot/free-snapshot.ts:65 S",
+        "src/lib/snapshot/free-snapshot.ts:82 S"
       ],
       "justification": "Read-only score result, snapshot and report assembly."
     },
@@ -716,8 +885,9 @@
       "productionCurrent": "0000",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:229 S",
-        "src/lib/reports/supporting-register-delivery.ts:78 S"
+        "src/lib/reports/customer-report-access.ts:265 S",
+        "src/lib/reports/phase1-manual-fulfilment.ts:273 S",
+        "src/lib/reports/supporting-register-delivery.ts:143 S"
       ],
       "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
     }
@@ -1002,7 +1172,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:88"
+        "src/lib/reports/customer-report-access.ts:89"
       ],
       "classification": "Customer access audit RPC (artefact-aware)"
     },
@@ -1011,7 +1181,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:99"
+        "src/lib/reports/customer-report-access.ts:100"
       ],
       "classification": "Customer access audit RPC (pre-migration fallback)"
     },
@@ -1157,7 +1327,7 @@
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
-        "src/lib/reports/customer-report-access.ts:156"
+        "src/lib/reports/customer-report-access.ts:157"
       ],
       "classification": "Atomic customer report-access consumption"
     },
@@ -1261,13 +1431,13 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/customer-report-access.ts:214",
-    "src/lib/reports/customer-report-access.ts:258",
     "src/lib/reports/phase1-manual-fulfilment.ts:291",
     "src/lib/reports/phase1-manual-fulfilment.ts:595",
     "src/lib/reports/phase1-manual-fulfilment.ts:745",
     "src/lib/reports/supporting-register-delivery.ts:157",
-    "src/lib/reports/supporting-register-delivery.ts:97"
+    "src/lib/reports/supporting-register-delivery.ts:97",
+    "src/lib/reports/customer-report-access.ts:234",
+    "src/lib/reports/customer-report-access.ts:278"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1330,7 +1500,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "1c48b51a68c1f22f959ae5f077ddd2b7cfc0199d897ce414e49720a3962eb693"
+    "fullAstInventorySha256": "eeff0fe232ec3fbf2784056b8e8ceff8e104c5703e05274415d23177c28f6550"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

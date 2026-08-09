@@ -306,5 +306,37 @@ test('P2: all three counter families use the atomic primitive, not read-then-wri
     'the allowance must be consumed before any Storage read');
 });
 
+test('the historical compatibility seam is test-only and never a product fallback', () => {
+  const seam = 'scripts/phase1-disposable-atomic-finalisation-seam.sql';
+  assert.ok(fs.existsSync(seam), 'the Phase 1 historical seam must exist');
+  const sql = read(seam);
+  assert.match(sql, /TEST-ONLY/, 'the seam must declare itself test-only');
+  assert.match(sql, /phase1_seam_refused/, 'the seam must refuse to install on a modern schema');
+  // It must not be a migration: never in the ledger, never applied to a real environment.
+  const migrations = fs.readdirSync('supabase/migrations');
+  assert.ok(!migrations.some((f) => f.includes('atomic-finalisation-seam') || f.includes('atomic_finalisation_seam')),
+    'the seam must not be a migration');
+  const postflight = read('scripts/rc1-production-postflight.sql');
+  assert.ok(!postflight.includes('atomic_finalisation_seam'), 'the seam must not enter the ledger');
+  // And the deployed application must still contain no fallback of its own.
+  const caller = read('src/lib/reports/phase1-manual-fulfilment.ts');
+  assert.ok(!caller.includes("rpc('complete_manual_report_generation'"),
+    'product code must not fall back to the old completion RPC');
+});
+
+test('customer access separates authoritative denial from operational failure', () => {
+  const access = read('src/lib/reports/customer-report-access.ts');
+  assert.match(access, /access_unavailable/, 'an operational-fault reason must exist');
+  // A denial the RPC actually returned maps to its own outcome; anything else is unavailable.
+  assert.match(access, /authoritativeDenial \?\? 'access_unavailable'/,
+    'only recognised authoritative denials may map to a denial outcome');
+  assert.match(access, /reason === 'access_unavailable' \? 503/,
+    'operational faults must surface as 503, not as an exhausted allowance');
+  assert.match(access, /reason === 'rate_limited' \? 429/, 'genuine exhaustion stays 429');
+  // No SQL/function detail may leak in the operational path.
+  assert.ok(!/consumeError\?\.(message|details|hint|code)/.test(access),
+    'database error detail must not reach the customer path');
+});
+
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length > 0) process.exit(1);

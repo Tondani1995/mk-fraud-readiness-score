@@ -91,6 +91,11 @@ jobs:
           supabase db reset --local --yes --version 0016
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          # TEST-ONLY seam. The current app fails closed without the atomic finalisation RPC, which
+          # is correct and must not change; the historical 0023 schema simply predates it. This file
+          # is never in the migration ledger and never reaches Preview/Staging/Production.
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase1-disposable-atomic-finalisation-seam.sql
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
             --set=rc1_disposable_expected_boundary=0016 \
