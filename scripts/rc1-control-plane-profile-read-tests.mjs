@@ -34,7 +34,7 @@ const controlPlaneReplayMigrations = migrationFiles.filter(
     '20260806143000_pre_g30_structured_output_release_gate.sql'
   ].includes(name),
 );
-assert.equal(controlPlaneReplayMigrations.length, 97);
+assert.equal(controlPlaneReplayMigrations.length, 98);
 // Asserted by name and relative order rather than tail position: the RC1 series appends further
 // additive migrations (quality diagnostics, synthetic cleanup), so at(-1)/at(-2) legitimately move
 // while the accepted ordering of these two must not.
