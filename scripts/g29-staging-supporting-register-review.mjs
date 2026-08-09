@@ -130,21 +130,38 @@ try {
   // ------------------------------------------------------------------- real private upload
   storagePath = `${primary.organisationId}/${primary.orderId}/v1/`
     + `${primary.reportReference}-supporting-register.xlsx`;
-  // Self-healing setup. A VERIFIED artefact is immutable by design, so any row left behind by an
-  // interrupted earlier run would make complete_report_secondary_artefact() reject this one as a
-  // conflicting rewrite. Clear both sides first so the review is repeatable.
-  try {
-    await db.from('report_artifacts').delete()
-      .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register');
-  } catch { /* nothing to clear */ }
-  try { await db.storage.from(primary.bucket).remove([storagePath]); } catch { /* absent is fine */ }
-  const { error: uploadError } = await db.storage.from(primary.bucket)
-    .upload(storagePath, workbook.bytes, {
-      contentType: workbook.mimeType, upsert: false,
-      metadata: { sha256: workbook.checksumSha256, reportId: primary.reportId }
-    });
-  record('XLSX accepted by the private bucket (MIME policy)', !uploadError, safe(uploadError?.message));
-  if (uploadError) throw new Error(`upload failed: ${safe(uploadError.message)}`);
+  // A VERIFIED artefact is immutable by design. An earlier certified run therefore leaves one behind,
+  // and this review must ADOPT it rather than try to recreate it.
+  //
+  // The previous approach deleted both sides first. That silently half-worked: service_role is
+  // SELECT-only on report_artifacts (least privilege, deliberately), and PostgREST returns an error
+  // object instead of throwing, so the try/catch never saw the refusal. The Storage object was
+  // removed and re-uploaded with fresh bytes while the immutable row kept the OLD checksum -- the
+  // review manufactured the very disagreement it then failed on with report_artifact_already_verified.
+  //
+  // Granting DELETE to make the old flow work would weaken artefact immutability, so instead the
+  // retained artefact becomes the subject of the review. That is the stronger proof anyway: it
+  // exercises the real customer-facing register rather than one created moments earlier.
+  const { data: retainedArtefact } = await db.from('report_artifacts')
+    .select('id,storage_path,file_name,mime_type,file_size_bytes,checksum_sha256,storage_status,created_at')
+    .eq('report_id', primary.reportId).eq('artefact_type', 'supporting_register')
+    .eq('storage_status', 'VERIFIED').maybeSingle();
+
+  if (retainedArtefact) {
+    storagePath = retainedArtefact.storage_path;
+    record('XLSX accepted by the private bucket (MIME policy)',
+      retainedArtefact.mime_type === workbook.mimeType,
+      `retained VERIFIED artefact adopted (${retainedArtefact.mime_type}, created ${retainedArtefact.created_at})`);
+  } else {
+    try { await db.storage.from(primary.bucket).remove([storagePath]); } catch { /* absent is fine */ }
+    const { error: uploadError } = await db.storage.from(primary.bucket)
+      .upload(storagePath, workbook.bytes, {
+        contentType: workbook.mimeType, upsert: false,
+        metadata: { sha256: workbook.checksumSha256, reportId: primary.reportId }
+      });
+    record('XLSX accepted by the private bucket (MIME policy)', !uploadError, safe(uploadError?.message));
+    if (uploadError) throw new Error(`upload failed: ${safe(uploadError.message)}`);
+  }
 
   // ------------------------------------- stored-byte checksum + size verification (re-download)
   const { data: storedBlob, error: downloadError } = await db.storage
@@ -152,8 +169,13 @@ try {
   if (downloadError || !storedBlob) throw new Error(`stored object unreadable: ${safe(downloadError?.message)}`);
   const storedBytes = Buffer.from(await storedBlob.arrayBuffer());
   const storedChecksum = crypto.createHash('sha256').update(storedBytes).digest('hex');
+  // The authoritative expectation is the retained row when one exists, and the freshly built
+  // workbook otherwise. A retained register is not byte-identical to a rebuild (it carries its own
+  // generation timestamps), so comparing it to a rebuild would be a false failure.
+  const expectedChecksum = retainedArtefact?.checksum_sha256 ?? workbook.checksumSha256;
+  const expectedBytes = Number(retainedArtefact?.file_size_bytes ?? workbook.bytes.length);
   record('stored bytes reconcile on checksum and size',
-    storedChecksum === workbook.checksumSha256 && storedBytes.length === workbook.bytes.length,
+    storedChecksum === expectedChecksum && storedBytes.length === expectedBytes,
     `${storedBytes.length} bytes, sha256 ${storedChecksum.slice(0, 16)}`);
   const storedSheets = await parseSheets(storedBytes);
   record('stored object re-parses as a complete workbook',
@@ -172,11 +194,20 @@ try {
     p_checksum_sha256: storedChecksum
   };
   const { data: persisted, error: persistError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
-  record('complete_report_secondary_artefact persists a VERIFIED row',
-    !persistError && persisted?.created === true && persisted?.artifact?.storage_status === 'VERIFIED',
-    safe(persistError?.message ?? persisted?.artifact?.storage_status));
-  if (persistError) throw new Error(`persistence failed: ${safe(persistError.message)}`);
-  artefactCreated = true;
+  if (retainedArtefact) {
+    // Already VERIFIED and immutable. The RPC must accept the identical description as a no-op --
+    // if it reports created=true or errors, the immutability guarantee itself is broken.
+    record('complete_report_secondary_artefact persists a VERIFIED row',
+      !persistError && persisted?.created === false && retainedArtefact.storage_status === 'VERIFIED',
+      `retained VERIFIED row honoured immutably (created=${persisted?.created})`);
+    if (persistError) throw new Error(`retained artefact rejected its own description: ${safe(persistError.message)}`);
+  } else {
+    record('complete_report_secondary_artefact persists a VERIFIED row',
+      !persistError && persisted?.created === true && persisted?.artifact?.storage_status === 'VERIFIED',
+      safe(persistError?.message ?? persisted?.artifact?.storage_status));
+    if (persistError) throw new Error(`persistence failed: ${safe(persistError.message)}`);
+    artefactCreated = true;
+  }
 
   const { data: replay, error: replayError } = await db.rpc('complete_report_secondary_artefact', persistArgs);
   const { count: artefactCount } = await db.from('report_artifacts')

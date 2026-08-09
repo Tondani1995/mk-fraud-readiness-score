@@ -409,7 +409,7 @@ function TrackedSection({ snapshot, snapshotUrl, eventType, sourceSection, id, c
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ snapshotToken, eventType, sourceSection })
       }).catch(() => null);
-    }, { threshold: [0, 0.25], rootMargin: '0px 0px -10% 0px' });
+    }, { threshold: [0.5] });
     observer.observe(node);
     return () => observer.disconnect();
   }, [eventType, sent, snapshot.assessmentReference, snapshotUrl, sourceSection]);
