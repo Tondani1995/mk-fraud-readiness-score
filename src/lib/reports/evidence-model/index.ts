@@ -22,7 +22,10 @@ export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependenc
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
   const visibilityGaps = buildVisibilityGaps(data);
-  let riskRegister = buildRiskRegister(materialFindings);
+  // Authoritative: the adaptive metrics say whether exposure was assessed at all. Absent metrics
+  // means the non-adaptive path, where exposure evidence is part of the ordinary model.
+  const exposureAssessed = data.adaptiveScope ? data.adaptiveScope.exposureAssessed === true : true;
+  let riskRegister = buildRiskRegister(materialFindings, exposureAssessed);
   const scenarios = buildPlausibleScenarios(data, materialFindings, riskRegister);
   riskRegister = riskRegister.map((risk) => ({
     ...risk,

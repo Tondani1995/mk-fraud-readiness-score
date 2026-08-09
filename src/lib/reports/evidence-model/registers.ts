@@ -29,16 +29,26 @@ export function consequenceClause(fragment: string | null | undefined): string {
     .trim();
 }
 
-export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact) {
+/**
+ * exposureAssessed defaults to true so existing callers are unchanged. When exposure was NOT
+ * assessed, no exposure evidence exists, so linkedExposureFactorCodes cannot legitimately influence
+ * either the rating or the rationale: V7 was an adaptive assessment with no exposure score or band,
+ * yet the register still spoke of "multiple linked exposure factors" and "critical, hard-gate,
+ * exposure and cap evidence". Nothing is substituted in its place -- the reasoning simply falls back
+ * to the control, hard-gate, cap, scenario and dependency evidence that IS supported.
+ */
+export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impact, exposureAssessed = true) {
   const isAssuranceOnly = findings.every((finding) => finding.materialityClass === 'assurance_priority');
-  const linkedHighSevereExposureCodes = stableUnique(findings.flatMap((finding) => finding.linkedExposureFactorCodes));
+  const exposureCodesFor = (finding: MaterialFinding) =>
+    exposureAssessed ? finding.linkedExposureFactorCodes : [];
+  const linkedHighSevereExposureCodes = stableUnique(findings.flatMap(exposureCodesFor));
   const assuranceExposurePressure = isAssuranceOnly && linkedHighSevereExposureCodes.length > 0;
   const hasHighPressure = findings.some((finding) =>
     (finding.isHardGate || finding.maturityCapStatus === 'capping') &&
-    ((finding.responseValue ?? 5) <= 1 || finding.linkedExposureFactorCodes.length >= 2)
+    ((finding.responseValue ?? 5) <= 1 || exposureCodesFor(finding).length >= 2)
   );
   const hasMaterialPressure = findings.some((finding) =>
-    finding.isCriticalControl || finding.linkedExposureFactorCodes.length > 0 ||
+    finding.isCriticalControl || exposureCodesFor(finding).length > 0 ||
     finding.selectionReasons.includes('PRIORITY_SCENARIO_ENABLER') ||
     finding.selectionReasons.includes('CROSS_DOMAIN_DEPENDENCY')
   );
@@ -50,15 +60,21 @@ export function deriveRiskRatings(findings: MaterialFinding[], consequence: Impa
       ? `The control is self-reported as operating and no control failure is asserted. Linked high/severe exposure (${linkedHighSevereExposureCodes.join(', ')}) increases the need for independent operating-evidence validation; this supports a Moderate qualitative likelihood, not a statistical probability.`
       : 'The control is self-reported as operating and no control failure is asserted. No linked high/severe exposure was identified; likelihood remains Low pending independent operating-evidence validation. This is a qualitative rating, not a statistical probability.'
     : hasHighPressure
-      ? 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response or multiple linked exposure factors; this supports a High qualitative likelihood, not a statistical probability.'
+      ? (exposureAssessed
+        ? 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response or multiple linked exposure factors; this supports a High qualitative likelihood, not a statistical probability.'
+        : 'The self-assessment records a hard-gate or maturity-limiting weakness with a very low response; this supports a High qualitative likelihood, not a statistical probability.')
       : hasMaterialPressure
-        ? 'Critical-control, exposure, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.'
+        ? (exposureAssessed
+          ? 'Critical-control, exposure, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.'
+          : 'Critical-control, scenario or dependency evidence supports a Moderate qualitative likelihood, not a statistical probability.')
         : 'The available self-assessment evidence supports a Low qualitative likelihood, subject to evidence validation.';
-  const impactRationale = `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate, exposure and cap evidence linked to the consolidated findings.`;
+  const impactRationale = exposureAssessed
+    ? `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate, exposure and cap evidence linked to the consolidated findings.`
+    : `${consequence} impact reflects the plausible consequence pathway and the critical, hard-gate and cap evidence linked to the consolidated findings.`;
   return { likelihood, likelihoodRationale, impact: consequence, impactRationale, priority: PRIORITY_MATRIX[likelihood][consequence] };
 }
 
-export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntry[] {
+export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed = true): RiskRegisterEntry[] {
   const groups = new Map<string, MaterialFinding[]>();
   for (const finding of [...findings].sort((a, b) => a.questionCode.localeCompare(b.questionCode))) {
     const pathway = riskPathwayForFinding(finding);
@@ -77,7 +93,7 @@ export function buildRiskRegister(findings: MaterialFinding[]): RiskRegisterEntr
     const title = isAssurance ? pathway.resilienceTitle : pathway.title;
     const cause = isAssurance ? pathway.resilienceCause : pathway.cause;
     const riskEvent = isAssurance ? pathway.resilienceRiskEvent : pathway.riskEvent;
-    const ratings = deriveRiskRatings(ordered, pathway.consequence);
+    const ratings = deriveRiskRatings(ordered, pathway.consequence, exposureAssessed);
     // The financial/operational/legal/reputational impact fields are rendered directly as their own
     // labelled fields in the PDF (see report-template.ts riskCards), not only inside riskStatement --
     // so an assurance-only risk must condition these individually too, not just the cause/riskEvent/

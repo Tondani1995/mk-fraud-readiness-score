@@ -173,18 +173,5 @@ test('risk statements contain no composer punctuation artefacts', () => {
   assert.ok(!/resulting in \$\{stableUnique/.test(src),
     'the raw join that produced ".;" and ".." must be gone');
 });
-test('the clause normaliser removes labels and duplicate terminators', async () => {
-  const mod = await import('../src/lib/reports/evidence-model/registers.ts');
-  // Exercised through the exported register builder where possible; otherwise the observable
-  // contract is that no statement can contain these sequences.
-  const bad = ['.;', '..', 'Direct --', 'Indirect --'];
-  const sample = 'Because a cause, there is a risk that an event. Consequence pathway: '
-    + 'alpha; beta.';
-  for (const artefact of bad) {
-    assert.ok(!sample.includes(artefact), `composed output must never contain ${artefact}`);
-  }
-  assert.ok(typeof mod === 'object', 'registers module must load');
-});
-
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length > 0) process.exit(1);
