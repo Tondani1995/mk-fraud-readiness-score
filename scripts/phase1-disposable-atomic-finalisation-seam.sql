@@ -26,6 +26,17 @@ begin
 end;
 $$;
 
+-- The historical bucket policy is PDF-only (0017), which is precisely what the Production-bound
+-- 20260807140000 widens. On this schema the supporting-register XLSX upload would be rejected
+-- before finalisation is ever reached, so the same widening is applied here for the disposable
+-- database only.
+update storage.buckets
+set allowed_mime_types = array[
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+]::text[]
+where id = 'generated-reports';
+
 create or replace function public.finalise_manual_report_with_supporting_register(
   p_attempt_id uuid,
   p_template_id uuid,

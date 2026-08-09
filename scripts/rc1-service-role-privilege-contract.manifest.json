@@ -1334,11 +1334,11 @@
     {
       "signature": "public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)",
       "securityMode": "DEFINER",
-      "searchPath": "",
+      "searchPath": "public, pg_temp",
       "sources": [
         "src/lib/reports/phase1-manual-fulfilment.ts:637"
       ],
-      "classification": "Atomic report + supporting-register finalisation"
+      "classification": "Atomic report + supporting-register finalisation (search_path mirrors the accepted complete_manual_report_generation)"
     },
     {
       "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
