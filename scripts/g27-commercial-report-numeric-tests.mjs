@@ -38,7 +38,7 @@ const baseEvidenceItems = [
 
 function evidence(extra = []) {
   return {
-    schemaVersion: 'mk-essential-ai-advisory-editor-v4',
+    schemaVersion: 'mk-essential-ai-advisory-editor-v5',
     assessmentReference: 'MKFRS-TEST',
     organisationName: 'Test Organisation',
     packageName: 'Essential Self-Assessment Report',

@@ -1,5 +1,6 @@
 import {
   PREMIUM_REPORT_AI_BODY_MAX_CHARS,
+  PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS,
   type NarrativeSectionBrief,
   type PremiumReportEvidencePack,
   type PremiumReportNarrativeBrief,
@@ -336,7 +337,8 @@ export function buildPremiumReportNarrativeBrief(
       'Explain this domain’s evidence, material implications and relevant cross-domain relationship in one substantive paragraph.',
       required,
       stableUnique([...ids([...related, ...limitation]), ...required]),
-      ['domain-specific evidence', 'material advisory implication', 'self-assessment limitation']
+      ['domain-specific evidence', 'material advisory implication', 'self-assessment limitation'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.domain
     );
   }
 
@@ -369,7 +371,7 @@ export function buildPremiumReportNarrativeBrief(
       required,
       stableUnique([...ids(related), ...required]),
       ['control condition', 'fraud mechanism', 'implication', 'control and evidence priority'],
-      1_200
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.gap
     );
   }
 
@@ -380,21 +382,24 @@ export function buildPremiumReportNarrativeBrief(
       'Synthesize the overall position, material drivers and leadership meaning in two or three compact paragraphs.',
       executiveRequired,
       executiveAllowed,
-      ['overall score and final maturity', 'exposure position', 'material risks or caps', 'leadership meaning', 'self-assessment limitation']
+      ['overall score and final maturity', 'exposure position', 'material risks or caps', 'leadership meaning', 'self-assessment limitation'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.executive
     ),
     falseComfort: section(
       'false_comfort',
       'Explain the precise masking or assurance issue and what evidence requires independent validation in one or two paragraphs.',
       falseComfortRequired,
       ids(falseComfortAllowedItems),
-      ['why the headline result is insufficient alone', 'specific masking or assurance issue', 'independent evidence to validate']
+      ['why the headline result is insufficient alone', 'specific masking or assurance issue', 'independent evidence to validate'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.falseComfort
     ),
     leadership: section(
       'leadership',
       'Explain decisions, sequencing, accountability categories and consequence of delay in one or two paragraphs; do not repeat a task list.',
       leadershipRequired,
       ids(leadershipAllowedItems),
-      ['leadership decisions', 'sequencing and dependencies', 'accountability', 'consequence of delay']
+      ['leadership decisions', 'sequencing and dependencies', 'accountability', 'consequence of delay'],
+      PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS.leadership
     ),
     domains,
     gaps

@@ -22,7 +22,11 @@ assert.equal(PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS, 300);
 assert.equal(PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS, 30_000);
 assert.ok(PREMIUM_REPORT_AI_TIMEOUT_MS + PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS <= PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS * 1000,
   'AI timeout plus post-provider margin must fit within the route duration');
-assert.equal(PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS, 5000);
+// Raised from 5,000 after V5 (AI attempt 50b0a33e) truncated at exactly that ceiling: finishReason
+// 'length', rawFinishReason 'max_output_tokens', settled structured_output_truncated. The body
+// envelope was tightened first (see ai:test-output-envelope); this is headroom over the tightened
+// worst case, not room for the old oversized one.
+assert.equal(PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS, 6500);
 // Next.js requires a literal segment export for static analysis; the value remains
 // tied to PREMIUM_REPORT_ROUTE_MAX_DURATION_SECONDS by the source-level contract.
 assert.match(route, /export const maxDuration = 300;/);
@@ -31,7 +35,10 @@ assert.doesNotMatch(generator, /45_000/);
 assert.match(generator, /AbortSignal\.timeout\(PREMIUM_REPORT_AI_TIMEOUT_MS\)/);
 assert.match(migration, /timeout_ms between 1000 and 300000/);
 assert.match(durable, /automatic replay is blocked/);
-assert.match(types, /mk-essential-evidence-projection-v2-compact/);
+// Stale expectation, pre-existing on d26567eb and masked until now by the 5,000-token assertion
+// above failing first. The accepted projection version is v3-compact; the input envelope is not
+// being reopened here, only the test's record of it corrected.
+assert.match(types, /mk-essential-evidence-projection-v3-compact/);
 
 assert.equal(classifyTimeoutDiagnostic(new Error('The operation was aborted due to timeout')), 'application_total_timeout');
 assert.equal(classifyTimeoutDiagnostic(new Error('AI Gateway request failed: timeout')), 'gateway_timeout');

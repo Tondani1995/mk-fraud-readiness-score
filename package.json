@@ -128,7 +128,8 @@
     "phase14:test-ai-settlement-parity": "node scripts/phase14-ai-settlement-parity-tests.mjs",
     "rc1:test-replay-matrix-c": "node scripts/rc1-replay-matrix-c-tests.mjs",
     "g30:test-pdf-accessibility": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g30-pdf-accessibility-contract.mjs",
-    "g30:test-keyboard-a11y": "node scripts/g30-keyboard-a11y-check.mjs"
+    "g30:test-keyboard-a11y": "node scripts/g30-keyboard-a11y-check.mjs",
+    "ai:test-output-envelope": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/ai-output-envelope-contract-tests.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

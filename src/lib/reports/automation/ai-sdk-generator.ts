@@ -22,32 +22,55 @@ import {
   PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS
 } from './phase-timing';
 
-import { PREMIUM_REPORT_AI_BODY_MAX_CHARS } from './types';
+import { PREMIUM_REPORT_AI_BODY_MAX_CHARS, PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS } from './types';
+import { ESSENTIAL_CAPS } from '../essential-projection';
 import crypto from 'node:crypto';
 
 const evidenceRefs = z.array(z.string().min(1)).min(1);
+/** Backstop only. Every provider-facing field below uses its own tighter section maximum. */
 const narrativeBody = z.string().min(1).max(PREMIUM_REPORT_AI_BODY_MAX_CHARS);
-export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 5000;
+const sectionBody = (kind: keyof typeof PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS) =>
+  z.string().min(1).max(PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS[kind]);
+
+/**
+ * Raised from 5,000 after V5 truncated at exactly the old ceiling (finishReason 'length',
+ * rawFinishReason 'max_output_tokens'). Deliberately NOT 8k/10k: the envelope was tightened first,
+ * so this is headroom over a ~13.7k-character worst case rather than room for an oversized one.
+ * Against the V5 actual input of 10,850 tokens this gives ~17,350 total, inside the existing 24,000
+ * hard total ceiling, and cost stays well under the 500,000-micro hard ceiling.
+ */
+export const PREMIUM_REPORT_AI_MAX_OUTPUT_TOKENS = 6500;
 export const PREMIUM_REPORT_AI_TIMEOUT_MS = 240_000;
 export { PREMIUM_REPORT_AI_POST_PROVIDER_MARGIN_MS };
 
+/** The MFS domain set the Essential projection reports on. */
+export const PREMIUM_REPORT_AI_MAX_DOMAIN_SECTIONS = 10;
+/**
+ * Gap sections are one-per-selected-material-finding (automation/evidence.ts derives them from
+ * projection.findings), so the authoritative bound is the Essential findings cap itself rather than
+ * an invented number. Systemic reports select fewer (findingsSystemic); this is the ceiling.
+ */
+export const PREMIUM_REPORT_AI_MAX_GAP_SECTIONS = ESSENTIAL_CAPS.findings;
+
 export const premiumReportNarrativeSchema = z.object({
   executiveEvidenceRefs: evidenceRefs,
-  executiveBody: narrativeBody,
+  executiveBody: sectionBody('executive'),
   falseComfortEvidenceRefs: evidenceRefs,
-  falseComfortBody: narrativeBody,
+  falseComfortBody: sectionBody('falseComfort'),
   leadershipEvidenceRefs: evidenceRefs,
-  leadershipBody: narrativeBody,
+  leadershipBody: sectionBody('leadership'),
+  // Output-shape protection only. These bound what the model may EMIT; they do not touch which
+  // domains or gaps the deterministic projection selects, MFS, or systemic logic.
   domainEvidence: z.array(z.object({
     domainCode: z.string().min(1),
     evidenceRefs,
-    body: narrativeBody
-  }).strict()),
+    body: sectionBody('domain')
+  }).strict()).max(PREMIUM_REPORT_AI_MAX_DOMAIN_SECTIONS),
   gapEvidence: z.array(z.object({
     questionCode: z.string().min(1),
     evidenceRefs,
-    body: narrativeBody
-  }).strict())
+    body: sectionBody('gap')
+  }).strict()).max(PREMIUM_REPORT_AI_MAX_GAP_SECTIONS)
 }).strict();
 
 function providerFromModel(model: string) {

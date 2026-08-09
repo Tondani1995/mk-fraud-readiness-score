@@ -1,13 +1,45 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
 import type { AdvisoryEvidenceModel } from '../evidence-model';
 
-export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v4-advisory-editor';
-export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v4';
+// Bumped from v4. The provider-facing contract genuinely changed: per-section maxLength values
+// replaced the single 2,000 default, maxItems appeared on both evidence arrays, and the prompt now
+// carries explicit concision direction. schema_version is part of the attempt-reuse fingerprint in
+// durable-ai-attempts.ts, so leaving it at v4 would let a persisted v4 attempt be matched against
+// the tighter contract and reused with bodies that no longer conform.
+export const PREMIUM_REPORT_PROMPT_VERSION = 'mk-essential-report-v5-advisory-editor';
+export const PREMIUM_REPORT_SCHEMA_VERSION = 'mk-essential-ai-advisory-editor-v5';
 export const PREMIUM_REPORT_EVIDENCE_PROJECTION_VERSION = 'mk-essential-evidence-projection-v3-compact';
 
-/** Maximum characters the AI may write for any single narrative body field. Mirrors the
- * deterministic-validator body length ceiling in automation/validation.ts (2500). */
+/** Absolute safety ceiling for any single narrative body field. Mirrors the deterministic-validator
+ * body length ceiling in automation/validation.ts (2500). Retained as a backstop -- the
+ * provider-facing contract is the tighter per-section table below, and nothing may exceed this. */
 export const PREMIUM_REPORT_AI_BODY_MAX_CHARS = 2000;
+
+/**
+ * Authoritative per-section body maxima. THE single source of truth: the structured-output schema
+ * and the deterministic narrative brief both import this, so a limit cannot drift between what the
+ * provider is told and what the schema enforces.
+ *
+ * Why these numbers. V5 (attempt 50b0a33e) reached the provider, was accounted for, and still
+ * failed: finishReason 'length', rawFinishReason 'max_output_tokens', settled
+ * structured_output_truncated. The generic 2,000-char default across 19 bodies permitted roughly
+ * 33,200 narrative characters before JSON keys, codes and 120 evidence refs (~2,348 chars). The
+ * envelope, not the input, was the problem -- the V5 deterministic fallback needed only 4,681
+ * characters of body across the same 19 sections.
+ *
+ * These are MAXIMA, not writing targets. A 10-domain / 6-gap report now ceilings at 12,600 body
+ * characters, and the bounded worst case (10 domains, ESSENTIAL_CAPS.findings gaps) at 13,700 --
+ * still ~2.7x the deterministic V5, so the prose can get materially stronger while fitting.
+ */
+export const PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS = {
+  executive: 1200,
+  falseComfort: 800,
+  leadership: 800,
+  domain: 650,
+  gap: 550
+} as const;
+
+export type PremiumReportNarrativeSectionKind = keyof typeof PREMIUM_REPORT_AI_SECTION_BODY_MAX_CHARS;
 
 export type PremiumReportFulfilmentStatus =
   | 'queued'

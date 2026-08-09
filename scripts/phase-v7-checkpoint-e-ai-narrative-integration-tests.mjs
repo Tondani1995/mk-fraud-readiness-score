@@ -365,8 +365,8 @@ const moderatePlan = validV4Plan(moderate, 'Moderate Decision Organisation');
 const cleanPlan = validV4Plan(clean, 'Clean Assurance Organisation');
 
 await test('E1: V4 prompt/schema versions and deterministic briefs are explicit and fixture-specific', () => {
-  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v4-advisory-editor');
-  assert.equal(PREMIUM_REPORT_SCHEMA_VERSION, 'mk-essential-ai-advisory-editor-v4');
+  assert.equal(PREMIUM_REPORT_PROMPT_VERSION, 'mk-essential-report-v5-advisory-editor');
+  assert.equal(PREMIUM_REPORT_SCHEMA_VERSION, 'mk-essential-ai-advisory-editor-v5');
   assert.notDeepEqual(weak.brief, moderate.brief);
   assert.notDeepEqual(moderate.brief, clean.brief);
   assert.equal(Object.keys(weak.brief.domains).length, weak.data.domainResults.length);
