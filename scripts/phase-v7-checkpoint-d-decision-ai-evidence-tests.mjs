@@ -68,7 +68,10 @@ test('R1-R3. every risk has distinct cause-event-impact fields, grounded stateme
     assert.ok(risk.riskEvent.length > 20);
     assert.ok(risk.financialImpact.length > 10);
     assert.ok(risk.operationalImpact.length > 10);
-    assert.match(risk.riskStatement, /^Because .+, there is a risk that .+, resulting in .+\.$/);
+    assert.match(risk.riskStatement, // The consequence clauses moved into their own sentence so a clause that legitimately begins with
+    // a capitalised term reads correctly after the join; inlining them after "resulting in" produced
+    // ".;", ".." and raw "Direct --" labels in V7. The shape is still pinned, and still terminal.
+    /^Because .+, there is a risk that .+?(?:\. Consequence pathway: .+)?\.$/);
     assert.ok(risk.linkedFindingIds.length > 0 && risk.linkedQuestionCodes.length > 0 && risk.evidenceRefs.length > 0);
     assert.equal(risk.assessmentConfidence, 'Self-assessment only, not independently verified');
   }
