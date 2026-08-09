@@ -92,7 +92,8 @@ const pending = [
   '20260808150000_manual_ai_structured_output_settlement_parity.sql',
   '20260808160000_atomic_report_finalisation_with_register.sql',
   '20260808170000_ai_attempt_timeout_contract_parity.sql',
-  '20260808180000_atomic_access_token_consumption.sql'
+  '20260808180000_atomic_access_token_consumption.sql',
+  '20260809120000_ai_attempt_output_token_envelope.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
