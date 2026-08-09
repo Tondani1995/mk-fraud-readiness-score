@@ -91,11 +91,6 @@ jobs:
           supabase db reset --local --yes --version 0016
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
-          # TEST-ONLY seam. The current app fails closed without the atomic finalisation RPC, which
-          # is correct and must not change; the historical 0023 schema simply predates it. This file
-          # is never in the migration ledger and never reaches Preview/Staging/Production.
-          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
-            --file=scripts/phase1-disposable-atomic-finalisation-seam.sql
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
             --set=rc1_disposable_expected_boundary=0016 \
@@ -126,6 +121,16 @@ jobs:
           post_port=3101
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 --file=scripts/phase1-disposable-runtime-grants.sql
           test "$LOCAL_DB_URL" = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+          # TEST-ONLY seam, installed HERE and not earlier: scripts/phase1-0023-replay-tests.sh runs
+          # further `supabase db reset` cycles, so anything installed before it is destroyed. The
+          # current app fails closed without the atomic finalisation RPC -- correct, and unchanged --
+          # and the historical 0023 schema simply predates both that RPC and the reports bucket.
+          # The file is in no migration ledger and reaches no real environment.
+          psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
+            --file=scripts/phase1-disposable-atomic-finalisation-seam.sql
+          # Independent proof, outside the installing script, that the disposable fixture took.
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select to_regprocedure('public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)') is not null")" = 't'
+          test "$(psql "$LOCAL_DB_URL" -XAtc "select public = false and 'application/pdf' = any(allowed_mime_types) and 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' = any(allowed_mime_types) from storage.buckets where id = 'generated-reports'")" = 't'
           psql "$LOCAL_DB_URL" -X --set=ON_ERROR_STOP=1 \
             --set=rc1_disposable_confirm=LOCAL_CI_OLD_SCHEMA_ONLY \
             --set=rc1_disposable_expected_boundary=0023 \

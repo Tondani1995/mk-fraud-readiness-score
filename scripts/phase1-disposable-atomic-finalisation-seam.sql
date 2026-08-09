@@ -26,16 +26,58 @@ begin
 end;
 $$;
 
--- The historical bucket policy is PDF-only (0017), which is precisely what the Production-bound
--- 20260807140000 widens. On this schema the supporting-register XLSX upload would be rejected
--- before finalisation is ever reached, so the same widening is applied here for the disposable
--- database only.
-update storage.buckets
-set allowed_mime_types = array[
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-]::text[]
-where id = 'generated-reports';
+-- TEST-ONLY Storage fixture for this disposable database only.
+--
+-- The only migration that CREATES the generated-reports bucket
+-- (20260708193318_phase9_phase10_private_storage_buckets.sql) sorts AFTER 0023, so at this
+-- historical boundary the bucket does not exist at all -- which is why 0017's UPDATE, and an
+-- earlier version of this file's UPDATE, both reported "UPDATE 0". The register upload would
+-- therefore be rejected before finalisation is ever reached.
+--
+-- So the bucket is provisioned here explicitly rather than assumed: private, at the converged
+-- 15MB limit 0017 settles on, permitting the PDF the report is and the XLSX the supporting
+-- register is (the widening the Production-bound 20260807140000 carries for real environments).
+-- This is a fixture, not a migration: it is in no ledger and reaches no real environment.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'generated-reports', 'generated-reports', false, 15728640,
+  array[
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]::text[]
+)
+on conflict (id) do update set
+  public = false,
+  file_size_limit = 15728640,
+  allowed_mime_types = array[
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]::text[];
+
+-- Prove the fixture rather than trusting it. Any failure here stops the job immediately, so a
+-- silent no-op can never again be mistaken for a working Storage boundary.
+do $phase1_storage_fixture$
+declare
+  v_public boolean;
+  v_mimes text[];
+begin
+  select b.public, b.allowed_mime_types into v_public, v_mimes
+  from storage.buckets b where b.id = 'generated-reports';
+
+  if not found then
+    raise exception 'phase1_seam_storage_fixture_failed: generated-reports bucket absent after provisioning';
+  end if;
+  if v_public is distinct from false then
+    raise exception 'phase1_seam_storage_fixture_failed: generated-reports must remain private';
+  end if;
+  if not ('application/pdf' = any(v_mimes)) then
+    raise exception 'phase1_seam_storage_fixture_failed: generated-reports must permit application/pdf';
+  end if;
+  if not ('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' = any(v_mimes)) then
+    raise exception 'phase1_seam_storage_fixture_failed: generated-reports must permit the register XLSX type';
+  end if;
+end;
+$phase1_storage_fixture$;
 
 create or replace function public.finalise_manual_report_with_supporting_register(
   p_attempt_id uuid,
@@ -86,3 +128,13 @@ revoke all on function public.finalise_manual_report_with_supporting_register(
 grant execute on function public.finalise_manual_report_with_supporting_register(
   uuid, uuid, public.report_type, text, text, text, text, bigint, text, text, text, text, bigint, text
 ) to service_role;
+
+do $phase1_seam_installed$
+begin
+  if to_regprocedure('public.finalise_manual_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)') is null then
+    raise exception 'phase1_seam_install_failed: the atomic finalisation seam is not present';
+  end if;
+end;
+$phase1_seam_installed$;
+
+\echo 'TEST-ONLY Phase 1 seam installed and Storage fixture proved.'

@@ -1,0 +1,1472 @@
+{
+  "ok": false,
+  "runner": "g29-integrated-regression-runner",
+  "commit": "580e07cf445075f101a1601d306e540e8c04c669",
+  "graphVersion": "MFRS-V1.1-ADAPTIVE-DRAFT-20260804",
+  "graphFingerprint": "fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab",
+  "liveSuitesEnabled": false,
+  "selectedSuiteIds": [
+    "adaptive.branch-matrix",
+    "adaptive.engine",
+    "adaptive.scoring",
+    "adaptive.correction",
+    "adaptive.gateway-audit",
+    "adaptive.customer-copy",
+    "legacy.engine",
+    "legacy.scenarios",
+    "legacy.snapshot",
+    "legacy.report-contract",
+    "legacy.respondent-integration",
+    "commercial.events",
+    "commercial.conversion",
+    "commercial.report-engine",
+    "commercial.payment-verification",
+    "commercial.numeric-claims",
+    "commercial.quality-a",
+    "commercial.quality-b",
+    "commercial.quality-c",
+    "commercial.quality-d",
+    "commercial.quality-e",
+    "delivery.email",
+    "delivery.webhook-adversarial",
+    "delivery.provider-faults",
+    "delivery.storage-faults",
+    "delivery.access-eligibility",
+    "delivery.verified-byte-delivery",
+    "delivery.security-closure",
+    "delivery.resend-rate-limit",
+    "database.accepted-migrations",
+    "database.service-role-contract",
+    "database.old-schema-freeze",
+    "database.migration-replay",
+    "database.ai-route-authority",
+    "database.migration-target-separation",
+    "database.adaptive-launch-authority",
+    "responsive.browser",
+    "integration.adaptive-db",
+    "integration.payment-db"
+  ],
+  "suiteCounts": {
+    "passed": 34,
+    "failed": 1,
+    "skipped": 4
+  },
+  "productFailures": [],
+  "environmentFailures": [
+    "legacy.respondent-integration",
+    "database.service-role-contract",
+    "responsive.browser",
+    "integration.adaptive-db",
+    "integration.payment-db"
+  ],
+  "reportedAssertions": 106,
+  "results": [
+    {
+      "id": "adaptive.branch-matrix",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "{\"ok\":true,\"graphVersion\":\"MFRS-V1.1-ADAPTIVE-DRAFT-20260804\",\"graphFingerprint\":\"fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab\",\"scenarioCount\":8,\"oversightVariants\":[\"OV-D3-Q03\",\"OV-D7-Q01\",\"OV-D7-Q02\",\"OV-D7-Q04\",\"OV-D8-Q02\",\"OV-G07\"],\"gatewayChange\":{\"requiresConfirmation\":true,\"affectedQuestionIds\":[\"D3-Q03\"]},\"scenarios\":[{\"name\":\"professional-services-no-exposure\",\"nodes\":82,\"counts\":{\"active\":60,\"excluded\":8,\"redirected\":0,\"profile-only\":14,\"invalidated\":0},\"activeControls\":60,\"activeWeight\":73.75,\"oversight\":[]},{\"name\":\"retail-physical-sites\",\"nodes\":82,\"counts\":{\"active\":68,\"excluded\":0,\"redirected\":0,\"profile-only\":14,\"invalidated\":0},\"activeControls\":68,\"activeWeight\":83.75,\"oversight\":[]},{\"name\":\"construction-outsourced-controls\",\"nodes\":87,\"counts\":{\"active\":62,\"excluded\":6,\"redirected\":5,\"profile-only\":14,\"invalidated\":0},\"activeControls\":62,\"activeWeight\":76,\"oversight\":[\"OV-D3-Q03\",\"OV-D7-Q01\",\"OV-D7-Q02\",\"OV-D7-Q04\",\"OV-G07\"]},{\"name\":\"digital-platform-without-sites\",\"nodes\":83,\"counts\":{\"active\":66,\"excluded\":2,\"redirected\":1,\"profile-only\":14,\"invalidated\":0},\"activeControls\":66,\"activeWeight\":81.5,\"oversight\":[\"OV-D8-Q02\"]},{\"name\":\"payroll-outsourced\",\"nodes\":83,\"counts\":{\"active\":60,\"excluded\":8,\"redirected\":1,\"profile-only\":14,\"invalidated\":0},\"activeControls\":60,\"activeWeight\":73.75,\"oversight\":[\"OV-G07\"]},{\"name\":\"payroll-absent-procurement-absent\",\"nodes\":82,\"counts\":{\"active\":52,\"excluded\":16,\"redirected\":0,\"profile-only\":14,\"invalidated\":0},\"activeControls\":52,\"activeWeight\":63.75,\"oversight\":[]},{\"name\":\"shared-service\",\"nodes\":83,\"counts\":{\"active\":60,\"excluded\":8,\"redirected\":1,\"profile-only\":14,\"invalidated\":0},\"activeControls\":60,\"activeWeight\":73.75,\"oversight\":[\"OV-G07\"]},{\"name\":\"all-unknown\",\"nodes\":82,\"counts\":{\"active\":68,\"excluded\":0,\"redirected\":0,\"profile-only\":14,\"invalidated\":0},\"activeControls\":68,\"activeWeight\":83.75,\"oversight\":[]}]}\n\n(node:32555) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:32555) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/adaptive/engine.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": {
+        "ok": true,
+        "graphVersion": "MFRS-V1.1-ADAPTIVE-DRAFT-20260804",
+        "graphFingerprint": "fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab",
+        "scenarioCount": 8,
+        "oversightVariants": [
+          "OV-D3-Q03",
+          "OV-D7-Q01",
+          "OV-D7-Q02",
+          "OV-D7-Q04",
+          "OV-D8-Q02",
+          "OV-G07"
+        ],
+        "gatewayChange": {
+          "requiresConfirmation": true,
+          "affectedQuestionIds": [
+            "D3-Q03"
+          ]
+        },
+        "scenarios": [
+          {
+            "name": "professional-services-no-exposure",
+            "nodes": 82,
+            "counts": {
+              "active": 60,
+              "excluded": 8,
+              "redirected": 0,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 60,
+            "activeWeight": 73.75,
+            "oversight": []
+          },
+          {
+            "name": "retail-physical-sites",
+            "nodes": 82,
+            "counts": {
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 68,
+            "activeWeight": 83.75,
+            "oversight": []
+          },
+          {
+            "name": "construction-outsourced-controls",
+            "nodes": 87,
+            "counts": {
+              "active": 62,
+              "excluded": 6,
+              "redirected": 5,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 62,
+            "activeWeight": 76,
+            "oversight": [
+              "OV-D3-Q03",
+              "OV-D7-Q01",
+              "OV-D7-Q02",
+              "OV-D7-Q04",
+              "OV-G07"
+            ]
+          },
+          {
+            "name": "digital-platform-without-sites",
+            "nodes": 83,
+            "counts": {
+              "active": 66,
+              "excluded": 2,
+              "redirected": 1,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 66,
+            "activeWeight": 81.5,
+            "oversight": [
+              "OV-D8-Q02"
+            ]
+          },
+          {
+            "name": "payroll-outsourced",
+            "nodes": 83,
+            "counts": {
+              "active": 60,
+              "excluded": 8,
+              "redirected": 1,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 60,
+            "activeWeight": 73.75,
+            "oversight": [
+              "OV-G07"
+            ]
+          },
+          {
+            "name": "payroll-absent-procurement-absent",
+            "nodes": 82,
+            "counts": {
+              "active": 52,
+              "excluded": 16,
+              "redirected": 0,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 52,
+            "activeWeight": 63.75,
+            "oversight": []
+          },
+          {
+            "name": "shared-service",
+            "nodes": 83,
+            "counts": {
+              "active": 60,
+              "excluded": 8,
+              "redirected": 1,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 60,
+            "activeWeight": 73.75,
+            "oversight": [
+              "OV-G07"
+            ]
+          },
+          {
+            "name": "all-unknown",
+            "nodes": 82,
+            "counts": {
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0,
+              "profile-only": 14,
+              "invalidated": 0
+            },
+            "activeControls": 68,
+            "activeWeight": 83.75,
+            "oversight": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "adaptive.engine",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 22,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g25:test-adaptive-engine\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g25-adaptive-engine-tests.mjs\n\n{\"ok\":true,\"graphVersion\":\"MFRS-V1.1-ADAPTIVE-DRAFT-20260804\",\"fingerprint\":\"fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab\",\"assertions\":22,\"paths\":{\"professional\":{\"active\":60,\"excluded\":8},\"retail\":{\"active\":68,\"excluded\":0},\"construction\":{\"redirected\":5},\"online\":{\"redirected\":2},\"small\":{\"active\":52},\"unknown\":{\"signals\":[\"high_unknown_share\"]}},\"gatewayInvalidation\":[\"D3-Q03\"]}\n\n(node:32589) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:32589) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/adaptive/engine.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": {
+        "ok": true,
+        "graphVersion": "MFRS-V1.1-ADAPTIVE-DRAFT-20260804",
+        "fingerprint": "fa4505253f7e85a76f37e87e0836db76c553a786a4030fe29298153fc3b8f7ab",
+        "assertions": 22,
+        "paths": {
+          "professional": {
+            "active": 60,
+            "excluded": 8
+          },
+          "retail": {
+            "active": 68,
+            "excluded": 0
+          },
+          "construction": {
+            "redirected": 5
+          },
+          "online": {
+            "redirected": 2
+          },
+          "small": {
+            "active": 52
+          },
+          "unknown": {
+            "signals": [
+              "high_unknown_share"
+            ]
+          }
+        },
+        "gatewayInvalidation": [
+          "D3-Q03"
+        ]
+      }
+    },
+    {
+      "id": "adaptive.scoring",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 18,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g27:test-adaptive-scoring\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-scoring-tests.mjs\n\n{\"ok\":true,\"assertions\":18,\"parityScore\":60,\"unknownSharePct\":1.79,\"redirected\":5,\"excluded\":8,\"insufficient\":\"INSUFFICIENT_VISIBILITY\"}\n\n(node:32623) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:32623) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/scoring/adaptive-scoring.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": {
+        "ok": true,
+        "assertions": 18,
+        "parityScore": 60,
+        "unknownSharePct": 1.79,
+        "redirected": 5,
+        "excluded": 8,
+        "insufficient": "INSUFFICIENT_VISIBILITY"
+      }
+    },
+    {
+      "id": "adaptive.correction",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g27:test-adaptive-correction\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-correction-tests.mjs\n\n{\"ok\":true,\"exposureItems\":0,\"visibilityGaps\":1}\n\n(node:32657) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:32657) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/evidence-model/index.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": {
+        "ok": true,
+        "exposureItems": 0,
+        "visibilityGaps": 1
+      }
+    },
+    {
+      "id": "adaptive.gateway-audit",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g27:test-adaptive-gateway-audit\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/g27-adaptive-gateway-audit-tests.mjs\n\n{\"ok\":true,\"gateways\":{\"G01\":[{\"option\":\"professional_services\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"retail\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"construction\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"online\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"manufacturing\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"other\",\"active\":68,\"excluded\":0,\"redirected\":0}],\"G07\":[{\"option\":\"internal\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"outsourced\",\"active\":68,\"excluded\":0,\"redirected\":1},{\"option\":\"shared_service\",\"active\":68,\"excluded\":0,\"redirected\":1},{\"option\":\"none\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"unknown\",\"active\":68,\"excluded\":0,\"redirected\":0}],\"G11\":[{\"option\":\"yes\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"no\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"unknown\",\"active\":68,\"excluded\":0,\"redirected\":0}],\"G14\":[{\"option\":\"formal_delegation\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"owner_led\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"shared_service\",\"active\":68,\"excluded\":0,\"redirected\":0},{\"option\":\"unknown\",\"active\":68,\"excluded\":0,\"redirected\":0}]},\"sharedService\":{\"active\":68,\"redirected\":1}}\n\n(node:32691) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:32691) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/adaptive/engine.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": {
+        "ok": true,
+        "gateways": {
+          "G01": [
+            {
+              "option": "professional_services",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "retail",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "construction",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "online",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "manufacturing",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "other",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            }
+          ],
+          "G07": [
+            {
+              "option": "internal",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "outsourced",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 1
+            },
+            {
+              "option": "shared_service",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 1
+            },
+            {
+              "option": "none",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "unknown",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            }
+          ],
+          "G11": [
+            {
+              "option": "yes",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "no",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "unknown",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            }
+          ],
+          "G14": [
+            {
+              "option": "formal_delegation",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "owner_led",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "shared_service",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            },
+            {
+              "option": "unknown",
+              "active": 68,
+              "excluded": 0,
+              "redirected": 0
+            }
+          ]
+        },
+        "sharedService": {
+          "active": 68,
+          "redirected": 1
+        }
+      }
+    },
+    {
+      "id": "adaptive.customer-copy",
+      "category": "adaptive",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g25:test-customer-copy\n> node scripts/g25-customer-copy-tests.mjs\n\n{\"ok\":true,\"exactCopy\":true,\"forbiddenCustomerPhrases\":6,\"genericUnexpectedStartError\":true}\n\n",
+      "parsed": {
+        "ok": true,
+        "exactCopy": true,
+        "forbiddenCustomerPhrases": 6,
+        "genericUnexpectedStartError": true
+      }
+    },
+    {
+      "id": "legacy.engine",
+      "category": "legacy",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase6:test-engine\n> node scripts/phase6-engine-direct-tests.mjs\n\nPhase 6 v1.1 direct engine tests passed. Actual calculateFraudReadinessScore reconciles TS-01, TS-02, TS-03, repeatability and incomplete-coverage blocking.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "legacy.scenarios",
+      "category": "legacy",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase6:test-scenarios\n> node scripts/phase6-scenario-tests.mjs\n\nPhase 6 scenario tests passed. TS-01, TS-02 and TS-03 reconcile exactly against V1 methodology seed.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "legacy.snapshot",
+      "category": "legacy",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase7:test-snapshot\n> node scripts/phase7-free-snapshot-tests.mjs\n\nPhase 7 free snapshot tests passed. Fixtures, repeatability, persisted-result reconciliation, /score snapshot URL generation, preview host preservation, token route, stale submit safety and snapshot content boundary are covered.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "legacy.report-contract",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase10:test-report\n> node scripts/phase10-premium-report-tests.mjs\n\nPhase 10 premium report tests passed on the Node 24 compatibility boundary. Deterministic assembly, shared payment gating, private storage, versioning and Chromium packaging remain protected.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "legacy.respondent-integration",
+      "category": "legacy",
+      "status": "skipped",
+      "classification": "environment/configuration",
+      "reason": "live suite requires --live",
+      "exitCode": null
+    },
+    {
+      "id": "commercial.events",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase13:test-events\n> node scripts/phase13-commercial-event-tests.mjs\n\nPhase 13 commercial event tests passed. Event taxonomy, dedupe behavior, token-scoped customer events, R50 post-persistence boundary, shared report-generated tracking and no-email boundary are covered.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.conversion",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase13:test-conversion\n> node scripts/phase13-customer-commercial-conversion-tests.mjs\n\nPhase 13 customer commercial conversion tests passed. Controller correction cases, deterministic commercial insight behavior, approved copy, token-scoped events, R5 manual EFT selection, R50 controlled enquiry flow, admin visibility, migration boundaries and no-go boundaries are covered.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.report-engine",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-report-engine\n> node scripts/phase14-autonomous-report-tests.mjs\n\nPhase 14 autonomous report, entitlement guard, route isolation, durable workflow 4.8.0, deterministic validation and conditional email tests passed on Node 24.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.payment-verification",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 20,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g29:test-payment-verification\n> node scripts/g29-payment-verification-contract-tests.mjs\n\n{\"ok\":true,\"assertions\":20,\"sourceCases\":12,\"atomicGuard\":\"pre-side-effect\"}\n\n",
+      "parsed": {
+        "ok": true,
+        "assertions": 20,
+        "sourceCases": 12,
+        "atomicGuard": "pre-side-effect"
+      }
+    },
+    {
+      "id": "commercial.numeric-claims",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "G27 commercial-report numeric evidence regression tests passed.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.quality-a",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-a-unit\n> npm run v7:test-checkpoint-a-quality-gate-baseline && npm run v7:test-checkpoint-a-response-label-unit\n\n\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-a-quality-gate-baseline\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-quality-gate-baseline-tests.mjs\n\nV7 Checkpoint A -- quality-gate baseline suite\n    (violations on this fixture: [{\"code\":\"QG_MATERIAL_PLAYBOOK_MISSING\",\"severity\":\"violation\",\"message\":\"Material finding MF-Q-D1-01 has no exact question-level playbook for Q-D1-01.\",\"entityId\":\"MF-Q-D1-01\",\"source\":\"evidence-model\"},{\"code\":\"QG_RECOMMENDED_CONTROL_MISSING\",\"severity\":\"violation\",\"message\":\"Finding MF-Q-D1-01 has no recommended control.\",\"entityId\":\"MF-Q-D1-01\",\"source\":\"evidence-model\"},{\"code\":\"QG_SCENARIO_MINIMUM_NOT_MET\",\"severity\":\"violation\",\"message\":\"Only 1 plausible scenarios generated; 3 are required for this assessment context.\",\"source\":\"evidence-model\"},{\"code\":\"QG_EVIDENCE_CHECKLIST_MISSING\",\"severity\":\"violation\",\"message\":\"Evidence checklist is absent despite material findings.\",\"source\":\"evidence-model\"},{\"code\":\"QG_ROADMAP_OWNER_MISSING\",\"severity\":\"violation\",\"message\":\"Roadmap action RA-Q-D1-01 has no owner.\",\"entityId\":\"RA-Q-D1-01\",\"source\":\"evidence-model\"},{\"code\":\"QG_ROADMAP_MEASURE_MISSING\",\"severity\":\"violation\",\"message\":\"Roadmap action RA-Q-D1-01 has no effectiveness measure.\",\"entityId\":\"RA-Q-D1-01\",\"source\":\"evidence-model\"}])\n  ok - control: checkQualityGates() correctly detects a real violation on the minimal fixture (evidence-model layer already works)\n  ok - REGRESSION (V7 Checkpoint B, formerly the documented spec-8.1 defect): renderReportHtml() throws ReportCommercialQualityError instead of returning HTML for a real quality-gate violation\n\n2 passed\n\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-a-response-label-unit\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-a-response-label-validator-unit-tests.mjs\n\nV7 Checkpoint A correction -- response-label validator unit suite\n  ok - 1. valid six-row scale (0-5) is accepted and returned\n  ok - 2. missing value 5 is rejected\n  ok - 3. duplicate response value is rejected\n  ok - 4. duplicate display order is rejected\n  ok - 5. blank label is rejected\n  ok - 6. null operational_meaning is rejected\n  ok - 7. invalid normalised_score (out of 0-100 range) is rejected\n  ok - 7b. numeric string normalised_score (\"80\") is ACCEPTED, not rejected (inverted per Checkpoint A final correction)\n  ok - 7c. numeric string normalised_score (\"80.00\") is accepted and normalised to the number 80\n  ok - 7d. \"0.00\" is accepted and normalised to the number 0\n  ok - 7e. malformed normalised_score strings are rejected: \"\", \"   \", \"80abc\", \"NaN\", \"Infinity\"\n  ok - 7f. non-string, non-number normalised_score values are rejected: null, boolean, array, object\n  ok - 8. invalid response_value (outside 0-5) is rejected\n  ok - 8b. non-numeric response_value is rejected (response_value remains integer-only -- no repository evidence it arrives as a string)\n  ok - 9. unordered input is deterministically normalised (sorted by display_order)\n  ok - 10. findOfficialResponseLabel() returns distinct labels for official values 4 and 5\n  ok - 11. findOfficialResponseLabel() returns null for a null (unanswered) response\n  ok - 12. findOfficialResponseLabel() returns null for an unsupported value, never a guessed label\n  ok - empty result is rejected (does not fall back to an inferred scale)\n  ok - non-object row is rejected\n  ok - non-integer display_order is rejected\n  ok - non-positive display_order is rejected\n  ok - 13. non-contiguous display orders are rejected (1,2,3,4,5,7 -- missing 6, gap at 7)\n  ok - 14. response values that do not align with display order are rejected (set and count are still valid, only the pairing is wrong)\n  ok - 15. decreasing normalised scores (by display_order) are rejected\n  ok - 16. a scale not starting at normalised_score 0 is rejected\n  ok - 17. a scale not ending at normalised_score 100 is rejected\n\nparseFiniteDatabaseNumeric() direct tests\n  ok - parseFiniteDatabaseNumeric: accepts finite numbers\n  ok - parseFiniteDatabaseNumeric: accepts canonical numeric strings\n  ok - parseFiniteDatabaseNumeric: rejects blank and malformed strings, and non-finite numbers\n  ok - parseFiniteDatabaseNumeric: rejects null, booleans, arrays, and objects (never coerces to 0)\n\n31 passed\n\n(node:33072) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:33072) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/evidence-model/index.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:33106) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:33106) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/response-labels.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.quality-b",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "fore retrying.'\n}\ncommercial_report_quality_failure {\n  technicalReference: '60bf5688-e051-457f-a9b1-491dd2b098b9',\n  orderReference: 'TEST-ORDER-CPB-001',\n  violationCodes: [\n    'QG_MATERIAL_PLAYBOOK_MISSING',\n    'QG_RECOMMENDED_CONTROL_MISSING',\n    'QG_SCENARIO_MINIMUM_NOT_MET',\n    'QG_EVIDENCE_CHECKLIST_MISSING',\n    'QG_ROADMAP_OWNER_MISSING',\n    'QG_ROADMAP_MEASURE_MISSING',\n    'QG_ROADMAP_SOURCE_MISMATCH'\n  ],\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  violationCount: 7\n}\nphase1_quality_diagnostics_persistence { attemptId: 'attempt-1', outcome: 'threw', itemCount: 8 }\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '60bf5688-e051-457f-a9b1-491dd2b098b9',\n  orderId: 'test-order',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'render_pdf',\n  errorCategory: 'commercial_quality_failed',\n  safeMessage: 'Report generation was blocked because the commercial quality checks failed. No new report was published. Review the quality codes and technical reference before retrying.'\n}\nphase1_manual_generation {\n  technicalReference: '0bc298ad-76ab-4085-b928-c90ebbf16bad',\n  orderReference: 'TEST-ORDER-CPB-PASSING',\n  stage: 'render',\n  error: 'Simulated real PDF renderer crash.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '0bc298ad-76ab-4085-b928-c90ebbf16bad',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'render_pdf',\n  errorCategory: 'pdf_render_failed',\n  safeMessage: 'The PDF renderer failed. Retry generation or inspect the technical reference.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '2ceb0e64-5948-4089-bf83-569e4b413dea',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'store_pdf',\n  errorCategory: 'storage_upload_failed',\n  safeMessage: 'The PDF could not be stored in private report storage.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '61b0e69d-7db7-4449-a956-01bdda1d9ed5',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'store_pdf',\n  errorCategory: 'storage_integrity_failed',\n  safeMessage: 'The stored PDF size does not match the generated output.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: 'ab5ca473-433e-4ff3-81e3-fa31e1eedaf5',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'store_supporting_register',\n  errorCategory: 'generation_failed',\n  safeMessage: 'Report generation failed. Retry or inspect the technical reference.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '5dbb6bbf-c80d-48a3-8af0-8754aa383ca3',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'store_supporting_register',\n  errorCategory: 'generation_failed',\n  safeMessage: 'Report generation failed. Retry or inspect the technical reference.'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: 'a2bb0803-42d9-4b05-88b7-8a0486bf13e9',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'store_supporting_register',\n  errorCategory: 'storage_integrity_failed',\n  safeMessage: 'The stored PDF size does not match the generated output.'\n}\nphase1_manual_generation_persistence_error {\n  technicalReference: '424ddb5f-884c-453a-b3d7-36b6ee73d4ea',\n  message: 'phase1_generation_attempt_not_active',\n  details: undefined,\n  hint: undefined,\n  code: undefined\n}\nphase1_finalisation_ambiguous {\n  technicalReference: '424ddb5f-884c-453a-b3d7-36b6ee73d4ea',\n  attemptId: 'attempt-1',\n  outcome: 'not_committed',\n  objectsRetained: false\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '424ddb5f-884c-453a-b3d7-36b6ee73d4ea',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'finalise_generation',\n  errorCategory: 'report_persistence_failed',\n  safeMessage: 'The verified PDF could not be linked to the order.'\n}\nphase1_manual_generation_persistence_error {\n  technicalReference: 'ec4fd9c3-f102-414d-853c-129d3dd6a848',\n  message: 'null value in column \"report_id\" violates not-null constraint',\n  details: undefined,\n  hint: undefined,\n  code: undefined\n}\nphase1_finalisation_ambiguous {\n  technicalReference: 'ec4fd9c3-f102-414d-853c-129d3dd6a848',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  objectsRetained: true\n}\nphase1_finalisation_reconciliation_required {\n  technicalReference: 'ec4fd9c3-f102-414d-853c-129d3dd6a848',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  failureSuppressed: true,\n  artefactsRetained: true,\n  reason: 'report_persistence_failed'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: 'ec4fd9c3-f102-414d-853c-129d3dd6a848',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'finalise_generation',\n  errorCategory: 'report_persistence_failed',\n  safeMessage: 'The verified PDF could not be linked to the order.'\n}\nphase1_manual_generation_persistence_error {\n  technicalReference: '0429225a-547b-4a8a-8613-63205d4deb01',\n  message: 'fetch failed: socket hang up',\n  details: undefined,\n  hint: undefined,\n  code: undefined\n}\nphase1_finalisation_ambiguous {\n  technicalReference: '0429225a-547b-4a8a-8613-63205d4deb01',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  objectsRetained: true\n}\nphase1_finalisation_reconciliation_required {\n  technicalReference: '0429225a-547b-4a8a-8613-63205d4deb01',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  failureSuppressed: true,\n  artefactsRetained: true,\n  reason: 'report_persistence_failed'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: '0429225a-547b-4a8a-8613-63205d4deb01',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'finalise_generation',\n  errorCategory: 'report_persistence_failed',\n  safeMessage: 'The verified PDF could not be linked to the order.'\n}\nphase1_manual_generation_persistence_error {\n  technicalReference: 'a57f4a2d-2dc0-43db-a6ec-e2316527fafb',\n  message: 'statement timeout',\n  details: undefined,\n  hint: undefined,\n  code: undefined\n}\nphase1_finalisation_ambiguous {\n  technicalReference: 'a57f4a2d-2dc0-43db-a6ec-e2316527fafb',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  objectsRetained: true\n}\nphase1_finalisation_reconciliation_required {\n  technicalReference: 'a57f4a2d-2dc0-43db-a6ec-e2316527fafb',\n  attemptId: 'attempt-1',\n  outcome: 'uncertain',\n  failureSuppressed: true,\n  artefactsRetained: true,\n  reason: 'report_persistence_failed'\n}\nphase1_manual_generation {\n  requestId: 'req-1',\n  technicalReference: 'a57f4a2d-2dc0-43db-a6ec-e2316527fafb',\n  orderId: 'test-order-passing',\n  attemptId: 'attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'finalise_generation',\n  errorCategory: 'report_persistence_failed',\n  safeMessage: 'The verified PDF could not be linked to the order.'\n}\n(node:33140) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/commercial-quality.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.quality-c",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-c\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-c-materiality-playbook-tests.mjs\n\nV7 Checkpoint C -- materiality engine and exact question playbooks\n  ok - A1-A4. official methodology labels are preserved, values 4/5 stay distinct, and an incomplete source fails closed\n  ok - S1-S8. every required materiality reason is exercised, including cross-domain, contradiction and scenario linkage\n  ok - S9-S11. multiple reasons consolidate, duplicate source rows cannot clone a finding, and distinct same-domain questions remain separate\n  ok - S12. ranking, IDs and reason order are stable across repeated runs and shuffled database input\n  ok - S13. paired weak D4 and D5 controls are dependencies, not contradictions\n  ok - S14. strong D4 detection with weak D5 response creates a contradiction on D5 only\n  ok - S15. strong D2 identification with weak D10 improvement creates a contradiction on D10\n  ok - S16. strong domain with a failed critical question creates a contradiction on that exact question\n  ok - S17-S18. duplicate cap rules are retained in sorted order and reversed input is byte-equivalent\n  ok - P1-P6. required related controls receive genuinely different, question-specific designs\n  ok - P7. every required playbook maps to an authoritative code, domain and critical/hard-gate status\n  ok - P8-P10. material findings use exact playbooks only and a missing playbook emits QG_MATERIAL_PLAYBOOK_MISSING\n  ok - C1-C4. strong assessment creates no false weakness and any selected item is a deterministic assurance priority\n  ok - C5. official value 3 (Implemented and in use) is not reclassified as partial or an exposure mismatch\n\n14 passed\n\n(node:33174) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:33174) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/response-labels.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.quality-d",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-d\n> node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/phase-v7-checkpoint-d-decision-ai-evidence-tests.mjs\n\nV7 Checkpoint D -- decision-ready advisory model and AI evidence contract\n  ok - F1. weak, moderate and clean fixtures produce materially different advisory structures\n  ok - R1-R3. every risk has distinct cause-event-impact fields, grounded statement and evidence\n  ok - R4-R5. causal consolidation is deterministic without collapsing distinct supplier or response pathways\n  ok - R6. every likelihood-impact pair uses the documented deterministic priority matrix\n  ok - R6b. assurance likelihood reflects linked high/severe exposure without asserting failure\n  ok - R7. shuffled traces, domains, exposure and cap events produce byte-identical model ordering\n  ok - C1-C4. contradictions consolidate, rank, retain evidence and disappear for a clean assessment\n  ok - C5. equivalent contradiction duplication and empty evidence fail closed\n  ok - S1-S6. weak scenarios are gap-based; clean scenarios validate assurance without allegation\n  ok - S7. invalid basis and unsupported scenario evidence fail closed\n  ok - CF1. clean-assurance risk/scenario/control/decision/roadmap never assert failure as fact (Checkpoint F controller review blocker 1)\n  ok - CF2. customer-facing text never exposes internal question codes (Checkpoint F controller review blocker 6)\n  ok - G1-G2. control register has one exact-playbook-derived entry per finding\n  ok - G3-G5. evidence artefacts consolidate without losing links and start unrequested\n  ok - D1-D5. leadership decisions are consolidated, bounded, role-separated and context-aware\n  ok - A1. functional agenda separates accountability, operation and oversight and validates assurance\n  ok - M1-M5. one roadmap source preserves owners, dependencies, measures and adapter identity\n  ok - M6-M10. roadmap orderer rejects unknown, self and cyclic dependencies without rendering\n  ok - Q1. missing risk fields, decision linkage, evidence criteria and roadmap dependencies block\n  ok - AI1-AI5. evidence pack includes every required kind, authority marker and closed references\n  ok - AI6-AI8. canonical JSON and checksum survive shuffled input and differ for another assessment\n  ok - AI9-AI11. PII is excluded, organisation name stays sanitised and evidence building cannot call a provider\n  ok - AI12. duplicate and unresolved evidence references use stable blocking codes\n\n23 passed\n\n(node:33208) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:33208) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/evidence-model/index.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "commercial.quality-e",
+      "category": "commercial",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "n: null\n  }\n}\nphase14_report_generation_timing {\n  phase: 'accounting_persisted',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: 'ai-attempt-1',\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\nphase14_report_generation_timing {\n  phase: 'narrative_validation_started',\n  status: 'started',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: null,\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\nphase14_report_generation_timing {\n  phase: 'ai_budget_evaluated',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: null,\n  reportReference: null,\n  provider: null,\n  model: null,\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: {\n    inputSizeBytes: 21096,\n    estimatedInputTokens: 5274,\n    maxOutputTokens: 5000,\n    estimatedTotalTokens: 10274,\n    estimatedCostMicros: 152740,\n    limits: {\n      maxInputBytes: 76000,\n      maxEstimatedInputTokens: 19000,\n      maxTotalTokens: 24000,\n      maxEstimatedCostMicros: 500000\n    },\n    reason: null\n  }\n}\nphase14_report_generation_timing {\n  phase: 'accounting_persisted',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: 'ai-attempt-2',\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\nphase14_report_generation_timing {\n  phase: 'ai_budget_evaluated',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: null,\n  reportReference: null,\n  provider: null,\n  model: null,\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: {\n    inputSizeBytes: 32438,\n    estimatedInputTokens: 8110,\n    maxOutputTokens: 5000,\n    estimatedTotalTokens: 13110,\n    estimatedCostMicros: 181100,\n    limits: {\n      maxInputBytes: 76000,\n      maxEstimatedInputTokens: 19000,\n      maxTotalTokens: 24000,\n      maxEstimatedCostMicros: 500000\n    },\n    reason: null\n  }\n}\nphase14_report_generation_timing {\n  phase: 'accounting_persisted',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: 'ai-attempt-1',\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\nphase14_report_generation_timing {\n  phase: 'narrative_validation_started',\n  status: 'started',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: null,\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\nphase14_report_generation_timing {\n  phase: 'ai_budget_evaluated',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: null,\n  reportReference: null,\n  provider: null,\n  model: null,\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: {\n    inputSizeBytes: 21096,\n    estimatedInputTokens: 5274,\n    maxOutputTokens: 5000,\n    estimatedTotalTokens: 10274,\n    estimatedCostMicros: 152740,\n    limits: {\n      maxInputBytes: 76000,\n      maxEstimatedInputTokens: 19000,\n      maxTotalTokens: 24000,\n      maxEstimatedCostMicros: 500000\n    },\n    reason: null\n  }\n}\nphase14_report_generation_timing {\n  phase: 'accounting_persisted',\n  status: 'completed',\n  elapsedMs: 0,\n  technicalReference: null,\n  generationAttemptId: 'ai-attempt-2',\n  reportReference: null,\n  provider: 'openai',\n  model: 'checkpoint-e-test-model',\n  gatewayGenerationId: null,\n  timeoutDiagnostic: null,\n  aiBudgetDiagnostics: null\n}\n  ok - E27: scoped repair merges only failed sections and keeps raw compliant changes out of the report\n  ok - E27b: deterministic quality preflight blocks malformed visibility linkage before any AI attempt\n  ok - E28: official response-state validation distinguishes values 0 through 5\n\n29 passed, 0 failed\n\n(node:33242) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n--import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./scripts/lib/ts-relative-resolve-loader.mjs\", pathToFileURL(\"./\"));'\n(Use `node --trace-warnings ...` to show where the warning was created)\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-MODERATE',\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-MODERATE',\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-MODERATE',\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-CLEAN',\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-WEAK',\n  warningCodes: [ 'QG_EXECUTIVE_DIAGNOSIS_CAP_COUNT_RISK' ],\n  warningCount: 1\n}\nCOMMERCIAL_QUALITY_WARNING {\n  assessmentReference: 'DECISION-CLEAN',\n  warningCodes: [ 'QG_COMMERCIAL_VOLUME_WARNING' ],\n  warningCount: 1\n}\ncommercial_report_narrative_grounding_failure {\n  source: 'deterministic_fallback',\n  assessmentReference: 'DECISION-CLEAN',\n  issueCount: 1,\n  numericClaims: [ { path: 'executiveDiagnosis', token: '999999' } ]\n}\ncommercial_report_quality_failure {\n  technicalReference: '9e900070-55c1-41dc-974e-cd09ec9921fe',\n  orderReference: 'DECISION-ORDER-WEAK',\n  violationCodes: [ 'QG_AI_NARRATIVE_BRIEF_INVALID', 'QG_AI_NARRATIVE_BRIEF_INVALID' ],\n  warningCodes: [],\n  violationCount: 2\n}\nphase1_quality_diagnostics_persistence { attemptId: 'manual-attempt-1', outcome: 'threw', itemCount: 2 }\nphase1_manual_generation {\n  requestId: 'manual-request-1',\n  technicalReference: '9e900070-55c1-41dc-974e-cd09ec9921fe',\n  orderId: 'decision-order-weak',\n  attemptId: 'manual-attempt-1',\n  status: 'GENERATION_FAILED',\n  retryCount: 0,\n  generationStage: 'prepare_narrative',\n  errorCategory: 'commercial_quality_failed',\n  safeMessage: 'Report generation was blocked because the commercial quality checks failed. No new report was published. Review the quality codes and technical reference before retrying.'\n}\n(node:33242) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/evidence-model/__fixtures__/decision-fixtures.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.email",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-email-delivery\n> node scripts/phase14-email-delivery-tests.mjs\n\nPhase 14 PDF email delivery, retry recovery, test-recipient isolation and replay-safe webhook tests passed.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.webhook-adversarial",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-webhook-adversarial\n> node scripts/phase14-webhook-adversarial-tests.mjs\n\nphase14_webhook_adversarial_tests_passed\n\n(node:33310) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/email/resend-webhook.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.provider-faults",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-provider-faults\n> node scripts/phase14-provider-fault-injection-tests.mjs\n\nphase14_provider_fault_injection_tests_passed\n\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.storage-faults",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-storage-faults\n> node scripts/phase14-storage-fault-injection-tests.mjs\n\nphase14_storage_fault_injection_tests_passed\n\n(node:33378) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/download-verification.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.access-eligibility",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-report-access-eligibility\n> node scripts/phase14-report-access-eligibility-tests.mjs\n\nPhase 14 H5 report-access-eligibility suite\n  ok - a current, released, storage-verified report is allowed for every purpose it is eligible for\n  ok - a superseded report is blocked for every purpose\n  ok - a voided report is blocked for every purpose\n  ok - a draft report is blocked for every purpose\n  ok - a report that does not belong to the expected order is blocked\n  ok - a report that does not belong to the expected organisation is blocked\n  ok - a non-current version is blocked even though its own status looks eligible\n  ok - a report with unverified storage metadata is blocked\n  ok - customer_download is strictly narrower than admin_download and email_delivery (only released is eligible)\n  ok - a future customer-download helper reusing this exact function cannot bypass the currentness check -- there is no parameter that skips it\n  ok - admin-only download route still gates on role before any of this runs (static proof, unchanged by H5)\n  ok - wiring: both real call sites run the eligibility check before their authoritative RPC/mutation call\nBooting disposable local Postgres for resolveCurrentReportId real-schema proof...\nThe files belonging to this database system will be owned by user \"tondani\".\nThis user must also own the server process.\n\n\nThe database cluster will be initialized with this locale configuration:\n  locale provider:   libc\n  LC_COLLATE:  C\n  LC_CTYPE:    C\n  LC_MESSAGES: en_US.UTF-8\n  LC_MONETARY: C\n  LC_NUMERIC:  C\n  LC_TIME:     C\nThe default database encoding has accordingly been set to \"SQL_ASCII\".\nThe default text search configuration will be set to \"english\".\n\nData page checksums are enabled.\n\nfixing permissions on existing directory /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/phase14-report-access-pg-l4i9xb ... ok\ncreating subdirectories ... \nok\n\nselecting dynamic shared memory implementation ... \nposix\nselecting default \"max_connections\" ... \n100\nselecting default \"shared_buffers\" ... \n128MB\nselecting default time zone ... \nAfrica/Johannesburg\ncreating configuration files ... \nok\nrunning bootstrap script ... \nok\n\nperforming post-bootstrap initialization ... \nok\nsyncing data to disk ... \nok\n\nSuccess. You can now start the database server using:\n\n    '/private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/node_modules/@embedded-postgres/darwin-arm64/native/bin/pg_ctl' -D /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/phase14-report-access-pg-l4i9xb -l logfile start\n\n\n2026-08-08 17:41:28.515 SAST [33425] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit\n\n2026-08-08 17:41:28.516 SAST [33425] LOG:  listening on IPv6 address \"::1\", port 56227\n\n2026-08-08 17:41:28.516 SAST [33425] LOG:  listening on IPv4 address \"127.0.0.1\", port 56227\n\n2026-08-08 17:41:28.516 SAST [33425] LOG:  listening on Unix socket \"/tmp/.s.PGSQL.56227\"\n\n2026-08-08 17:41:28.519 SAST [33431] LOG:  database system was shut down at 2026-08-08 17:41:28 SAST\n\n2026-08-08 17:41:28.520 SAST [33425] LOG:  database system is ready to accept connections\n\nAll migrations applied.\n  ok - resolveCurrentReportId identifies the released v2, not the superseded v1, using the real schema\n  ok - assertReportAccessEligible blocks the superseded v1 report using the real resolved currentReportId\n  ok - assertReportAccessEligible allows the current released v2 report using the real resolved currentReportId\n\nPhase 14 H5 report-access-eligibility suite passed (15 cases).\n2026-08-08 17:41:28.851 SAST [33425] LOG:  received fast shutdown request\n\n2026-08-08 17:41:28.851 SAST [33425] LOG:  aborting any active transactions\n\n2026-08-08 17:41:28.851 SAST [33425] LOG:  background worker \"logical replication launcher\" (PID 33434) exited with exit code 1\n\n2026-08-08 17:41:28.852 SAST [33429] LOG:  shutting down\n\n2026-08-08 17:41:28.852 SAST [33429] LOG:  checkpoint starting: shutdown immediate\n\n2026-08-08 17:41:28.904 SAST [33429] LOG:  checkpoint complete: wrote 1537 buffers (9.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.038 s, sync=0.014 s, total=0.053 s; sync files=739, longest=0.001 s, average=0.001 s; distance=9971 kB, estimate=9971 kB; lsn=0/2144018, redo lsn=0/2144018\n\n2026-08-08 17:41:28.907 SAST [33425] LOG:  database system is shut down\n\n\n(node:33412) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/src/lib/reports/report-access-eligibility.ts is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.verified-byte-delivery",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview g29:test-verified-byte-delivery\n> node scripts/g29-verified-byte-delivery-tests.mjs\n\nG29 verified-byte delivery contract\n  ok - 1/2/3. PDF: authorised access returns the exact authoritative bytes, checksum and size\n  ok - 1/2/3. register: authorised access returns the exact authoritative bytes, checksum and size\n  ok - 4/8. only the verified instance is delivered, even though every later read is tampered\n  ok - 5/6. no signed URL is created and no redirect target is returned\n  ok - 7. tampered verification read fails closed with zero artefact bytes\n  ok - 9. missing physical object fails closed\n  ok - 10/11. cross-report, missing and unverified register fail closed\n  ok - 12. audit records pdf versus supporting_register\n  ok - 13. audit failure prevents release\n  ok - 14. access accounting occurs only on successful authorised access\n  ok - 15. raw storage path and bucket are never disclosed to the customer\n  ok - route sets the customer-facing security headers\n  ok - PDF magic validation is not reused for the register\n\n13 passed, 0 failed\n\ncustomer_report_access_audit {\n  technicalReference: '2ae09cf9-8566-49d7-aa75-60097706c29f',\n  errorCategory: 'access_audit_failed'\n}\ncustomer_report_access_audit {\n  technicalReference: '94e0c387-bce6-44a4-b1ea-568c7de47b12',\n  errorCategory: 'access_audit_failed'\n}\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.security-closure",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-security-closure\n> node scripts/phase14-security-closure-tests.mjs\n\nPhase 14 security closure, evidence-only AI schema, Unicode normalization and verified-download tests passed.\n\n",
+      "parsed": null
+    },
+    {
+      "id": "delivery.resend-rate-limit",
+      "category": "delivery",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview phase14:test-resend-webhook-rate-limit\n> node scripts/phase14-resend-webhook-rate-limit-tests.mjs\n\nphase14_resend_webhook_rate_limit_tests_passed\n\n",
+      "parsed": null
+    },
+    {
+      "id": "database.accepted-migrations",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview rc1:verify-accepted-migrations\n> node scripts/rc1-accepted-migration-checksums.mjs\n\nPASS 7 accepted behaviour migrations and freeze-bootstrap checksum\n\n",
+      "parsed": null
+    },
+    {
+      "id": "database.service-role-contract",
+      "category": "database",
+      "status": "failed",
+      "classification": "environment/configuration",
+      "severity": null,
+      "exitCode": 1,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview rc1:test-service-role-contract\n> node scripts/rc1-service-role-privilege-contract-tests.mjs\n\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: LOCAL_DB_URL is required\n    at file:///private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/scripts/rc1-service-role-privilege-contract-tests.mjs:8:1\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: '',\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v24.18.0\n",
+      "parsed": null
+    },
+    {
+      "id": "database.old-schema-freeze",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview rc1:test-old-schema-freeze\n> node scripts/rc1-old-schema-freeze-compatibility-tests.mjs\n\nThe files belonging to this database system will be owned by user \"tondani\".\nThis user must also own the server process.\n\n\nThe database cluster will be initialized with this locale configuration:\n  locale provider:   libc\n  LC_COLLATE:  C\n  LC_CTYPE:    C\n  LC_MESSAGES: en_US.UTF-8\n  LC_MONETARY: C\n  LC_NUMERIC:  C\n  LC_TIME:     C\nThe default database encoding has accordingly been set to \"SQL_ASCII\".\nThe default text search configuration will be set to \"english\".\n\nData page checksums are enabled.\n\nfixing permissions on existing directory /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/rc1-old-schema-freeze-uniyeL ... ok\ncreating subdirectories ... \nok\n\nselecting dynamic shared memory implementation ... \nposix\nselecting default \"max_connections\" ... \n100\nselecting default \"shared_buffers\" ... \n128MB\nselecting default time zone ... \nAfrica/Johannesburg\ncreating configuration files ... \nok\nrunning bootstrap script ... \nok\n\nperforming post-bootstrap initialization ... \nok\nsyncing data to disk ... \nok\n\n\nSuccess. You can now start the database server using:\n\n    '/private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/node_modules/@embedded-postgres/darwin-arm64/native/bin/pg_ctl' -D /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/rc1-old-schema-freeze-uniyeL -l logfile start\n\n\n2026-08-08 17:41:30.889 SAST [33654] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit\n\n2026-08-08 17:41:30.890 SAST [33654] LOG:  listening on IPv6 address \"::1\", port 58841\n\n2026-08-08 17:41:30.890 SAST [33654] LOG:  listening on IPv4 address \"127.0.0.1\", port 58841\n\n2026-08-08 17:41:30.890 SAST [33654] LOG:  listening on Unix socket \"/tmp/.s.PGSQL.58841\"\n\n2026-08-08 17:41:30.893 SAST [33660] LOG:  database system was shut down at 2026-08-08 17:41:30 SAST\n\n2026-08-08 17:41:30.894 SAST [33654] LOG:  database system is ready to accept connections\n\nPASS RC1 old-34-schema frozen compatibility: diagnostics available, 34 mutation probes caused zero writes\n2026-08-08 17:41:32.069 SAST [33654] LOG:  received fast shutdown request\n\n2026-08-08 17:41:32.069 SAST [33654] LOG:  aborting any active transactions\n\n2026-08-08 17:41:32.070 SAST [33654] LOG:  background worker \"logical replication launcher\" (PID 33663) exited with exit code 1\n\n2026-08-08 17:41:32.070 SAST [33658] LOG:  shutting down\n\n2026-08-08 17:41:32.070 SAST [33658] LOG:  checkpoint starting: shutdown immediate\n\n2026-08-08 17:41:32.124 SAST [33658] LOG:  checkpoint complete: wrote 1546 buffers (9.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.039 s, sync=0.015 s, total=0.054 s; sync files=745, longest=0.001 s, average=0.001 s; distance=10381 kB, estimate=10381 kB; lsn=0/21AA700, redo lsn=0/21AA700\n\n2026-08-08 17:41:32.127 SAST [33654] LOG:  database system is shut down\n\n\n",
+      "parsed": null
+    },
+    {
+      "id": "database.migration-replay",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": null,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview v7:test-checkpoint-e-migration\n> node scripts/phase-v7-checkpoint-e-migration-replay-tests.mjs\n\nBooting disposable Postgres for Checkpoint E migration replay...\nThe files belonging to this database system will be owned by user \"tondani\".\nThis user must also own the server process.\n\n\nThe database cluster will be initialized with this locale configuration:\n  locale provider:   libc\n  LC_COLLATE:  C\n  LC_CTYPE:    C\n  LC_MESSAGES: en_US.UTF-8\n  LC_MONETARY: C\n  LC_NUMERIC:  C\n  LC_TIME:     C\nThe default database encoding has accordingly been set to \"SQL_ASCII\".\nThe default text search configuration will be set to \"english\".\n\nData page checksums are enabled.\n\nfixing permissions on existing directory /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/checkpoint-e-migration-pg-HHv59h ... ok\ncreating subdirectories ... \nok\n\nselecting dynamic shared memory implementation ... posix\n\nselecting default \"max_connections\" ... \n100\nselecting default \"shared_buffers\" ... \n128MB\nselecting default time zone ... \nAfrica/Johannesburg\ncreating configuration files ... \nok\nrunning bootstrap script ... \nok\n\nperforming post-bootstrap initialization ... \nok\nsyncing data to disk ... \nok\n\nSuccess. You can now start the database server using:\n\n    '/private/tmp/claude-501/-Users-tondani-Documents-Codex/ce7508dc-99cb-4279-905b-a3b91096dbac/scratchpad/work/node_modules/@embedded-postgres/darwin-arm64/native/bin/pg_ctl' -D /var/folders/jn/y603xv2d1q7_d0n_jsxt_7040000gn/T/checkpoint-e-migration-pg-HHv59h -l logfile start\n\n\n2026-08-08 17:41:32.788 SAST [33764] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit\n\n2026-08-08 17:41:32.789 SAST [33764] LOG:  listening on IPv6 address \"::1\", port 56348\n\n2026-08-08 17:41:32.789 SAST [33764] LOG:  listening on IPv4 address \"127.0.0.1\", port 56348\n\n2026-08-08 17:41:32.789 SAST [33764] LOG:  listening on Unix socket \"/tmp/.s.PGSQL.56348\"\n\n2026-08-08 17:41:32.792 SAST [33770] LOG:  database system was shut down at 2026-08-08 17:41:32 SAST\n\n2026-08-08 17:41:32.793 SAST [33764] LOG:  database system is ready to accept connections\n\nApplied 35 pre-Checkpoint E migrations from a clean database.\n  ok - transactional rollback restores the exact pre-migration schema\n  ok - pre-migration state upgrades without activating AI, routes or delivery\n  ok - post-migration replay is idempotent and preserves activation state\n  ok - manual claim binds parent, order, assessment, locked score, identity and checksum\n\n4 passed, 0 failed\n2026-08-08 17:41:33.092 SAST [33764] LOG:  received fast shutdown request\n\n2026-08-08 17:41:33.092 SAST [33764] LOG:  aborting any active transactions\n\n2026-08-08 17:41:33.093 SAST [33764] LOG:  background worker \"logical replication launcher\" (PID 33773) exited with exit code 1\n\n2026-08-08 17:41:33.093 SAST [33768] LOG:  shutting down\n\n2026-08-08 17:41:33.093 SAST [33768] LOG:  checkpoint starting: shutdown immediate\n\n2026-08-08 17:41:33.146 SAST [33768] LOG:  checkpoint complete: wrote 1618 buffers (9.9%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.039 s, sync=0.014 s, total=0.054 s; sync files=754, longest=0.001 s, average=0.001 s; distance=10441 kB, estimate=10441 kB; lsn=0/21B9708, redo lsn=0/21B9708\n\n2026-08-08 17:41:33.149 SAST [33764] LOG:  database system is shut down\n\n\n",
+      "parsed": null
+    },
+    {
+      "id": "database.ai-route-authority",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 17,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview pre-g30:test-ai-route-authority\n> node scripts/pre-g30-ai-route-authority-tests.mjs\n\n{\"ok\":true,\"assertions\":17,\"suite\":\"pre-g30-ai-route-authority\"}\n\n",
+      "parsed": {
+        "ok": true,
+        "assertions": 17,
+        "suite": "pre-g30-ai-route-authority"
+      }
+    },
+    {
+      "id": "database.migration-target-separation",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 13,
+      "output": "pc_least_privilege.sql\",\"checksum\":\"ef9144b16409158c44895723e09a4dee5c459f3db23b8e6d4b2b39176cd4496e\",\"target\":\"production\",\"dependencyOrder\":64},{\"migration\":\"20260805120000_g27_adaptive_scoring_search_path.sql\",\"checksum\":\"fcc24765f5820756aa1862d7b3127a45ac147a74d73d3cc528218201f27aa947\",\"target\":\"production\",\"dependencyOrder\":65},{\"migration\":\"20260805140000_pre_g30_adaptive_launch_authority.sql\",\"checksum\":\"1ad37cff13c74d00cc37b5b8de831926bc108874058073d309de4241da8ce02b\",\"target\":\"production\",\"dependencyOrder\":66},{\"migration\":\"20260805150000_pre_g30_staging_ai_authority_guard_fix.sql\",\"checksum\":\"dd0604c12e2a541ca826b37d6d743ee06940fb51a2e6749a73bc6eba9f97e2a9\",\"target\":\"production\",\"dependencyOrder\":67},{\"migration\":\"20260805200000_pre_g30_ai_timeout_window.sql\",\"checksum\":\"7521c6f36555469e3a7391b78aabe93f36b11fe62b75634d6076124696b5dde4\",\"target\":\"production\",\"dependencyOrder\":68},{\"migration\":\"20260806090000_pre_g30_ai_budget_diagnostics.sql\",\"checksum\":\"c4abd85824d3feaa706668e841872b20891e462bb7b20e45b1237d25e72c195e\",\"target\":\"production\",\"dependencyOrder\":69},{\"migration\":\"20260806143000_pre_g30_structured_output_release_gate.sql\",\"checksum\":\"796df13e13737a6805032ea22d0d03c19677798c8f4f88981cf2d865d7747a74\",\"target\":\"production\",\"dependencyOrder\":70},{\"migration\":\"20260807120000_report_secondary_artifacts.sql\",\"checksum\":\"af913fdbbecbc38f129161ad93f89e537be4faae47e56016e738e3434d7c1714\",\"target\":\"production\",\"dependencyOrder\":71},{\"migration\":\"20260807130000_report_artefact_access_audit.sql\",\"checksum\":\"501be496d9d9c5b8d446b4bac565c7403d5c588ce269e7ef2cb5e50a8e201d5c\",\"target\":\"production\",\"dependencyOrder\":72},{\"migration\":\"20260807140000_report_artefact_bucket_mime.sql\",\"checksum\":\"d64bb2b23c34316735416066d4f6329b24730685a863a29d96541316b2329b1e\",\"target\":\"production\",\"dependencyOrder\":73},{\"migration\":\"20260808090000_rc1_report_artifacts_freeze_surface.sql\",\"checksum\":\"7aa77532e1d22e18a25401f1973dedd4e8d4bd451b8a1a1276a09fdbdbadffc7\",\"target\":\"production\",\"dependencyOrder\":74},{\"migration\":\"20260808150000_manual_ai_structured_output_settlement_parity.sql\",\"checksum\":\"50d3ffd46dc56c4380ae06ee979256d7d2a02014ed3943212959777c2a8a1b22\",\"target\":\"production\",\"dependencyOrder\":75},{\"migration\":\"20260808160000_atomic_report_finalisation_with_register.sql\",\"checksum\":\"f0852df8d035c5f551463a409672c0cd8e911a901e32e53844181487238b18ff\",\"target\":\"production\",\"dependencyOrder\":76},{\"migration\":\"20260808170000_ai_attempt_timeout_contract_parity.sql\",\"checksum\":\"9dd99a8925ba405fbf562714aa65fc21f13385f8afb6e877b9c8c09e909eac5c\",\"target\":\"production\",\"dependencyOrder\":77},{\"migration\":\"20260808180000_atomic_access_token_consumption.sql\",\"checksum\":\"b4e2aca5f83b0915a516d9c965f79c0f191f7bca500ec8ece2ff0419e930fc3e\",\"target\":\"production\",\"dependencyOrder\":78}],\"stagingOnlyManifest\":[{\"migration\":\"20260728190000_rc1_staging_postflight_least_privilege.sql\",\"justification\":\"Explicit Staging postflight/test-harness ACL correction.\",\"checksum\":\"30fd0091f2e18816fb26af9515ca95d3f109f97a8f01d007d58d77965614bfe2\",\"target\":\"staging_only\",\"dependencyOrder\":0},{\"migration\":\"20260730130000_rc1_synthetic_certification_cleanup.sql\",\"justification\":\"Synthetic certification cleanup control; never part of customer Production history.\",\"checksum\":\"7ec8849bcaf0202b02eeae2c6de34cb0f6530f63c9847c699e495a01814387b0\",\"target\":\"staging_only\",\"dependencyOrder\":1},{\"migration\":\"20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql\",\"justification\":\"Synthetic cleanup Storage API correction.\",\"checksum\":\"4c7a92efbc65b03cf163f5c3869bf565a541670408407c9a1d6347b44e8b651c\",\"target\":\"staging_only\",\"dependencyOrder\":2},{\"migration\":\"20260731150000_rc1_synthetic_cleanup_guard_allowances.sql\",\"justification\":\"Synthetic cleanup-only guard allowance.\",\"checksum\":\"f086bd26181289a272dd1e9f7dcc006fb800828fe77dc386e89c9c889a3fefdc\",\"target\":\"staging_only\",\"dependencyOrder\":3},{\"migration\":\"20260731170000_rc1_synthetic_storage_cleanup_closure.sql\",\"justification\":\"Synthetic Storage cleanup closure.\",\"checksum\":\"7ec05c7cd7efada3ea11b73b01c9fae3100d71e9ef675a1fa3f3dba7b3cab87e\",\"target\":\"staging_only\",\"dependencyOrder\":4},{\"migration\":\"20260801070000_rc1_synthetic_cleanup_attestation_routes.sql\",\"justification\":\"Synthetic cleanup attestation route.\",\"checksum\":\"36c0bd66d39fd28ccd2dcb26330ce66bd0171391e2360f06003168c81c087297\",\"target\":\"staging_only\",\"dependencyOrder\":5},{\"migration\":\"20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql\",\"justification\":\"Synthetic cleanup attestation allowance.\",\"checksum\":\"7bf5121c770c2b51017b5cb5ed5eee6c58debabe5e1a4be948b487d7ef836037\",\"target\":\"staging_only\",\"dependencyOrder\":6},{\"migration\":\"20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql\",\"justification\":\"Synthetic cleanup authoritative context.\",\"checksum\":\"cb23f789e31587e603ad0565b68758ee66536e54d5bcc6aa8d8307e2800ad16d\",\"target\":\"staging_only\",\"dependencyOrder\":7},{\"migration\":\"20260801160000_rc1_orphan_remediation.sql\",\"justification\":\"Synthetic/provider orphan remediation control.\",\"checksum\":\"b77af77cc5690124b390c4198a31eedb118d5c91f510e82e3f88345c934c5dca\",\"target\":\"staging_only\",\"dependencyOrder\":8},{\"migration\":\"20260801180000_rc1_certification_enablement_control.sql\",\"justification\":\"RC1 synthetic certification enablement control.\",\"checksum\":\"9abfa8a28407d291b81390b05c057eac81fcbbf5150299a194aa5814e81e6275\",\"target\":\"staging_only\",\"dependencyOrder\":9},{\"migration\":\"20260801200000_rc1_orphan_remediation_guard_allowance.sql\",\"justification\":\"Synthetic orphan-remediation guard allowance.\",\"checksum\":\"f3bf7ef9e85dcfe8a0cbc547d3292cfdd7d0b4d1404dbd0b4ed7759b49c113aa\",\"target\":\"staging_only\",\"dependencyOrder\":10},{\"migration\":\"20260801220000_rc1_synthetic_certification_marking.sql\",\"justification\":\"Synthetic certification marking and fixture provenance.\",\"checksum\":\"a0ad6ac388c2ff7751cc8540f249404f5076e3443b4f3021402fb2d8b536e025\",\"target\":\"staging_only\",\"dependencyOrder\":11},{\"migration\":\"20260802120000_rc1_synthetic_marking_placeholder_allowance.sql\",\"justification\":\"Synthetic marking test allowance.\",\"checksum\":\"35208ab428452192ccdf4250accba5ab498d33e3483368f568fd39b78e4ec379\",\"target\":\"staging_only\",\"dependencyOrder\":12},{\"migration\":\"20260803090000_rc1_certification_closure.sql\",\"justification\":\"RC1 synthetic certification closure path.\",\"checksum\":\"74624524c8a7111793205c3cd9e8f8d4819c15e9259b8527a96eb0a30b7344ee\",\"target\":\"staging_only\",\"dependencyOrder\":13},{\"migration\":\"20260803230000_preview_development_delivery.sql\",\"justification\":\"Preview development delivery facade.\",\"checksum\":\"8b88f5e63c9ea68ad18854169498a0913e776078e95ea133b4595e258611d555\",\"target\":\"staging_only\",\"dependencyOrder\":14},{\"migration\":\"20260804090000_preview_development_authoritative_context.sql\",\"justification\":\"Preview development mutation context.\",\"checksum\":\"8f9cda45057d9e597726a2b72845ce3cb2269e5a27f914c076175bba7d77bb8f\",\"target\":\"staging_only\",\"dependencyOrder\":15},{\"migration\":\"20260804110000_rc1_preview_resend_webhook_ingestion.sql\",\"justification\":\"Preview provider webhook simulation/ingestion facade.\",\"checksum\":\"1cf527c78dd99bf61f6a626924c216823f56704ebbbaeb55276b745946b376bb\",\"target\":\"staging_only\",\"dependencyOrder\":16},{\"migration\":\"20260804130000_rc1_preview_resend_reconciliation_once.sql\",\"justification\":\"Preview provider reconciliation simulation.\",\"checksum\":\"0f3f2ba8f2d11c267a6a9c81df5d0c20f38d6b2db90eaf6dc6f0276a3c82f098\",\"target\":\"staging_only\",\"dependencyOrder\":17},{\"migration\":\"20260804140000_rc1_preview_resend_reconciliation_status.sql\",\"justification\":\"Preview provider reconciliation status facade.\",\"checksum\":\"5b0ce30421fed3516fcfd62efd758b1c34dddca8008944876dd6d87c4642569f\",\"target\":\"staging_only\",\"dependencyOrder\":18},{\"migration\":\"20260804150000_rc1_preview_resend_apply_context.sql\",\"justification\":\"Preview provider callback apply context.\",\"checksum\":\"b3774daa2a35184f01e8c0c1e22515f24a5229e2978a51a5a904dfb0fd668f0b\",\"target\":\"staging_only\",\"dependencyOrder\":19}]}\n\n",
+      "parsed": {
+        "ok": true,
+        "assertions": 13,
+        "migrationCount": 99,
+        "productionTargetCount": 79,
+        "stagingPreviewOnlyCount": 20,
+        "productionTargetManifest": [
+          {
+            "migration": "0001_phase2_v1_1_schema_rls.sql",
+            "checksum": "e94ab8d710d98f9cab91d334db3f3c91be599fa229f109fe15f5925e3a7e5c6e",
+            "target": "production",
+            "dependencyOrder": 0
+          },
+          {
+            "migration": "0002_phase4_dev_seed.sql",
+            "checksum": "83daef75673312838fd6a4d373b1f9d8638a3aaaf238b2d317514f1ebb94f981",
+            "target": "production",
+            "dependencyOrder": 1
+          },
+          {
+            "migration": "0003_phase5_methodology_seed.sql",
+            "checksum": "30819fed0b9ec23894ec1d710f1164f848a404b9850b3a3b5c70f96cb803ca79",
+            "target": "production",
+            "dependencyOrder": 2
+          },
+          {
+            "migration": "0004_phase4_v1_2_rate_limiting.sql",
+            "checksum": "f042283497119f2470f0b561e58b67a30dd4ffbb91ee4f9ec3453ab2a33039dc",
+            "target": "production",
+            "dependencyOrder": 3
+          },
+          {
+            "migration": "0005_phase5_v1_1_guards.sql",
+            "checksum": "f68f4580846304b8b9885703e8b29cc881d888fa88eb6ad74dca688f77351afb",
+            "target": "production",
+            "dependencyOrder": 4
+          },
+          {
+            "migration": "0006_phase6_scoring_guards.sql",
+            "checksum": "b7620e2be7bb4ec05e75250600d2b6079448859f024a2db9c4d5e9c4ae6b4ee5",
+            "target": "production",
+            "dependencyOrder": 5
+          },
+          {
+            "migration": "0007_phase6_v1_1_atomic_scoring.sql",
+            "checksum": "9b7daa340ff447f784f8df17a033ddc4c76984d3e29db058dbe544586ea059b6",
+            "target": "production",
+            "dependencyOrder": 6
+          },
+          {
+            "migration": "0009_methodology_copy_polish.sql",
+            "checksum": "ff5e1b139ebb24ab026b9841a25e2b285ec899f2a23041235649d54adf7d9658",
+            "target": "production",
+            "dependencyOrder": 7
+          },
+          {
+            "migration": "0010_phase9_manual_eft_order_flow.sql",
+            "checksum": "732cfb8cc5843a08a460f77cb77f7109b049369d24765f625ef0063f4b971028",
+            "target": "production",
+            "dependencyOrder": 8
+          },
+          {
+            "migration": "0012_phase13_commercial_event_foundation.sql",
+            "checksum": "65d2079a148e62533b3d7c93806c4c22802baed0eec247ff150e8b93ec649cf3",
+            "target": "production",
+            "dependencyOrder": 9
+          },
+          {
+            "migration": "0013_phase13_event_index_cleanup.sql",
+            "checksum": "744d2f2e6294c9f9021fed3a44c2dcf38a0e9fcddda7e27aedbd7374b8bf1e16",
+            "target": "production",
+            "dependencyOrder": 10
+          },
+          {
+            "migration": "0014_phase13_customer_commercial_conversion.sql",
+            "checksum": "10f61ca4db95473c3a765b0678c375f8671df35b7be45abfc75194c2d4af1647",
+            "target": "production",
+            "dependencyOrder": 11
+          },
+          {
+            "migration": "0015_phase13_data_request_policy_cleanup.sql",
+            "checksum": "a573e8d5ca3e8372dd93d2495c1261df10a51fce57b33065b41cec13330999a2",
+            "target": "production",
+            "dependencyOrder": 12
+          },
+          {
+            "migration": "0016_platform_database_hardening.sql",
+            "checksum": "9f1636160c42f40bdb742bdb4a6a81453b790829494bb87052b4b8042747fd06",
+            "target": "production",
+            "dependencyOrder": 13
+          },
+          {
+            "migration": "0017_phase14_canonical_disabled_foundation.sql",
+            "checksum": "531123fa8789ae738190c2756472e6fd07711da5c2d5c117f3b909c6809535c1",
+            "target": "production",
+            "dependencyOrder": 14
+          },
+          {
+            "migration": "0023_phase1_manual_fulfilment_recovery.sql",
+            "checksum": "3509e0556cc07812a37e0db339ae4e8320d7a66446788d559c4908e97d75c582",
+            "target": "production",
+            "dependencyOrder": 15
+          },
+          {
+            "migration": "0024_phase23_payment_automation.sql",
+            "checksum": "2d83af2ceb623e7f549cf55e491646b5d1de783ebbad94970514b35b4dc22517",
+            "target": "production",
+            "dependencyOrder": 16
+          },
+          {
+            "migration": "0025_phase23_assessment_resume.sql",
+            "checksum": "ef0f71809e0680396d3f3eb8b50e81428fd318438daa7aff64fd8655f7f7c362",
+            "target": "production",
+            "dependencyOrder": 17
+          },
+          {
+            "migration": "0026_phase14_workflow_start_admin_recovery.sql",
+            "checksum": "57529f6ecfaa132ec9e9ffc970866ec773eb512654fa065f1b140e93fed817c8",
+            "target": "production",
+            "dependencyOrder": 18
+          },
+          {
+            "migration": "0027_phase14_delivery_ambiguity_admin_resolution.sql",
+            "checksum": "23b4b88e0d0eee9bcee94545f714e42858d0b7c831211a4baf17607f6b5bc7fb",
+            "target": "production",
+            "dependencyOrder": 19
+          },
+          {
+            "migration": "0028_phase14_attestation_canonicalisation_hardening.sql",
+            "checksum": "3be501e2c230fdc78874bcb278fdac7364b90c73ddffee7fa263fe5f95ad07dc",
+            "target": "production",
+            "dependencyOrder": 20
+          },
+          {
+            "migration": "0029_phase14_ai_attempt_cross_kind_budget.sql",
+            "checksum": "254e95cbde374e776f557c77ee75bf387f557c12ec034dd7df7cce705bc6ab24",
+            "target": "production",
+            "dependencyOrder": 21
+          },
+          {
+            "migration": "0030_phase14_ai_attempt_pre_dispatch_budget_exclusion.sql",
+            "checksum": "0fd5e02c84e54ef795da46cdecb73a8f3fecc3c8068b734ff6ad4721988d45c3",
+            "target": "production",
+            "dependencyOrder": 22
+          },
+          {
+            "migration": "0031_phase14_delivery_event_recency_precision_fix.sql",
+            "checksum": "8daacd6518804b2f1b3f0e72e9eca8a54822ae5a0754fa6fdad85083637828b4",
+            "target": "production",
+            "dependencyOrder": 23
+          },
+          {
+            "migration": "0032_phase1_app_settings_service_role_select_restore.sql",
+            "checksum": "963285cc1d3c5f1ae41b657e0042df4ea301a1b685902efdd200686a03cd1988",
+            "target": "production",
+            "dependencyOrder": 24
+          },
+          {
+            "migration": "0033_phase1_manual_generation_report_event_authoritative_context.sql",
+            "checksum": "7b190310f68702d78614f0e1061af31d116050928e99fd80061452e18858058e",
+            "target": "production",
+            "dependencyOrder": 25
+          },
+          {
+            "migration": "20260708193238_phase10_report_engine_additions.sql",
+            "checksum": "259a619cd812528eeb6b91450ca453e5ecd0b8dd87acf881ef8afdeec06ad536",
+            "target": "production",
+            "dependencyOrder": 26
+          },
+          {
+            "migration": "20260708193318_phase9_phase10_private_storage_buckets.sql",
+            "checksum": "e55428e2c3f021a61c3b7b03ebc9f8aeadd54203e9595a6bd8831e2d1e890c5b",
+            "target": "production",
+            "dependencyOrder": 27
+          },
+          {
+            "migration": "20260708194834_phase10_v2_report_engine_content.sql",
+            "checksum": "49bb91a34db30e127f2ee184dde8ce54c82967bac187a55f65c88fbdf0a31a32",
+            "target": "production",
+            "dependencyOrder": 28
+          },
+          {
+            "migration": "20260709033522_phase10_v2_report_template_seed.sql",
+            "checksum": "a5a1e203282597c830a1bdac88298f6744aeb7b595d6c9884db1056f21bba609",
+            "target": "production",
+            "dependencyOrder": 29
+          },
+          {
+            "migration": "20260719081858_phase14_gate_invalidation_safe_update_fix.sql",
+            "checksum": "b59b98ca3e37bf4adbb44a5e6b8f811dbb9397d4f3a342b0c5ac10ab57211411",
+            "target": "production",
+            "dependencyOrder": 30
+          },
+          {
+            "migration": "20260720200442_phase_v2_content_library_domain_code_and_activation.sql",
+            "checksum": "3dd7bff3ec0af98971d02b7e874aa4c7a58fe05caf9fa91ecef53cf05372babc",
+            "target": "production",
+            "dependencyOrder": 31
+          },
+          {
+            "migration": "20260720200735_phase_v2_fix_singular_cap_wording.sql",
+            "checksum": "7de540c609b66eac607141e36e4ad643cd372bebbaf5b21b5dda495f5ba772ee",
+            "target": "production",
+            "dependencyOrder": 32
+          },
+          {
+            "migration": "20260721150808_fix_complete_manual_report_generation_supersede_order.sql",
+            "checksum": "28d28dfe4a2d0a77cd6c8f4e3dfac82aa25cff45e7b02d1b58964dd0cf158cf5",
+            "target": "production",
+            "dependencyOrder": 33
+          },
+          {
+            "migration": "20260722120000_rc1_operational_freeze_bootstrap.sql",
+            "checksum": "68696811bf71e21a957d961a48d277f93980d0f83b3463d2d495708a15854006",
+            "target": "production",
+            "dependencyOrder": 34
+          },
+          {
+            "migration": "20260722143000_checkpoint_e_phase1_ai_attempt_binding.sql",
+            "checksum": "d546f6ac3f6743eebbb48b19815b6b2a3ea9926592fe1ca3cade025d7f46ce25",
+            "target": "production",
+            "dependencyOrder": 35
+          },
+          {
+            "migration": "20260724150000_release_a_backlog_reconciliation.sql",
+            "checksum": "4a1c7c88a7f70fb2f50776b140bb26d022aacbbdd41eb46ba160e6a237dc432e",
+            "target": "production",
+            "dependencyOrder": 36
+          },
+          {
+            "migration": "20260724160000_release_b_durable_fulfilment.sql",
+            "checksum": "f3d37600a461e646007312c07640a1d49c513385094e98ab633795302c667046",
+            "target": "production",
+            "dependencyOrder": 37
+          },
+          {
+            "migration": "20260724170000_release_c_email_secure_delivery.sql",
+            "checksum": "e320ea500bfcfb3b51166cbe957549ddb8189e53a33f6e1d4cd67845e1e18809",
+            "target": "production",
+            "dependencyOrder": 38
+          },
+          {
+            "migration": "20260724180000_release_c_closure_delivery_exceptions.sql",
+            "checksum": "0c0843897136b046d01c135297fd90911b95bcfd6d2f44490c49aaf153f56533",
+            "target": "production",
+            "dependencyOrder": 39
+          },
+          {
+            "migration": "20260725090000_release_c_runtime_secret_admin_provisioning.sql",
+            "checksum": "a0eca9a5426955ea1526362940174b0463f7536131cf74fae938c7bfa105923d",
+            "target": "production",
+            "dependencyOrder": 40
+          },
+          {
+            "migration": "20260725150000_release_d_operational_alert_lifecycle.sql",
+            "checksum": "efc3a4317d23316036cd09a7a1b300675cbdad1a6f5c7b798a7957dd092bf6d1",
+            "target": "production",
+            "dependencyOrder": 41
+          },
+          {
+            "migration": "20260728120000_rc1_near_real_time_automatic_fulfilment.sql",
+            "checksum": "f98bb7f5187da6f2f06de88d8e69f34877e8e9c3274967e6a8989624cb630668",
+            "target": "production",
+            "dependencyOrder": 42
+          },
+          {
+            "migration": "20260728191000_rc1_launch_required_foreign_key_indexes.sql",
+            "checksum": "d4d28897ea72bb3064c9e0a2b726ded10cc7cca54b2e1b634bc83f86982f3af9",
+            "target": "production",
+            "dependencyOrder": 43
+          },
+          {
+            "migration": "20260729113242_rc1_service_role_privilege_contract.sql",
+            "checksum": "154e42de8b3d06b91faad70dd78572567b5b10e3878df11927dd9c02493efe20",
+            "target": "production",
+            "dependencyOrder": 44
+          },
+          {
+            "migration": "20260729170000_rc1_authenticated_admin_profile_read.sql",
+            "checksum": "20653ae2ff9c4fd64ef964ca616d3afcb2b4f2c0abf32300a2937c64df192cab",
+            "target": "production",
+            "dependencyOrder": 45
+          },
+          {
+            "migration": "20260730120000_rc1_commercial_quality_diagnostics.sql",
+            "checksum": "ff729b95aa5dc7a2efafb20a0f08165cbf82c0275a80ae277aa998128a72f551",
+            "target": "production",
+            "dependencyOrder": 46
+          },
+          {
+            "migration": "20260801120000_rc1_delivery_entitlement_user_metadata.sql",
+            "checksum": "413f0e87b8f9a0a25f8ecf673a1f7b4212eb09671556c9ee078bb8cf7acbb05a",
+            "target": "production",
+            "dependencyOrder": 47
+          },
+          {
+            "migration": "20260803160000_rc1_reactive_domain_content_correction.sql",
+            "checksum": "a0a5058ed6834e4eab96a6817300faed36249856b558f0ae44b36623bfc5fb96",
+            "target": "production",
+            "dependencyOrder": 48
+          },
+          {
+            "migration": "20260803170000_rc1_reactive_domain_title_correction.sql",
+            "checksum": "2ddaf2d73c6094c49b4278329fe7eef2408f73ce6f401874b007c90fecabf551",
+            "target": "production",
+            "dependencyOrder": 49
+          },
+          {
+            "migration": "20260803180000_rc1_park_fulfilment_attempt.sql",
+            "checksum": "601860a13cf9d69ce695caee1a007c198b792ee7b28b815fcf763d53a633e03c",
+            "target": "production",
+            "dependencyOrder": 50
+          },
+          {
+            "migration": "20260803190000_rc1_park_fulfilment_attempt_search_path_fix.sql",
+            "checksum": "eb279adce94fbe01bd3e4468fcd6af5508d5c2803781aed39614931c4c9d6225",
+            "target": "production",
+            "dependencyOrder": 51
+          },
+          {
+            "migration": "20260803200000_rc1_park_fulfilment_attempt_nullif_fix.sql",
+            "checksum": "ad99fe1f7de489bde7d782501c5a12eb35a06f33d1b96f153a53f5d0854c438e",
+            "target": "production",
+            "dependencyOrder": 52
+          },
+          {
+            "migration": "20260803210000_rc1_structured_band_operating_state_overclaim.sql",
+            "checksum": "5dce5886e9b6c90faa40ff972c03a455298db2285ec8654510ba154127385408",
+            "target": "production",
+            "dependencyOrder": 53
+          },
+          {
+            "migration": "20260803220000_rc1_premium_delivery_active_uniqueness.sql",
+            "checksum": "bb1f8b06b29a333894b7a5f89b3db0ba16ac60bf5ce008ce44d0f0b8b8163d9a",
+            "target": "production",
+            "dependencyOrder": 54
+          },
+          {
+            "migration": "20260804170000_g24_adaptive_foundation_g28_evidence_guidance.sql",
+            "checksum": "3b2af74066f3d3ed54604ded4c008c5edc1ee79ad1a0c8a0951ea7947cff9b1b",
+            "target": "production",
+            "dependencyOrder": 55
+          },
+          {
+            "migration": "20260804171000_g28_evidence_guidance_seed_repair.sql",
+            "checksum": "42edee58dd9da93e58fad1dfcf47edeb1aeedfd484fadfdb2354b3b057fa88d2",
+            "target": "production",
+            "dependencyOrder": 56
+          },
+          {
+            "migration": "20260804194001_g29_payment_verification_contract.sql",
+            "checksum": "1134509775d01a3888f5b1e55a2855ba39d2adcd9ad83b85aab6bb815d5bb601",
+            "target": "production",
+            "dependencyOrder": 57
+          },
+          {
+            "migration": "20260804200000_g25_adaptive_engine.sql",
+            "checksum": "353418d321c9b99a89bbb8ec44d46f9948196e48dfc65e069a31fb76b6c95e65",
+            "target": "production",
+            "dependencyOrder": 58
+          },
+          {
+            "migration": "20260804203520_g29_customer_report_access_audit.sql",
+            "checksum": "03f1258bd64f2f2a34aa30f9b44234cbe6611ef7ec63c4979e13fbda8b3bc214",
+            "target": "production",
+            "dependencyOrder": 59
+          },
+          {
+            "migration": "20260804210000_g27_adaptive_scoring_integration.sql",
+            "checksum": "bef9832eff70ffd84bb6850aaf0a9de7bfd1c22d168b3e5b0dfcfaac2a322950",
+            "target": "production",
+            "dependencyOrder": 60
+          },
+          {
+            "migration": "20260804223000_g27_adaptive_visibility_score_guard.sql",
+            "checksum": "c261928dc174942ac16a5f0e607940f6f3895942e1dd803e11dd9fd2de3f5256",
+            "target": "production",
+            "dependencyOrder": 61
+          },
+          {
+            "migration": "20260805090000_pre_g30_ai_route_authority.sql",
+            "checksum": "90bbc7021b6aae476573378cbe290229b4fe588d86a3cf894a45369c145e3efe",
+            "target": "production",
+            "dependencyOrder": 62
+          },
+          {
+            "migration": "20260805100000_g24_adaptive_history_least_privilege.sql",
+            "checksum": "a735e06264ab069b4116ff9ad1f9d85e262416121604fbfa3102f31416dd79e1",
+            "target": "production",
+            "dependencyOrder": 63
+          },
+          {
+            "migration": "20260805110000_g24_adaptive_rpc_least_privilege.sql",
+            "checksum": "ef9144b16409158c44895723e09a4dee5c459f3db23b8e6d4b2b39176cd4496e",
+            "target": "production",
+            "dependencyOrder": 64
+          },
+          {
+            "migration": "20260805120000_g27_adaptive_scoring_search_path.sql",
+            "checksum": "fcc24765f5820756aa1862d7b3127a45ac147a74d73d3cc528218201f27aa947",
+            "target": "production",
+            "dependencyOrder": 65
+          },
+          {
+            "migration": "20260805140000_pre_g30_adaptive_launch_authority.sql",
+            "checksum": "1ad37cff13c74d00cc37b5b8de831926bc108874058073d309de4241da8ce02b",
+            "target": "production",
+            "dependencyOrder": 66
+          },
+          {
+            "migration": "20260805150000_pre_g30_staging_ai_authority_guard_fix.sql",
+            "checksum": "dd0604c12e2a541ca826b37d6d743ee06940fb51a2e6749a73bc6eba9f97e2a9",
+            "target": "production",
+            "dependencyOrder": 67
+          },
+          {
+            "migration": "20260805200000_pre_g30_ai_timeout_window.sql",
+            "checksum": "7521c6f36555469e3a7391b78aabe93f36b11fe62b75634d6076124696b5dde4",
+            "target": "production",
+            "dependencyOrder": 68
+          },
+          {
+            "migration": "20260806090000_pre_g30_ai_budget_diagnostics.sql",
+            "checksum": "c4abd85824d3feaa706668e841872b20891e462bb7b20e45b1237d25e72c195e",
+            "target": "production",
+            "dependencyOrder": 69
+          },
+          {
+            "migration": "20260806143000_pre_g30_structured_output_release_gate.sql",
+            "checksum": "796df13e13737a6805032ea22d0d03c19677798c8f4f88981cf2d865d7747a74",
+            "target": "production",
+            "dependencyOrder": 70
+          },
+          {
+            "migration": "20260807120000_report_secondary_artifacts.sql",
+            "checksum": "af913fdbbecbc38f129161ad93f89e537be4faae47e56016e738e3434d7c1714",
+            "target": "production",
+            "dependencyOrder": 71
+          },
+          {
+            "migration": "20260807130000_report_artefact_access_audit.sql",
+            "checksum": "501be496d9d9c5b8d446b4bac565c7403d5c588ce269e7ef2cb5e50a8e201d5c",
+            "target": "production",
+            "dependencyOrder": 72
+          },
+          {
+            "migration": "20260807140000_report_artefact_bucket_mime.sql",
+            "checksum": "d64bb2b23c34316735416066d4f6329b24730685a863a29d96541316b2329b1e",
+            "target": "production",
+            "dependencyOrder": 73
+          },
+          {
+            "migration": "20260808090000_rc1_report_artifacts_freeze_surface.sql",
+            "checksum": "7aa77532e1d22e18a25401f1973dedd4e8d4bd451b8a1a1276a09fdbdbadffc7",
+            "target": "production",
+            "dependencyOrder": 74
+          },
+          {
+            "migration": "20260808150000_manual_ai_structured_output_settlement_parity.sql",
+            "checksum": "50d3ffd46dc56c4380ae06ee979256d7d2a02014ed3943212959777c2a8a1b22",
+            "target": "production",
+            "dependencyOrder": 75
+          },
+          {
+            "migration": "20260808160000_atomic_report_finalisation_with_register.sql",
+            "checksum": "f0852df8d035c5f551463a409672c0cd8e911a901e32e53844181487238b18ff",
+            "target": "production",
+            "dependencyOrder": 76
+          },
+          {
+            "migration": "20260808170000_ai_attempt_timeout_contract_parity.sql",
+            "checksum": "9dd99a8925ba405fbf562714aa65fc21f13385f8afb6e877b9c8c09e909eac5c",
+            "target": "production",
+            "dependencyOrder": 77
+          },
+          {
+            "migration": "20260808180000_atomic_access_token_consumption.sql",
+            "checksum": "b4e2aca5f83b0915a516d9c965f79c0f191f7bca500ec8ece2ff0419e930fc3e",
+            "target": "production",
+            "dependencyOrder": 78
+          }
+        ],
+        "stagingOnlyManifest": [
+          {
+            "migration": "20260728190000_rc1_staging_postflight_least_privilege.sql",
+            "justification": "Explicit Staging postflight/test-harness ACL correction.",
+            "checksum": "30fd0091f2e18816fb26af9515ca95d3f109f97a8f01d007d58d77965614bfe2",
+            "target": "staging_only",
+            "dependencyOrder": 0
+          },
+          {
+            "migration": "20260730130000_rc1_synthetic_certification_cleanup.sql",
+            "justification": "Synthetic certification cleanup control; never part of customer Production history.",
+            "checksum": "7ec8849bcaf0202b02eeae2c6de34cb0f6530f63c9847c699e495a01814387b0",
+            "target": "staging_only",
+            "dependencyOrder": 1
+          },
+          {
+            "migration": "20260731130000_rc1_synthetic_cleanup_storage_api_fix.sql",
+            "justification": "Synthetic cleanup Storage API correction.",
+            "checksum": "4c7a92efbc65b03cf163f5c3869bf565a541670408407c9a1d6347b44e8b651c",
+            "target": "staging_only",
+            "dependencyOrder": 2
+          },
+          {
+            "migration": "20260731150000_rc1_synthetic_cleanup_guard_allowances.sql",
+            "justification": "Synthetic cleanup-only guard allowance.",
+            "checksum": "f086bd26181289a272dd1e9f7dcc006fb800828fe77dc386e89c9c889a3fefdc",
+            "target": "staging_only",
+            "dependencyOrder": 3
+          },
+          {
+            "migration": "20260731170000_rc1_synthetic_storage_cleanup_closure.sql",
+            "justification": "Synthetic Storage cleanup closure.",
+            "checksum": "7ec05c7cd7efada3ea11b73b01c9fae3100d71e9ef675a1fa3f3dba7b3cab87e",
+            "target": "staging_only",
+            "dependencyOrder": 4
+          },
+          {
+            "migration": "20260801070000_rc1_synthetic_cleanup_attestation_routes.sql",
+            "justification": "Synthetic cleanup attestation route.",
+            "checksum": "36c0bd66d39fd28ccd2dcb26330ce66bd0171391e2360f06003168c81c087297",
+            "target": "staging_only",
+            "dependencyOrder": 5
+          },
+          {
+            "migration": "20260801090000_rc1_synthetic_cleanup_attestation_allowance.sql",
+            "justification": "Synthetic cleanup attestation allowance.",
+            "checksum": "7bf5121c770c2b51017b5cb5ed5eee6c58debabe5e1a4be948b487d7ef836037",
+            "target": "staging_only",
+            "dependencyOrder": 6
+          },
+          {
+            "migration": "20260801140000_rc1_synthetic_cleanup_authoritative_allowance.sql",
+            "justification": "Synthetic cleanup authoritative context.",
+            "checksum": "cb23f789e31587e603ad0565b68758ee66536e54d5bcc6aa8d8307e2800ad16d",
+            "target": "staging_only",
+            "dependencyOrder": 7
+          },
+          {
+            "migration": "20260801160000_rc1_orphan_remediation.sql",
+            "justification": "Synthetic/provider orphan remediation control.",
+            "checksum": "b77af77cc5690124b390c4198a31eedb118d5c91f510e82e3f88345c934c5dca",
+            "target": "staging_only",
+            "dependencyOrder": 8
+          },
+          {
+            "migration": "20260801180000_rc1_certification_enablement_control.sql",
+            "justification": "RC1 synthetic certification enablement control.",
+            "checksum": "9abfa8a28407d291b81390b05c057eac81fcbbf5150299a194aa5814e81e6275",
+            "target": "staging_only",
+            "dependencyOrder": 9
+          },
+          {
+            "migration": "20260801200000_rc1_orphan_remediation_guard_allowance.sql",
+            "justification": "Synthetic orphan-remediation guard allowance.",
+            "checksum": "f3bf7ef9e85dcfe8a0cbc547d3292cfdd7d0b4d1404dbd0b4ed7759b49c113aa",
+            "target": "staging_only",
+            "dependencyOrder": 10
+          },
+          {
+            "migration": "20260801220000_rc1_synthetic_certification_marking.sql",
+            "justification": "Synthetic certification marking and fixture provenance.",
+            "checksum": "a0ad6ac388c2ff7751cc8540f249404f5076e3443b4f3021402fb2d8b536e025",
+            "target": "staging_only",
+            "dependencyOrder": 11
+          },
+          {
+            "migration": "20260802120000_rc1_synthetic_marking_placeholder_allowance.sql",
+            "justification": "Synthetic marking test allowance.",
+            "checksum": "35208ab428452192ccdf4250accba5ab498d33e3483368f568fd39b78e4ec379",
+            "target": "staging_only",
+            "dependencyOrder": 12
+          },
+          {
+            "migration": "20260803090000_rc1_certification_closure.sql",
+            "justification": "RC1 synthetic certification closure path.",
+            "checksum": "74624524c8a7111793205c3cd9e8f8d4819c15e9259b8527a96eb0a30b7344ee",
+            "target": "staging_only",
+            "dependencyOrder": 13
+          },
+          {
+            "migration": "20260803230000_preview_development_delivery.sql",
+            "justification": "Preview development delivery facade.",
+            "checksum": "8b88f5e63c9ea68ad18854169498a0913e776078e95ea133b4595e258611d555",
+            "target": "staging_only",
+            "dependencyOrder": 14
+          },
+          {
+            "migration": "20260804090000_preview_development_authoritative_context.sql",
+            "justification": "Preview development mutation context.",
+            "checksum": "8f9cda45057d9e597726a2b72845ce3cb2269e5a27f914c076175bba7d77bb8f",
+            "target": "staging_only",
+            "dependencyOrder": 15
+          },
+          {
+            "migration": "20260804110000_rc1_preview_resend_webhook_ingestion.sql",
+            "justification": "Preview provider webhook simulation/ingestion facade.",
+            "checksum": "1cf527c78dd99bf61f6a626924c216823f56704ebbbaeb55276b745946b376bb",
+            "target": "staging_only",
+            "dependencyOrder": 16
+          },
+          {
+            "migration": "20260804130000_rc1_preview_resend_reconciliation_once.sql",
+            "justification": "Preview provider reconciliation simulation.",
+            "checksum": "0f3f2ba8f2d11c267a6a9c81df5d0c20f38d6b2db90eaf6dc6f0276a3c82f098",
+            "target": "staging_only",
+            "dependencyOrder": 17
+          },
+          {
+            "migration": "20260804140000_rc1_preview_resend_reconciliation_status.sql",
+            "justification": "Preview provider reconciliation status facade.",
+            "checksum": "5b0ce30421fed3516fcfd62efd758b1c34dddca8008944876dd6d87c4642569f",
+            "target": "staging_only",
+            "dependencyOrder": 18
+          },
+          {
+            "migration": "20260804150000_rc1_preview_resend_apply_context.sql",
+            "justification": "Preview provider callback apply context.",
+            "checksum": "b3774daa2a35184f01e8c0c1e22515f24a5229e2978a51a5a904dfb0fd668f0b",
+            "target": "staging_only",
+            "dependencyOrder": 19
+          }
+        ]
+      }
+    },
+    {
+      "id": "database.adaptive-launch-authority",
+      "category": "database",
+      "status": "passed",
+      "classification": "product",
+      "severity": null,
+      "exitCode": 0,
+      "signal": null,
+      "assertions": 16,
+      "output": "\n> mk-fraud-platform@1.0.0-consolidation-preview pre-g30:test-adaptive-launch\n> node scripts/pre-g30-adaptive-launch-tests.mjs\n\n{\"ok\":true,\"assertions\":16,\"suite\":\"pre-g30-adaptive-launch\"}\n\n",
+      "parsed": {
+        "ok": true,
+        "assertions": 16,
+        "suite": "pre-g30-adaptive-launch"
+      }
+    },
+    {
+      "id": "responsive.browser",
+      "category": "responsive",
+      "status": "skipped",
+      "classification": "environment/configuration",
+      "reason": "live suite requires --live",
+      "exitCode": null
+    },
+    {
+      "id": "integration.adaptive-db",
+      "category": "integration",
+      "status": "skipped",
+      "classification": "environment/configuration",
+      "reason": "live suite requires --live",
+      "exitCode": null
+    },
+    {
+      "id": "integration.payment-db",
+      "category": "integration",
+      "status": "skipped",
+      "classification": "environment/configuration",
+      "reason": "live suite requires --live",
+      "exitCode": null
+    }
+  ]
+}
