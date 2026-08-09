@@ -353,6 +353,14 @@ try {
       || (missingObject.status === 200 && missingObject.checksum === storedChecksum),
     `status=${missingObject.status} servedGenuine=${missingObject.checksum === storedChecksum}`);
 
+  // The missing-object case above deliberately removed the object. Restore the exact verified bytes
+  // now: the report_artifacts row referencing them is immutable and cannot be removed, so leaving
+  // the object absent is precisely how this review orphaned its own artefact on every prior run.
+  const { error: restoreError } = await db.storage.from(primary.bucket)
+    .upload(storagePath, storedBytes, { contentType: workbook.mimeType, upsert: true });
+  record('verified register bytes are restored so the bound pair stays consistent',
+    !restoreError, safe(restoreError?.message));
+
   // --------------------------------------------------------------------- structural guarantees
   const { count: reportRows } = await db.from('reports')
     .select('id', { count: 'exact', head: true }).eq('id', primary.reportId);
