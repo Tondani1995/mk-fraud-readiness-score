@@ -92,14 +92,23 @@ try {
 
     await db.query(`update public.comprehensive_engagements set state='payment_received' where id=$1`, [engagementId]);
     await db.query(`update public.comprehensive_engagements set state='evidence_requested' where id=$1`, [engagementId]);
-    const evidenceId = (await db.query(`insert into public.comprehensive_evidence_items (engagement_id,order_id,assessment_id,storage_path,original_filename,content_type,size_bytes) values ($1,$2,$3,$4,'control-evidence.pdf','application/pdf',1024) returning id`, [engagementId, orderId, assessmentId, `${organisationId}/journey-evidence/${uuid()}.pdf`])).rows[0].id;
+    const evidenceId = (await db.query(`insert into public.comprehensive_evidence_items (engagement_id,order_id,assessment_id,storage_path,original_filename,content_type,size_bytes,analytical_evidence_refs) values ($1,$2,$3,$4,'control-evidence.pdf','application/pdf',1024,'["evidence:REAL-01"]'::jsonb) returning id`, [engagementId, orderId, assessmentId, `${organisationId}/journey-evidence/${uuid()}.pdf`])).rows[0].id;
     await db.query(`update public.comprehensive_evidence_items set validation_status='supported',reviewed_by=$1,reviewed_at=now(),reviewer_observation='Persisted journey evidence reviewed.' where id=$2`, [reviewerId, evidenceId]);
     await db.query(`update public.comprehensive_engagements set state='evidence_received' where id=$1`, [engagementId]);
     await db.query(`update public.comprehensive_engagements set reviewer_admin_user_id=$1,reviewer_assigned_at=now(),reviewer_assigned_by=$1 where id=$2`, [reviewerId, engagementId]);
     check('payment fixture, evidence upload metadata, evidence received and reviewer assignment persisted');
 
-    const recordTypes = ['finding', 'risk', 'control_design', 'decision', 'management_action'];
-    for (const type of recordTypes) await db.query(`insert into public.comprehensive_review_records (engagement_id,record_type,subject_key,reviewer_admin_user_id,reviewer_conclusion,created_by,updated_by) values ($1,$2,$3,$4,$5,$4,$4)`, [engagementId, type, `${type}-journey`, reviewerId, `Persisted ${type} conclusion.`]);
+    const subjects = [
+      ['finding', 'F-REAL-01', 'Real persisted finding', ['evidence:REAL-01']],
+      ['risk', 'R-REAL-01', 'Real persisted risk', ['evidence:REAL-01']],
+      ['control_design', 'C-REAL-01', 'Real persisted control design', ['evidence:REAL-01']],
+      ['decision', 'D-REAL-01', 'Real persisted decision', ['evidence:REAL-01']],
+      ['management_action', 'A-REAL-01', 'Real persisted management action', ['evidence:REAL-01']]
+    ];
+    for (const [type, key, title, evidenceRefs] of subjects) {
+      await db.query(`insert into public.comprehensive_review_subject_catalog (engagement_id,assessment_id,score_run_id,subject_type,subject_key,title,detail,evidence_refs) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`, [engagementId, assessmentId, scoreRunId, type, key, title, `${title} detail`, JSON.stringify(evidenceRefs)]);
+    }
+    for (const [type, key, _title, evidenceRefs] of subjects) await db.query(`insert into public.comprehensive_review_records (engagement_id,record_type,subject_key,reviewer_admin_user_id,reviewer_conclusion,evidence_refs,created_by,updated_by) values ($1,$2,$3,$4,$5,$6::jsonb,$4,$4)`, [engagementId, type, key, reviewerId, `Persisted ${type} conclusion.`, JSON.stringify(evidenceRefs)]);
     await db.query(`update public.comprehensive_engagements set state='in_review' where id=$1`, [engagementId]);
     check('all five human review record types persisted before signoff');
 
@@ -107,6 +116,7 @@ try {
     const reportId = uuid();
     const registerObjectId = uuid();
     const boardObjectId = uuid();
+    const presentationObjectId = uuid();
     const workshopObjectId = uuid();
     const bucket = 'comprehensive-reports';
     const reportPdf = await render('Comprehensive report', 'Main report PDF');
@@ -118,24 +128,26 @@ try {
     const primaryPath = `${engagementId}/v${version}/${reportId}.pdf`;
     const registerPath = `${engagementId}/v${version}/${registerObjectId}.xlsx`;
     const boardPath = `${engagementId}/v${version}/${boardObjectId}.pdf`;
+    const presentationPath = `${engagementId}/v${version}/${presentationObjectId}.pptx`;
     const workshopPath = `${engagementId}/v${version}/${workshopObjectId}.pdf`;
     const primary = await storedArtifact(db, { bucket, path: primaryPath, fileName: 'real-comprehensive-report.pdf', mimeType: 'application/pdf', bytes: reportPdf });
     const secondaries = [
       await storedArtifact(db, { bucket, path: registerPath, fileName: 'real-annotated-register.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: registerBytes }),
       await storedArtifact(db, { bucket, path: boardPath, fileName: 'real-board-readout.pdf', mimeType: 'application/pdf', bytes: boardPdf }),
+      await storedArtifact(db, { bucket, path: presentationPath, fileName: 'reviewer-uploaded-presentation.pptx', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', bytes: presentationBytes }),
       await storedArtifact(db, { bucket, path: workshopPath, fileName: 'real-workshop-material.pdf', mimeType: 'application/pdf', bytes: workshopPdf })
     ];
     let template = (await db.query(`select id from public.report_templates where report_type='mk_validated' and status='active' order by version_number desc limit 1`)).rows[0];
     if (!template) template = (await db.query(`insert into public.report_templates (template_code,version_number,report_type,status,content_schema_json,approved_by,approved_at) values ('REAL-JOURNEY-COMPREHENSIVE',1,'mk_validated','active','{}'::jsonb,$1,now()) returning id`, [approverId])).rows[0];
     assert.ok(template, 'an active mk_validated report template is required');
     await db.query(`set request.jwt.claims = '{"role":"service_role"}'`);
-    const packageResult = (await db.query(`select public.complete_comprehensive_package($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7) as result`, [engagementId, reportId, template.id, version, JSON.stringify(primary), JSON.stringify(secondaries.map((item, index) => ({ object_id: [registerObjectId, boardObjectId, workshopObjectId][index], artefact_type: ['supporting_register', 'board_readout', 'workshop_material'][index], ...item }))), reviewerId])).rows[0].result;
+    const packageResult = (await db.query(`select public.complete_comprehensive_package($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7) as result`, [engagementId, reportId, template.id, version, JSON.stringify(primary), JSON.stringify(secondaries.map((item, index) => ({ object_id: [registerObjectId, boardObjectId, presentationObjectId, workshopObjectId][index], artefact_type: ['supporting_register', 'board_readout', 'executive_presentation', 'workshop_material'][index], ...item }))), reviewerId])).rows[0].result;
     assert.equal(packageResult.ok, true);
-    const presentationPath = `${engagementId}/v${version}/${uuid()}.pptx`;
-    const presentation = await storedArtifact(db, { bucket, path: presentationPath, fileName: 'reviewer-uploaded-presentation.pptx', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', bytes: presentationBytes });
-    const presentationResult = (await db.query(`select public.complete_comprehensive_artifact($1,$2,'executive_presentation',$3,$4,$5,$6,$7,$8,$9) as result`, [engagementId, reportId, bucket, presentationPath, presentation.file_name, presentation.mime_type, presentation.file_size_bytes, presentation.checksum, version])).rows[0].result;
-    assert.equal(presentationResult.ok, true);
-    check('actual PDF, XLSX, board PDF, workshop PDF and reviewer-uploaded presentation bytes registered as VERIFIED');
+    const packageRows = (await db.query(`select artefact_type,artifact_version,storage_status,release_state from public.report_artifacts where report_id=$1 and engagement_id=$2 order by artefact_type`, [reportId, engagementId])).rows;
+    assert.equal((await db.query(`select count(*)::int as n from public.reports where id=$1`, [reportId])).rows[0].n, 1);
+    assert.equal(packageRows.length, 4);
+    assert.ok(packageRows.every((row) => Number(row.artifact_version) === version && row.storage_status === 'VERIFIED' && row.release_state === 'verified'));
+    check('actual PDF, XLSX, board PDF, workshop PDF and reviewer-uploaded presentation bytes registered atomically as VERIFIED');
 
     await db.query(`update public.comprehensive_engagements set signed_off_by=$1,signed_off_at=now(),sign_off_statement='I reviewed the persisted journey evidence, records and exact package version.',signed_off_artifact_version=$2,state='review_complete' where id=$3`, [reviewerId, version, engagementId]);
     const finalised = (await db.query(`select public.finalise_comprehensive_artifact_set($1,$2,$3,$4) as result`, [engagementId, reportId, version, approverId])).rows[0].result;

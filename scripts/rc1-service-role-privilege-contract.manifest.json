@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "lockedParentSha": "7a7cb535aa71b3fcd83fcdcd48373a2f62786b0c",
   "migrationCountBefore": 45,
-  "migrationCountAfter": 48,
-  "newestMigration": "20260810131000_joint_launch_last_mile_customer_operability.sql",
+  "migrationCountAfter": 49,
+  "newestMigration": "20260810140000_final_pre_staging_comprehensive_closure.sql",
   "operationVocabulary": {
     "S": "SELECT",
     "I": "INSERT",
@@ -966,6 +966,18 @@
         "src/lib/comprehensive/review-record-service.ts SIU"
       ],
       "justification": "Versioned finding, risk, control-design, decision and management-action records are read and written only through the authenticated reviewer service surface; no DELETE is granted."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_review_subject_catalog",
+      "required": "IU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH DETERMINISTIC REVIEW SUBJECT AUTHORITY",
+      "sources": [
+        "src/lib/comprehensive/review-record-service.ts IU"
+      ],
+      "justification": "The authenticated reviewer service materializes and validates the current assessment/score-run analytical universe. DELETE is withheld; catalog subjects are replaced or superseded by the current score-run binding."
     }
   ],
   "serviceRoleRpcs": [
@@ -1452,22 +1464,13 @@
       "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
     },
     {
-      "signature": "public.complete_comprehensive_artifact(uuid, uuid, text, text, text, text, text, bigint, text, integer)",
-      "securityMode": "DEFINER",
-      "searchPath": "",
-      "sources": [
-        "src/lib/comprehensive/artifact-service.ts"
-      ],
-      "justification": "Service-role-only immutable metadata commit after a private Storage upload; report and engagement binding, MIME, size and checksum are enforced in SQL."
-    },
-    {
       "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
       "securityMode": "DEFINER",
       "searchPath": "",
       "sources": [
         "src/lib/comprehensive/generation-service.ts"
       ],
-      "justification": "Atomic persisted Comprehensive package registration: one verified primary report and exactly three verified secondary artefacts at one immutable version."
+      "justification": "Atomic persisted Comprehensive package registration: one verified primary report and exactly four verified secondary artefacts at one immutable version."
     },
     {
       "signature": "public.record_customer_report_artefact_access(uuid, uuid, uuid, boolean, text, text, text)",
@@ -1540,12 +1543,11 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
-    "src/lib/comprehensive/artifact-service.ts:39",
-    "src/lib/comprehensive/artifact-service.ts:60",
-    "src/lib/comprehensive/evidence-service.ts:124",
-    "src/lib/comprehensive/evidence-service.ts:247",
-    "src/lib/comprehensive/generation-service.ts:36",
-    "src/lib/comprehensive/generation-service.ts:41",
+    "src/lib/comprehensive/evidence-service.ts:126",
+    "src/lib/comprehensive/evidence-service.ts:249",
+    "src/lib/comprehensive/package-registration.ts:54",
+    "src/lib/comprehensive/package-registration.ts:91",
+    "src/lib/comprehensive/package-registration.ts:95",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
     "src/lib/reports/customer-report-access.ts:236",
@@ -1588,6 +1590,7 @@
       "src/lib/reports/supporting-register-delivery.ts",
       "src/lib/comprehensive/artifact-service.ts"
       ,"src/lib/comprehensive/review-record-service.ts"
+      ,"src/lib/comprehensive/package-registration.ts"
       ,"src/lib/commercial/customer-order-status.ts"
     ],
     "nonServiceCallSites": [
@@ -1632,7 +1635,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "3135f2309fdfbdbc7631812025dc8263cf95d6e314f1a0d912673fac83e7515d"
+    "fullAstInventorySha256": "d713344b40ed332f5e5f0b98f7904a1d5f0c3268c51d96d25b0206fb36a082d6"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

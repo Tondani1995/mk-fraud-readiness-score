@@ -6,12 +6,18 @@ import {
   type FindingReviewerConclusion,
   type ManagementActionStatus
 } from './types';
+import {
+  validateComprehensiveSubject,
+  type ComprehensiveRecordType,
+  type ComprehensiveSubjectAuthority
+} from './subject-authority';
 
 export type PersistedComprehensiveEvidenceRow = {
   id: string;
   evidenceRef?: string | null;
   originalFilename?: string | null;
   evidenceLabel?: string | null;
+  analyticalEvidenceRefs: string[];
   validationStatus: BackendEvidenceStatus;
   reviewerObservation?: string | null;
   reviewedAt?: string | null;
@@ -90,6 +96,7 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
   engagement: PersistedComprehensiveEngagement;
   evidence: PersistedComprehensiveEvidenceRow[];
   records: PersistedComprehensiveReviewRecordRow[];
+  subjectAuthority: ComprehensiveSubjectAuthority;
 }): ComprehensiveReviewerInput {
   const reviewerId = nonEmpty(input.engagement.reviewerAdminUserId, 'reviewer assignment');
   const reviewerName = nonEmpty(input.engagement.reviewerName, 'reviewer name');
@@ -104,13 +111,13 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
     nonEmpty(record.reviewerConclusion, `${record.recordType} conclusion`);
   }
 
-  const evidenceRefs = new Set(input.evidence.map((row) => row.evidenceRef?.trim() || row.id));
+  const evidenceRefs = new Set(input.subjectAuthority.allEvidenceRefs);
   const requireKnownEvidenceRefs = (refs: string[], label: string) => {
     for (const ref of refs) if (!evidenceRefs.has(ref)) throw new Error(`${label} references unknown evidence ${ref}.`);
     return refs;
   };
 
-  const evidenceReviews = input.evidence.map((row) => {
+  const evidenceReviews = input.evidence.flatMap((row) => row.analyticalEvidenceRefs.map((evidenceRef) => {
     const adapted = adaptBackendEvidenceStatus(row.validationStatus);
     const reviewerConclusion: EvidenceItemConclusion | undefined = row.validationStatus === 'supported'
       ? 'SUPPORTED'
@@ -122,7 +129,7 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
             ? 'NOT_APPLICABLE'
             : row.validationStatus === 'reviewed' ? 'REVIEWED' : undefined;
     return {
-      evidenceRef: row.evidenceRef?.trim() || row.id,
+      evidenceRef,
       evidenceExamined: row.originalFilename ? [row.originalFilename] : [],
       validationStatus: adapted.presentationStatus,
       backendStatus: adapted.backendStatus,
@@ -130,7 +137,7 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
       reviewerObservation: row.reviewerObservation?.trim() || undefined,
       reviewerConfidence: row.validationStatus === 'supported' ? 'HIGH' as const : 'MEDIUM' as const
     };
-  });
+  }));
 
   const records = input.records;
   const findingRecords = records.filter((record) => record.recordType === 'finding');
@@ -138,6 +145,15 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
   const controlRecords = records.filter((record) => record.recordType === 'control_design');
   const decisionRecords = records.filter((record) => record.recordType === 'decision');
   const managementRecords = records.filter((record) => record.recordType === 'management_action');
+
+  for (const record of records) {
+    validateComprehensiveSubject(
+      input.subjectAuthority,
+      record.recordType as ComprehensiveRecordType,
+      record.subjectKey,
+      record.evidenceRefs
+    );
+  }
 
   const findingReviews = findingRecords.map((record) => {
     const refs = requireKnownEvidenceRefs(record.evidenceRefs, `Finding ${record.subjectKey}`);
@@ -186,7 +202,7 @@ export function buildComprehensiveReviewerInputFromPersisted(input: {
     id: record.id,
     subject: `${record.recordType}:${record.subjectKey}`,
     observation: nonEmpty(record.reviewerObservation || record.reviewerConclusion, `observation ${record.subjectKey}`),
-    validationStatus: record.recordType === 'finding' ? 'REVIEWER_JUDGEMENT' as const : 'EVIDENCE_REVIEWED' as const,
+    validationStatus: 'EVIDENCE_REVIEWED' as const,
     linkedEvidenceRefs: requireKnownEvidenceRefs(record.evidenceRefs, `Observation ${record.subjectKey}`),
     linkedFindingIds: record.recordType === 'finding' ? [record.subjectKey] : actionStrings(record.managementAction, 'linkedFindingIds'),
     reviewerName,

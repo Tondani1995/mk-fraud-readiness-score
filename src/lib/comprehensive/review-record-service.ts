@@ -3,6 +3,12 @@ import type { AdminRole } from '@/lib/types/domain';
 import type { PersistedComprehensiveReviewRecordRow } from '@/lib/reports/comprehensive/persisted-review-adapter';
 import { REVIEWER_ELIGIBLE_ROLES } from './engagement-service';
 import { buildComprehensiveReviewerInputFromPersisted } from '@/lib/reports/comprehensive/persisted-review-adapter';
+import {
+  loadComprehensiveSubjectAuthority,
+  validateComprehensiveSubject,
+  type ComprehensiveRecordType,
+  type ComprehensiveSubjectAuthority
+} from '@/lib/reports/comprehensive/subject-authority';
 
 const WRITABLE_ROLES: readonly AdminRole[] = ['platform_admin', 'reviewer', 'approver'];
 
@@ -31,6 +37,42 @@ function toRow(row: any): PersistedComprehensiveReviewRecordRow {
   };
 }
 
+async function authorityForEngagement(db: any, engagementId: string): Promise<ComprehensiveSubjectAuthority> {
+  const { data: row, error } = await db
+    .from('comprehensive_engagements')
+    .select('id,orders:order_id(order_reference)')
+    .eq('id', engagementId)
+    .maybeSingle();
+  if (error || !row) throw new Error(error?.message ?? 'Comprehensive engagement not found.');
+  const order = unwrap(row.orders);
+  if (!order?.order_reference) throw new Error('Comprehensive order reference is missing.');
+  const authority = await loadComprehensiveSubjectAuthority(order.order_reference);
+  const catalogRows = [
+    ...authority.findings.map((subject) => ({ ...subject, subjectType: 'finding' })),
+    ...authority.risks.map((subject) => ({ ...subject, subjectType: 'risk' })),
+    ...authority.controlDesigns.map((subject) => ({ ...subject, subjectType: 'control_design' })),
+    ...authority.decisions.map((subject) => ({ ...subject, subjectType: 'decision' })),
+    ...authority.managementActions.map((subject) => ({ ...subject, subjectType: 'management_action' }))
+  ].map((subject) => ({
+    engagement_id: engagementId,
+    assessment_id: authority.assessmentId,
+    score_run_id: authority.scoreRunId,
+    subject_type: subject.subjectType,
+    subject_key: subject.subjectKey,
+    title: subject.title,
+    detail: subject.detail,
+    domain: subject.domain ?? null,
+    materiality: subject.materiality ?? null,
+    priority: subject.priority ?? null,
+    evidence_refs: subject.evidenceRefs
+  }));
+  const { error: catalogError } = await db
+    .from('comprehensive_review_subject_catalog')
+    .upsert(catalogRows, { onConflict: 'engagement_id,subject_type,subject_key,score_run_id' });
+  if (catalogError) throw new Error(catalogError.message);
+  return authority;
+}
+
 export async function listComprehensiveReviewRecords(engagementId: string): Promise<PersistedComprehensiveReviewRecordRow[]> {
   const { data, error } = await service()
     .from('comprehensive_review_records')
@@ -47,17 +89,18 @@ export async function loadComprehensiveReviewerInput(engagementId: string) {
   const db = service();
   const { data: engagement, error: engagementError } = await db
     .from('comprehensive_engagements')
-    .select('id,reviewer_admin_user_id,reviewer_assigned_at,signed_off_by,signed_off_at,sign_off_statement,signed_off_artifact_version,reviewer:reviewer_admin_user_id(full_name,role)')
+    .select('id,reviewer_admin_user_id,reviewer_assigned_at,signed_off_by,signed_off_at,sign_off_statement,signed_off_artifact_version,reviewer:reviewer_admin_user_id(full_name,role),orders:order_id(order_reference)')
     .eq('id', engagementId)
     .maybeSingle();
   if (engagementError || !engagement) throw new Error(engagementError?.message ?? 'Comprehensive engagement not found.');
   const reviewer = unwrap(engagement.reviewer);
   const { data: evidence, error: evidenceError } = await db
     .from('comprehensive_evidence_items')
-    .select('id,original_filename,evidence_label,validation_status,reviewer_observation,reviewed_by,reviewed_at')
+    .select('id,original_filename,evidence_label,analytical_evidence_refs,validation_status,reviewer_observation,reviewed_by,reviewed_at')
     .eq('engagement_id', engagementId);
   if (evidenceError) throw new Error(evidenceError.message);
   const records = await listComprehensiveReviewRecords(engagementId);
+  const authority = await authorityForEngagement(db, engagementId);
   return buildComprehensiveReviewerInputFromPersisted({
     engagement: {
       id: engagement.id,
@@ -74,12 +117,14 @@ export async function loadComprehensiveReviewerInput(engagementId: string) {
       id: row.id,
       originalFilename: row.original_filename,
       evidenceLabel: row.evidence_label,
+      analyticalEvidenceRefs: Array.isArray(row.analytical_evidence_refs) ? row.analytical_evidence_refs : [],
       validationStatus: row.validation_status,
       reviewerObservation: row.reviewer_observation,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at
     })),
-    records
+    records,
+    subjectAuthority: authority
   });
 }
 
@@ -115,6 +160,31 @@ export async function upsertComprehensiveReviewRecord(input: {
   const { data: reviewer } = await db.from('admin_profiles').select('id,role,status').eq('id', engagement.reviewer_admin_user_id).maybeSingle();
   if (!reviewer || reviewer.status !== 'active' || !REVIEWER_ELIGIBLE_ROLES.includes(reviewer.role)) {
     return { ok: false as const, reason: 'reviewer_not_eligible', message: 'The named reviewer is no longer eligible.' };
+  }
+
+  let authority: ComprehensiveSubjectAuthority;
+  try {
+    authority = await authorityForEngagement(db, input.engagementId);
+    const refs = input.write.evidenceRefs ?? [];
+    validateComprehensiveSubject(authority, input.write.recordType as ComprehensiveRecordType, input.write.subjectKey, refs);
+    if (refs.length === 0) {
+      return { ok: false as const, reason: 'invalid_subject', message: 'A human review record must choose at least one linked analytical evidence reference.' };
+    }
+    if (refs.length > 0) {
+      const { data: evidenceRows, error: evidenceError } = await db
+        .from('comprehensive_evidence_items')
+        .select('validation_status,analytical_evidence_refs')
+        .eq('engagement_id', input.engagementId);
+      if (evidenceError) return { ok: false as const, reason: 'write_failed', message: evidenceError.message };
+      const decided = new Set((evidenceRows ?? [])
+        .filter((row: any) => ['reviewed', 'supported', 'not_supported', 'insufficient', 'not_applicable'].includes(row.validation_status))
+        .flatMap((row: any) => Array.isArray(row.analytical_evidence_refs) ? row.analytical_evidence_refs : []));
+      if (refs.some((ref) => !decided.has(ref))) {
+        return { ok: false as const, reason: 'invalid_subject', message: 'Every selected evidence reference must point to an evidence item the reviewer has actually reviewed.' };
+      }
+    }
+  } catch (error) {
+    return { ok: false as const, reason: 'invalid_subject', message: error instanceof Error ? error.message : 'The reviewer subject is not part of the current assessment.' };
   }
 
   const { data: existing, error: existingError } = await db

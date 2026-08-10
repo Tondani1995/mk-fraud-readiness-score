@@ -4,16 +4,13 @@ import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardReadoutHtml, renderComprehensiveReportHtml } from '@/lib/reports/comprehensive';
 import { buildComprehensiveRegisterWorkbookBytes } from '@/lib/reports/comprehensive/workbook-builder';
-import { completeComprehensiveArtifact } from './artifact-service';
+import { registerComprehensivePackageAtomically, type AtomicPackageUpload } from './package-registration';
 import { getEngagementByOrderReference, canReadComprehensiveEngagement } from './engagement-service';
 import { loadComprehensiveReviewerInput } from './review-record-service';
 import type { AdminRole } from '@/lib/types/domain';
 
-const BUCKET = 'comprehensive-reports';
 const PDF_MIME = 'application/pdf';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-type Upload = { objectId: string; artefactType: 'supporting_register' | 'board_readout' | 'workshop_material'; fileName: string; mimeType: string; bytes: Buffer; checksum: string; path: string };
 
 function db() { return createSupabaseServiceClient() as any; }
 
@@ -31,15 +28,6 @@ function workshopHtml(model: Awaited<ReturnType<typeof buildComprehensiveDeliver
 }
 
 function escapeHtml(value: unknown) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
-
-async function uploadExact(storage: any, upload: Upload | { path: string; bytes: Buffer; mimeType: string }) {
-  const { error } = await storage.from(BUCKET).upload(upload.path, upload.bytes, { contentType: upload.mimeType, upsert: false });
-  if (error) throw new Error(`comprehensive_generation_storage_upload_failed:${error.message}`);
-}
-
-async function removeExact(storage: any, paths: string[]) {
-  if (paths.length) await storage.from(BUCKET).remove(paths).catch(() => undefined);
-}
 
 export type ComprehensivePresentationUpload = { bytes: Uint8Array; fileName: string; mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
 
@@ -87,33 +75,29 @@ export async function generateComprehensivePackage(input: {
     const artifactVersion = Number(existingReports?.[0]?.version_number ?? 0) + 1;
     const reportId = randomUUID();
     const primaryPath = `${engagement.id}/v${artifactVersion}/${reportId}.pdf`;
-    const uploads: Upload[] = [
+    const uploads: AtomicPackageUpload[] = [
       { objectId: randomUUID(), artefactType: 'supporting_register', fileName: safeFileName(`${assembled.assessmentReference}-annotated-register.xlsx`, 'annotated-register.xlsx'), mimeType: XLSX_MIME, bytes: registerXlsx, checksum: checksum(registerXlsx), path: `${engagement.id}/v${artifactVersion}/__REGISTER__.xlsx` },
       { objectId: randomUUID(), artefactType: 'board_readout', fileName: safeFileName(`${assembled.assessmentReference}-board-readout.pdf`, 'board-readout.pdf'), mimeType: PDF_MIME, bytes: boardPdf, checksum: checksum(boardPdf), path: `${engagement.id}/v${artifactVersion}/__BOARD__.pdf` },
+      { objectId: randomUUID(), artefactType: 'executive_presentation', fileName: safeFileName(input.executivePresentation.fileName, 'executive-presentation.pptx'), mimeType: input.executivePresentation.mimeType, bytes: Buffer.from(input.executivePresentation.bytes), checksum: checksum(input.executivePresentation.bytes), path: `${engagement.id}/v${artifactVersion}/__PRESENTATION__.pptx` },
       { objectId: randomUUID(), artefactType: 'workshop_material', fileName: safeFileName(`${assembled.assessmentReference}-workshop-material.pdf`, 'workshop-material.pdf'), mimeType: PDF_MIME, bytes: workshopPdf, checksum: checksum(workshopPdf), path: `${engagement.id}/v${artifactVersion}/__WORKSHOP__.pdf` }
     ];
-    for (const upload of uploads) upload.path = `${engagement.id}/v${artifactVersion}/${upload.objectId}.${upload.mimeType === XLSX_MIME ? 'xlsx' : 'pdf'}`;
-    const primary = { storage_bucket: BUCKET, storage_path: primaryPath, file_name: safeFileName(`${assembled.assessmentReference}-comprehensive-report.pdf`, 'comprehensive-report.pdf'), mime_type: PDF_MIME, file_size_bytes: reportPdf.byteLength, checksum: checksum(reportPdf) };
-    const paths = [primaryPath, ...uploads.map((upload) => upload.path)];
-    try {
-      await uploadExact(service.storage, { path: primaryPath, bytes: reportPdf, mimeType: PDF_MIME });
-      for (const upload of uploads) await uploadExact(service.storage, upload);
-      const { data, error } = await service.rpc('complete_comprehensive_package', {
-        p_engagement_id: engagement.id,
-        p_report_id: reportId,
-        p_template_id: (await service.from('report_templates').select('id').eq('report_type', 'mk_validated').eq('status', 'active').order('version_number', { ascending: false }).limit(1).maybeSingle()).data?.id,
-        p_artifact_version: artifactVersion,
-        p_primary: primary,
-        p_secondary: uploads.map((upload) => ({ object_id: upload.objectId, artefact_type: upload.artefactType, storage_bucket: BUCKET, storage_path: upload.path, file_name: upload.fileName, mime_type: upload.mimeType, file_size_bytes: upload.bytes.byteLength, checksum: upload.checksum })),
-        p_generated_by: input.actor.id
-      });
-      if (error || !data?.ok) throw new Error(error?.message ?? 'Comprehensive package metadata registration failed.');
-      await completeComprehensiveArtifact({ engagementId: engagement.id, reportId, artefactType: 'executive_presentation', fileName: safeFileName(input.executivePresentation.fileName, 'executive-presentation.pptx'), mimeType: input.executivePresentation.mimeType, bytes: input.executivePresentation.bytes, artifactVersion });
-    } catch (error) {
-      await removeExact(service.storage, paths);
-      throw error;
+    for (const upload of uploads) {
+      const extension = upload.artefactType === 'supporting_register' ? 'xlsx' : upload.artefactType === 'executive_presentation' ? 'pptx' : 'pdf';
+      upload.path = `${engagement.id}/v${artifactVersion}/${upload.objectId}.${extension}`;
     }
-    return { ok: true, engagementId: engagement.id, reportId, artifactVersion, artifactNames: [primary.file_name, ...uploads.map((upload) => upload.fileName), safeFileName(input.executivePresentation.fileName, 'executive-presentation.pptx')], presentationUploadRequired: false };
+    const primaryFileName = safeFileName(`${assembled.assessmentReference}-comprehensive-report.pdf`, 'comprehensive-report.pdf');
+    const templateId = (await service.from('report_templates').select('id').eq('report_type', 'mk_validated').eq('status', 'active').order('version_number', { ascending: false }).limit(1).maybeSingle()).data?.id ?? null;
+    await registerComprehensivePackageAtomically({
+      db: service,
+      engagementId: engagement.id,
+      reportId,
+      artifactVersion,
+      templateId,
+      primary: { fileName: primaryFileName, mimeType: PDF_MIME, bytes: reportPdf, checksum: checksum(reportPdf), path: primaryPath },
+      uploads,
+      generatedBy: input.actor.id
+    });
+    return { ok: true, engagementId: engagement.id, reportId, artifactVersion, artifactNames: [primaryFileName, ...uploads.map((upload) => upload.fileName)], presentationUploadRequired: false };
   } catch (error) {
     return { ok: false, reason: 'generation_failed', message: error instanceof Error ? error.message : 'Comprehensive generation failed closed.', engagementId: engagement.id };
   }

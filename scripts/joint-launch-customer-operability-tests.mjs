@@ -16,7 +16,9 @@ const access = read('src/lib/reports/customer-report-access.ts');
 const accessRoute = read('src/app/score/report/access/[token]/route.ts');
 const reviewer = read('src/components/comprehensive/ComprehensiveReviewWorkspace.tsx');
 const generation = read('src/lib/comprehensive/generation-service.ts');
-const migration = read('supabase/migrations/20260810131000_joint_launch_last_mile_customer_operability.sql');
+const packageRegistration = read('src/lib/comprehensive/package-registration.ts');
+const migration = read('supabase/migrations/20260810140000_final_pre_staging_comprehensive_closure.sql');
+const lifecycleMigration = read('supabase/migrations/20260810131000_joint_launch_last_mile_customer_operability.sql');
 
 check('EFT instructions are active-config gated, snapshot-bound and returned by paid-order creation', () => {
   assert.match(eft, /active === true/);
@@ -47,6 +49,10 @@ check('customer downloads cover all five Comprehensive artefacts and never expos
 check('reviewer workspace exposes payment, evidence, five human records, generation, signoff and release controls', () => {
   for (const type of ['finding', 'risk', 'control_design', 'decision', 'management_action']) assert.match(reviewer, new RegExp(type));
   for (const action of ['/reviewer', '/evidence/', '/review-records', '/generate', '/finalise', '/transition']) assert.match(reviewer, new RegExp(action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(reviewer, /Current analytical subject<select/);
+  assert.match(reviewer, /subjectAuthority/);
+  assert.match(reviewer, /evidenceRefs\.length === 0/);
+  assert.doesNotMatch(reviewer, /Subject key<input/);
   assert.match(reviewer, /role="alert"/);
   assert.match(reviewer, /role="status"/);
 });
@@ -56,17 +62,21 @@ check('generation is persisted-input based, real-file based and fail-closed for 
   assert.match(generation, /assembleReportData/);
   assert.match(generation, /renderHtmlToPdfBuffer/);
   assert.match(generation, /buildComprehensiveRegisterWorkbookBytes/);
-  assert.match(generation, /complete_comprehensive_package/);
+  assert.match(generation, /registerComprehensivePackageAtomically/);
+  assert.match(packageRegistration, /complete_comprehensive_package/);
   assert.match(generation, /presentation_upload_required/);
-  assert.match(generation, /completeComprehensiveArtifact/);
+  assert.doesNotMatch(generation, /completeComprehensiveArtifact/);
+  assert.match(generation, /executive_presentation/);
 });
 
 check('database release ordering is exact-version and delivered-gated', () => {
-  assert.match(migration, /state <> 'review_complete'/);
-  assert.match(migration, /signed_off_artifact_version is distinct from p_artifact_version/);
-  assert.match(migration, /release_state = 'released'/);
-  assert.match(migration, /update public\.reports set status = 'released'/);
-  assert.match(migration, /state = 'delivered' and not public\.comprehensive_delivery_ready/);
+  assert.match(lifecycleMigration, /state <> 'review_complete'/);
+  assert.match(lifecycleMigration, /signed_off_artifact_version is distinct from p_artifact_version/);
+  assert.match(lifecycleMigration, /release_state = 'released'/);
+  assert.match(lifecycleMigration, /update public\.reports set status = 'released'/);
+  assert.match(lifecycleMigration, /state = 'delivered' and not public\.comprehensive_delivery_ready/);
+  assert.match(migration, /jsonb_array_length\(p_secondary\) <> 4/);
+  assert.match(migration, /secondary_count', 4/);
 });
 
 console.log(JSON.stringify({ ok: true, checks, provider: 'none', surface: 'customer-operability-contract' }, null, 2));

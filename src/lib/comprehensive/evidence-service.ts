@@ -63,6 +63,7 @@ export type EvidenceItem = {
   reviewerObservation: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  analyticalEvidenceRefs: string[];
   retentionPolicyKey: string;
   /** Always true. Present so a caller can assert it rather than assume it. */
   privateStorage: true;
@@ -71,7 +72,7 @@ export type EvidenceItem = {
 const EVIDENCE_SELECT =
   'id,engagement_id,order_id,assessment_id,original_filename,evidence_label,content_type,size_bytes,'
   + 'uploaded_at,submitted_by_email,validation_status,reviewer_observation,reviewed_by,reviewed_at,'
-  + 'retention_policy_key,orders:order_id(order_reference)';
+  + 'analytical_evidence_refs,retention_policy_key,orders:order_id(order_reference)';
 
 function toItem(row: any): EvidenceItem {
   const order = Array.isArray(row.orders) ? row.orders[0] : row.orders;
@@ -89,6 +90,7 @@ function toItem(row: any): EvidenceItem {
     reviewerObservation: row.reviewer_observation ?? null,
     reviewedBy: row.reviewed_by ?? null,
     reviewedAt: row.reviewed_at ?? null,
+    analyticalEvidenceRefs: Array.isArray(row.analytical_evidence_refs) ? row.analytical_evidence_refs : [],
     retentionPolicyKey: row.retention_policy_key,
     privateStorage: true
   };
@@ -371,6 +373,7 @@ export async function recordEvidenceValidation(input: {
   evidenceItemId: string;
   validationStatus: unknown;
   observation?: unknown;
+  analyticalEvidenceRefs?: unknown;
   actor: { id: string; role: AdminRole };
 }): Promise<{ ok: true; evidence: EvidenceItem } | EvidenceFailure> {
   if (!canReviewComprehensiveEvidence(input.actor.role)) {
@@ -381,6 +384,9 @@ export async function recordEvidenceValidation(input: {
   }
   const validationStatus = input.validationStatus;
   const observation = cleanText(input.observation, 2_000);
+  const analyticalEvidenceRefs = Array.isArray(input.analyticalEvidenceRefs)
+    ? [...new Set(input.analyticalEvidenceRefs.filter((value): value is string => typeof value === 'string' && value.trim() !== '').map((value) => value.trim()))]
+    : undefined;
 
   // A negative or inconclusive finding must say why. Supplying evidence never on its own validates
   // a control, so "not_supported" and "insufficient" always carry a reviewer's reasoning.
@@ -395,7 +401,7 @@ export async function recordEvidenceValidation(input: {
   const db = service();
   const { data: existing } = await db
     .from('comprehensive_evidence_items')
-    .select('id,engagement_id,validation_status,reviewer_observation')
+    .select('id,engagement_id,validation_status,reviewer_observation,analytical_evidence_refs')
     .eq('id', input.evidenceItemId)
     .maybeSingle();
 
@@ -419,6 +425,7 @@ export async function recordEvidenceValidation(input: {
     .update({
       validation_status: validationStatus,
       reviewer_observation: observation ?? existing.reviewer_observation,
+      ...(analyticalEvidenceRefs ? { analytical_evidence_refs: analyticalEvidenceRefs } : {}),
       reviewed_by: decided ? input.actor.id : null,
       reviewed_at: decided ? reviewedAt : null
     })

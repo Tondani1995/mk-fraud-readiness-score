@@ -50,6 +50,7 @@ assert.deepEqual(journey.slice(0, 7), [
 const evidence = [{
   id: evidenceId,
   evidenceRef: 'EVID-001',
+  analyticalEvidenceRefs: ['EVID-001'],
   originalFilename: 'operating-control-export.pdf',
   validationStatus: 'supported',
   reviewerObservation: 'The operating export demonstrates the control is present and owned.',
@@ -72,8 +73,19 @@ const records = [
   { ...baseRecord, id: '55555555-5555-4555-8555-555555555552', recordType: 'risk', subjectKey: 'R-001', reviewerConclusion: 'The risk remains material because exception monitoring is not evidenced.' },
   { ...baseRecord, id: '55555555-5555-4555-8555-555555555553', recordType: 'control_design', subjectKey: 'C-001', reviewerConclusion: 'Design is partially effective; add an ageing threshold and effectiveness test.', managementAction: { recommendedAdjustment: 'Add an explicit exception owner, ageing threshold and effectiveness test.' } },
   { ...baseRecord, id: '55555555-5555-4555-8555-555555555554', recordType: 'decision', subjectKey: 'D-001', reviewerConclusion: 'Fund internal remediation capability.', decisionOptions: ['Fund internal remediation capability', 'Use a bounded external specialist workstream'], managementAction: { keyTradeOffs: ['Speed and specialist assurance versus internal ownership and recurring cost'], owner: 'CFO', targetDate: '2026-09-15', boardDecision: 'Approve internal capability funding.' } },
-  { ...baseRecord, id: '55555555-5555-4555-8555-555555555555', recordType: 'management_action', subjectKey: 'A-001', reviewerConclusion: 'Implement the exception-monitoring remediation.', evidenceRefs: [], reviewerObservation: 'The action closes the reviewed design gap.', managementAction: { rationale: 'The gap is material and can be addressed with a named owner.', linkedFindingIds: ['F-001'], linkedRiskIds: ['R-001'], owner: 'COO', targetDate: '2026-09-30', status: 'OPEN' } }
+  { ...baseRecord, id: '55555555-5555-4555-8555-555555555555', recordType: 'management_action', subjectKey: 'A-001', reviewerConclusion: 'Implement the exception-monitoring remediation.', reviewerObservation: 'The action closes the reviewed design gap.', managementAction: { rationale: 'The gap is material and can be addressed with a named owner.', linkedFindingIds: ['F-001'], linkedRiskIds: ['R-001'], owner: 'COO', targetDate: '2026-09-30', status: 'OPEN' } }
 ];
+const subject = (subjectKey, title, evidenceRefs = ['EVID-001']) => ({ subjectKey, title, detail: `${title} detail`, evidenceRefs, linkedFindingIds: [], linkedRiskIds: [] });
+const subjectAuthority = {
+  assessmentId: '66666666-6666-4666-8666-666666666666',
+  scoreRunId: '77777777-7777-4777-8777-777777777777',
+  findings: [subject('F-001', 'Finding one')],
+  risks: [subject('R-001', 'Risk one')],
+  controlDesigns: [subject('C-001', 'Control design one')],
+  decisions: [subject('D-001', 'Decision one')],
+  managementActions: [subject('A-001', 'Management action one')],
+  allEvidenceRefs: ['EVID-001']
+};
 
 const reviewerInput = buildComprehensiveReviewerInputFromPersisted({
   engagement: {
@@ -87,7 +99,8 @@ const reviewerInput = buildComprehensiveReviewerInputFromPersisted({
     signedOffArtifactVersion: 1
   },
   evidence,
-  records
+  records,
+  subjectAuthority
 });
 assert.equal(reviewerInput.evidenceReviews[0].backendStatus, 'supported');
 assert.equal(reviewerInput.evidenceReviews[0].validationStatus, 'VALIDATED_SUPPORTED');

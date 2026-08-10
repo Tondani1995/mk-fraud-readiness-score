@@ -8,6 +8,7 @@ import { canReviewComprehensiveEvidence, listEngagementEvidence } from '@/lib/co
 import { allowedNextStates } from '@/lib/commercial/comprehensive-lifecycle';
 import { listComprehensiveReviewRecords } from '@/lib/comprehensive/review-record-service';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { loadComprehensiveSubjectAuthority } from '@/lib/reports/comprehensive/subject-authority';
 
 // Reviewer/admin read surface for one Comprehensive engagement. Evidence metadata is included only
 // for roles permitted to review it; finance and read-only administrators see the engagement state
@@ -37,6 +38,17 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
   const reviewRecords = canReviewComprehensiveEvidence(admin.role)
     ? await listComprehensiveReviewRecords(engagement.id)
     : null;
+  let subjectAuthority = null;
+  if (canReviewComprehensiveEvidence(admin.role)) {
+    try {
+      subjectAuthority = await loadComprehensiveSubjectAuthority(engagement.orderReference);
+    } catch (error) {
+      return NextResponse.json(
+        { ok: false, reason: 'subject_authority_unavailable', message: error instanceof Error ? error.message : 'The persisted analytical universe could not be loaded.' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+  }
   const db = createSupabaseServiceClient() as any;
   const [{ data: reviewers }, { data: reports }, { data: order }] = await Promise.all([
     db.from('admin_profiles').select('id,full_name,email,role').eq('status', 'active').in('role', ['platform_admin', 'reviewer', 'approver']).order('full_name', { ascending: true }),
@@ -55,6 +67,7 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
       allowedNextStates: allowedNextStates(engagement.state),
       evidence: evidence?.ok ? evidence.evidence : null,
       reviewRecords,
+      subjectAuthority,
       reviewers: reviewers ?? [],
       reports: reports ?? [],
       artifacts: artifacts ?? [],

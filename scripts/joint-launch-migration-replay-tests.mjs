@@ -39,7 +39,8 @@ const JOINT_LAUNCH_MIGRATIONS = [
   '20260810124000_joint_launch_atomic_paid_order.sql',
   '20260810125000_joint_launch_evidence_orphan_alert.sql',
   '20260810130000_joint_launch_comprehensive_review_records.sql',
-  '20260810131000_joint_launch_last_mile_customer_operability.sql'
+  '20260810131000_joint_launch_last_mile_customer_operability.sql',
+  '20260810140000_final_pre_staging_comprehensive_closure.sql'
 ];
 for (const name of JOINT_LAUNCH_MIGRATIONS) {
   assert.ok(migrationFiles.includes(name), `missing joint-launch migration ${name}`);
@@ -131,7 +132,7 @@ try {
     `select c.relname from pg_trigger t
      join pg_class c on c.oid = t.tgrelid
      where t.tgname = 'trg_rc1_operation_freeze'
-       and c.relname in ('product_price_versions','comprehensive_engagements','comprehensive_engagement_events','comprehensive_evidence_items','comprehensive_evidence_events','comprehensive_review_records','comprehensive_review_record_events')`
+       and c.relname in ('product_price_versions','comprehensive_engagements','comprehensive_engagement_events','comprehensive_evidence_items','comprehensive_evidence_events','comprehensive_review_records','comprehensive_review_record_events','comprehensive_review_subject_catalog')`
   );
   assert.equal(guardedNewTables.rows.length, 0, 'no joint-launch table maps to an RC1 freeze surface');
   check('no joint-launch table was silently attached to an RC1 freeze surface');
@@ -560,7 +561,8 @@ try {
     'comprehensive_evidence_items',
     'comprehensive_evidence_events',
     'comprehensive_review_records',
-    'comprehensive_review_record_events'
+    'comprehensive_review_record_events',
+    'comprehensive_review_subject_catalog'
   ];
 
   for (const table of newTables) {
@@ -584,7 +586,8 @@ try {
     comprehensive_evidence_items: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false },
     comprehensive_evidence_events: { SELECT: false, INSERT: true, UPDATE: false, DELETE: false },
     comprehensive_review_records: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false },
-    comprehensive_review_record_events: { SELECT: false, INSERT: false, UPDATE: false, DELETE: false }
+    comprehensive_review_record_events: { SELECT: false, INSERT: false, UPDATE: false, DELETE: false },
+    comprehensive_review_subject_catalog: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false }
   };
   for (const [table, expectations] of Object.entries(serviceExpectations)) {
     for (const [privilege, expected] of Object.entries(expectations)) {
@@ -604,13 +607,13 @@ try {
        'comprehensive_engagement_events_append_only','comprehensive_evidence_binding_guard',
        'comprehensive_evidence_events_append_only',
        'comprehensive_review_record_guard','comprehensive_review_record_event_append_only',
-       'comprehensive_review_record_audit','complete_comprehensive_artifact','complete_comprehensive_package',
+       'comprehensive_review_record_audit','complete_comprehensive_package',
        'finalise_comprehensive_artifact_set','comprehensive_required_artifacts_present','comprehensive_delivery_ready',
        'record_customer_report_artefact_access')`
   );
-  assert.equal(functions.rows.length, 14, 'all joint-launch functions must exist');
+  assert.equal(functions.rows.length, 13, 'all joint-launch functions must exist');
   for (const row of functions.rows) {
-    const artifactRpc = ['complete_comprehensive_artifact', 'complete_comprehensive_package', 'finalise_comprehensive_artifact_set', 'comprehensive_review_record_audit', 'record_customer_report_artefact_access'].includes(row.proname);
+    const artifactRpc = ['complete_comprehensive_package', 'finalise_comprehensive_artifact_set', 'comprehensive_review_record_audit', 'record_customer_report_artefact_access'].includes(row.proname);
     assert.equal(row.prosecdef, artifactRpc, `${row.proname} SECURITY DEFINER posture is incorrect`);
     assert.ok(
       (row.proconfig ?? []).some((entry) => entry.startsWith('search_path=')),

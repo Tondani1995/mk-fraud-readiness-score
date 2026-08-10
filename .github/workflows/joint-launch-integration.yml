@@ -40,6 +40,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Final pre-staging defect regressions
+        run: npm run joint-launch:test-final-pre-staging-defects
+
       - name: No-provider integrated journey
         run: mkdir -p artifacts/joint-launch && npm run joint-launch:test-integrated-journey > artifacts/joint-launch/integrated-journey.json
 

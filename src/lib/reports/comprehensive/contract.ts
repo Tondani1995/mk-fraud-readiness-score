@@ -130,15 +130,8 @@ function statusForFinding(finding: MaterialFinding, evidenceRefs: string[], evid
     assertFindingReviewCoherent(finding, direct, evidenceRefs, evidenceReviews);
     return statusForFindingConclusion(direct.reviewerConclusion);
   }
-  const linked = evidenceReviews.filter((review) => evidenceRefs.includes(review.evidenceRef));
-  if (linked.some((review) => ['VALIDATED_SUPPORTED', 'EVIDENCE_REVIEWED', 'NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(review)))) {
-    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_VALIDATED_INSUFFICIENT')) return 'NOT_VALIDATED_INSUFFICIENT';
-    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_SUPPORTED')) return 'NOT_SUPPORTED';
-    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_APPLICABLE')) return 'NOT_APPLICABLE';
-    return 'EVIDENCE_REVIEWED';
-  }
-  if (linked.some((review) => presentationStatusForReview(review) === 'REVIEWER_JUDGEMENT')) return 'REVIEWER_JUDGEMENT';
-  return 'SELF_REPORTED';
+  const linked = evidenceReviews.filter((review) => evidenceRefs.includes(review.evidenceRef) && evidenceWasActuallyReviewed(review));
+  return linked.length > 0 ? 'EVIDENCE_REVIEWED' : 'SELF_REPORTED';
 }
 
 function buildPackItem(item: EvidenceChecklistItem, findings: MaterialFinding[], reviews: ReviewerEvidenceReview[]): EvidenceRequestPackItem {

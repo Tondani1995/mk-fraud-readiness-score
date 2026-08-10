@@ -44,6 +44,7 @@ export async function POST(
     evidenceItemId: params.evidenceId,
     validationStatus: body.validationStatus,
     observation: body.observation,
+    analyticalEvidenceRefs: body.analyticalEvidenceRefs,
     actor: { id: admin.id, role: admin.role }
   });
 
