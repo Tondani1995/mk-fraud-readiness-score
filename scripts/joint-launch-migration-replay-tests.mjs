@@ -1,5 +1,5 @@
 /**
- * Executable local replay of the three joint-launch migrations against a real, disposable Postgres.
+ * Executable local replay of the joint-launch migrations against a real, disposable Postgres.
  *
  * This is the lane's own migration verification: it boots an embedded Postgres, replays the whole
  * committed migration chain in filename order (with the Supabase-specific schema stubs the other
@@ -38,7 +38,8 @@ const JOINT_LAUNCH_MIGRATIONS = [
   '20260810123000_joint_launch_versioned_price_entitlement.sql',
   '20260810124000_joint_launch_atomic_paid_order.sql',
   '20260810125000_joint_launch_evidence_orphan_alert.sql',
-  '20260810130000_joint_launch_comprehensive_review_records.sql'
+  '20260810130000_joint_launch_comprehensive_review_records.sql',
+  '20260810131000_joint_launch_last_mile_customer_operability.sql'
 ];
 for (const name of JOINT_LAUNCH_MIGRATIONS) {
   assert.ok(migrationFiles.includes(name), `missing joint-launch migration ${name}`);
@@ -392,6 +393,39 @@ try {
   );
   check('a named reviewer cannot be silently unassigned');
 
+  const approverUserId = (await db.query(`insert into auth.users (email) values ('replay-approver@example.invalid') returning id`)).rows[0].id;
+  await db.query(
+    `insert into public.admin_profiles (id, email, full_name, role, status) values ($1,'replay-approver@example.invalid','Replay Approver','approver','active')`,
+    [approverUserId]
+  );
+  const reviewRecordId = (await db.query(
+    `insert into public.comprehensive_review_records
+       (engagement_id, record_type, subject_key, reviewer_admin_user_id, reviewer_conclusion, created_by, updated_by)
+     values ($1,'finding','F-REPLAY',$2,'Initial reviewer conclusion',$2,$2) returning id`,
+    [engagementId, adminUserId]
+  )).rows[0].id;
+  await db.query(
+    `update public.comprehensive_review_records
+        set reviewer_conclusion='Approver-confirmed conclusion', record_version=2,
+            created_by=created_by, updated_by=$1
+      where id=$2 and record_version=1`,
+    [approverUserId, reviewRecordId]
+  );
+  const reviewRecordProof = (await db.query(
+    `select record_version, created_by, updated_by from public.comprehensive_review_records where id=$1`, [reviewRecordId]
+  )).rows[0];
+  assert.equal(Number(reviewRecordProof.record_version), 2);
+  assert.equal(reviewRecordProof.created_by, adminUserId, 'approver update must retain original created_by');
+  assert.equal(reviewRecordProof.updated_by, approverUserId, 'approver update must set updated_by');
+  const reviewRecordEvent = (await db.query(
+    `select action, actor_admin_user_id, from_version, to_version from public.comprehensive_review_record_events where record_id=$1 order by created_at desc limit 1`, [reviewRecordId]
+  )).rows[0];
+  assert.equal(reviewRecordEvent.action, 'updated');
+  assert.equal(reviewRecordEvent.actor_admin_user_id, approverUserId);
+  assert.equal(Number(reviewRecordEvent.from_version), 1);
+  assert.equal(Number(reviewRecordEvent.to_version), 2);
+  check('review record create -> expectedVersion 1 approver update retains created_by, writes updated_by and appends the audit event');
+
   await db.query(`update public.comprehensive_engagements set state='in_review' where id=$1`, [engagementId]);
   await assert.rejects(
     db.query(`update public.comprehensive_engagements set state='review_complete' where id=$1`, [engagementId]),
@@ -570,11 +604,13 @@ try {
        'comprehensive_engagement_events_append_only','comprehensive_evidence_binding_guard',
        'comprehensive_evidence_events_append_only',
        'comprehensive_review_record_guard','comprehensive_review_record_event_append_only',
-       'comprehensive_review_record_audit','complete_comprehensive_artifact','finalise_comprehensive_artifact_set')`
+       'comprehensive_review_record_audit','complete_comprehensive_artifact','complete_comprehensive_package',
+       'finalise_comprehensive_artifact_set','comprehensive_required_artifacts_present','comprehensive_delivery_ready',
+       'record_customer_report_artefact_access')`
   );
-  assert.equal(functions.rows.length, 10, 'all joint-launch functions must exist');
+  assert.equal(functions.rows.length, 14, 'all joint-launch functions must exist');
   for (const row of functions.rows) {
-    const artifactRpc = ['complete_comprehensive_artifact', 'finalise_comprehensive_artifact_set', 'comprehensive_review_record_audit'].includes(row.proname);
+    const artifactRpc = ['complete_comprehensive_artifact', 'complete_comprehensive_package', 'finalise_comprehensive_artifact_set', 'comprehensive_review_record_audit', 'record_customer_report_artefact_access'].includes(row.proname);
     assert.equal(row.prosecdef, artifactRpc, `${row.proname} SECURITY DEFINER posture is incorrect`);
     assert.ok(
       (row.proconfig ?? []).some((entry) => entry.startsWith('search_path=')),

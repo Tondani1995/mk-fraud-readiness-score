@@ -78,7 +78,10 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
   // Selector only -- report-level token authority is evaluated first inside
   // grantCustomerReportAccess(). Unknown values fall back to the PDF; they never widen access.
   const requested = new URL(request.url).searchParams.get('artefact');
-  const artefact = requested === 'register' ? 'register' as const : 'pdf' as const;
+  const artefact = requested === 'register' ? 'register' as const
+    : requested === 'board' ? 'board' as const
+      : requested === 'presentation' ? 'presentation' as const
+        : requested === 'workshop' ? 'workshop' as const : 'pdf' as const;
 
   try {
     const result = await grantCustomerReportAccess({ rawToken, artefact });

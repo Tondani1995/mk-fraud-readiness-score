@@ -43,6 +43,12 @@ jobs:
       - name: No-provider integrated journey
         run: mkdir -p artifacts/joint-launch && npm run joint-launch:test-integrated-journey > artifacts/joint-launch/integrated-journey.json
 
+      - name: Customer operability and access contract
+        run: npm run joint-launch:test-customer-operability > artifacts/joint-launch/customer-operability.json
+
+      - name: Real disposable-DB Comprehensive journey
+        run: npm run joint-launch:test-real-journey > artifacts/joint-launch/real-comprehensive-journey.json
+
       - name: Existing joint launch core suite
         run: npm run joint-launch:test
 

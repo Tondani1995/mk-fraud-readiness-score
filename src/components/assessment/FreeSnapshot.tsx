@@ -16,6 +16,7 @@ const SCORE_BASE_PATH = '/score';
 const MANUAL_EFT_CONFIRMATION = 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.';
 
 type OrderConfirmation = {
+  assessmentReference?: string;
   orderReference: string;
   tier: SelfServicePaidTier;
   productName: string;
@@ -23,17 +24,16 @@ type OrderConfirmation = {
   paymentReference: string;
   manualConfirmationNote: string;
   eftInstructions?: {
-    active: boolean;
-    bankName?: string;
-    accountHolder?: string;
-    accountNumber?: string;
-    branchCode?: string;
-    accountType?: string | null;
-    currency?: string;
-    paymentReferenceInstruction?: string;
-    customerInstruction?: string;
-    contactEmail?: string;
-    message?: string;
+    active: true;
+    bankName: string;
+    accountHolder: string;
+    accountNumber: string;
+    branchCode: string;
+    accountType: string | null;
+    currency: string;
+    paymentReferenceInstruction: string;
+    customerInstruction: string;
+    contactEmail: string | null;
   };
 };
 
@@ -343,7 +343,7 @@ function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }
         <Detail label="Organisation" value={snapshot.organisationName} />
         <Detail label="Assessment reference" value={snapshot.assessmentReference} copyable />
         <Detail label="Price" value={`${formatCataloguePrice(product.priceCents)} incl. VAT`} />
-        <Detail label="Delivery" value={tier === 'comprehensive' ? 'Evidence intake, named reviewer validation and signed-off deliverables after payment confirmation' : 'Prepared after payment confirmation'} />
+        <Detail label="Delivery" value={tier === 'comprehensive' ? 'Payment → evidence request → reviewer validation → deliverable package' : 'Payment → report preparation → secure delivery'} />
         <Detail label="Quality review" value={product.summary} />
       </div>
       <p className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">Payment is made by EFT. MK confirms payment manually before the completed report is released.</p>
@@ -386,11 +386,17 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
       <ol className="space-y-2 rounded-xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
         <li>1. Make the EFT using the displayed order reference.</li>
         <li>2. MK confirms payment manually.</li>
-        <li>3. The report is prepared and quality-reviewed.</li>
-        <li>4. The completed report is sent to the confirmed customer email address.</li>
+        {order.tier === 'comprehensive' ? <>
+          <li>3. MK requests and reviews the evidence for your engagement.</li>
+          <li>4. The named reviewer signs off the Comprehensive deliverable package.</li>
+        </> : <>
+          <li>3. MK prepares and quality-reviews the report.</li>
+          <li>4. The secure report is released to you.</li>
+        </>}
       </ol>
       <p className="text-sm leading-6 text-mk-muted">{eft?.paymentReferenceInstruction ?? 'Please use your order reference as the payment reference.'}</p>
       <p className="text-sm leading-6 text-mk-muted">{eft?.customerInstruction ?? order.manualConfirmationNote ?? MANUAL_EFT_CONFIRMATION}</p>
+      {order.assessmentReference ? <Link className="inline-flex rounded-full bg-mk-ink px-5 py-3 text-sm font-semibold text-mk-cream hover:bg-mk-slate" href={`/score/order/${encodeURIComponent(order.assessmentReference)}?token=${encodeURIComponent(snapshotTokenFromUrl() ?? '')}&orderReference=${encodeURIComponent(order.orderReference)}`}>View order status</Link> : null}
     </div>
   );
 }

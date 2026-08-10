@@ -52,7 +52,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
   });
 
   if (!result.ok) {
-    const status = result.reason === 'tier_not_self_service' ? 400 : 409;
+    const status = result.reason === 'tier_not_self_service' ? 400 : result.reason === 'eft_instructions_unavailable' ? 503 : 409;
     return NextResponse.json(
       { ok: false, reason: result.reason, errors: [result.message] },
       { status, headers: { 'Cache-Control': 'no-store' } }
@@ -71,7 +71,9 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         currency: result.currency,
         amountDisplay: result.amountDisplay,
         status: result.status,
-        paymentReference: result.paymentReference
+        paymentReference: result.paymentReference,
+        eftInstructions: result.eftInstructions,
+        assessmentReference: params.assessmentRef
       },
       engagement: result.engagementId
         ? { id: result.engagementId, state: result.engagementState }

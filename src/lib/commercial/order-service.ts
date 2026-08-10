@@ -1,6 +1,6 @@
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
-import { buildEftInstructionSnapshot, formatOrderAmount } from '@/lib/orders/eft-instructions';
+import { buildEftInstructionSnapshot, customerSafeEftInstructions, formatOrderAmount, type CustomerSafeEftInstructions } from '@/lib/orders/eft-instructions';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import {
   paidProductForTier,
@@ -29,6 +29,7 @@ export type PaidOrderCreationReason =
   | 'product_inactive'
   | 'price_version_missing'
   | 'price_version_mismatch'
+  | 'eft_instructions_unavailable'
   | 'order_insert_failed';
 
 export type PaidOrderCreationResult =
@@ -45,6 +46,7 @@ export type PaidOrderCreationResult =
       amountDisplay: string;
       status: string;
       paymentReference: string;
+      eftInstructions: CustomerSafeEftInstructions;
       engagementId: string | null;
       engagementState: string | null;
     }
@@ -135,6 +137,14 @@ export async function createPaidOrderForAssessment(input: {
   // A read, and safe to do before the transaction: the snapshot is an immutable copy of whatever
   // EFT profile is active now, and the order row stores it verbatim.
   const eftSnapshot = await buildEftInstructionSnapshot();
+  const customerSafeEft = customerSafeEftInstructions(eftSnapshot);
+  if (!customerSafeEft) {
+    return {
+      ok: false,
+      reason: 'eft_instructions_unavailable',
+      message: 'EFT payment instructions are temporarily unavailable. The order was not created; please contact MK Fraud Insights.'
+    };
+  }
 
   const { data, error } = await db.rpc('create_paid_order', {
     p_tier: tier,
@@ -158,6 +168,20 @@ export async function createPaidOrderForAssessment(input: {
   }
   if (!data) {
     return { ok: false, reason: 'order_insert_failed', message: `The ${product.label} order could not be created.` };
+  }
+
+  const { data: boundOrder, error: boundOrderError } = await db
+    .from('orders')
+    .select('eft_instructions_snapshot')
+    .eq('id', data.order_id)
+    .maybeSingle();
+  const boundEft = customerSafeEftInstructions(boundOrder?.eft_instructions_snapshot);
+  if (boundOrderError || !boundEft) {
+    return {
+      ok: false,
+      reason: 'eft_instructions_unavailable',
+      message: 'The order was not returned with a payable EFT snapshot. Contact MK Fraud Insights before making payment.'
+    };
   }
 
   const created = data.created === true;
@@ -210,6 +234,7 @@ export async function createPaidOrderForAssessment(input: {
     amountDisplay: formatOrderAmount(data.amount_cents, data.currency),
     status: data.status,
     paymentReference: paymentReferenceFor(data.order_reference),
+    eftInstructions: boundEft,
     engagementId: data.engagement_id ?? null,
     engagementState: data.engagement_state ?? null
   };

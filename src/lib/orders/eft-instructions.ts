@@ -15,6 +15,43 @@ export function formatOrderAmount(amountCents: number | null | undefined, curren
   return `${currency ?? 'ZAR'} ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export type CustomerSafeEftInstructions = {
+  active: true;
+  bankName: string;
+  accountHolder: string;
+  accountNumber: string;
+  branchCode: string;
+  accountType: string | null;
+  currency: string;
+  paymentReferenceInstruction: string;
+  customerInstruction: string;
+  contactEmail: string | null;
+};
+
+export function customerSafeEftInstructions(value: unknown): CustomerSafeEftInstructions | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const text = (key: string) => typeof row[key] === 'string' ? String(row[key]).trim() : '';
+  const bankName = text('bankName') || text('bank_name');
+  const accountHolder = text('accountHolder') || text('account_holder');
+  const accountNumber = text('accountNumber') || text('account_number');
+  const branchCode = text('branchCode') || text('branch_code');
+  const currency = text('currency') || 'ZAR';
+  if (row.active !== true || !bankName || !accountHolder || !accountNumber || !branchCode || !currency) return null;
+  return {
+    active: true,
+    bankName,
+    accountHolder,
+    accountNumber,
+    branchCode,
+    accountType: text('accountType') || text('account_type') || null,
+    currency,
+    paymentReferenceInstruction: text('paymentReferenceInstruction') || text('payment_reference_instruction') || 'Use your order reference as the payment reference.',
+    customerInstruction: text('customerInstruction') || text('customer_instruction') || 'MK Fraud Insights confirms EFT payments manually before any deliverable is released.',
+    contactEmail: text('contactEmail') || text('contact_email') || null
+  };
+}
+
 export async function getActiveEftInstructions() {
   const db = service();
   const { data: activeSetting } = await db

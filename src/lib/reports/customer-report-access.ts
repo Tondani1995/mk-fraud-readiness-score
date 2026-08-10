@@ -78,6 +78,9 @@ async function recordAccess(input: {
   // record_customer_report_access() builds its own metadata and cannot carry that discriminator,
   // so this path prefers the additive artefact-aware function.
   const artefactType = input.artefact === 'register' ? 'supporting_register' : 'pdf';
+  const auditArtefactType = input.artefact === 'board' ? 'board_readout'
+    : input.artefact === 'presentation' ? 'executive_presentation'
+      : input.artefact === 'workshop' ? 'workshop_material' : artefactType;
   const binding = {
     p_token_id: input.tokenId,
     p_order_id: input.orderId,
@@ -86,10 +89,9 @@ async function recordAccess(input: {
     p_reason: input.reason ?? null,
     p_technical_reference: input.technicalReference
   };
-  let { error: auditError } = await input.db.rpc('record_customer_report_artefact_access', {
-    ...binding,
-    p_artefact_type: artefactType
-  });
+  const auditBinding = { ...binding, p_artefact_type: artefactType } as Record<string, unknown>;
+  if (auditArtefactType !== artefactType) auditBinding.p_artefact_type = auditArtefactType;
+  let { error: auditError } = await input.db.rpc('record_customer_report_artefact_access', auditBinding);
   // Pre-migration compatibility. 20260807130000 creates the artefact-aware function; until it is
   // applied, the PDF journey must keep working exactly as accepted rather than 500. The accepted
   // six-argument function is deliberately still present, so fall back to it and lose only the
@@ -112,7 +114,7 @@ async function recordAccess(input: {
   }
 }
 
-export type CustomerArtefact = 'pdf' | 'register';
+export type CustomerArtefact = 'pdf' | 'register' | 'board' | 'presentation' | 'workshop';
 
 /**
  * min-M8: the artefact selector is applied ONLY after the existing report-level authority has
@@ -261,40 +263,94 @@ export async function grantCustomerReportAccess(input: { rawToken: string; ipAdd
   let servedChecksum: string = checksum;
   let servedMimeType: string = report.mime_type || 'application/pdf';
   let servedFileName: string = report.file_name || `${report.report_reference}.pdf`;
-  if (input.artefact === 'register') {
-    const { data: artefact, error: artefactError } = await db
+  const secondary = {
+    register: { type: 'supporting_register', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fallback: `${report.report_reference}-supporting-register.xlsx` },
+    board: { type: 'board_readout', mimeType: 'application/pdf', fallback: `${report.report_reference}-board-readout.pdf` },
+    presentation: { type: 'executive_presentation', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', fallback: `${report.report_reference}-executive-presentation.pptx` },
+    workshop: { type: 'workshop_material', mimeType: 'application/pdf', fallback: `${report.report_reference}-workshop-material.pdf` }
+  } as const;
+  if (input.artefact !== 'pdf' && report.report_type !== 'mk_validated' && input.artefact !== 'register') {
+    await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_status_ineligible', technicalReference, artefact: requestedArtefact });
+    throw new CustomerReportAccessError('report_status_ineligible', 'This artefact is not available for this order.', 409, technicalReference);
+  }
+  if (input.artefact === 'register' && report.report_type !== 'mk_validated') {
+    const { data: legacyArtefact, error: legacyArtefactError } = await db
       .from('report_artifacts')
       .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,artefact_type,file_name,mime_type')
       .eq('report_id', report.id)
       .eq('artefact_type', 'supporting_register')
       .maybeSingle();
-    // Fail closed on absence, on a pre-migration schema, on an unverified artefact and on any
-    // integrity mismatch. Never fall back to serving the PDF under a register request.
-    if (artefactError || !artefact || artefact.storage_status !== 'VERIFIED'
-      || !artefact.storage_bucket || !artefact.storage_path) {
+    const artefact = legacyArtefact;
+    if (legacyArtefactError || !artefact || artefact.storage_status !== 'VERIFIED'
+      || !artefact.storage_bucket || !artefact.storage_path || !artefact.checksum_sha256
+      || Number(artefact.file_size_bytes) <= 0) {
       await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('stored_file_missing', 'The supporting register is not available for this report.', 404, technicalReference);
     }
-    const { data: registerObject, error: registerError } = await db.storage
-      .from(artefact.storage_bucket).download(artefact.storage_path);
-    if (registerError || !registerObject) {
+    const { data: legacyObject, error: legacyObjectError } = await db.storage.from(artefact.storage_bucket).download(artefact.storage_path);
+    if (legacyObjectError || !legacyObject) {
       await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('stored_file_missing', 'The supporting register file could not be found.', 404, technicalReference);
     }
-    const registerBytes = Buffer.from(await registerObject.arrayBuffer());
-    const registerChecksum = crypto.createHash('sha256').update(registerBytes).digest('hex');
-    if (registerChecksum !== artefact.checksum_sha256
-      || (artefact.file_size_bytes && registerBytes.length !== Number(artefact.file_size_bytes))) {
+    const legacyBytes = Buffer.from(await legacyObject.arrayBuffer());
+    const registerChecksum = crypto.createHash('sha256').update(legacyBytes).digest('hex');
+    if (registerChecksum !== artefact.checksum_sha256 || legacyBytes.length !== Number(artefact.file_size_bytes)) {
       await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference, artefact: requestedArtefact });
       throw new CustomerReportAccessError('integrity_failed', 'The supporting register failed its integrity check.', 409, technicalReference);
     }
-    // The register is validated on SHA-256 and size only. The %PDF magic check above belongs to the
-    // parent report and must not be applied to a spreadsheet.
-    servedBytes = registerBytes;
+    servedBytes = legacyBytes;
     servedChecksum = registerChecksum;
-    servedMimeType = artefact.mime_type
-      || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    servedMimeType = artefact.mime_type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     servedFileName = artefact.file_name || `${report.report_reference}-supporting-register.xlsx`;
+  }
+  if (input.artefact !== 'pdf' && report.report_type === 'mk_validated') {
+    if (report.report_type !== 'mk_validated') {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_status_ineligible', technicalReference, artefact: requestedArtefact });
+      throw new CustomerReportAccessError('report_status_ineligible', 'This artefact is not available for this order.', 409, technicalReference);
+    }
+    const { data: engagement, error: engagementError } = await db
+      .from('comprehensive_engagements')
+      .select('id,state,signed_off_artifact_version')
+      .eq('order_id', report.order_id)
+      .maybeSingle();
+    const required = secondary[input.artefact as keyof typeof secondary];
+    if (engagementError || !engagement || engagement.state !== 'delivered' || !engagement.signed_off_artifact_version) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'report_status_ineligible', technicalReference, artefact: requestedArtefact });
+      throw new CustomerReportAccessError('report_status_ineligible', 'This artefact is not yet available.', 409, technicalReference);
+    }
+    const { data: artefact, error: artefactError } = await db
+      .from('report_artifacts')
+      .select('storage_bucket,storage_path,checksum_sha256,file_size_bytes,storage_status,release_state,artefact_type,file_name,mime_type,artifact_version,engagement_id,report_id')
+      .eq('report_id', report.id)
+      .eq('engagement_id', engagement.id)
+      .eq('artifact_version', engagement.signed_off_artifact_version)
+      .eq('artefact_type', required.type)
+      .eq('release_state', 'released')
+      .eq('storage_status', 'VERIFIED')
+      .maybeSingle();
+    if (artefactError || !artefact || artefact.report_id !== report.id || artefact.engagement_id !== engagement.id
+      || Number(artefact.artifact_version) !== Number(engagement.signed_off_artifact_version)
+      || artefact.mime_type !== required.mimeType || !artefact.storage_bucket || !artefact.storage_path
+      || !artefact.checksum_sha256 || !/^[0-9a-f]{64}$/.test(artefact.checksum_sha256) || Number(artefact.file_size_bytes) <= 0) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'storage_path_mismatch', technicalReference, artefact: requestedArtefact });
+      throw new CustomerReportAccessError('storage_path_mismatch', 'This artefact has no verified private storage metadata.', 409, technicalReference);
+    }
+    const { data: secondaryObject, error: secondaryError } = await db.storage.from(artefact.storage_bucket).download(artefact.storage_path);
+    if (secondaryError || !secondaryObject) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'stored_file_missing', technicalReference, artefact: requestedArtefact });
+      throw new CustomerReportAccessError('stored_file_missing', 'This artefact file could not be found.', 404, technicalReference);
+    }
+    const secondaryBytes = Buffer.from(await secondaryObject.arrayBuffer());
+    const secondaryChecksum = crypto.createHash('sha256').update(secondaryBytes).digest('hex');
+    if (secondaryChecksum !== artefact.checksum_sha256 || secondaryBytes.length !== Number(artefact.file_size_bytes)
+      || (secondaryObject.type && secondaryObject.type !== required.mimeType)) {
+      await recordAccess({ db, tokenId: tokenRow.id, orderId: tokenRow.order_id, reportId: report.id, success: false, reason: 'integrity_failed', technicalReference, artefact: requestedArtefact });
+      throw new CustomerReportAccessError('integrity_failed', 'This artefact failed its integrity check.', 409, technicalReference);
+    }
+    servedBytes = secondaryBytes;
+    servedChecksum = secondaryChecksum;
+    servedMimeType = artefact.mime_type;
+    servedFileName = artefact.file_name || required.fallback;
   }
 
   // Audit before release: recordAccess() throws on a failed success-audit, so an unauditable access

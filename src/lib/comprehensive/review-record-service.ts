@@ -119,7 +119,7 @@ export async function upsertComprehensiveReviewRecord(input: {
 
   const { data: existing, error: existingError } = await db
     .from('comprehensive_review_records')
-    .select('id,record_version')
+    .select('id,record_version,created_by')
     .eq('engagement_id', input.engagementId)
     .eq('record_type', input.write.recordType)
     .eq('subject_key', input.write.subjectKey.trim())
@@ -142,7 +142,7 @@ export async function upsertComprehensiveReviewRecord(input: {
     decision_options: input.write.decisionOptions ?? [],
     management_action: input.write.managementAction ?? {},
     record_version: existing ? Number(existing.record_version) + 1 : 1,
-    created_by: input.actor.id,
+    created_by: existing ? existing.created_by : input.actor.id,
     updated_by: input.actor.id
   };
   const query = existing

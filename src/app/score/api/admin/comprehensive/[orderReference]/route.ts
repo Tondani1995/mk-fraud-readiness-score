@@ -7,6 +7,7 @@ import {
 import { canReviewComprehensiveEvidence, listEngagementEvidence } from '@/lib/comprehensive/evidence-service';
 import { allowedNextStates } from '@/lib/commercial/comprehensive-lifecycle';
 import { listComprehensiveReviewRecords } from '@/lib/comprehensive/review-record-service';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 // Reviewer/admin read surface for one Comprehensive engagement. Evidence metadata is included only
 // for roles permitted to review it; finance and read-only administrators see the engagement state
@@ -36,6 +37,16 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
   const reviewRecords = canReviewComprehensiveEvidence(admin.role)
     ? await listComprehensiveReviewRecords(engagement.id)
     : null;
+  const db = createSupabaseServiceClient() as any;
+  const [{ data: reviewers }, { data: reports }, { data: order }] = await Promise.all([
+    db.from('admin_profiles').select('id,full_name,email,role').eq('status', 'active').in('role', ['platform_admin', 'reviewer', 'approver']).order('full_name', { ascending: true }),
+    db.from('reports').select('id,report_reference,version_number,status,storage_status,file_name,mime_type,file_size_bytes').eq('order_id', engagement.orderId).eq('report_type', 'mk_validated').order('version_number', { ascending: false }),
+    db.from('orders').select('status,amount_cents,currency,verified_at,verified_by').eq('id', engagement.orderId).maybeSingle()
+  ]);
+  const reportIds = (reports ?? []).map((report: any) => report.id);
+  const { data: artifacts } = reportIds.length
+    ? await db.from('report_artifacts').select('report_id,artefact_type,file_name,mime_type,file_size_bytes,storage_status,release_state,artifact_version').in('report_id', reportIds).order('artefact_type', { ascending: true })
+    : { data: [] };
 
   return NextResponse.json(
     {
@@ -43,7 +54,11 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
       engagement,
       allowedNextStates: allowedNextStates(engagement.state),
       evidence: evidence?.ok ? evidence.evidence : null,
-      reviewRecords
+      reviewRecords,
+      reviewers: reviewers ?? [],
+      reports: reports ?? [],
+      artifacts: artifacts ?? [],
+      order: order ?? null
     },
     { status: 200, headers: { 'Cache-Control': 'no-store' } }
   );

@@ -122,6 +122,7 @@ export default async function AdminOrderDetailPage(
   const eft = order.eft_instructions_snapshot ?? {};
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
+  const isComprehensive = order.products?.product_code === 'mk_validated_assessment';
 
   return (
     <AdminShell admin={admin}>
@@ -271,6 +272,7 @@ export default async function AdminOrderDetailPage(
             <SnapshotValue label="Product" value={order.product_name} />
             <SnapshotValue label="Amount" value={formatOrderAmount(order.amount_cents, order.currency)} />
             <SnapshotValue label="Created" value={dateTime(order.created_at)} />
+            {isComprehensive ? <div className="md:col-span-3"><Button asChild><Link href={`/score/admin/comprehensive/${encodeURIComponent(order.order_reference)}`}>Open Comprehensive reviewer workspace</Link></Button></div> : null}
           </CardContent>
         </Card>
 

@@ -2,8 +2,8 @@
   "manifestVersion": 1,
   "lockedParentSha": "7a7cb535aa71b3fcd83fcdcd48373a2f62786b0c",
   "migrationCountBefore": 45,
-  "migrationCountAfter": 47,
-  "newestMigration": "20260810130000_joint_launch_comprehensive_review_records.sql",
+  "migrationCountAfter": 48,
+  "newestMigration": "20260810131000_joint_launch_last_mile_customer_operability.sql",
   "operationVocabulary": {
     "S": "SELECT",
     "I": "INSERT",
@@ -1461,6 +1461,24 @@
       "justification": "Service-role-only immutable metadata commit after a private Storage upload; report and engagement binding, MIME, size and checksum are enforced in SQL."
     },
     {
+      "signature": "public.complete_comprehensive_package(uuid, uuid, uuid, integer, jsonb, jsonb, uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/comprehensive/generation-service.ts"
+      ],
+      "justification": "Atomic persisted Comprehensive package registration: one verified primary report and exactly three verified secondary artefacts at one immutable version."
+    },
+    {
+      "signature": "public.record_customer_report_artefact_access(uuid, uuid, uuid, boolean, text, text, text)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/reports/customer-report-access.ts"
+      ],
+      "justification": "Artefact-aware customer access audit bound to the exact possession token, order and report."
+    },
+    {
       "signature": "public.finalise_comprehensive_artifact_set(uuid, uuid, integer, uuid)",
       "securityMode": "DEFINER",
       "searchPath": "",
@@ -1522,11 +1540,23 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
+    "src/lib/comprehensive/artifact-service.ts:39",
+    "src/lib/comprehensive/artifact-service.ts:60",
+    "src/lib/comprehensive/evidence-service.ts:124",
+    "src/lib/comprehensive/evidence-service.ts:247",
+    "src/lib/comprehensive/generation-service.ts:36",
+    "src/lib/comprehensive/generation-service.ts:41",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
+    "src/lib/reports/customer-report-access.ts:236",
+    "src/lib/reports/customer-report-access.ts:290",
+    "src/lib/reports/customer-report-access.ts:338",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
+    "src/lib/reports/phase1-manual-fulfilment.ts:291",
+    "src/lib/reports/phase1-manual-fulfilment.ts:605",
+    "src/lib/reports/phase1-manual-fulfilment.ts:755",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
@@ -1535,17 +1565,8 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/phase1-manual-fulfilment.ts:291",
-    "src/lib/reports/phase1-manual-fulfilment.ts:605",
-    "src/lib/reports/phase1-manual-fulfilment.ts:755",
     "src/lib/reports/supporting-register-delivery.ts:157",
-    "src/lib/reports/supporting-register-delivery.ts:97",
-    "src/lib/reports/customer-report-access.ts:234",
-    "src/lib/reports/customer-report-access.ts:278",
-    "src/lib/comprehensive/evidence-service.ts:124",
-    "src/lib/comprehensive/evidence-service.ts:247",
-    "src/lib/comprehensive/artifact-service.ts:39",
-    "src/lib/comprehensive/artifact-service.ts:60"
+    "src/lib/reports/supporting-register-delivery.ts:97"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1611,7 +1632,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "7d8d474a84b5339edd6bd9a4e5d57547c54a72dd116351c20a2713db212055e7"
+    "fullAstInventorySha256": "3135f2309fdfbdbc7631812025dc8263cf95d6e314f1a0d912673fac83e7515d"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
