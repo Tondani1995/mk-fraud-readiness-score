@@ -1,0 +1,67 @@
+name: Joint Launch Essential Comprehensive Integration
+
+on:
+  push:
+    branches:
+      - integration/joint-launch-essential-comprehensive
+  pull_request:
+    branches:
+      - integration/joint-launch-essential-comprehensive
+    paths:
+      - 'src/**'
+      - 'scripts/joint-launch-*'
+      - 'scripts/comprehensive-*'
+      - 'supabase/migrations/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/joint-launch-integration.yml'
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out integration branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: No-provider integrated journey
+        run: mkdir -p artifacts/joint-launch && npm run joint-launch:test-integrated-journey > artifacts/joint-launch/integrated-journey.json
+
+      - name: Existing joint launch core suite
+        run: npm run joint-launch:test
+
+      - name: Dense Comprehensive report, board readout and contact sheets
+        env:
+          COMPREHENSIVE_FIXTURE: denseWeakAssessment
+          COMPREHENSIVE_OUTPUT_DIR: artifacts/joint-launch/comprehensive
+        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/comprehensive-render-fixtures.mjs
+
+      - name: Dense annotated register and workbook QA
+        env:
+          COMPREHENSIVE_FIXTURE: denseWeakAssessment
+          COMPREHENSIVE_OUTPUT_DIR: artifacts/joint-launch/comprehensive
+        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/comprehensive-register-builder.mjs
+
+      - name: Upload non-secret launch evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: joint-launch-essential-comprehensive-integration-${{ github.sha }}
+          path: artifacts/joint-launch
+          if-no-files-found: error
+          retention-days: 14

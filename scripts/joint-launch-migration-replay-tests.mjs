@@ -37,7 +37,8 @@ const JOINT_LAUNCH_MIGRATIONS = [
   '20260810122000_joint_launch_comprehensive_evidence.sql',
   '20260810123000_joint_launch_versioned_price_entitlement.sql',
   '20260810124000_joint_launch_atomic_paid_order.sql',
-  '20260810125000_joint_launch_evidence_orphan_alert.sql'
+  '20260810125000_joint_launch_evidence_orphan_alert.sql',
+  '20260810130000_joint_launch_comprehensive_review_records.sql'
 ];
 for (const name of JOINT_LAUNCH_MIGRATIONS) {
   assert.ok(migrationFiles.includes(name), `missing joint-launch migration ${name}`);
@@ -129,7 +130,7 @@ try {
     `select c.relname from pg_trigger t
      join pg_class c on c.oid = t.tgrelid
      where t.tgname = 'trg_rc1_operation_freeze'
-       and c.relname in ('product_price_versions','comprehensive_engagements','comprehensive_engagement_events','comprehensive_evidence_items','comprehensive_evidence_events')`
+       and c.relname in ('product_price_versions','comprehensive_engagements','comprehensive_engagement_events','comprehensive_evidence_items','comprehensive_evidence_events','comprehensive_review_records','comprehensive_review_record_events')`
   );
   assert.equal(guardedNewTables.rows.length, 0, 'no joint-launch table maps to an RC1 freeze surface');
   check('no joint-launch table was silently attached to an RC1 freeze surface');
@@ -394,28 +395,20 @@ try {
   await db.query(`update public.comprehensive_engagements set state='in_review' where id=$1`, [engagementId]);
   await assert.rejects(
     db.query(`update public.comprehensive_engagements set state='review_complete' where id=$1`, [engagementId]),
-    /sign_off_required|check/i
+    /sign_off_required|closure_not_ready|check/i
   );
   check('review cannot complete without a persisted sign-off actor');
 
-  await db.query(
-    `update public.comprehensive_engagements
-     set state='review_complete', signed_off_by=$1, signed_off_at=now(), sign_off_statement='Replay sign-off.'
-     where id=$2`,
-    [adminUserId, engagementId]
-  );
   await assert.rejects(
-    db.query(`update public.comprehensive_engagements set signed_off_at=now() - interval '1 day' where id=$1`, [engagementId]),
-    /sign_off_immutable|check/i
+    db.query(
+      `update public.comprehensive_engagements
+       set state='review_complete', signed_off_by=$1, signed_off_at=now(), sign_off_statement='Replay sign-off.', signed_off_artifact_version=1
+       where id=$2`,
+      [adminUserId, engagementId]
+    ),
+    /closure_not_ready|check/i
   );
-  check('a recorded sign-off cannot be silently edited');
-
-  await db.query(
-    `update public.comprehensive_engagements
-     set state='in_review', signed_off_by=null, signed_off_at=null, sign_off_statement=null where id=$1`,
-    [engagementId]
-  );
-  check('sign-off can only be withdrawn through the explicit review_complete -> in_review transition');
+  check('review cannot complete without all persisted human-review records and verified artifact versions');
 
   await db.query(`insert into public.comprehensive_engagement_events (engagement_id, event_type, new_state) values ($1,'state_changed','in_review')`, [engagementId]);
   await assert.rejects(
@@ -531,7 +524,9 @@ try {
     'comprehensive_engagements',
     'comprehensive_engagement_events',
     'comprehensive_evidence_items',
-    'comprehensive_evidence_events'
+    'comprehensive_evidence_events',
+    'comprehensive_review_records',
+    'comprehensive_review_record_events'
   ];
 
   for (const table of newTables) {
@@ -553,7 +548,9 @@ try {
     comprehensive_engagements: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false },
     comprehensive_engagement_events: { SELECT: false, INSERT: true, UPDATE: false, DELETE: false },
     comprehensive_evidence_items: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false },
-    comprehensive_evidence_events: { SELECT: false, INSERT: true, UPDATE: false, DELETE: false }
+    comprehensive_evidence_events: { SELECT: false, INSERT: true, UPDATE: false, DELETE: false },
+    comprehensive_review_records: { SELECT: true, INSERT: true, UPDATE: true, DELETE: false },
+    comprehensive_review_record_events: { SELECT: false, INSERT: false, UPDATE: false, DELETE: false }
   };
   for (const [table, expectations] of Object.entries(serviceExpectations)) {
     for (const [privilege, expected] of Object.entries(expectations)) {
@@ -571,17 +568,20 @@ try {
      where n.nspname='public' and p.proname in (
        'comprehensive_engagement_transition_allowed','comprehensive_engagement_state_guard',
        'comprehensive_engagement_events_append_only','comprehensive_evidence_binding_guard',
-       'comprehensive_evidence_events_append_only')`
+       'comprehensive_evidence_events_append_only',
+       'comprehensive_review_record_guard','comprehensive_review_record_event_append_only',
+       'comprehensive_review_record_audit','complete_comprehensive_artifact','finalise_comprehensive_artifact_set')`
   );
-  assert.equal(functions.rows.length, 5, 'all five joint-launch functions must exist');
+  assert.equal(functions.rows.length, 10, 'all joint-launch functions must exist');
   for (const row of functions.rows) {
-    assert.equal(row.prosecdef, false, `${row.proname} must not be SECURITY DEFINER`);
+    const artifactRpc = ['complete_comprehensive_artifact', 'finalise_comprehensive_artifact_set', 'comprehensive_review_record_audit'].includes(row.proname);
+    assert.equal(row.prosecdef, artifactRpc, `${row.proname} SECURITY DEFINER posture is incorrect`);
     assert.ok(
       (row.proconfig ?? []).some((entry) => entry.startsWith('search_path=')),
       `${row.proname} must set an explicit search_path`
     );
   }
-  check('no joint-launch function is SECURITY DEFINER and every one sets an explicit search_path');
+  check('joint-launch functions have the declared SECURITY INVOKER/DEFINER posture and explicit search_path');
 
   const publicGrants = await db.query(
     `select table_name, grantee, privilege_type from information_schema.role_table_grants

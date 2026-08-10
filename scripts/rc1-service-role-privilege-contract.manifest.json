@@ -1,9 +1,9 @@
 {
   "manifestVersion": 1,
-  "lockedParentSha": "95101c63ac9499d694235dd6a8ce2719467772d1",
+  "lockedParentSha": "7a7cb535aa71b3fcd83fcdcd48373a2f62786b0c",
   "migrationCountBefore": 45,
-  "migrationCountAfter": 46,
-  "newestMigration": "20260810122000_joint_launch_comprehensive_evidence.sql",
+  "migrationCountAfter": 47,
+  "newestMigration": "20260810130000_joint_launch_comprehensive_review_records.sql",
   "operationVocabulary": {
     "S": "SELECT",
     "I": "INSERT",
@@ -953,6 +953,19 @@
         "src/lib/comprehensive/evidence-service.ts I"
       ],
       "justification": "Append-only audit trail of evidence upload and every reviewer validation decision. The grant is INSERT only and a trigger rejects UPDATE and DELETE."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_review_records",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE HUMAN REVIEW RECORDS",
+      "sources": [
+        "src/lib/comprehensive/review-record-service.ts S",
+        "src/lib/comprehensive/review-record-service.ts SIU"
+      ],
+      "justification": "Versioned finding, risk, control-design, decision and management-action records are read and written only through the authenticated reviewer service surface; no DELETE is granted."
     }
   ],
   "serviceRoleRpcs": [
@@ -1437,6 +1450,24 @@
         "src/lib/orders/manual-eft-orders.ts"
       ],
       "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
+    },
+    {
+      "signature": "public.complete_comprehensive_artifact(uuid, uuid, text, text, text, text, text, bigint, text, integer)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/comprehensive/artifact-service.ts"
+      ],
+      "justification": "Service-role-only immutable metadata commit after a private Storage upload; report and engagement binding, MIME, size and checksum are enforced in SQL."
+    },
+    {
+      "signature": "public.finalise_comprehensive_artifact_set(uuid, uuid, integer, uuid)",
+      "securityMode": "DEFINER",
+      "searchPath": "",
+      "sources": [
+        "src/lib/comprehensive/artifact-service.ts"
+      ],
+      "justification": "Atomic release of the complete verified Comprehensive secondary-artifact set; it fails closed on missing human-review records, primary report integrity, or any missing artifact version."
     }
   ],
   "nonServiceRpcClassifications": {
@@ -1512,7 +1543,9 @@
     "src/lib/reports/customer-report-access.ts:234",
     "src/lib/reports/customer-report-access.ts:278",
     "src/lib/comprehensive/evidence-service.ts:124",
-    "src/lib/comprehensive/evidence-service.ts:247"
+    "src/lib/comprehensive/evidence-service.ts:247",
+    "src/lib/comprehensive/artifact-service.ts:39",
+    "src/lib/comprehensive/artifact-service.ts:60"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1531,7 +1564,10 @@
       "src/lib/reports/email/delivery-dispatch.ts",
       "src/lib/reports/report-access-eligibility.ts",
       "src/lib/reports/storage-publication.ts",
-      "src/lib/reports/supporting-register-delivery.ts"
+      "src/lib/reports/supporting-register-delivery.ts",
+      "src/lib/comprehensive/artifact-service.ts"
+      ,"src/lib/comprehensive/review-record-service.ts"
+      ,"src/lib/commercial/customer-order-status.ts"
     ],
     "nonServiceCallSites": [
       "src/lib/reports/phase14-security.ts:76:rpc",
@@ -1575,7 +1611,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "5d854683dd9c4fd4feeda848a83f01ae5a3532901f540ef00559a8b9322ae15a"
+    "fullAstInventorySha256": "7d8d474a84b5339edd6bd9a4e5d57547c54a72dd116351c20a2713db212055e7"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
@@ -1583,12 +1619,12 @@
   },
   "jointLaunchReview": {
     "reviewedAt": "2026-08-10",
-    "branch": "parallel/joint-launch-core-products",
+    "branch": "integration/joint-launch-essential-comprehensive",
     "reason": "The joint Essential + Comprehensive launch adds a commercial price-version contract, a Comprehensive engagement lifecycle and a client evidence intake. Each brings new direct service-role table operations, which changes the AST inventory hash and therefore requires this manual privilege review.",
     "principle": "Each new table receives the narrowest verb set an actual call site needs. No new table receives DELETE. Both audit tables are INSERT-only by grant AND rejected on UPDATE/DELETE by trigger. product_price_versions is SELECT-only because prices are minted by migration, never by application code.",
-    "storageApiReview": "Two Storage call sites in the lane, both in src/lib/comprehensive/evidence-service.ts: an UPLOAD of a client evidence file to the private 'comprehensive-evidence' bucket, and the compensating REMOVE of exactly that one object when its database insert definitively fails. The remove names a single server-derived path in a one-element array -- never a prefix, never a listing, never a client-supplied path -- so it cannot reach another customer's evidence. No getPublicUrl and no createSignedUrl anywhere in the lane. Access is governed by the Storage API plus the bucket's public=false and the deny-by-default storage.objects RLS posture, so no public-table grant is inferred, and no DELETE right is granted on any evidence database table.",
+    "storageApiReview": "Comprehensive evidence and report artifacts use private Storage buckets with server-derived one-object paths. Uploads are followed by immutable metadata RPCs; failed metadata commits compensate the exact uploaded object. No getPublicUrl or createSignedUrl is used in this lane, and no storage credential or path is returned to a browser.",
     "anonAuthenticatedPrivilege": "None on any new table. Verified executably, not by inspection, in scripts/joint-launch-migration-replay-tests.mjs against a real Postgres.",
-    "securityDefiner": "None. All five joint-launch functions are SECURITY INVOKER with an explicit search_path; asserted in the same replay suite.",
-    "transactionalClosureReview": "Paid-order creation moved into public.create_paid_order(), a SECURITY INVOKER transactional RPC. Direct application INSERTs on public.orders and public.comprehensive_engagements are therefore gone; both tables' required verb sets shrink accordingly. The grants themselves are unchanged, because an INVOKER function executes with the caller's privileges. No privilege was widened anywhere by this change."
+    "securityDefiner": "The artifact metadata/release RPCs and the append-only review-record audit trigger are SECURITY DEFINER with an empty search_path; lifecycle, evidence and price helpers remain SECURITY INVOKER with explicit search paths. The migration replay asserts these boundaries.",
+    "transactionalClosureReview": "Paid-order creation moved into public.create_paid_order(), a SECURITY INVOKER transactional RPC. Comprehensive artifact release is a separate service-role-only atomic set finalisation after all verified metadata and human-review records exist. Direct application INSERTs on public.orders and public.comprehensive_engagements are therefore gone; no customer-facing privilege was widened."
   }
 }

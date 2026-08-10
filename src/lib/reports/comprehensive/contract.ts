@@ -39,6 +39,12 @@ function priorityForFinding(finding: MaterialFinding): EvidenceRequestPackItem['
   return 'LOW';
 }
 
+const EVIDENCE_PRIORITY_RANK: Record<EvidenceRequestPackItem['priority'], number> = {
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1
+};
+
 function findingForEvidence(item: EvidenceChecklistItem, findings: MaterialFinding[]): MaterialFinding | null {
   return findings.find((finding) => item.linkedFindingIds.includes(finding.id)) ?? null;
 }
@@ -175,7 +181,7 @@ export function buildEvidenceRequestPack(
 ): EvidenceRequestPackItem[] {
   return analytical.evidenceModel.evidenceChecklist
     .map((item) => buildPackItem(item, analytical.evidenceModel.materialFindings, reviewerInput.evidenceReviews))
-    .sort((a, b) => `${a.priority}|${a.evidenceRef}`.localeCompare(`${b.priority}|${b.evidenceRef}`));
+    .sort((a, b) => EVIDENCE_PRIORITY_RANK[b.priority] - EVIDENCE_PRIORITY_RANK[a.priority] || a.evidenceRef.localeCompare(b.evidenceRef));
 }
 
 function buildValidationSummary(items: EvidenceRequestPackItem[]): ValidationSummary {

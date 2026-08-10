@@ -143,6 +143,7 @@
     "joint-launch:test": "npm run joint-launch:test-product-contract && npm run joint-launch:test-comprehensive && npm run joint-launch:test-evidence-compensation && npm run joint-launch:test-migration-replay && npm run joint-launch:test-transactional-safety",
     "joint-launch:test-transactional-safety": "node scripts/joint-launch-transactional-safety-tests.mjs",
     "joint-launch:test-evidence-compensation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-evidence-compensation-tests.mjs",
+    "joint-launch:test-integrated-journey": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-integrated-journey-tests.mjs",
     "joint-launch:gate-release-window": "node scripts/joint-launch-release-window-gate.mjs"
   },
   "dependencies": {

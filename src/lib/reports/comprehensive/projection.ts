@@ -109,7 +109,7 @@ export function buildComprehensiveProjection(model: ComprehensiveDeliveryModel):
   const roadmapCandidates = sortRoadmap(model.roadmapActions, risks, findings);
   const roadmapActions = selectDependencyClosedRoadmap(roadmapCandidates, COMPREHENSIVE_L2_LIMITS.roadmapActions);
   const evidenceItems = [...model.evidenceRequestPack]
-    .sort((a, b) => `${a.priority}|${a.evidenceRef}`.localeCompare(`${b.priority}|${b.evidenceRef}`))
+    .sort((a, b) => ({ HIGH: 3, MEDIUM: 2, LOW: 1 }[b.priority] - { HIGH: 3, MEDIUM: 2, LOW: 1 }[a.priority]) || a.evidenceRef.localeCompare(b.evidenceRef))
     .slice(0, COMPREHENSIVE_L2_LIMITS.evidenceItems);
   return {
     findings: findings.slice(0, COMPREHENSIVE_L2_LIMITS.findings),

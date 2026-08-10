@@ -6,6 +6,7 @@ import {
 } from '@/lib/comprehensive/engagement-service';
 import { canReviewComprehensiveEvidence, listEngagementEvidence } from '@/lib/comprehensive/evidence-service';
 import { allowedNextStates } from '@/lib/commercial/comprehensive-lifecycle';
+import { listComprehensiveReviewRecords } from '@/lib/comprehensive/review-record-service';
 
 // Reviewer/admin read surface for one Comprehensive engagement. Evidence metadata is included only
 // for roles permitted to review it; finance and read-only administrators see the engagement state
@@ -32,13 +33,17 @@ export async function GET(_request: Request, props: { params: Promise<{ orderRef
   const evidence = canReviewComprehensiveEvidence(admin.role)
     ? await listEngagementEvidence({ engagementId: engagement.id, actorRole: admin.role })
     : null;
+  const reviewRecords = canReviewComprehensiveEvidence(admin.role)
+    ? await listComprehensiveReviewRecords(engagement.id)
+    : null;
 
   return NextResponse.json(
     {
       ok: true,
       engagement,
       allowedNextStates: allowedNextStates(engagement.state),
-      evidence: evidence?.ok ? evidence.evidence : null
+      evidence: evidence?.ok ? evidence.evidence : null,
+      reviewRecords
     },
     { status: 200, headers: { 'Cache-Control': 'no-store' } }
   );

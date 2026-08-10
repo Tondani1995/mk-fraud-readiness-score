@@ -86,6 +86,7 @@ export type EngagementRecord = {
   signedOffBy: string | null;
   signedOffAt: string | null;
   signOffStatement: string | null;
+  signedOffArtifactVersion: number | null;
   deliveredAt: string | null;
   evidenceCount: number;
   unreviewedEvidenceCount: number;
@@ -94,6 +95,7 @@ export type EngagementRecord = {
 const ENGAGEMENT_SELECT =
   'id,order_id,assessment_id,organisation_id,state,state_version,state_changed_at,'
   + 'reviewer_admin_user_id,reviewer_assigned_at,signed_off_by,signed_off_at,sign_off_statement,delivered_at,'
+  + 'signed_off_artifact_version,'
   + 'orders:order_id(order_reference,status,amount_cents,currency,verified_at,verified_by),'
   + 'assessments:assessment_id(assessment_reference),'
   + 'reviewer:reviewer_admin_user_id(full_name,email)';
@@ -136,6 +138,7 @@ function toRecord(row: any, counts: { evidenceCount: number; unreviewedEvidenceC
     signedOffBy: row.signed_off_by ?? null,
     signedOffAt: row.signed_off_at ?? null,
     signOffStatement: row.sign_off_statement ?? null,
+    signedOffArtifactVersion: row.signed_off_artifact_version ?? null,
     deliveredAt: row.delivered_at ?? null,
     ...counts
   };
@@ -388,6 +391,22 @@ export async function transitionComprehensiveEngagement(input: {
     patch.signed_off_by = input.actor.id;
     patch.signed_off_at = now;
     patch.sign_off_statement = statement;
+    const { data: releaseRows, error: releaseError } = await db
+      .from('report_artifacts')
+      .select('artifact_version,engagement_id,storage_status,release_state')
+      .eq('engagement_id', engagement.id)
+      .eq('storage_status', 'VERIFIED')
+      .in('release_state', ['verified', 'released']);
+    if (releaseError) return { ok: false, reason: 'write_failed', message: releaseError.message };
+    const versions = [...new Set((releaseRows ?? []).map((row: any) => Number(row.artifact_version)).filter((version: number) => Number.isInteger(version) && version > 0))];
+    if (versions.length !== 1) {
+      return {
+        ok: false,
+        reason: 'transition_rejected',
+        message: 'All Comprehensive deliverables must be present as one verified artifact version before sign-off.'
+      };
+    }
+    patch.signed_off_artifact_version = versions[0];
   }
 
   if (nextState === 'in_review' && engagement.state === 'review_complete') {
@@ -396,6 +415,7 @@ export async function transitionComprehensiveEngagement(input: {
     patch.signed_off_by = null;
     patch.signed_off_at = null;
     patch.sign_off_statement = null;
+    patch.signed_off_artifact_version = null;
   }
 
   if (nextState === 'delivered') patch.delivered_at = now;
