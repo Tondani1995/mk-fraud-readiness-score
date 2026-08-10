@@ -98,7 +98,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id, order_reference, status, product_id, assessment_id, amount_cents, currency, organisation_name, customer_name, customer_email, verified_at, verified_by, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
+    .select('id, order_reference, status, product_id, product_price_version_id, created_at, assessment_id, amount_cents, currency, organisation_name, customer_name, customer_email, verified_at, verified_by, products:product_id(product_code, name, price_cents, currency, requires_payment_verification, delivery_mode, active)')
     .eq('order_reference', orderReference)
     .maybeSingle();
 
@@ -394,6 +394,24 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   const product = Array.isArray(order.products) ? order.products[0] : order.products;
 
+  // The product's full price history. Entitlement resolves the order's amount against the version
+  // that applied when the order was created, so a later catalogue reprice cannot de-entitle it.
+  const { data: priceVersionRows } = await supabase
+    .from('product_price_versions')
+    .select('id, product_id, version_number, price_cents, currency, effective_from, effective_to')
+    .eq('product_id', order.product_id)
+    .order('effective_from', { ascending: false });
+
+  const productPriceVersions = (priceVersionRows ?? []).map((row: any) => ({
+    id: row.id,
+    productId: row.product_id,
+    versionNumber: row.version_number,
+    priceCents: row.price_cents,
+    currency: row.currency,
+    effectiveFrom: row.effective_from,
+    effectiveTo: row.effective_to ?? null
+  }));
+
   return {
     orderId: order.id,
     orderReference: order.order_reference,
@@ -417,6 +435,10 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     currency: order.currency ?? null,
     productPriceCents: nullableNumber((product as any)?.price_cents),
     productCurrency: (product as any)?.currency ?? null,
+    productId: order.product_id ?? null,
+    orderCreatedAt: order.created_at ?? null,
+    productPriceVersionId: order.product_price_version_id ?? null,
+    productPriceVersions,
     requiresPaymentVerification: (product as any)?.requires_payment_verification ?? null,
     deliveryMode: (product as any)?.delivery_mode ?? null,
     productActive: (product as any)?.active ?? null,

@@ -3,7 +3,7 @@
   "lockedParentSha": "95101c63ac9499d694235dd6a8ce2719467772d1",
   "migrationCountBefore": 45,
   "migrationCountAfter": 46,
-  "newestMigration": "20260729113242_rc1_service_role_privilege_contract.sql",
+  "newestMigration": "20260810122000_joint_launch_comprehensive_evidence.sql",
   "operationVocabulary": {
     "S": "SELECT",
     "I": "INSERT",
@@ -890,6 +890,72 @@
         "src/lib/reports/supporting-register-delivery.ts:143 S"
       ],
       "justification": "Read-only: a zero-row capability probe before any Storage work, and the artefact lookup itself, scoped by report_id after the parent report authority has fully passed. RLS enabled; all privileges revoked from public/anon/authenticated; only SELECT granted to service_role. Every write is owned by complete_report_secondary_artefact(). Absent from both environments until 20260807120000 is applied."
+    },
+    {
+      "schema": "public",
+      "table": "product_price_versions",
+      "required": "S",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMMERCIAL PRICE CONTRACT (READ ONLY)",
+      "sources": [
+        "src/lib/commercial/order-service.ts S",
+        "src/lib/reports/assemble-report-data.ts S"
+      ],
+      "justification": "Order creation and report entitlement read the price version an order was sold under. Price versions are minted by migration only, so the server needs SELECT and nothing else; the migration grants exactly SELECT."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_engagements",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT STATE",
+      "sources": [
+        "src/lib/commercial/order-service.ts SI",
+        "src/lib/comprehensive/engagement-service.ts SU",
+        "src/lib/comprehensive/evidence-service.ts S"
+      ],
+      "justification": "Comprehensive order creation opens the engagement (INSERT); reviewer assignment and lifecycle transitions update it (UPDATE); every read model selects it. DELETE is withheld: an engagement is never removed, it is cancelled, and cancellation is a state transition the database trigger governs."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_engagement_events",
+      "required": "I",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT AUDIT (APPEND ONLY)",
+      "sources": [
+        "src/lib/commercial/order-service.ts I",
+        "src/lib/comprehensive/engagement-service.ts I",
+        "src/lib/comprehensive/evidence-service.ts I"
+      ],
+      "justification": "Append-only audit trail of engagement creation, reviewer assignment, state transitions and sign-off. The grant is INSERT only and a trigger rejects UPDATE and DELETE, so the trail cannot be rewritten even by the service role."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_evidence_items",
+      "required": "SIU",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE EVIDENCE INTAKE",
+      "sources": [
+        "src/lib/comprehensive/engagement-service.ts S",
+        "src/lib/comprehensive/evidence-service.ts SIU"
+      ],
+      "justification": "Client evidence intake writes the row (INSERT), reviewers record validation status and observations (UPDATE), and reviewer surfaces list it (SELECT). DELETE is withheld pending an approved retention/erasure policy; the retention seam exists but no deletion path is authorised."
+    },
+    {
+      "schema": "public",
+      "table": "comprehensive_evidence_events",
+      "required": "I",
+      "stagingCurrent": "0000",
+      "productionCurrent": "0000",
+      "classification": "JOINT LAUNCH COMPREHENSIVE EVIDENCE AUDIT (APPEND ONLY)",
+      "sources": [
+        "src/lib/comprehensive/evidence-service.ts I"
+      ],
+      "justification": "Append-only audit trail of evidence upload and every reviewer validation decision. The grant is INSERT only and a trigger rejects UPDATE and DELETE."
     }
   ],
   "serviceRoleRpcs": [
@@ -1437,7 +1503,8 @@
     "src/lib/reports/supporting-register-delivery.ts:157",
     "src/lib/reports/supporting-register-delivery.ts:97",
     "src/lib/reports/customer-report-access.ts:234",
-    "src/lib/reports/customer-report-access.ts:278"
+    "src/lib/reports/customer-report-access.ts:278",
+    "src/lib/comprehensive/evidence-service.ts:163"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1500,10 +1567,19 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "eeff0fe232ec3fbf2784056b8e8ceff8e104c5703e05274415d23177c28f6550"
+    "fullAstInventorySha256": "0905cb276233b11053c4147e19177d7be61c248c337e5faf42220be406a0673d"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
     "summary": "Production historically grants SIUD on most legacy public application tables. Migration 46 copies only active route-derived combinations. In particular, methodology/configuration tables remain SELECT-only, event tables retain no newly granted destructive privilege, and RPC-owned mutations remain RPC-only."
+  },
+  "jointLaunchReview": {
+    "reviewedAt": "2026-08-10",
+    "branch": "parallel/joint-launch-core-products",
+    "reason": "The joint Essential + Comprehensive launch adds a commercial price-version contract, a Comprehensive engagement lifecycle and a client evidence intake. Each brings new direct service-role table operations, which changes the AST inventory hash and therefore requires this manual privilege review.",
+    "principle": "Each new table receives the narrowest verb set an actual call site needs. No new table receives DELETE. Both audit tables are INSERT-only by grant AND rejected on UPDATE/DELETE by trigger. product_price_versions is SELECT-only because prices are minted by migration, never by application code.",
+    "storageApiReview": "One new Storage call site: src/lib/comprehensive/evidence-service.ts uploads a client evidence file to the private 'comprehensive-evidence' bucket. Upload only - no getPublicUrl and no createSignedUrl anywhere in the lane. Access is governed by the Storage API plus the bucket's public=false and the deny-by-default storage.objects RLS posture, so no public-table grant is inferred.",
+    "anonAuthenticatedPrivilege": "None on any new table. Verified executably, not by inspection, in scripts/joint-launch-migration-replay-tests.mjs against a real Postgres.",
+    "securityDefiner": "None. All five joint-launch functions are SECURITY INVOKER with an explicit search_path; asserted in the same replay suite."
   }
 }

@@ -168,8 +168,22 @@ export interface AssembledReportData {
   orderStatus: string;
   amountCents: number | null;
   currency: string | null;
+  /**
+   * The product's CURRENT catalogue price. Retained for diagnostics and admin display only -- it is
+   * deliberately NOT an entitlement input, because a catalogue reprice must never invalidate an
+   * already-paid order. Entitlement resolves through productPriceVersions instead.
+   */
   productPriceCents: number | null;
   productCurrency: string | null;
+  /**
+   * Versioned-price entitlement inputs. Optional so that pre-existing evidence-model fixtures which
+   * predate the joint-launch price contract still satisfy the type; entitlement fails CLOSED when
+   * any of them is absent, so an omission can never grant entitlement.
+   */
+  productId?: string | null;
+  orderCreatedAt?: string | null;
+  productPriceVersionId?: string | null;
+  productPriceVersions?: import('@/lib/commercial/order-price-entitlement').ProductPriceVersion[];
   requiresPaymentVerification: boolean | null;
   deliveryMode: string | null;
   productActive: boolean | null;

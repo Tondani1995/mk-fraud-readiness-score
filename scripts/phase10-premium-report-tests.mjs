@@ -54,10 +54,11 @@ excludes(assemble, "'verified'", 'Legacy verified status must not enable generat
 assert(!/overallScore\s*[+\-*/]/.test(read(assemble)), 'Assembly must not recalculate overall score');
 
 const entitlement = 'src/lib/reports/report-entitlement.ts';
-includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report generation must remain restricted to the R5,000 product');
+includes(entitlement, 'validateOrderPriceEntitlement', 'Report generation price entitlement must resolve through the versioned price contract');
 includes(entitlement, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report generation must remain payment gated');
-includes(entitlement, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report generation must remain restricted to the essential product');
-includes(entitlement, 'mk_validated_assessment', 'R50,000 personalised engagement must be explicitly rejected');
+includes(entitlement, 'ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE', 'Report generation must remain restricted to the authoritative Essential product code');
+includes(entitlement, "tierForProductCode(assembled.productCode) !== 'essential'", 'Report generation must reject any tier other than Essential');
+includes(entitlement, 'COMPREHENSIVE_PRODUCT_CODE', 'A Comprehensive order must be explicitly rejected by Essential report generation');
 includes(entitlement, 'Free products are not eligible', 'Free products must be explicitly rejected');
 
 const fallback = 'src/lib/reports/fallback-content.ts';

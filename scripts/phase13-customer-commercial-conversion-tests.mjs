@@ -326,9 +326,9 @@ assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|hard-gate|N\/A rule/i.test(read
 const snapshotSource = read(files.snapshot);
 const selectFullReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectFullReport'), snapshotSource.indexOf('async function selectPersonalisedReport'));
 const selectPersonalisedReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectPersonalisedReport'), snapshotSource.indexOf('async function requestDetailedReport'));
-assertIncludes(files.snapshot, 'setSelectedOption(COMMERCIAL_OPTION_CODES.fullReport)', 'R5 selection is a distinct option step');
+assertIncludes(files.snapshot, 'setSelectedOption(COMMERCIAL_OPTION_CODES.essential)', 'Essential selection is a distinct option step');
 assertNotMatchesSource(selectFullReportBlock, /report-request|requestDetailedReport|createOrGetOrder/i, 'R5 selection must not create an order');
-assertMatchesSource(selectFullReportBlock, /full_report_5000_selected/, 'R5 selection emits approved selection event');
+assertMatchesSource(selectFullReportBlock, /essential_selected/, 'Essential selection emits the approved tier-named selection event');
 assertMatchesSource(selectPersonalisedReportBlock, /report_option_selected/, 'R50 card selection emits only generic option analytics');
 assertNotMatchesSource(selectPersonalisedReportBlock, /personalised_report_50000_selected/, 'R50 card selection does not emit specific event or notification');
 assertIncludes(files.snapshot, 'onConfirm={requestDetailedReport}', 'Only order-summary confirmation calls the order route');
@@ -342,10 +342,10 @@ assertIncludes(files.commercialEventRoute, 'validateSnapshotToken', 'Commercial 
 assertIncludes(files.commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route accepts executive summary view');
 assertIncludes(files.commercialEventRoute, "'report_options_opened'", 'Commercial event route accepts report options open');
 assertIncludes(files.commercialEventRoute, "'report_option_selected'", 'Commercial event route accepts generic option selected');
-assertIncludes(files.commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route accepts R5 selected');
+assertIncludes(files.commercialEventRoute, "'essential_selected'", 'Commercial event route accepts the Essential selected event');
 assertNotIncludes(files.commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route must not accept pre-enquiry R50 specific event');
 assertNotIncludes(files.commercialEventRoute, "notificationType: 'report_options_opened'", 'Report options open must not queue internal notification');
-assertIncludes(files.commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5 selected queues internal notification');
+assertIncludes(files.commercialEventRoute, "notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected'", 'Tier selection queues internal notification');
 assertNotIncludes(files.commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'Commercial event route must not queue R50 notification before data request exists');
 assertNotIncludes(files.commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');
 

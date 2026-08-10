@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { COMPREHENSIVE_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
 import {
   getPhase1SchemaCapability,
   requirePhase1SchemaCapability
@@ -33,8 +34,10 @@ function displayAmount(cents: number, currency: string) {
 }
 
 function nextStep(productCode: string | null) {
-  if (productCode === 'mk_validated_assessment') {
-    return 'Payment confirmation is followed by consultant review and engagement planning. Consultant review and engagement steps remain outstanding.';
+  // COMPREHENSIVE_PRODUCT_CODE. A Comprehensive order enters the reviewer-led engagement workflow
+  // after payment rather than automatic report generation.
+  if (productCode === COMPREHENSIVE_PRODUCT_CODE) {
+    return 'Payment confirmation is followed by evidence intake, named-reviewer validation and reviewer sign-off before any deliverable is released.';
   }
   return 'MK Fraud Insights will confirm payment manually, generate the report, and record delivery as a separate controlled step.';
 }

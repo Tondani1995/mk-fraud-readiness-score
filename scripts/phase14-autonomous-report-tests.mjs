@@ -13,6 +13,11 @@ function loadPureModule(relativePath) {
   const module = { exports: {} };
   new Function('require', 'module', 'exports', output)((specifier) => {
     if (specifier === '@/lib/payments/payment-verification') return loadPureModule('src/lib/payments/payment-verification.ts');
+    // Joint launch: the entitlement guard now also resolves price through the versioned price
+    // contract and the authoritative catalogue. Both are pure, dependency-free modules, so the
+    // guard stays loadable without any runtime, database or network dependency.
+    if (specifier === '@/lib/commercial/order-price-entitlement') return loadPureModule('src/lib/commercial/order-price-entitlement.ts');
+    if (specifier === '@/lib/commercial/product-catalogue') return loadPureModule('src/lib/commercial/product-catalogue.ts');
     throw new Error(`Unexpected runtime dependency in pure module: ${specifier}`);
   }, module, module.exports);
   return module.exports;
@@ -52,9 +57,13 @@ assert.match(flags, /autoEmailEnabled:\s*false/);
 assert.match(flags, /automation remains disabled/);
 
 const entitlement = read('src/lib/reports/report-entitlement.ts');
-assert.match(entitlement, /ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000/);
+// Joint launch: price entitlement moved from a hard-coded constant to the versioned price
+// contract, so the guard must resolve the order's amount against product_price_versions and
+// must NOT carry a literal amount of its own.
+assert.match(entitlement, /validateOrderPriceEntitlement/);
+assert.doesNotMatch(entitlement, /PRICE_CENTS = \d+/);
 assert.match(entitlement, /PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'/);
-assert.match(entitlement, /mk_validated_assessment/);
+assert.match(entitlement, /COMPREHENSIVE_PRODUCT_CODE/);
 assert.match(entitlement, /Free products are not eligible/);
 
 const fulfilment = read('src/lib/reports/automation/fulfilment.ts');
@@ -385,15 +394,22 @@ const eligibleReport = {
     paymentState: 'PAID', confirmationSource: 'manual_admin', actorReference: '11111111-1111-4111-8111-111111111111',
     providerTransactionReference: null, providerEventReference: 'manual:ORDER-TEST', providerEventAt: '2026-07-14T00:00:00.000Z',
     verificationResult: 'authorised_manual_confirmation', processingResult: 'applied', paymentEventId: 'payment-event-id',
-    amountCents: 500000, orderAmountCents: 500000, currency: 'ZAR', orderCurrency: 'ZAR',
+    amountCents: 750000, orderAmountCents: 750000, currency: 'ZAR', orderCurrency: 'ZAR',
     orderVerifiedAt: '2026-07-14T00:00:00.000Z', orderVerifiedBy: '11111111-1111-4111-8111-111111111111',
     manualVerifierStatus: 'active', manualVerifierRole: 'platform_admin', priorValidSourceEvent: false, transitionCount: 1
   },
   productCode: 'essential_self_assessment',
   orderStatus: 'payment_received',
-  amountCents: 500000,
+  amountCents: 750000,
   currency: 'ZAR',
-  productPriceCents: 500000,
+  productPriceCents: 750000,
+  productId: 'product-essential-id',
+  orderCreatedAt: '2026-08-11T00:00:00.000Z',
+  productPriceVersionId: 'price-version-essential-2',
+  productPriceVersions: [
+    { id: 'price-version-essential-1', productId: 'product-essential-id', versionNumber: 1, priceCents: 500000, currency: 'ZAR', effectiveFrom: '2026-01-01T00:00:00.000Z', effectiveTo: '2026-08-10T00:00:00.000Z' },
+    { id: 'price-version-essential-2', productId: 'product-essential-id', versionNumber: 2, priceCents: 750000, currency: 'ZAR', effectiveFrom: '2026-08-10T00:00:00.000Z', effectiveTo: null }
+  ],
   productCurrency: 'ZAR',
   requiresPaymentVerification: true,
   deliveryMode: 'mk_controlled_pdf',
@@ -412,7 +428,7 @@ const eligibleReport = {
 };
 assert.equal(validatePremiumReportGenerationEntitlement(eligibleReport), 'essential_self_assessment');
 for (const testCase of [
-  ['R50,000 personalised engagement', { productCode: 'mk_validated_assessment' }, 'order_not_eligible'],
+  ['Comprehensive order cannot claim the Essential report', { productCode: 'mk_validated_assessment' }, 'order_not_eligible'],
   ['free product code', { productCode: 'free_snapshot' }, 'order_not_eligible'],
   ['awaiting payment', { orderStatus: 'awaiting_payment' }, 'order_not_eligible'],
   ['cancelled order', { orderStatus: 'cancelled' }, 'order_not_eligible'],
@@ -427,9 +443,13 @@ for (const testCase of [
   ['score assessment mismatch', { scoreRun: { ...eligibleReport.scoreRun, assessmentId: 'other-assessment' } }, 'relationship_mismatch'],
   ['incomplete domain results', { actualDomainResultCount: 9 }, 'score_run_incomplete'],
   ['incomplete question traces', { actualQuestionTraceCount: 67 }, 'score_run_incomplete'],
-  ['free order amount', { amountCents: 0 }, 'order_not_eligible'],
-  ['free product price', { productPriceCents: 0 }, 'order_not_eligible'],
-  ['unsupported currency', { currency: 'USD' }, 'order_not_eligible'],
+  ['free order amount', { amountCents: 0 }, 'order_price_not_entitled'],
+  // A catalogue reprice must NOT de-entitle a legitimately paid order, so the live catalogue
+  // price is no longer an entitlement input at all.
+  ['superseded amount booked after the cutover', { amountCents: 500000 }, 'order_price_not_entitled'],
+  ['price version history unavailable', { productPriceVersions: [] }, 'order_price_not_entitled'],
+  ['price version from another product', { productPriceVersionId: null, productId: 'product-other-id' }, 'order_price_not_entitled'],
+  ['unsupported currency', { currency: 'USD' }, 'order_price_not_entitled'],
   ['unsupported product currency', { productCurrency: 'USD' }, 'order_not_eligible'],
   ['payment verification not required', { requiresPaymentVerification: false }, 'order_not_eligible'],
   ['unsupported delivery mode', { deliveryMode: 'mk_led_validated_engagement' }, 'order_not_eligible'],

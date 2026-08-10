@@ -110,19 +110,19 @@ export function FreeSnapshotCard({
   }
 
   async function selectFullReport() {
-    setSelectedOption(COMMERCIAL_OPTION_CODES.fullReport);
+    setSelectedOption(COMMERCIAL_OPTION_CODES.essential);
     setRequestState('idle');
     setMessage('');
     setOrderConfirmation(null);
-    await emitCommercialEvent('report_option_selected', COMMERCIAL_OPTION_CODES.fullReport, 'report_options');
-    await emitCommercialEvent('full_report_5000_selected', COMMERCIAL_OPTION_CODES.fullReport, 'report_options');
+    await emitCommercialEvent('report_option_selected', COMMERCIAL_OPTION_CODES.essential, 'report_options');
+    await emitCommercialEvent('essential_selected', COMMERCIAL_OPTION_CODES.essential, 'report_options');
   }
 
   async function selectPersonalisedReport() {
-    setSelectedOption(COMMERCIAL_OPTION_CODES.personalisedReport);
+    setSelectedOption(COMMERCIAL_OPTION_CODES.legacyPersonalisedReport);
     setEnquiryMessage('');
     setEnquiryConfirmation(null);
-    await emitCommercialEvent('report_option_selected', COMMERCIAL_OPTION_CODES.personalisedReport, 'report_options');
+    await emitCommercialEvent('report_option_selected', COMMERCIAL_OPTION_CODES.legacyPersonalisedReport, 'report_options');
   }
 
   async function requestDetailedReport() {
@@ -296,7 +296,7 @@ export function FreeSnapshotCard({
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               <OptionCard
-                selected={selectedOption === COMMERCIAL_OPTION_CODES.fullReport}
+                selected={selectedOption === COMMERCIAL_OPTION_CODES.essential}
                 badge="Most direct next step"
                 title="Full MK Fraud Readiness Report"
                 price={FULL_REPORT_PRICE}
@@ -316,7 +316,7 @@ export function FreeSnapshotCard({
                 onSelect={() => void selectFullReport()}
               />
               <OptionCard
-                selected={selectedOption === COMMERCIAL_OPTION_CODES.personalisedReport}
+                selected={selectedOption === COMMERCIAL_OPTION_CODES.legacyPersonalisedReport}
                 badge="For complex or higher-exposure organisations"
                 title="Advanced Personalised Fraud Readiness Report"
                 price={PERSONALISED_REPORT_PRICE}
@@ -337,7 +337,7 @@ export function FreeSnapshotCard({
             </div>
 
             {selectedOption ? <div ref={reportRevealRef} tabIndex={-1} role="region" aria-live="polite" aria-labelledby="report-options-heading" className="mt-5 rounded-2xl border border-mk-line bg-white p-5 focus:outline-none focus:ring-2 focus:ring-mk-brass focus:ring-offset-2">
-            {selectedOption === COMMERCIAL_OPTION_CODES.fullReport ? (
+            {selectedOption === COMMERCIAL_OPTION_CODES.essential ? (
               <div>
                 {orderConfirmation ? (
                   <OrderConfirmationPanel order={orderConfirmation} />
@@ -347,7 +347,7 @@ export function FreeSnapshotCard({
               </div>
             ) : null}
 
-            {selectedOption === COMMERCIAL_OPTION_CODES.personalisedReport ? (
+            {selectedOption === COMMERCIAL_OPTION_CODES.legacyPersonalisedReport ? (
               <PersonalisedReportForm
                 snapshot={snapshot}
                 areasOfFocus={areasOfFocus}

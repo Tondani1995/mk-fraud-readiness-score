@@ -141,8 +141,9 @@ function runStaticChecks() {
   assertIncludes(generateRoute, 'generateManualPhase1Report', 'Generate-report route delegates to the controlled manual service after authentication');
   assertSourceOrder(generateRoute, 'const admin = await getAdminSession()', 'await generateManualPhase1Report', 'Generate-report route must authenticate before calling shared generation service');
   assertIncludes(entitlementGuard, "PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received'", 'Report entitlement guard must require payment_received only');
-  assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000', 'Report entitlement guard must require the paid R5,000 product');
-  assertIncludes(entitlementGuard, "ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment'", 'Report entitlement guard must require the essential self-assessment product');
+  assertIncludes(entitlementGuard, 'validateOrderPriceEntitlement', 'Report entitlement guard must resolve price through the versioned contract, not a literal amount');
+  assertIncludes(entitlementGuard, 'ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE', 'Report entitlement guard must require the authoritative Essential product code');
+  assertIncludes(entitlementGuard, "tierForProductCode(assembled.productCode) !== 'essential'", 'Report entitlement guard must reject any tier other than Essential');
   assertNotIncludes('src/lib/reports/assemble-report-data.ts', "'verified'", 'Legacy verified status must not be report-generation eligible');
   assertIncludes('src/app/score/admin/orders/[orderReference]/page.tsx', "order.status === 'payment_received'", 'Admin UI must show generation only for payment_received orders');
 

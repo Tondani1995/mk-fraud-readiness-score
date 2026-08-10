@@ -106,8 +106,12 @@ assertIncludes(notificationHelper, 'provider_send_attempted: false', 'Notificati
 assertIncludes(notificationHelper, "status: 'already_queued'", 'Notification helper dedupes repeat queue attempts');
 assertIncludes(notificationHelper, "eventType: 'internal_notification_queued'", 'Queued notifications are tracked as events');
 assertIncludes(notificationHelper, "'internal_notification_failed'", 'Failed notification queue attempts are tracked as events');
-assertIncludes(notificationHelper, "'full_report_5000_selected'", 'R5 selection notification type is supported');
-assertIncludes(notificationHelper, "'personalised_report_50000_selected'", 'R50 selection notification type is supported');
+// Joint launch: the legacy R5/R50 values remain in the union for historical rows, and the
+// tier-named values are what current code emits.
+assertIncludes(notificationHelper, "'full_report_5000_selected'", 'Legacy R5 selection notification type stays readable');
+assertIncludes(notificationHelper, "'personalised_report_50000_selected'", 'Legacy R50 selection notification type stays readable');
+assertIncludes(notificationHelper, "'essential_selected'", 'Essential selection notification type is supported');
+assertIncludes(notificationHelper, "'comprehensive_selected'", 'Comprehensive selection notification type is supported');
 assertNotIncludes(notificationHelper, "'report_options_opened'", 'Report options views must not queue internal notifications');
 assertNotIncludes(notificationHelper, 'sent_at:', 'Notification helper must not mark queued emails as sent');
 assertNotIncludes(notificationHelper, 'provider_message_id:', 'Notification helper must not invent provider message ids');
@@ -120,7 +124,7 @@ assertIncludes('src/app/score/snapshot/[assessmentRef]/page.tsx', "eventType: 's
 assertSourceOrder('src/app/score/snapshot/[assessmentRef]/page.tsx', 'if (!snapshot)', "eventType: 'snapshot_viewed'", 'Snapshot view event must happen only after snapshot is available');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'eft_order_created'", 'EFT order creation/reuse is tracked');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "notificationType: 'eft_order_created'", 'EFT order queues internal lead notification');
-assertIncludes('src/lib/orders/manual-eft-orders.ts', "optionCode: 'full_report_5000'", 'EFT order event is linked to R5k option code');
+assertIncludes('src/lib/orders/manual-eft-orders.ts', 'optionCode: COMMERCIAL_OPTION_CODES.essential', 'EFT order event is linked to the Essential option code');
 assertIncludes('src/lib/orders/manual-eft-orders.ts', "eventType: 'payment_marked_received'", 'Payment received admin status is tracked');
 assertIncludes(generateRoute, 'generateManualPhase1Report', 'Admin report route delegates to the controlled manual generation service');
 assertNotIncludes(generateRoute, 'phase14-security', 'Manual generation does not depend on the disabled Phase 14 gate');
@@ -134,10 +138,11 @@ assertIncludes(commercialEventRoute, 'validateSnapshotToken', 'Commercial event 
 assertIncludes(commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route permits executive summary view event');
 assertIncludes(commercialEventRoute, "'report_options_opened'", 'Commercial event route permits report options event');
 assertIncludes(commercialEventRoute, "'report_option_selected'", 'Commercial event route permits generic option selected event');
-assertIncludes(commercialEventRoute, "'full_report_5000_selected'", 'Commercial event route permits R5 selected event');
+assertIncludes(commercialEventRoute, "'essential_selected'", 'Commercial event route permits the Essential selected event');
+assertIncludes(commercialEventRoute, "'comprehensive_selected'", 'Commercial event route permits the Comprehensive selected event');
 assertNotIncludes(commercialEventRoute, "'personalised_report_50000_selected'", 'Commercial event route does not permit R50 specific event before enquiry persistence');
 assertNotIncludes(commercialEventRoute, "notificationType: 'report_options_opened'", 'Report-options open must not queue internal notification');
-assertIncludes(commercialEventRoute, "notificationType: 'full_report_5000_selected'", 'R5 selection queues deduped internal notification');
+assertIncludes(commercialEventRoute, "notificationType: selectionTier === 'comprehensive' ? 'comprehensive_selected' : 'essential_selected'", 'Tier selection queues a deduped internal notification');
 assertNotIncludes(commercialEventRoute, "notificationType: 'personalised_report_50000_selected'", 'R50 selection notification is not queued by generic commercial event route');
 assertNotIncludes(commercialEventRoute, 'metadata: { rawToken', 'Commercial event metadata must not write raw tokens');
 assertNotIncludes(commercialEventRoute, 'snapshotToken:', 'Commercial event route must not write snapshot token into event metadata');

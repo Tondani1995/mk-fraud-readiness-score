@@ -48,7 +48,13 @@ assertIncludes(migration, 'report_unlock":false', 'Historical migration records 
 const orderLib = 'src/lib/orders/manual-eft-orders.ts';
 assert(exists(orderLib), 'Manual EFT order service must exist.');
 assertIncludes(orderLib, 'createOrGetOrderForReportRequest', 'Order service creates or returns existing order');
-assertIncludes(orderLib, "from('eft_settings')", 'Order service reads EFT settings table');
+// Joint launch: the EFT instruction loader moved to src/lib/orders/eft-instructions.ts so that the
+// legacy Essential path and the catalogue-driven order service can share it without importing each
+// other. Same behaviour, one definition.
+const eftLib = 'src/lib/orders/eft-instructions.ts';
+assert(exists(eftLib), 'EFT instruction snapshot module must exist.');
+assertIncludes(eftLib, "from('eft_settings')", 'EFT module reads the EFT settings table');
+assertIncludes(eftLib, 'buildEftInstructionSnapshot', 'EFT module snapshots EFT settings');
 assertIncludes(orderLib, 'buildEftInstructionSnapshot', 'Order service snapshots EFT settings');
 assertIncludes(orderLib, "from('order_events')", 'Order service writes order event timeline');
 assertIncludes(orderLib, "from('audit_logs')", 'Order service writes audit logs');

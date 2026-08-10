@@ -1,9 +1,14 @@
 import type { AssembledReportData } from './types';
 import { evaluatePaymentVerificationEvidence } from '@/lib/payments/payment-verification';
+import { validateOrderPriceEntitlement } from '@/lib/commercial/order-price-entitlement';
+import {
+  COMPREHENSIVE_PRODUCT_CODE,
+  ESSENTIAL_PRODUCT_CODE,
+  tierForProductCode
+} from '@/lib/commercial/product-catalogue';
 
-export const ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = 'essential_self_assessment';
+export const ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE;
 export const ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE = 'essential_self_assessment';
-export const ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS = 500000;
 export const ESSENTIAL_SELF_ASSESSMENT_CURRENCY = 'ZAR';
 export const ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE = 'mk_controlled_pdf';
 export const PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received';
@@ -15,7 +20,8 @@ export type ReportEntitlementReason =
   | 'assessment_not_scored'
   | 'score_run_not_locked'
   | 'score_run_input_hash_invalid'
-  | 'score_run_incomplete';
+  | 'score_run_incomplete'
+  | 'order_price_not_entitled';
 
 export class ReportEntitlementError extends Error {
   readonly reason: ReportEntitlementReason;
@@ -35,8 +41,8 @@ function reject(reason: ReportEntitlementReason, message: string): never {
 }
 
 function productMessage(productCode: string | null) {
-  if (productCode === 'mk_validated_assessment') {
-    return 'The R50,000 personalised engagement is not eligible for automatic premium report generation.';
+  if (productCode === COMPREHENSIVE_PRODUCT_CODE) {
+    return 'A Comprehensive order is fulfilled through the reviewer-led engagement workflow, not through automatic Essential report generation.';
   }
   if (!productCode || /free|snapshot/i.test(productCode)) {
     return 'Free products are not eligible for premium report generation.';
@@ -90,7 +96,13 @@ export function validatePremiumReportGenerationEntitlement(
     reject('score_run_incomplete', 'Premium report generation requires complete domain results and question traces.');
   }
 
+  // Product entitlements never cross. The same assessment may carry both an Essential and a
+  // Comprehensive order; only the Essential one reaches automatic premium generation.
   if (assembled.productCode !== ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE) {
+    reject('order_not_eligible', productMessage(assembled.productCode));
+  }
+
+  if (tierForProductCode(assembled.productCode) !== 'essential') {
     reject('order_not_eligible', productMessage(assembled.productCode));
   }
 
@@ -101,16 +113,41 @@ export function validatePremiumReportGenerationEntitlement(
     );
   }
 
-  if (assembled.amountCents !== ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS) {
-    reject('order_not_eligible', 'Premium report generation is restricted to the paid R5,000 Essential Self-Assessment order.');
+  // Price entitlement resolves against the price VERSION the order was sold under -- never against
+  // the live catalogue price and never against a hard-coded amount. A legitimately paid R5,000
+  // order created while R5,000 was the Essential price stays entitled after the R7,500 migration;
+  // an order created at R5,000 AFTER the migration does not, because no version priced Essential at
+  // R5,000 at that instant. There is no standing dual-price allowance.
+  // Fail closed: without the product identity, the order's creation instant or the product's price
+  // history there is no way to prove the amount was ever a legitimate price, so it is not entitled.
+  if (!assembled.productId || !assembled.orderCreatedAt || !assembled.productPriceVersions?.length) {
+    reject(
+      'order_price_not_entitled',
+      'Premium report generation requires the order product identity and its price-version history.'
+    );
   }
 
-  if (assembled.productPriceCents !== ESSENTIAL_SELF_ASSESSMENT_PRICE_CENTS) {
-    reject('order_not_eligible', 'The selected product price does not match the R5,000 Essential Self-Assessment entitlement.');
+  const priceEntitlement = validateOrderPriceEntitlement(
+    {
+      orderId: assembled.orderId,
+      productId: assembled.productId,
+      amountCents: assembled.amountCents,
+      currency: assembled.currency,
+      createdAt: assembled.orderCreatedAt,
+      productPriceVersionId: assembled.productPriceVersionId ?? null
+    },
+    assembled.productPriceVersions
+  );
+
+  if (!priceEntitlement.valid) {
+    reject(
+      'order_price_not_entitled',
+      `The order amount is not the Essential price that applied when the order was created (${priceEntitlement.reason}).`
+    );
   }
 
   if (assembled.currency !== ESSENTIAL_SELF_ASSESSMENT_CURRENCY || assembled.productCurrency !== ESSENTIAL_SELF_ASSESSMENT_CURRENCY) {
-    reject('order_not_eligible', 'Premium report generation only supports the ZAR Essential Self-Assessment entitlement.');
+    reject('order_not_eligible', 'Premium report generation only supports the ZAR Essential entitlement.');
   }
 
   if (assembled.requiresPaymentVerification !== true) {

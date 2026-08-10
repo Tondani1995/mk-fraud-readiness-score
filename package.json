@@ -135,7 +135,12 @@
     "pdf:test-adaptive-semantics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/adaptive-semantic-behaviour-tests.mjs",
     "pdf:test-risk-composition": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/risk-composition-behaviour-tests.mjs",
     "pdf:test-scenario-mechanisms": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/scenario-mechanism-behaviour-tests.mjs",
-    "pdf:certify-v7-equivalent": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/essential-v7-equivalent-certification.mjs"
+    "pdf:certify-v7-equivalent": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/essential-v7-equivalent-certification.mjs",
+    "joint-launch:test-product-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-product-contract-tests.mjs",
+    "joint-launch:test-comprehensive": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-comprehensive-tests.mjs",
+    "joint-launch:test-migration-replay": "node scripts/joint-launch-migration-replay-tests.mjs",
+    "joint-launch:report-r5k-disposition": "node scripts/joint-launch-r5k-disposition-report.mjs",
+    "joint-launch:test": "npm run joint-launch:test-product-contract && npm run joint-launch:test-comprehensive && npm run joint-launch:test-migration-replay"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

@@ -442,7 +442,10 @@ end $$;
 -- Product/pricing and disabled automation flags.
 do $$
 declare essential_price integer;
-declare advisory_price integer;
+declare comprehensive_price integer;
+declare essential_current_version integer;
+declare comprehensive_current_version integer;
+declare legacy_priced_products integer;
 declare flags jsonb;
 declare delivery_policy jsonb;
 declare security_gate public.phase14_security_gates%rowtype;
@@ -454,12 +457,26 @@ begin
     and requires_payment_verification = true
     and delivery_mode = 'mk_controlled_pdf';
 
-  select price_cents into advisory_price
+  select price_cents into comprehensive_price
   from public.products
   where product_code = 'mk_validated_assessment'
     and currency = 'ZAR'
     and requires_payment_verification = true
     and delivery_mode = 'mk_led_validated_engagement';
+
+  -- Joint launch: exactly one open (effective_to is null) price version per paid product.
+  select v.price_cents into essential_current_version
+  from public.product_price_versions v
+  join public.products p on p.id = v.product_id
+  where p.product_code = 'essential_self_assessment' and v.effective_to is null;
+
+  select v.price_cents into comprehensive_current_version
+  from public.product_price_versions v
+  join public.products p on p.id = v.product_id
+  where p.product_code = 'mk_validated_assessment' and v.effective_to is null;
+
+  select count(*) into legacy_priced_products
+  from public.products where active and price_cents in (500000, 5000000);
 
   select value_json into flags
   from public.app_settings
@@ -470,11 +487,23 @@ begin
   select * into security_gate from public.phase14_security_gates
   where gate_key = 'phase14-premium-report';
 
-  if essential_price <> 500000 then
-    raise exception 'Unexpected essential report price_cents: %', essential_price;
+  -- Joint launch commercial contract: Essential R7,500 and Comprehensive R35,000, both incl VAT.
+  -- The former R5,000 / R50,000 assertions were correct for the pre-joint-launch catalogue and are
+  -- superseded by 20260810120000_joint_launch_product_catalogue.sql.
+  if essential_price <> 750000 then
+    raise exception 'Unexpected Essential price_cents: %', essential_price;
   end if;
-  if advisory_price <> 5000000 then
-    raise exception 'Unexpected MK validated advisory price_cents: %', advisory_price;
+  if comprehensive_price <> 3500000 then
+    raise exception 'Unexpected Comprehensive price_cents: %', comprehensive_price;
+  end if;
+  if essential_current_version <> 750000 then
+    raise exception 'Essential must have exactly one open price version at 750000, found: %', essential_current_version;
+  end if;
+  if comprehensive_current_version <> 3500000 then
+    raise exception 'Comprehensive must have exactly one open price version at 3500000, found: %', comprehensive_current_version;
+  end if;
+  if legacy_priced_products <> 0 then
+    raise exception 'No active product may still carry an R5,000 or R50,000 price: % found', legacy_priced_products;
   end if;
   if coalesce((flags->>'premium_report_auto_fulfilment_enabled')::boolean, true) <> false then
     raise exception 'premium_report_auto_fulfilment_enabled must be false';

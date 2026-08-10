@@ -233,7 +233,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
+        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
         metadata
       }),
       queueInternalNotification({
@@ -242,7 +242,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         organisationId: assessment.organisation_id,
         respondentId: assessment.primary_respondent_id,
         dataRequestId: result.request.id,
-        optionCode: COMMERCIAL_OPTION_CODES.personalisedReport,
+        optionCode: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
         metadata
       }),
       db.from('audit_logs').insert({
@@ -254,7 +254,7 @@ export async function POST(request: Request, props: { params: Promise<{ assessme
         after_json: {
           assessment_reference: assessment.assessment_reference,
           request_reference: result.request.request_reference,
-          option_code: COMMERCIAL_OPTION_CODES.personalisedReport,
+          option_code: COMMERCIAL_OPTION_CODES.legacyPersonalisedReport,
           payment_obligation: false,
           order_created: false,
           report_generation: false

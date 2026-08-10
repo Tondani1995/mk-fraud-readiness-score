@@ -1,9 +1,15 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
+import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions } from '@/lib/orders/eft-instructions';
+import { ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
+import { loadPriceVersionsForProduct } from '@/lib/commercial/order-service';
 import type { AdminSession } from '@/lib/auth/admin-route';
+
+export { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions };
 
 export type ManualOrderStatus = 'draft' | 'awaiting_payment' | 'payment_received' | 'cancelled' | 'expired';
 
@@ -35,11 +41,6 @@ function service() {
   return createSupabaseServiceClient() as any;
 }
 
-export function formatOrderAmount(amountCents: number | null | undefined, currency: string | null | undefined) {
-  const amount = Number(amountCents ?? 0) / 100;
-  return `${currency ?? 'ZAR'} ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function normaliseStatus(status: string | null | undefined): ManualOrderStatus {
   if (status === 'created') return 'draft';
   if (status === 'verified') return 'payment_received';
@@ -57,71 +58,20 @@ function makeOrderReference() {
   return `MKORD-${year}-${random}`;
 }
 
-export async function getActiveEftInstructions() {
-  const db = service();
-  const { data: activeSetting } = await db
-    .from('eft_settings')
-    .select('bank_name,account_holder,account_number,branch_code,account_type,currency,payment_reference_instruction,customer_instruction,contact_email,is_active,updated_at')
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (activeSetting) {
-    return {
-      active: true,
-      bankName: activeSetting.bank_name,
-      accountHolder: activeSetting.account_holder,
-      accountNumber: activeSetting.account_number,
-      branchCode: activeSetting.branch_code,
-      accountType: activeSetting.account_type,
-      currency: activeSetting.currency,
-      paymentReferenceInstruction: activeSetting.payment_reference_instruction,
-      customerInstruction: activeSetting.customer_instruction,
-      contactEmail: activeSetting.contact_email,
-      message: activeSetting.customer_instruction
-    };
-  }
-
-  const { data } = await db
-    .from('app_settings')
-    .select('value_json')
-    .eq('setting_key', 'eft_instructions')
-    .maybeSingle();
-
-  const value = data?.value_json ?? {};
-  return {
-    active: value.active === true,
-    bankName: value.bank_name ?? value.bankName,
-    accountHolder: value.account_holder ?? value.accountHolder,
-    accountNumber: value.account_number ?? value.accountNumber,
-    branchCode: value.branch_code ?? value.branchCode,
-    accountType: value.account_type ?? value.accountType ?? null,
-    currency: value.currency ?? 'ZAR',
-    paymentReferenceInstruction: value.payment_reference_instruction ?? value.paymentReferenceInstruction ?? 'Use your order reference as the payment reference.',
-    customerInstruction: value.customer_instruction ?? value.customerInstruction ?? 'MK Fraud Insights confirms EFT payments manually before any detailed report is released.',
-    contactEmail: value.contact_email ?? value.contactEmail ?? 'hello@mkfraud.co.za',
-    message: value.message ?? 'MK Fraud Insights will send EFT instructions directly after reviewing the report request.'
-  };
-}
-
-export async function buildEftInstructionSnapshot() {
-  const instructions = await getActiveEftInstructions();
-  return {
-    ...instructions,
-    capturedAt: new Date().toISOString(),
-    paymentGateway: false,
-    proofUpload: false,
-    reportUnlock: false
-  };
-}
-
-async function getDefaultDetailedReportProduct(db: any) {
+/**
+ * The Essential product, resolved by its authoritative product code.
+ *
+ * Previously this picked "the first active product that requires payment verification, ordered by
+ * display_order". That was only ever correct while Essential happened to be the lowest-ordered paid
+ * product; with Comprehensive now also active and payment-verified, an ordering change would have
+ * silently sold the wrong product. The code is now named explicitly.
+ */
+async function getEssentialProduct(db: any) {
   const { data: product } = await db
     .from('products')
     .select('id,product_code,name,price_cents,currency,requires_payment_verification,delivery_mode,active')
+    .eq('product_code', ESSENTIAL_PRODUCT_CODE)
     .eq('active', true)
-    .eq('requires_payment_verification', true)
-    .order('display_order', { ascending: true })
-    .limit(1)
     .maybeSingle();
 
   return product ?? null;
@@ -173,7 +123,7 @@ async function trackEftOrderEvent(input: {
       respondentId: input.assessment.primary_respondent_id,
       orderId: order.id,
       dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata
     }),
     queueInternalNotification({
@@ -183,7 +133,7 @@ async function trackEftOrderEvent(input: {
       respondentId: input.assessment.primary_respondent_id,
       orderId: order.id,
       dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata
     })
   ]);
@@ -217,8 +167,18 @@ export async function createOrGetOrderForReportRequest(input: {
     return toCustomerOrder(existing.data);
   }
 
-  const product = await getDefaultDetailedReportProduct(db);
+  const product = await getEssentialProduct(db);
   if (!product) return null;
+
+  // The order's amount is the CURRENT price version, and the order records which version it was
+  // sold under. Nothing here reads a price constant, and a later catalogue change mints a new
+  // version rather than rewriting this one -- so this order stays entitled forever.
+  const priceVersions = await loadPriceVersionsForProduct(db, product.id);
+  const currentPriceVersions = priceVersions.filter((version) => version.effectiveTo === null);
+  if (currentPriceVersions.length !== 1) {
+    throw new Error('Essential does not have exactly one current price version.');
+  }
+  const priceVersion = currentPriceVersions[0];
 
   const organisationName = input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation';
   const respondentName = input.respondent?.full_name ?? null;
@@ -237,8 +197,9 @@ export async function createOrGetOrderForReportRequest(input: {
         report_request_id: input.dataRequest?.id ?? null,
         product_id: product.id,
         product_name: product.name,
-        amount_cents: product.price_cents,
-        currency: product.currency ?? 'ZAR',
+        product_price_version_id: priceVersion.id,
+        amount_cents: priceVersion.priceCents,
+        currency: priceVersion.currency,
         status: 'awaiting_payment',
         requested_by_respondent_id: input.assessment.primary_respondent_id,
         customer_email: respondentEmail,
@@ -451,7 +412,7 @@ export async function updateAdminOrderStatus(input: {
       assessmentId: detail.order.assessment_id,
       orderId: detail.order.id,
       dataRequestId: detail.order.report_request_id ?? null,
-      optionCode: 'full_report_5000',
+      optionCode: COMMERCIAL_OPTION_CODES.essential,
       metadata: {
         order_reference: detail.order.order_reference,
         previous_status: currentStatus,
