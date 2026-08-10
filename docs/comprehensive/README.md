@@ -13,7 +13,11 @@ This lane is presentation and delivery only. It consumes the existing determinis
 
 Evidence status is explicit:
 
-`SELF_REPORTED` · `EVIDENCE_REVIEWED` · `VALIDATED_SUPPORTED` · `NOT_VALIDATED_INSUFFICIENT` · `REVIEWER_JUDGEMENT`.
+`NOT_REQUESTED` · `REQUESTED` · `RECEIVED` · `EVIDENCE_REVIEWED` · `VALIDATED_SUPPORTED` · `NOT_SUPPORTED` · `NOT_VALIDATED_INSUFFICIENT` · `NOT_APPLICABLE`.
+
+The backend reconciliation adapter preserves the distinctions between requested, received, reviewed, supported, not supported, insufficient and not applicable. `REVIEWER_JUDGEMENT` is a separate human interpretation dimension. Finding-level validation additionally requires an explicit reviewer finding conclusion and reviewed evidence references.
+
+The main report is a bounded Comprehensive L2 projection: up to 20 findings, 12 risks, 8 scenarios, 20 control actions and 24 dependency-closed roadmap actions. The annotated register retains the full L1 universe.
 
 Reviewer text is additive. It is never used to mutate deterministic responses, scores, maturity or the underlying analytical universe.
 
@@ -36,4 +40,3 @@ CODEX_NODE_MODULES=/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/de
 ```
 
 The builders use synthetic fixtures only. They do not invoke an AI/provider call.
-

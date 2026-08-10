@@ -60,7 +60,11 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     targetPeriod: safeCell(risk.targetPeriod),
     evidenceRefs: safeCell(csv(risk.evidenceRefs)),
     assessmentConfidence: safeCell(risk.assessmentConfidence),
-    reviewerValidation: safeCell(model.findings.filter((finding) => risk.linkedFindingIds.includes(finding.id)).map((finding) => finding.validationStatus).join('; '))
+    reviewerValidation: safeCell(model.findings.filter((finding) => risk.linkedFindingIds.includes(finding.id)).map((finding) => finding.validationStatus).join('; ')),
+    reviewerInterpretation: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.reviewerInterpretation),
+    reviewerLimitation: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.limitation),
+    reviewerConfidence: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.reviewerConfidence),
+    reviewerEvidenceRefs: safeCell(csv(model.riskReviews.find((review) => review.riskId === risk.id)?.evidenceRefs ?? []))
   }));
 
   const controls = model.controlImprovements.map((control) => ({
@@ -79,7 +83,12 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     targetPeriod: safeCell(control.targetPeriod),
     effectivenessTest: safeCell(control.effectivenessTest),
     evidenceRequired: safeCell(csv(control.requiredEvidence)),
-    evidenceRefs: safeCell(csv(control.evidenceRefs))
+    evidenceRefs: safeCell(csv(control.evidenceRefs)),
+    reviewerEvidenceRefs: safeCell(csv(model.controlDesignReviews.find((review) => review.controlId === control.id)?.evidenceRefsReviewed ?? [])),
+    reviewerDesignAssessment: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.designAssessment),
+    reviewerDesignGap: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.designGapLimitation),
+    reviewerObservation: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.reviewerObservation),
+    recommendedAdjustment: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.recommendedAdjustment)
   }));
 
   const evidence = model.evidenceRequestPack.map((item) => ({
@@ -93,8 +102,14 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     acceptableExamples: safeCell(csv(item.acceptableExamples)),
     priority: safeCell(item.priority),
     requestedStatus: safeCell(item.requestedStatus),
+    backendStatus: safeCell(item.backendStatus),
     validationStatus: safeCell(item.validationStatus),
     reviewerNote: safeCell(item.reviewerNote),
+    actualArtefactsExamined: safeCell(csv(item.actualArtefactsExamined)),
+    whatEvidenceDemonstrated: safeCell(item.whatEvidenceDemonstrated),
+    whatEvidenceDidNotDemonstrate: safeCell(item.whatEvidenceDidNotDemonstrate),
+    reviewerConclusion: safeCell(item.reviewerConclusion),
+    reviewerConfidence: safeCell(item.reviewerConfidence),
     privacyBoundary: safeCell(item.privacyBoundary)
   }));
 
@@ -133,7 +148,11 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     targetDate: safeCell(decision.targetDate),
     status: safeCell(decision.status),
     boardDecision: safeCell(decision.boardDecision),
-    managementResponse: safeCell(decision.managementResponse)
+    managementResponse: safeCell(decision.managementResponse),
+    viableOptions: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.viableOptions ?? [])),
+    keyTradeOffs: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.keyTradeOffs ?? [])),
+    reviewerRecommendation: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.reviewerRecommendation),
+    managementBoardDecision: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.managementBoardDecision)
   }));
 
   return [
@@ -146,4 +165,3 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     { name: 'Management Decisions', columns: Object.keys(decisions[0] ?? { id: '' }), rows: decisions }
   ];
 }
-

@@ -13,14 +13,42 @@ import type {
 
 /** The only states a Comprehensive deliverable may show for an evidence item. */
 export type EvidenceValidationStatus =
+  | 'NOT_REQUESTED'
+  | 'REQUESTED'
+  | 'RECEIVED'
   | 'SELF_REPORTED'
   | 'EVIDENCE_REVIEWED'
   | 'VALIDATED_SUPPORTED'
+  | 'NOT_SUPPORTED'
   | 'NOT_VALIDATED_INSUFFICIENT'
+  | 'NOT_APPLICABLE'
   | 'REVIEWER_JUDGEMENT';
 
+export type BackendEvidenceStatus = 'not_requested' | 'requested' | 'received' | 'reviewed' | 'supported' | 'not_supported' | 'insufficient' | 'not_applicable';
+export type EvidenceItemConclusion = 'REVIEWED' | 'SUPPORTED' | 'NOT_SUPPORTED' | 'INSUFFICIENT' | 'NOT_APPLICABLE';
+export type FindingReviewerConclusion = 'SUPPORTED' | 'NOT_SUPPORTED' | 'INSUFFICIENT' | 'NOT_APPLICABLE' | 'REVIEWED';
 export type EvidenceRequestStatus = 'NOT_REQUESTED' | 'REQUESTED' | 'RECEIVED' | 'IN_REVIEW' | 'CLOSED';
 export type ManagementActionStatus = 'OPEN' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETE' | 'ACCEPTED';
+
+export interface EvidenceStatusAdapterResult {
+  backendStatus: BackendEvidenceStatus;
+  presentationStatus: EvidenceValidationStatus;
+}
+
+export const BACKEND_EVIDENCE_STATUS_MAP: Record<BackendEvidenceStatus, EvidenceValidationStatus> = {
+  not_requested: 'NOT_REQUESTED',
+  requested: 'REQUESTED',
+  received: 'RECEIVED',
+  reviewed: 'EVIDENCE_REVIEWED',
+  supported: 'VALIDATED_SUPPORTED',
+  not_supported: 'NOT_SUPPORTED',
+  insufficient: 'NOT_VALIDATED_INSUFFICIENT',
+  not_applicable: 'NOT_APPLICABLE'
+};
+
+export function adaptBackendEvidenceStatus(status: BackendEvidenceStatus): EvidenceStatusAdapterResult {
+  return { backendStatus: status, presentationStatus: BACKEND_EVIDENCE_STATUS_MAP[status] };
+}
 
 export interface ReviewerIdentity {
   name: string;
@@ -33,6 +61,8 @@ export interface ReviewerEvidenceReview {
   evidenceRef: string;
   evidenceExamined: string[];
   validationStatus: EvidenceValidationStatus;
+  backendStatus?: BackendEvidenceStatus;
+  reviewerConclusion?: EvidenceItemConclusion;
   reviewerObservation?: string;
   evidenceLimitation?: string;
   adjustedInterpretation?: string;
@@ -42,13 +72,42 @@ export interface ReviewerEvidenceReview {
 export interface ReviewerFindingReview {
   findingId: string;
   evidenceRefs: string[];
-  validationStatus: EvidenceValidationStatus;
+  reviewerConclusion: FindingReviewerConclusion;
+  validationStatus?: EvidenceValidationStatus;
   reviewerObservation?: string;
   evidenceLimitation?: string;
   adjustedInterpretation?: string;
   agreedOwner?: string;
   agreedDueDate?: string;
   managementResponse?: string;
+}
+
+export interface ReviewerRiskReview {
+  riskId: string;
+  evidenceRefs: string[];
+  reviewerInterpretation: string;
+  assuranceStatement?: string;
+  limitation?: string;
+  reviewerConfidence?: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface ReviewerControlDesignReview {
+  controlId: string;
+  evidenceRefsReviewed: string[];
+  designAssessment: string;
+  designGapLimitation?: string;
+  reviewerObservation?: string;
+  recommendedAdjustment?: string;
+}
+
+export interface ReviewerDecisionReview {
+  decisionId: string;
+  viableOptions: string[];
+  keyTradeOffs: string[];
+  reviewerRecommendation?: string;
+  managementBoardDecision?: string;
+  owner?: string;
+  targetDate?: string;
 }
 
 export interface ReviewerObservation {
@@ -79,6 +138,9 @@ export interface ComprehensiveReviewerInput {
   reviewer: ReviewerIdentity;
   evidenceReviews: ReviewerEvidenceReview[];
   findingReviews: ReviewerFindingReview[];
+  riskReviews?: ReviewerRiskReview[];
+  controlDesignReviews?: ReviewerControlDesignReview[];
+  decisionReviews?: ReviewerDecisionReview[];
   observations: ReviewerObservation[];
   managementDecisions: ManagementDecision[];
   boardDecisions?: string[];
@@ -128,8 +190,14 @@ export interface EvidenceRequestPackItem {
   acceptableExamples: string[];
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   requestedStatus: EvidenceRequestStatus;
+  backendStatus: BackendEvidenceStatus;
   validationStatus: EvidenceValidationStatus;
   reviewerNote: string;
+  actualArtefactsExamined: string[];
+  whatEvidenceDemonstrated: string | null;
+  whatEvidenceDidNotDemonstrate: string | null;
+  reviewerConclusion: EvidenceItemConclusion | null;
+  reviewerConfidence: 'LOW' | 'MEDIUM' | 'HIGH' | null;
   privacyBoundary: string;
 }
 
@@ -160,6 +228,9 @@ export interface ComprehensiveDeliveryModel {
   evidenceRequestPack: EvidenceRequestPackItem[];
   validationSummary: ValidationSummary;
   evidenceReviews: ReviewerEvidenceReview[];
+  riskReviews: ReviewerRiskReview[];
+  controlDesignReviews: ReviewerControlDesignReview[];
+  decisionReviews: ReviewerDecisionReview[];
   findings: ComprehensiveFindingView[];
   materialFindings: MaterialFinding[];
   riskRegister: RiskRegisterEntry[];
