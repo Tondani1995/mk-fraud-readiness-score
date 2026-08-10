@@ -40,7 +40,7 @@ function safeAlertDetail(input: AtomicPackageInput, paths: string[], cleanupErro
   return {
     bucket: COMPREHENSIVE_REPORT_BUCKET,
     engagement_id: input.engagementId,
-    report_id: input.reportId,
+    proposed_report_id: input.reportId,
     artifact_version: input.artifactVersion,
     storage_paths: paths,
     reason: 'comprehensive_package_registration_failed_and_object_cleanup_failed',
@@ -63,7 +63,7 @@ async function raiseCleanupAlert(input: AtomicPackageInput, paths: string[], cle
     await input.db.rpc('record_phase14_operational_alert', {
       p_alert_key: `comprehensive_package_orphan:${input.engagementId}:${input.reportId}:v${input.artifactVersion}`,
       p_category: 'comprehensive_package_orphan_object',
-      p_report_id: input.reportId,
+      p_report_id: null,
       p_severity: 'warning',
       p_detail_json: safeAlertDetail(input, paths, cleanupError)
     });

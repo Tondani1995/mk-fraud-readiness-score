@@ -22,7 +22,7 @@ const packageInput = (overrides = {}) => ({
 });
 
 function makeDb(options = {}) {
-  const state = { objects: new Map(), uploadCalls: 0, removed: [], rpcCalls: [], alerts: [], metadata: null };
+  const state = { objects: new Map(), uploadCalls: 0, removed: [], rpcCalls: [], alerts: [], alertArgs: [], metadata: null };
   return {
     state,
     storage: {
@@ -46,6 +46,8 @@ function makeDb(options = {}) {
     async rpc(name, args) {
       state.rpcCalls.push(name);
       if (name === 'record_phase14_operational_alert') {
+        if (args.p_report_id !== null) return { data: null, error: { message: 'injected orphan alert FK failure' } };
+        state.alertArgs.push(args);
         state.alerts.push(args.p_detail_json);
         return { data: { ok: true }, error: null };
       }
@@ -71,6 +73,7 @@ await check('database registration failure after all uploads removes all five ob
   assert.equal(db.state.removed[0].length, 5);
   assert.equal(db.state.objects.size, 0);
   assert.equal(db.state.metadata, null);
+  assert.equal(db.state.alerts.length, 0);
 });
 
 await check('cleanup failure raises a safe operational reconciliation alert', async () => {
@@ -78,7 +81,10 @@ await check('cleanup failure raises a safe operational reconciliation alert', as
   const input = packageInput({ db });
   await assert.rejects(registerComprehensivePackageAtomically(input));
   assert.equal(db.state.alerts.length, 1);
-  assert.deepEqual(Object.keys(db.state.alerts[0]).sort(), ['artifact_version', 'bucket', 'cleanup_error', 'engagement_id', 'reason', 'report_id', 'storage_paths'].sort());
+  assert.equal(db.state.metadata, null);
+  assert.equal(db.state.alertArgs[0].p_report_id, null);
+  assert.deepEqual(Object.keys(db.state.alerts[0]).sort(), ['artifact_version', 'bucket', 'cleanup_error', 'engagement_id', 'proposed_report_id', 'reason', 'storage_paths'].sort());
+  assert.equal(db.state.alerts[0].proposed_report_id, input.reportId);
   assert.doesNotMatch(JSON.stringify(db.state.alerts[0]), /customer|email|file_name|signedUrl|https?:\/\//i);
 });
 
@@ -90,6 +96,7 @@ await check('happy path commits one report and exactly four same-version seconda
   assert.equal(db.state.metadata.artifacts.length, 4);
   assert.ok(db.state.metadata.artifacts.every((item) => item.artefact_type && item.file_size_bytes > 0));
   assert.equal(db.state.rpcCalls.filter((name) => name === 'complete_comprehensive_package').length, 1);
+  assert.equal(db.state.alerts.length, 0);
 });
 
 const authority = {
