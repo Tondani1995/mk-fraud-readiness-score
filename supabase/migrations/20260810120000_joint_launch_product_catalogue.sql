@@ -197,11 +197,21 @@ begin
     raise exception 'joint_launch_catalogue_open_price_version_invalid: % product(s)', offending;
   end if;
 
-  -- Every existing order must resolve to exactly one price window carrying its own amount, so no
-  -- already-paid order silently loses entitlement at this migration.
+  -- No order that WAS entitled may lose entitlement at this migration.
+  --
+  -- The test is deliberately scoped to orders sold at a price the product genuinely carried. An
+  -- order whose amount matches no price version of its product at any point in history was never
+  -- entitled under the old contract either -- the previous guard required an exact amount match too
+  -- -- so it loses nothing here. Environments legitimately contain such rows (synthetic
+  -- certification fixtures carry amount_cents = 1, for instance), and blocking the migration on
+  -- them would fail on data that has no commercial meaning. They are reported, not fatal.
   select count(*) into offending
   from public.orders o
-  where (
+  where exists (
+    select 1 from public.product_price_versions v
+    where v.product_id = o.product_id and v.price_cents = o.amount_cents and v.currency = o.currency
+  )
+  and (
     select count(*)
     from public.product_price_versions v
     where v.product_id = o.product_id
@@ -212,6 +222,31 @@ begin
   ) <> 1;
   if offending > 0 then
     raise exception 'joint_launch_catalogue_order_price_window_unresolved: % order(s)', offending;
+  end if;
+
+  -- Ambiguity is always fatal, priced or not: two windows covering one instant would let an order
+  -- resolve to whichever the reader picked first.
+  select count(*) into offending
+  from public.orders o
+  where (
+    select count(*)
+    from public.product_price_versions v
+    where v.product_id = o.product_id
+      and o.created_at >= v.effective_from
+      and (v.effective_to is null or o.created_at < v.effective_to)
+  ) > 1;
+  if offending > 0 then
+    raise exception 'joint_launch_catalogue_order_price_window_ambiguous: % order(s)', offending;
+  end if;
+
+  select count(*) into offending
+  from public.orders o
+  where not exists (
+    select 1 from public.product_price_versions v
+    where v.product_id = o.product_id and v.price_cents = o.amount_cents and v.currency = o.currency
+  );
+  if offending > 0 then
+    raise notice 'joint_launch_catalogue_orders_outside_any_priced_window: % order(s) carry an amount that never matched a catalogue price; they were not entitled before this migration and are not entitled after it', offending;
   end if;
 end $$;
 

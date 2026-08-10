@@ -34,7 +34,8 @@ const migrationFiles = fs.readdirSync(migrationsDir).filter((name) => name.endsW
 const JOINT_LAUNCH_MIGRATIONS = [
   '20260810120000_joint_launch_product_catalogue.sql',
   '20260810121000_joint_launch_comprehensive_lifecycle.sql',
-  '20260810122000_joint_launch_comprehensive_evidence.sql'
+  '20260810122000_joint_launch_comprehensive_evidence.sql',
+  '20260810123000_joint_launch_versioned_price_entitlement.sql'
 ];
 for (const name of JOINT_LAUNCH_MIGRATIONS) {
   assert.ok(migrationFiles.includes(name), `missing joint-launch migration ${name}`);
@@ -225,6 +226,36 @@ try {
   assert.equal(historicalBackfill.rows[0].product_price_version_id, null);
   check('historical orders are NOT backfilled with a price version');
 
+  // An order whose amount never matched any catalogue price (synthetic certification fixtures carry
+  // amount_cents = 1) must not block the migration: it was not entitled under the previous contract
+  // either, because that guard also required an exact amount match.
+  const unpricedOrderId = (await db.query(
+    `insert into public.orders (order_reference, assessment_id, product_id, product_name, status, amount_cents, currency)
+     values ('MKORD-REPLAY-SYNTH', $1, $2, 'Essential Self-Assessment Report', 'payment_received', 1, 'ZAR')
+     returning id`,
+    [assessmentId, essentialId]
+  )).rows[0].id;
+  const unpricedResolution = await db.query(
+    `select count(*)::int as n
+     from public.product_price_versions v, public.orders o
+     where o.id = $1 and v.product_id = o.product_id and v.price_cents = o.amount_cents`,
+    [unpricedOrderId]
+  );
+  assert.equal(unpricedResolution.rows[0].n, 0);
+  // Re-running the catalogue migration with that row present must still succeed.
+  await db.query(fs.readFileSync(path.join(migrationsDir, JOINT_LAUNCH_MIGRATIONS[0]), 'utf8'));
+  check('an order whose amount never matched a catalogue price is reported, not fatal');
+
+  const ambiguity = await db.query(
+    `select count(*)::int as n from public.orders o
+     where (select count(*) from public.product_price_versions v
+            where v.product_id = o.product_id
+              and o.created_at >= v.effective_from
+              and (v.effective_to is null or o.created_at < v.effective_to)) > 1`
+  );
+  assert.equal(ambiguity.rows[0].n, 0);
+  check('no order resolves to more than one price window (ambiguity stays fatal)');
+
   const newAtOldPrice = await db.query(
     `select count(*)::int as n from public.product_price_versions v
      where v.product_id = $1 and v.price_cents = 500000
@@ -233,6 +264,70 @@ try {
   );
   assert.equal(newAtOldPrice.rows[0].n, 0);
   check('R5,000 is not a valid Essential price at any instant from now on (no dual-price allowance)');
+
+  // --- Database-side price entitlement ---------------------------------------------------------
+  // The four SECURITY DEFINER entitlement functions used to pin 500000 in SQL. If they still did,
+  // the reprice would have broken automatic release and delivery for BOTH new R7,500 orders and
+  // every already-paid R5,000 order.
+  const hardcodedPricePredicates = await db.query(
+    `select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     join pg_language l on l.oid = p.prolang
+     where n.nspname='public' and p.prokind='f' and l.lanname in ('sql','plpgsql')
+       and pg_get_functiondef(p.oid) like '%amount_cents <> 500000%'`
+  );
+  assert.equal(hardcodedPricePredicates.rows[0].n, 0);
+  const delegating = await db.query(
+    `select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     join pg_language l on l.oid = p.prolang
+     where n.nspname='public' and p.prokind='f' and l.lanname in ('sql','plpgsql')
+       and p.proname in ('phase14_generation_entitlement','phase14_delivery_entitlement')
+       and pg_get_functiondef(p.oid) like '%order_price_version_entitled%'`
+  );
+  assert.equal(delegating.rows[0].n, 2);
+  check('no database function pins a hard-coded Essential price; both Phase 14 guards delegate to the versioned contract');
+
+  // The SQL helper must agree with src/lib/commercial/order-price-entitlement.ts on every case.
+  const historicalEntitled = await db.query(
+    `select public.order_price_version_entitled($1) as entitled`, [historicalOrderId]
+  );
+  assert.equal(historicalEntitled.rows[0].entitled, true, 'a paid R5,000 order stays entitled in SQL too');
+
+  const lateOldPriceOrderId = (await db.query(
+    `insert into public.orders (order_reference, assessment_id, product_id, product_name, status, amount_cents, currency)
+     values ('MKORD-REPLAY-LATE5K', $1, $2, 'Essential', 'payment_received', 500000, 'ZAR') returning id`,
+    [assessmentId, essentialId]
+  )).rows[0].id;
+  const lateOldPrice = await db.query(`select public.order_price_version_entitled($1) as entitled`, [lateOldPriceOrderId]);
+  assert.equal(lateOldPrice.rows[0].entitled, false, 'R5,000 booked after the cutover is NOT entitled in SQL either');
+
+  const essentialCurrentVersionId = (await db.query(
+    `select id from public.product_price_versions where product_id=$1 and effective_to is null`, [essentialId]
+  )).rows[0].id;
+  const newOrderId = (await db.query(
+    `insert into public.orders (order_reference, assessment_id, product_id, product_name, product_price_version_id, status, amount_cents, currency)
+     values ('MKORD-REPLAY-NEW75', $1, $2, 'Essential', $3, 'payment_received', 750000, 'ZAR') returning id`,
+    [assessmentId, essentialId, essentialCurrentVersionId]
+  )).rows[0].id;
+  const newOrder = await db.query(`select public.order_price_version_entitled($1) as entitled`, [newOrderId]);
+  assert.equal(newOrder.rows[0].entitled, true, 'a new R7,500 order is entitled in SQL');
+
+  const unpricedEntitled = await db.query(`select public.order_price_version_entitled($1) as entitled`, [unpricedOrderId]);
+  assert.equal(unpricedEntitled.rows[0].entitled, false, 'an order at an amount no version ever carried is not entitled');
+  check('the SQL price helper agrees with the TypeScript contract on historical, new, late-old-price and unpriced orders');
+
+  const helperDef = await db.query(
+    `select p.prosecdef, p.proconfig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname='public' and p.proname='order_price_version_entitled'`
+  );
+  assert.equal(helperDef.rows[0].prosecdef, false, 'the price helper must not be SECURITY DEFINER');
+  assert.ok((helperDef.rows[0].proconfig ?? []).some((entry) => entry.startsWith('search_path=')));
+  for (const role of ['anon', 'authenticated']) {
+    const granted = await db.query(
+      `select has_function_privilege($1, 'public.order_price_version_entitled(uuid)', 'EXECUTE') as granted`, [role]
+    );
+    assert.equal(granted.rows[0].granted, false, `${role} must not execute the price helper`);
+  }
+  check('the price helper is SECURITY INVOKER, search_path-pinned and not executable by anon or authenticated');
 
   // --- Comprehensive lifecycle ------------------------------------------------------------------------
   const comprehensiveId = (await db.query(`select id from public.products where product_code='mk_validated_assessment'`)).rows[0].id;

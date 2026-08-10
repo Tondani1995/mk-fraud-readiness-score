@@ -60,13 +60,13 @@ set transaction read only;
 
 \echo RC1_POSTFLIGHT_BEGIN
 
-select 'ledger_total_result|' || case when count(*) = 98 then 'PASS' else 'STOP' end
+select 'ledger_total_result|' || case when count(*) = 102 then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
-select 'ledger_newest_result|' || case when max(version) = '20260809140000' then 'PASS' else 'STOP' end
+select 'ledger_newest_result|' || case when max(version) = '20260810123000' then 'PASS' else 'STOP' end
 from supabase_migrations.schema_migrations;
 select 'preflight_ledger_boundary_result|' || case when
   (select count(*) from supabase_migrations.schema_migrations where version <= :'rc1_preflight_newest_version') = 34
-  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 64
+  and (select count(*) from supabase_migrations.schema_migrations where version > :'rc1_preflight_newest_version') = 68
 then 'PASS' else 'STOP' end;
 select 'duplicate_version_result|' || case when not exists (
   select 1 from supabase_migrations.schema_migrations group by version having count(*) > 1
@@ -137,14 +137,19 @@ with authorised(version, name) as (
     ('20260808170000','ai_attempt_timeout_contract_parity'),
     ('20260809120000','ai_attempt_output_token_envelope'),
     ('20260809140000','ai_contract_version_alignment'),
-    ('20260808180000','atomic_access_token_consumption')
+    ('20260808180000','atomic_access_token_consumption'),
+    -- Joint launch: Essential R7,500 + Comprehensive R35,000 core product model.
+    ('20260810120000','joint_launch_product_catalogue'),
+    ('20260810121000','joint_launch_comprehensive_lifecycle'),
+    ('20260810122000','joint_launch_comprehensive_evidence'),
+    ('20260810123000','joint_launch_versioned_price_entitlement')
 ), found as (
   select a.version, a.name, count(m.version) as matches
   from authorised a left join supabase_migrations.schema_migrations m
     on m.version = a.version and m.name = a.name
   group by a.version, a.name
 )
-select 'authorised_ledger_pairs_result|' || case when count(*) = 64 and bool_and(matches = 1) then 'PASS' else 'STOP' end
+select 'authorised_ledger_pairs_result|' || case when count(*) = 68 and bool_and(matches = 1) then 'PASS' else 'STOP' end
 from found;
 
 select 'unlisted_post_preflight_result|' || case when not exists (
@@ -154,7 +159,8 @@ select 'unlisted_post_preflight_result|' || case when not exists (
                         '20260724180000','20260725090000','20260725150000','20260728120000',
                         '20260728190000','20260728191000','20260729113242','20260729170000',
                         '20260730120000','20260730130000',
-                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000','20260803230000','20260804090000','20260804110000','20260804130000','20260804140000','20260804150000','20260804170000','20260804171000','20260804194001','20260804200000','20260804203520','20260804210000','20260804223000','20260805090000','20260805100000','20260805110000','20260805120000','20260805140000','20260805150000','20260807120000','20260807130000','20260807140000','20260808090000','20260808150000','20260808160000','20260808170000','20260808180000','20260809120000','20260809140000')
+                        '20260731130000','20260731150000','20260731170000','20260801070000','20260801090000','20260801120000','20260801140000','20260801160000','20260801180000','20260801200000','20260801220000','20260802120000','20260803090000','20260803160000','20260803170000','20260803180000','20260803190000','20260803200000','20260803210000','20260803220000','20260803230000','20260804090000','20260804110000','20260804130000','20260804140000','20260804150000','20260804170000','20260804171000','20260804194001','20260804200000','20260804203520','20260804210000','20260804223000','20260805090000','20260805100000','20260805110000','20260805120000','20260805140000','20260805150000','20260807120000','20260807130000','20260807140000','20260808090000','20260808150000','20260808160000','20260808170000','20260808180000','20260809120000','20260809140000',
+                        '20260810120000','20260810121000','20260810122000','20260810123000')
 ) then 'PASS' else 'STOP' end;
 
 select 'application_database_freeze_agreement_result|' || case when

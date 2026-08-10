@@ -94,7 +94,13 @@ const pending = [
   '20260808170000_ai_attempt_timeout_contract_parity.sql',
   '20260808180000_atomic_access_token_consumption.sql',
   '20260809120000_ai_attempt_output_token_envelope.sql',
-  '20260809140000_ai_contract_version_alignment.sql'
+  '20260809140000_ai_contract_version_alignment.sql',
+  // Joint launch: Essential R7,500 + Comprehensive R35,000 core product model. Not applied to
+  // Production or Staging by this lane, so they belong on the pending side of the replay.
+  '20260810120000_joint_launch_product_catalogue.sql',
+  '20260810121000_joint_launch_comprehensive_lifecycle.sql',
+  '20260810122000_joint_launch_comprehensive_evidence.sql',
+  '20260810123000_joint_launch_versioned_price_entitlement.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
@@ -2163,7 +2169,10 @@ async function proveNearRealTimeAutomaticFulfilment() {
     );
     await db.query("update public.assessments set current_score_run_id=$1 where id=$2", [scoreId, assessmentId]);
     await db.query(
-      "insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency,customer_name,customer_email) values ($1,$2,$3,$4,'awaiting_payment',500000,'ZAR','Synthetic Customer',$5)",
+      // Joint launch: this fixture represents a CURRENT Essential order, so it is booked at the
+      // current catalogue price (R7,500). An order booked at the superseded R5,000 today would
+      // correctly fail entitlement, because no price version prices Essential at R5,000 now.
+      "insert into public.orders(id,order_reference,assessment_id,product_id,status,amount_cents,currency,customer_name,customer_email) values ($1,$2,$3,$4,'awaiting_payment',750000,'ZAR','Synthetic Customer',$5)",
       [orderId, orderReference, assessmentId, product.id, recipient],
     );
     const before = await query(
@@ -2173,7 +2182,7 @@ async function proveNearRealTimeAutomaticFulfilment() {
     assert(before[0].n === 0, 'order submission alone creates no fulfilment attempt');
     const idempotencyKey = `rc1-auto-payment-${suffix}`;
     const transitionArgs = [
-      orderReference, 'PAID', 'manual_admin', adminId, 500000, 'ZAR', null,
+      orderReference, 'PAID', 'manual_admin', adminId, 750000, 'ZAR', null,
       `manual:${idempotencyKey}`, new Date().toISOString(), 'Synthetic payment verified.',
       'authorised_manual_confirmation', idempotencyKey, crypto.randomUUID(), null,
     ];
