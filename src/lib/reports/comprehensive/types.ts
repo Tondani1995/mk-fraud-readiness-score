@@ -98,11 +98,11 @@ export interface ComprehensiveAnalyticalUniverse {
   assembled?: AssembledReportData;
   evidenceModel: AdvisoryEvidenceModel;
   score: {
-    overallScore: number;
-    calculatedMaturity: string;
-    finalMaturity: string;
-    exposureScore: number;
-    exposureBand: string;
+    overallScore: number | null;
+    calculatedMaturity: string | null;
+    finalMaturity: string | null;
+    exposureScore: number | null;
+    exposureBand: string | null;
     coveragePct: number;
     nARatePct: number;
     criticalGapCount: number;
@@ -191,4 +191,3 @@ export interface BoardReadoutPage {
   decisionQuestion: string;
   contentType: 'position' | 'validation' | 'findings' | 'scenarios' | 'controls' | 'priorities' | 'oversight' | 'limitations';
 }
-
