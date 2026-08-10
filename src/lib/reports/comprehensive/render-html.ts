@@ -1,0 +1,200 @@
+import type { ComprehensiveDeliveryModel, ComprehensiveFindingView, EvidenceRequestPackItem, EvidenceValidationStatus } from './types';
+
+export const COMPREHENSIVE_REPORT_SECTIONS = [
+  ['cover', 'Comprehensive fraud-readiness review', 'Engagement identity, reviewer and decision context.'],
+  ['scope', 'Engagement scope', 'What was assessed, reviewed and excluded.'],
+  ['conclusion', 'Executive conclusion', 'The decision-useful conclusion in plain language.'],
+  ['position', 'Readiness and maturity position', 'Deterministic score and maturity results, clearly labelled.'],
+  ['validation', 'Evidence-validation summary', 'What was reviewed, supported and unresolved.'],
+  ['changes', 'What changed after evidence review', 'Reviewer interpretation placed beside the recorded position.'],
+  ['findings', 'Priority verified findings', 'Bounded finding set for management and board use.'],
+  ['gaps', 'Major unresolved evidence gaps', 'Open assurance items and limitations.'],
+  ['risks', 'Risk register interpretation', 'Top risk pathways, not a full register dump.'],
+  ['scenarios', 'Organisation-specific fraud scenarios', 'Plausible, evidence-linked scenarios with disclaimers.'],
+  ['controls', 'Control-design assessment', 'Design decisions linked to the analytical universe.'],
+  ['decisions', 'Leadership decisions', 'Decisions required, owners and consequence of delay.'],
+  ['actions', 'Agreed action priorities', 'Reviewer and management action commitments.'],
+  ['roadmap', '12-month implementation view', 'Sequenced 30/60/90 and later priorities.'],
+  ['residual', 'Residual and uncertain matters', 'What remains uncertain and how to track it.'],
+  ['methodology', 'Methodology and limitations', 'Basis, traceability and boundaries.'],
+  ['signoff', 'Named reviewer and sign-off', 'Review identity, date and sign-off status.']
+] as const;
+
+const STATUS_LABEL: Record<EvidenceValidationStatus, string> = {
+  SELF_REPORTED: 'SELF-REPORTED',
+  EVIDENCE_REVIEWED: 'EVIDENCE REVIEWED',
+  VALIDATED_SUPPORTED: 'VALIDATED / SUPPORTED',
+  NOT_VALIDATED_INSUFFICIENT: 'NOT VALIDATED / INSUFFICIENT',
+  REVIEWER_JUDGEMENT: 'REVIEWER JUDGEMENT'
+};
+
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function short(value: unknown, fallback = 'Not recorded'): string {
+  const text = String(value ?? '').trim();
+  return esc(text || fallback);
+}
+
+function statusPill(status: EvidenceValidationStatus): string {
+  const tone = status === 'VALIDATED_SUPPORTED' ? 'validated' : status === 'NOT_VALIDATED_INSUFFICIENT' ? 'insufficient' : status === 'REVIEWER_JUDGEMENT' ? 'judgement' : status === 'EVIDENCE_REVIEWED' ? 'reviewed' : 'reported';
+  return `<span class="status-pill ${tone}">${STATUS_LABEL[status]}</span>`;
+}
+
+function page(key: string, title: string, body: string, kicker = 'MK Fraud Readiness · Comprehensive'): string {
+  return `<section class="page" data-section="${esc(key)}"><div class="kicker">${esc(kicker)}</div><h2>${esc(title)}</h2>${body}</section>`;
+}
+
+function field(label: string, value: unknown): string {
+  return `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${short(value)}</div></div>`;
+}
+
+function callout(label: string, body: string, tone = 'navy'): string {
+  return `<div class="callout ${tone}"><div class="callout-label">${esc(label)}</div><p>${body}</p></div>`;
+}
+
+function list(items: unknown[], fallback = 'None recorded.'): string {
+  if (items.length === 0) return `<p class="muted">${esc(fallback)}</p>`;
+  return `<ul>${items.map((item) => `<li>${short(item)}</li>`).join('')}</ul>`;
+}
+
+function evidenceBadgeRow(item: EvidenceRequestPackItem): string {
+  return `<div class="evidence-row"><div><strong>${short(item.evidenceRef)}</strong><div>${short(item.evidenceItem)}</div><small>${short(item.linkedDomain)}</small></div><div>${statusPill(item.validationStatus)}<small>${short(item.reviewerNote)}</small></div></div>`;
+}
+
+function findingCard(finding: ComprehensiveFindingView, index: number): string {
+  return `<article class="record"><div class="record-top"><span class="record-index">Finding ${index + 1}</span>${statusPill(finding.validationStatus)}</div><h3>${short(finding.title)}</h3><div class="record-grid">${field('Domain', finding.domainName)}${field('Recorded response', finding.responseMeaning)}${field('Why it matters', finding.whyItMatters)}${field('Evidence reviewed', finding.evidenceRefsReviewed.join(', ') || 'None recorded')}${field('Reviewer observation', finding.reviewerObservation)}${field('Evidence limitation', finding.evidenceLimitation)}${field('Agreed owner / due date', [finding.agreedOwner, finding.agreedDueDate].filter(Boolean).join(' · '))}</div></article>`;
+}
+
+function reportCss(): string {
+  return `<style>
+    @page { size: A4; margin: 15mm 14mm 17mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #172232; font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.42; background: #fff; }
+    .page { min-height: 250mm; page-break-after: always; position: relative; padding: 3mm 0 10mm; }
+    .page:last-child { page-break-after: auto; }
+    .cover { min-height: 250mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+    .cover-band { background: #142f4c; color: white; padding: 16mm; min-height: 128mm; display: flex; flex-direction: column; justify-content: end; }
+    .cover-band h1 { font-size: 34pt; line-height: 1.02; letter-spacing: -0.03em; margin: 0 0 8mm; max-width: 150mm; }
+    .cover-band p { font-size: 15pt; max-width: 130mm; color: #dce7f1; margin: 0; }
+    .cover-meta { padding: 12mm 16mm; border-left: 5px solid #c77b35; background: #f3f6f8; }
+    .cover-meta .field { display: inline-block; width: 47%; vertical-align: top; margin-bottom: 7mm; }
+    .kicker, .section-label, .callout-label, .field-label, .record-index { text-transform: uppercase; letter-spacing: .1em; font-size: 7.2pt; font-weight: 700; color: #62788b; }
+    h2 { color: #142f4c; font-size: 25pt; line-height: 1.08; letter-spacing: -.02em; margin: 2mm 0 7mm; }
+    h3 { color: #142f4c; font-size: 14pt; line-height: 1.15; margin: 2mm 0 4mm; }
+    p { margin: 0 0 4mm; }
+    ul { margin: 2mm 0 4mm 5mm; padding-left: 5mm; }
+    li { margin: 1.8mm 0; }
+    .lede { font-size: 15pt; line-height: 1.3; color: #304e67; max-width: 160mm; }
+    .muted, small { color: #6c7a87; }
+    .callout { padding: 6mm; margin: 5mm 0; border-left: 4px solid #c77b35; background: #f5f7f9; }
+    .callout.navy { border-left-color: #142f4c; }
+    .callout.amber { background: #fff6e8; border-left-color: #c77b35; }
+    .callout.red { background: #fff0ee; border-left-color: #a93e38; }
+    .callout.green { background: #edf7f1; border-left-color: #2d7c57; }
+    .callout p { margin: 2mm 0 0; font-size: 12pt; }
+    .field { margin: 0 0 4mm; }
+    .field-label { margin-bottom: 1mm; }
+    .field-value { color: #243547; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin: 7mm 0; }
+    .metric { border-top: 3px solid #142f4c; padding: 4mm; background: #f3f6f8; min-height: 30mm; }
+    .metric strong { display: block; color: #142f4c; font-size: 22pt; line-height: 1; margin: 2mm 0; }
+    .metric span { color: #526577; font-size: 8.5pt; }
+    .status-pill { display: inline-block; padding: 1.4mm 2.4mm; border-radius: 999px; font-size: 7pt; font-weight: 700; letter-spacing: .04em; color: #fff; background: #657482; white-space: nowrap; }
+    .status-pill.validated { background: #2d7c57; } .status-pill.reviewed { background: #25658c; } .status-pill.insufficient { background: #a93e38; } .status-pill.judgement { background: #7a5b9b; } .status-pill.reported { background: #657482; }
+    .evidence-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 6mm; padding: 4mm 0; border-bottom: 1px solid #d9e1e7; }
+    .evidence-row small { display: block; margin-top: 1.5mm; }
+    .record { border: 1px solid #d9e1e7; border-left: 4px solid #142f4c; padding: 5mm; margin: 4mm 0; break-inside: avoid; }
+    .record-top { display: flex; justify-content: space-between; align-items: center; gap: 4mm; }
+    .record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm 7mm; margin-top: 4mm; }
+    .table { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin: 4mm 0; }
+    .table th { text-align: left; color: #fff; background: #142f4c; padding: 2.5mm; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; }
+    .table td { border-bottom: 1px solid #d9e1e7; padding: 2.5mm; vertical-align: top; }
+    .table tr:nth-child(even) td { background: #f6f8fa; }
+    .bar { display: flex; height: 8mm; margin: 5mm 0 2mm; background: #e8edf1; }
+    .bar > span { display: block; height: 100%; }
+    .legend { display: flex; gap: 5mm; font-size: 8pt; flex-wrap: wrap; }
+    .legend span::before { content: ''; display: inline-block; width: 3mm; height: 3mm; margin-right: 1.5mm; background: #657482; }
+    .legend .ok::before { background: #2d7c57; } .legend .gap::before { background: #a93e38; } .legend .review::before { background: #25658c; } .legend .judgement::before { background: #7a5b9b; }
+    .footer-note { position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid #d9e1e7; padding-top: 2mm; font-size: 7.5pt; color: #71808c; }
+    .confidential { color: #a93e38; font-weight: 700; }
+    .avoid-break { break-inside: avoid; }
+    .page-break { page-break-before: always; }
+  </style>`;
+}
+
+export function renderComprehensiveReportHtml(model: ComprehensiveDeliveryModel): string {
+  const { analytical, validationSummary: summary } = model;
+  const score = analytical.score;
+  const topFindings = [...model.findings].sort((a, b) => b.materialityScore - a.materialityScore).slice(0, 5);
+  const topRisks = [...model.riskRegister].sort((a, b) => b.priority.localeCompare(a.priority)).slice(0, 5);
+  const topScenarios = model.scenarios.slice(0, 4);
+  const unresolved = model.evidenceRequestPack.filter((item) => item.validationStatus === 'SELF_REPORTED' || item.validationStatus === 'NOT_VALIDATED_INSUFFICIENT');
+  const reviewer = model.reviewerInput.reviewer;
+  const generated = analytical.generatedAt ?? reviewer.reviewDate;
+  const conclusion = summary.validatedSupported > 0
+    ? `The evidence review supports selected control positions, but the overall readiness position remains the recorded deterministic assessment. ${summary.unresolved} evidence item(s) remain unresolved; board reliance should be limited to the reviewed scope and stated evidence boundaries.`
+    : 'The evidence review has not yet produced enough support for an unqualified conclusion. The deterministic readiness position remains self-reported, and management should close the priority evidence gaps before relying on the control position.';
+
+  const pages = [
+    `<section class="cover"><div class="cover-band"><div class="kicker" style="color:#b9cfdf">MK Fraud Readiness</div><h1>Comprehensive fraud-readiness review</h1><p>Evidence-validated, reviewer-led and board-ready.</p></div><div class="cover-meta">${field('Organisation', analytical.organisationName)}${field('Named reviewer', `${reviewer.name} · ${reviewer.role}`)}${field('Review date', reviewer.reviewDate)}${field('Assessment reference', analytical.assessmentReference ?? 'To be assigned')}<p class="confidential">Confidential · decision support, not a legal opinion or certification</p></div><div class="footer-note">Generated ${esc(generated)} · Comprehensive deliverable</div></section>`,
+    page('scope', 'Engagement scope', `<p class="lede">This product takes the recorded analytical universe through evidence review, interpretation and decision preparation.</p><div class="two-col"><div>${field('Included', 'Deterministic score and maturity; material findings; risk register; control actions; evidence checklist; scenarios; contradictions; roadmap; reviewer annotations; management decisions.')}</div><div>${field('Not included', 'A re-score, legal opinion, investigation, certification programme, or conclusion beyond the evidence examined and the review scope agreed with management.')}</div></div>${callout('Reading rule', 'The recorded assessment answer is never overwritten by reviewer narrative. Each conclusion is labelled as self-reported, evidence reviewed, validated / supported, not validated / insufficient or reviewer judgement.', 'navy')}`),
+    page('conclusion', 'Executive conclusion', `<p class="lede">${esc(conclusion)}</p><div class="metric-grid"><div class="metric"><span>Deterministic readiness</span><strong>${Math.round(score.overallScore)}</strong><span>/ 100 · ${esc(score.finalMaturity)}</span></div><div class="metric"><span>Evidence items supported</span><strong>${summary.validatedSupported}</strong><span>of ${summary.totalEvidenceItems}</span></div><div class="metric"><span>Unresolved evidence</span><strong>${summary.unresolved}</strong><span>items requiring action</span></div><div class="metric"><span>Decisions required</span><strong>${model.managementDecisions.length}</strong><span>management / board items</span></div></div>${callout('Board implication', model.managementDecisions[0]?.decision ?? 'Confirm owners, evidence closure and oversight cadence for the priority matters.', 'amber')}`),
+    page('position', 'Readiness and maturity position', `<div class="two-col"><div>${field('Overall score', `${Math.round(score.overallScore)} / 100`)}${field('Calculated maturity', score.calculatedMaturity)}${field('Final maturity', score.finalMaturity)}${field('Exposure position', `${Math.round(score.exposureScore)} / 100 · ${score.exposureBand}`)}</div><div>${field('Coverage', `${Math.round(score.coveragePct)}%`)}${field('Not applicable rate', `${Math.round(score.nARatePct)}%`)}${field('Critical / major gaps', `${score.criticalGapCount} / ${score.majorGapCount}`)}${field('Maturity constraint', score.capApplied ? score.capReason : 'No cap recorded')}</div></div>${callout('Interpretation boundary', 'These metrics are deterministic outputs from the locked assessment run. They are not changed by reviewer judgement; evidence review changes the assurance statement around them.', 'navy')}`),
+    page('validation', 'Evidence-validation summary', `<p class="lede">Validation is scoped to the items named in the evidence request pack. No item is called validated without an explicit reviewer status.</p><div class="bar"><span style="width:${summary.totalEvidenceItems ? summary.selfReported / summary.totalEvidenceItems * 100 : 0}%;background:#657482"></span><span style="width:${summary.totalEvidenceItems ? summary.evidenceReviewed / summary.totalEvidenceItems * 100 : 0}%;background:#25658c"></span><span style="width:${summary.totalEvidenceItems ? summary.validatedSupported / summary.totalEvidenceItems * 100 : 0}%;background:#2d7c57"></span><span style="width:${summary.totalEvidenceItems ? summary.notValidatedInsufficient / summary.totalEvidenceItems * 100 : 0}%;background:#a93e38"></span><span style="width:${summary.totalEvidenceItems ? summary.reviewerJudgement / summary.totalEvidenceItems * 100 : 0}%;background:#7a5b9b"></span></div><div class="legend"><span>Self-reported ${summary.selfReported}</span><span class="review">Evidence reviewed ${summary.evidenceReviewed}</span><span class="ok">Validated / supported ${summary.validatedSupported}</span><span class="gap">Not validated / insufficient ${summary.notValidatedInsufficient}</span><span class="judgement">Reviewer judgement ${summary.reviewerJudgement}</span></div><div style="margin-top:8mm">${model.evidenceRequestPack.map(evidenceBadgeRow).join('')}</div>`),
+    page('changes', 'What changed after evidence review', model.changesAfterEvidenceReview.length > 0 ? model.changesAfterEvidenceReview.slice(0, 8).map((change) => `<article class="record"><div class="record-top"><span class="record-index">${short(change.subject)}</span>${statusPill(change.status)}</div><div class="record-grid">${field('Recorded position', change.before)}${field('Reviewer interpretation', change.after)}${field('Traceability', change.linkedRefs.join(', '))}</div></article>`).join('') : callout('No change recorded', 'No reviewer annotation has been supplied beyond the self-reported analytical universe.', 'amber')),
+    page('findings', 'Priority verified findings', `<p class="lede">The report shows the highest-materiality decision items. The full finding universe remains in the annotated register.</p>${topFindings.map(findingCard).join('')}`),
+    page('gaps', 'Major unresolved evidence gaps', unresolved.length > 0 ? `${callout('Reliance limitation', `${unresolved.length} item(s) remain self-reported or insufficient. These are not presented as validated weaknesses; they are assurance gaps that limit reliance.`, 'red')}${unresolved.slice(0, 10).map((item) => `<article class="record"><div class="record-top"><span class="record-index">${short(item.evidenceRef)} · ${short(item.priority)} priority</span>${statusPill(item.validationStatus)}</div><h3>${short(item.evidenceItem)}</h3><div class="record-grid">${field('What MK wants to inspect', item.whatMKWantsToInspect)}${field('Why it matters', item.whyItMatters)}${field('Acceptable examples', item.acceptableExamples.join('; '))}${field('Reviewer note', item.reviewerNote)}</div></article>`).join('')}` : callout('No open evidence gap in the supplied fixture', 'The supplied review set has a closed evidence request pack. Continue to monitor the operating scope and evidence freshness.', 'green')),
+    page('risks', 'Risk register interpretation', `<p class="lede">Risk language is conditional where evidence is assurance-only. This page is a decision view; the complete register is in the annotated workbook.</p><table class="table"><thead><tr><th>Risk pathway</th><th>Priority</th><th>Likelihood / impact</th><th>Current assurance</th><th>Target</th></tr></thead><tbody>${topRisks.map((risk) => `<tr><td><strong>${short(risk.title)}</strong><br>${short(risk.riskStatement)}</td><td>${short(risk.priority)}</td><td>${short(risk.likelihood)} / ${short(risk.impact)}</td><td>${short(risk.assessmentConfidence)}</td><td>${short(risk.targetPeriod)}</td></tr>`).join('')}</tbody></table>`),
+    page('scenarios', 'Organisation-specific fraud scenarios', `<p class="lede">These are plausible scenarios linked to the recorded analytical universe. They are not allegations and do not evidence that an event occurred.</p>${topScenarios.map((scenario) => `<article class="record"><div class="record-top"><span class="record-index">${short(scenario.scenarioType)}</span><span class="status-pill judgement">PLAUSIBLE SCENARIO</span></div><h3>${short(scenario.title)}</h3><div class="record-grid">${field('Confirmed operating context', scenario.confirmedOperatingContext.join('; '))}${field('Entry point / sequence', `${scenario.entryPoint} ${scenario.fraudSequence}`)}${field('Why controls may not catch it', scenario.whyControlsMayNotCatchIt)}${field('Early warning indicators', scenario.earlyWarningIndicators.join('; '))}${field('Evidence refs', scenario.evidenceRefs.join(', '))}${field('Disclaimer', scenario.disclaimer)}</div></article>`).join('')}`),
+    page('controls', 'Control-design assessment', `<p class="lede">Control design is connected to the recorded finding and evidence question. Reviewer judgement is shown separately from deterministic control position.</p><table class="table"><thead><tr><th>Control action</th><th>Recorded state</th><th>Target state</th><th>Owner</th><th>Evidence of completion</th></tr></thead><tbody>${model.controlImprovements.slice(0, 8).map((control) => `<tr><td><strong>${short(control.id)}</strong><br>${short(control.controlObjective)}</td><td>${short(control.currentState)}</td><td>${short(control.targetState)}</td><td>${short(control.processOwner)}</td><td>${short(control.evidenceRetained.join('; '))}</td></tr>`).join('')}</tbody></table>`),
+    page('decisions', 'Leadership decisions', `<p class="lede">The Comprehensive product is designed to move from diagnosis to decisions with traceable ownership.</p>${model.leadershipDecisions.slice(0, 6).map((decision) => `<article class="record"><div class="record-top"><span class="record-index">${short(decision.decisionCategory)}</span><span class="status-pill judgement">DECISION REQUIRED</span></div><h3>${short(decision.decisionRequired)}</h3><div class="record-grid">${field('Why now', decision.whyNow)}${field('Recommended decision', decision.recommendedDecision)}${field('Accountable executive', decision.accountableExecutive)}${field('Immediate deliverable', decision.immediateNextDeliverable)}${field('Consequence of delay', decision.consequenceOfDelay)}${field('Evidence refs', decision.evidenceRefs.join(', '))}</div></article>`).join('') || callout('Decision log', 'No leadership decisions were supplied in the current review input.', 'amber')}`),
+    page('actions', 'Agreed action priorities', model.managementDecisions.length > 0 ? `<table class="table"><thead><tr><th>Decision / action</th><th>Owner</th><th>Target date</th><th>Status</th><th>Traceability</th></tr></thead><tbody>${model.managementDecisions.map((decision) => `<tr><td><strong>${short(decision.id)}</strong><br>${short(decision.decision)}<br><small>${short(decision.managementResponse ?? decision.rationale)}</small></td><td>${short(decision.owner)}</td><td>${short(decision.targetDate)}</td><td>${short(decision.status)}</td><td>${short([...decision.linkedFindingIds, ...decision.linkedRiskIds].join(', '))}</td></tr>`).join('')}</tbody></table>` : callout('Action log', 'No management actions have been agreed in the supplied review input.', 'amber')),
+    page('roadmap', '12-month implementation view', `<p class="lede">Near-term actions preserve the analytical roadmap while adding evidence closure and management ownership.</p><table class="table"><thead><tr><th>Period</th><th>Deliverable</th><th>Owner</th><th>Dependency / evidence</th></tr></thead><tbody>${model.roadmapActions.map((action) => `<tr><td>${short(action.period)}</td><td>${short(action.deliverable)}</td><td>${short(action.accountableExecutive)}</td><td>${short([action.dependency, action.evidenceOfCompletion].filter(Boolean).join(' · '))}</td></tr>`).join('')}</tbody></table>${callout('Implementation rule', 'Do not close an action on narrative completion alone. Record the operating evidence, owner and effectiveness measure in the annotated register.', 'navy')}`),
+    page('residual', 'Residual and uncertain matters', `<p class="lede">The following matters remain uncertain until their evidence boundary is closed or management formally accepts the residual risk.</p>${list(unresolved.map((item) => `${item.evidenceRef}: ${item.evidenceItem} · ${STATUS_LABEL[item.validationStatus]} · ${item.reviewerNote}`), 'No unresolved items were supplied.')}${callout('Tracking recommendation', 'Board oversight should track the unresolved evidence count, age of open actions, validation coverage for high-priority controls and overdue management decisions.', 'amber')}`),
+    page('methodology', 'Methodology and limitations', `<div class="two-col"><div>${field('Analytical basis', 'Existing locked deterministic score, maturity, evidence-model material findings, risk register, control-action register, evidence checklist, scenarios, contradictions and roadmap.')}${field('Reviewer basis', 'Named reviewer observations, evidence examined, validation status, limitations, adjusted interpretation and management responses supplied for this engagement.')}</div><div>${field('Limitations', 'No inference beyond reviewed evidence; no legal or forensic conclusion; no hidden validation; no final retention period encoded; no silent mutation of answers.')}${field('Traceability', `Methodology version ${score.methodologyVersionId}; evidence refs and finding IDs retained in the annotated workbook.`)}</div></div>${callout('Status vocabulary', 'Self-reported is not validated. Evidence reviewed means the artefact was examined, not that the control was supported. Validated / supported is used only where the named reviewer recorded that status for the stated scope.', 'navy')}`),
+    page('signoff', 'Named reviewer and sign-off', `<div class="two-col"><div>${field('Reviewer', reviewer.name)}${field('Role', reviewer.role)}${field('Organisation', reviewer.organisation)}${field('Review date', reviewer.reviewDate)}</div><div>${field('Sign-off status', model.reviewerInput.signOff?.signed ? 'Signed' : 'Not signed')}${field('Signed at', model.reviewerInput.signOff?.signedAt)}${field('Reviewer note', model.reviewerInput.signOff?.note)}${field('Board decisions captured', model.reviewerInput.boardDecisions?.join('; '))}</div></div>${callout('Scope acknowledgement', 'This report is a decision-support deliverable. It is bounded by the information supplied, the evidence examined and the limitations recorded by the named reviewer.', 'navy')}`)
+  ];
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Comprehensive fraud-readiness review</title>${reportCss()}</head><body>${pages.join('')}</body></html>`;
+}
+
+const BOARD_PAGES = [
+  ['1', 'Cover / decision context', 'What decisions does the board need to make now?', 'position'],
+  ['2', 'Executive fraud-readiness position', 'Where do we stand, and what remains self-reported?', 'position'],
+  ['3', 'Top verified findings / unresolved uncertainty', 'What was actually supported, and where is reliance limited?', 'validation'],
+  ['4', 'Priority fraud scenarios / risk implications', 'What could happen if the priority conditions are not treated?', 'scenarios'],
+  ['5', 'Key control decisions', 'Which design, ownership and acceptance decisions are required?', 'controls'],
+  ['6', '30 / 60 / 90 + 12-month priorities', 'What must management do next, and how will completion be evidenced?', 'priorities'],
+  ['7', 'Board oversight / metrics', 'What should the board track at each review?', 'oversight']
+] as const;
+
+export function BOARD_READOUT_PAGE_COUNT(): number { return BOARD_PAGES.length; }
+
+export function renderBoardReadoutHtml(model: ComprehensiveDeliveryModel): string {
+  const score = model.analytical.score;
+  const summary = model.validationSummary;
+  const topFindings = model.findings.slice(0, 3);
+  const topRisks = model.riskRegister.slice(0, 3);
+  const topScenarios = model.scenarios.slice(0, 3);
+  const pages = [
+    `<section class="board-page board-cover"><div class="board-kicker">MK Fraud Readiness</div><h1>Board readout</h1><p>Comprehensive evidence review · ${short(model.analytical.organisationName)}</p><div class="board-decision">Decision context<br><strong>${short(model.managementDecisions[0]?.decision ?? 'Confirm the priority evidence, ownership and oversight actions.')}</strong></div><div class="board-footer">Confidential · ${short(model.reviewerInput.reviewer.reviewDate)}</div></section>`,
+    `<section class="board-page"><div class="board-kicker">02 · Position</div><h2>Where we stand</h2><p class="board-lede">The deterministic readiness result remains unchanged by reviewer narrative. The evidence review determines how confidently management and the board can rely on the recorded position.</p><div class="board-metrics"><div><span>Readiness</span><strong>${Math.round(score.overallScore)}</strong><small>/ 100 · ${short(score.finalMaturity)}</small></div><div><span>Exposure</span><strong>${Math.round(score.exposureScore)}</strong><small>/ 100 · ${short(score.exposureBand)}</small></div><div><span>Validated / supported</span><strong>${summary.validatedSupported}</strong><small>of ${summary.totalEvidenceItems} items</small></div><div><span>Unresolved</span><strong>${summary.unresolved}</strong><small>evidence items</small></div></div><div class="board-rule"><strong>Board reading:</strong> treat the score as the recorded self-assessment result; treat validated / supported statements as limited to the named evidence scope.</div><div class="board-footer">02 / 07 · Deterministic score and reviewer assurance are shown separately.</div></section>`,
+    `<section class="board-page"><div class="board-kicker">03 · Assurance</div><h2>What was actually validated</h2><div class="board-columns"><div><h3>Supported in review</h3>${topFindings.filter((f) => f.validationStatus === 'VALIDATED_SUPPORTED').map((f) => `<div class="board-item good"><strong>${short(f.title)}</strong><span>${short(f.reviewerObservation ?? 'Reviewer status: validated / supported.')}</span></div>`).join('') || '<p class="board-muted">No finding has been marked validated / supported in the supplied review.</p>'}</div><div><h3>Unresolved uncertainty</h3>${model.evidenceRequestPack.filter((e) => e.validationStatus === 'SELF_REPORTED' || e.validationStatus === 'NOT_VALIDATED_INSUFFICIENT').slice(0, 4).map((e) => `<div class="board-item warn"><strong>${short(e.evidenceRef)} · ${short(e.evidenceItem)}</strong><span>${short(e.reviewerNote)}</span></div>`).join('') || '<p class="board-muted">No unresolved evidence item in the supplied review.</p>'}</div></div><div class="board-footer">03 / 07 · Validated claims require a named reviewer status; insufficiency is not a finding of misconduct.</div></section>`,
+    `<section class="board-page"><div class="board-kicker">04 · Scenarios</div><h2>What could happen</h2><p class="board-lede">The scenarios below are plausible, organisation-specific pathways linked to the recorded control and exposure universe. They are not allegations.</p>${topScenarios.map((s) => `<div class="board-scenario"><div class="scenario-title">${short(s.title)}</div><div>${short(s.entryPoint)} ${short(s.fraudSequence)}</div><small>Impact: ${short(s.financialImpact)} · Warning: ${short(s.earlyWarningIndicators.join('; '))}</small></div>`).join('')}<div class="board-footer">04 / 07 · Scenario language is conditional and evidence-linked.</div></section>`,
+    `<section class="board-page"><div class="board-kicker">05 · Decisions</div><h2>Key control decisions</h2>${model.managementDecisions.slice(0, 4).map((d) => `<div class="board-decision-row"><div><strong>${short(d.decision)}</strong><span>${short(d.rationale)}</span></div><div><small>Owner</small><strong>${short(d.owner)}</strong><small>Status · ${short(d.status)}</small></div></div>`).join('') || model.leadershipDecisions.slice(0, 4).map((d) => `<div class="board-decision-row"><div><strong>${short(d.decisionRequired)}</strong><span>${short(d.recommendedDecision)}</span></div><div><small>Owner</small><strong>${short(d.accountableExecutive)}</strong><small>Target · ${short(d.targetPeriod)}</small></div></div>`).join('')}<div class="board-footer">05 / 07 · Decisions are traceable to findings, risks and evidence references in the annotated register.</div></section>`,
+    `<section class="board-page"><div class="board-kicker">06 · Priorities</div><h2>30 / 60 / 90 + 12 months</h2><div class="priority-lane">${['30 days', '60 days', '90 days'].map((period) => `<div><h3>${period}</h3>${model.roadmapActions.filter((a) => a.period === period).slice(0, 3).map((a) => `<p><strong>${short(a.deliverable)}</strong><br><small>${short(a.accountableExecutive)} · ${short(a.evidenceOfCompletion)}</small></p>`).join('') || '<p class="board-muted">No action supplied.</p>'}</div>`).join('')}</div><div class="board-rule"><strong>12-month anchor:</strong> maintain an evidence-backed control cycle, close the high-priority gaps and report the open evidence count and overdue decisions.</div><div class="board-footer">06 / 07 · Completion means operating evidence and an effectiveness measure, not a narrative update.</div></section>`,
+    `<section class="board-page"><div class="board-kicker">07 · Oversight</div><h2>What the board should track</h2><div class="board-track-grid"><div><strong>Validation coverage</strong><span>Validated / supported items ÷ total requested items.</span></div><div><strong>Unresolved evidence</strong><span>Count and age of self-reported or insufficient items.</span></div><div><strong>Action ageing</strong><span>Open, blocked and overdue management actions by owner.</span></div><div><strong>Risk movement</strong><span>Priority risk changes, accepted residual risk and scenario indicators.</span></div></div>${callout('Next board checkpoint', model.managementDecisions[0]?.targetDate ? `Review the agreed action set by ${model.managementDecisions[0].targetDate}, with evidence references and owner updates.` : 'Set the next checkpoint date and require the annotated register as the supporting pack.', 'amber')}<p class="board-muted">Methodology and limitations: this readout is bounded by the named review scope and is not a legal, forensic or certification conclusion.</p><div class="board-footer">07 / 07 · Close with decisions, owners, evidence and the next checkpoint.</div></section>`
+  ];
+  const css = `<style>
+    @page { size: A4; margin: 0; } * { box-sizing: border-box; } body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #172232; } .board-page { width: 210mm; height: 297mm; padding: 22mm 19mm 18mm; position: relative; page-break-after: always; overflow: hidden; } .board-page:last-child { page-break-after: auto; } .board-cover { background: #142f4c; color: white; display:flex; flex-direction:column; justify-content:center; } .board-kicker { text-transform:uppercase; letter-spacing:.12em; font-size:9pt; font-weight:700; color:#c77b35; margin-bottom:8mm; } .board-cover h1 { font-size:43pt; line-height:1; margin:0 0 7mm; letter-spacing:-.04em; } .board-cover p { font-size:16pt; color:#dce7f1; } .board-decision { margin-top:35mm; padding:8mm; border-left:5px solid #c77b35; background:#1d4264; font-size:10pt; } .board-decision strong { display:block; font-size:15pt; line-height:1.25; margin-top:3mm; } h2 { color:#142f4c; font-size:30pt; line-height:1.05; letter-spacing:-.03em; margin:0 0 9mm; } h3 { color:#142f4c; font-size:14pt; margin:0 0 4mm; } .board-lede { font-size:16pt; line-height:1.32; color:#304e67; max-width:164mm; } .board-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:4mm; margin:14mm 0; } .board-metrics > div { background:#f1f5f7; border-top:4px solid #142f4c; padding:5mm; min-height:33mm; } .board-metrics span,.board-metrics small { display:block; color:#62788b; font-size:8pt; } .board-metrics strong { display:block; font-size:26pt; color:#142f4c; margin:2mm 0; } .board-rule { background:#fff6e8; border-left:5px solid #c77b35; padding:6mm; margin-top:10mm; font-size:13pt; line-height:1.3; } .board-columns { display:grid; grid-template-columns:1fr 1fr; gap:10mm; } .board-item { padding:5mm 0; border-top:1px solid #d5dee4; } .board-item strong,.board-item span { display:block; } .board-item span { margin-top:2mm; color:#536676; } .board-item.good { border-top-color:#2d7c57; } .board-item.warn { border-top-color:#a93e38; } .board-scenario { border-left:4px solid #142f4c; padding:5mm 6mm; margin:5mm 0; background:#f4f7f9; } .scenario-title { font-size:14pt; font-weight:700; color:#142f4c; margin-bottom:2mm; } .board-scenario small { display:block; color:#62788b; margin-top:3mm; } .board-decision-row { display:grid; grid-template-columns:1.6fr .8fr; gap:10mm; padding:6mm 0; border-bottom:1px solid #d5dee4; } .board-decision-row strong,.board-decision-row span { display:block; } .board-decision-row span { margin-top:2mm; color:#536676; } .board-decision-row small { display:block; text-transform:uppercase; letter-spacing:.08em; color:#778895; font-size:7pt; margin:1mm 0; } .priority-lane { display:grid; grid-template-columns:repeat(3,1fr); gap:5mm; } .priority-lane > div { background:#f4f7f9; padding:5mm; min-height:95mm; border-top:4px solid #142f4c; } .priority-lane p { border-top:1px solid #d5dee4; padding-top:4mm; margin-top:4mm; } .priority-lane small { color:#62788b; } .board-track-grid { display:grid; grid-template-columns:1fr 1fr; gap:5mm; } .board-track-grid > div { border:1px solid #d5dee4; padding:6mm; min-height:35mm; } .board-track-grid strong,.board-track-grid span { display:block; } .board-track-grid span { color:#536676; margin-top:2mm; } .board-muted { color:#73828e; } .callout { padding:6mm; margin:7mm 0; border-left:5px solid #c77b35; background:#fff6e8; } .callout .callout-label { text-transform:uppercase; letter-spacing:.1em; font-size:7pt; font-weight:700; } .callout p { font-size:13pt; margin:2mm 0 0; } .board-footer { position:absolute; bottom:9mm; left:19mm; right:19mm; border-top:1px solid rgba(20,47,76,.18); padding-top:3mm; color:#788793; font-size:8pt; } .board-cover .board-footer { color:#c8d6e0; border-top-color:rgba(255,255,255,.25); }
+  </style>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Board readout</title>${css}</head><body>${pages.join('')}</body></html>`;
+}
+
