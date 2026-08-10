@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import sharp from 'sharp';
 import { comprehensiveFixtures } from '../src/lib/reports/comprehensive/fixtures.ts';
 import { buildComprehensiveDeliveryModel, renderBoardReadoutHtml, renderComprehensiveReportHtml } from '../src/lib/reports/comprehensive/index.ts';
 
@@ -43,12 +44,15 @@ async function renderPdf(html, outputPath, footerText) {
   }
 }
 
-const fixture = comprehensiveFixtures.weakOrganisationMeaningfulEvidence;
+const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'weakOrganisationMeaningfulEvidence';
+const fixture = comprehensiveFixtures[fixtureKey];
+if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
 const model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
 const reportHtml = renderComprehensiveReportHtml(model);
 const boardHtml = renderBoardReadoutHtml(model);
-const reportPath = path.join(outputDir, 'comprehensive-report-fixture.pdf');
-const boardPath = path.join(outputDir, 'comprehensive-board-readout-fixture.pdf');
+const suffix = fixtureKey === 'weakOrganisationMeaningfulEvidence' ? 'fixture' : fixtureKey.replaceAll(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+const reportPath = path.join(outputDir, `comprehensive-report-${suffix}.pdf`);
+const boardPath = path.join(outputDir, `comprehensive-board-readout-${suffix}.pdf`);
 await renderPdf(reportHtml, reportPath, 'MK Comprehensive Report · Confidential');
 await renderPdf(boardHtml, boardPath, 'MK Board Readout · Confidential');
 
@@ -59,11 +63,37 @@ const reportPages = pageCount(reportInfo);
 const boardPages = pageCount(boardInfo);
 if (boardPages < 5 || boardPages > 8) throw new Error(`Board readout page count ${boardPages} is outside the required 5-8 page bound.`);
 if (reportPages < 17) throw new Error(`Comprehensive report rendered only ${reportPages} pages; expected readable multi-section output.`);
+if (reportPages > 40) throw new Error(`Comprehensive report rendered ${reportPages} pages; the approved commercial corridor caps the dense fixture at 40.`);
 
 const renderDir = path.join(outputDir, 'renders');
 await fs.mkdir(renderDir, { recursive: true });
-await execFileAsync('pdftoppm', ['-f', '1', '-l', '1', '-png', '-r', '130', reportPath, path.join(renderDir, 'comprehensive-report-page')]);
-await execFileAsync('pdftoppm', ['-f', '1', '-l', '1', '-png', '-r', '130', boardPath, path.join(renderDir, 'board-readout-page')]);
-const result = { reportPath, reportPages, boardPath, boardPages, screenshots: [path.join(renderDir, 'comprehensive-report-page-1.png'), path.join(renderDir, 'board-readout-page-1.png')] };
+const reportPrefix = path.join(renderDir, `comprehensive-report-${suffix}-page`);
+const boardPrefix = path.join(renderDir, `board-readout-${suffix}-page`);
+await execFileAsync('pdftoppm', ['-f', '1', '-l', String(reportPages), '-png', '-r', '100', reportPath, reportPrefix]);
+await execFileAsync('pdftoppm', ['-f', '1', '-l', String(boardPages), '-png', '-r', '100', boardPath, boardPrefix]);
+
+async function contactSheet(prefix, pageCount, filename) {
+  const pagePaths = await Promise.all(Array.from({ length: pageCount }, async (_, index) => {
+    const padded = `${prefix}-${String(index + 1).padStart(2, '0')}.png`;
+    const plain = `${prefix}-${index + 1}.png`;
+    try { await fs.access(padded); return padded; } catch { return plain; }
+  }));
+  const thumbs = await Promise.all(pagePaths.map(async (pagePath) => {
+    const buffer = await sharp(pagePath).resize({ width: 260, height: 370, fit: 'contain', background: '#ffffff' }).png().toBuffer();
+    return { input: buffer };
+  }));
+  const columns = 4;
+  const rows = Math.ceil(pageCount / columns);
+  const canvas = sharp({ create: { width: columns * 270, height: rows * 390, channels: 4, background: '#e8edf1' } });
+  await canvas.composite(thumbs.map((thumb, index) => ({ ...thumb, left: (index % columns) * 270 + 5, top: Math.floor(index / columns) * 390 + 5 }))).png().toFile(path.join(renderDir, filename));
+}
+
+const reportContactSheet = path.join(renderDir, `comprehensive-report-${suffix}-contact-sheet.png`);
+const boardContactSheet = path.join(renderDir, `board-readout-${suffix}-contact-sheet.png`);
+await contactSheet(reportPrefix, reportPages, path.basename(reportContactSheet));
+await contactSheet(boardPrefix, boardPages, path.basename(boardContactSheet));
+const firstReportPage = `${reportPrefix}-01.png`;
+const firstBoardPage = `${boardPrefix}-1.png`;
+const result = { fixtureKey, reportPath, reportPages, boardPath, boardPages, screenshots: [firstReportPage, firstBoardPage], contactSheets: [reportContactSheet, boardContactSheet] };
 await fs.writeFile(path.join(outputDir, 'comprehensive-render-result.json'), JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));

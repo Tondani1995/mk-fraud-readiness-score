@@ -1,22 +1,30 @@
 import type { AssembledReportData } from '../types';
 import type { EvidenceChecklistItem, MaterialFinding } from '../evidence-model/types';
 import type {
+  BackendEvidenceStatus,
   ComprehensiveAnalyticalUniverse,
   ComprehensiveDeliveryModel,
   ComprehensiveFindingView,
   ComprehensiveReviewerInput,
+  EvidenceItemConclusion,
   EvidenceRequestPackItem,
   EvidenceValidationStatus,
   ReviewerEvidenceReview,
   ReviewerFindingReview,
   ValidationSummary
 } from './types';
+import { adaptBackendEvidenceStatus } from './types';
 
 const STATUS_ORDER: EvidenceValidationStatus[] = [
+  'NOT_REQUESTED',
+  'REQUESTED',
+  'RECEIVED',
   'SELF_REPORTED',
   'EVIDENCE_REVIEWED',
   'VALIDATED_SUPPORTED',
+  'NOT_SUPPORTED',
   'NOT_VALIDATED_INSUFFICIENT',
+  'NOT_APPLICABLE',
   'REVIEWER_JUDGEMENT'
 ];
 
@@ -43,14 +51,87 @@ function reviewForFinding(id: string, reviews: ReviewerFindingReview[]): Reviewe
   return reviews.find((review) => review.findingId === id) ?? null;
 }
 
+function backendStatusForReview(review: ReviewerEvidenceReview): BackendEvidenceStatus {
+  if (review.backendStatus) return review.backendStatus;
+  switch (review.validationStatus) {
+    case 'VALIDATED_SUPPORTED': return 'supported';
+    case 'NOT_SUPPORTED': return 'not_supported';
+    case 'NOT_VALIDATED_INSUFFICIENT': return 'insufficient';
+    case 'NOT_APPLICABLE': return 'not_applicable';
+    case 'EVIDENCE_REVIEWED': return 'reviewed';
+    default: return 'received';
+  }
+}
+
+function presentationStatusForReview(review: ReviewerEvidenceReview): EvidenceValidationStatus {
+  return review.backendStatus ? adaptBackendEvidenceStatus(review.backendStatus).presentationStatus : review.validationStatus;
+}
+
+function conclusionForEvidenceReview(review: ReviewerEvidenceReview): EvidenceItemConclusion | null {
+  if (review.reviewerConclusion) return review.reviewerConclusion;
+  switch (presentationStatusForReview(review)) {
+    case 'VALIDATED_SUPPORTED': return 'SUPPORTED';
+    case 'NOT_SUPPORTED': return 'NOT_SUPPORTED';
+    case 'NOT_VALIDATED_INSUFFICIENT': return 'INSUFFICIENT';
+    case 'NOT_APPLICABLE': return 'NOT_APPLICABLE';
+    case 'EVIDENCE_REVIEWED': return 'REVIEWED';
+    default: return null;
+  }
+}
+
+function evidenceWasActuallyReviewed(review: ReviewerEvidenceReview): boolean {
+  return review.evidenceExamined.length > 0 && ['EVIDENCE_REVIEWED', 'VALIDATED_SUPPORTED', 'NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(review));
+}
+
+function statusForFindingConclusion(conclusion: ReviewerFindingReview['reviewerConclusion']): EvidenceValidationStatus {
+  switch (conclusion) {
+    case 'SUPPORTED': return 'VALIDATED_SUPPORTED';
+    case 'NOT_SUPPORTED': return 'NOT_SUPPORTED';
+    case 'INSUFFICIENT': return 'NOT_VALIDATED_INSUFFICIENT';
+    case 'NOT_APPLICABLE': return 'NOT_APPLICABLE';
+    default: return 'EVIDENCE_REVIEWED';
+  }
+}
+
+function assertFindingReviewCoherent(
+  finding: MaterialFinding,
+  review: ReviewerFindingReview,
+  evidenceRefs: string[],
+  evidenceReviews: ReviewerEvidenceReview[]
+): void {
+  if (review.evidenceRefs.length === 0) throw new Error(`Finding review ${finding.id} must name at least one evidence reference.`);
+  const allowedRefs = new Set(evidenceRefs);
+  const linkedReviews = review.evidenceRefs.map((ref) => {
+    if (!allowedRefs.has(ref)) throw new Error(`Finding review ${finding.id} references evidence not linked to the finding: ${ref}`);
+    const evidenceReview = reviewForEvidence(ref, evidenceReviews);
+    if (!evidenceReview || !evidenceWasActuallyReviewed(evidenceReview)) throw new Error(`Finding review ${finding.id} references evidence that was not actually reviewed: ${ref}`);
+    return evidenceReview;
+  });
+  if (review.reviewerConclusion === 'SUPPORTED') {
+    const hasNegativeEvidence = linkedReviews.some((item) => ['NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(item)));
+    const hasSupportingEvidence = linkedReviews.some((item) => presentationStatusForReview(item) === 'VALIDATED_SUPPORTED');
+    const coherentResolution = Boolean(review.reviewerObservation?.trim() && review.adjustedInterpretation?.trim());
+    if (!hasSupportingEvidence && !coherentResolution) throw new Error(`Finding review ${finding.id} claims support without a supported evidence conclusion or coherent reviewer resolution.`);
+    if (hasNegativeEvidence && !coherentResolution) {
+      throw new Error(`Finding review ${finding.id} must explain how negative or insufficient evidence was resolved before claiming support.`);
+    }
+  }
+}
+
 function statusForFinding(finding: MaterialFinding, evidenceRefs: string[], evidenceReviews: ReviewerEvidenceReview[], findingReviews: ReviewerFindingReview[]): EvidenceValidationStatus {
   const direct = reviewForFinding(finding.id, findingReviews);
-  if (direct) return direct.validationStatus;
+  if (direct) {
+    assertFindingReviewCoherent(finding, direct, evidenceRefs, evidenceReviews);
+    return statusForFindingConclusion(direct.reviewerConclusion);
+  }
   const linked = evidenceReviews.filter((review) => evidenceRefs.includes(review.evidenceRef));
-  if (linked.some((review) => review.validationStatus === 'VALIDATED_SUPPORTED')) return 'VALIDATED_SUPPORTED';
-  if (linked.some((review) => review.validationStatus === 'NOT_VALIDATED_INSUFFICIENT')) return 'NOT_VALIDATED_INSUFFICIENT';
-  if (linked.some((review) => review.validationStatus === 'EVIDENCE_REVIEWED')) return 'EVIDENCE_REVIEWED';
-  if (linked.some((review) => review.validationStatus === 'REVIEWER_JUDGEMENT')) return 'REVIEWER_JUDGEMENT';
+  if (linked.some((review) => ['VALIDATED_SUPPORTED', 'EVIDENCE_REVIEWED', 'NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(review)))) {
+    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_VALIDATED_INSUFFICIENT')) return 'NOT_VALIDATED_INSUFFICIENT';
+    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_SUPPORTED')) return 'NOT_SUPPORTED';
+    if (linked.some((review) => presentationStatusForReview(review) === 'NOT_APPLICABLE')) return 'NOT_APPLICABLE';
+    return 'EVIDENCE_REVIEWED';
+  }
+  if (linked.some((review) => presentationStatusForReview(review) === 'REVIEWER_JUDGEMENT')) return 'REVIEWER_JUDGEMENT';
   return 'SELF_REPORTED';
 }
 
@@ -60,7 +141,7 @@ function buildPackItem(item: EvidenceChecklistItem, findings: MaterialFinding[],
   const linkedFindings = findings.filter((candidate) => item.linkedFindingIds.includes(candidate.id));
   const linkedDomain = [...new Set(linkedFindings.map((candidate) => candidate.domainName))].join('; ') || 'Cross-domain';
   const acceptableExamples = [...new Set(linkedFindings.flatMap((candidate) => candidate.minimumEvidenceCharacteristics))];
-  const status = review?.validationStatus ?? 'SELF_REPORTED';
+  const status = review ? presentationStatusForReview(review) : 'NOT_REQUESTED';
   return {
     evidenceRef: item.evidenceRef,
     evidenceItem: item.artefact,
@@ -75,9 +156,15 @@ function buildPackItem(item: EvidenceChecklistItem, findings: MaterialFinding[],
       const priority = priorityForFinding(candidate);
       return priority === 'HIGH' || (priority === 'MEDIUM' && highest === 'LOW') ? priority : highest;
     }, 'LOW'),
-    requestedStatus: review ? 'RECEIVED' : 'NOT_REQUESTED',
+    requestedStatus: review ? 'IN_REVIEW' : 'NOT_REQUESTED',
+    backendStatus: review ? backendStatusForReview(review) : 'not_requested',
     validationStatus: status,
     reviewerNote: clean(review?.reviewerObservation, status === 'SELF_REPORTED' ? 'No reviewer evidence note recorded.' : 'Reviewer status recorded; see reviewer observation and limitations.'),
+    actualArtefactsExamined: review?.evidenceExamined ?? [],
+    whatEvidenceDemonstrated: review?.reviewerObservation ?? null,
+    whatEvidenceDidNotDemonstrate: review?.evidenceLimitation ?? null,
+    reviewerConclusion: review ? conclusionForEvidenceReview(review) : null,
+    reviewerConfidence: review?.reviewerConfidence ?? null,
     privacyBoundary: 'Send the minimum necessary business records. Do not include personal data unless it is needed to demonstrate the control and has been approved under MK privacy procedures.'
   };
 }
@@ -102,12 +189,12 @@ function buildValidationSummary(items: EvidenceRequestPackItem[]): ValidationSum
     unresolved: 0
   } satisfies ValidationSummary;
   for (const item of items) {
-    if (item.validationStatus === 'SELF_REPORTED') summary.selfReported += 1;
+    if (['SELF_REPORTED', 'NOT_REQUESTED', 'REQUESTED', 'RECEIVED'].includes(item.validationStatus)) summary.selfReported += 1;
     if (item.validationStatus === 'EVIDENCE_REVIEWED') summary.evidenceReviewed += 1;
     if (item.validationStatus === 'VALIDATED_SUPPORTED') summary.validatedSupported += 1;
     if (item.validationStatus === 'NOT_VALIDATED_INSUFFICIENT') summary.notValidatedInsufficient += 1;
     if (item.validationStatus === 'REVIEWER_JUDGEMENT') summary.reviewerJudgement += 1;
-    if (item.validationStatus === 'SELF_REPORTED' || item.validationStatus === 'NOT_VALIDATED_INSUFFICIENT') summary.unresolved += 1;
+    if (['SELF_REPORTED', 'NOT_REQUESTED', 'REQUESTED', 'RECEIVED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_SUPPORTED'].includes(item.validationStatus)) summary.unresolved += 1;
   }
   return summary;
 }
@@ -116,6 +203,7 @@ function buildFindingView(finding: MaterialFinding, input: ComprehensiveReviewer
   const review = reviewForFinding(finding.id, input.findingReviews);
   const evidenceRefs = evidenceChecklist.filter((item) => item.linkedFindingIds.includes(finding.id)).map((item) => item.evidenceRef);
   const status = statusForFinding(finding, evidenceRefs, evidenceReviews, input.findingReviews);
+  if (review) assertFindingReviewCoherent(finding, review, evidenceRefs, evidenceReviews);
   return {
     ...finding,
     validationStatus: status,
@@ -165,6 +253,9 @@ export function buildComprehensiveDeliveryModel(
     evidenceRequestPack,
     validationSummary: buildValidationSummary(evidenceRequestPack),
     evidenceReviews: reviewerInput.evidenceReviews,
+    riskReviews: reviewerInput.riskReviews ?? [],
+    controlDesignReviews: reviewerInput.controlDesignReviews ?? [],
+    decisionReviews: reviewerInput.decisionReviews ?? [],
     findings,
     materialFindings: analytical.evidenceModel.materialFindings,
     riskRegister: analytical.evidenceModel.riskRegister,
@@ -211,13 +302,16 @@ export async function fromAssembledReportData(data: AssembledReportData, reviewe
 /** A machine-checkable guard used by fixtures and integration tests. */
 export function assertNoFalseValidation(model: ComprehensiveDeliveryModel): void {
   for (const item of model.evidenceRequestPack) {
-    if (item.validationStatus === 'VALIDATED_SUPPORTED' && !model.evidenceReviews.some((review) => review.evidenceRef === item.evidenceRef && review.validationStatus === 'VALIDATED_SUPPORTED')) {
+    if (item.validationStatus === 'VALIDATED_SUPPORTED' && !model.evidenceReviews.some((review) => review.evidenceRef === item.evidenceRef && presentationStatusForReview(review) === 'VALIDATED_SUPPORTED')) {
       throw new Error(`False validation: ${item.evidenceRef} is marked validated without a reviewer evidence review.`);
     }
   }
   for (const finding of model.findings) {
-    if (finding.validationStatus === 'VALIDATED_SUPPORTED' && finding.evidenceRefsReviewed.length === 0 && !model.reviewerInput.evidenceReviews.some((review) => review.validationStatus === 'VALIDATED_SUPPORTED')) {
-      throw new Error(`False validation: ${finding.id} has no reviewed evidence reference.`);
+    const review = reviewForFinding(finding.id, model.reviewerInput.findingReviews);
+    const evidenceRefs = model.analytical.evidenceModel.evidenceChecklist.filter((item) => item.linkedFindingIds.includes(finding.id)).map((item) => item.evidenceRef);
+    if (review) assertFindingReviewCoherent(finding, review, evidenceRefs, model.reviewerInput.evidenceReviews);
+    if (finding.validationStatus === 'VALIDATED_SUPPORTED' && (!review || review.reviewerConclusion !== 'SUPPORTED' || finding.evidenceRefsReviewed.length === 0)) {
+      throw new Error(`False validation: ${finding.id} lacks an explicit coherent reviewer-supported conclusion.`);
     }
   }
 }

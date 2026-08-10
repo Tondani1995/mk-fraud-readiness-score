@@ -55,11 +55,180 @@ const analytical: ComprehensiveAnalyticalUniverse = {
   organisationName: 'Harbourview Services (synthetic fixture)', assessmentReference: 'CMP-FIXTURE-001', generatedAt: '2026-08-10'
 };
 
+const denseFindings: MaterialFinding[] = Array.from({ length: 24 }, (_, index) => baseFinding({
+  id: `F-DENSE-${String(index + 1).padStart(2, '0')}`,
+  title: `Dense assessment control condition ${index + 1}`,
+  domainCode: `D${(index % 9) + 1}`,
+  domainName: `Dense domain ${(index % 9) + 1}`,
+  questionCode: `D${(index % 9) + 1}-Q${String(index + 1).padStart(2, '0')}`,
+  materialityScore: 96 - index * 2,
+  isCriticalControl: index < 3,
+  isHardGate: index < 2,
+  gapClassification: index < 3 ? 'critical' : index < 12 ? 'major' : 'none',
+  selectionReasons: [index < 3 ? 'CRITICAL_GAP' : 'MAJOR_GAP'],
+  targetPeriod: index % 3 === 0 ? '30 days' : index % 3 === 1 ? '60 days' : '90 days',
+  responseMeaning: index % 4 === 0 ? 'No control exists' : 'Exists only informally or inconsistently',
+  whyItMatters: `Dense fixture evidence is required to determine whether condition ${index + 1} operates across the full population.`,
+  evidenceToRequest: [`Dense evidence artefact ${index + 1}`]
+}));
+
+const denseRisks: RiskRegisterEntry[] = Array.from({ length: 16 }, (_, index) => risk({
+  id: `RISK-DENSE-${String(index + 1).padStart(2, '0')}`,
+  title: `Dense risk pathway ${index + 1}`,
+  priority: (['Critical', 'High', 'Medium', 'Low'] as const)[index % 4],
+  linkedFindingIds: [denseFindings[index % denseFindings.length].id],
+  linkedQuestionCodes: [denseFindings[index % denseFindings.length].questionCode],
+  linkedScenarioIds: [`SC-DENSE-${String(index + 1).padStart(2, '0')}`],
+  affectedDomains: [denseFindings[index % denseFindings.length].domainCode],
+  affectedDomain: denseFindings[index % denseFindings.length].domainCode,
+  targetPeriod: index % 3 === 0 ? '30 days' : index % 3 === 1 ? '60 days' : '90 days',
+  evidenceRefs: [`evidence:EVID-DENSE-${String(index + 1).padStart(2, '0')}`]
+}));
+
+const denseControls: ControlImprovementEntry[] = denseFindings.map((finding, index) => ({
+  ...control(finding),
+  linkedRiskId: denseRisks[index % denseRisks.length].id,
+  linkedRiskIds: [denseRisks[index % denseRisks.length].id],
+  evidenceRefs: [`evidence:EVID-DENSE-${String(index + 1).padStart(2, '0')}`]
+}));
+
+const denseEvidenceChecklist: EvidenceChecklistItem[] = Array.from({ length: 32 }, (_, index) => {
+  const finding = denseFindings[index % denseFindings.length];
+  const riskEntry = denseRisks[index % denseRisks.length];
+  const suffix = String(index + 1).padStart(2, '0');
+  return {
+    ...evidenceChecklist[0],
+    id: `EVID-DENSE-${suffix}`,
+    artefact: `Dense operating artefact ${index + 1}`,
+    linkedFindingIds: [finding.id],
+    linkedRiskIds: [riskEntry.id],
+    linkedQuestionCodes: [finding.questionCode],
+    linkedFindingId: finding.id,
+    linkedRiskId: riskEntry.id,
+    likelyOwner: finding.processOwner,
+    provesWhat: `Whether the condition for ${finding.questionCode} operates across the complete in-scope population.`,
+    evidenceRef: `evidence:EVID-DENSE-${suffix}`,
+    reviewStatus: 'Not yet requested'
+  };
+});
+
+const denseScenarios: PlausibleScenario[] = Array.from({ length: 10 }, (_, index) => {
+  const suffix = String(index + 1).padStart(2, '0');
+  const finding = denseFindings[index % denseFindings.length];
+  const riskEntry = denseRisks[index % denseRisks.length];
+  return {
+    ...scenarios[index % scenarios.length],
+    id: `SC-DENSE-${suffix}`,
+    title: `Dense plausible fraud pathway ${index + 1}`,
+    linkedFindingIds: [finding.id],
+    linkedQuestionCodes: [finding.questionCode],
+    linkedRiskIds: [riskEntry.id],
+    linkedRiskId: riskEntry.id,
+    evidenceRefs: [`evidence:EVID-DENSE-${suffix}`]
+  };
+});
+
+const denseRoadmapActions: RoadmapAction[] = Array.from({ length: 36 }, (_, index) => {
+  const suffix = String(index + 1).padStart(2, '0');
+  const finding = denseFindings[index % denseFindings.length];
+  const riskEntry = denseRisks[index % denseRisks.length];
+  return {
+    ...roadmapActions[index % roadmapActions.length],
+    id: `ACT-DENSE-${suffix}`,
+    period: index % 3 === 0 ? '30 days' : index % 3 === 1 ? '60 days' : '90 days',
+    domainCode: finding.domainCode,
+    domainName: finding.domainName,
+    deliverable: `Deliver dense remediation action ${index + 1} with operating evidence.`,
+    linkedFindingIds: [finding.id],
+    linkedRiskIds: [riskEntry.id],
+    dependencyIds: index === 0 ? [] : ['ACT-DENSE-01'],
+    linkedFindingId: finding.id,
+    linkedRiskId: riskEntry.id,
+    evidenceRefs: [`evidence:EVID-DENSE-${suffix}`],
+    dependency: index === 0 ? 'None' : 'ACT-DENSE-01'
+  };
+});
+
+const denseEvidenceReviews: ComprehensiveReviewerInput['evidenceReviews'] = denseEvidenceChecklist.map((item, index) => {
+  const supported = index < 8;
+  const notSupported = !supported && index % 5 === 0;
+  const insufficient = !supported && !notSupported && index % 3 === 0;
+  const status = supported ? 'VALIDATED_SUPPORTED' : notSupported ? 'NOT_SUPPORTED' : insufficient ? 'NOT_VALIDATED_INSUFFICIENT' : 'EVIDENCE_REVIEWED';
+  return {
+    evidenceRef: item.evidenceRef,
+    evidenceExamined: [`${item.artefact} export`, `${item.artefact} owner sign-off`],
+    validationStatus: status,
+    reviewerConclusion: supported ? 'SUPPORTED' : notSupported ? 'NOT_SUPPORTED' : insufficient ? 'INSUFFICIENT' : 'REVIEWED',
+    reviewerObservation: supported ? `The supplied ${item.artefact.toLowerCase()} demonstrates the named operating condition for the reviewed scope.` : `The supplied ${item.artefact.toLowerCase()} was examined for the dense fixture review.`,
+    evidenceLimitation: notSupported ? 'The artefact contradicted the recorded control position for the reviewed sample.' : insufficient ? 'Population completeness or recency could not be established.' : undefined,
+    adjustedInterpretation: supported ? 'Support is limited to the reviewed artefact and stated population.' : undefined,
+    reviewerConfidence: supported ? 'HIGH' : insufficient ? 'LOW' : 'MEDIUM'
+  };
+});
+
+const denseFindingReviews: ComprehensiveReviewerInput['findingReviews'] = denseFindings.slice(0, 8).map((finding, index) => ({
+  findingId: finding.id,
+  evidenceRefs: [denseEvidenceChecklist[index].evidenceRef],
+  reviewerConclusion: index < 4 ? 'SUPPORTED' : 'INSUFFICIENT',
+  validationStatus: index < 4 ? 'VALIDATED_SUPPORTED' : 'NOT_VALIDATED_INSUFFICIENT',
+  reviewerObservation: index < 4 ? 'The named evidence supports this finding-level conclusion for the reviewed scope.' : 'The evidence does not support an unqualified finding-level conclusion.',
+  evidenceLimitation: index < 4 ? undefined : 'The population or operating period was incomplete.',
+  adjustedInterpretation: index < 4 ? 'Retain the finding as reviewer-supported for the named scope.' : 'Retain the deterministic finding while keeping assurance bounded.',
+  agreedOwner: finding.accountableOwner,
+  agreedDueDate: finding.targetPeriod
+}));
+
+const denseLeadershipDecisions: LeadershipDecision[] = [1, 2, 3].map((index) => ({
+  ...leadershipDecisions[0],
+  id: `DEC-DENSE-${index}`,
+  decisionRequired: `Approve dense remediation decision ${index}.`,
+  linkedFindingIds: [denseFindings[index - 1].id],
+  linkedRiskIds: [denseRisks[index - 1].id],
+  evidenceRefs: [denseEvidenceChecklist[index - 1].evidenceRef]
+}));
+
+const denseManagementDecisions: ComprehensiveReviewerInput['managementDecisions'] = [1, 2, 3].map((index) => ({
+  id: `MD-DENSE-${index}`,
+  decision: `Approve the dense remediation investment and ownership decision ${index}.`,
+  rationale: `The priority condition requires a bounded decision and evidence-backed delivery plan ${index}.`,
+  linkedFindingIds: [denseFindings[index - 1].id],
+  linkedRiskIds: [denseRisks[index - 1].id],
+  owner: denseFindings[index - 1].accountableOwner,
+  targetDate: denseFindings[index - 1].targetPeriod,
+  status: 'OPEN',
+  boardDecision: `Board to approve option ${index} and review evidence at the next checkpoint.`
+}));
+
+const denseAnalytical: ComprehensiveAnalyticalUniverse = {
+  evidenceModel: { materialFindings: denseFindings, contradictions, scenarios: denseScenarios, riskRegister: denseRisks, controlImprovements: denseControls, evidenceChecklist: denseEvidenceChecklist, leadershipDecisions: denseLeadershipDecisions, roadmapActions: denseRoadmapActions, functionalAgenda: [], visibilityGaps: [] },
+  score: { overallScore: 48, calculatedMaturity: 'Initial', finalMaturity: 'Initial', exposureScore: 82, exposureBand: 'Critical', coveragePct: 100, nARatePct: 0, criticalGapCount: 3, majorGapCount: 9, capApplied: true, capReason: 'Dense fixture critical conditions recorded.', methodologyVersionId: 'fixture-v1' },
+  organisationName: 'Harbourview Services (dense synthetic fixture)',
+  assessmentReference: 'CMP-DENSE-001',
+  generatedAt: '2026-08-10'
+};
+
+const denseReviewer: ComprehensiveReviewerInput = {
+  reviewer,
+  evidenceReviews: denseEvidenceReviews,
+  findingReviews: denseFindingReviews,
+  riskReviews: denseRisks.slice(0, 8).map((riskEntry) => ({ riskId: riskEntry.id, evidenceRefs: riskEntry.evidenceRefs, reviewerInterpretation: `The deterministic ${riskEntry.priority.toLowerCase()} risk remains plausible for the reviewed dense scope.`, assuranceStatement: 'Reviewer assurance is limited to the evidence references examined.', limitation: 'No full-population operating test was performed.', reviewerConfidence: riskEntry.priority === 'Critical' ? 'HIGH' : 'MEDIUM' })),
+  controlDesignReviews: denseControls.slice(0, 8).map((controlEntry) => ({ controlId: controlEntry.id, evidenceRefsReviewed: controlEntry.evidenceRefs, designAssessment: 'The deterministic design is directionally appropriate but needs a complete population and exception path.', designGapLimitation: 'Operating effectiveness and population completeness remain to be demonstrated.', reviewerObservation: 'Human design critique recorded separately from the deterministic control design.', recommendedAdjustment: 'Add an explicit exception owner, ageing threshold and effectiveness test.' })),
+  decisionReviews: [
+    ...denseManagementDecisions.map((decision) => ({ decisionId: decision.id, viableOptions: ['Fund internal remediation capability', 'Use a bounded external specialist workstream'], keyTradeOffs: ['Speed and specialist assurance versus internal ownership and recurring cost'], reviewerRecommendation: 'Approve the option with a named owner, a first evidence deliverable and an explicit review checkpoint.', managementBoardDecision: 'Board to select the option and confirm the accountable executive.', owner: decision.owner, targetDate: decision.targetDate })),
+    ...denseLeadershipDecisions.map((decision) => ({ decisionId: decision.id, viableOptions: ['Fund internal remediation capability', 'Use a bounded external specialist workstream'], keyTradeOffs: ['Speed and specialist assurance versus internal ownership and recurring cost'], reviewerRecommendation: 'Approve the option with a named owner, a first evidence deliverable and an explicit review checkpoint.', managementBoardDecision: 'Board to select the option and confirm the accountable executive.', owner: decision.accountableExecutive, targetDate: decision.deadline }))
+  ],
+  observations: [],
+  managementDecisions: denseManagementDecisions,
+  boardDecisions: ['Approve the dense remediation investment decision and track evidence closure monthly.'],
+  signOff: { signed: true, signedAt: '2026-08-10T12:00:00Z' }
+};
+
 const baseReviewer = (evidenceReviews: ComprehensiveReviewerInput['evidenceReviews']): ComprehensiveReviewerInput => ({ reviewer, evidenceReviews, findingReviews: [], observations: [], managementDecisions: [{ id: 'MD-001', decision: 'Approve the access-review remediation mandate.', rationale: 'The control is critical and not evidenced.', linkedFindingIds: ['F-ACCESS'], linkedRiskIds: ['RISK-ACCESS'], owner: 'Chief Operating Officer', targetDate: '2026-09-09', status: 'OPEN', boardDecision: 'Board to note and track.' }], boardDecisions: ['Track unresolved evidence monthly.'], signOff: { signed: true, signedAt: '2026-08-10T12:00:00Z' } });
 
 export const comprehensiveFixtures: Record<string, { label: string; analytical: ComprehensiveAnalyticalUniverse; reviewer: ComprehensiveReviewerInput }> = {
   weakOrganisationMeaningfulEvidence: { label: 'A. Weak organisation with meaningful evidence supplied', analytical, reviewer: baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Current access review export', 'Exception log'], validationStatus: 'VALIDATED_SUPPORTED', reviewerObservation: 'The reviewed population and exception trail support the stated remediation scope.', reviewerConfidence: 'HIGH' }, { evidenceRef: 'evidence:EVID-ALERT', evidenceExamined: ['Detection tuning log'], validationStatus: 'EVIDENCE_REVIEWED', reviewerObservation: 'A tuning record was examined, but the cycle is not yet consistently evidenced.', reviewerConfidence: 'MEDIUM' }]) },
-  mixedControlContradiction: { label: 'B. Mixed control environment where evidence contradicts self-assessment', analytical, reviewer: { ...baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Access review export'], validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The export did not reconcile to the complete population.', evidenceLimitation: 'The source population was incomplete.' }]), findingReviews: [{ findingId: 'F-ACCESS', evidenceRefs: ['evidence:EVID-ACCESS'], validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The evidence does not support the recorded control position.', evidenceLimitation: 'Population completeness could not be established.', adjustedInterpretation: 'Retain the deterministic finding; do not describe the control as validated.', agreedOwner: 'Chief Operating Officer', agreedDueDate: '2026-09-09', managementResponse: 'Management will reconcile the source population.' }] } },
+  mixedControlContradiction: { label: 'B. Mixed control environment where evidence contradicts self-assessment', analytical, reviewer: { ...baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Access review export'], validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The export did not reconcile to the complete population.', evidenceLimitation: 'The source population was incomplete.' }]), findingReviews: [{ findingId: 'F-ACCESS', evidenceRefs: ['evidence:EVID-ACCESS'], reviewerConclusion: 'INSUFFICIENT', validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The evidence does not support the recorded control position.', evidenceLimitation: 'Population completeness could not be established.', adjustedInterpretation: 'Retain the deterministic finding; do not describe the control as validated.', agreedOwner: 'Chief Operating Officer', agreedDueDate: '2026-09-09', managementResponse: 'Management will reconcile the source population.' }] } },
   strongSelfReportInsufficientEvidence: { label: 'C. Strong self-reported control but insufficient evidence', analytical, reviewer: baseReviewer([{ evidenceRef: 'evidence:EVID-TRAIN', evidenceExamined: ['Training summary'], validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The summary is not enough to demonstrate complete role-based coverage.', evidenceLimitation: 'No reconciled employee and contractor population was supplied.' }]) },
-  fullVisibilityNonSystemicCase: { label: 'D. Full visibility but non-systemic case', analytical, reviewer: { ...baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Access review export'], validationStatus: 'VALIDATED_SUPPORTED', reviewerObservation: 'The reviewed sample supports the specific case scope; no conclusion is made about unrelated populations.', reviewerConfidence: 'HIGH' }]), observations: [{ id: 'OBS-001', subject: 'Specific access exception', observation: 'The reviewed exception is isolated to the supplied case and is not treated as systemic without population evidence.', validationStatus: 'REVIEWER_JUDGEMENT', linkedEvidenceRefs: ['evidence:EVID-ACCESS'], linkedFindingIds: ['F-ACCESS'], reviewerName: reviewer.name, reviewDate: reviewer.reviewDate }] } }
+  fullVisibilityNonSystemicCase: { label: 'D. Full visibility but non-systemic case', analytical, reviewer: { ...baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Access review export'], validationStatus: 'VALIDATED_SUPPORTED', reviewerObservation: 'The reviewed sample supports the specific case scope; no conclusion is made about unrelated populations.', reviewerConfidence: 'HIGH' }]), observations: [{ id: 'OBS-001', subject: 'Specific access exception', observation: 'The reviewed exception is isolated to the supplied case and is not treated as systemic without population evidence.', validationStatus: 'REVIEWER_JUDGEMENT', linkedEvidenceRefs: ['evidence:EVID-ACCESS'], linkedFindingIds: ['F-ACCESS'], reviewerName: reviewer.name, reviewDate: reviewer.reviewDate }] } },
+  denseWeakAssessment: { label: 'E. Dense weak assessment with reviewer evidence and decision trade-offs', analytical: denseAnalytical, reviewer: denseReviewer }
 };

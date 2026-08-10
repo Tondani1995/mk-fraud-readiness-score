@@ -1,10 +1,15 @@
 import type { EvidenceValidationStatus } from '@/lib/reports/comprehensive';
 
 const LABELS: Record<EvidenceValidationStatus, string> = {
+  NOT_REQUESTED: 'Not requested',
+  REQUESTED: 'Requested',
+  RECEIVED: 'Received',
   SELF_REPORTED: 'Self-reported',
   EVIDENCE_REVIEWED: 'Evidence reviewed',
   VALIDATED_SUPPORTED: 'Validated / supported',
+  NOT_SUPPORTED: 'Not supported',
   NOT_VALIDATED_INSUFFICIENT: 'Not validated / insufficient',
+  NOT_APPLICABLE: 'Not applicable',
   REVIEWER_JUDGEMENT: 'Reviewer judgement'
 };
 
@@ -20,4 +25,3 @@ export function EvidenceStatusLegend({ statuses = Object.keys(LABELS) as Evidenc
     </div>
   );
 }
-

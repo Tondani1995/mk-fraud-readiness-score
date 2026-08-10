@@ -11,7 +11,9 @@ const { SpreadsheetFile, Workbook } = requireFromBundle('@oai/artifact-tool');
 const outputDir = path.resolve(process.env.COMPREHENSIVE_OUTPUT_DIR ?? './outputs/comprehensive');
 await fs.mkdir(outputDir, { recursive: true });
 
-const fixture = comprehensiveFixtures.weakOrganisationMeaningfulEvidence;
+const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'weakOrganisationMeaningfulEvidence';
+const fixture = comprehensiveFixtures[fixtureKey];
+if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
 const model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
 const sheets = buildComprehensiveRegisterSheets(model);
 const workbook = Workbook.create();
@@ -40,17 +42,21 @@ summary.getRange('A3:B8').format.borders = { preset: 'outside', style: 'thin', c
 summary.getRange('D3:F3').merge();
 summary.getRange('D3').values = [['Status vocabulary']];
 summary.getRange('D3:F3').format = { fill: amber, font: { bold: true, color: '#FFFFFF' } };
-summary.getRange('D4:F8').values = [
+summary.getRange('D4:F12').values = [
   ['SELF_REPORTED', 'Recorded assessment answer', 'Not independently supported'],
   ['EVIDENCE_REVIEWED', 'Artefact examined', 'Not automatically validated'],
   ['VALIDATED_SUPPORTED', 'Named reviewer support', 'Only for stated scope'],
   ['NOT_VALIDATED_INSUFFICIENT', 'Evidence limitation', 'Reliance remains bounded'],
-  ['REVIEWER_JUDGEMENT', 'Human interpretation', 'Distinct from deterministic score']
+  ['NOT_SUPPORTED', 'Reviewer conclusion: not supported', 'Distinct from insufficient'],
+  ['NOT_APPLICABLE', 'Reviewer conclusion: not applicable', 'Not evidence of support'],
+  ['NOT_REQUESTED / REQUESTED / RECEIVED', 'Backend request lifecycle', 'Not equivalent to support'],
+  ['REVIEWER_JUDGEMENT', 'Human interpretation', 'Distinct from evidence status'],
+  ['Backend mapping', 'supported → VALIDATED_SUPPORTED', 'not_supported → NOT_SUPPORTED; insufficient → NOT_VALIDATED_INSUFFICIENT']
 ];
-summary.getRange('D4:F8').format = { wrapText: true, borders: { preset: 'all', style: 'thin', color: grid } };
-summary.getRange('A10:F10').merge();
-summary.getRange('A10').values = [['Full analytical universe retained in sheets; this summary is a navigation and QA layer.']];
-summary.getRange('A10:F10').format = { fill: '#fff6e8', font: { italic: true, color: '#6d4c1d' }, wrapText: true };
+summary.getRange('D4:F12').format = { wrapText: true, borders: { preset: 'all', style: 'thin', color: grid } };
+summary.getRange('A14:F14').merge();
+summary.getRange('A14').values = [['Full analytical universe retained in sheets; this summary is a navigation and QA layer.']];
+summary.getRange('A14:F14').format = { fill: '#fff6e8', font: { italic: true, color: '#6d4c1d' }, wrapText: true };
 summary.getRange('A:A').format.columnWidth = 30;
 summary.getRange('B:B').format.columnWidth = 31;
 summary.getRange('C:C').format.columnWidth = 3;
@@ -81,13 +87,26 @@ for (const sheetData of sheets) {
   sheet.freezePanes.freezeRows(1);
 }
 
-// All referenced worksheets exist before cross-sheet formulas are written.
-summary.getRange('B7').formulas = [["=COUNTIF('Evidence Validation'!K2:K1000,\"VALIDATED_SUPPORTED\")"]];
-summary.getRange('B8').formulas = [["=COUNTIF('Evidence Validation'!K2:K1000,\"SELF_REPORTED\")+COUNTIF('Evidence Validation'!K2:K1000,\"NOT_VALIDATED_INSUFFICIENT\")"]];
+// All referenced worksheets exist before cross-sheet formulas are written. Resolve the
+// validation column by header so new backend-status columns cannot silently break the QA layer.
+function excelColumn(index) {
+  let number = index + 1;
+  let result = '';
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    number = Math.floor((number - 1) / 26);
+  }
+  return result;
+}
+const evidenceSheetData = sheets.find((sheet) => sheet.name === 'Evidence Validation');
+const validationColumn = excelColumn(evidenceSheetData.columns.indexOf('validationStatus'));
+summary.getRange('B7').formulas = [[`=COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"VALIDATED_SUPPORTED")`]];
+summary.getRange('B8').formulas = [[`=COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"SELF_REPORTED")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_REQUESTED")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_VALIDATED_INSUFFICIENT")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_SUPPORTED")`]];
 
 const scan = await workbook.inspect({ kind: 'match', searchTerm: '#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A', options: { useRegex: true, maxResults: 300 }, summary: 'Comprehensive workbook formula error scan' });
-const summaryInspect = await workbook.inspect({ kind: 'table', range: 'Summary!A1:F10', include: 'values,formulas', tableMaxRows: 12, tableMaxCols: 8 });
-const qa = { fixture: fixture.label, sheets: sheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows.length, columns: sheet.columns.length })), formulaErrorScan: scan.ndjson, summaryInspect: summaryInspect.ndjson };
+const summaryInspect = await workbook.inspect({ kind: 'table', range: 'Summary!A1:F14', include: 'values,formulas', tableMaxRows: 16, tableMaxCols: 8 });
+const qa = { fixtureKey, fixture: fixture.label, sheets: sheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows.length, columns: sheet.columns.length })), formulaErrorScan: scan.ndjson, summaryInspect: summaryInspect.ndjson };
 await fs.writeFile(path.join(outputDir, 'comprehensive-register-qa.json'), JSON.stringify(qa, null, 2));
 
 for (const sheetData of ['Summary', ...sheets.map((sheet) => sheet.name)]) {
