@@ -50,7 +50,7 @@ const roadmapActions: RoadmapAction[] = [
 ];
 
 const analytical: ComprehensiveAnalyticalUniverse = {
-  evidenceModel: { materialFindings: findings, contradictions, scenarios, riskRegister, controlImprovements: findings.map(control), evidenceChecklist, leadershipDecisions, roadmapActions, functionalAgenda: [] },
+  evidenceModel: { materialFindings: findings, contradictions, scenarios, riskRegister, controlImprovements: findings.map(control), evidenceChecklist, leadershipDecisions, roadmapActions, functionalAgenda: [], visibilityGaps: [] },
   score: { overallScore: 61, calculatedMaturity: 'Developing', finalMaturity: 'Developing', exposureScore: 66, exposureBand: 'High', coveragePct: 100, nARatePct: 0, criticalGapCount: 1, majorGapCount: 1, capApplied: true, capReason: 'Critical access control condition recorded.', methodologyVersionId: 'fixture-v1' },
   organisationName: 'Harbourview Services (synthetic fixture)', assessmentReference: 'CMP-FIXTURE-001', generatedAt: '2026-08-10'
 };
@@ -63,4 +63,3 @@ export const comprehensiveFixtures: Record<string, { label: string; analytical: 
   strongSelfReportInsufficientEvidence: { label: 'C. Strong self-reported control but insufficient evidence', analytical, reviewer: baseReviewer([{ evidenceRef: 'evidence:EVID-TRAIN', evidenceExamined: ['Training summary'], validationStatus: 'NOT_VALIDATED_INSUFFICIENT', reviewerObservation: 'The summary is not enough to demonstrate complete role-based coverage.', evidenceLimitation: 'No reconciled employee and contractor population was supplied.' }]) },
   fullVisibilityNonSystemicCase: { label: 'D. Full visibility but non-systemic case', analytical, reviewer: { ...baseReviewer([{ evidenceRef: 'evidence:EVID-ACCESS', evidenceExamined: ['Access review export'], validationStatus: 'VALIDATED_SUPPORTED', reviewerObservation: 'The reviewed sample supports the specific case scope; no conclusion is made about unrelated populations.', reviewerConfidence: 'HIGH' }]), observations: [{ id: 'OBS-001', subject: 'Specific access exception', observation: 'The reviewed exception is isolated to the supplied case and is not treated as systemic without population evidence.', validationStatus: 'REVIEWER_JUDGEMENT', linkedEvidenceRefs: ['evidence:EVID-ACCESS'], linkedFindingIds: ['F-ACCESS'], reviewerName: reviewer.name, reviewDate: reviewer.reviewDate }] } }
 };
-
