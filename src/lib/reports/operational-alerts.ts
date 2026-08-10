@@ -247,6 +247,11 @@ type CategoryPresentation = {
 };
 
 const CATEGORY_PRESENTATION: Record<string, CategoryPresentation> = {
+  comprehensive_evidence_orphan_object: {
+    summary: 'A Comprehensive evidence file was uploaded to private storage, its database row failed to save, and the automatic cleanup of that object also failed.',
+    recoveryGuidance: 'The object is orphaned: it exists in the private comprehensive-evidence bucket with no evidence row describing it, so no reviewer, retention or erasure process will ever reach it. Remove it manually using the bucket and storage path shown here. The customer’s upload did not succeed, so they will need to submit the evidence again.',
+    safeDetailKeys: ['bucket', 'storage_path', 'engagement_id', 'order_id', 'reason', 'cleanup_error']
+  },
   provider_event_payload_conflict: {
     summary: 'A provider (Resend) sent two different payloads for the same event ID.',
     recoveryGuidance: 'Do not resend. Compare the two payloads in the provider dashboard for this event ID before deciding whether to trust either.',

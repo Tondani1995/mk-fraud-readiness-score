@@ -320,17 +320,40 @@ check('order creation refuses any tier that is not self-service paid', () => {
   assert.match(route, /isSelfServicePaidTier\(body\?\.tier\)/);
   const service = read('src/lib/commercial/order-service.ts');
   assert.match(service, /tier_not_self_service/);
-  // The order amount comes from the price version, never from the catalogue constant directly.
-  assert.match(service, /amount_cents: priceVersion\.priceCents/);
-  assert.match(service, /product_price_version_id: priceVersion\.id/);
-  assert.match(service, /price_version_mismatch/);
+  // Creation goes through the one transactional primitive. The amount is never sent as a value to
+  // store -- it is sent as the contract this build compiled against, and the database refuses the
+  // write if its own current price version disagrees.
+  assert.match(service, /db\.rpc\('create_paid_order'/);
+  assert.match(service, /p_expected_amount_cents: product\.priceCents/);
+  assert.match(service, /p_expected_product_code: product\.productCode/);
+  assert.match(service, /paid_order_catalogue_contract_mismatch/);
+  // No direct order insert survives in the application.
+  assert.doesNotMatch(service, /from\('orders'\)[\s\S]{0,200}\.insert\(/);
 });
 
-check('Essential order creation resolves its product by code, not by display order', () => {
+check('Essential order creation resolves its product by code and uses the same safe primitive', () => {
   const source = read('src/lib/orders/manual-eft-orders.ts');
   assert.match(source, /eq\('product_code', ESSENTIAL_PRODUCT_CODE\)/);
   assert.doesNotMatch(source, /order\('display_order'/);
-  assert.match(source, /amount_cents: priceVersion\.priceCents/);
+  // Essential creates through create_paid_order() too, so both tiers share one transactional path.
+  assert.match(source, /db\.rpc\('create_paid_order'/);
+  assert.match(source, /p_expected_amount_cents: ESSENTIAL_PRICE_CENTS/);
+  assert.doesNotMatch(source, /from\('orders'\)[\s\S]{0,200}\.insert\(/);
+});
+
+check('the transactional primitive is the only way the application creates a paid order', () => {
+  const migration = read('supabase/migrations/20260810124000_joint_launch_atomic_paid_order.sql');
+  // The locks that make concurrent Comprehensive creation safe.
+  assert.match(migration, /from public\.assessments where id = p_assessment_id for update/);
+  assert.match(migration, /where product_code = p_expected_product_code for share/);
+  assert.match(migration, /where product_id = v_product\.id and effective_to is null\n  for share/);
+  // The stale-deployment guard.
+  assert.match(migration, /paid_order_catalogue_contract_mismatch/);
+  // The engagement is created in the same transaction as its order.
+  assert.match(migration, /insert into public\.comprehensive_engagements/);
+  // INVOKER, so the RC1 freeze trigger still applies during the cutover.
+  assert.match(migration, /joint_launch_atomic_paid_order_must_not_be_security_definer/);
+  assert.doesNotMatch(migration, /security definer/);
 });
 
 console.log(`\njoint-launch product contract: ${checks} checks passed.`);

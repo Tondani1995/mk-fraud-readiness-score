@@ -148,7 +148,9 @@ for (const category of [
   'delivery_finalization_replay_conflict', 'storage_cleanup_verification_failed',
   'delivery_complaint', 'delivery_permanent_bounce', 'report_download_object_missing',
   'report_download_object_size_invalid', 'report_download_checksum_mismatch',
-  'report_email_checksum_mismatch'
+  'report_email_checksum_mismatch',
+  // Joint launch: an orphaned Comprehensive evidence object needs operator-facing guidance too.
+  'comprehensive_evidence_orphan_object'
 ]) {
   const presentation = getOperationalAlertPresentation(category);
   ok(typeof presentation.summary === 'string' && presentation.summary.length > 0, `${category} has a non-empty summary`);

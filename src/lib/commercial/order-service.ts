@@ -2,7 +2,6 @@ import { trackAssessmentEvent } from '@/lib/analytics/assessment-events';
 import { queueInternalNotification } from '@/lib/notifications/internal-notifications';
 import { buildEftInstructionSnapshot, formatOrderAmount } from '@/lib/orders/eft-instructions';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { COMPREHENSIVE_INITIAL_STATE } from './comprehensive-lifecycle';
 import {
   paidProductForTier,
   tierForProductCode,
@@ -30,7 +29,6 @@ export type PaidOrderCreationReason =
   | 'product_inactive'
   | 'price_version_missing'
   | 'price_version_mismatch'
-  | 'engagement_already_active'
   | 'order_insert_failed';
 
 export type PaidOrderCreationResult =
@@ -54,12 +52,6 @@ export type PaidOrderCreationResult =
 
 function service() {
   return createSupabaseServiceClient() as any;
-}
-
-function makeOrderReference() {
-  const year = new Date().getUTCFullYear();
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `MKORD-${year}-${random}`;
 }
 
 function paymentReferenceFor(orderReference: string) {
@@ -89,16 +81,37 @@ export async function loadPriceVersionsForProduct(db: any, productId: string): P
   return (data ?? []).map(toPriceVersion);
 }
 
-async function loadCatalogueProduct(db: any, productCode: string) {
-  const { data, error } = await db
-    .from('products')
-    .select('id,product_code,name,price_cents,currency,requires_payment_verification,delivery_mode,active')
-    .eq('product_code', productCode)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ?? null;
+/**
+ * Maps a Postgres error raised by create_paid_order() to a typed reason. The RPC raises named,
+ * stable errors precisely so the route can report a specific cause instead of a generic failure.
+ */
+function reasonForRpcError(message: string): PaidOrderCreationReason {
+  if (message.includes('paid_order_tier_not_self_service')) return 'tier_not_self_service';
+  if (message.includes('paid_order_product_not_found')) return 'product_missing';
+  if (message.includes('paid_order_product_inactive')) return 'product_inactive';
+  if (message.includes('paid_order_open_price_version_invalid')) return 'price_version_missing';
+  if (message.includes('paid_order_price_version_not_effective')) return 'price_version_missing';
+  if (message.includes('paid_order_catalogue_contract_mismatch')) return 'price_version_mismatch';
+  if (message.includes('paid_order_price_entitlement_inconsistent')) return 'price_version_mismatch';
+  if (message.includes('paid_order_assessment_not_found')) return 'product_missing';
+  return 'order_insert_failed';
 }
 
+/**
+ * Creates a paid order for the chosen tier through one transactional database primitive.
+ *
+ * Atomicity is the whole point: the order, the Comprehensive engagement and the authoritative
+ * creation trail commit together or not at all, under a lock on the assessment row. Two concurrent
+ * Comprehensive requests for one assessment therefore produce exactly one order and one engagement
+ * -- the loser observes the winner's engagement and returns it, rather than leaving behind an
+ * orphaned R35,000 order with no engagement.
+ *
+ * The amount is never sent by this function as a value to store. It is sent as the contract this
+ * build compiled against, and the database refuses the write if its own current price version
+ * disagrees -- which is what stops a stale deployment writing a mispriced order after a reprice.
+ *
+ * Notifications and analytics run AFTER the commit, deliberately outside the transaction.
+ */
 export async function createPaidOrderForAssessment(input: {
   tier: unknown;
   assessment: any;
@@ -119,225 +132,86 @@ export async function createPaidOrderForAssessment(input: {
   const tier = product.tier as SelfServicePaidTier;
   const db = service();
 
-  const catalogueRow = await loadCatalogueProduct(db, product.productCode);
-  if (!catalogueRow) {
-    return { ok: false, reason: 'product_missing', message: `Product ${product.productCode} is not present in the catalogue.` };
-  }
-  if (catalogueRow.active !== true) {
-    return { ok: false, reason: 'product_inactive', message: `Product ${product.productCode} is not active.` };
-  }
-
-  const versions = await loadPriceVersionsForProduct(db, catalogueRow.id);
-  const current = versions.filter((version) => version.effectiveTo === null);
-  if (current.length !== 1) {
-    return {
-      ok: false,
-      reason: 'price_version_missing',
-      message: `Product ${product.productCode} does not have exactly one current price version.`
-    };
-  }
-  const priceVersion = current[0];
-
-  // The catalogue module and the database must agree about what this product costs right now. A
-  // divergence means one of them has been edited without the other, and creating an order at either
-  // value would be guessing.
-  if (priceVersion.priceCents !== product.priceCents || priceVersion.currency !== product.currency) {
-    return {
-      ok: false,
-      reason: 'price_version_mismatch',
-      message: `The current ${product.label} price version does not match the authoritative catalogue price.`
-    };
-  }
-
-  if (tier === 'comprehensive') {
-    const { data: liveEngagement } = await db
-      .from('comprehensive_engagements')
-      .select('id,state,order_id,orders:order_id(order_reference,status,amount_cents,currency,product_name)')
-      .eq('assessment_id', input.assessment.id)
-      .neq('state', 'cancelled')
-      .maybeSingle();
-
-    if (liveEngagement) {
-      const order = Array.isArray(liveEngagement.orders) ? liveEngagement.orders[0] : liveEngagement.orders;
-      return {
-        ok: true,
-        created: false,
-        tier,
-        orderId: liveEngagement.order_id,
-        orderReference: order?.order_reference ?? '',
-        productCode: product.productCode,
-        productName: order?.product_name ?? product.label,
-        amountCents: order?.amount_cents ?? priceVersion.priceCents,
-        currency: order?.currency ?? priceVersion.currency,
-        amountDisplay: formatOrderAmount(order?.amount_cents ?? priceVersion.priceCents, order?.currency ?? priceVersion.currency),
-        status: order?.status ?? 'awaiting_payment',
-        paymentReference: paymentReferenceFor(order?.order_reference ?? ''),
-        engagementId: liveEngagement.id,
-        engagementState: liveEngagement.state
-      };
-    }
-  }
-
-  const organisationName = input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation';
-  const respondentEmail = input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null;
+  // A read, and safe to do before the transaction: the snapshot is an immutable copy of whatever
+  // EFT profile is active now, and the order row stores it verbatim.
   const eftSnapshot = await buildEftInstructionSnapshot();
 
-  let inserted: any = null;
-  let lastError: any = null;
-  for (let attempt = 0; attempt < 3 && !inserted; attempt += 1) {
-    const { data, error } = await db
-      .from('orders')
-      .insert({
-        order_reference: makeOrderReference(),
-        assessment_id: input.assessment.id,
-        report_request_id: input.dataRequest?.id ?? null,
-        product_id: catalogueRow.id,
-        product_name: product.label,
-        product_price_version_id: priceVersion.id,
-        amount_cents: priceVersion.priceCents,
-        currency: priceVersion.currency,
-        status: 'awaiting_payment',
-        requested_by_respondent_id: input.assessment.primary_respondent_id,
-        customer_email: respondentEmail,
-        customer_name: input.respondent?.full_name ?? null,
-        organisation_name: organisationName,
-        eft_instructions_snapshot: eftSnapshot
-      })
-      .select('id,order_reference,status,product_name,amount_cents,currency,created_at')
-      .single();
-    if (!error) inserted = data;
-    lastError = error;
+  const { data, error } = await db.rpc('create_paid_order', {
+    p_tier: tier,
+    p_assessment_id: input.assessment.id,
+    p_expected_product_code: product.productCode,
+    p_expected_amount_cents: product.priceCents,
+    p_expected_currency: product.currency,
+    p_report_request_id: input.dataRequest?.id ?? null,
+    p_customer_email: input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null,
+    p_customer_name: input.respondent?.full_name ?? null,
+    p_organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
+    p_product_name: product.label,
+    p_eft_instructions_snapshot: eftSnapshot,
+    p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
+    p_assessment_reference: input.assessment.assessment_reference ?? null
+  });
+
+  if (error) {
+    const message = String(error.message ?? '');
+    return { ok: false, reason: reasonForRpcError(message), message: message || `The ${product.label} order could not be created.` };
+  }
+  if (!data) {
+    return { ok: false, reason: 'order_insert_failed', message: `The ${product.label} order could not be created.` };
   }
 
-  if (!inserted) {
-    return {
-      ok: false,
-      reason: 'order_insert_failed',
-      message: lastError?.message ?? `The ${product.label} order could not be created.`
-    };
-  }
+  const created = data.created === true;
 
-  let engagementId: string | null = null;
-  let engagementState: string | null = null;
-
-  if (tier === 'comprehensive') {
-    const { data: engagement, error: engagementError } = await db
-      .from('comprehensive_engagements')
-      .insert({
-        order_id: inserted.id,
-        assessment_id: input.assessment.id,
-        organisation_id: input.assessment.organisation_id ?? null,
-        state: COMPREHENSIVE_INITIAL_STATE
-      })
-      .select('id,state')
-      .single();
-
-    if (engagementError) {
-      // The unique index on (assessment_id) where state <> 'cancelled' is the authority; a race
-      // that loses it means another request already opened the engagement.
-      return {
-        ok: false,
-        reason: 'engagement_already_active',
-        message: 'A Comprehensive engagement already exists for this assessment.'
-      };
-    }
-
-    engagementId = engagement.id;
-    engagementState = engagement.state;
-
-    await db.from('comprehensive_engagement_events').insert({
-      engagement_id: engagement.id,
-      event_type: 'engagement_created',
-      new_state: engagement.state,
-      actor_type: 'respondent_token',
-      metadata_json: {
-        order_reference: inserted.order_reference,
-        assessment_reference: input.assessment.assessment_reference,
-        product_code: product.productCode,
-        amount_cents: inserted.amount_cents
-      }
-    });
-  }
-
-  await db.from('order_events').insert({
-    order_id: inserted.id,
-    event_type: 'order_created_from_report_request',
-    new_status: inserted.status,
-    metadata_json: {
-      actor_type: 'respondent_token',
+  // Post-commit only. A notification failure must never undo an authoritative commercial write, so
+  // these run after the transaction and their outcome does not change the result.
+  if (created) {
+    const metadata = {
       assessment_reference: input.assessment.assessment_reference,
+      order_reference: data.order_reference,
       tier,
       product_code: product.productCode,
-      product_price_version_id: priceVersion.id,
-      payment_gateway: false,
-      proof_upload: false,
-      report_unlock: false
-    }
-  });
+      amount_cents: data.amount_cents
+    };
 
-  await db.from('audit_logs').insert({
-    actor_type: 'respondent_token',
-    assessment_id: input.assessment.id,
-    entity_table: 'orders',
-    entity_id: inserted.id,
-    action: 'paid_order_created',
-    after_json: {
-      order_reference: inserted.order_reference,
-      tier,
-      product_code: product.productCode,
-      amount_cents: inserted.amount_cents,
-      currency: inserted.currency,
-      product_price_version_id: priceVersion.id,
-      status: inserted.status
-    }
-  });
-
-  const metadata = {
-    assessment_reference: input.assessment.assessment_reference,
-    order_reference: inserted.order_reference,
-    tier,
-    product_code: product.productCode,
-    amount_cents: inserted.amount_cents
-  };
-
-  await Promise.all([
-    trackAssessmentEvent({
-      eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
-      assessmentId: input.assessment.id,
-      organisationId: input.assessment.organisation_id,
-      respondentId: input.assessment.primary_respondent_id,
-      orderId: inserted.id,
-      dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: tier,
-      metadata
-    }),
-    queueInternalNotification({
-      notificationType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
-      assessmentId: input.assessment.id,
-      organisationId: input.assessment.organisation_id,
-      respondentId: input.assessment.primary_respondent_id,
-      orderId: inserted.id,
-      dataRequestId: input.dataRequest?.id ?? null,
-      optionCode: tier,
-      metadata
-    })
-  ]);
+    await Promise.all([
+      trackAssessmentEvent({
+        eventType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
+        assessmentId: input.assessment.id,
+        organisationId: input.assessment.organisation_id,
+        respondentId: input.assessment.primary_respondent_id,
+        orderId: data.order_id,
+        dataRequestId: input.dataRequest?.id ?? null,
+        optionCode: tier,
+        metadata
+      }),
+      queueInternalNotification({
+        notificationType: tier === 'comprehensive' ? 'comprehensive_order_created' : 'eft_order_created',
+        assessmentId: input.assessment.id,
+        organisationId: input.assessment.organisation_id,
+        respondentId: input.assessment.primary_respondent_id,
+        orderId: data.order_id,
+        dataRequestId: input.dataRequest?.id ?? null,
+        optionCode: tier,
+        metadata
+      })
+    ]);
+  }
 
   return {
     ok: true,
-    created: true,
+    created,
     tier,
-    orderId: inserted.id,
-    orderReference: inserted.order_reference,
-    productCode: product.productCode,
-    productName: inserted.product_name,
-    amountCents: inserted.amount_cents,
-    currency: inserted.currency,
-    amountDisplay: formatOrderAmount(inserted.amount_cents, inserted.currency),
-    status: inserted.status,
-    paymentReference: paymentReferenceFor(inserted.order_reference),
-    engagementId,
-    engagementState
+    orderId: data.order_id,
+    orderReference: data.order_reference,
+    productCode: data.product_code,
+    productName: data.product_name,
+    amountCents: data.amount_cents,
+    currency: data.currency,
+    amountDisplay: formatOrderAmount(data.amount_cents, data.currency),
+    status: data.status,
+    paymentReference: paymentReferenceFor(data.order_reference),
+    engagementId: data.engagement_id ?? null,
+    engagementState: data.engagement_state ?? null
   };
 }
 

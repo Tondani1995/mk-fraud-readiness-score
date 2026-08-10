@@ -82,8 +82,16 @@ jobs:
       - name: Comprehensive lifecycle, evidence intake and security
         run: npm run joint-launch:test-comprehensive
 
+      - name: Evidence storage compensation (upload/insert/cleanup failure matrix)
+        run: npm run joint-launch:test-evidence-compensation
+
       - name: Full migration replay on a disposable Postgres
         run: npm run joint-launch:test-migration-replay
+
+      # Concurrency, freeze-gated cutover ordering and stale-deployment refusal, proved by executing
+      # two simultaneous transactions on two connections against a real Postgres.
+      - name: Transactional safety (concurrency, cutover ordering, orphan prevention)
+        run: npm run joint-launch:test-transactional-safety
 
       - name: Existing commercial and entitlement suites
         run: |
@@ -94,3 +102,5 @@ jobs:
           npm run phase13:test-conversion
           npm run phase14:test-report-engine
           npm run phase1:test-stabilisation
+          npm run rc1:test-synthetic-notification-contract
+          npm run release-d:test-operational-alerts

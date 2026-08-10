@@ -5,8 +5,7 @@ import { queueInternalNotification } from '@/lib/notifications/internal-notifica
 import { recordPhase1OrderNotifications } from '@/lib/notifications/phase1-order-notifications';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions } from '@/lib/orders/eft-instructions';
-import { ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
-import { loadPriceVersionsForProduct } from '@/lib/commercial/order-service';
+import { COMMERCIAL_CURRENCY, ESSENTIAL_PRICE_CENTS, ESSENTIAL_PRODUCT_CODE } from '@/lib/commercial/product-catalogue';
 import type { AdminSession } from '@/lib/auth/admin-route';
 
 export { buildEftInstructionSnapshot, formatOrderAmount, getActiveEftInstructions };
@@ -50,12 +49,6 @@ function normaliseStatus(status: string | null | undefined): ManualOrderStatus {
 
 function paymentReference(orderReference: string) {
   return orderReference.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
-}
-
-function makeOrderReference() {
-  const year = new Date().getUTCFullYear();
-  const random = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `MKORD-${year}-${random}`;
 }
 
 /**
@@ -167,93 +160,60 @@ export async function createOrGetOrderForReportRequest(input: {
     return toCustomerOrder(existing.data);
   }
 
+  // Creation goes through the one transactional primitive (create_paid_order), so the order, its
+  // price-version binding and its authoritative creation trail commit together. Nothing here reads
+  // a price constant: the RPC is told which catalogue contract this build compiled against and
+  // refuses the write if the database disagrees.
   const product = await getEssentialProduct(db);
   if (!product) return null;
 
-  // The order's amount is the CURRENT price version, and the order records which version it was
-  // sold under. Nothing here reads a price constant, and a later catalogue change mints a new
-  // version rather than rewriting this one -- so this order stays entitled forever.
-  const priceVersions = await loadPriceVersionsForProduct(db, product.id);
-  const currentPriceVersions = priceVersions.filter((version) => version.effectiveTo === null);
-  if (currentPriceVersions.length !== 1) {
-    throw new Error('Essential does not have exactly one current price version.');
-  }
-  const priceVersion = currentPriceVersions[0];
-
-  const organisationName = input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation';
-  const respondentName = input.respondent?.full_name ?? null;
-  const respondentEmail = input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null;
   const eftSnapshot = await buildEftInstructionSnapshot();
 
-  let inserted: any = null;
-  let lastError: any = null;
+  const { data: created, error: createError } = await db.rpc('create_paid_order', {
+    p_tier: 'essential',
+    p_assessment_id: input.assessment.id,
+    p_expected_product_code: ESSENTIAL_PRODUCT_CODE,
+    p_expected_amount_cents: ESSENTIAL_PRICE_CENTS,
+    p_expected_currency: COMMERCIAL_CURRENCY,
+    p_report_request_id: input.dataRequest?.id ?? null,
+    p_customer_email: input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null,
+    p_customer_name: input.respondent?.full_name ?? null,
+    p_organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
+    p_product_name: product.name,
+    p_eft_instructions_snapshot: eftSnapshot,
+    p_requested_by_respondent_id: input.assessment.primary_respondent_id ?? null,
+    p_assessment_reference: input.assessment.assessment_reference ?? null
+  });
 
-  for (let attempt = 0; attempt < 3 && !inserted; attempt += 1) {
-    const { data, error } = await db
-      .from('orders')
-      .insert({
-        order_reference: makeOrderReference(),
-        assessment_id: input.assessment.id,
-        report_request_id: input.dataRequest?.id ?? null,
-        product_id: product.id,
-        product_name: product.name,
-        product_price_version_id: priceVersion.id,
-        amount_cents: priceVersion.priceCents,
-        currency: priceVersion.currency,
-        status: 'awaiting_payment',
-        requested_by_respondent_id: input.assessment.primary_respondent_id,
-        customer_email: respondentEmail,
-        customer_name: respondentName,
-        organisation_name: organisationName,
-        eft_instructions_snapshot: eftSnapshot
-      })
-      .select('id,order_reference,status,product_name,amount_cents,currency,customer_email,customer_name,organisation_name,created_at,eft_instructions_snapshot')
-      .single();
+  if (createError) throw new Error(createError.message ?? 'Order could not be created.');
+  if (!created) throw new Error('Order could not be created.');
 
-    if (!error) inserted = data;
-    lastError = error;
-  }
+  const inserted = {
+    id: created.order_id,
+    order_reference: created.order_reference,
+    status: created.status,
+    product_name: created.product_name,
+    amount_cents: created.amount_cents,
+    currency: created.currency,
+    customer_email: input.respondent?.email ?? input.dataRequest?.requested_by_email ?? null,
+    customer_name: input.respondent?.full_name ?? null,
+    organisation_name: input.organisation?.legal_name ?? input.organisation?.trading_name ?? 'Organisation',
+    created_at: new Date().toISOString(),
+    eft_instructions_snapshot: eftSnapshot
+  };
 
-  if (!inserted) throw new Error(lastError?.message ?? 'Order could not be created.');
-
-  await db.from('order_events').insert([
-    {
-      order_id: inserted.id,
-      event_type: 'assessment_completed',
-      note: 'Assessment completion is linked to this order.',
-      metadata_json: {
-        actor_type: 'system',
-        assessment_reference: input.assessment.assessment_reference
-      },
-      created_at: input.assessment.submitted_at ?? inserted.created_at
+  // create_paid_order() already wrote the order_created_from_report_request event and the audit row
+  // inside the transaction. The assessment-completion marker is a presentational backdated event
+  // and stays here, post-commit.
+  await db.from('order_events').insert({
+    order_id: inserted.id,
+    event_type: 'assessment_completed',
+    note: 'Assessment completion is linked to this order.',
+    metadata_json: {
+      actor_type: 'system',
+      assessment_reference: input.assessment.assessment_reference
     },
-    {
-      order_id: inserted.id,
-      event_type: 'order_created_from_report_request',
-      new_status: inserted.status,
-      metadata_json: {
-        actor_type: 'respondent_token',
-        assessment_reference: input.assessment.assessment_reference,
-        data_request_id: input.dataRequest?.id ?? null,
-        payment_gateway: false,
-        proof_upload: false,
-        report_unlock: false
-      }
-    }
-  ]);
-
-  await db.from('audit_logs').insert({
-    actor_type: 'respondent_token',
-    assessment_id: input.assessment.id,
-    entity_table: 'orders',
-    entity_id: inserted.id,
-    action: 'manual_eft_order_created',
-    after_json: {
-      order_reference: inserted.order_reference,
-      product_name: inserted.product_name,
-      status: inserted.status,
-      report_unlock: false
-    }
+    created_at: input.assessment.submitted_at ?? inserted.created_at
   });
 
   await trackEftOrderEvent(input, inserted, true);

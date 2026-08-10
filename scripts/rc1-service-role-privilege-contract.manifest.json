@@ -469,7 +469,7 @@
     {
       "schema": "public",
       "table": "orders",
-      "required": "SIU",
+      "required": "SU",
       "stagingCurrent": "0000",
       "productionCurrent": "1111",
       "classification": "DIRECT SERVICE-ROLE ACCESS REQUIRED",
@@ -482,7 +482,6 @@
         "src/lib/fulfilment/delivery-worker.ts:132 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:490 SIU",
         "src/lib/notifications/phase1-order-notifications.ts:540 SIU",
-        "src/lib/orders/manual-eft-orders.ts:201 SIU",
         "src/lib/orders/manual-eft-orders.ts:232 SIU",
         "src/lib/orders/manual-eft-orders.ts:315 SIU",
         "src/lib/orders/manual-eft-orders.ts:339 SIU",
@@ -493,7 +492,7 @@
         "src/lib/reports/email/premium-report-admin-initiation.ts:92 SIU",
         "src/lib/reports/email/premium-report-preview-development.ts:83 SIU"
       ],
-      "justification": "Order creation, admin/payment state and fulfilment binding."
+      "justification": "Order creation, admin/payment state and fulfilment binding. JOINT LAUNCH: order creation moved into the transactional create_paid_order() RPC, so the application no longer performs this INSERT directly. The RPC is SECURITY INVOKER and runs as service_role, so the underlying grant must remain -- only the direct application call site is gone. That is a reduction in the application's blast radius, not in what the database permits."
     },
     {
       "schema": "public",
@@ -907,16 +906,15 @@
     {
       "schema": "public",
       "table": "comprehensive_engagements",
-      "required": "SIU",
+      "required": "SU",
       "stagingCurrent": "0000",
       "productionCurrent": "0000",
       "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT STATE",
       "sources": [
-        "src/lib/commercial/order-service.ts SI",
         "src/lib/comprehensive/engagement-service.ts SU",
         "src/lib/comprehensive/evidence-service.ts S"
       ],
-      "justification": "Comprehensive order creation opens the engagement (INSERT); reviewer assignment and lifecycle transitions update it (UPDATE); every read model selects it. DELETE is withheld: an engagement is never removed, it is cancelled, and cancellation is a state transition the database trigger governs."
+      "justification": "Reviewer assignment and lifecycle transitions update the engagement (UPDATE); every read model selects it. The engagement INSERT now happens inside create_paid_order(), in the same transaction as its order, so the application no longer inserts it directly. DELETE is withheld: an engagement is never removed, it is cancelled, and cancellation is a state transition the database trigger governs."
     },
     {
       "schema": "public",
@@ -926,11 +924,10 @@
       "productionCurrent": "0000",
       "classification": "JOINT LAUNCH COMPREHENSIVE ENGAGEMENT AUDIT (APPEND ONLY)",
       "sources": [
-        "src/lib/commercial/order-service.ts I",
         "src/lib/comprehensive/engagement-service.ts I",
         "src/lib/comprehensive/evidence-service.ts I"
       ],
-      "justification": "Append-only audit trail of engagement creation, reviewer assignment, state transitions and sign-off. The grant is INSERT only and a trigger rejects UPDATE and DELETE, so the trail cannot be rewritten even by the service role."
+      "justification": "Append-only audit trail of reviewer assignment, state transitions and sign-off. The creation event is written inside create_paid_order(). The grant is INSERT only and a trigger rejects UPDATE and DELETE, so the trail cannot be rewritten even by the service role."
     },
     {
       "schema": "public",
@@ -1430,6 +1427,16 @@
       "sources": [
         "src/lib/reports/phase14-security.ts:317 dynamic resolution"
       ]
+    },
+    {
+      "signature": "public.create_paid_order(text, uuid, text, integer, text, uuid, text, text, text, text, jsonb, uuid, text)",
+      "securityMode": "INVOKER",
+      "searchPath": "pg_catalog, public",
+      "sources": [
+        "src/lib/commercial/order-service.ts",
+        "src/lib/orders/manual-eft-orders.ts"
+      ],
+      "justification": "Transactional paid-order creation. INVOKER rather than DEFINER so it grants no privilege the caller lacks and every existing control still applies -- in particular the RC1 operational-freeze trigger on public.orders, which the joint-launch cutover depends on to keep order creation impossible while migrations and deployment land."
     }
   ],
   "nonServiceRpcClassifications": {
@@ -1504,7 +1511,8 @@
     "src/lib/reports/supporting-register-delivery.ts:97",
     "src/lib/reports/customer-report-access.ts:234",
     "src/lib/reports/customer-report-access.ts:278",
-    "src/lib/comprehensive/evidence-service.ts:163"
+    "src/lib/comprehensive/evidence-service.ts:124",
+    "src/lib/comprehensive/evidence-service.ts:247"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1567,7 +1575,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "0905cb276233b11053c4147e19177d7be61c248c337e5faf42220be406a0673d"
+    "fullAstInventorySha256": "5d854683dd9c4fd4feeda848a83f01ae5a3532901f540ef00559a8b9322ae15a"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
@@ -1578,8 +1586,9 @@
     "branch": "parallel/joint-launch-core-products",
     "reason": "The joint Essential + Comprehensive launch adds a commercial price-version contract, a Comprehensive engagement lifecycle and a client evidence intake. Each brings new direct service-role table operations, which changes the AST inventory hash and therefore requires this manual privilege review.",
     "principle": "Each new table receives the narrowest verb set an actual call site needs. No new table receives DELETE. Both audit tables are INSERT-only by grant AND rejected on UPDATE/DELETE by trigger. product_price_versions is SELECT-only because prices are minted by migration, never by application code.",
-    "storageApiReview": "One new Storage call site: src/lib/comprehensive/evidence-service.ts uploads a client evidence file to the private 'comprehensive-evidence' bucket. Upload only - no getPublicUrl and no createSignedUrl anywhere in the lane. Access is governed by the Storage API plus the bucket's public=false and the deny-by-default storage.objects RLS posture, so no public-table grant is inferred.",
+    "storageApiReview": "Two Storage call sites in the lane, both in src/lib/comprehensive/evidence-service.ts: an UPLOAD of a client evidence file to the private 'comprehensive-evidence' bucket, and the compensating REMOVE of exactly that one object when its database insert definitively fails. The remove names a single server-derived path in a one-element array -- never a prefix, never a listing, never a client-supplied path -- so it cannot reach another customer's evidence. No getPublicUrl and no createSignedUrl anywhere in the lane. Access is governed by the Storage API plus the bucket's public=false and the deny-by-default storage.objects RLS posture, so no public-table grant is inferred, and no DELETE right is granted on any evidence database table.",
     "anonAuthenticatedPrivilege": "None on any new table. Verified executably, not by inspection, in scripts/joint-launch-migration-replay-tests.mjs against a real Postgres.",
-    "securityDefiner": "None. All five joint-launch functions are SECURITY INVOKER with an explicit search_path; asserted in the same replay suite."
+    "securityDefiner": "None. All five joint-launch functions are SECURITY INVOKER with an explicit search_path; asserted in the same replay suite.",
+    "transactionalClosureReview": "Paid-order creation moved into public.create_paid_order(), a SECURITY INVOKER transactional RPC. Direct application INSERTs on public.orders and public.comprehensive_engagements are therefore gone; both tables' required verb sets shrink accordingly. The grants themselves are unchanged, because an INVOKER function executes with the caller's privileges. No privilege was widened anywhere by this change."
   }
 }

@@ -103,6 +103,90 @@ function cleanText(value: unknown, maxLength: number) {
 /** States in which a customer may still add evidence. */
 const EVIDENCE_ACCEPTING_STATES = ['payment_received', 'evidence_requested', 'evidence_received', 'in_review'];
 
+export type EvidenceCompensationResult = { removed: boolean; errorMessage: string | null };
+
+/**
+ * Deletes exactly one evidence object after its database insert definitively failed.
+ *
+ * Scoped deliberately narrowly: a single explicit path, passed as a one-element array. There is no
+ * prefix delete, no listing, and no path derived from anything the client supplied -- `storagePath`
+ * is the value this process just generated server-side and uploaded to. A bug here must not be able
+ * to reach another customer's evidence.
+ */
+export async function compensateOrphanedEvidenceObject(input: {
+  db: any;
+  storagePath: string;
+  engagementId: string;
+  orderId: string;
+  assessmentId: string;
+}): Promise<EvidenceCompensationResult> {
+  try {
+    const { error } = await input.db.storage
+      .from(COMPREHENSIVE_EVIDENCE_BUCKET)
+      .remove([input.storagePath]);
+    if (error) return { removed: false, errorMessage: String(error.message ?? 'evidence_object_delete_failed') };
+    return { removed: true, errorMessage: null };
+  } catch (error) {
+    return { removed: false, errorMessage: error instanceof Error ? error.message : 'evidence_object_delete_failed' };
+  }
+}
+
+/**
+ * Records an operational reconciliation alert for an evidence object that survived both a failed
+ * insert and a failed compensating delete.
+ *
+ * The payload carries only the bucket, the server-derived storage path and the engagement/order
+ * identifiers -- no customer name, no email address, no filename, no URL of any kind. That is
+ * exactly what an operator needs to locate and remove the object, and nothing more.
+ *
+ * Alerting must never mask the original failure, so a failure to alert is swallowed and logged
+ * rather than thrown.
+ */
+export async function raiseEvidenceOrphanAlert(input: {
+  db: any;
+  storagePath: string;
+  engagementId: string;
+  orderId: string;
+  cleanupError: string | null;
+}): Promise<{ raised: boolean }> {
+  try {
+    const { error } = await input.db.rpc('record_phase14_operational_alert', {
+      p_alert_key: `comprehensive_evidence_orphan:${COMPREHENSIVE_EVIDENCE_BUCKET}:${input.storagePath}`,
+      p_category: 'comprehensive_evidence_orphan_object',
+      p_severity: 'warning',
+      p_detail_json: {
+        bucket: COMPREHENSIVE_EVIDENCE_BUCKET,
+        storage_path: input.storagePath,
+        engagement_id: input.engagementId,
+        order_id: input.orderId,
+        reason: 'evidence_row_insert_failed_and_object_cleanup_failed',
+        cleanup_error: input.cleanupError ?? 'unknown'
+      }
+    });
+    if (error) {
+      console.error('comprehensive evidence orphan alert could not be recorded', { message: error.message });
+      return { raised: false };
+    }
+    return { raised: true };
+  } catch (error) {
+    console.error('comprehensive evidence orphan alert threw', {
+      message: error instanceof Error ? error.message : 'unknown'
+    });
+    return { raised: false };
+  }
+}
+
+/**
+ * Injectable dependencies, matching the ManualPhase1Dependencies idiom already used by
+ * phase1-manual-fulfilment.ts. Production passes nothing and gets the real service client; the
+ * compensation tests pass a recording double so the failure paths are exercised as behaviour.
+ */
+export type ComprehensiveEvidenceDependencies = {
+  client?: () => any;
+  /** Post-commit analytics. Injectable so the compensation tests stay fully offline. */
+  trackEvent?: typeof trackAssessmentEvent;
+};
+
 export async function submitComprehensiveEvidence(input: {
   /** Already token-validated by the caller. */
   assessment: { id: string; assessment_reference: string; organisation_id: string | null; primary_respondent_id: string | null };
@@ -112,7 +196,7 @@ export async function submitComprehensiveEvidence(input: {
   sizeBytes: unknown;
   evidenceLabel?: unknown;
   fileBody: ArrayBuffer | Uint8Array;
-}): Promise<{ ok: true; evidence: EvidenceItem } | EvidenceFailure> {
+}, deps: ComprehensiveEvidenceDependencies = {}): Promise<{ ok: true; evidence: EvidenceItem } | EvidenceFailure> {
   const acceptance = evaluateEvidenceUpload({
     filename: input.filename,
     contentType: input.contentType,
@@ -122,7 +206,7 @@ export async function submitComprehensiveEvidence(input: {
     return { ok: false, reason: 'rejected_by_policy', message: acceptance.message };
   }
 
-  const db = service();
+  const db = (deps.client ?? service)();
 
   // The engagement is resolved FROM the token-validated assessment. Nothing the caller sends can
   // redirect this to a different engagement.
@@ -195,6 +279,31 @@ export async function submitComprehensiveEvidence(input: {
     .single();
 
   if (insertError) {
+    // The object is already in private storage but nothing describes it, so it must not be left
+    // behind. Compensate by deleting EXACTLY the path just uploaded -- never a list, never a
+    // prefix, never another evidence object.
+    const compensation = await compensateOrphanedEvidenceObject({
+      db,
+      storagePath,
+      engagementId: engagement.id,
+      orderId: engagement.order_id,
+      assessmentId: engagement.assessment_id
+    });
+
+    if (!compensation.removed) {
+      // Cleanup itself failed, so the object really is orphaned. Raise a reconciliation alert
+      // carrying only safe identifiers so an operator can find and remove it by hand.
+      await raiseEvidenceOrphanAlert({
+        db,
+        storagePath,
+        engagementId: engagement.id,
+        orderId: engagement.order_id,
+        cleanupError: compensation.errorMessage
+      });
+    }
+
+    // The caller always sees the original database failure. Compensation is an internal concern and
+    // never changes the reported cause.
     return { ok: false, reason: 'write_failed', message: insertError.message };
   }
 
@@ -225,7 +334,7 @@ export async function submitComprehensiveEvidence(input: {
     }
   });
 
-  await trackAssessmentEvent({
+  await (deps.trackEvent ?? trackAssessmentEvent)({
     eventType: 'comprehensive_evidence_submitted',
     assessmentId: engagement.assessment_id,
     organisationId: organisationId ?? null,

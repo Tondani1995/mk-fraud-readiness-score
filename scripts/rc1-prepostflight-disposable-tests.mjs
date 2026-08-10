@@ -100,7 +100,9 @@ const pending = [
   '20260810120000_joint_launch_product_catalogue.sql',
   '20260810121000_joint_launch_comprehensive_lifecycle.sql',
   '20260810122000_joint_launch_comprehensive_evidence.sql',
-  '20260810123000_joint_launch_versioned_price_entitlement.sql'
+  '20260810123000_joint_launch_versioned_price_entitlement.sql',
+  '20260810124000_joint_launch_atomic_paid_order.sql',
+  '20260810125000_joint_launch_evidence_orphan_alert.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],
