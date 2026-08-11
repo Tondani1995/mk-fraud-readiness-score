@@ -30,7 +30,7 @@ for (const [key, fixture] of Object.entries(comprehensiveFixtures)) {
   const report = renderComprehensiveReportHtml(model);
   const board = renderBoardReadoutHtml(model);
   assert.match(report, /Evidence-validation summary/);
-  assert.match(report, /SELF-REPORTED|VALIDATED \/ SUPPORTED/);
+  assert.match(report, /Self-reported position|Evidence reviewed/);
   assert.match(board, /Board readout/);
   assert.equal((board.match(/class="board-page/g) ?? []).length, BOARD_READOUT_PAGE_COUNT(), `${key}: board readout page count`);
   const presentation = buildExecutivePresentationModel(model);

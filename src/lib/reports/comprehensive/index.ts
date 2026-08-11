@@ -2,6 +2,7 @@ export * from './types';
 export * from './contract';
 export * from './register';
 export * from './presentation-model';
+export * from './workshop';
 export * from './projection';
 export * from './persisted-review-adapter';
 export * from './artifact-contract';

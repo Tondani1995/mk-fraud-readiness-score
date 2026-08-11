@@ -227,6 +227,7 @@ export function FreeSnapshotCard({
               <ValueList title="Free readiness snapshot" items={commercialInsights.freeSnapshotValue} />
               <ValueList title="Full MK Fraud Readiness Report" items={commercialInsights.paidReportValue} />
             </div>
+            <p className="mt-4 text-sm leading-6 text-mk-muted">The paid report includes a 30/60/90-day roadmap so management can turn the findings into owned next steps.</p>
           </section>
 
           <TrackedSection snapshot={snapshot} snapshotUrl={snapshotUrl} eventType="report_options_opened" sourceSection="report_options" id="report-options" className="rounded-2xl border border-mk-charcoal/15 bg-mk-cream/60 p-5">

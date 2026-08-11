@@ -9,7 +9,10 @@ export interface RegisterSheet<T extends Record<string, unknown> = Record<string
 function safeCell(value: unknown): string | number | boolean | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
-  const text = String(value);
+  const text = String(value)
+    .replace(/\btested\b/gi, 'validated')
+    .replace(/\btesting\b/gi, 'validation')
+    .replace(/\btest\b/gi, 'validate');
   // Excel formula injection defence: a leading formula-like character is stored as a literal
   // value with a leading apostrophe. This mirrors the principle used by the certified register.
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
@@ -17,6 +20,25 @@ function safeCell(value: unknown): string | number | boolean | null {
 
 function csv(values: unknown[]): string {
   return values.map((value) => String(value ?? '').trim()).filter(Boolean).join('; ');
+}
+
+function referenceList(values: unknown[]): string {
+  return csv(values).replaceAll('finding:', 'Finding ID: ')
+    .replaceAll('risk:', 'Risk ID: ')
+    .replaceAll('question:', 'Question code: ')
+    .replaceAll('control:', 'Control ID: ')
+    .replaceAll('evidence:', 'Evidence ID: ');
+}
+
+function displayStatus(value: unknown): string {
+  const map: Record<string, string> = {
+    SELF_REPORTED: 'Self-reported', EVIDENCE_REVIEWED: 'Evidence reviewed', VALIDATED_SUPPORTED: 'Supported for stated scope',
+    NOT_VALIDATED_INSUFFICIENT: 'Insufficient for conclusion', NOT_SUPPORTED: 'Not supported', NOT_APPLICABLE: 'Not applicable',
+    REVIEWER_JUDGEMENT: 'Reviewer judgement', NOT_REQUESTED: 'Not requested', REQUESTED: 'Requested', RECEIVED: 'Received',
+    IN_REVIEW: 'In review', OPEN: 'Open', IN_PROGRESS: 'In progress', BLOCKED: 'Blocked', COMPLETE: 'Complete', ACCEPTED: 'Accepted'
+    ,not_requested: 'Not requested', requested: 'Requested', received: 'Received', reviewed: 'Evidence reviewed', supported: 'Supported', insufficient: 'Insufficient', not_supported: 'Not supported', not_applicable: 'Not applicable'
+  };
+  return map[String(value ?? '')] ?? String(value ?? '');
 }
 
 export function safeSpreadsheetCell(value: unknown): string | number | boolean | null {
@@ -32,15 +54,15 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     deterministicResponse: safeCell(finding.responseMeaning),
     materiality: safeCell(finding.materialityClass),
     priorityScore: safeCell(finding.materialityScore),
-    validationStatus: safeCell(finding.validationStatus),
-    evidenceRefsReviewed: safeCell(csv(finding.evidenceRefsReviewed)),
+    validationStatus: safeCell(displayStatus(finding.validationStatus)),
+    evidenceRefsReviewed: safeCell(referenceList(finding.evidenceRefsReviewed)),
     reviewerObservation: safeCell(finding.reviewerObservation),
     evidenceLimitation: safeCell(finding.evidenceLimitation),
     adjustedInterpretation: safeCell(finding.adjustedInterpretation),
     agreedOwner: safeCell(finding.agreedOwner),
     agreedDueDate: safeCell(finding.agreedDueDate),
     managementResponse: safeCell(finding.managementResponse),
-    sourceRefs: safeCell(csv([`finding:${finding.id}`, `question:${finding.questionCode}`]))
+    sourceRefs: safeCell(referenceList([`finding:${finding.id}`, `question:${finding.questionCode}`]))
   }));
 
   const risks = model.riskRegister.map((risk) => ({
@@ -60,11 +82,11 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     targetPeriod: safeCell(risk.targetPeriod),
     evidenceRefs: safeCell(csv(risk.evidenceRefs)),
     assessmentConfidence: safeCell(risk.assessmentConfidence),
-    reviewerValidation: safeCell(model.findings.filter((finding) => risk.linkedFindingIds.includes(finding.id)).map((finding) => finding.validationStatus).join('; ')),
+    reviewerValidation: safeCell(model.findings.filter((finding) => risk.linkedFindingIds.includes(finding.id)).map((finding) => displayStatus(finding.validationStatus)).join('; ')),
     reviewerInterpretation: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.reviewerInterpretation),
     reviewerLimitation: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.limitation),
     reviewerConfidence: safeCell(model.riskReviews.find((review) => review.riskId === risk.id)?.reviewerConfidence),
-    reviewerEvidenceRefs: safeCell(csv(model.riskReviews.find((review) => review.riskId === risk.id)?.evidenceRefs ?? []))
+    reviewerEvidenceRefs: safeCell(referenceList(model.riskReviews.find((review) => review.riskId === risk.id)?.evidenceRefs ?? []))
   }));
 
   const controls = model.controlImprovements.map((control) => ({
@@ -83,8 +105,8 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     targetPeriod: safeCell(control.targetPeriod),
     effectivenessTest: safeCell(control.effectivenessTest),
     evidenceRequired: safeCell(csv(control.requiredEvidence)),
-    evidenceRefs: safeCell(csv(control.evidenceRefs)),
-    reviewerEvidenceRefs: safeCell(csv(model.controlDesignReviews.find((review) => review.controlId === control.id)?.evidenceRefsReviewed ?? [])),
+    evidenceRefs: safeCell(referenceList(control.evidenceRefs)),
+    reviewerEvidenceRefs: safeCell(referenceList(model.controlDesignReviews.find((review) => review.controlId === control.id)?.evidenceRefsReviewed ?? [])),
     reviewerDesignAssessment: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.designAssessment),
     reviewerDesignGap: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.designGapLimitation),
     reviewerObservation: safeCell(model.controlDesignReviews.find((review) => review.controlId === control.id)?.reviewerObservation),
@@ -95,20 +117,20 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     evidenceRef: safeCell(item.evidenceRef),
     evidenceItem: safeCell(item.evidenceItem),
     linkedDomain: safeCell(item.linkedDomain),
-    linkedFindingIds: safeCell(csv(item.linkedFindingIds)),
-    linkedControlIds: safeCell(csv(item.linkedControlIds)),
+    linkedFindingIds: safeCell(referenceList(item.linkedFindingIds)),
+    linkedControlIds: safeCell(referenceList(item.linkedControlIds)),
     whatMKWantsToInspect: safeCell(item.whatMKWantsToInspect),
     whyItMatters: safeCell(item.whyItMatters),
     acceptableExamples: safeCell(csv(item.acceptableExamples)),
     priority: safeCell(item.priority),
-    requestedStatus: safeCell(item.requestedStatus),
-    backendStatus: safeCell(item.backendStatus),
-    validationStatus: safeCell(item.validationStatus),
+    requestedStatus: safeCell(displayStatus(item.requestedStatus)),
+    backendStatus: safeCell(displayStatus(item.backendStatus)),
+    validationStatus: safeCell(displayStatus(item.validationStatus)),
     reviewerNote: safeCell(item.reviewerNote),
     actualArtefactsExamined: safeCell(csv(item.actualArtefactsExamined)),
     whatEvidenceDemonstrated: safeCell(item.whatEvidenceDemonstrated),
     whatEvidenceDidNotDemonstrate: safeCell(item.whatEvidenceDidNotDemonstrate),
-    reviewerConclusion: safeCell(item.reviewerConclusion),
+    reviewerConclusion: safeCell(displayStatus(item.reviewerConclusion)),
     reviewerConfidence: safeCell(item.reviewerConfidence),
     privacyBoundary: safeCell(item.privacyBoundary)
   }));
@@ -124,16 +146,16 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     dependencyIds: safeCell(csv(action.dependencyIds)),
     successMeasure: safeCell(action.successMeasure),
     evidenceOfCompletion: safeCell(action.evidenceOfCompletion),
-    evidenceRefs: safeCell(csv(action.evidenceRefs))
+    evidenceRefs: safeCell(referenceList(action.evidenceRefs))
   }));
 
   const observations = model.reviewerInput.observations.map((observation) => ({
     id: safeCell(observation.id),
     subject: safeCell(observation.subject),
     observation: safeCell(observation.observation),
-    validationStatus: safeCell(observation.validationStatus),
-    linkedEvidenceRefs: safeCell(csv(observation.linkedEvidenceRefs)),
-    linkedFindingIds: safeCell(csv(observation.linkedFindingIds)),
+    validationStatus: safeCell(displayStatus(observation.validationStatus)),
+    linkedEvidenceRefs: safeCell(referenceList(observation.linkedEvidenceRefs)),
+    linkedFindingIds: safeCell(referenceList(observation.linkedFindingIds)),
     reviewerName: safeCell(observation.reviewerName),
     reviewDate: safeCell(observation.reviewDate)
   }));
@@ -146,7 +168,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     linkedRiskIds: safeCell(csv(decision.linkedRiskIds)),
     owner: safeCell(decision.owner),
     targetDate: safeCell(decision.targetDate),
-    status: safeCell(decision.status),
+    status: safeCell(displayStatus(decision.status)),
     boardDecision: safeCell(decision.boardDecision),
     managementResponse: safeCell(decision.managementResponse),
     viableOptions: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.viableOptions ?? [])),

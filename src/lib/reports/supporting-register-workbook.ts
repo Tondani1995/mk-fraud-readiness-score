@@ -38,7 +38,10 @@ export const SUPPORTING_REGISTER_SHEETS = [
 function text(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.join('; ');
-  return String(value);
+  return String(value)
+    .replace(/\btested\b/gi, 'validated')
+    .replace(/\btesting\b/gi, 'validation')
+    .replace(/\btest\b/gi, 'validate');
 }
 
 /** v4 Column contract: { header, cell } -- NOT the v3 { column, value } shape. */
@@ -46,6 +49,16 @@ type Column<T> = { header: string; cell: (row: T) => string | number | null };
 
 function stringColumn<T>(header: string, read: (row: T) => unknown): Column<T> {
   return { header, cell: (row) => text(read(row)) };
+}
+
+/** Technical identifiers are retained verbatim in dedicated traceability columns. */
+function technicalStringColumn<T>(header: string, read: (row: T) => unknown): Column<T> {
+  return { header, cell: (row) => {
+    const value = read(row);
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) return value.join('; ');
+    return String(value);
+  } };
 }
 
 /** Row builders. Each sheet is a flat projection of one complete L1 collection. */
@@ -57,9 +70,9 @@ export function supportingRegisterSheetData(
 
   const findings = model.materialFindings;
   const findingsSchema: Column<(typeof findings)[number]>[] = [
-    stringColumn('Finding ID', (row) => row.id),
-    stringColumn('Question code', (row) => row.questionCode),
-    stringColumn('Domain code', (row) => row.domainCode),
+    technicalStringColumn('Finding ID', (row) => row.id),
+    technicalStringColumn('Question code', (row) => row.questionCode),
+    technicalStringColumn('Domain code', (row) => row.domainCode),
     stringColumn('Domain', (row) => row.domainName),
     stringColumn('Control statement', (row) => row.questionPrompt),
     stringColumn('Recorded response', (row) => row.responseMeaning),
@@ -79,7 +92,7 @@ export function supportingRegisterSheetData(
 
   const risks = model.riskRegister;
   const risksSchema: Column<(typeof risks)[number]>[] = [
-    stringColumn('Risk ID', (row) => row.id),
+    technicalStringColumn('Risk ID', (row) => row.id),
     stringColumn('Title', (row) => row.title),
     stringColumn('Priority', (row) => row.priority),
     stringColumn('Likelihood', (row) => row.likelihood),
@@ -88,16 +101,16 @@ export function supportingRegisterSheetData(
     stringColumn('Risk event', (row) => row.riskEvent),
     stringColumn('Current control position', (row) => row.currentControlPosition),
     stringColumn('Required treatment', (row) => row.requiredTreatment),
-    stringColumn('Linked findings', (row) => row.linkedFindingIds),
-    stringColumn('Linked question codes', (row) => row.linkedQuestionCodes),
-    stringColumn('Affected domains', (row) => row.affectedDomains),
+    technicalStringColumn('Linked findings', (row) => row.linkedFindingIds),
+    technicalStringColumn('Linked question codes', (row) => row.linkedQuestionCodes),
+    technicalStringColumn('Affected domains', (row) => row.affectedDomains),
     stringColumn('Accountable executive', (row) => row.accountableExecutive)
   ];
 
   const carsSchema: Column<(typeof controlActionRecords)[number]>[] = [
-    stringColumn('Control action ID', (row) => row.id),
-    stringColumn('Primary question code', (row) => row.primaryQuestionCode),
-    stringColumn('Contributing question codes', (row) => row.contributingQuestionCodes),
+    technicalStringColumn('Control action ID', (row) => row.id),
+    technicalStringColumn('Primary question code', (row) => row.primaryQuestionCode),
+    technicalStringColumn('Contributing question codes', (row) => row.contributingQuestionCodes),
     stringColumn('Domain', (row) => row.domainName),
     stringColumn('Current state', (row) => row.currentState),
     stringColumn('Expected standard', (row) => row.expectedStandard),
@@ -108,66 +121,66 @@ export function supportingRegisterSheetData(
     stringColumn('Oversight function', (row) => row.oversightFunction),
     stringColumn('Target period', (row) => row.targetPeriod),
     stringColumn('Escalation threshold', (row) => row.escalationThreshold),
-    stringColumn('Linked findings', (row) => row.linkedFindingIds),
-    stringColumn('Linked risks', (row) => row.linkedRiskIds),
-    stringColumn('Linked roadmap actions', (row) => row.linkedRoadmapActionIds),
+    technicalStringColumn('Linked findings', (row) => row.linkedFindingIds),
+    technicalStringColumn('Linked risks', (row) => row.linkedRiskIds),
+    technicalStringColumn('Linked roadmap actions', (row) => row.linkedRoadmapActionIds),
     stringColumn('Aggregated', (row) => row.aggregated)
   ];
 
   const controls = model.controlImprovements;
   const controlsSchema: Column<(typeof controls)[number]>[] = [
-    stringColumn('Control improvement ID', (row) => row.id),
-    stringColumn('Linked finding', (row) => row.linkedFindingId),
-    stringColumn('Linked question code', (row) => row.linkedQuestionCode),
+    technicalStringColumn('Control improvement ID', (row) => row.id),
+    technicalStringColumn('Linked finding', (row) => row.linkedFindingId),
+    technicalStringColumn('Linked question code', (row) => row.linkedQuestionCode),
     stringColumn('Control objective', (row) => row.controlObjective),
     stringColumn('Current state', (row) => row.currentState),
     stringColumn('Target state', (row) => row.targetState),
     stringColumn('Control design', (row) => row.controlDesign),
     stringColumn('Accountable executive', (row) => row.accountableExecutive),
-    stringColumn('Linked risks', (row) => row.linkedRiskIds)
+    technicalStringColumn('Linked risks', (row) => row.linkedRiskIds)
   ];
 
   const evidence = model.evidenceChecklist;
   const evidenceSchema: Column<(typeof evidence)[number]>[] = [
-    stringColumn('Evidence ID', (row) => row.id),
+    technicalStringColumn('Evidence ID', (row) => row.id),
     stringColumn('Artefact', (row) => row.artefact),
     stringColumn('What it proves', (row) => row.provesWhat),
     stringColumn('Likely owner', (row) => row.likelyOwner),
     stringColumn('Expected recency', (row) => row.expectedRecency),
     stringColumn('Minimum acceptable characteristics', (row) => row.minimumAcceptableCharacteristics),
-    stringColumn('Linked findings', (row) => row.linkedFindingIds),
-    stringColumn('Linked risks', (row) => row.linkedRiskIds),
-    stringColumn('Linked question codes', (row) => row.linkedQuestionCodes)
+    technicalStringColumn('Linked findings', (row) => row.linkedFindingIds),
+    technicalStringColumn('Linked risks', (row) => row.linkedRiskIds),
+    technicalStringColumn('Linked question codes', (row) => row.linkedQuestionCodes)
   ];
 
   const roadmap = model.roadmapActions;
   const roadmapSchema: Column<(typeof roadmap)[number]>[] = [
-    stringColumn('Action ID', (row) => row.id),
+    technicalStringColumn('Action ID', (row) => row.id),
     stringColumn('Period', (row) => row.period),
     stringColumn('Domain', (row) => row.domainName),
     stringColumn('Deliverable', (row) => row.deliverable),
     stringColumn('Accountable executive', (row) => row.accountableExecutive),
     stringColumn('Process owner', (row) => row.processOwner),
     stringColumn('Oversight function', (row) => row.oversightFunction),
-    stringColumn('Dependencies', (row) => row.dependencyIds),
-    stringColumn('Linked findings', (row) => row.linkedFindingIds),
-    stringColumn('Linked risks', (row) => row.linkedRiskIds),
+    technicalStringColumn('Dependencies', (row) => row.dependencyIds),
+    technicalStringColumn('Linked findings', (row) => row.linkedFindingIds),
+    technicalStringColumn('Linked risks', (row) => row.linkedRiskIds),
     stringColumn('Success measure', (row) => row.successMeasure),
     stringColumn('Evidence of completion', (row) => row.evidenceOfCompletion)
   ];
 
   const agenda = model.functionalAgenda;
   const agendaSchema: Column<(typeof agenda)[number]>[] = [
-    stringColumn('Agenda ID', (row) => row.id),
+    technicalStringColumn('Agenda ID', (row) => row.id),
     stringColumn('Function', (row) => row.function),
     stringColumn('Question for the review', (row) => row.question),
-    stringColumn('Linked finding', (row) => row.linkedFindingId)
+    technicalStringColumn('Linked finding', (row) => row.linkedFindingId)
   ];
 
   const traces = data.questionTraces;
   const tracesSchema: Column<(typeof traces)[number]>[] = [
-    stringColumn('Question code', (row) => row.questionCode),
-    stringColumn('Domain code', (row) => row.domainCode),
+    technicalStringColumn('Question code', (row) => row.questionCode),
+    technicalStringColumn('Domain code', (row) => row.domainCode),
     stringColumn('Domain', (row) => row.domainName),
     stringColumn('Control statement', (row) => row.prompt),
     { header: 'Recorded response', cell: (row) => row.responseValue },

@@ -80,6 +80,11 @@ export const APPENDIX_START_MARKER = 'Appendix';
 
 function esc(value: unknown): string {
   return String(value ?? '')
+    .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
+    .replace(/\bD\d+-Q\d+\b/g, '')
+    .replace(/\btested\b/gi, 'validated')
+    .replace(/\btesting\b/gi, 'validation')
+    .replace(/\btest\b/gi, 'validate')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -108,15 +113,20 @@ function bandFor(value: number | null): string {
 function list(items: string[]): string {
   return items.length > 0
     ? `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
-    : '<p>None recorded.</p>';
+    : '';
 }
 
 function labelled(label: string, value: unknown): string {
-  return `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(value || 'Not recorded')}</div></div>`;
+  const rendered = String(value ?? '').trim();
+  return rendered.length > 0
+    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(rendered)}</div></div>`
+    : '';
 }
 
 function labelledList(label: string, items: string[]): string {
-  return `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${list(items)}</div></div>`;
+  return items.length > 0
+    ? `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${list(items)}</div></div>`
+    : '';
 }
 
 function section(title: string, heading: string, body: string, className = ''): string {
@@ -440,7 +450,7 @@ export function renderReportHtml(
     </div>`;
 
   const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity constraints and advisory model use only the recorded assessment inputs and the deterministic methodology.</p>
-    <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and test the specified operating evidence before treating a control as effective or a finding as resolved.</p>
+    <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and validate the specified operating evidence before treating a control as effective or a finding as resolved.</p>
     <p><strong>Next step.</strong> Commission independent validation of the operating evidence listed in this report's evidence-validation section and appendix, in the sequence set by the leadership decisions above.</p>`;
 
   // Customer-facing replacement for the removed internal controller/release-status callout: a
@@ -572,7 +582,7 @@ export function renderReportHtml(
         <div class="cover-brand">MK FRAUD INSIGHTS</div>
         <div class="cover-rule"></div>
         <div class="cover-eyebrow">Independent fraud risk advisory</div>
-        <h1>Fraud Readiness<br/>Advisory Report</h1>
+        <h1>Essential Fraud Readiness<br/>Review</h1>
         <p class="cover-subtitle">An evidence-linked view of reported readiness, material risk, control priorities and leadership decisions.</p>
       </div>
       <div class="cover-client"><span>Prepared exclusively for</span><strong>${esc(data.organisationName)}</strong></div>
@@ -619,7 +629,7 @@ export function renderReportHtml(
 <html lang="en-ZA">
 <head>
 <meta charset="utf-8"/>
-<title>MK Essential Report — ${esc(data.organisationName)}</title>
+<title>MK Fraud Readiness — Essential — ${esc(data.organisationName)}</title>
 <style>
   @page { size: A4 portrait; margin: 0; }
   * { box-sizing: border-box; }

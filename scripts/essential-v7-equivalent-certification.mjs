@@ -27,9 +27,9 @@ import { execFileSync } from 'node:child_process';
 import { buildAdvisoryEvidenceModel } from '../src/lib/reports/evidence-model/index.ts';
 import { buildEssentialProjection, ESSENTIAL_CAPS } from '../src/lib/reports/essential-projection.ts';
 import { selectContent } from '../src/lib/reports/select-content-blocks.ts';
-import { renderReportHtml } from '../src/lib/reports/templates/report-template.ts';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from '../src/lib/reports/roadmap.ts';
-import { renderHtmlToPdfBuffer, __resetPdfRendererStateForTests } from '../src/lib/reports/render-pdf.ts';
+import { __resetPdfRendererStateForTests } from '../src/lib/reports/render-pdf.ts';
+import { renderValidatedCommercialPdfWithNavigation } from '../src/lib/reports/render-validated-commercial-pdf.ts';
 
 // ---------------------------------------------------------------- hard provider guard
 // Not "the harness does not import the generator": any attempt to reach a provider boundary throws
@@ -174,9 +174,13 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const deterministicContent = selectContent(data, [], projection);
 const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(projection.roadmapActions);
-const html = renderReportHtml(data, deterministicContent, roadmap, advisoryModel, undefined, projection);
 __resetPdfRendererStateForTests();
-const pdf = await renderHtmlToPdfBuffer(html);
+const pdf = await renderValidatedCommercialPdfWithNavigation({
+  data,
+  content: deterministicContent,
+  roadmap,
+  evidenceModel: advisoryModel
+});
 fs.writeFileSync(PDF_PATH, pdf);
 
 const sha256 = crypto.createHash('sha256').update(pdf).digest('hex');

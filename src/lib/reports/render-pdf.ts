@@ -202,7 +202,7 @@ async function getBrowser() {
  * observable operational signal (`phase14_pdf_renderer_repeated_failures`) separate from the
  * per-report error already recorded on the fulfilment row by the caller.
  */
-export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
+export async function renderHtmlToPdfBuffer(html: string, options?: { footerLabel?: string }): Promise<Buffer> {
   let browser: { newPage: () => Promise<unknown>; close: () => Promise<void>; isConnected: () => boolean } | null = null;
   let page: { close: () => Promise<void>; setContent: (html: string, opts: unknown) => Promise<void>; pdf: (opts: unknown) => Promise<unknown> } | null = null;
   const pdfRenderTimeoutMs = resolvePdfRenderTimeoutMs();
@@ -212,13 +212,15 @@ export async function renderHtmlToPdfBuffer(html: string): Promise<Buffer> {
     await page!.setContent(html, { waitUntil: 'load', timeout: 15_000 });
     // M6: bounded timeout on the render itself. Puppeteer throws a TimeoutError (recognised
     // below by error.name) if the render has not completed within this many milliseconds.
+    const footerLabel = options?.footerLabel
+      ?? (/Comprehensive/i.test(documentTitleFromHtml(html)) ? 'MK Fraud Readiness · Comprehensive · Confidential' : 'MK Fraud Readiness · Essential · Confidential');
     const pdf = await page!.pdf({
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
-      footerTemplate: '<div style="width:100%;padding:0 14mm;color:#6c665b;font:7px Arial,sans-serif;text-align:right;border-top:1px solid #ded5c5;"><span style="float:left;padding-top:4px;">MK Essential Report · Confidential</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>',
+      footerTemplate: `<div style="width:100%;padding:0 14mm;color:#6c665b;font:7px Arial,sans-serif;text-align:right;border-top:1px solid #ded5c5;"><span style="float:left;padding-top:4px;">${footerLabel}</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
       margin: { top: '12mm', right: '13mm', bottom: '15mm', left: '13mm' },
       timeout: pdfRenderTimeoutMs
     });

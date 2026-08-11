@@ -2,11 +2,14 @@ import type { ControlImprovementEntry, PlausibleScenario, RiskRegisterEntry, Roa
 import type { ComprehensiveDeliveryModel, ComprehensiveFindingView, EvidenceRequestPackItem } from './types';
 
 export const COMPREHENSIVE_L2_LIMITS = {
-  findings: 20,
-  risks: 12,
-  scenarios: 8,
-  controlActions: 20,
-  roadmapActions: 24,
+  // L2 is the executive storyline; the annotated register remains the complete L1 universe.
+  // These bounds keep the customer report within the commercial 34–38 page architecture even
+  // when a real assessment has a materially larger analytical universe.
+  findings: 8,
+  risks: 6,
+  scenarios: 4,
+  controlActions: 8,
+  roadmapActions: 8,
   evidenceItems: 8
 } as const;
 

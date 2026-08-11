@@ -2,7 +2,7 @@ import crypto, { randomUUID } from 'node:crypto';
 import { assembleReportData } from '@/lib/reports/assemble-report-data';
 import { renderHtmlToPdfBuffer } from '@/lib/reports/render-pdf';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardReadoutHtml, renderComprehensiveReportHtml } from '@/lib/reports/comprehensive';
+import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardReadoutHtml, renderComprehensiveReportHtml, renderWorkshopMaterialHtml } from '@/lib/reports/comprehensive';
 import { buildComprehensiveRegisterWorkbookBytes } from '@/lib/reports/comprehensive/workbook-builder';
 import { registerComprehensivePackageAtomically, type AtomicPackageUpload } from './package-registration';
 import { getEngagementByOrderReference, canReadComprehensiveEngagement } from './engagement-service';
@@ -21,13 +21,6 @@ function safeFileName(value: string, fallback: string) {
   return cleaned || fallback;
 }
 
-function workshopHtml(model: Awaited<ReturnType<typeof buildComprehensiveDeliveryModel>>) {
-  const items = model.reviewerInput.managementDecisions.map((decision) => `<li><strong>${escapeHtml(decision.decision)}</strong> · ${escapeHtml(decision.owner)} · ${escapeHtml(decision.targetDate)}</li>`).join('');
-  const agenda = model.reviewerInput.boardDecisions?.join('; ') || 'Confirm evidence boundaries, ownership, decisions and next checkpoints.';
-  return `<!doctype html><html lang="en-ZA"><head><meta charset="utf-8"><title>Comprehensive workshop material</title><style>@page{size:A4;margin:16mm}body{font-family:Arial;color:#172232;line-height:1.45}h1{color:#142f4c;font-size:28pt}h2{color:#142f4c;margin-top:18mm}.kicker{color:#c77b35;text-transform:uppercase;letter-spacing:.12em;font-weight:700;font-size:9pt}.card{border-left:4px solid #c77b35;background:#f3f6f8;padding:6mm;margin:5mm 0}li{margin:3mm 0}</style></head><body><div class="kicker">MK Fraud Readiness · Comprehensive</div><h1>Management workshop material</h1><p>Named reviewer: ${escapeHtml(model.reviewerInput.reviewer.name)} · ${escapeHtml(model.reviewerInput.reviewer.reviewDate)}</p><div class="card"><strong>Workshop outcome</strong><p>Translate the evidence review into owned, sequenced decisions with explicit limitations.</p></div><h2>Working agenda</h2><ol>${['Findings challenge','Evidence disagreements','Ownership and accountability','Action prioritisation','Board decisions','Implementation sequencing'].map((item) => `<li>${item}</li>`).join('')}</ol><h2>Decision prompts</h2><p>${escapeHtml(agenda)}</p><h2>Management decisions captured</h2><ul>${items || '<li>No management action has been recorded yet; use the reviewer workspace to capture it.</li>'}</ul><h2>Working rules</h2><ul>${['Challenge the evidence and interpretation, not the person.','Do not change a recorded assessment answer through narrative alone.','Use validated / supported only for the stated scope and evidence examined.','Leave every decision with an owner, date, status and traceable reference.'].map((item) => `<li>${item}</li>`).join('')}</ul></body></html>`;
-}
-
-function escapeHtml(value: unknown) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 
 export type ComprehensivePresentationUpload = { bytes: Uint8Array; fileName: string; mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
 
@@ -68,7 +61,7 @@ export async function generateComprehensivePackage(input: {
     buildComprehensiveDeliveryModel(model.analytical, model.reviewerInput);
     const reportPdf = await renderHtmlToPdfBuffer(renderComprehensiveReportHtml(model));
     const boardPdf = await renderHtmlToPdfBuffer(renderBoardReadoutHtml(model));
-    const workshopPdf = await renderHtmlToPdfBuffer(workshopHtml(model));
+    const workshopPdf = await renderHtmlToPdfBuffer(renderWorkshopMaterialHtml(model));
     const registerXlsx = await buildComprehensiveRegisterWorkbookBytes(model);
     const service = db();
     const { data: existingReports } = await service.from('reports').select('version_number').eq('order_id', engagement.orderId).eq('report_type', 'mk_validated').order('version_number', { ascending: false }).limit(1);

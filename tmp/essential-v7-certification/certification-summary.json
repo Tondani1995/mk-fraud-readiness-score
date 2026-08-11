@@ -2,8 +2,8 @@
   "gitSha": null,
   "pdf": {
     "path": "tmp/essential-v7-certification/essential-v7-equivalent-commercial-certification.pdf",
-    "bytes": 975070,
-    "sha256": "4007c54a3020d5e1c4fcc9edebcb59f6a7dedf6426b942323fe72140a04369d2",
+    "bytes": 682538,
+    "sha256": "1299fc0b2d0aee679b8fde85a95f5d72b1919b57de11f9993c22aa1a480a0f67",
     "pageCount": 28
   },
   "l1": {
@@ -51,7 +51,7 @@
   },
   "accessibility": {
     "tagged": "yes",
-    "title": "MK Essential Report — Journey 6 Organisation",
+    "title": "MK Fraud Readiness — Essential — Journey 6 Organisation",
     "pages": 28
   },
   "scenarioExamples": [

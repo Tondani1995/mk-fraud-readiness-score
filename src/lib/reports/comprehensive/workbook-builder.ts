@@ -29,20 +29,53 @@ const MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
 
 const STATUS_VOCABULARY: Array<[string, string, string]> = [
-  ['SELF_REPORTED', 'Recorded assessment answer', 'Not independently supported'],
-  ['EVIDENCE_REVIEWED', 'Artefact examined', 'Not automatically validated'],
-  ['VALIDATED_SUPPORTED', 'Named reviewer support', 'Only for stated scope'],
-  ['NOT_VALIDATED_INSUFFICIENT', 'Evidence limitation', 'Reliance remains bounded'],
-  ['NOT_SUPPORTED / NOT_APPLICABLE', 'Reviewer conclusion', 'Distinct from insufficient'],
-  ['Backend lifecycle', 'not_requested → received', 'Not equivalent to support'],
+  ['Self-reported', 'Recorded assessment answer', 'Not independently supported'],
+  ['Evidence reviewed', 'Artefact examined', 'Not automatically validated'],
+  ['Supported for stated scope', 'Named reviewer support', 'Only for stated scope'],
+  ['Insufficient for conclusion', 'Evidence limitation', 'Reliance remains bounded'],
+  ['Not supported / not applicable', 'Reviewer conclusion', 'Distinct from insufficient'],
+  ['Evidence request lifecycle', 'Not requested → received', 'Not equivalent to support'],
   ['Reviewer judgement', 'Human interpretation', 'Separate from evidence status']
 ];
 
 /** Cells are always strings; null becomes an empty cell rather than the text "null". */
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
+  return String(value)
+    .replace(/\btested\b/gi, 'validated')
+    .replace(/\btesting\b/gi, 'validation')
+    .replace(/\btest\b/gi, 'validate');
+}
+
+function technicalCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.join('; ');
   return String(value);
+}
+
+function friendlyHeader(column: string): string {
+  return column
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^id$/i, 'Technical ID')
+    .replace(/^question code$/i, 'Question code (technical)')
+    .replace(/^source refs$/i, 'Source references (technical)')
+    .replace(/^evidence refs( reviewed)?$/i, 'Evidence references (technical)$1')
+    .replace(/^linked (finding|risk|control) ids?$/i, 'Linked $1 IDs (technical)')
+    .replace(/^linked evidence refs$/i, 'Linked evidence references (technical)')
+    .replace(/^reviewer evidence refs$/i, 'Reviewer evidence references (technical)')
+    .replace(/^./, (letter) => letter.toUpperCase())
+    .replace(/\btested\b/gi, 'validated')
+    .replace(/\btesting\b/gi, 'validation')
+    .replace(/\btest\b/gi, 'validation');
+}
+
+function orderedColumns(columns: string[]): string[] {
+  const technical = isTechnicalColumn;
+  return [...columns].sort((left, right) => Number(technical(left)) - Number(technical(right)));
+}
+
+function isTechnicalColumn(column: string): boolean {
+  return /(^id$|questionCode|sourceRefs|evidenceRefs|linked(?:Finding|Risk|Control|Evidence)|reviewerEvidenceRefs)/i.test(column);
 }
 
 function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
@@ -94,9 +127,9 @@ export async function buildComprehensiveRegisterWorkbook(
         // Same { header, cell } column shape the supporting-register path uses. Every cell resolves
         // to a string, which is what keeps '=', '+', '-' and '@' content literal rather than a
         // formula.
-        sheet.columns.map((column) => ({
-          header: column,
-          cell: (row: Record<string, unknown>) => cell(row[column])
+        orderedColumns(sheet.columns).map((column) => ({
+          header: friendlyHeader(column),
+          cell: (row: Record<string, unknown>) => isTechnicalColumn(column) ? technicalCell(row[column]) : cell(row[column])
         }))
       )
     }))
