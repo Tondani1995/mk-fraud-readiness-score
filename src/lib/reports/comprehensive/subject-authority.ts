@@ -87,6 +87,30 @@ export function buildComprehensiveSubjectAuthority(data: AssembledReportData): C
     linkedFindingIds: unique(action.linkedFindingIds),
     linkedRiskIds: unique(action.linkedRiskIds)
   }));
+  // The complete authoritative reference universe.
+  //
+  // This was previously the evidence checklist alone, i.e. only 'evidence:*' refs. Findings carry
+  // those refs, but risks, control designs, decisions and management actions carry 'finding:*',
+  // 'question:*' and 'risk:*' refs instead. That made the two validators demand disjoint sets:
+  // validateComprehensiveSubject() (save time) accepts only refs belonging to the specific subject,
+  // while requireKnownEvidenceRefs() (generation time) accepted only this list. A risk record could
+  // therefore be saved and could never pass generation, so no Comprehensive package could ever be
+  // produced. The reviewer UI has the same dead end -- it offers allEvidenceRefs as the option
+  // source for every record type.
+  //
+  // The union below is drawn ONLY from refs already attached to authorised analytical subjects and
+  // from the evidence checklist. No reference is invented, and a ref that belongs to no subject and
+  // no checklist item remains unknown and still fails. Subject-specific validation in
+  // review-record-service is untouched, so a ref authorised for one subject is still rejected on
+  // another.
+  const allEvidenceRefs = unique([
+    ...evidenceModel.evidenceChecklist.map((item) => item.evidenceRef),
+    ...findings.flatMap((subject) => subject.evidenceRefs),
+    ...risks.flatMap((subject) => subject.evidenceRefs),
+    ...controlDesigns.flatMap((subject) => subject.evidenceRefs),
+    ...decisions.flatMap((subject) => subject.evidenceRefs),
+    ...managementActions.flatMap((subject) => subject.evidenceRefs)
+  ]);
   return {
     assessmentId: data.assessmentId,
     scoreRunId: data.currentScoreRunId,
@@ -95,7 +119,7 @@ export function buildComprehensiveSubjectAuthority(data: AssembledReportData): C
     controlDesigns,
     decisions,
     managementActions,
-    allEvidenceRefs: unique(evidenceModel.evidenceChecklist.map((item) => item.evidenceRef))
+    allEvidenceRefs
   };
 }
 
