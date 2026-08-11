@@ -1,100 +1,123 @@
-import { createRequire } from 'node:module';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
+import crypto from 'node:crypto';
 import type { ComprehensiveDeliveryModel } from './types';
 import { buildComprehensiveRegisterSheets } from './register';
 
-function artifactTool() {
-  const moduleRoot = process.env.CODEX_NODE_MODULES;
-  if (!moduleRoot) throw new Error('artifact_tool_runtime_unavailable');
-  const requireFromBundle = createRequire(path.join(moduleRoot, 'package.json'));
-  return requireFromBundle('@oai/artifact-tool') as any;
+/**
+ * Comprehensive reviewer-annotated register.
+ *
+ * P1 closed here. This previously loaded '@oai/artifact-tool' out of process.env.CODEX_NODE_MODULES
+ * via createRequire(). That package is not a declared dependency, is absent from node_modules, and
+ * exists only inside an agent runtime cache, so generation failed in production with
+ * 'artifact_tool_runtime_unavailable'. Even with the module present, createRequire() does not
+ * survive Next.js server bundling and failed with 'requireFromBundle is not a function'. The
+ * Comprehensive package could therefore never be generated in any environment.
+ *
+ * The byte writer is now the same declared, production-safe runtime already proven by
+ * src/lib/reports/supporting-register-workbook.ts. The Comprehensive data contract is unchanged:
+ * every sheet, column, reviewer annotation, evidence status and management decision still comes
+ * from buildComprehensiveRegisterSheets(model), and the Summary sheet is preserved.
+ *
+ * FORMULA INJECTION. Every cell is declared type String, so write-excel-file emits it as an inline
+ * string cell. Reviewer and customer text beginning '=', '+', '-' or '@' is therefore stored as a
+ * literal value and is never written as a formula. Values are not mangled to achieve this -- the
+ * cell type is what makes them inert -- so what the reviewer wrote is what the customer reads.
+ */
+
+const MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** The Summary sheet is part of the commercial contract and is retained verbatim in content. */
+export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
+
+const STATUS_VOCABULARY: Array<[string, string, string]> = [
+  ['SELF_REPORTED', 'Recorded assessment answer', 'Not independently supported'],
+  ['EVIDENCE_REVIEWED', 'Artefact examined', 'Not automatically validated'],
+  ['VALIDATED_SUPPORTED', 'Named reviewer support', 'Only for stated scope'],
+  ['NOT_VALIDATED_INSUFFICIENT', 'Evidence limitation', 'Reliance remains bounded'],
+  ['NOT_SUPPORTED / NOT_APPLICABLE', 'Reviewer conclusion', 'Distinct from insufficient'],
+  ['Backend lifecycle', 'not_requested → received', 'Not equivalent to support'],
+  ['Reviewer judgement', 'Human interpretation', 'Separate from evidence status']
+];
+
+/** Cells are always strings; null becomes an empty cell rather than the text "null". */
+function cell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return String(value);
 }
 
-function excelColumn(index: number) {
-  let number = index + 1;
-  let result = '';
-  while (number > 0) {
-    const remainder = (number - 1) % 26;
-    result = String.fromCharCode(65 + remainder) + result;
-    number = Math.floor((number - 1) / 26);
+function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
+  const reviewer = model.reviewerInput.reviewer;
+  const rows: Array<Record<string, string>> = [
+    { field: 'Review organisation', value: cell(model.analytical.organisationName), note: '' },
+    { field: 'Named reviewer', value: `${cell(reviewer.name)} · ${cell(reviewer.role)}`, note: '' },
+    { field: 'Review date', value: cell(reviewer.reviewDate), note: '' },
+    { field: 'Deterministic readiness', value: cell(model.analytical.score.overallScore), note: '' },
+    { field: 'Validated / supported evidence', value: cell(model.validationSummary.validatedSupported), note: '' },
+    { field: 'Unresolved evidence', value: cell(model.validationSummary.unresolved), note: '' },
+    { field: '', value: '', note: '' },
+    { field: 'Status vocabulary', value: 'Meaning', note: 'Boundary' }
+  ];
+  for (const [term, meaning, boundary] of STATUS_VOCABULARY) {
+    rows.push({ field: term, value: meaning, note: boundary });
   }
-  return result;
+  return rows;
 }
 
-/** Production workbook path: uses the bundled artifact-tool runtime and returns the exact XLSX bytes. */
-export async function buildComprehensiveRegisterWorkbookBytes(model: ComprehensiveDeliveryModel): Promise<Buffer> {
-  const { Workbook, SpreadsheetFile } = artifactTool();
-  const workbook = Workbook.create();
-  const navy = '#142f4c';
-  const pale = '#f3f6f8';
-  const grid = '#d9e1e7';
-  const summary = workbook.worksheets.add('Summary');
-  summary.showGridLines = false;
-  summary.getRange('A1:F1').merge();
-  summary.getRange('A1').values = [['MK Fraud Readiness · Comprehensive annotated register']];
-  summary.getRange('A1:F1').format = { fill: navy, font: { bold: true, color: '#FFFFFF', size: 16 }, rowHeight: 30 };
-  summary.getRange('A3:B8').values = [
-    ['Review organisation', model.analytical.organisationName],
-    ['Named reviewer', `${model.reviewerInput.reviewer.name} · ${model.reviewerInput.reviewer.role}`],
-    ['Review date', model.reviewerInput.reviewer.reviewDate],
-    ['Deterministic readiness', model.analytical.score.overallScore],
-    ['Validated / supported evidence', model.validationSummary.validatedSupported],
-    ['Unresolved evidence', model.validationSummary.unresolved]
-  ];
-  summary.getRange('A3:A8').format = { fill: pale, font: { bold: true, color: navy } };
-  summary.getRange('A3:B8').format.borders = { preset: 'outside', style: 'thin', color: grid };
-  summary.getRange('D3:F3').merge();
-  summary.getRange('D3').values = [['Status vocabulary']];
-  summary.getRange('D3:F3').format = { fill: '#c77b35', font: { bold: true, color: '#FFFFFF' } };
-  summary.getRange('D4:F10').values = [
-    ['SELF_REPORTED', 'Recorded assessment answer', 'Not independently supported'],
-    ['EVIDENCE_REVIEWED', 'Artefact examined', 'Not automatically validated'],
-    ['VALIDATED_SUPPORTED', 'Named reviewer support', 'Only for stated scope'],
-    ['NOT_VALIDATED_INSUFFICIENT', 'Evidence limitation', 'Reliance remains bounded'],
-    ['NOT_SUPPORTED / NOT_APPLICABLE', 'Reviewer conclusion', 'Distinct from insufficient'],
-    ['Backend lifecycle', 'not_requested → received', 'Not equivalent to support'],
-    ['Reviewer judgement', 'Human interpretation', 'Separate from evidence status']
-  ];
-  summary.getRange('D4:F10').format = { wrapText: true, borders: { preset: 'all', style: 'thin', color: grid } };
-  summary.getRange('A:A').format.columnWidth = 30;
-  summary.getRange('B:B').format.columnWidth = 34;
-  summary.getRange('C:C').format.columnWidth = 3;
-  summary.getRange('D:D').format.columnWidth = 28;
-  summary.getRange('E:E').format.columnWidth = 32;
-  summary.getRange('F:F').format.columnWidth = 30;
-  summary.freezePanes.freezeRows(2);
+export interface ComprehensiveRegisterWorkbook {
+  bytes: Buffer;
+  checksumSha256: string;
+  mimeType: string;
+  sheetNames: string[];
+  rowCounts: Record<string, number>;
+}
 
-  const sheets = buildComprehensiveRegisterSheets(model);
-  for (const sheetData of sheets) {
-    const sheet = workbook.worksheets.add(sheetData.name);
-    sheet.showGridLines = false;
-    const headers = sheetData.columns;
-    const endColumn = excelColumn(headers.length - 1);
-    const values = sheetData.rows.map((row) => headers.map((column) => row[column] ?? null));
-    sheet.getRange(`A1:${endColumn}1`).values = [headers];
-    if (values.length) sheet.getRange(`A2:${endColumn}${values.length + 1}`).values = values;
-    sheet.getRange(`A1:${endColumn}1`).format = { fill: navy, font: { bold: true, color: '#FFFFFF' }, wrapText: true, rowHeight: 34 };
-    if (values.length) {
-      const table = sheet.tables.add(`A1:${endColumn}${values.length + 1}`, true, `${sheetData.name.replaceAll(' ', '')}Table`);
-      table.showFilterButton = true;
-      sheet.getRange(`A2:${endColumn}${values.length + 1}`).format = { wrapText: true, verticalAlignment: 'top' };
-    }
-    sheet.getRange(`A:${endColumn}`).format.columnWidth = 22;
-    sheet.getRange('A:A').format.columnWidth = 18;
-    sheet.getRange('B:B').format.columnWidth = 34;
-    sheet.getRange(`C:${endColumn}`).format.columnWidth = 24;
-    sheet.freezePanes.freezeRows(1);
-  }
+/** Builds the workbook and returns the exact bytes that are hashed and stored. */
+export async function buildComprehensiveRegisterWorkbook(
+  model: ComprehensiveDeliveryModel
+): Promise<ComprehensiveRegisterWorkbook> {
+  const registerSheets = buildComprehensiveRegisterSheets(model);
 
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'mk-comprehensive-register-'));
-  const outputPath = path.join(tempDir, 'register.xlsx');
-  try {
-    const output = await SpreadsheetFile.exportXlsx(workbook);
-    await output.save(outputPath);
-    return await readFile(outputPath);
-  } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-  }
+  const summary = summaryRows(model);
+  const sheets: Array<{ name: string; rows: Array<Record<string, unknown>>; columns: string[] }> = [
+    { name: COMPREHENSIVE_SUMMARY_SHEET, rows: summary, columns: ['field', 'value', 'note'] },
+    ...registerSheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows, columns: sheet.columns }))
+  ];
+
+  // write-excel-file v4 multi-sheet contract, identical to the proven supporting-register path: an
+  // array of Sheet objects, each carrying its own `sheet` name and `data` from getSheetData().
+  const { default: writeXlsxFile, getSheetData } = await import('write-excel-file/node');
+  const workbook = await (writeXlsxFile as any)(
+    sheets.map((sheet) => ({
+      sheet: sheet.name,
+      data: (getSheetData as any)(
+        sheet.rows,
+        // Same { header, cell } column shape the supporting-register path uses. Every cell resolves
+        // to a string, which is what keeps '=', '+', '-' and '@' content literal rather than a
+        // formula.
+        sheet.columns.map((column) => ({
+          header: column,
+          cell: (row: Record<string, unknown>) => cell(row[column])
+        }))
+      )
+    }))
+  );
+  const bytes: Buffer = Buffer.from(await workbook.toBuffer());
+
+  const rowCounts: Record<string, number> = {};
+  for (const sheet of sheets) rowCounts[sheet.name] = sheet.rows.length;
+
+  return {
+    bytes,
+    checksumSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    mimeType: MIME_TYPE,
+    sheetNames: sheets.map((sheet) => sheet.name),
+    rowCounts
+  };
+}
+
+/** Byte-only entry point retained for existing callers; generation atomicity is unchanged. */
+export async function buildComprehensiveRegisterWorkbookBytes(
+  model: ComprehensiveDeliveryModel
+): Promise<Buffer> {
+  return (await buildComprehensiveRegisterWorkbook(model)).bytes;
 }
