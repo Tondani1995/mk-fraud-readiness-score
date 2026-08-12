@@ -48,7 +48,7 @@ export function buildDecisionOptionSets(decisions: LeadershipDecision[]): Decisi
       viableOptions: details.map((detail) => detail.option),
       optionDetails: details,
       deterministicRecommendation: decision.recommendedDecision,
-      recommendationRationale: `The recorded assessment links this decision to ${decision.linkedFindingIds.length} material finding(s) and ${decision.linkedRiskIds.length} risk(s). Management should confirm the final route, cost and delivery capacity for this issue.`,
+      recommendationRationale: 'The decision connects the priority condition to a practical route, named ownership and a deliverable target. Management should confirm the final route, cost and delivery capacity for this issue.',
       owner: decision.accountableExecutive,
       targetPeriod: decision.targetPeriod,
       targetDate: decision.deadline,

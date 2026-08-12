@@ -101,7 +101,7 @@ export function buildLeadershipDecisions(findings: MaterialFinding[], risks: Ris
       immediateNextDeliverable: 'Signed treatment decision for every Critical and High risk.'
     }));
     candidates.push(makeDecision('control_design_standard', gaps, risks, {
-      decisionRequired: 'Approve exact question-level control designs as the minimum implementation standard.',
+      decisionRequired: 'Approve the target control standards management will implement across the priority risk areas.',
       whyNow: 'Functions need one design baseline rather than independent interpretations of the findings.',
       recommendedDecision: 'Adopt the control-improvement register; deviations require documented oversight approval.',
       consequenceOfDelay: 'Partial or inconsistent designs fail to address the causal pathway.',

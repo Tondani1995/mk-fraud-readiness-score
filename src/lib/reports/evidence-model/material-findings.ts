@@ -2,6 +2,7 @@ import type { AssembledReportData, QuestionTraceRecord } from '../types';
 import { ResponseLabelSourceError, type OfficialResponseLabel } from '../response-labels';
 import { getQuestionPlaybook } from './question-playbooks';
 import type { MaterialFinding, MaterialFindingClass, MaterialFindingSelectionReason } from './types';
+import { semanticMappingForQuestion } from './semantic-mappings';
 
 /** Stable presentation order when one control qualifies under several independent rules. */
 export const MATERIAL_FINDING_REASON_ORDER: readonly MaterialFindingSelectionReason[] = [
@@ -258,6 +259,7 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
     if (selectionReasons.length === 0) continue;
 
     const playbook = getQuestionPlaybook(trace.questionCode);
+    const semanticMapping = semanticMappingForQuestion(trace.questionCode);
     const materialityClass = classify(selectionReasons, responseValue);
     const isAssurance = materialityClass === 'assurance_priority';
     const impact = impactCategories(trace.domainCode);
@@ -296,6 +298,9 @@ export function buildMaterialFindings(data: AssembledReportData): MaterialFindin
       relatedCapRuleCode: capRules.get(trace.questionCode)?.[0] ?? null,
       linkedExposureFactorCodes: exposureLinks,
       linkedScenarioTypes: playbook?.relatedScenarioTypes ?? SCENARIO_TYPES_BY_QUESTION[trace.questionCode] ?? [],
+      primarySemanticFamily: semanticMapping.primarySemanticFamily,
+      secondarySemanticFamilies: semanticMapping.secondarySemanticFamilies,
+      fraudPathwayFamilies: semanticMapping.fraudPathwayFamilies,
       diagnosis: diagnosisText,
       whyItMatters: failureDescription,
       fraudMechanism: playbook?.fraudMechanism ?? 'No control mechanism is rendered because an exact question playbook is missing.',

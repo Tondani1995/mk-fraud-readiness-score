@@ -2,6 +2,7 @@ import type { AssembledReportData } from '../types';
 import type { EssentialProjection } from '../essential-projection';
 import type { AdvisoryEvidenceModel, ControlImprovementEntry, LeadershipDecision, MaterialFinding, PlausibleScenario, RiskRegisterEntry, RoadmapAction } from '../evidence-model/types';
 import type { ComprehensiveDeliveryModel } from '../comprehensive/types';
+import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-model/semantic-mappings';
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
 import { REPORTING_BIBLE_VERSION } from '../reporting-bible';
 
@@ -29,9 +30,12 @@ export interface NarrativeDomainFact {
 
 export interface NarrativeThemeFact {
   factRef: string;
+  themeFamily: string;
+  managementQuestion: string;
   title: string;
   findingRefs: string[];
   domainCodes: string[];
+  semanticFamilies: PrimarySemanticFamily[];
   riskRefs: string[];
   scenarioRefs: string[];
   managementImplicationBasis: string;
@@ -45,6 +49,9 @@ export interface NarrativeFindingFact {
   title: string;
   domain: string;
   questionCode: string;
+  primarySemanticFamily: PrimarySemanticFamily;
+  secondarySemanticFamilies: PrimarySemanticFamily[];
+  fraudPathwayFamilies: FraudPathwayFamily[];
   recordedPosition: string;
   deterministicCondition: string;
   interpretation: string;
@@ -81,7 +88,7 @@ export interface NarrativeRiskFact {
 export interface NarrativeScenarioFact {
   factRef: string;
   sourceId: string;
-  scenarioFamily: 'supplier_payment_diversion' | 'privileged_access_misuse' | 'detection_evasion' | 'identity_impersonation' | 'incident_concealment';
+  scenarioFamily: FraudPathwayFamily;
   title: string;
   actorClass: string;
   opportunity: string;
@@ -134,6 +141,8 @@ export interface NarrativeDecisionFact {
 export interface NarrativeRoadmapFact {
   factRef: string;
   sourceId: string;
+  sourceFindingRef: string;
+  primarySemanticFamily: PrimarySemanticFamily;
   phase: 'STABILISE' | 'ESTABLISH' | 'EMBED' | 'MATURE';
   managementOutcome: string;
   priorityWork: string;
@@ -256,91 +265,80 @@ const SCENARIO_FAMILY_LANGUAGE: Record<string, ScenarioFamilyLanguage> = {
   access_abuse: { actorClass: 'An internal actor using access beyond approved role requirements', opportunity: 'Access rights and exception review are not yet sufficiently aligned to current role requirements.', entryPoint: 'A user entitlement is exercised outside the approved role matrix without independent review.', mechanism: 'An actor uses excess access to initiate, change or approve a value-bearing activity beyond the role’s intended authority.' }
 };
 
-const SCENARIO_TYPE_ALIASES: Record<string, string> = {
-  'privileged-access': 'privileged_access_exploitation',
-  'privileged_access': 'privileged_access_exploitation',
-  'detection-evasion': 'transaction_anomaly',
-  detection_evasion: 'transaction_anomaly',
-  culture: 'governance_accountability_failure'
-};
-
-type FraudPathwayFamily = NarrativeScenarioFact['scenarioFamily'];
-
 interface FraudPathwayRule {
   family: FraudPathwayFamily;
   title: string;
   whyTogether: string;
-  keywords: string[];
-  scenarioTypes: string[];
-  domainCodes: string[];
+  anchorFamilies: PrimarySemanticFamily[];
   language: ScenarioFamilyLanguage;
 }
 
+interface ThemeRule {
+  themeFamily: string;
+  title: string;
+  managementQuestion: string;
+  anchorFamilies: PrimarySemanticFamily[];
+  whyTogether: string;
+}
+
+const THEME_RULES: ThemeRule[] = [
+  { themeFamily: 'FRAUD_GOVERNANCE_AND_RISK_DISCIPLINE', title: 'Fraud governance and risk-management discipline', managementQuestion: 'How will management keep fraud risk owned, current, reported and treated through a repeatable governance rhythm?', anchorFamilies: ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'], whyTogether: 'These findings describe the ownership, risk-identification and review disciplines that keep fraud exposure visible and treatment current.' },
+  { themeFamily: 'SUPPLIER_PAYMENT_INTEGRITY', title: 'Supplier and payment integrity', managementQuestion: 'How will management prevent supplier identity or payment-instruction compromise before value is released?', anchorFamilies: ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT'], whyTogether: 'These findings connect supplier identity, onboarding and payment-instruction controls to the point at which value can be redirected.' },
+  { themeFamily: 'IDENTITY_ACCESS_GOVERNANCE', title: 'Identity and access governance', managementQuestion: 'How will management restrict, recertify and challenge access that can alter value-bearing records?', anchorFamilies: ['ORDINARY_ACCESS', 'PRIVILEGED_ACCESS'], whyTogether: 'These findings connect access entitlement, privilege and recertification to the ability to alter value-bearing records, entitlements or audit trails.' },
+  { themeFamily: 'IDENTITY_VERIFICATION_SENSITIVE_CHANGE', title: 'Identity verification and sensitive change', managementQuestion: 'How will management verify identity and challenge sensitive changes before authority is misused?', anchorFamilies: ['IDENTITY_VERIFICATION'], whyTogether: 'These findings connect identity verification and sensitive-change evidence to the risk of misuse under a legitimate identity.' },
+  { themeFamily: 'DETECTION_MONITORING', title: 'Monitoring, escalation and detection coverage', managementQuestion: 'How will management ensure unusual activity is monitored, assigned, investigated and escalated on time?', anchorFamilies: ['DETECTION_MONITORING'], whyTogether: 'These findings connect monitoring coverage, exception review and escalation authority to the risk that unusual activity remains below timely challenge.' },
+  { themeFamily: 'INCIDENT_RESPONSE_EVIDENCE_INTEGRITY', title: 'Incident response and evidence integrity', managementQuestion: 'How will management contain suspected fraud, preserve evidence and prevent repeat exposure?', anchorFamilies: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING'], whyTogether: 'These findings connect reporting, incident response and evidence preservation to the organisation’s ability to contain a matter and prevent repeat exposure.' }
+];
+
 const FRAUD_PATHWAY_RULES: FraudPathwayRule[] = [
   {
-    family: 'supplier_payment_diversion',
+    family: 'SUPPLIER_PAYMENT_DIVERSION',
     title: 'Supplier and payment integrity',
     whyTogether: 'These findings connect supplier identity, onboarding and payment-instruction controls to the point at which value can be redirected.',
-    keywords: ['supplier', 'vendor', 'payment', 'bank', 'invoice', 'third-party', 'third party', 'onboarding', 'ownership'],
-    scenarioTypes: ['supplier_onboarding_fraud', 'supplier_payment_redirection'], domainCodes: ['D3', 'D7', 'D8'],
+    anchorFamilies: ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT'],
     language: SCENARIO_FAMILY_LANGUAGE.supplier_payment_redirection
   },
   {
-    family: 'privileged_access_misuse',
+    family: 'PRIVILEGED_ACCESS_MISUSE',
     title: 'Identity and access governance',
     whyTogether: 'These findings connect excessive or insufficiently reviewed access to the ability to alter value-bearing records, entitlements or audit trails.',
-    keywords: ['privileged', 'administrator', 'admin', 'access', 'entitlement', 'role', 'recertif', 'system', 'log'],
-    scenarioTypes: ['privileged_access_exploitation', 'access_abuse'], domainCodes: ['D8', 'D3'],
+    anchorFamilies: ['PRIVILEGED_ACCESS', 'ORDINARY_ACCESS'],
     language: SCENARIO_FAMILY_LANGUAGE.privileged_access_exploitation
   },
   {
-    family: 'detection_evasion',
+    family: 'DETECTION_EVASION',
     title: 'Monitoring, escalation and detection coverage',
     whyTogether: 'These findings connect monitoring coverage, exception review and escalation authority to the risk that unusual activity remains below timely challenge.',
-    keywords: ['monitor', 'alert', 'exception', 'anomal', 'red flag', 'detect', 'threshold', 'review', 'escalat', 'activity'],
-    scenarioTypes: ['transaction_anomaly', 'suppressed_reporting', 'incident_response_breakdown'], domainCodes: ['D4'],
+    anchorFamilies: ['DETECTION_MONITORING'],
     language: SCENARIO_FAMILY_LANGUAGE.transaction_anomaly
   },
   {
-    family: 'identity_impersonation',
+    family: 'IDENTITY_IMPERSONATION',
     title: 'Identity verification and sensitive-change discipline',
     whyTogether: 'These findings connect identity verification, authentication evidence and profile-change monitoring to the risk of misuse under a legitimate identity.',
-    keywords: ['identity', 'impersonat', 'account takeover', 'credential', 'authentication', 'profile', 'verification', 'counterparty', 'customer', 'employee'],
-    scenarioTypes: ['identity_misuse', 'account_takeover'], domainCodes: ['D8'],
+    anchorFamilies: ['IDENTITY_VERIFICATION'],
     language: SCENARIO_FAMILY_LANGUAGE.identity_misuse
   },
   {
-    family: 'incident_concealment',
+    family: 'INCIDENT_CONCEALMENT',
     title: 'Incident response and evidence integrity',
     whyTogether: 'These findings connect reporting, evidence preservation and incident escalation to the organisation’s ability to contain a matter and prevent repeat exposure.',
-    keywords: ['evidence', 'preserv', 'custody', 'incident', 'report', 'investigat', 'contain', 'disciplin', 'suspected'],
-    scenarioTypes: ['evidence_compromise', 'incident_response_breakdown', 'suppressed_reporting'], domainCodes: ['D5', 'D10'],
+    anchorFamilies: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING'],
     language: SCENARIO_FAMILY_LANGUAGE.evidence_compromise
   }
 ];
 
-function searchableFinding(finding: MaterialFinding): string {
-  return [finding.title, finding.questionPrompt, finding.diagnosis, finding.whyItMatters, finding.fraudMechanism, finding.recommendedControl, ...finding.linkedScenarioTypes].join(' ').toLowerCase();
-}
-
-function pathwayScore(rule: FraudPathwayRule, finding: MaterialFinding): number {
-  const haystack = searchableFinding(finding);
-  const keywordHits = rule.keywords.filter((keyword) => haystack.includes(keyword)).length;
-  const typeHit = finding.linkedScenarioTypes.some((type) => rule.scenarioTypes.includes(SCENARIO_TYPE_ALIASES[type] ?? type.replaceAll('-', '_')));
-  const domainHit = rule.domainCodes.includes(finding.domainCode) ? 2 : 0;
-  return keywordHits + (typeHit ? 4 : 0) + domainHit;
-}
-
 function pathwayMembers(rule: FraudPathwayRule, findings: MaterialFinding[]): MaterialFinding[] {
-  return findings.filter((finding) => pathwayScore(rule, finding) >= 3);
+  return findings.filter((finding) => finding.fraudPathwayFamilies.includes(rule.family));
+}
+
+function pathwayPriority(rule: FraudPathwayRule, findings: MaterialFinding[]): number {
+  return pathwayMembers(rule, findings).reduce((total, finding) => total + finding.materialityScore, 0);
 }
 
 function ruleForScenario(scenario: PlausibleScenario, findings: MaterialFinding[]): FraudPathwayRule | null {
   const linked = findings.filter((finding) => scenario.linkedFindingIds.includes(finding.id));
-  return FRAUD_PATHWAY_RULES
-    .map((rule) => ({ rule, score: linked.reduce((total, finding) => total + pathwayScore(rule, finding), 0) }))
-    .filter((item) => item.score > 0)
-    .sort((left, right) => right.score - left.score || left.rule.family.localeCompare(right.rule.family))[0]?.rule ?? null;
+  return FRAUD_PATHWAY_RULES.find((rule) => linked.some((finding) => finding.fraudPathwayFamilies.includes(rule.family))) ?? null;
 }
 
 function assertScenario(scenario: NarrativeScenarioFact): void {
@@ -389,16 +387,27 @@ function buildDomains(data: AssembledReportData | undefined, findings: Narrative
 }
 
 function buildFindingFacts(findings: MaterialFinding[]): NarrativeFindingFact[] {
+  const materialityLabels: Record<string, string> = {
+    control_failure: 'material control weakness',
+    control_gap: 'material control gap',
+    maturity_constraint: 'maturity-limiting condition',
+    exposure_mismatch: 'exposure and control mismatch',
+    cross_domain_dependency: 'cross-domain dependency',
+    assurance_priority: 'recorded assurance priority'
+  };
   return findings.map((finding, index) => ({
     factRef: `FINDING-${String(index + 1).padStart(3, '0')}`,
     sourceId: finding.id,
     title: text(finding.title, finding.domainName),
     domain: finding.domainName,
     questionCode: finding.questionCode,
+    primarySemanticFamily: finding.primarySemanticFamily,
+    secondarySemanticFamilies: finding.secondarySemanticFamilies,
+    fraudPathwayFamilies: finding.fraudPathwayFamilies,
     recordedPosition: cleanFactLanguage(finding.responseOperationalMeaning, finding.responseLabel),
     deterministicCondition: `${text(finding.responseLabel, 'Recorded response')}: ${cleanFactLanguage(finding.responseOperationalMeaning, finding.responseMeaning)}`,
     interpretation: cleanFactLanguage(finding.diagnosis, finding.fraudMechanism),
-    advisoryMeaningBasis: `The recorded ${text(finding.materialityClass, 'priority')} concerns ${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} and connects to the linked fraud pathway and control response.`,
+    advisoryMeaningBasis: `The recorded ${materialityLabels[finding.materialityClass] ?? 'priority condition'} concerns ${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} and connects to the linked fraud pathway and control response.`,
     whyItMatters: `The condition matters because ${cleanFactLanguage(finding.fraudMechanism, finding.whyItMatters).replace(/^[A-Z]/, (letter) => letter.toLowerCase())}`,
     materialityReason: `${text(finding.materialityClass)} selected at deterministic priority ${finding.materialityScore}.`,
     assuranceBoundary: 'This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.',
@@ -434,44 +443,44 @@ function buildRiskFacts(risks: RiskRegisterEntry[], findingRefs: Map<string, str
 function qualitativeConsequence(family: FraudPathwayFamily, findings: MaterialFinding[]): string {
   const financial = unique(findings.map((finding) => finding.likelyFinancialImpact).filter((value) => value && !/requires case-specific validation/i.test(value)));
   const operational = unique(findings.map((finding) => finding.likelyOperationalImpact).filter((value) => value && !/requires case-specific validation/i.test(value)));
-  const base: Record<FraudPathwayFamily, string> = {
+  const base: Record<string, string> = {
     supplier_payment_diversion: 'A diverted payment or fictitious supplier relationship can create financial loss and delayed recovery.',
     privileged_access_misuse: 'Unauthorised changes to a value-bearing record, entitlement or audit trail can create loss and weaken investigation.',
     detection_evasion: 'Delayed detection allows suspicious activity or losses to continue and exceptions to accumulate.',
     identity_impersonation: 'Unauthorised access, payment, benefit or profile change can occur before the identity or transaction is challenged.',
     incident_concealment: 'Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified.'
   };
-  return unique([base[family], ...financial.slice(0, 1), ...operational.slice(0, 1)]).join(' ');
+  return unique([base[family.toLowerCase()], ...financial.slice(0, 1), ...operational.slice(0, 1)]).join(' ');
 }
 
 function fallbackWarnings(family: FraudPathwayFamily): string[] {
-  return {
+  return ({
     supplier_payment_diversion: ['New or reactivated supplier before independent verification', 'Bank-detail change shortly before payment', 'Urgent payment request that bypasses the normal callback route'],
     privileged_access_misuse: ['Emergency or administrator access outside the role pattern', 'Unusual record or entitlement change', 'Access review exception remains overdue'],
     detection_evasion: ['Repeated low-value or threshold-adjacent activity', 'Alert or exception backlog grows without assigned owner', 'Monitoring rule is not updated after a material process change'],
     identity_impersonation: ['Credential reset, device change or profile amendment', 'Identity data differs across trusted records', 'Sensitive transaction follows a new or unusual session'],
     incident_concealment: ['Concern is reported through a channel controlled by the implicated process', 'Relevant records are unavailable or custody is unclear', 'Severity or containment decision remains overdue']
-  }[family];
+  } as Record<string, string[]>)[family.toLowerCase()];
 }
 
 function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | undefined, members: MaterialFinding[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, risks: RiskRegisterEntry[], index: number): NarrativeScenarioFact {
   const linkedFindingIds = members.map((finding) => finding.id);
   const linkedRisks = risks.filter((risk) => risk.linkedFindingIds.some((id) => linkedFindingIds.includes(id)));
-  const title: Record<FraudPathwayFamily, string> = {
+  const title: Record<string, string> = {
     supplier_payment_diversion: 'Supplier or payment instruction is diverted through a compromised or fictitious relationship',
     privileged_access_misuse: 'Privileged access is used to alter a value-bearing record, entitlement or audit trail',
     detection_evasion: 'Unusual activity avoids timely challenge because monitoring or escalation coverage is incomplete',
     identity_impersonation: 'A compromised or impersonated identity is used to change a sensitive profile, instruction or transaction',
     incident_concealment: 'Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat'
   };
-  const fallbackContainment: Record<FraudPathwayFamily, string> = {
+  const fallbackContainment: Record<string, string> = {
     supplier_payment_diversion: 'Pause the affected supplier or payment instruction, independently confirm the trusted beneficiary details and preserve the approval trail.',
     privileged_access_misuse: 'Suspend or restrict the affected entitlement, preserve access and audit logs, and route the change for accountable review.',
     detection_evasion: 'Assign and triage the affected alerts or exceptions, preserve the relevant activity record and escalate overdue items.',
     identity_impersonation: 'Pause the sensitive change or transaction, re-perform identity verification through a trusted route and preserve authentication records.',
     incident_concealment: 'Open an incident record, preserve relevant records under controlled custody and assign a named containment and investigation owner.'
   };
-  const fallbackLongTerm: Record<FraudPathwayFamily, string> = {
+  const fallbackLongTerm: Record<string, string> = {
     supplier_payment_diversion: 'Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.',
     privileged_access_misuse: 'Implement role-based access, privileged-session logging, periodic recertification and exception escalation.',
     detection_evasion: 'Define monitoring coverage, red flags, review ownership, closure evidence and threshold-change governance.',
@@ -483,17 +492,17 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     factRef: `SCENARIO-${String(index + 1).padStart(3, '0')}`,
     sourceId: source?.id ?? `SYNTH-${rule.family.toUpperCase()}`,
     scenarioFamily: rule.family,
-    title: title[rule.family],
+    title: title[rule.family.toLowerCase()],
     actorClass: rule.language.actorClass,
     opportunity: rule.language.opportunity,
     entryPoint: rule.language.entryPoint,
     mechanism: rule.language.mechanism,
     controlWeakness: unique(members.map((finding) => finding.recommendedControl)).join('; '),
-    concealment: text(source?.concealmentMechanism, rule.family === 'incident_concealment' ? 'A delayed report, incomplete record or unclear custody trail makes the matter harder to reconstruct and contain.' : 'An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.'),
+    concealment: text(source?.concealmentMechanism, rule.family === 'INCIDENT_CONCEALMENT' ? 'A delayed report, incomplete record or unclear custody trail makes the matter harder to reconstruct and contain.' : 'An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.'),
     consequence: qualitativeConsequence(rule.family, members),
     warningIndicators: unique([...sourceWarnings, ...fallbackWarnings(rule.family)]).slice(0, 5),
-    immediateContainment: text(source?.immediateContainment, fallbackContainment[rule.family]),
-    longTermResponse: text(source?.longerTermResponse, fallbackLongTerm[rule.family]),
+    immediateContainment: text(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
+    longTermResponse: text(source?.longerTermResponse, fallbackLongTerm[rule.family.toLowerCase()]),
     linkedFindingRefs: linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     linkedRiskRefs: linkedRisks.map((risk) => riskRefs.get(risk.id) ?? '').filter(Boolean)
   };
@@ -502,11 +511,8 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
 function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFinding[], risks: RiskRegisterEntry[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, tier: NarrativeProductTier): NarrativeScenarioFact[] {
   const candidates = FRAUD_PATHWAY_RULES.map((rule) => ({ rule, members: pathwayMembers(rule, findings) }))
     .filter((item) => item.members.length > 0)
-    .sort((left, right) => {
-      const leftScore = left.members.reduce((sum, finding) => sum + pathwayScore(left.rule, finding), 0);
-      const rightScore = right.members.reduce((sum, finding) => sum + pathwayScore(right.rule, finding), 0);
-      return rightScore - leftScore || left.rule.family.localeCompare(right.rule.family);
-    });
+    .filter((item) => risks.some((risk) => risk.linkedFindingIds.some((id) => item.members.some((finding) => finding.id === id))))
+    .sort((left, right) => pathwayPriority(right.rule, findings) - pathwayPriority(left.rule, findings) || left.rule.family.localeCompare(right.rule.family));
   const limit = tier === 'essential' ? 3 : 4;
   const selected = candidates.slice(0, limit);
   const result = selected.map(({ rule, members }, index) => {
@@ -560,9 +566,9 @@ function buildDecisionFacts(decisions: LeadershipDecision[], findingRefs: Map<st
 }
 
 function buildThemeFacts(contradictions: AdvisoryEvidenceModel['contradictions'], findings: MaterialFinding[], risks: RiskRegisterEntry[], scenarios: NarrativeScenarioFact[], findingRefs: Map<string, string>, riskRefs: Map<string, string>): NarrativeThemeFact[] {
-  const themes = FRAUD_PATHWAY_RULES.map((rule) => ({ rule, members: pathwayMembers(rule, findings) }))
+  const themes = THEME_RULES.map((rule) => ({ rule, members: findings.filter((finding) => rule.anchorFamilies.includes(finding.primarySemanticFamily) || finding.secondarySemanticFamilies.some((family) => rule.anchorFamilies.includes(family))) }))
     .filter((item) => item.members.length > 0)
-    .sort((left, right) => left.rule.family.localeCompare(right.rule.family))
+    .sort((left, right) => right.members.reduce((sum, finding) => sum + finding.materialityScore, 0) - left.members.reduce((sum, finding) => sum + finding.materialityScore, 0) || left.rule.themeFamily.localeCompare(right.rule.themeFamily))
     .slice(0, 5)
     .map(({ rule, members }, index) => {
       const memberIds = new Set(members.map((member) => member.id));
@@ -571,9 +577,12 @@ function buildThemeFacts(contradictions: AdvisoryEvidenceModel['contradictions']
       const contradiction = contradictions.find((item) => item.linkedFindingIds.some((id) => memberIds.has(id)));
       return {
         factRef: `THEME-${String(index + 1).padStart(3, '0')}`,
+        themeFamily: rule.themeFamily,
+        managementQuestion: rule.managementQuestion,
         title: rule.title,
         findingRefs: members.map((member) => findingRefs.get(member.id) ?? '').filter(Boolean),
         domainCodes: [...new Set(members.map((member) => member.domainCode))].sort(),
+        semanticFamilies: [...new Set(members.flatMap((member) => [member.primarySemanticFamily, ...member.secondarySemanticFamilies]))],
         riskRefs: linkedRisks.map((risk) => riskRefs.get(risk.id) ?? '').filter(Boolean),
         scenarioRefs: linkedScenarios.map((scenario) => scenario.factRef),
         managementImplicationBasis: text(contradiction?.whyItMatters, `The selected findings require one connected management response across ownership, control design, monitoring and escalation.`),
@@ -585,29 +594,51 @@ function buildThemeFacts(contradictions: AdvisoryEvidenceModel['contradictions']
 }
 
 function roadmapOutcomeFor(finding: MaterialFinding): string {
-  const haystack = searchableFinding(finding);
-  if (/supplier|vendor|payment|bank|invoice|third-party|third party/.test(haystack)) return 'Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.';
-  if (/privileged|administrator|access|entitlement|role|recertif/.test(haystack)) return 'Access rights and privileged activity are restricted, recertified and escalated when exceptions remain open.';
-  if (/monitor|alert|exception|anomal|red flag|detect/.test(haystack)) return 'Fraud monitoring and exception review operate with defined coverage, ownership, closure evidence and escalation.';
-  if (/identity|impersonat|account takeover|credential|profile|verification/.test(haystack)) return 'Identity and sensitive-profile changes are verified through a trusted route and retained for investigation.';
-  if (/evidence|preserv|custody|incident|report|investigat/.test(haystack)) return 'Suspected-fraud reporting, containment and evidence custody operate through a defined incident route.';
-  return 'The priority fraud-risk condition has an accountable owner, defined treatment and a repeatable review cycle.';
+  const outcomes: Record<PrimarySemanticFamily, string> = {
+    FRAUD_GOVERNANCE: 'Fraud-risk ownership, escalation and management reporting operate through a defined governance route.',
+    FRAUD_RISK_IDENTIFICATION: 'Fraud risks are mapped, refreshed and assigned to treatment before changes or emerging methods create blind spots.',
+    SUPPLIER_ONBOARDING: 'Supplier onboarding verifies identity, ownership, banking and conflicts before activation.',
+    SUPPLIER_PAYMENT_CHANGE: 'Supplier payment and bank-detail changes are independently verified before release.',
+    THIRD_PARTY_OVERSIGHT: 'Third-party relationships are risk-tiered, monitored and escalated through accountable oversight.',
+    ORDINARY_ACCESS: 'Role-based access and segregation are aligned to current responsibilities and reviewed for exceptions.',
+    PRIVILEGED_ACCESS: 'Privileged access is restricted, logged, recertified and removed when no longer justified.',
+    IDENTITY_VERIFICATION: 'Identity and sensitive-profile changes are verified through a trusted route and retained for investigation.',
+    DETECTION_MONITORING: 'Fraud monitoring and exception review operate with defined coverage, ownership, closure evidence and escalation.',
+    INCIDENT_RESPONSE: 'Suspected-fraud intake, containment, investigation and escalation operate through a defined incident route.',
+    EVIDENCE_INTEGRITY: 'Fraud evidence is identified, preserved and handled through controlled custody.',
+    WHISTLEBLOWING: 'Reporting channels are trusted, protected and independently routed when concerns are raised.',
+    FRAUD_AWARENESS: 'People in relevant roles recognise fraud indicators and act through the required reporting route.',
+    CONTINUOUS_IMPROVEMENT: 'Fraud-risk and control learning is refreshed through a repeatable management review cycle.'
+  };
+  return outcomes[finding.primarySemanticFamily];
 }
 
 function roadmapWorkFor(finding: MaterialFinding): string {
-  const haystack = searchableFinding(finding);
-  if (/supplier|vendor|payment|bank|invoice|third-party|third party/.test(haystack)) return 'Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.';
-  if (/privileged|administrator|access|entitlement|role|recertif/.test(haystack)) return 'Reconcile the complete access population, remove excess privilege and retain periodic recertification evidence.';
-  if (/monitor|alert|exception|anomal|red flag|detect/.test(haystack)) return 'Define monitoring coverage, red flags, review ownership, closure evidence and overdue escalation.';
-  if (/identity|impersonat|account takeover|credential|profile|verification/.test(haystack)) return 'Apply risk-based identity verification, profile-change controls and retained authentication evidence.';
-  if (/evidence|preserv|custody|incident|report|investigat/.test(haystack)) return 'Establish protected reporting, severity-based escalation and controlled evidence preservation.';
-  return `Implement the approved control response for ${finding.title.replace(/\.$/, '')}.`;
+  const work: Record<PrimarySemanticFamily, string> = {
+    FRAUD_GOVERNANCE: 'Approve the fraud-risk mandate, reporting rhythm, escalation authority and decision record.',
+    FRAUD_RISK_IDENTIFICATION: 'Refresh the structured fraud-risk assessment, map process pathways and assign treatment owners.',
+    SUPPLIER_ONBOARDING: 'Implement independent legal-identity, ownership, banking and conflict checks before supplier activation.',
+    SUPPLIER_PAYMENT_CHANGE: 'Quarantine bank-detail changes, callback to a trusted pre-existing contact and require segregated approval.',
+    THIRD_PARTY_OVERSIGHT: 'Risk-tier the third-party population, monitor high-risk relationships and escalate unresolved due-diligence exceptions.',
+    ORDINARY_ACCESS: 'Reconcile role-based access and segregation-of-duties exceptions against current responsibilities.',
+    PRIVILEGED_ACCESS: 'Reconcile the privileged-account population, enforce named access and retain periodic recertification evidence.',
+    IDENTITY_VERIFICATION: 'Apply risk-based identity verification and controlled review of sensitive profile or account changes.',
+    DETECTION_MONITORING: 'Define monitoring coverage, red flags, review ownership, closure evidence and overdue escalation.',
+    INCIDENT_RESPONSE: 'Establish severity-based intake, containment ownership, investigation decision rights and closure criteria.',
+    EVIDENCE_INTEGRITY: 'Establish evidence preservation, integrity checks, access controls and custody-transfer records.',
+    WHISTLEBLOWING: 'Protect reporting channels, define independent routing and track retaliation or closure exceptions.',
+    FRAUD_AWARENESS: 'Map role-specific scenarios to learning, test understanding and escalate overdue completion.',
+    CONTINUOUS_IMPROVEMENT: 'Schedule fraud-risk and control-environment review, record lessons and refresh treatment after change.'
+  };
+  return work[finding.primarySemanticFamily];
 }
 
-function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[], tier: NarrativeProductTier): NarrativeRoadmapFact[] {
+function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[], findingRefs: Map<string, string>, tier: NarrativeProductTier): NarrativeRoadmapFact[] {
   return actions.map((action, index) => ({
     factRef: `ROADMAP-${String(index + 1).padStart(3, '0')}`,
     sourceId: action.id,
+    sourceFindingRef: findingRefs.get(action.linkedFindingId) ?? '',
+    primarySemanticFamily: findings.find((finding) => finding.id === action.linkedFindingId)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE',
     phase: phaseFor(action, index, actions.length, tier),
     managementOutcome: roadmapOutcomeFor(findings.find((finding) => finding.id === action.linkedFindingId) ?? findings[0]!),
     priorityWork: roadmapWorkFor(findings.find((finding) => finding.id === action.linkedFindingId) ?? findings[0]!),
@@ -645,8 +676,10 @@ function buildProofFacts(model: AdvisoryEvidenceModel, proofOverride?: Narrative
 
 function selectNarrativeFindings(findings: MaterialFinding[], limit: number): MaterialFinding[] {
   const selected: MaterialFinding[] = [];
-  for (const rule of FRAUD_PATHWAY_RULES) {
-    const representative = pathwayMembers(rule, findings).sort((left, right) => pathwayScore(rule, right) - pathwayScore(rule, left) || right.materialityScore - left.materialityScore || left.id.localeCompare(right.id))[0];
+  for (const rule of THEME_RULES) {
+    const representative = findings
+      .filter((finding) => rule.anchorFamilies.includes(finding.primarySemanticFamily) || finding.secondarySemanticFamilies.some((family) => rule.anchorFamilies.includes(family)))
+      .sort((left, right) => right.materialityScore - left.materialityScore || left.id.localeCompare(right.id))[0];
     if (representative && !selected.some((finding) => finding.id === representative.id)) selected.push(representative);
   }
   for (const finding of [...findings].sort((left, right) => right.materialityScore - left.materialityScore || left.questionCode.localeCompare(right.questionCode))) {
@@ -684,7 +717,7 @@ function buildPack(input: {
   const themes = buildThemeFacts(input.evidenceModel.contradictions, input.selectedFindings, input.selectedRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
   const standaloneFindingReasons = Object.fromEntries(findings.filter((finding) => !themedFindingRefs.has(finding.factRef)).map((finding) => [finding.factRef, 'Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.']));
-  const roadmap = buildRoadmapFacts(input.selectedRoadmap, input.selectedFindings, input.tier);
+  const roadmap = buildRoadmapFacts(input.selectedRoadmap, input.selectedFindings, findingRefs, input.tier);
   const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the recorded profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
@@ -806,6 +839,28 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
   const ids = pack.facts.map((fact) => fact.id);
   if (new Set(ids).size !== ids.length) throw new Error('Narrative Fact Pack contains duplicate stable fact IDs.');
   for (const fact of pack.facts) if (!fact.id || !fact.kind || fact.value === undefined) throw new Error(`Narrative Fact Pack fact ${fact.id || '<missing>'} is incomplete.`);
+  if (pack.findings.some((finding) => !finding.primarySemanticFamily || !Array.isArray(finding.fraudPathwayFamilies))) throw new Error('Narrative Fact Pack finding is missing explicit semantic family membership.');
+  const themeAnchors: Record<string, PrimarySemanticFamily[]> = {
+    FRAUD_GOVERNANCE_AND_RISK_DISCIPLINE: ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'],
+    SUPPLIER_PAYMENT_INTEGRITY: ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT'],
+    IDENTITY_ACCESS_GOVERNANCE: ['ORDINARY_ACCESS', 'PRIVILEGED_ACCESS'],
+    IDENTITY_VERIFICATION_SENSITIVE_CHANGE: ['IDENTITY_VERIFICATION'],
+    DETECTION_MONITORING: ['DETECTION_MONITORING'],
+    INCIDENT_RESPONSE_EVIDENCE_INTEGRITY: ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING']
+  };
+  if (pack.systemicThemeInputs.some((theme) => !(themeAnchors[theme.themeFamily] ?? []).some((family) => theme.semanticFamilies.includes(family)))) throw new Error('Narrative theme is not compatible with its explicit semantic-family anchor.');
+  for (let index = 0; index < pack.systemicThemeInputs.length; index += 1) {
+    for (const other of pack.systemicThemeInputs.slice(index + 1)) {
+      const left = new Set(pack.systemicThemeInputs[index]!.findingRefs);
+      const right = new Set(other.findingRefs);
+      const intersection = [...left].filter((ref) => right.has(ref)).length;
+      const union = new Set([...left, ...right]).size;
+      if (union > 0 && intersection / union > 0.75) throw new Error('Narrative themes contain unjustifiably overlapping finding sets.');
+    }
+  }
+  if (new Set(pack.systemicThemeInputs.map((theme) => theme.managementQuestion)).size !== pack.systemicThemeInputs.length) throw new Error('Narrative themes must answer distinct management questions.');
+  if (pack.roadmap.some((item) => !item.sourceFindingRef || !pack.findings.some((finding) => finding.factRef === item.sourceFindingRef && finding.primarySemanticFamily === item.primarySemanticFamily))) throw new Error('Narrative roadmap source is incompatible with its semantic family.');
+  if (pack.scenarios.some((scenario) => !pack.findings.filter((finding) => scenario.linkedFindingRefs.includes(finding.factRef)).some((finding) => finding.fraudPathwayFamilies.includes(scenario.scenarioFamily)))) throw new Error('Narrative scenario pathway is not supported by its linked finding family.');
   for (const scenario of pack.scenarios) assertScenario(scenario);
   const themeRange = pack.productTier === 'essential' ? [3, 5] : [3, 5];
   if (pack.findings.length >= 6 && (pack.systemicThemeInputs.length < themeRange[0] || pack.systemicThemeInputs.length > themeRange[1])) throw new Error(`${pack.productTier} Fact Pack requires 3-5 systemic themes when the finding set has sufficient variation.`);

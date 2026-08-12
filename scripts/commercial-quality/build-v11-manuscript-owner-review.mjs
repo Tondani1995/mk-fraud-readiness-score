@@ -9,16 +9,26 @@ import { buildEssentialProjection } from '../../src/lib/reports/essential-projec
 import { fromAssembledReportData } from '../../src/lib/reports/comprehensive/contract.ts';
 import { buildEssentialNarrativeFactPack, buildComprehensiveNarrativeFactPack, assertNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
+import { buildNarrativeWriterBrief, assertNarrativeWriterBrief } from '../../src/lib/reports/narrative/writer-brief.ts';
 import { preAiGateMarkdown, runPreAiFactPackGates } from '../../src/lib/reports/narrative/pre-ai-gates.ts';
 import { REPORTING_BIBLE_VERSION } from '../../src/lib/reports/reporting-bible.ts';
 
-const outputDir = path.resolve(process.env.V11_OWNER_REVIEW_OUTPUT_DIR ?? 'outputs/v1.1-pre-ai-fact-pack-owner-review');
+const outputDir = path.resolve(process.env.V11_OWNER_REVIEW_OUTPUT_DIR ?? 'outputs/v1.1-pre-ai-semantic-integrity-owner-review');
 const essentialOrderReference = process.env.ESSENTIAL_ORDER_REFERENCE ?? 'MKORD-2026-22FF6B69';
 const comprehensiveOrderReference = process.env.COMPREHENSIVE_ORDER_REFERENCE ?? 'MKORD-2026-7FBBEE23';
 const policyPath = path.resolve('docs/product/MK_Fraud_Readiness_Reporting_Bible_v1.1.md');
 const policyBytes = await fs.readFile(policyPath);
 const policySha256 = crypto.createHash('sha256').update(policyBytes).digest('hex');
-const requestedFiles = ['essential-fact-pack.json', 'essential-story-plan.json', 'comprehensive-fact-pack.json', 'comprehensive-story-plan.json', 'pre-ai-fact-pack-gate-report.md', 'generation-manifest.json'];
+const requestedFiles = [
+  'essential-fact-pack-internal.json',
+  'essential-writer-brief.json',
+  'essential-story-plan.json',
+  'comprehensive-fact-pack-internal.json',
+  'comprehensive-writer-brief.json',
+  'comprehensive-story-plan.json',
+  'semantic-integrity-gate-report.md',
+  'generation-manifest.json'
+];
 if (REPORTING_BIBLE_VERSION !== '1.1') throw new Error(`Expected Reporting Bible 1.1, received ${REPORTING_BIBLE_VERSION}.`);
 
 async function writeJson(name, value) {
@@ -37,9 +47,12 @@ async function essential() {
   assertNarrativeFactPack(pack);
   const storyPlan = buildNarrativeStoryPlan(pack);
   assertNarrativeStoryPlan(storyPlan, pack);
-  await writeJson('essential-fact-pack.json', pack);
+  const writerBrief = buildNarrativeWriterBrief(pack, storyPlan);
+  assertNarrativeWriterBrief(writerBrief);
+  await writeJson('essential-fact-pack-internal.json', pack);
+  await writeJson('essential-writer-brief.json', writerBrief);
   await writeJson('essential-story-plan.json', storyPlan);
-  return { pack, storyPlan, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, scenarios: pack.scenarios.length } };
+  return { pack, storyPlan, writerBrief, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, themes: pack.systemicThemeInputs.length, scenarios: pack.scenarios.length } };
 }
 
 async function comprehensive() {
@@ -49,24 +62,27 @@ async function comprehensive() {
   assertNarrativeFactPack(pack);
   const storyPlan = buildNarrativeStoryPlan(pack);
   assertNarrativeStoryPlan(storyPlan, pack);
-  await writeJson('comprehensive-fact-pack.json', pack);
+  const writerBrief = buildNarrativeWriterBrief(pack, storyPlan);
+  assertNarrativeWriterBrief(writerBrief);
+  await writeJson('comprehensive-fact-pack-internal.json', pack);
+  await writeJson('comprehensive-writer-brief.json', writerBrief);
   await writeJson('comprehensive-story-plan.json', storyPlan);
-  return { pack, storyPlan, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, scenarios: pack.scenarios.length } };
+  return { pack, storyPlan, writerBrief, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, themes: pack.systemicThemeInputs.length, scenarios: pack.scenarios.length } };
 }
 
 await fs.mkdir(outputDir, { recursive: true });
 await Promise.all(requestedFiles.map((name) => fs.rm(path.join(outputDir, name), { force: true })));
 const [essentialResult, comprehensiveResult] = await Promise.all([essential(), comprehensive()]);
-const essentialGate = runPreAiFactPackGates(essentialResult.pack, essentialResult.storyPlan);
-const comprehensiveGate = runPreAiFactPackGates(comprehensiveResult.pack, comprehensiveResult.storyPlan);
+const essentialGate = runPreAiFactPackGates(essentialResult.pack, essentialResult.storyPlan, essentialResult.writerBrief);
+const comprehensiveGate = runPreAiFactPackGates(comprehensiveResult.pack, comprehensiveResult.storyPlan, comprehensiveResult.writerBrief);
 const gateStatus = essentialGate.status === 'PASS' && comprehensiveGate.status === 'PASS' ? 'PASS' : 'FAIL';
-await writeText('pre-ai-fact-pack-gate-report.md', [preAiGateMarkdown(essentialGate), '', preAiGateMarkdown(comprehensiveGate)].join('\n'));
+await writeText('semantic-integrity-gate-report.md', [preAiGateMarkdown(essentialGate), '', preAiGateMarkdown(comprehensiveGate)].join('\n'));
 
 const manifest = {
-  title: 'MK FRAUD READINESS v1.1 PRE-AI FACT PACK — OWNER REVIEW CANDIDATE',
+  title: 'MK FRAUD READINESS v1.1 PRE-AI SEMANTIC INTEGRITY — OWNER REVIEW CANDIDATE',
   bibleVersion: REPORTING_BIBLE_VERSION,
   bibleSha256: policySha256,
-  stage: 'PRE_AI_FACT_PACK_AND_STORY_PLAN',
+  stage: 'PRE_AI_SEMANTIC_INTEGRITY',
   aiConfigured: false,
   aiCalled: false,
   aiRequiredForNextStage: true,
@@ -75,7 +91,7 @@ const manifest = {
   manuscripts: null,
   pdfs: null,
   gateStatus,
-  gateReport: 'pre-ai-fact-pack-gate-report.md',
+  gateReport: 'semantic-integrity-gate-report.md',
   essential: essentialResult.summary,
   comprehensive: comprehensiveResult.summary,
   sourceOrders: { essential: essentialOrderReference, comprehensive: comprehensiveOrderReference },

@@ -5,6 +5,7 @@ import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identi
 import { NarrativeWriterUnavailableError, type NarrativeManuscript, type NarrativeManuscriptSection, type NarrativeSpine, type NarrativeWriter, type NarrativeWriterContext, type NarrativeWriterMetadata } from './manuscript';
 import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
+import { buildNarrativeWriterBrief, type NarrativeWriterBrief } from './writer-brief';
 
 export const V11_NARRATIVE_PROMPT_VERSION = 'mk-reporting-bible-1.1-manuscript-advisory-v1';
 export const V11_NARRATIVE_MODEL = process.env.MK_REPORT_AI_MODEL?.trim() ?? '';
@@ -24,7 +25,8 @@ function requireProvider(): { model: string; provider: string } {
 }
 
 function contextPayload(pack: NarrativeFactPack, plan: NarrativeStoryPlan): string {
-  return JSON.stringify({ bibleVersion: '1.1', factPack: pack, storyPlan: plan });
+  const writerBrief: NarrativeWriterBrief = buildNarrativeWriterBrief(pack, plan);
+  return JSON.stringify({ bibleVersion: '1.1', writerBrief });
 }
 
 function metadata(provider: string, model: string, pack: NarrativeFactPack, plan: NarrativeStoryPlan, identity?: ReturnType<typeof parseAiGatewayExecutionIdentity>, response?: unknown): NarrativeWriterMetadata {

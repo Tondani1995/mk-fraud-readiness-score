@@ -1,5 +1,6 @@
 import type { ExposureAnswerRecord, GapQuestionRecord, MaturityCapEventRecord, QuestionTraceRecord, ScoreRunRecord } from '../types';
 import type { OfficialResponseLabel } from '../response-labels';
+import type { FraudPathwayFamily, PrimarySemanticFamily } from './semantic-mappings';
 
 export type ImplementationDifficulty = 'Low' | 'Moderate' | 'High';
 export type TargetPeriod = '30 days' | '60 days' | '90 days';
@@ -58,6 +59,9 @@ export interface MaterialFinding {
   relatedCapRuleCode: string | null;
   linkedExposureFactorCodes: string[];
   linkedScenarioTypes: string[];
+  primarySemanticFamily: PrimarySemanticFamily;
+  secondarySemanticFamilies: PrimarySemanticFamily[];
+  fraudPathwayFamilies: FraudPathwayFamily[];
   diagnosis: string;
   whyItMatters: string;
   fraudMechanism: string;
