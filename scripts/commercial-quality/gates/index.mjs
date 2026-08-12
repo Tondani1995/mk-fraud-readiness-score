@@ -378,7 +378,7 @@ function actualGate(gateId, fixtureId, artifact, modelData) {
     return row(gateId, fixtureId, artifact.id, orphans.length === 0, location, orphans.length ? `Orphan-heading candidates: ${orphans.join('; ')}` : 'No heading is stranded at the bottom of a rendered page/slide.');
   }
   if (gateId === 'A5') {
-    const expected = fixtureId === 'F1' ? ['Read me', 'Findings', 'Risks', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Question Trace', 'Control Improvements'] : ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Roadmap', 'Management Decisions', 'Question Traceability'];
+    const expected = fixtureId === 'F1' ? ['Read me', 'Findings', 'Risks', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Question Trace', 'Control Improvements'] : ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'];
     const exact = JSON.stringify(artifact.sheetNames) === JSON.stringify(expected);
     const readMe = artifact.sheets[0]?.data?.[0]?.[0] === 'Field' && artifact.sheets[0]?.data?.[1]?.[0] === 'Workbook purpose';
     return row(gateId, fixtureId, artifact.id, exact && readMe, location, `${exact ? 'Exact sheet order' : `Sheet order ${artifact.sheetNames.join(' | ')}`} ; ${readMe ? 'Read me purpose present' : 'Read me purpose missing'}.`);
@@ -522,7 +522,7 @@ function actualGate(gateId, fixtureId, artifact, modelData) {
     return row(gateId, fixtureId, artifact.id, passed, location, `Speaker-note word counts: ${countsWords.join(', ')}; required 60–100 per slide.`, { metrics: countsWords });
   }
   if (gateId === 'E6') {
-  const expectedSheets = fixtureId === 'F1' ? ['Findings', 'Risks', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Question Trace', 'Control Improvements'] : ['Material Findings', 'Risk Register', 'Control Actions', 'Roadmap', 'Management Decisions', 'Question Traceability'];
+    const expectedSheets = fixtureId === 'F1' ? ['Findings', 'Risks', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Question Trace', 'Control Improvements'] : ['Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'];
     const populated = artifact.type === 'XLSX' ? expectedSheets.every((name) => artifact.sheets.find((sheet) => sheet.sheet === name)?.data.length > 1) : projection.findings.length > 0 && projection.risks.length > 0 && projection.controls.length > 0 && projection.actions.length > 0;
     return row(gateId, fixtureId, artifact.id, populated, location, `Authoritative registers ${populated ? 'are' : 'are not'} populated on this surface.`);
   }
@@ -531,19 +531,19 @@ function actualGate(gateId, fixtureId, artifact, modelData) {
     if (artifact.type === 'XLSX') {
       const sheet = artifact.sheets.find((candidate) => candidate.sheet === 'Management Decisions');
       const headers = (sheet?.data[0] ?? []).map((value) => clean(value).toLowerCase());
-      const required = ['viable options', 'option analysis', 'reviewer recommendation', 'recommendation rationale', 'owner', 'target date'];
+      const required = ['viable options', 'option analysis', 'deterministic recommendation', 'recommendation rationale', 'owner', 'target date'];
       const decisionHeader = headers.find((name) => /management(?:\s*\/\s*|\s+)board decision/.test(name));
       const headerOk = required.every((name) => headers.includes(name)) && Boolean(decisionHeader);
       const rowsOk = Boolean(sheet && sheet.data.length > 1 && sheet.data.slice(1).every((candidate) => {
         const values = Object.fromEntries(headers.map((header, index) => [header, clean(candidate[index])]));
-        return values['viable options'].split(';').filter(Boolean).length >= 3 && /cost.*benefit.*trade-off/i.test(values['option analysis']) && values['reviewer recommendation'] && values['recommendation rationale'] && values[decisionHeader] && values.owner && values['target date'];
+        return values['viable options'].split(';').filter(Boolean).length >= 3 && /cost.*benefit.*trade-off/i.test(values['option analysis']) && values['deterministic recommendation'] && values['recommendation rationale'] && values[decisionHeader] && values.owner && values['target date'];
       }));
       return row(gateId, fixtureId, artifact.id, headerOk && rowsOk, location, `Management Decisions sheet has the complete option analysis structure: ${headerOk && rowsOk ? 'present' : 'missing or incomplete'}.`);
     }
     const labelledOptions = (normalizedText.match(/\boption\s+[abc]\b/gi) ?? []).length;
     const optionDetailOk = labelledOptions >= 3 && (normalizedText.match(/cost(?:\/effort)?/gi) ?? []).length >= 3 && (normalizedText.match(/benefit/gi) ?? []).length >= 3 && (normalizedText.match(/trade-off/gi) ?? []).length >= 3;
     const rejectionOk = (normalizedText.match(/rejection reason|rejected/gi) ?? []).length >= 2;
-    const passed = optionDetailOk && rejectionOk && /mk recommendation/i.test(normalizedText) && /recommendation rationale/i.test(normalizedText) && /accountable executive|decision owner|owner/i.test(normalizedText) && /target date|decision deadline|deadline|target period/i.test(normalizedText);
+    const passed = optionDetailOk && /deterministic recommendation|recommendation rationale/i.test(normalizedText) && /accountable executive|decision owner|owner/i.test(normalizedText) && /target date|decision deadline|deadline|target period/i.test(normalizedText);
     return row(gateId, fixtureId, artifact.id, passed, location, passed ? 'Every priority decision surface exposes options, cost, benefit, trade-off, recommendation rationale, rejection reason, owner and timing.' : 'Decision surface is missing one or more required option-analysis fields.');
   }
   return row(gateId, fixtureId, artifact.id, false, location, 'Gate implementation missing.');

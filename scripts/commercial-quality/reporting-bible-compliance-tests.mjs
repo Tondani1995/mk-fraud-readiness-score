@@ -15,7 +15,8 @@ const generationSource = await read('src/lib/comprehensive/generation-service.ts
 const commercialBuilder = await read('scripts/commercial-quality/build-kestrel-commercial-pack.mjs');
 const presentationBuilder = await read('scripts/commercial-quality/build-executive-presentation.mjs');
 assert.doesNotMatch(generationSource, /loadComprehensiveReviewerInput|fromAssembledReportData\([^)]*,|reviewerInput/);
-assert.match(generationSource, /fromAssembledReportData\(assembled\)/);
+assert.match(generationSource, /assertNarrativeCompositionReady/);
+assert.match(commercialBuilder, /manuscript-first/);
 assert.doesNotMatch(commercialBuilder, /loadComprehensiveReviewerInput|getEngagementByOrderReference|persisted management review record/);
 assert.doesNotMatch(presentationBuilder, /loadComprehensiveReviewerInput|reviewerInput|Named reviewer|Review notes in scope/);
 
@@ -38,7 +39,7 @@ assert.ok(COMPREHENSIVE_REPORT_SECTIONS.every((section) => ['diagnosis', 'interp
 assert.ok(!COMPREHENSIVE_REPORT_SECTIONS.some((section) => /validation|reconciliation|signoff|reviewer|observations|gaps/i.test(section.key)));
 
 const workbook = await buildComprehensiveRegisterWorkbook(model);
-assert.deepEqual(workbook.sheetNames, ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Management Decisions']);
+assert.deepEqual(workbook.sheetNames, ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability']);
 assert.ok(workbook.bytes.length > 0);
 
 console.log(JSON.stringify({ passed: true, checks: ['assessment-universe-only generation', 'no reviewer identity dependency', 'no evidence-validation status dependency', 'no evidence-assurance claim', 'diagnosis-interpretation-design section mapping', 'Comprehensive blueprint workbook contract'], sheets: workbook.sheetNames, reportSections: COMPREHENSIVE_REPORT_SECTIONS.length }, null, 2));

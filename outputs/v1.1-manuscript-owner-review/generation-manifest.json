@@ -1,0 +1,56 @@
+{
+  "bibleVersion": "1.1",
+  "bibleSha256": "2b9c9673d041bf5c5659dc0bc05e352ba3ab7d79232050f0691f7f5c20308749",
+  "stage": "FACT_PACK_AND_STORY_PLAN",
+  "aiRequiredForNextStage": true,
+  "aiProvider": null,
+  "aiModel": null,
+  "promptVersion": null,
+  "blocker": "No approved AI Gateway credential and model are configured; manuscript generation is intentionally stopped before AI writing. No deterministic or stitched narrative fallback is permitted.",
+  "essential": {
+    "organisation": "Rivonia Health Logistics (Pty) Ltd",
+    "assessmentReference": "MKFRS-2026-F4047D75C0",
+    "factCount": 69,
+    "findings": 8,
+    "scenarios": 2
+  },
+  "comprehensive": {
+    "organisation": "Kestrel Industrial Supply (Pty) Ltd",
+    "assessmentReference": "MKFRS-2026-95B3815A0C",
+    "factCount": 153,
+    "findings": 15,
+    "scenarios": 5
+  },
+  "manuscripts": null,
+  "finalPdfGeneration": "blocked_until_owner_approves_manuscripts",
+  "generatedFiles": {
+    "comprehensive-fact-pack.json": {
+      "sha256": "2e14b0917a44471a64bc1d396daae7a7c85cf92f8cef9dec6f819c3973963505",
+      "bytes": 402085
+    },
+    "comprehensive-manuscript-blocker.md": {
+      "sha256": "0a7b66266a4f353e71cf6bbc8d7c0aafa6762bbae7e0eea4039397baaa8ae3c6",
+      "bytes": 555
+    },
+    "comprehensive-story-plan.json": {
+      "sha256": "a0aadb5c5efc8253c351c90e348e223db8ac94b95a492cd71eed02ad9ffd8150",
+      "bytes": 6660
+    },
+    "essential-fact-pack.json": {
+      "sha256": "40aee28c9c3d39f9ee62c1dc8d6fb8df5bf135533fe25bdfe6ecf99a97b2774c",
+      "bytes": 189968
+    },
+    "essential-manuscript-blocker.md": {
+      "sha256": "782d4dbad55433c9dcd66387e0363b64c64e6d9c9bcbd84ce5ee4d4d18bf1c48",
+      "bytes": 551
+    },
+    "essential-story-plan.json": {
+      "sha256": "2bb6439a9dd8bcb36f15ef11ddb1d3f4db59734ceb09bd6f59c56338a2574490",
+      "bytes": 4600
+    },
+    "owner-review-blocker.md": {
+      "sha256": "feb424fd677980881e372e225a150e167d1e30f4e03392685a4b9df1d189a73f",
+      "bytes": 541
+    }
+  }
+}

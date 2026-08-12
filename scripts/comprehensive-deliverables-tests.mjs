@@ -40,9 +40,9 @@ assert.ok(COMPREHENSIVE_REPORT_SECTIONS.every((section) => ['diagnosis', 'interp
 assert.ok(!COMPREHENSIVE_REPORT_SECTIONS.some((section) => /validation|reconciliation|signoff|reviewer|observations|gaps/i.test(section.key)), 'old reviewer/evidence-review sections are removed');
 const first = buildComprehensiveDeliveryModel(comprehensiveFixtures.weakOrganisationMeaningfulEvidence.analytical);
 const sheets = buildComprehensiveRegisterSheets(first);
-assert.equal(sheets.length, 7, 'Comprehensive register has seven blueprint sheets plus Read me and Summary');
+assert.equal(sheets.length, 6, 'Comprehensive register has six blueprint sheets plus Read me and Summary');
 assert.equal(sheets.find((sheet) => sheet.name === 'Material Findings').rows.length, first.materialFindings.length);
-assert.equal(sheets.find((sheet) => sheet.name === 'Evidence Checklist').rows.length, first.proofRequirements.length);
+assert.equal(sheets.find((sheet) => sheet.name === 'Implementation Blueprint').rows.length, first.proofRequirements.length + first.roadmapActions.length);
 assert.ok(sheets.find((sheet) => sheet.name === 'Management Decisions').columns.includes('deterministicRecommendation'));
 assert.match(component, /aria-labelledby/);
 assert.match(component, /aria-label/);

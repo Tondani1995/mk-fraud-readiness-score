@@ -24,6 +24,7 @@ import type {
 } from './types';
 import { logPremiumReportPhase } from './phase-timing';
 import { PremiumReportAiBudgetError } from './durable-ai-attempts';
+import { NarrativeManuscriptFirstBoundaryError } from '../narrative/release-gate';
 
 export interface NarrativePipelineDependencies {
   buildNarrativeBrief?: typeof buildPremiumReportNarrativeBrief;
@@ -50,6 +51,11 @@ function fallbackResult(
   checksumOverride?: string,
   aiBudgetDiagnostics?: import('./phase-timing').PremiumReportAiBudgetDiagnostics | null
 ): PreparedPremiumReportNarrative {
+  throw new NarrativeManuscriptFirstBoundaryError();
+  /* The former deterministic fallback is intentionally unreachable under Reporting Bible v1.1.
+   * It remains below this boundary only as historical code until the new manuscript composer
+   * replaces this legacy pipeline completely. */
+  /* istanbul ignore next */
   const evidence = evidenceOverride ?? buildPremiumReportEvidencePack(
     input.assembled,
     input.advisoryModel ?? input.roadmap,
@@ -240,6 +246,10 @@ export async function preparePremiumReportNarrative(
   input: BuildPremiumReportNarrativeInput,
   dependencies: NarrativePipelineDependencies = {}
 ): Promise<PreparedPremiumReportNarrative> {
+  // Deliberately runtime-evaluated rather than a syntactic top-level throw: this keeps the legacy
+  // function's type graph checkable while making the v1.1 release boundary unconditional.
+  const manuscriptFirstBoundaryEnabled: boolean = true;
+  if (manuscriptFirstBoundaryEnabled) throw new NarrativeManuscriptFirstBoundaryError();
   const evidence = buildPremiumReportEvidencePack(
     input.assembled,
     input.advisoryModel ?? input.roadmap,

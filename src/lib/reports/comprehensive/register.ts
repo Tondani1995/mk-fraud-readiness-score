@@ -62,6 +62,21 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     proofOfCompletion: safeCell(action.evidenceOfCompletion), escalationThreshold: safeCell(action.escalationThreshold), linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
   }));
 
+  const implementation = [
+    ...model.roadmapActions.map((action) => ({
+      recordType: 'Roadmap action', technicalId: safeCell(action.id), period: safeCell(action.period), domain: safeCell(action.domainName),
+      requirementOrDeliverable: safeCell(action.deliverable), accountableOwner: safeCell(action.accountableExecutive), processOwner: safeCell(action.processOwner),
+      oversightFunction: safeCell(action.oversightFunction), dependencies: safeCell(refs(action.dependencyIds)), proofOrCompletion: safeCell(action.evidenceOfCompletion),
+      successMeasure: safeCell(action.successMeasure), expectedRecency: '', requiredPopulation: '', acceptableExamples: '', linkedFindingIds: safeCell(refs(action.linkedFindingIds)), linkedRiskIds: safeCell(refs(action.linkedRiskIds))
+    })),
+    ...model.proofRequirements.map((item) => ({
+      recordType: 'Proof requirement', technicalId: safeCell(item.proofRef), period: '', domain: safeCell(item.linkedDomain),
+      requirementOrDeliverable: safeCell(item.requirement), accountableOwner: safeCell(item.proofOwner), processOwner: '', oversightFunction: '', dependencies: '',
+      proofOrCompletion: safeCell(item.whyItMatters), successMeasure: '', expectedRecency: safeCell(item.expectedRecency), requiredPopulation: safeCell(item.requiredPopulation),
+      acceptableExamples: safeCell(list(item.acceptableExamples)), linkedFindingIds: safeCell(refs(item.linkedFindingIds)), linkedRiskIds: safeCell(refs(item.linkedRiskIds))
+    }))
+  ];
+
   const traces = (model.analytical.assembled?.questionTraces ?? model.findings.map((finding) => ({ questionCode: finding.questionCode, domainCode: finding.domainCode, domainName: finding.domainName, prompt: finding.questionPrompt, responseValue: finding.responseValue, normalisedScore: finding.normalisedScore, applicable: true, isCritical: finding.isCriticalControl, isHardGate: finding.isHardGate, isCriticalGap: finding.gapClassification === 'critical', isMajorGap: finding.gapClassification === 'major', triggeredRules: [] }))).map((trace) => {
     const finding = model.findings.find((candidate) => candidate.questionCode === trace.questionCode);
     return { questionCode: safeCell(trace.questionCode), domain: safeCell(trace.domainName), prompt: safeCell(trace.prompt), recordedResponse: safeCell(trace.responseValue), normalisedScore: safeCell(trace.normalisedScore), applicable: safeCell(trace.applicable), materiality: safeCell(trace.isCriticalGap ? 'Critical gap' : trace.isMajorGap ? 'Major gap' : trace.isCritical ? 'Critical control' : 'Recorded response'), linkedFindingIds: safeCell(finding ? finding.id : ''), linkedRiskIds: safeCell(finding ? list(model.riskRegister.filter((risk) => risk.linkedFindingIds.includes(finding.id)).map((risk) => risk.id)) : ''), linkedControlIds: safeCell(finding ? list(model.controlImprovements.filter((control) => control.linkedFindingId === finding.id).map((control) => control.id)) : ''), sourceRefs: safeCell(refs([`question:${trace.questionCode}`, ...(finding ? [`finding:${finding.id}`] : [])])) };
@@ -75,9 +90,8 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
   return [
     { name: 'Material Findings', columns: Object.keys(findings[0] ?? { id: '' }), rows: findings },
     { name: 'Risk Register', columns: Object.keys(risks[0] ?? { id: '' }), rows: risks },
-    { name: 'Control Actions', columns: Object.keys(controls[0] ?? { id: '' }), rows: controls },
-    { name: 'Evidence Checklist', columns: Object.keys(proof[0] ?? { proofRef: '' }), rows: proof },
-    { name: 'Roadmap', columns: Object.keys(roadmap[0] ?? { id: '' }), rows: roadmap },
+    { name: 'Control Blueprints', columns: Object.keys(controls[0] ?? { id: '' }), rows: controls },
+    { name: 'Implementation Blueprint', columns: Object.keys(implementation[0] ?? { technicalId: '' }), rows: implementation },
     { name: 'Management Decisions', columns: Object.keys(decisions[0] ?? { id: '' }), rows: decisions },
     { name: 'Question Traceability', columns: Object.keys(traces[0] ?? { questionCode: '' }), rows: traces }
   ];

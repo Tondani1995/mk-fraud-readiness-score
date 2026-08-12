@@ -7,6 +7,7 @@ import { buildComprehensiveRegisterWorkbookBytes } from '@/lib/reports/comprehen
 import { registerComprehensivePackageAtomically, type AtomicPackageUpload } from './package-registration';
 import { getEngagementByOrderReference, canReadComprehensiveEngagement } from './engagement-service';
 import type { AdminRole } from '@/lib/types/domain';
+import { assertNarrativeCompositionReady, type ValidatedNarrativeRelease } from '@/lib/reports/narrative/release-gate';
 
 const PDF_MIME = 'application/pdf';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -25,7 +26,7 @@ export type ComprehensivePresentationUpload = { bytes: Uint8Array; fileName: str
 
 export type ComprehensiveGenerationResult =
   | { ok: true; engagementId: string; reportId: string; artifactVersion: number; artifactNames: string[]; presentationUploadRequired: false }
-  | { ok: false; reason: 'forbidden' | 'engagement_not_found' | 'review_incomplete' | 'payment_not_verified' | 'presentation_upload_required' | 'generation_failed'; message: string; engagementId?: string; reportId?: string; artifactVersion?: number };
+  | { ok: false; reason: 'forbidden' | 'engagement_not_found' | 'review_incomplete' | 'payment_not_verified' | 'presentation_upload_required' | 'manuscript_approval_required' | 'generation_failed'; message: string; engagementId?: string; reportId?: string; artifactVersion?: number };
 
 /**
  * Real production boundary: persisted assessment -> deterministic analytical universe ->
@@ -37,6 +38,7 @@ export async function generateComprehensivePackage(input: {
   orderReference: string;
   actor: { id: string; role: AdminRole };
   executivePresentation?: ComprehensivePresentationUpload;
+  narrativeRelease?: ValidatedNarrativeRelease;
 }): Promise<ComprehensiveGenerationResult> {
   if (!canReadComprehensiveEngagement(input.actor.role) || !['platform_admin', 'reviewer', 'approver'].includes(input.actor.role)) return { ok: false, reason: 'forbidden', message: 'Only an authorised Comprehensive reviewer or approver may generate the package.' };
   const engagement = await getEngagementByOrderReference(input.orderReference);
@@ -44,6 +46,14 @@ export async function generateComprehensivePackage(input: {
 
   if (!input.executivePresentation) {
     return { ok: false, reason: 'presentation_upload_required', message: 'Generation requires the approved executive presentation template.', engagementId: engagement.id };
+  }
+  if (!input.narrativeRelease) {
+    return { ok: false, reason: 'manuscript_approval_required', message: 'Reporting Bible v1.1 requires a passing, owner-approved plain-text manuscript before any customer PDF is composed.', engagementId: engagement.id };
+  }
+  try {
+    assertNarrativeCompositionReady(input.narrativeRelease);
+  } catch (error) {
+    return { ok: false, reason: 'manuscript_approval_required', message: error instanceof Error ? error.message : 'Validated manuscript release is not ready for composition.', engagementId: engagement.id };
   }
 
   try {

@@ -95,7 +95,7 @@ check('workbook is a readable OPC package', entries.has('[Content_Types].xml') &
 // 4. Every expected Comprehensive sheet is present.
 const workbookXml = entries.get('xl/workbook.xml') ?? '';
 const sheetNames = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"/g)].map((m) => m[1]);
-const expected = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Management Decisions'];
+const expected = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Blueprints', 'Implementation Blueprint', 'Management Decisions', 'Question Traceability'];
 for (const name of expected) {
   check(`sheet present: ${name}`, sheetNames.includes(name), sheetNames.join(' | '));
 }
@@ -103,7 +103,7 @@ for (const name of expected) {
 const allText = [...entries.entries()].filter(([n]) => n.startsWith('xl/')).map(([, c]) => c).join('\n');
 
 // 5/6. Deterministic blueprint content survives into XLSX without reviewer state.
-for (const forbidden of ['Named reviewer', 'Independent reviewer', 'evidence-validation status', 'Reviewer judgement', 'Reviewer sign-off', 'reviewerObservation', 'validationStatus', 'Question Traceability']) {
+for (const forbidden of ['Named reviewer', 'Independent reviewer', 'evidence-validation status', 'Reviewer judgement', 'Reviewer sign-off', 'reviewerObservation', 'validationStatus']) {
   check(`no customer review dependency: ${forbidden}`, !allText.toLowerCase().includes(forbidden.toLowerCase()));
 }
 check('basis statement survives into the workbook', allText.includes("management's recorded Fraud Readiness assessment responses"));

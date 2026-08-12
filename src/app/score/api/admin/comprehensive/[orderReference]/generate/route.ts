@@ -29,7 +29,7 @@ export async function POST(request: Request, props: { params: Promise<{ orderRef
   }
   const result = await generateComprehensivePackage({ orderReference: params.orderReference, actor: { id: admin.id, role: admin.role }, executivePresentation: presentation });
   if (!result.ok) {
-    const status = result.reason === 'forbidden' ? 403 : result.reason === 'engagement_not_found' ? 404 : result.reason === 'presentation_upload_required' || result.reason === 'review_incomplete' ? 409 : 500;
+    const status = result.reason === 'forbidden' ? 403 : result.reason === 'engagement_not_found' ? 404 : result.reason === 'presentation_upload_required' || result.reason === 'review_incomplete' || result.reason === 'manuscript_approval_required' ? 409 : 500;
     return NextResponse.json(result, { status, headers: { 'Cache-Control': 'no-store' } });
   }
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });

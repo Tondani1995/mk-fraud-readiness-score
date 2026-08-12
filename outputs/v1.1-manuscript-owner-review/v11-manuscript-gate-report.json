@@ -1,0 +1,38 @@
+{
+  "status": "BLOCKED_BEFORE_AI_MANUSCRIPT",
+  "outputDir": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/v1.1-manuscript-owner-review",
+  "bibleSha256": "2b9c9673d041bf5c5659dc0bc05e352ba3ab7d79232050f0691f7f5c20308749",
+  "checkedFiles": [
+    "comprehensive-fact-pack.json",
+    "comprehensive-manuscript-blocker.md",
+    "comprehensive-story-plan.json",
+    "essential-fact-pack.json",
+    "essential-manuscript-blocker.md",
+    "essential-story-plan.json",
+    "generation-manifest.json",
+    "owner-review-blocker.md",
+    "v11-manuscript-gate-report.json",
+    "v11-manuscript-gate-report.md"
+  ],
+  "issues": [],
+  "manifestStage": "FACT_PACK_AND_STORY_PLAN",
+  "blocker": "No approved AI Gateway credential and model are configured; manuscript generation is intentionally stopped before AI writing. No deterministic or stitched narrative fallback is permitted.",
+  "products": [
+    {
+      "tier": "essential",
+      "organisation": "Rivonia Health Logistics (Pty) Ltd",
+      "facts": 69,
+      "findings": 8,
+      "scenarios": 2,
+      "movements": 6
+    },
+    {
+      "tier": "comprehensive",
+      "organisation": "Kestrel Industrial Supply (Pty) Ltd",
+      "facts": 153,
+      "findings": 15,
+      "scenarios": 5,
+      "movements": 9
+    }
+  ]
+}
