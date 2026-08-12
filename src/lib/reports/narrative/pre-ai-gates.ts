@@ -28,6 +28,11 @@ const APPROVED_THEME_ANCHORS: Record<string, string[]> = {
 const APPROVED_PATHWAY_FAMILIES = new Set([
   'SUPPLIER_PAYMENT_DIVERSION', 'PRIVILEGED_ACCESS_MISUSE', 'DETECTION_EVASION', 'IDENTITY_IMPERSONATION', 'INCIDENT_CONCEALMENT'
 ]);
+const SUPPLIER_FAMILIES = new Set(['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT']);
+const DECISION_FAMILY_LABELS = new Set([
+  'Fraud governance model', 'Privileged-access operating standard', 'Identity verification model',
+  'Detection operating model', 'Incident and evidence model', 'Supplier verification model', 'Control-effectiveness cadence'
+]);
 
 function check(gate: string, condition: boolean, pass: string, fail: string): PreAiGateResult {
   return { gate, status: condition ? 'PASS' : 'FAIL', detail: condition ? pass : fail };
@@ -49,7 +54,7 @@ export function runPreAiFactPackGates(pack: NarrativeFactPack, plan: NarrativeSt
   const covered = new Set(pack.systemicThemeInputs.flatMap((theme) => theme.findingRefs));
   const themeRange = pack.productTier === 'essential' ? [3, 5] : [3, 5];
   const scenarioRange = pack.productTier === 'essential' ? [2, 3] : [3, 4];
-  const scenarioText = pack.scenarios.map((scenario) => `${scenario.title} ${scenario.actorClass} ${scenario.opportunity} ${scenario.entryPoint} ${scenario.mechanism} ${scenario.controlWeakness} ${scenario.concealment} ${scenario.consequence} ${scenario.immediateContainment} ${scenario.longTermResponse}`).join(' ');
+  const scenarioText = pack.scenarios.map((scenario) => `${scenario.title} ${scenario.actorClass} ${scenario.opportunity} ${scenario.entryPoint} ${scenario.mechanism} ${scenario.currentControlWeakness} ${scenario.requiredControlResponse} ${scenario.concealment} ${scenario.consequence} ${scenario.immediateContainment} ${scenario.longTermResponse}`).join(' ');
   const decisionText = pack.decisions.map((decision) => `${decision.question} ${decision.recommendedRoute} ${decision.rationale} ${decision.consequenceOfDelay}`).join(' ');
   const roadmapText = pack.roadmap.map((item) => `${item.managementOutcome} ${item.priorityWork} ${item.proofOfCompletion} ${item.failureTrigger}`).join(' ');
   const optionSignatures = pack.decisions.map((decision) => decision.options.map((option) => option.option).join('|'));
@@ -65,12 +70,39 @@ export function runPreAiFactPackGates(pack: NarrativeFactPack, plan: NarrativeSt
   const roadmapCompatible = pack.roadmap.every((item) => item.sourceFindingRef && pack.findings.some((finding) => finding.factRef === item.sourceFindingRef && finding.primarySemanticFamily === item.primarySemanticFamily));
   const scenarioCompatible = pack.scenarios.every((scenario) => pack.findings.filter((finding) => scenario.linkedFindingRefs.includes(finding.factRef)).some((finding) => finding.fraudPathwayFamilies.includes(scenario.scenarioFamily)));
   const sanitizedText = JSON.stringify(writerBrief ?? {});
+  const supplierFindingRefs = pack.findings.filter((finding) => SUPPLIER_FAMILIES.has(finding.primarySemanticFamily)).map((finding) => finding.factRef);
+  const supplierTheme = pack.systemicThemeInputs.find((theme) => supplierFindingRefs.length > 0 && supplierFindingRefs.every((ref) => theme.findingRefs.includes(ref)));
+  const supplierScenario = pack.scenarios.find((scenario) => supplierFindingRefs.length > 0 && supplierFindingRefs.every((ref) => scenario.linkedFindingRefs.includes(ref)) && scenario.scenarioFamily === 'SUPPLIER_PAYMENT_DIVERSION');
+  const briefRisks = writerBrief?.risks ?? [];
+  const briefScenarios = writerBrief?.scenarios ?? [];
+  const briefControls = writerBrief?.controls ?? [];
+  const briefThemes = writerBrief?.themes ?? [];
+  const briefRoadmap = writerBrief?.roadmap ?? [];
+  const briefDecisions = writerBrief?.decisions ?? [];
+  const briefProof = writerBrief?.proofOfProgress ?? [];
+  const decisionThemeSupport: Record<string, RegExp> = {
+    'Fraud governance model': /fraud governance|risk-management|governance/i,
+    'Privileged-access operating standard': /privileged access|identity and access/i,
+    'Identity verification model': /identity verification|sensitive change/i,
+    'Detection operating model': /detection|monitoring/i,
+    'Incident and evidence model': /incident|evidence/i,
+    'Supplier verification model': /supplier|payment/i,
+    'Control-effectiveness cadence': /governance|continuous improvement|effectiveness/i
+  };
+  const decisionThemeSupported = briefDecisions.every((decision) => {
+    const matcher = decisionThemeSupport[decision.decisionFamilyLabel];
+    return Boolean(matcher && briefThemes.some((theme) => matcher.test(`${theme.title} ${theme.semanticFamilyLabels.join(' ')}`) && theme.findingRefs.some((ref) => decision.linkedFindingRefs.includes(ref))));
+  });
+  const roadmapTargetPreserved = briefRoadmap.length > 0
+    && ['30 days', '60 days', '90 days'].every((period) => briefRoadmap.some((item) => item.targetPeriod === period))
+    && briefRoadmap.every((item) => (item.targetPeriod === '30 days' && item.phase === 'STABILISE') || (['60 days', '90 days'].includes(item.targetPeriod) && item.phase === 'ESTABLISH'));
+  const assurancePayload = JSON.stringify({ assessmentBasis: writerBrief?.assessmentBasis, assuranceBoundary: writerBrief?.assuranceBoundary, controls: briefControls });
   const results: PreAiGateResult[] = [
     check('theme-count', pack.systemicThemeInputs.length >= themeRange[0] && pack.systemicThemeInputs.length <= themeRange[1], `${pack.systemicThemeInputs.length} themes within ${themeRange[0]}-${themeRange[1]}.`, `Expected ${themeRange[0]}-${themeRange[1]} themes, found ${pack.systemicThemeInputs.length}.`),
     check('theme-coverage', [...findings].every((finding) => covered.has(finding) || Boolean(pack.standaloneFindingReasons[finding])), 'Every priority finding is themed or has a standalone reason.', 'At least one priority finding is orphaned from the narrative spine.'),
     check('scenario-count', pack.scenarios.length >= scenarioRange[0] && pack.scenarios.length <= scenarioRange[1], `${pack.scenarios.length} approved pathway scenarios within bound.`, `Expected ${scenarioRange[0]}-${scenarioRange[1]} approved pathway scenarios, found ${pack.scenarios.length}.`),
     check('scenario-pathways', pack.scenarios.every((scenario) => scenario.linkedFindingRefs.length > 0 && scenario.linkedRiskRefs.length > 0 && APPROVED_PATHWAY_FAMILIES.has(scenario.scenarioFamily)), 'All scenarios are linked to findings and risks and use an approved fraud pathway family.', 'A scenario is unlinked, governance-only or not an approved fraud pathway.'),
-    check('scenario-fields', pack.scenarios.every((scenario) => [scenario.actorClass, scenario.opportunity, scenario.entryPoint, scenario.mechanism, scenario.controlWeakness, scenario.concealment, scenario.consequence, scenario.immediateContainment, scenario.longTermResponse].every(Boolean) && scenario.warningIndicators.length > 0), 'All scenario pathway fields and warning indicators are populated.', 'At least one scenario is missing a required pathway field.'),
+    check('scenario-fields', pack.scenarios.every((scenario) => [scenario.actorClass, scenario.opportunity, scenario.entryPoint, scenario.mechanism, scenario.currentControlWeakness, scenario.requiredControlResponse, scenario.concealment, scenario.consequence, scenario.immediateContainment, scenario.longTermResponse].every(Boolean) && scenario.warningIndicators.length > 0), 'All scenario pathway fields and warning indicators are populated.', 'At least one scenario is missing a required pathway field.'),
     check('theme-family-compatibility', themeFamilyCompatibility, 'Every theme has an approved semantic-family anchor.', 'A theme has no compatible primary semantic-family anchor.'),
     check('theme-duplication', themeDuplicateFree, 'Theme finding sets are distinct or within justified overlap bounds.', 'Identical or unjustifiably overlapping theme finding sets detected.'),
     check('theme-management-distinction', themeManagementDistinct, 'Each theme answers a distinct management question.', 'Two themes answer the same management question.'),
@@ -81,7 +113,15 @@ export function runPreAiFactPackGates(pack: NarrativeFactPack, plan: NarrativeSt
     check('decision-option-specificity', optionSignatures.length === new Set(optionSignatures).size && pack.decisions.every((decision) => decision.options.length === 3 && new Set(decision.options.map((option) => option.option)).size === 3), 'Decision options are issue-specific and non-duplicated.', 'Decision options are generic duplicates or incomplete.'),
     check('story-plan-bounds', plan.narrativeBounds.findingCount >= 5 && plan.narrativeBounds.findingCount <= 8 && plan.narrativeBounds.scenarioCount === pack.scenarios.length, 'Story Plan orders the bounded narrative core.', 'Story Plan bounds do not match the Fact Pack narrative core.'),
     check('machine-artifact-scan', !machineHeading.test(proseText({ pack, plan })), 'No raw underscore machine identifier appears in AI-facing prose fields.', 'A raw underscore machine identifier appears in the AI-facing Fact Pack or Story Plan.'),
-    check('writer-brief-purity', Boolean(writerBrief) && !/(D\d+-Q\d+|MF-D\d+-Q\d+|RISK-[A-Z][A-Z0-9-]+|control_failure|maturity_constraint|hard.?gate|cap.?event|evidence validation|\"priorityScore\"|\"sourceId\"|\"questionCode\")/.test(sanitizedText), 'Sanitized writer payload excludes raw internal IDs, enums, priority scores and methodology language.', 'Sanitized writer payload is missing or still contains internal provenance or methodology language.')
+    check('writer-brief-purity', Boolean(writerBrief) && !/(D\d+-Q\d+|MF-D\d+-Q\d+|RISK-[A-Z][A-Z0-9-]+|control_failure|maturity_constraint|hard.?gate|cap.?event|evidence validation|\"priorityScore\"|\"sourceId\"|\"questionCode\")/.test(sanitizedText), 'Sanitized writer payload excludes raw internal IDs, enums, priority scores and methodology language.', 'Sanitized writer payload is missing or still contains internal provenance or methodology language.'),
+    check('SUPPLIER-PATHWAY-COVERAGE', supplierFindingRefs.length < 2 || (Boolean(supplierTheme) && Boolean(supplierScenario) && Boolean(supplierTheme?.riskRefs.length)), supplierFindingRefs.length < 2 ? 'No multi-finding supplier pathway is in scope for this product tier.' : 'Supplier findings, supplier/payment theme, linked risks and supplier/payment scenario are all present.', 'Supplier or payment findings are present without a linked systemic theme, risk basis and supplier/payment pathway scenario.'),
+    check('RISK-WRITER-PURITY', briefRisks.length > 0 && briefRisks.every((risk) => Boolean(risk.title && risk.cause && risk.riskEvent && risk.priority && risk.likelihood && risk.impact && risk.qualitativeConsequence && risk.approvedTreatment && risk.owner && risk.targetPeriod)) && !/(Impact requires case-specific validation|Operating impact requires case-specific validation|does not meet the exact expected standard|Consequence pathway:|self-reported claims remain unverified|hard.?gate|cap.?event)/i.test(JSON.stringify(briefRisks)), 'Writer risks use bounded customer language and complete risk fields without raw register or methodology phrases.', 'A writer risk is incomplete or contains a forbidden placeholder, raw consequence label or methodology phrase.'),
+    check('SCENARIO-FIELD-INTEGRITY', briefScenarios.length > 0 && briefScenarios.every((scenario) => Boolean(scenario.currentControlWeakness && scenario.requiredControlResponse) && scenario.currentControlWeakness !== scenario.requiredControlResponse && !Object.prototype.hasOwnProperty.call(scenario, 'controlWeakness')), 'Scenarios distinguish the recorded weakness from the required future control response.', 'A scenario uses the legacy field, has a blank field or conflates current weakness with future response.'),
+    check('CONTROL-BLUEPRINT-THEME-COVERAGE', Boolean(writerBrief) && briefControls.length === (pack.productTier === 'comprehensive' ? 5 : briefControls.length) && briefThemes.every((theme) => theme.findingRefs.some((ref) => briefControls.some((control) => control.linkedFindingRefs.includes(ref)))), 'Selected control blueprints cover every selected narrative theme.', 'At least one selected narrative theme has no linked control blueprint.'),
+    check('ROADMAP-TARGET-PRESERVATION', roadmapTargetPreserved, 'The initial roadmap preserves 30, 60 and 90 day targets with Stabilise/Establish phase semantics.', 'The initial roadmap loses a 30/60/90 target or maps a target period to the wrong phase.'),
+    check('DECISION-PROFILE-SPECIFICITY', pack.productTier !== 'comprehensive' || (briefDecisions.length === 5 && new Set(briefDecisions.map((decision) => decision.decisionFamilyLabel)).size === 5 && briefDecisions.every((decision) => DECISION_FAMILY_LABELS.has(decision.decisionFamilyLabel) && decision.linkedFindingRefs.length > 0) && decisionThemeSupported), 'Comprehensive decisions are five distinct theme-specific decision families linked to selected findings.', 'Comprehensive decisions are generic, duplicated, unsupported or not linked to selected themes.'),
+    check('PROOF-WRITER-QUALITY', briefProof.length > 0 && briefProof.every((proof) => Boolean(proof.requirement && proof.owner && proof.whyItMatters && proof.expectedRecency && proof.requiredPopulation && proof.acceptableExamples.length > 0) && !/Control owner \/ process owner to be confirmed before delivery|Evidence mapped to ,|placeholder|TBD|to be confirmed/i.test(JSON.stringify(proof))), 'Bounded proof guidance has populated, actionable writer fields without placeholder population.', 'Proof guidance contains a blank why-it-matters field, placeholder owner, empty mapping or placeholder population.'),
+    check('ASSURANCE-BOUNDARY-SINGLETON', Boolean(writerBrief?.assessmentBasis && writerBrief?.assuranceBoundary) && !/self-assessed and not independently verified|not independently verified/i.test(JSON.stringify(briefControls)) && (assurancePayload.match(/not independently verified/gi) ?? []).length <= 1, 'Assessment basis and assurance boundary are global and are not repeated inside control objects.', 'Assurance wording is missing globally or repeated inside control-level writer content.')
   ];
   return { title: 'MK FRAUD READINESS v1.1 PRE-AI SEMANTIC INTEGRITY GATE', status: results.every((result) => result.status === 'PASS') ? 'PASS' : 'FAIL', results, checkedAt: new Date().toISOString() };
 }

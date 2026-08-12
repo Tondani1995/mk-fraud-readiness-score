@@ -13,17 +13,13 @@ import { buildNarrativeWriterBrief, assertNarrativeWriterBrief } from '../../src
 import { preAiGateMarkdown, runPreAiFactPackGates } from '../../src/lib/reports/narrative/pre-ai-gates.ts';
 import { REPORTING_BIBLE_VERSION } from '../../src/lib/reports/reporting-bible.ts';
 
-const outputDir = path.resolve(process.env.V11_OWNER_REVIEW_OUTPUT_DIR ?? 'outputs/v1.1-pre-ai-semantic-integrity-owner-review');
+const outputDir = path.resolve(process.env.V11_OWNER_REVIEW_OUTPUT_DIR ?? 'outputs/v1.1-final-pre-ai-writer-brief-correction-owner-review');
 const essentialOrderReference = process.env.ESSENTIAL_ORDER_REFERENCE ?? 'MKORD-2026-22FF6B69';
 const comprehensiveOrderReference = process.env.COMPREHENSIVE_ORDER_REFERENCE ?? 'MKORD-2026-7FBBEE23';
 const policyPath = path.resolve('docs/product/MK_Fraud_Readiness_Reporting_Bible_v1.1.md');
-const policyBytes = await fs.readFile(policyPath);
-const policySha256 = crypto.createHash('sha256').update(policyBytes).digest('hex');
 const requestedFiles = [
-  'essential-fact-pack-internal.json',
   'essential-writer-brief.json',
   'essential-story-plan.json',
-  'comprehensive-fact-pack-internal.json',
   'comprehensive-writer-brief.json',
   'comprehensive-story-plan.json',
   'semantic-integrity-gate-report.md',
@@ -49,7 +45,6 @@ async function essential() {
   assertNarrativeStoryPlan(storyPlan, pack);
   const writerBrief = buildNarrativeWriterBrief(pack, storyPlan);
   assertNarrativeWriterBrief(writerBrief);
-  await writeJson('essential-fact-pack-internal.json', pack);
   await writeJson('essential-writer-brief.json', writerBrief);
   await writeJson('essential-story-plan.json', storyPlan);
   return { pack, storyPlan, writerBrief, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, themes: pack.systemicThemeInputs.length, scenarios: pack.scenarios.length } };
@@ -64,7 +59,6 @@ async function comprehensive() {
   assertNarrativeStoryPlan(storyPlan, pack);
   const writerBrief = buildNarrativeWriterBrief(pack, storyPlan);
   assertNarrativeWriterBrief(writerBrief);
-  await writeJson('comprehensive-fact-pack-internal.json', pack);
   await writeJson('comprehensive-writer-brief.json', writerBrief);
   await writeJson('comprehensive-story-plan.json', storyPlan);
   return { pack, storyPlan, writerBrief, summary: { organisation: data.organisationName, assessmentReference: data.assessmentReference, factCount: pack.facts.length, findings: pack.findings.length, themes: pack.systemicThemeInputs.length, scenarios: pack.scenarios.length } };
@@ -78,11 +72,12 @@ const comprehensiveGate = runPreAiFactPackGates(comprehensiveResult.pack, compre
 const gateStatus = essentialGate.status === 'PASS' && comprehensiveGate.status === 'PASS' ? 'PASS' : 'FAIL';
 await writeText('semantic-integrity-gate-report.md', [preAiGateMarkdown(essentialGate), '', preAiGateMarkdown(comprehensiveGate)].join('\n'));
 
+const policyBytes = await fs.readFile(policyPath);
 const manifest = {
-  title: 'MK FRAUD READINESS v1.1 PRE-AI SEMANTIC INTEGRITY — OWNER REVIEW CANDIDATE',
+  title: 'MK FRAUD READINESS v1.1 FINAL PRE-AI WRITER BRIEF — OWNER REVIEW CANDIDATE',
   bibleVersion: REPORTING_BIBLE_VERSION,
-  bibleSha256: policySha256,
-  stage: 'PRE_AI_SEMANTIC_INTEGRITY',
+  bibleSha256: crypto.createHash('sha256').update(policyBytes).digest('hex'),
+  stage: 'FINAL_PRE_AI_WRITER_BRIEF_CORRECTION',
   aiConfigured: false,
   aiCalled: false,
   aiRequiredForNextStage: true,

@@ -75,10 +75,11 @@ export interface NarrativeRiskFact {
   title: string;
   statement: string;
   cause: string;
-  event: string;
+  riskEvent: string;
   priority: string;
   likelihood: string;
   impact: string;
+  qualitativeConsequence: string;
   linkedFindingRefs: string[];
   approvedTreatment: string;
   owner: string;
@@ -94,7 +95,8 @@ export interface NarrativeScenarioFact {
   opportunity: string;
   entryPoint: string;
   mechanism: string;
-  controlWeakness: string;
+  currentControlWeakness: string;
+  requiredControlResponse: string;
   concealment: string;
   consequence: string;
   warningIndicators: string[];
@@ -107,6 +109,7 @@ export interface NarrativeScenarioFact {
 export interface NarrativeControlFact {
   factRef: string;
   sourceId: string;
+  primarySemanticFamily: PrimarySemanticFamily;
   objective: string;
   currentState: string;
   targetState: string;
@@ -128,6 +131,7 @@ export interface NarrativeDecisionFact {
   factRef: string;
   sourceId: string;
   decisionFamily: string;
+  decisionSemanticFamily: string;
   question: string;
   options: Array<{ option: string; cost: string; benefit: string; tradeOff: string }>;
   recommendedRoute: string;
@@ -144,6 +148,7 @@ export interface NarrativeRoadmapFact {
   sourceFindingRef: string;
   primarySemanticFamily: PrimarySemanticFamily;
   phase: 'STABILISE' | 'ESTABLISH' | 'EMBED' | 'MATURE';
+  phaseWindow: string;
   managementOutcome: string;
   priorityWork: string;
   accountableExecutive: string;
@@ -167,6 +172,7 @@ export interface NarrativeBounds {
 export interface NarrativeProofFact {
   factRef: string;
   sourceId: string;
+  linkedFindingRefs: string[];
   requirement: string;
   owner: string;
   whyItMatters: string;
@@ -225,22 +231,12 @@ function cleanFactLanguage(value: unknown, fallback = ''): string {
     .trim();
 }
 
-function phaseFor(action: RoadmapAction, index: number, total: number, tier: NarrativeProductTier): NarrativeRoadmapFact['phase'] {
-  if (tier === 'essential') {
-    if (action.period === '30 days') return 'STABILISE';
-    return 'ESTABLISH';
-  }
-  const ratio = index / Math.max(total - 1, 1);
-  if (ratio < 0.2) return 'STABILISE';
-  if (ratio < 0.5) return 'ESTABLISH';
-  if (ratio < 0.8) return 'EMBED';
-  return 'MATURE';
+function phaseFor(action: RoadmapAction): NarrativeRoadmapFact['phase'] {
+  return action.period === '30 days' ? 'STABILISE' : 'ESTABLISH';
 }
 
-function roadmapWindowFor(action: RoadmapAction, index: number, total: number, tier: NarrativeProductTier): string {
-  if (tier === 'essential') return action.period;
-  const phase = phaseFor(action, index, total, tier);
-  return phase === 'STABILISE' ? '0-30 days' : phase === 'ESTABLISH' ? '31-90 days' : phase === 'EMBED' ? 'months 4-6' : 'months 7-12';
+function roadmapWindowFor(action: RoadmapAction): string {
+  return action.period === '30 days' ? '0-30 days' : '31-90 days';
 }
 
 interface ScenarioFamilyLanguage {
@@ -422,17 +418,46 @@ function buildFindingFacts(findings: MaterialFinding[]): NarrativeFindingFact[] 
   }));
 }
 
-function buildRiskFacts(risks: RiskRegisterEntry[], findingRefs: Map<string, string>): NarrativeRiskFact[] {
+function buildRiskFacts(risks: RiskRegisterEntry[], findings: MaterialFinding[], findingRefs: Map<string, string>): NarrativeRiskFact[] {
+  const boundedCauseFor = (risk: RiskRegisterEntry): string => {
+    const linked = findings.filter((finding) => risk.linkedFindingIds.includes(finding.id));
+    const families = new Set(linked.map((finding) => finding.primarySemanticFamily));
+    if (families.has('SUPPLIER_ONBOARDING') || families.has('SUPPLIER_PAYMENT_CHANGE') || families.has('THIRD_PARTY_OVERSIGHT')) return 'Supplier onboarding, ownership, banking or payment-change verification is not yet consistently designed and evidenced.';
+    if (families.has('PRIVILEGED_ACCESS') || families.has('ORDINARY_ACCESS')) return 'Privileged and sensitive access is not yet consistently restricted, logged and independently recertified.';
+    if (families.has('IDENTITY_VERIFICATION')) return 'Identity verification and sensitive-change controls are not yet consistently designed and evidenced.';
+    if (families.has('DETECTION_MONITORING')) return 'Monitoring coverage and exception review are not yet consistently designed and evidenced.';
+    if (families.has('INCIDENT_RESPONSE') || families.has('EVIDENCE_INTEGRITY') || families.has('WHISTLEBLOWING')) return 'Incident escalation and evidence handling are not yet consistently designed and evidenced.';
+    if (families.has('FRAUD_GOVERNANCE') || families.has('FRAUD_RISK_IDENTIFICATION') || families.has('CONTINUOUS_IMPROVEMENT')) return 'Fraud-risk ownership, review and treatment are not yet consistently designed and evidenced.';
+    return 'The relevant control condition is not yet consistently designed or evidenced.';
+  };
+  const consequenceFor = (risk: RiskRegisterEntry): string => {
+    const linked = findings.filter((finding) => risk.linkedFindingIds.includes(finding.id));
+    const pathways = new Set(linked.flatMap((finding) => finding.fraudPathwayFamilies));
+    if (pathways.has('SUPPLIER_PAYMENT_DIVERSION')) return 'Losses or payment errors may continue before management identifies and contains the activity.';
+    if (pathways.has('PRIVILEGED_ACCESS_MISUSE')) return 'Unauthorised changes may be made or concealed before access misuse is identified and contained.';
+    if (pathways.has('IDENTITY_IMPERSONATION')) return 'Unauthorised access, payment or sensitive change may occur before the identity or activity is challenged.';
+    if (pathways.has('INCIDENT_CONCEALMENT')) return 'A suspected matter may be harder to contain, investigate and recover when records or escalation are incomplete.';
+    if (pathways.has('DETECTION_EVASION')) return 'Losses or exceptions may continue before management identifies and contains the activity.';
+    return 'The risk may remain unmanaged until management identifies the condition and completes the approved treatment.';
+  };
+  const cleanRisk = (value: string, fallback: string): string => cleanFactLanguage(value, fallback)
+    .replace(/Impact requires case-specific validation\.?/gi, '')
+    .replace(/Operating impact requires case-specific validation\.?/gi, '')
+    .replace(/does not meet the exact expected standard/gi, 'is not yet consistently designed to the expected control standard')
+    .replace(/Consequence pathway:\s*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   return risks.map((risk, index) => ({
     factRef: `RISK-${String(index + 1).padStart(3, '0')}`,
     sourceId: risk.id,
-    title: cleanFactLanguage(risk.title).replace(/control resilience validation/gi, 'control resilience risk'),
-    statement: cleanFactLanguage(risk.riskStatement, `${text(risk.cause)} ${text(risk.riskEvent)}`),
-    cause: cleanFactLanguage(risk.cause),
-    event: cleanFactLanguage(risk.riskEvent),
+    title: cleanRisk(risk.title.replace(/control resilience validation/gi, 'control resilience risk'), 'Recorded risk condition'),
+    statement: cleanRisk(risk.riskStatement, `${text(risk.cause)} ${text(risk.riskEvent)}`),
+    cause: /assessed control design or operation|exact expected standard/i.test(risk.cause) ? boundedCauseFor(risk) : cleanRisk(risk.cause, boundedCauseFor(risk)),
+    riskEvent: cleanRisk(risk.riskEvent, 'The associated fraud or control event may occur before timely challenge.'),
     priority: text(risk.priority),
     likelihood: text(risk.likelihood),
     impact: text(risk.impact),
+    qualitativeConsequence: consequenceFor(risk),
     linkedFindingRefs: risk.linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     approvedTreatment: text(risk.requiredTreatment),
     owner: text(risk.accountableExecutive),
@@ -488,6 +513,18 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     incident_concealment: 'Implement protected reporting, severity-based escalation, evidence preservation and repeat-exposure review.'
   };
   const sourceWarnings = source?.earlyWarningIndicators.filter(Boolean) ?? [];
+  const usableSourceResponse = (value: string | undefined, fallback: string): string => {
+    const candidate = text(value);
+    return candidate && !/case-specific validation|escalate .*threshold|apply the control's escalation threshold|independently validate/i.test(candidate) ? candidate : fallback;
+  };
+  const currentWeaknessByFamily: Record<string, string> = {
+    supplier_payment_diversion: 'Supplier onboarding and supplier payment-instruction changes are recorded as not consistently verified before activation or payment.',
+    privileged_access_misuse: 'Privileged access is recorded as not consistently restricted, logged and independently recertified.',
+    identity_impersonation: 'Identity verification and sensitive-change monitoring are recorded as partially designed.',
+    detection_evasion: 'Monitoring and exception review are recorded as initial or ad hoc.',
+    incident_concealment: 'Evidence preservation, reporting and custody are recorded as initial or ad hoc.'
+  };
+  const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} is recorded as ${text(finding.responseLabel, 'not consistently in place').toLowerCase()}.`)).join(' ');
   return {
     factRef: `SCENARIO-${String(index + 1).padStart(3, '0')}`,
     sourceId: source?.id ?? `SYNTH-${rule.family.toUpperCase()}`,
@@ -497,12 +534,13 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     opportunity: rule.language.opportunity,
     entryPoint: rule.language.entryPoint,
     mechanism: rule.language.mechanism,
-    controlWeakness: unique(members.map((finding) => finding.recommendedControl)).join('; '),
+    currentControlWeakness: currentWeakness,
+    requiredControlResponse: unique(members.map((finding) => finding.recommendedControl)).join('; '),
     concealment: text(source?.concealmentMechanism, rule.family === 'INCIDENT_CONCEALMENT' ? 'A delayed report, incomplete record or unclear custody trail makes the matter harder to reconstruct and contain.' : 'An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.'),
     consequence: qualitativeConsequence(rule.family, members),
     warningIndicators: unique([...sourceWarnings, ...fallbackWarnings(rule.family)]).slice(0, 5),
-    immediateContainment: text(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
-    longTermResponse: text(source?.longerTermResponse, fallbackLongTerm[rule.family.toLowerCase()]),
+    immediateContainment: usableSourceResponse(source?.immediateContainment, fallbackContainment[rule.family.toLowerCase()]),
+    longTermResponse: fallbackLongTerm[rule.family.toLowerCase()],
     linkedFindingRefs: linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     linkedRiskRefs: linkedRisks.map((risk) => riskRefs.get(risk.id) ?? '').filter(Boolean)
   };
@@ -523,10 +561,12 @@ function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFi
   return result;
 }
 
-function buildControlFacts(controls: ControlImprovementEntry[], findingRefs: Map<string, string>): NarrativeControlFact[] {
+function buildControlFacts(controls: ControlImprovementEntry[], findings: MaterialFinding[], findingRefs: Map<string, string>): NarrativeControlFact[] {
+  const findingById = new Map(findings.map((finding) => [finding.id, finding]));
   return controls.map((control, index) => ({
     factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
     sourceId: control.id,
+    primarySemanticFamily: findingById.get(control.linkedFindingId)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE',
     objective: text(control.controlObjective),
     currentState: text(control.currentState),
     targetState: text(control.targetState),
@@ -545,7 +585,28 @@ function buildControlFacts(controls: ControlImprovementEntry[], findingRefs: Map
   }));
 }
 
-function buildDecisionFacts(decisions: LeadershipDecision[], findingRefs: Map<string, string>): NarrativeDecisionFact[] {
+function decisionSemanticFamily(decision: LeadershipDecision, findings: MaterialFinding[]): string {
+  const linked = findings.filter((finding) => decision.linkedFindingIds.includes(finding.id));
+  const priority: PrimarySemanticFamily[] = ['PRIVILEGED_ACCESS', 'IDENTITY_VERIFICATION', 'DETECTION_MONITORING', 'EVIDENCE_INTEGRITY', 'INCIDENT_RESPONSE', 'SUPPLIER_PAYMENT_CHANGE', 'SUPPLIER_ONBOARDING', 'FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'];
+  const family = priority.find((candidate) => linked.some((finding) => finding.primarySemanticFamily === candidate));
+  const mapping: Partial<Record<PrimarySemanticFamily, string>> = {
+    FRAUD_GOVERNANCE: 'FRAUD_GOVERNANCE_MODEL',
+    FRAUD_RISK_IDENTIFICATION: 'FRAUD_GOVERNANCE_MODEL',
+    CONTINUOUS_IMPROVEMENT: 'CONTROL_EFFECTIVENESS_CADENCE',
+    SUPPLIER_ONBOARDING: 'SUPPLIER_VERIFICATION_MODEL',
+    SUPPLIER_PAYMENT_CHANGE: 'SUPPLIER_VERIFICATION_MODEL',
+    THIRD_PARTY_OVERSIGHT: 'SUPPLIER_VERIFICATION_MODEL',
+    PRIVILEGED_ACCESS: 'PRIVILEGED_ACCESS_OPERATING_STANDARD',
+    IDENTITY_VERIFICATION: 'IDENTITY_VERIFICATION_MODEL',
+    DETECTION_MONITORING: 'DETECTION_OPERATING_MODEL',
+    INCIDENT_RESPONSE: 'INCIDENT_AND_EVIDENCE_MODEL',
+    EVIDENCE_INTEGRITY: 'INCIDENT_AND_EVIDENCE_MODEL',
+    WHISTLEBLOWING: 'INCIDENT_AND_EVIDENCE_MODEL'
+  };
+  return (family ? mapping[family] : undefined) ?? 'CONTROL_EFFECTIVENESS_CADENCE';
+}
+
+function buildDecisionFacts(decisions: LeadershipDecision[], findings: MaterialFinding[], findingRefs: Map<string, string>, semanticFamilyOverrides = new Map<string, string>()): NarrativeDecisionFact[] {
   const options = buildDecisionOptionSets(decisions);
   return decisions.map((decision, index) => {
     const optionSet = options[index];
@@ -553,6 +614,7 @@ function buildDecisionFacts(decisions: LeadershipDecision[], findingRefs: Map<st
       factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
       sourceId: decision.id,
       decisionFamily: decision.decisionCategory,
+      decisionSemanticFamily: semanticFamilyOverrides.get(decision.id) ?? decisionSemanticFamily(decision, findings),
       question: text(decision.decisionRequired),
       options: optionSet?.optionDetails.map((option) => ({ option: option.option, cost: option.cost, benefit: option.benefit, tradeOff: option.tradeOff })) ?? [],
       recommendedRoute: text(optionSet?.deterministicRecommendation, decision.recommendedDecision),
@@ -639,12 +701,13 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
     sourceId: action.id,
     sourceFindingRef: findingRefs.get(action.linkedFindingId) ?? '',
     primarySemanticFamily: findings.find((finding) => finding.id === action.linkedFindingId)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE',
-    phase: phaseFor(action, index, actions.length, tier),
+    phase: phaseFor(action),
+    phaseWindow: roadmapWindowFor(action),
     managementOutcome: roadmapOutcomeFor(findings.find((finding) => finding.id === action.linkedFindingId) ?? findings[0]!),
     priorityWork: roadmapWorkFor(findings.find((finding) => finding.id === action.linkedFindingId) ?? findings[0]!),
     accountableExecutive: text(action.accountableExecutive),
     processOwner: text(action.processOwner, action.accountableOwner),
-    targetPeriod: roadmapWindowFor(action, index, actions.length, tier),
+    targetPeriod: action.period,
     dependencies: list(action.dependency).filter((item) => item !== 'None'),
     proofOfCompletion: text(action.evidenceOfCompletion),
     successMeasure: text(action.successMeasure),
@@ -652,12 +715,14 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
   }));
 }
 
-function buildProofFacts(model: AdvisoryEvidenceModel, proofOverride?: NarrativeProofFact[]): NarrativeProofFact[] {
+function buildProofFacts(model: AdvisoryEvidenceModel, findingRefs: Map<string, string>, proofOverride?: NarrativeProofFact[]): NarrativeProofFact[] {
+  const proofWhy = (requirement: string, why: string): string => cleanFactLanguage(why) || `This proof shows that ${requirement.toLowerCase()} is defined, owned and retained for the selected control response.`;
   if (proofOverride) return proofOverride.map((item) => ({
     ...item,
+    linkedFindingRefs: item.linkedFindingRefs.map((ref) => findingRefs.get(ref) ?? ref).filter((ref) => ref.startsWith('FINDING-')),
     requirement: cleanFactLanguage(item.requirement),
     owner: cleanFactLanguage(item.owner),
-    whyItMatters: cleanFactLanguage(item.whyItMatters),
+    whyItMatters: proofWhy(item.requirement, item.whyItMatters),
     expectedRecency: cleanFactLanguage(item.expectedRecency),
     requiredPopulation: cleanFactLanguage(item.requiredPopulation),
     acceptableExamples: item.acceptableExamples.map((example) => cleanFactLanguage(example))
@@ -665,9 +730,10 @@ function buildProofFacts(model: AdvisoryEvidenceModel, proofOverride?: Narrative
   return model.evidenceChecklist.map((item, index) => ({
     factRef: `PROOF-${String(index + 1).padStart(3, '0')}`,
     sourceId: item.id,
+    linkedFindingRefs: item.linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
     requirement: cleanFactLanguage(item.artefact),
     owner: cleanFactLanguage(item.likelyOwner),
-    whyItMatters: cleanFactLanguage(item.provesWhat),
+    whyItMatters: proofWhy(item.artefact, item.provesWhat),
     expectedRecency: cleanFactLanguage(item.expectedRecency),
     requiredPopulation: cleanFactLanguage(item.requiredPopulation),
     acceptableExamples: list(item.minimumAcceptableCharacteristics).map((example) => cleanFactLanguage(example))
@@ -689,6 +755,50 @@ function selectNarrativeFindings(findings: MaterialFinding[], limit: number): Ma
   return selected.slice(0, limit);
 }
 
+function selectThemeCoveredControls(controls: ControlImprovementEntry[], findings: MaterialFinding[], limit: number): ControlImprovementEntry[] {
+  const findingById = new Map(findings.map((finding) => [finding.id, finding]));
+  const selected: ControlImprovementEntry[] = [];
+  for (const rule of THEME_RULES) {
+    const candidate = controls
+      .filter((control) => rule.anchorFamilies.includes(findingById.get(control.linkedFindingId)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE'))
+      .sort((left, right) => (findingById.get(right.linkedFindingId)?.materialityScore ?? 0) - (findingById.get(left.linkedFindingId)?.materialityScore ?? 0) || left.id.localeCompare(right.id))[0];
+    if (candidate && !selected.some((control) => control.id === candidate.id)) selected.push(candidate);
+    if (selected.length >= limit) break;
+  }
+  for (const control of [...controls].sort((left, right) => left.id.localeCompare(right.id))) {
+    if (selected.length >= limit) break;
+    if (!selected.some((item) => item.id === control.id)) selected.push(control);
+  }
+  return selected.slice(0, limit);
+}
+
+function selectThemeSpecificDecisions(decisions: LeadershipDecision[], findings: MaterialFinding[], limit: number): { decisions: LeadershipDecision[]; semanticFamilyOverrides: Map<string, string> } {
+  const selected: LeadershipDecision[] = [];
+  const overrides = new Map<string, string>();
+  const targetFamilies = ['FRAUD_GOVERNANCE_MODEL', 'PRIVILEGED_ACCESS_OPERATING_STANDARD', 'IDENTITY_VERIFICATION_MODEL', 'DETECTION_OPERATING_MODEL', 'INCIDENT_AND_EVIDENCE_MODEL', 'SUPPLIER_VERIFICATION_MODEL', 'CONTROL_EFFECTIVENESS_CADENCE'];
+  const familyForTarget = new Map<string, PrimarySemanticFamily[]>([
+    ['FRAUD_GOVERNANCE_MODEL', ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT']],
+    ['PRIVILEGED_ACCESS_OPERATING_STANDARD', ['PRIVILEGED_ACCESS', 'ORDINARY_ACCESS']],
+    ['IDENTITY_VERIFICATION_MODEL', ['IDENTITY_VERIFICATION']],
+    ['DETECTION_OPERATING_MODEL', ['DETECTION_MONITORING']],
+    ['INCIDENT_AND_EVIDENCE_MODEL', ['INCIDENT_RESPONSE', 'EVIDENCE_INTEGRITY', 'WHISTLEBLOWING']],
+    ['SUPPLIER_VERIFICATION_MODEL', ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE', 'THIRD_PARTY_OVERSIGHT']],
+    ['CONTROL_EFFECTIVENESS_CADENCE', ['CONTINUOUS_IMPROVEMENT']]
+  ]);
+  const sorted = [...decisions].sort((left, right) => left.id.localeCompare(right.id));
+  for (const target of targetFamilies) {
+    if (selected.length >= limit) break;
+    const allowed = new Set(familyForTarget.get(target) ?? []);
+    const candidate = sorted.find((decision) => !selected.some((item) => item.id === decision.id) && decision.linkedFindingIds.some((id) => allowed.has(findings.find((finding) => finding.id === id)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE')));
+    const fallback = candidate ?? sorted.find((decision) => !selected.some((item) => item.id === decision.id));
+    if (fallback) {
+      selected.push(fallback);
+      overrides.set(fallback.id, target);
+    }
+  }
+  return { decisions: selected.slice(0, limit), semanticFamilyOverrides: overrides };
+}
+
 function buildPack(input: {
   tier: NarrativeProductTier;
   data?: AssembledReportData;
@@ -705,14 +815,15 @@ function buildPack(input: {
   selectedDecisions: LeadershipDecision[];
   selectedRoadmap: RoadmapAction[];
   proofOverride?: NarrativeProofFact[];
+  decisionSemanticFamilyOverrides?: Map<string, string>;
 }): NarrativeFactPack {
   const findings = buildFindingFacts(input.selectedFindings);
   const findingRefs = new Map(findings.map((finding) => [finding.sourceId, finding.factRef]));
-  const risks = buildRiskFacts(input.selectedRisks, findingRefs);
+  const risks = buildRiskFacts(input.selectedRisks, input.selectedFindings, findingRefs);
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
   const scenarios = buildScenarioFacts(input.selectedScenarios, input.selectedFindings, input.selectedRisks, findingRefs, riskRefs, input.tier);
-  const controls = buildControlFacts(input.selectedControls, findingRefs);
-  const decisions = buildDecisionFacts(input.selectedDecisions, findingRefs);
+  const controls = buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
+  const decisions = buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides);
   const domains = buildDomains(input.data, findings);
   const themes = buildThemeFacts(input.evidenceModel.contradictions, input.selectedFindings, input.selectedRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
@@ -731,7 +842,7 @@ function buildPack(input: {
     ...controls.map((control) => makeFact(control.factRef, 'control', control, [control.sourceId])),
     ...decisions.map((decision) => makeFact(decision.factRef, 'decision', decision, [decision.sourceId])),
     ...roadmap.map((item) => makeFact(item.factRef, 'roadmap', item, [item.sourceId])),
-    ...buildProofFacts(input.evidenceModel, input.proofOverride).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
+    ...buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
   ];
   return {
     schemaVersion: NARRATIVE_FACT_PACK_SCHEMA_VERSION,
@@ -753,7 +864,7 @@ function buildPack(input: {
     controls,
     decisions,
     roadmap,
-    proofOfProgress: buildProofFacts(input.evidenceModel, input.proofOverride),
+    proofOfProgress: buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride),
     prohibitedClaims: [
       'independent operating effectiveness', 'evidence validation', 'confirmed fraud event',
       'invented incident, loss, customer, supplier, system or interview', 'unsupported Rand amount',
@@ -794,11 +905,11 @@ export function buildEssentialNarrativeFactPack(data: AssembledReportData, evide
     tier: 'essential', data, organisationName: data.organisationName, assessmentReference: data.assessmentReference, generatedAt: data.generatedAt,
     score: scoreFromData(data), domainData: data.domainResults, evidenceModel,
     selectedFindings: projection.findings,
-    selectedRisks: projection.risks,
-    selectedScenarios: projection.scenarios.filter((scenario) => scenario.linkedFindingIds.some((id) => selected.has(id))),
+    selectedRisks: evidenceModel.riskRegister,
+    selectedScenarios: evidenceModel.scenarios,
     selectedControls: projection.controlActionRecords.map((control) => evidenceModel.controlImprovements.find((item) => item.linkedFindingId === control.linkedFindingIds[0]) ?? null).filter((item): item is ControlImprovementEntry => Boolean(item)),
     selectedDecisions: projection.leadershipDecisions, selectedRoadmap: projection.roadmapActions.slice(0, 6),
-    proofOverride: projection.evidenceToObtain.map((item, index) => ({ factRef: `PROOF-${String(index + 1).padStart(3, '0')}`, sourceId: item.id, requirement: text(item.artefact), owner: text(item.likelyOwner), whyItMatters: text(item.provesWhat), expectedRecency: text(item.expectedRecency), requiredPopulation: text(item.requiredPopulation), acceptableExamples: list(item.minimumAcceptableCharacteristics) }))
+    proofOverride: projection.evidenceToObtain.map((item, index) => ({ factRef: `PROOF-${String(index + 1).padStart(3, '0')}`, sourceId: item.id, linkedFindingRefs: item.linkedFindingIds, requirement: text(item.artefact), owner: text(item.likelyOwner), whyItMatters: text(item.provesWhat), expectedRecency: text(item.expectedRecency), requiredPopulation: text(item.requiredPopulation), acceptableExamples: list(item.minimumAcceptableCharacteristics) }))
   });
 }
 
@@ -821,15 +932,16 @@ export function buildComprehensiveNarrativeFactPack(model: ComprehensiveDelivery
   const selectedFindings = selectNarrativeFindings(model.findings, 8);
   const selectedFindingIds = new Set(selectedFindings.map((finding) => finding.id));
   const selectedRisks = model.riskRegister.filter((risk) => risk.linkedFindingIds.some((id) => selectedFindingIds.has(id)));
-  const selectedControls = model.controlImprovements.filter((control) => selectedFindingIds.has(control.linkedFindingId)).slice(0, 5);
-  const selectedDecisions = model.leadershipDecisions.filter((decision) => decision.linkedFindingIds.some((id) => selectedFindingIds.has(id))).slice(0, 5);
+  const selectedControls = selectThemeCoveredControls(model.controlImprovements.filter((control) => selectedFindingIds.has(control.linkedFindingId)), selectedFindings, 5);
+  const decisionSelection = selectThemeSpecificDecisions(model.leadershipDecisions.filter((decision) => decision.linkedFindingIds.some((id) => selectedFindingIds.has(id))), selectedFindings, 5);
+  const selectedDecisions = decisionSelection.decisions;
   const selectedRoadmap = model.roadmapActions.filter((action) => selectedFindingIds.has(action.linkedFindingId)).slice(0, 12);
   return buildPack({
     tier: 'comprehensive', data, organisationName: model.analytical.organisationName, assessmentReference: model.analytical.assessmentReference, generatedAt: model.analytical.generatedAt,
     score, domainData: data?.domainResults, evidenceModel: model.analytical.evidenceModel,
     selectedFindings, selectedRisks, selectedScenarios: model.scenarios,
-    selectedControls, selectedDecisions, selectedRoadmap,
-    proofOverride: model.proofRequirements.map((item, index) => ({ factRef: `PROOF-${String(index + 1).padStart(3, '0')}`, sourceId: item.proofRef, requirement: item.requirement, owner: item.proofOwner, whyItMatters: item.whyItMatters, expectedRecency: item.expectedRecency, requiredPopulation: item.requiredPopulation, acceptableExamples: item.acceptableExamples }))
+    selectedControls, selectedDecisions, selectedRoadmap, decisionSemanticFamilyOverrides: decisionSelection.semanticFamilyOverrides,
+    proofOverride: model.proofRequirements.map((item, index) => ({ factRef: `PROOF-${String(index + 1).padStart(3, '0')}`, sourceId: item.proofRef, linkedFindingRefs: item.linkedFindingIds, requirement: item.requirement, owner: item.proofOwner, whyItMatters: item.whyItMatters, expectedRecency: item.expectedRecency, requiredPopulation: item.requiredPopulation, acceptableExamples: item.acceptableExamples }))
   });
 }
 
