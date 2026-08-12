@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-12T11:37:52.214Z",
+  "generatedAt": "2026-08-12T14:53:26.526Z",
   "fixtures": [
     "F1",
     "F2",
@@ -16,7 +16,7 @@
       "artefact": "essential-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-main-report.pdf",
-      "detail": "29 pages/slides; target 28–34.",
+      "detail": "30 pages/slides; target 28–34.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -62,6 +62,7 @@
         0,
         0,
         0,
+        0,
         0
       ]
     },
@@ -78,33 +79,34 @@
       ],
       "metrics": [
         0.4005,
-        0.9846,
+        0.985,
         0.6497,
         0.5925,
         0.7567,
         0.5598,
-        0.5761,
+        0.5746,
         0.7634,
         0.6503,
         0.7777,
-        0.8691,
+        0.8692,
         0.8914,
         0.876,
         0.886,
-        0.7509,
-        0.8797,
+        0.7234,
+        0.918,
+        0.9187,
         0.92,
         0.8643,
         0.8619,
-        0.9272,
+        0.9274,
         0.8831,
-        0.8024,
-        0.8076,
-        0.8448,
+        0.8027,
+        0.8115,
+        0.8473,
         0.9928,
-        0.807,
-        0.839,
-        0.8482,
+        0.8072,
+        0.8393,
+        0.8484,
         0.8888
       ]
     },
@@ -235,7 +237,7 @@
       "artefact": "essential-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -248,7 +250,7 @@
       "artefact": "essential-supporting-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-supporting-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -297,7 +299,7 @@
       "artefact": "essential-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-main-report.pdf",
-      "detail": "Sentence mean 14.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 25.6 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -592,7 +594,7 @@
       "artefact": "essential-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -605,7 +607,7 @@
       "artefact": "essential-supporting-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-supporting-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -719,7 +721,7 @@
       "artefact": "essential-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/essential-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 461 claim-like labels and 1 source lines.",
+      "detail": "Claim/source exhibit anchors: 463 claim-like labels and 1 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -833,7 +835,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "36 pages/slides; target 34–38.",
+      "detail": "38 pages/slides; target 34–38.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -922,6 +924,8 @@
         0,
         0,
         0,
+        0,
+        0,
         0
       ]
     },
@@ -964,7 +968,7 @@
         3,
         3,
         3,
-        2,
+        3,
         2,
         4,
         2
@@ -1000,48 +1004,50 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 78.0%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 70.2%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.3905,
-        0.9456,
-        0.857,
-        0.9627,
-        0.833,
-        0.9484,
-        0.9608,
-        0.9372,
-        0.9271,
-        0.9033,
-        0.9049,
-        0.9133,
-        0.9506,
-        0.7903,
-        0.9243,
-        0.8393,
-        0.931,
-        0.9118,
-        0.9403,
-        0.9424,
-        0.9427,
-        0.8321,
-        0.9126,
-        0.8627,
-        0.8618,
-        0.8766,
-        0.8948,
-        0.8711,
-        0.8377,
-        0.909,
-        0.8164,
-        0.7798,
-        0.9237,
-        0.9404,
-        0.93,
-        0.942
+        0.3895,
+        0.941,
+        0.8363,
+        0.9607,
+        0.8753,
+        0.9534,
+        0.9285,
+        0.8914,
+        0.8962,
+        0.7844,
+        0.9151,
+        0.8525,
+        0.9734,
+        0.8707,
+        0.9927,
+        0.8689,
+        0.9976,
+        0.798,
+        0.97,
+        0.8546,
+        0.8633,
+        0.9327,
+        0.9301,
+        0.9147,
+        0.8135,
+        0.8619,
+        0.8316,
+        0.9079,
+        0.8074,
+        0.9913,
+        0.702,
+        0.9491,
+        0.8585,
+        0.8972,
+        0.9565,
+        0.9394,
+        0.9315,
+        0.9467
       ]
     },
     {
@@ -1056,13 +1062,13 @@
         "PPTX"
       ],
       "metrics": [
-        0.8655,
-        0.8807,
-        0.9539,
-        0.8484,
-        0.8695,
-        0.8225,
-        0.842
+        0.8045,
+        0.8814,
+        0.9312,
+        0.8232,
+        0.8523,
+        0.8287,
+        0.847
       ]
     },
     {
@@ -1071,21 +1077,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Rendered pixel analysis: minimum body whitespace 70.8%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 68.8%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.9348,
-        0.929,
-        0.887,
-        0.9203,
-        0.8961,
-        0.7149,
-        0.8491,
-        0.9311,
-        0.9172,
+        0.9315,
+        0.93,
+        0.8926,
+        0.9101,
+        0.8893,
+        0.6881,
+        0.8234,
+        0.9205,
+        0.894,
         0.7081
       ]
     },
@@ -1095,22 +1101,22 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 81.1%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 83.9%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.8902,
-        0.8323,
-        0.8967,
-        0.8863,
-        0.8771,
-        0.8716,
-        0.8715,
-        0.811,
-        0.939,
-        0.9279
+        0.8893,
+        0.8439,
+        0.9089,
+        0.9067,
+        0.8411,
+        0.8393,
+        0.847,
+        0.8702,
+        0.9513,
+        0.9448
       ]
     },
     {
@@ -1178,7 +1184,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1202,7 +1208,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1214,7 +1220,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1226,7 +1232,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1250,7 +1256,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1262,7 +1268,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1447,7 +1453,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1471,7 +1477,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1483,7 +1489,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1495,7 +1501,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -1508,7 +1514,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -1521,7 +1527,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -1534,7 +1540,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -1547,7 +1553,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -1704,7 +1710,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Sentence mean 12.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.1 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1716,7 +1722,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Sentence mean 13.0 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.4 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1728,7 +1734,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Sentence mean 16.9 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 14.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -1740,7 +1746,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Sentence mean 25.3 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 21.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2455,7 +2461,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -2468,7 +2474,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -2481,7 +2487,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -2494,7 +2500,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -2507,7 +2513,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -2735,7 +2741,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 346 claim-like labels and 4 source lines.",
+      "detail": "Claim/source exhibit anchors: 260 claim-like labels and 4 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2747,7 +2753,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Claim/source exhibit anchors: 65 claim-like labels and 3 source lines.",
+      "detail": "Claim/source exhibit anchors: 53 claim-like labels and 3 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2759,7 +2765,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Claim/source exhibit anchors: 87 claim-like labels and 10 source lines.",
+      "detail": "Claim/source exhibit anchors: 101 claim-like labels and 10 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2771,7 +2777,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Claim/source exhibit anchors: 114 claim-like labels and 9 source lines.",
+      "detail": "Claim/source exhibit anchors: 82 claim-like labels and 9 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2807,7 +2813,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2819,7 +2825,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2831,7 +2837,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -2843,21 +2849,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Speaker-note word counts: 99, 99, 99, 99, 99, 99, 99, 99, 99, 99; required 60–100 per slide.",
+      "detail": "Speaker-note word counts: 87, 87, 87, 87, 87, 87, 87, 87, 87, 87; required 60–100 per slide.",
       "appliesTo": [
         "PPTX"
       ],
       "metrics": [
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87
       ]
     },
     {
@@ -3022,7 +3028,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "36 pages/slides; target 34–38.",
+      "detail": "38 pages/slides; target 34–38.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3111,6 +3117,8 @@
         0,
         0,
         0,
+        0,
+        0,
         0
       ]
     },
@@ -3153,7 +3161,7 @@
         3,
         3,
         3,
-        2,
+        3,
         2,
         4,
         2
@@ -3189,48 +3197,50 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 78.0%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 70.2%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.3905,
-        0.9456,
-        0.857,
-        0.9627,
-        0.833,
-        0.9484,
-        0.9608,
-        0.9372,
-        0.9271,
-        0.9033,
-        0.9049,
-        0.9133,
-        0.9506,
-        0.7903,
-        0.9243,
-        0.8393,
-        0.931,
-        0.9118,
-        0.9403,
-        0.9424,
-        0.9427,
-        0.8321,
-        0.9126,
-        0.8627,
-        0.8618,
-        0.8766,
-        0.8948,
-        0.8711,
-        0.8377,
-        0.909,
-        0.8164,
-        0.7798,
-        0.9237,
-        0.9404,
-        0.93,
-        0.942
+        0.3895,
+        0.941,
+        0.8363,
+        0.9607,
+        0.8753,
+        0.9534,
+        0.9285,
+        0.8914,
+        0.8962,
+        0.7844,
+        0.9151,
+        0.8525,
+        0.9734,
+        0.8707,
+        0.9927,
+        0.8689,
+        0.9976,
+        0.798,
+        0.97,
+        0.8546,
+        0.8633,
+        0.9327,
+        0.9301,
+        0.9147,
+        0.8135,
+        0.8619,
+        0.8316,
+        0.9079,
+        0.8074,
+        0.9913,
+        0.702,
+        0.9491,
+        0.8585,
+        0.8972,
+        0.9565,
+        0.9394,
+        0.9315,
+        0.9467
       ]
     },
     {
@@ -3245,13 +3255,13 @@
         "PPTX"
       ],
       "metrics": [
-        0.8655,
-        0.8807,
-        0.9539,
-        0.8484,
-        0.8695,
-        0.8225,
-        0.842
+        0.8045,
+        0.8814,
+        0.9312,
+        0.8232,
+        0.8523,
+        0.8287,
+        0.847
       ]
     },
     {
@@ -3260,21 +3270,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Rendered pixel analysis: minimum body whitespace 70.8%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 68.8%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.9348,
-        0.929,
-        0.887,
-        0.9203,
-        0.8961,
-        0.7149,
-        0.8491,
-        0.9311,
-        0.9172,
+        0.9315,
+        0.93,
+        0.8926,
+        0.9101,
+        0.8893,
+        0.6881,
+        0.8234,
+        0.9205,
+        0.894,
         0.7081
       ]
     },
@@ -3284,22 +3294,22 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 81.1%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 83.9%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.8902,
-        0.8323,
-        0.8967,
-        0.8863,
-        0.8771,
-        0.8716,
-        0.8715,
-        0.811,
-        0.939,
-        0.9279
+        0.8893,
+        0.8439,
+        0.9089,
+        0.9067,
+        0.8411,
+        0.8393,
+        0.847,
+        0.8702,
+        0.9513,
+        0.9448
       ]
     },
     {
@@ -3367,7 +3377,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3391,7 +3401,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3403,7 +3413,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3415,7 +3425,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3439,7 +3449,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3451,7 +3461,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3636,7 +3646,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3660,7 +3670,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3672,7 +3682,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3684,7 +3694,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -3697,7 +3707,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -3710,7 +3720,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -3723,7 +3733,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -3736,7 +3746,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -3893,7 +3903,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Sentence mean 12.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.1 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3905,7 +3915,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Sentence mean 13.0 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.4 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3917,7 +3927,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Sentence mean 16.9 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 14.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -3929,7 +3939,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Sentence mean 25.3 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 21.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -4644,7 +4654,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -4657,7 +4667,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -4670,7 +4680,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -4683,7 +4693,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -4696,7 +4706,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -4924,7 +4934,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 346 claim-like labels and 4 source lines.",
+      "detail": "Claim/source exhibit anchors: 260 claim-like labels and 4 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -4936,7 +4946,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Claim/source exhibit anchors: 65 claim-like labels and 3 source lines.",
+      "detail": "Claim/source exhibit anchors: 53 claim-like labels and 3 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -4948,7 +4958,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Claim/source exhibit anchors: 87 claim-like labels and 10 source lines.",
+      "detail": "Claim/source exhibit anchors: 101 claim-like labels and 10 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -4960,7 +4970,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Claim/source exhibit anchors: 114 claim-like labels and 9 source lines.",
+      "detail": "Claim/source exhibit anchors: 82 claim-like labels and 9 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -4996,7 +5006,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5008,7 +5018,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5020,7 +5030,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5032,21 +5042,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Speaker-note word counts: 99, 99, 99, 99, 99, 99, 99, 99, 99, 99; required 60–100 per slide.",
+      "detail": "Speaker-note word counts: 87, 87, 87, 87, 87, 87, 87, 87, 87, 87; required 60–100 per slide.",
       "appliesTo": [
         "PPTX"
       ],
       "metrics": [
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87
       ]
     },
     {
@@ -5211,7 +5221,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "36 pages/slides; target 34–38.",
+      "detail": "38 pages/slides; target 34–38.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5300,6 +5310,8 @@
         0,
         0,
         0,
+        0,
+        0,
         0
       ]
     },
@@ -5342,7 +5354,7 @@
         3,
         3,
         3,
-        2,
+        3,
         2,
         4,
         2
@@ -5378,48 +5390,50 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 78.0%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 70.2%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.3905,
-        0.9456,
-        0.857,
-        0.9627,
-        0.833,
-        0.9484,
-        0.9608,
-        0.9372,
-        0.9271,
-        0.9033,
-        0.9049,
-        0.9133,
-        0.9506,
-        0.7903,
-        0.9243,
-        0.8393,
-        0.931,
-        0.9118,
-        0.9403,
-        0.9424,
-        0.9427,
-        0.8321,
-        0.9126,
-        0.8627,
-        0.8618,
-        0.8766,
-        0.8948,
-        0.8711,
-        0.8377,
-        0.909,
-        0.8164,
-        0.7798,
-        0.9237,
-        0.9404,
-        0.93,
-        0.942
+        0.3895,
+        0.941,
+        0.8363,
+        0.9607,
+        0.8753,
+        0.9534,
+        0.9285,
+        0.8914,
+        0.8962,
+        0.7844,
+        0.9151,
+        0.8525,
+        0.9734,
+        0.8707,
+        0.9927,
+        0.8689,
+        0.9976,
+        0.798,
+        0.97,
+        0.8546,
+        0.8633,
+        0.9327,
+        0.9301,
+        0.9147,
+        0.8135,
+        0.8619,
+        0.8316,
+        0.9079,
+        0.8074,
+        0.9913,
+        0.702,
+        0.9491,
+        0.8585,
+        0.8972,
+        0.9565,
+        0.9394,
+        0.9315,
+        0.9467
       ]
     },
     {
@@ -5434,13 +5448,13 @@
         "PPTX"
       ],
       "metrics": [
-        0.8655,
-        0.8807,
-        0.9539,
-        0.8484,
-        0.8695,
-        0.8225,
-        0.842
+        0.8045,
+        0.8814,
+        0.9312,
+        0.8232,
+        0.8523,
+        0.8287,
+        0.847
       ]
     },
     {
@@ -5449,21 +5463,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Rendered pixel analysis: minimum body whitespace 70.8%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 68.8%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.9348,
-        0.929,
-        0.887,
-        0.9203,
-        0.8961,
-        0.7149,
-        0.8491,
-        0.9311,
-        0.9172,
+        0.9315,
+        0.93,
+        0.8926,
+        0.9101,
+        0.8893,
+        0.6881,
+        0.8234,
+        0.9205,
+        0.894,
         0.7081
       ]
     },
@@ -5473,22 +5487,22 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 81.1%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 83.9%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.8902,
-        0.8323,
-        0.8967,
-        0.8863,
-        0.8771,
-        0.8716,
-        0.8715,
-        0.811,
-        0.939,
-        0.9279
+        0.8893,
+        0.8439,
+        0.9089,
+        0.9067,
+        0.8411,
+        0.8393,
+        0.847,
+        0.8702,
+        0.9513,
+        0.9448
       ]
     },
     {
@@ -5556,7 +5570,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5580,7 +5594,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5592,7 +5606,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5604,7 +5618,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5628,7 +5642,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5640,7 +5654,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5825,7 +5839,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5849,7 +5863,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5861,7 +5875,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -5873,7 +5887,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -5886,7 +5900,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -5899,7 +5913,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -5912,7 +5926,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -5925,7 +5939,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -6082,7 +6096,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Sentence mean 12.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.1 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -6094,7 +6108,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Sentence mean 13.0 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.4 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -6106,7 +6120,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Sentence mean 16.9 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 14.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -6118,7 +6132,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Sentence mean 25.3 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 21.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -6833,7 +6847,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -6846,7 +6860,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -6859,7 +6873,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -6872,7 +6886,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -6885,7 +6899,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -7113,7 +7127,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 346 claim-like labels and 4 source lines.",
+      "detail": "Claim/source exhibit anchors: 260 claim-like labels and 4 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7125,7 +7139,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Claim/source exhibit anchors: 65 claim-like labels and 3 source lines.",
+      "detail": "Claim/source exhibit anchors: 53 claim-like labels and 3 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7137,7 +7151,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Claim/source exhibit anchors: 87 claim-like labels and 10 source lines.",
+      "detail": "Claim/source exhibit anchors: 101 claim-like labels and 10 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7149,7 +7163,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Claim/source exhibit anchors: 114 claim-like labels and 9 source lines.",
+      "detail": "Claim/source exhibit anchors: 82 claim-like labels and 9 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7185,7 +7199,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7197,7 +7211,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7209,7 +7223,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7221,21 +7235,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Speaker-note word counts: 99, 99, 99, 99, 99, 99, 99, 99, 99, 99; required 60–100 per slide.",
+      "detail": "Speaker-note word counts: 87, 87, 87, 87, 87, 87, 87, 87, 87, 87; required 60–100 per slide.",
       "appliesTo": [
         "PPTX"
       ],
       "metrics": [
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87
       ]
     },
     {
@@ -7400,7 +7414,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "36 pages/slides; target 34–38.",
+      "detail": "38 pages/slides; target 34–38.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7489,6 +7503,8 @@
         0,
         0,
         0,
+        0,
+        0,
         0
       ]
     },
@@ -7531,7 +7547,7 @@
         3,
         3,
         3,
-        2,
+        3,
         2,
         4,
         2
@@ -7567,48 +7583,50 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 78.0%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 70.2%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.3905,
-        0.9456,
-        0.857,
-        0.9627,
-        0.833,
-        0.9484,
-        0.9608,
-        0.9372,
-        0.9271,
-        0.9033,
-        0.9049,
-        0.9133,
-        0.9506,
-        0.7903,
-        0.9243,
-        0.8393,
-        0.931,
-        0.9118,
-        0.9403,
-        0.9424,
-        0.9427,
-        0.8321,
-        0.9126,
-        0.8627,
-        0.8618,
-        0.8766,
-        0.8948,
-        0.8711,
-        0.8377,
-        0.909,
-        0.8164,
-        0.7798,
-        0.9237,
-        0.9404,
-        0.93,
-        0.942
+        0.3895,
+        0.941,
+        0.8363,
+        0.9607,
+        0.8753,
+        0.9534,
+        0.9285,
+        0.8914,
+        0.8962,
+        0.7844,
+        0.9151,
+        0.8525,
+        0.9734,
+        0.8707,
+        0.9927,
+        0.8689,
+        0.9976,
+        0.798,
+        0.97,
+        0.8546,
+        0.8633,
+        0.9327,
+        0.9301,
+        0.9147,
+        0.8135,
+        0.8619,
+        0.8316,
+        0.9079,
+        0.8074,
+        0.9913,
+        0.702,
+        0.9491,
+        0.8585,
+        0.8972,
+        0.9565,
+        0.9394,
+        0.9315,
+        0.9467
       ]
     },
     {
@@ -7623,13 +7641,13 @@
         "PPTX"
       ],
       "metrics": [
-        0.8655,
-        0.8807,
-        0.9539,
-        0.8484,
-        0.8695,
-        0.8225,
-        0.842
+        0.8045,
+        0.8814,
+        0.9312,
+        0.8232,
+        0.8523,
+        0.8287,
+        0.847
       ]
     },
     {
@@ -7638,21 +7656,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Rendered pixel analysis: minimum body whitespace 70.8%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 68.8%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.9348,
-        0.929,
-        0.887,
-        0.9203,
-        0.8961,
-        0.7149,
-        0.8491,
-        0.9311,
-        0.9172,
+        0.9315,
+        0.93,
+        0.8926,
+        0.9101,
+        0.8893,
+        0.6881,
+        0.8234,
+        0.9205,
+        0.894,
         0.7081
       ]
     },
@@ -7662,22 +7680,22 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 81.1%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 83.9%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.8902,
-        0.8323,
-        0.8967,
-        0.8863,
-        0.8771,
-        0.8716,
-        0.8715,
-        0.811,
-        0.939,
-        0.9279
+        0.8893,
+        0.8439,
+        0.9089,
+        0.9067,
+        0.8411,
+        0.8393,
+        0.847,
+        0.8702,
+        0.9513,
+        0.9448
       ]
     },
     {
@@ -7745,7 +7763,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7769,7 +7787,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7781,7 +7799,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7793,7 +7811,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7817,7 +7835,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -7829,7 +7847,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8014,7 +8032,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8038,7 +8056,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8050,7 +8068,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8062,7 +8080,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -8075,7 +8093,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -8088,7 +8106,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -8101,7 +8119,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -8114,7 +8132,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -8271,7 +8289,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Sentence mean 12.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.1 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8283,7 +8301,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Sentence mean 13.0 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.4 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8295,7 +8313,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Sentence mean 16.9 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 14.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -8307,7 +8325,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Sentence mean 25.3 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 21.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9022,7 +9040,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -9035,7 +9053,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -9048,7 +9066,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -9061,7 +9079,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -9074,7 +9092,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -9302,7 +9320,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 346 claim-like labels and 4 source lines.",
+      "detail": "Claim/source exhibit anchors: 260 claim-like labels and 4 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9314,7 +9332,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Claim/source exhibit anchors: 65 claim-like labels and 3 source lines.",
+      "detail": "Claim/source exhibit anchors: 53 claim-like labels and 3 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9326,7 +9344,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Claim/source exhibit anchors: 87 claim-like labels and 10 source lines.",
+      "detail": "Claim/source exhibit anchors: 101 claim-like labels and 10 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9338,7 +9356,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Claim/source exhibit anchors: 114 claim-like labels and 9 source lines.",
+      "detail": "Claim/source exhibit anchors: 82 claim-like labels and 9 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9374,7 +9392,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9386,7 +9404,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9398,7 +9416,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9410,21 +9428,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Speaker-note word counts: 99, 99, 99, 99, 99, 99, 99, 99, 99, 99; required 60–100 per slide.",
+      "detail": "Speaker-note word counts: 87, 87, 87, 87, 87, 87, 87, 87, 87, 87; required 60–100 per slide.",
       "appliesTo": [
         "PPTX"
       ],
       "metrics": [
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87
       ]
     },
     {
@@ -9589,7 +9607,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "36 pages/slides; target 34–38.",
+      "detail": "38 pages/slides; target 34–38.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9678,6 +9696,8 @@
         0,
         0,
         0,
+        0,
+        0,
         0
       ]
     },
@@ -9720,7 +9740,7 @@
         3,
         3,
         3,
-        2,
+        3,
         2,
         4,
         2
@@ -9756,48 +9776,50 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 78.0%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 70.2%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.3905,
-        0.9456,
-        0.857,
-        0.9627,
-        0.833,
-        0.9484,
-        0.9608,
-        0.9372,
-        0.9271,
-        0.9033,
-        0.9049,
-        0.9133,
-        0.9506,
-        0.7903,
-        0.9243,
-        0.8393,
-        0.931,
-        0.9118,
-        0.9403,
-        0.9424,
-        0.9427,
-        0.8321,
-        0.9126,
-        0.8627,
-        0.8618,
-        0.8766,
-        0.8948,
-        0.8711,
-        0.8377,
-        0.909,
-        0.8164,
-        0.7798,
-        0.9237,
-        0.9404,
-        0.93,
-        0.942
+        0.3895,
+        0.941,
+        0.8363,
+        0.9607,
+        0.8753,
+        0.9534,
+        0.9285,
+        0.8914,
+        0.8962,
+        0.7844,
+        0.9151,
+        0.8525,
+        0.9734,
+        0.8707,
+        0.9927,
+        0.8689,
+        0.9976,
+        0.798,
+        0.97,
+        0.8546,
+        0.8633,
+        0.9327,
+        0.9301,
+        0.9147,
+        0.8135,
+        0.8619,
+        0.8316,
+        0.9079,
+        0.8074,
+        0.9913,
+        0.702,
+        0.9491,
+        0.8585,
+        0.8972,
+        0.9565,
+        0.9394,
+        0.9315,
+        0.9467
       ]
     },
     {
@@ -9812,13 +9834,13 @@
         "PPTX"
       ],
       "metrics": [
-        0.8655,
-        0.8807,
-        0.9539,
-        0.8484,
-        0.8695,
-        0.8225,
-        0.842
+        0.8045,
+        0.8814,
+        0.9312,
+        0.8232,
+        0.8523,
+        0.8287,
+        0.847
       ]
     },
     {
@@ -9827,21 +9849,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Rendered pixel analysis: minimum body whitespace 70.8%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 68.8%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.9348,
-        0.929,
-        0.887,
-        0.9203,
-        0.8961,
-        0.7149,
-        0.8491,
-        0.9311,
-        0.9172,
+        0.9315,
+        0.93,
+        0.8926,
+        0.9101,
+        0.8893,
+        0.6881,
+        0.8234,
+        0.9205,
+        0.894,
         0.7081
       ]
     },
@@ -9851,22 +9873,22 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Rendered pixel analysis: minimum body whitespace 81.1%; required ≥40%.",
+      "detail": "Rendered pixel analysis: minimum body whitespace 83.9%; required ≥40%.",
       "appliesTo": [
         "PDF",
         "PPTX"
       ],
       "metrics": [
-        0.8902,
-        0.8323,
-        0.8967,
-        0.8863,
-        0.8771,
-        0.8716,
-        0.8715,
-        0.811,
-        0.939,
-        0.9279
+        0.8893,
+        0.8439,
+        0.9089,
+        0.9067,
+        0.8411,
+        0.8393,
+        0.847,
+        0.8702,
+        0.9513,
+        0.9448
       ]
     },
     {
@@ -9934,7 +9956,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9958,7 +9980,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9970,7 +9992,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -9982,7 +10004,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10006,7 +10028,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10018,7 +10040,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10203,7 +10225,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 13.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 4.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10227,7 +10249,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 1.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10239,7 +10261,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 2.",
+      "detail": "Severity elements: critical 0 (max/page 0), major 0 (max/page 0), confirmed 0.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10251,7 +10273,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -10264,7 +10286,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -10277,7 +10299,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -10290,7 +10312,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -10303,7 +10325,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No prohibited customer-facing tokens on the inspected surface.",
+      "detail": "No prohibited customer-facing tokens on the inspected surface; technical traceability remains confined to excluded workbook fields.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -10460,7 +10482,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Sentence mean 12.4 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.1 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10472,7 +10494,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Sentence mean 13.0 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 22.4 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10484,7 +10506,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Sentence mean 16.9 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 14.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -10496,7 +10518,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Sentence mean 25.3 words; >60-word sentences 0; acceptable mean 12–40.",
+      "detail": "Sentence mean 21.8 words; >60-word sentences 0; acceptable mean 12–40.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11211,7 +11233,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -11224,7 +11246,7 @@
       "artefact": "comprehensive-annotated-register",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-annotated-register.xlsx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -11237,7 +11259,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -11250,7 +11272,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -11263,7 +11285,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "No Rand-denominated value appears on the customer-facing surface.",
+      "detail": "Rand-denominated values are absent or anchored to the supplied record.",
       "appliesTo": [
         "PDF",
         "PPTX",
@@ -11491,7 +11513,7 @@
       "artefact": "comprehensive-main-report",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-main-report.pdf",
-      "detail": "Claim/source exhibit anchors: 346 claim-like labels and 4 source lines.",
+      "detail": "Claim/source exhibit anchors: 260 claim-like labels and 4 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11503,7 +11525,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Claim/source exhibit anchors: 65 claim-like labels and 3 source lines.",
+      "detail": "Claim/source exhibit anchors: 53 claim-like labels and 3 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11515,7 +11537,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Claim/source exhibit anchors: 87 claim-like labels and 10 source lines.",
+      "detail": "Claim/source exhibit anchors: 101 claim-like labels and 10 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11527,7 +11549,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Claim/source exhibit anchors: 114 claim-like labels and 9 source lines.",
+      "detail": "Claim/source exhibit anchors: 82 claim-like labels and 9 source lines.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11563,7 +11585,7 @@
       "artefact": "comprehensive-board-readout",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-board-readout.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11575,7 +11597,7 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11587,7 +11609,7 @@
       "artefact": "comprehensive-workshop-material",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-workshop-material.pdf",
-      "detail": "Exhibit labels/manifest anchors found: 10; shared model exhibits: 10.",
+      "detail": "Exhibit labels/manifest anchors found: 0; shared model exhibits: 10.",
       "appliesTo": [
         "PDF",
         "PPTX"
@@ -11599,21 +11621,21 @@
       "artefact": "comprehensive-executive-presentation",
       "status": "PASS",
       "location": "/Users/tondani/Documents/Codex/mk-fraud-readiness-score-joint-launch-integration/outputs/commercial-quality/comprehensive-executive-presentation.pptx",
-      "detail": "Speaker-note word counts: 99, 99, 99, 99, 99, 99, 99, 99, 99, 99; required 60–100 per slide.",
+      "detail": "Speaker-note word counts: 87, 87, 87, 87, 87, 87, 87, 87, 87, 87; required 60–100 per slide.",
       "appliesTo": [
         "PPTX"
       ],
       "metrics": [
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99,
-        99
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87,
+        87
       ]
     },
     {

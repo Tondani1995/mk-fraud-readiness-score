@@ -13,9 +13,9 @@ import { buildComprehensiveRegisterSheets } from './register';
  * Comprehensive package could therefore never be generated in any environment.
  *
  * The byte writer is now the same declared, production-safe runtime already proven by
- * src/lib/reports/supporting-register-workbook.ts. The Comprehensive data contract is unchanged:
- * every sheet, column, reviewer annotation, evidence status and management decision still comes
- * from buildComprehensiveRegisterSheets(model), and the Summary sheet is preserved.
+ * src/lib/reports/supporting-register-workbook.ts. The eight-sheet contract is business-first and
+ * deterministic: question traceability carries the evidence and reviewer references that would
+ * otherwise be hidden in a separate technical tab.
  *
  * FORMULA INJECTION. Every cell is declared type String, so write-excel-file emits it as an inline
  * string cell. Reviewer and customer text beginning '=', '+', '-' or '@' is therefore stored as a
@@ -30,12 +30,12 @@ export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
 export const COMPREHENSIVE_READ_ME_SHEET = 'Read me';
 
 const STATUS_VOCABULARY: Array<[string, string, string]> = [
-  ['Self-reported', 'Recorded assessment answer', 'Not independently supported'],
-  ['Evidence reviewed', 'Artefact examined', 'Not automatically validated'],
-  ['Supported for stated scope', 'Named reviewer support', 'Only for stated scope'],
-  ['Insufficient for conclusion', 'Evidence limitation', 'Reliance remains bounded'],
-  ['Not supported / not applicable', 'Reviewer conclusion', 'Distinct from insufficient'],
-  ['Evidence request lifecycle', 'Not requested → received', 'Not equivalent to support'],
+  ['Recorded self-assessment', 'Recorded assessment answer', 'Not independently validated'],
+  ['Management review record', 'Artefact examined or review note recorded', 'Does not change the deterministic result'],
+  ['Review note — stated scope recorded', 'Named review note', 'Only for the stated scope and period'],
+  ['Review note — further basis required', 'Information limitation', 'Reliance remains bounded'],
+  ['Review note — limitation recorded', 'Review note', 'Not a misconduct conclusion'],
+  ['Evidence lifecycle', 'Not supplied → artefact received', 'Not equivalent to operating effectiveness'],
   ['Reviewer judgement', 'Human interpretation', 'Separate from evidence status']
 ];
 
@@ -43,14 +43,9 @@ const STATUS_VOCABULARY: Array<[string, string, string]> = [
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '';
   return String(value)
-    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Independent review lead')
+    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Named review lead')
     .replace(/\bUAT\b/gi, 'review')
-    .replace(/\bStaging\b/gi, 'review')
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate')
-    .replace(/operating validate/gi, 'operating review')
-    .replace(/effectiveness validate/gi, 'effectiveness review');
+    .replace(/\bStaging\b/gi, 'review');
 }
 
 function technicalCell(value: unknown): string {
@@ -76,10 +71,7 @@ function friendlyHeader(column: string): string {
     .replace(/^linked (finding|risk|control) ids?$/i, 'Linked $1 IDs (technical)')
     .replace(/^linked evidence refs$/i, 'Linked evidence references (technical)')
     .replace(/^reviewer evidence refs$/i, 'Reviewer evidence references (technical)')
-    .replace(/^./, (letter) => letter.toUpperCase())
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validation');
+    .replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function orderedColumns(columns: string[]): string[] {
@@ -98,7 +90,7 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
     { field: 'Named reviewer', value: `${cell(reviewer.name)} · ${cell(reviewer.role)}`, note: '' },
     { field: 'Review date', value: humanDate(reviewer.reviewDate), note: '' },
     { field: 'Deterministic readiness', value: cell(model.analytical.score.overallScore), note: '' },
-    { field: 'Validated / supported evidence', value: cell(model.validationSummary.validatedSupported), note: '' },
+    { field: 'Review notes with stated scope', value: cell(model.validationSummary.validatedSupported), note: '' },
     { field: 'Unresolved evidence', value: cell(model.validationSummary.unresolved), note: '' },
     { field: '', value: '', note: '' },
     { field: 'Status vocabulary', value: 'Meaning', note: 'Boundary' }
@@ -111,9 +103,9 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
 
 function readMeRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
   return [
-    { field: 'Workbook purpose', value: 'Annotated Comprehensive evidence-review register', note: 'Traceability and reviewer assurance record' },
+    { field: 'Workbook purpose', value: 'Comprehensive target-state and traceability register', note: 'Deterministic assessment, management review and implementation record' },
     { field: 'How to read it', value: 'Customer-facing meaning comes first; technical references appear at the end of each sheet.', note: 'Technical IDs remain available for reconciliation.' },
-    { field: 'Status boundary', value: 'Supported for stated scope is not a re-score or certification.', note: 'Evidence reviewed is not automatically validated.' },
+    { field: 'Status boundary', value: 'Review notes do not re-score the assessment or certify operating effectiveness.', note: 'The report is not independent assurance unless separately scoped.' },
     { field: 'Evidence arithmetic', value: `${model.validationSummary.selfReported} + ${model.validationSummary.evidenceReviewed} = ${model.validationSummary.totalEvidenceItems}`, note: 'Not reviewed + reviewed = total' },
     { field: 'Reviewed arithmetic', value: `${model.validationSummary.validatedSupported} + ${model.validationSummary.notValidatedInsufficient} + ${model.evidenceReviews.filter((item) => item.validationStatus === 'NOT_SUPPORTED').length} + ${model.validationSummary.reviewerJudgement} + ${model.evidenceReviews.filter((item) => item.validationStatus === 'EVIDENCE_REVIEWED').length} = ${model.validationSummary.evidenceReviewed}`, note: 'Supported + insufficient + not supported + reviewed/no conclusion = reviewed' },
     { field: 'Unresolved arithmetic', value: `${model.validationSummary.unresolved}`, note: 'Not reviewed + insufficient + not supported' },

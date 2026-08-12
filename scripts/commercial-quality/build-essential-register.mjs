@@ -36,9 +36,7 @@ for (let index = 0; index < sheets.length; index += 1) {
   sheet.showGridLines = false;
   const schemaHeaders = schemas[index].map((column) => column.header);
   const headers = schemaHeaders.map((header) => header
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validation'));
+    );
   const values = rows[index].map((row) => schemaHeaders.map((header) => {
     const column = schemas[index].find((entry) => entry.header === header);
     return column?.cell(row) ?? null;

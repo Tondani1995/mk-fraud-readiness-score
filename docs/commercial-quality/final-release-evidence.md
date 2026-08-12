@@ -18,12 +18,12 @@
 
 ## Artefact checks
 
-- Essential: 29 pages; 8-sheet supporting register.
-- Comprehensive: 36 pages; 8-sheet annotated register.
+- Essential: 30 pages; 8-sheet supporting register.
+- Comprehensive: 38 pages; 8-sheet annotated register.
 - Board readout: 7 pages.
 - Workshop material: 10 pages.
 - Executive presentation: 10 slides; overflow test passed.
-- Evidence reconciliation: 12 total, 8 reviewed, 3 supported, 2 insufficient, 2 not supported, 1 reviewed without conclusion; unresolved formula reconciles to 8.
+- Evidence reconciliation: 64 evidence requirements, 1 supported, 1 insufficient, 1 not supported, 1 management decision; 63 remain open under the locked reconciliation rule.
 - Visual inspection: final Essential, Comprehensive, board, workshop, presentation and register surfaces inspected; no clipping or blank-content defect remains.
 
 ## Verification commands

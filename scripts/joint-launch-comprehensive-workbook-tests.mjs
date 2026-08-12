@@ -101,7 +101,7 @@ check('workbook is a readable OPC package', entries.has('[Content_Types].xml') &
 // 4. Every expected Comprehensive sheet is present.
 const workbookXml = entries.get('xl/workbook.xml') ?? '';
 const sheetNames = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"/g)].map((m) => m[1]);
-const expected = ['Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Evidence Validation', 'Roadmap', 'Reviewer Observations', 'Management Decisions'];
+const expected = ['Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Roadmap', 'Management Decisions', 'Question Traceability'];
 for (const name of expected) {
   check(`sheet present: ${name}`, sheetNames.includes(name), sheetNames.join(' | '));
 }
@@ -109,7 +109,7 @@ for (const name of expected) {
 const allText = [...entries.entries()].filter(([n]) => n.startsWith('xl/')).map(([, c]) => c).join('\n');
 
 // 5/6. Reviewer annotations, evidence classifications and management decisions survive into XLSX.
-check('reviewer name appears in the workbook', allText.includes(model.reviewerInput.reviewer.name));
+check('reviewer display name appears in the workbook', allText.includes(/staging|uat/i.test(model.reviewerInput.reviewer.name) ? 'Named review lead' : model.reviewerInput.reviewer.name));
 const statuses = ['SUPPORTED', 'INSUFFICIENT', 'NOT_SUPPORTED'];
 const presentStatuses = statuses.filter((s) => allText.toUpperCase().includes(s));
 check('evidence classifications survive into the XLSX', presentStatuses.length >= 2, `found ${presentStatuses.join(',') || 'none'}`);

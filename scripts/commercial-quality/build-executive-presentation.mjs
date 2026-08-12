@@ -6,7 +6,6 @@ import { buildComprehensiveDeliveryModel, fromAssembledReportData, buildExecutiv
 import { assembleReportData } from '../../src/lib/reports/assemble-report-data.ts';
 import { getEngagementByOrderReference } from '../../src/lib/comprehensive/engagement-service.ts';
 import { loadComprehensiveReviewerInput } from '../../src/lib/comprehensive/review-record-service.ts';
-import { buildKestrelEvidenceRichCertification } from '../../src/lib/reports/comprehensive/realistic-kestrel-certification.ts';
 import { MK_TOKENS } from '../../src/lib/reports/design/tokens.ts';
 
 const runtimeRoot = process.env.CODEX_NODE_MODULES ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
@@ -23,8 +22,8 @@ if (orderReference) {
   const engagement = await getEngagementByOrderReference(orderReference);
   if (!engagement) throw new Error(`Comprehensive engagement not found for ${orderReference}`);
   const assembled = await assembleReportData(orderReference);
-  const certified = buildKestrelEvidenceRichCertification(assembled);
-  model = buildComprehensiveDeliveryModel(certified.analytical, certified.reviewer);
+  const reviewerInput = await loadComprehensiveReviewerInput(engagement.id);
+  model = await fromAssembledReportData(assembled, reviewerInput);
   sourceLabel = `persisted Kestrel engagement ${orderReference}`;
 } else {
   const fixture = comprehensiveFixtures[fixtureKey];
@@ -47,25 +46,49 @@ function shape(slide, geometry, position, fill = 'none', line = { style: 'solid'
 
 function text(slide, value, position, style = {}, name) {
   const box = shape(slide, 'textbox', position, 'none', { style: 'solid', fill: 'none', width: 0 }, name);
-  box.text = String(value ?? '')
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate')
-    .replace(/effectiveness validate/gi, 'effectiveness review')
-    .replace(/validate results/gi, 'evidence review results')
-    .replace(/\bsynthetic identity\b/gi, 'identity misuse');
+  box.text = String(value ?? '');
   box.text.style = { fontSize: 18, color: C.ink, ...style };
   return box;
 }
 
+function publicText(value) {
+  return String(value ?? '')
+    .replace(/\bAn interaction covered by the recorded control condition:\s*/gi, 'The recorded control condition is engaged through ')
+    .replace(/\bAn actor exploits the recorded control condition so that\b/gi, 'A threat actor can exploit the recorded control condition when')
+    .replace(/\bvalidated\b/gi, 'checked')
+    .replace(/\bD\d+[- ]Q\d+\b/g, 'the named question')
+    .replace(/\b(?:MF|CI|RA|SC|OBS|EVID|DEC|ACT|RISK)-[A-Z0-9-]+\b/g, 'the named record');
+}
+
+function executiveActionText(action) {
+  const raw = publicText(action?.deliverable ?? '');
+  const withoutTrigger = raw.replace(/^Apply immediate escalation at\s+"[^"]+"\s+and deliver the exact control design:\s*/i, '');
+  const words = withoutTrigger.split(/\s+/).filter(Boolean);
+  const compact = words.length > 18 ? `${words.slice(0, 18).join(' ')}…` : withoutTrigger;
+  return compact.endsWith('.') || compact.endsWith('…') ? compact : `${compact}.`;
+}
+
+function executiveReviewText(value, limit = 22) {
+  const raw = publicText(value);
+  const words = raw.split(/\s+/).filter(Boolean);
+  const compact = words.length > limit ? `${words.slice(0, limit).join(' ')}…` : raw;
+  return compact.endsWith('.') || compact.endsWith('…') ? compact : `${compact}.`;
+}
+
+function executiveRiskText(value) {
+  const raw = publicText(value);
+  const words = raw.split(/\s+/).filter(Boolean);
+  return words.length > 9 ? `${words.slice(0, 9).join(' ')}…` : raw;
+}
+
 function reviewerDisplayName(value) {
   const raw = String(value ?? '').trim();
-  return /staging|uat/i.test(raw) ? 'Independent review lead' : raw;
+  return /staging|uat/i.test(raw) ? 'Named review lead' : raw;
 }
 
 function reviewerDisplayRole(value) {
   const raw = String(value ?? '').trim();
-  return !raw || /^(reviewer|approver)$/i.test(raw) ? 'Independent review lead' : raw.replaceAll('_', ' ');
+  return !raw || /^(reviewer|approver)$/i.test(raw) ? 'Review lead' : raw.replaceAll('_', ' ');
 }
 
 function line(slide, left, top, width, color = C.line, widthPx = 1) {
@@ -86,7 +109,7 @@ function header(slide, number, title, strapline) {
 }
 
 function notes(slide, extra = '') {
-  slide.speakerNotes.textFrame.setText(`[Sources]\n- Source: ${sourceLabel}.\n- McKinsey board risk perspective: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte fraud risk management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- Preserve scope, position, evidence boundary, owner, date and proof in the annotated register.\n- Scenarios: actor, opportunity, entry point, mechanism, bypassed control, concealment, consequence, warning, containment, long-term response.\n- Controls: What (control objective), Who, Population, Frequency, Evidence retained, Independent check, Escalation, SLA, Effectiveness measure, Failure response.\n- Decisions: three options with cost, benefit, trade-off; recommendation, rationale, rejection reason, owner, deadline.\n- Traceability: annotated register preserves the source chain.\n- Exhibits: E1, E2, E3, E4, E5, E6, E7, E8, E9, E10.\n${extra}`);
+  slide.speakerNotes.textFrame.setText(`[Sources]\n- Source: ${sourceLabel}.\n- McKinsey board risk perspective: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte fraud risk management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- Preserve scope, position, information boundary, owner, date and proof in the annotated register.\n- Scenarios: actor, opportunity, entry point, mechanism, bypassed control, concealment, consequence, warning, containment, long-term response.\n- Controls: What (control objective), Who, Population, Frequency, Evidence retained, Independent check, Escalation, SLA, Effectiveness measure, Failure response.\n- Decisions: three options with cost, benefit, trade-off; recommendation, rationale, rejection reason, owner, deadline.\n- Traceability: annotated register preserves the source chain.\n${extra}`);
 }
 
 function addMetric(slide, left, top, width, label, value, note, accent = C.navy) {
@@ -112,8 +135,8 @@ const slides = [];
   slide.background.fill = C.navy;
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
   text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
-  text(slide, 'The evidence review turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, 'The target-state blueprint turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
+  text(slide, `${model.analytical.organisationName}\nComprehensive review · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
   text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
   notes(slide);
@@ -137,8 +160,8 @@ function newSlide() {
   const slide = newSlide(); slide.background.fill = C.navy;
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
   text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
-  text(slide, 'The evidence review turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, 'The target-state blueprint turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
+  text(slide, `${model.analytical.organisationName}\nComprehensive review · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
   text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
   notes(slide);
@@ -146,25 +169,25 @@ function newSlide() {
 
 // 2 — position
 {
-  const slide = newSlide(); header(slide, 2, 'The recorded position is developing; assurance is narrower than the score.', 'Separate the deterministic result from what the evidence review can support.');
+  const slide = newSlide(); header(slide, 2, 'The recorded position is developing; reliance is narrower than the score.', 'Separate the deterministic result from the information boundary.');
   addMetric(slide, 72, 208, 240, 'Reported readiness', `${Math.round(model.analytical.score.overallScore ?? 0)} / 100`, model.analytical.score.finalMaturity ?? 'Not scored', C.navy);
   addMetric(slide, 334, 208, 240, 'Exposure position', `${Math.round(model.analytical.score.exposureScore ?? 0)} / 100`, model.analytical.score.exposureBand ?? 'Not assessed', C.red);
-  addMetric(slide, 596, 208, 240, 'Supported evidence', `${model.validationSummary.validatedSupported}`, `of ${model.validationSummary.totalEvidenceItems} items`, C.green);
-  addMetric(slide, 858, 208, 240, 'Unresolved evidence', `${model.validationSummary.unresolved}`, 'items requiring closure', C.brass);
+  addMetric(slide, 596, 208, 240, 'Review notes in scope', `${model.validationSummary.validatedSupported}`, `of ${model.validationSummary.totalEvidenceItems} items`, C.green);
+  addMetric(slide, 858, 208, 240, 'Open information items', `${model.validationSummary.unresolved}`, 'items requiring closure', C.brass);
   shape(slide, 'roundRect', { left: 72, top: 390, width: 1026, height: 130 }, C.pale, { style: 'solid', fill: C.line, width: 1 });
   text(slide, 'Management reading', { left: 98, top: 416, width: 230, height: 28 }, { fontSize: 16, bold: true, color: C.brass });
   text(slide, 'The score is the locked recorded result. Human review changes the confidence, scope and decision implications around that result; it does not silently recalculate it.', { left: 98, top: 454, width: 940, height: 54 }, { fontSize: 20, color: C.navy });
   notes(slide);
 }
 
-// 3 — evidence ledger
+// 3 — information ledger
 {
-  const slide = newSlide(); header(slide, 3, 'Evidence review supports selected positions, but the scope is not fully closed.', 'The evidence ledger makes the reliance boundary visible in one view.');
+  const slide = newSlide(); header(slide, 3, 'The information boundary is visible before decisions are made.', 'The register makes scope, review notes and open items visible in one view.');
   const counts = [
-    ['Supported for stated scope', model.validationSummary.validatedSupported, C.green],
-    ['Evidence reviewed', model.validationSummary.evidenceReviewed, C.blue],
-    ['Insufficient for conclusion', model.validationSummary.notValidatedInsufficient, C.red],
-    ['Self-reported / open', model.validationSummary.selfReported, C.brass]
+    ['Review note — stated scope', model.validationSummary.validatedSupported, C.green],
+    ['Management review record', model.validationSummary.evidenceReviewed, C.blue],
+    ['Further basis required', model.validationSummary.notValidatedInsufficient, C.red],
+    ['Recorded / open', model.validationSummary.selfReported, C.brass]
   ];
   let y = 222;
   for (const [label, value, color] of counts) {
@@ -176,20 +199,20 @@ function newSlide() {
   }
   shape(slide, 'roundRect', { left: 88, top: 500, width: 965, height: 92 }, C.white, { style: 'solid', fill: C.line, width: 1 });
   text(slide, 'What the board can rely on', { left: 112, top: 522, width: 310, height: 26 }, { fontSize: 16, bold: true, color: C.brass });
-  text(slide, 'Only the named evidence scope. “Insufficient” means the evidence did not establish a conclusion; it does not mean misconduct occurred.', { left: 112, top: 556, width: 870, height: 32 }, { fontSize: 18, color: C.ink });
+  text(slide, 'Only the named information scope. An open item limits reliance; it does not mean misconduct occurred.', { left: 112, top: 556, width: 870, height: 32 }, { fontSize: 18, color: C.ink });
   notes(slide);
 }
 
 // 4 — evidence change
 {
-  const slide = newSlide(); header(slide, 4, 'Human review adds judgement where the self-assessment is too broad.', 'The review narrows claims to the population and artefacts actually examined.');
+  const slide = newSlide(); header(slide, 4, 'Management review adds context where the assessment is too broad.', 'Review notes narrow the conversation to the population and records actually supplied.');
   const changes = model.changesAfterEvidenceReview.slice(0, 4).map((change) => ({ ...change, subject: /^(finding|risk|control_design|decision|management_action):/i.test(change.subject) ? change.subject.split(':', 1)[0].replaceAll('_', ' ') : change.subject }));
   changes.forEach((change, index) => {
     const y = 208 + index * 94;
     shape(slide, 'rect', { left: 88, top: y, width: 8, height: 68 }, index % 2 === 0 ? C.green : C.brass, { style: 'solid', fill: index % 2 === 0 ? C.green : C.brass, width: 0 });
     text(slide, change.subject, { left: 116, top: y, width: 330, height: 28 }, { fontSize: 18, bold: true, color: C.navy });
     text(slide, `Recorded: ${change.before}`, { left: 470, top: y, width: 310, height: 28 }, { fontSize: 16, color: C.muted });
-    text(slide, `Reviewer view: ${change.after}`, { left: 800, top: y, width: 270, height: 52 }, { fontSize: 16, color: C.ink });
+    text(slide, `Review note: ${executiveReviewText(change.after)}`, { left: 800, top: y, width: 270, height: 52 }, { fontSize: 15, color: C.ink });
   });
   if (!changes.length) addBullets(slide, ['No reviewer adjustment was supplied for this fixture.', 'The recorded position remains self-reported.'], 96, 240, 900);
   notes(slide);
@@ -205,7 +228,7 @@ function newSlide() {
     shape(slide, 'rect', { left: 505, top: y + 8, width: 360, height: 20 }, C.line, { style: 'solid', fill: C.line, width: 0 });
     shape(slide, 'rect', { left: 505, top: y + 8, width: risk.priority === 'Critical' ? 360 : risk.priority === 'High' ? 260 : 160, height: 20 }, color, { style: 'solid', fill: color, width: 0 });
     text(slide, risk.priority, { left: 892, top: y + 2, width: 100, height: 30 }, { fontSize: 16, bold: true, color });
-    text(slide, risk.requiredTreatment, { left: 1010, top: y, width: 170, height: 45 }, { fontSize: 14, color: C.muted });
+    text(slide, executiveRiskText(`${risk.title}. ${risk.requiredTreatment}`), { left: 1010, top: y, width: 170, height: 45 }, { fontSize: 13, color: C.muted });
   });
   notes(slide);
 }
@@ -217,9 +240,9 @@ function newSlide() {
     const left = 80 + index * 370;
     shape(slide, 'roundRect', { left, top: 220, width: 330, height: 300 }, index === 0 ? C.pale : index === 1 ? C.amberBg : C.redBg, { style: 'solid', fill: C.line, width: 1 });
     text(slide, `0${index + 1}`, { left: left + 22, top: 240, width: 72, height: 34 }, { fontSize: 26, bold: true, color: index === 2 ? C.red : C.brass });
-    text(slide, scenario.title, { left: left + 22, top: 292, width: 280, height: 68 }, { fontSize: 20, bold: true, color: C.navy });
-    text(slide, scenario.entryPoint, { left: left + 22, top: 378, width: 280, height: 36 }, { fontSize: 16, color: C.muted });
-    text(slide, scenario.fraudSequence, { left: left + 22, top: 424, width: 280, height: 76 }, { fontSize: 16, color: C.ink });
+    text(slide, publicText(scenario.title), { left: left + 22, top: 292, width: 280, height: 68 }, { fontSize: 20, bold: true, color: C.navy });
+    text(slide, publicText(scenario.entryPoint), { left: left + 22, top: 378, width: 280, height: 36 }, { fontSize: 16, color: C.muted });
+    text(slide, publicText(scenario.fraudSequence), { left: left + 22, top: 424, width: 280, height: 76 }, { fontSize: 16, color: C.ink });
   });
   notes(slide);
 }
@@ -227,30 +250,33 @@ function newSlide() {
 // 7 — decisions
 {
   const slide = newSlide(); header(slide, 7, 'Management must choose how to close the access-review gap.', 'Options and trade-offs make the decision explicit before the action plan is agreed.');
-  const decision = model.managementDecisions[0];
+  const decision = model.leadershipDecisions[0];
   const review = decision ? model.decisionReviews.find((item) => item.decisionId === decision.id) : undefined;
-  text(slide, decision?.decision ?? 'Confirm the priority control and evidence decision.', { left: 88, top: 212, width: 980, height: 52 }, { fontSize: 24, bold: true, color: C.navy });
-  const options = review?.viableOptions?.slice(0, 3) ?? ['Build internal capability', 'Use a bounded specialist workstream'];
+  text(slide, decision?.decisionRequired ?? 'Confirm the priority control and evidence decision.', { left: 88, top: 212, width: 980, height: 52 }, { fontSize: 24, bold: true, color: C.navy });
+  const options = review?.optionDetails?.slice(0, 3) ?? [];
   options.forEach((option, index) => {
     const left = 88 + index * 335;
     shape(slide, 'roundRect', { left, top: 312, width: 295, height: 160 }, C.white, { style: 'solid', fill: C.line, width: 1 });
     text(slide, `OPTION ${String.fromCharCode(65 + index)}`, { left: left + 20, top: 332, width: 150, height: 22 }, { fontSize: 14, bold: true, color: C.brass });
-    text(slide, option, { left: left + 20, top: 372, width: 250, height: 70 }, { fontSize: 20, bold: true, color: C.navy });
+    text(slide, publicText(option.option), { left: left + 20, top: 372, width: 250, height: 44 }, { fontSize: 17, bold: true, color: C.navy });
+    text(slide, `Cost: ${publicText(option.cost)}\nBenefit: ${publicText(option.benefit)}\nTrade-off: ${publicText(option.tradeOff)}\n${option.rejectionReason ? `Rejection reason: ${publicText(option.rejectionReason)}` : 'Recommended option'}`, { left: left + 20, top: 422, width: 250, height: 66 }, { fontSize: 12, color: C.muted });
   });
   shape(slide, 'roundRect', { left: 88, top: 522, width: 965, height: 74 }, C.amberBg, { style: 'solid', fill: C.brassSoft, width: 1 });
-  text(slide, `Trade-off to record: ${review?.keyTradeOffs?.[0] ?? 'speed and specialist assurance versus internal ownership and recurring cost.'}`, { left: 112, top: 544, width: 910, height: 36 }, { fontSize: 18, color: C.navy });
+  text(slide, `MK recommendation: ${executiveReviewText(review?.reviewerRecommendation ?? decision?.recommendedDecision, 18)}`, { left: 112, top: 532, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
+  text(slide, `Recommendation rationale: ${executiveReviewText(review?.recommendationRationale, 18)}`, { left: 112, top: 552, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
+  text(slide, `Owner: ${publicText(review?.owner ?? decision?.accountableExecutive)} · Deadline: ${publicText(review?.targetDate ?? decision?.deadline)}`, { left: 112, top: 572, width: 910, height: 18 }, { fontSize: 13, color: C.navy });
   notes(slide);
 }
 
 // 8 — roadmap
 {
-  const slide = newSlide(); header(slide, 8, 'The first 90 days should establish population, ownership and test evidence.', 'Sequence the work so early progress creates a reliable control baseline.');
+  const slide = newSlide(); header(slide, 8, 'The first 90 days should establish population, ownership and proof.', 'Sequence the work so early progress creates a reliable control baseline.');
   ['30 days', '60 days', '90 days'].forEach((period, index) => {
     const left = 88 + index * 340;
     shape(slide, 'roundRect', { left, top: 220, width: 300, height: 330 }, C.white, { style: 'solid', fill: C.line, width: 1 });
     shape(slide, 'rect', { left, top: 220, width: 300, height: 8 }, index === 0 ? C.brass : index === 1 ? C.navy : C.green, { style: 'solid', fill: C.navy, width: 0 });
     text(slide, period, { left: left + 22, top: 248, width: 220, height: 30 }, { fontSize: 24, bold: true, color: C.navy });
-    const deliverables = projection.roadmapActions.filter((action) => action.period === period).slice(0, 3).map((action) => action.deliverable);
+    const deliverables = projection.roadmapActions.filter((action) => action.period === period).slice(0, 3).map(executiveActionText);
     addBullets(slide, deliverables.length ? deliverables : ['No committed actions recorded for this period.'], left + 22, 300, 250, 68, C.ink, 15);
   });
   notes(slide);
@@ -263,7 +289,7 @@ function newSlide() {
   actions.forEach((action, index) => {
     const y = 208 + index * 72;
     line(slide, 88, y + 54, 1000, C.line, 1);
-    text(slide, action.deliverable, { left: 88, top: y, width: 340, height: 44 }, { fontSize: 17, bold: true, color: C.navy });
+    text(slide, executiveActionText(action), { left: 88, top: y, width: 340, height: 44 }, { fontSize: 15, bold: true, color: C.navy });
     text(slide, action.accountableExecutive, { left: 450, top: y, width: 190, height: 42 }, { fontSize: 16, color: C.ink });
     text(slide, action.period, { left: 665, top: y, width: 100, height: 42 }, { fontSize: 16, bold: true, color: C.brass });
     text(slide, action.successMeasure, { left: 790, top: y, width: 300, height: 42 }, { fontSize: 15, color: C.muted });

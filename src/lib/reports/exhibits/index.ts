@@ -2,29 +2,41 @@ import type { CommercialProjection } from '../commercial-projection';
 import { severityToken } from '../design/tokens';
 import { escapeHtml, exhibitResult, type DomainDatum, type ExhibitContext, type ExhibitResult, type OptionDatum, type SlopeDatum } from './types';
 
-const source = (ctx: ExhibitContext) => ctx.source ?? 'Assessment projection, reviewer evidence register, and management response record.';
+const source = (ctx: ExhibitContext) => ctx.source ?? 'Assessment projection, management review record, and implementation register.';
 const empty = (value: string | null | undefined, fallback = 'Not recorded in the assessment record.') => value?.trim() || fallback;
+const publicText = (value: unknown): string => String(value ?? '')
+  .replace(/\bindependently validate\b/gi, 'obtain separately scoped assurance for')
+  .replace(/\bevidence validation\b/gi, 'evidence review')
+  .replace(/\bnot supported\b/gi, 'not demonstrated in the supplied record')
+  .replace(/\bsupported\b/gi, 'demonstrated in the supplied record')
+  .replace(/\binsufficient\b/gi, 'further basis required')
+  .replace(/\bvalidated\b/gi, 'checked')
+  .replace(/\bD\d+[- ]Q\d+\b/gi, '')
+  .replace(/\b(?:ACT|F|MF|RISK|EVID|MD|DEC|CI|RA|SC|OBS)-[A-Z0-9-]+\b/gi, '')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+const p = (value: unknown): string => escapeHtml(publicText(value));
 
 export function renderE1DomainMaturity(ctx: ExhibitContext): ExhibitResult {
   const domains = ctx.domains?.length ? ctx.domains : ctx.projection.domains;
-  const rows = domains.map((domain) => `<tr><th>${escapeHtml(domain.code)}</th><td>${escapeHtml(domain.name)}</td><td>${domain.score == null ? 'Not scored' : escapeHtml(domain.score)}</td><td>${escapeHtml(domain.controlCount ?? 0)}</td></tr>`).join('');
+  const rows = domains.map((domain) => `<tr><th>${p(domain.name)}</th><td>${p(domain.name)}</td><td>${domain.score == null ? 'Not scored' : p(domain.score)}</td><td>${p(domain.controlCount ?? 0)}</td></tr>`).join('');
   return exhibitResult('E1', 'Show domain maturity', `<table class="mk-table"><thead><tr><th>Domain</th><th>Meaning</th><th>Score</th><th>Controls</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No domain results were supplied.</td></tr>'}</tbody></table>`, source(ctx), ['domains']);
 }
 
 export function renderE2PriorityMatrix(ctx: ExhibitContext): ExhibitResult {
   const rows = ctx.projection.findings.slice(0, 12).map((finding) => {
     const severity = finding.gapClassification === 'critical' ? 'critical' : finding.gapClassification === 'major' ? 'major' : 'neutral';
-    return `<tr><th>${escapeHtml(finding.title)}</th><td>${escapeHtml(finding.domainName)}</td><td style="color:${severityToken(severity)}">${escapeHtml(finding.gapClassification)}</td><td>${escapeHtml(finding.targetPeriod)}</td></tr>`;
+    return `<tr><th>${p(finding.title)}</th><td>${p(finding.domainName)}</td><td style="color:${severityToken(severity)}">${p(finding.gapClassification)}</td><td>${p(finding.targetPeriod)}</td></tr>`;
   }).join('');
   return exhibitResult('E2', 'Prioritise material findings', `<table class="mk-table"><thead><tr><th>Finding</th><th>Domain</th><th>Materiality</th><th>Target period</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No material findings were supplied.</td></tr>'}</tbody></table>`, source(ctx), ['findings']);
 }
 
 export function renderE3EvidenceBar(ctx: ExhibitContext): ExhibitResult {
   const r = ctx.projection.reconciliation;
-  const cells = [['Not reviewed', r.notReviewed], ['Supported', r.supported], ['Insufficient', r.insufficient], ['Not supported', r.notSupported], ['Reviewed—no conclusion', r.reviewedNoConclusion]];
+  const cells = [['Recorded / open', r.notReviewed], ['Scope note', r.supported], ['Further basis required', r.insufficient], ['Limitation recorded', r.notSupported], ['Review note', r.reviewedNoConclusion]];
   const total = Math.max(r.total, 1);
   const bar = cells.map(([label, count]) => `<div class="mk-bar-segment" style="width:${(Number(count) / total) * 100}%" title="${escapeHtml(label)}: ${count}">${escapeHtml(label)} ${count}</div>`).join('');
-  return exhibitResult('E3', 'Reconcile evidence status', `<div class="mk-evidence-bar">${bar}</div><p>${r.reviewed} of ${r.total} items reviewed; ${r.unresolved} unresolved under the locked reconciliation rule.</p>`, source(ctx), ['total', 'notReviewed', 'reviewed', 'supported', 'insufficient', 'notSupported', 'reviewedNoConclusion', 'unresolved']);
+  return exhibitResult('E3', 'Reconcile information status', `<div class="mk-evidence-bar">${bar}</div><p>${r.reviewed} of ${r.total} items carry a review note; ${r.unresolved} remain open under the locked reconciliation rule.</p>`, source(ctx), ['total', 'notReviewed', 'reviewed', 'supported', 'insufficient', 'notSupported', 'reviewedNoConclusion', 'unresolved']);
 }
 
 export function renderE4SlopeChart(ctx: ExhibitContext): ExhibitResult {
@@ -33,7 +45,7 @@ export function renderE4SlopeChart(ctx: ExhibitContext): ExhibitResult {
   const pointMarkup = points.map((point, index) => {
     const x = points.length <= 1 ? width / 2 : 40 + (index * (width - 80)) / (points.length - 1);
     const y = height - 34 - (point.score / max) * (height - 70);
-    return `<circle cx="${x}" cy="${y}" r="5" fill="var(--mk-brass)"/><text x="${x}" y="${height - 10}" text-anchor="middle">${escapeHtml(point.label)}</text><text x="${x}" y="${y - 10}" text-anchor="middle">${escapeHtml(point.score)}</text>`;
+    return `<circle cx="${x}" cy="${y}" r="5" fill="var(--mk-brass)"/><text x="${x}" y="${height - 10}" text-anchor="middle">${p(point.label)}</text><text x="${x}" y="${y - 10}" text-anchor="middle">${p(point.score)}</text>`;
   }).join('');
   const line = points.map((point, index) => {
     const x = points.length <= 1 ? width / 2 : 40 + (index * (width - 80)) / (points.length - 1);
@@ -59,22 +71,27 @@ export function renderE6FraudPathway(ctx: ExhibitContext): ExhibitResult {
 
 export function renderE7Options(ctx: ExhibitContext): ExhibitResult {
   const options: OptionDatum[] = ctx.options ?? ctx.projection.decisions.map((decision) => ({ id: decision.id, title: decision.decisionRequired, decision: decision.recommendedDecision, owner: decision.accountableExecutive, timing: decision.targetPeriod, tradeOff: decision.consequenceOfDelay }));
-  const rows = options.map((option) => `<tr><th>${escapeHtml(option.title)}</th><td>${escapeHtml(option.decision)}</td><td>${escapeHtml(option.owner)}</td><td>${escapeHtml(option.timing)}</td><td>${escapeHtml(option.tradeOff)}</td></tr>`).join('');
-  return exhibitResult('E7', 'Compare leadership options', `<table class="mk-table"><thead><tr><th>Option</th><th>Decision</th><th>Accountable owner</th><th>Timing</th><th>Trade-off</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No options supplied.</td></tr>'}</tbody></table>`, source(ctx), ['options', 'decision', 'owner', 'timing', 'tradeOff']);
+  const detailed = options.some((option) => option.cost || option.benefit || option.rejectionReason || option.recommendation);
+  const rows = options.map((option) => detailed
+    ? `<tr><th>${p(option.title)}</th><td>${p(option.cost ?? 'Cost/effort to be confirmed by management.')}</td><td>${p(option.benefit ?? option.decision)}</td><td>${p(option.tradeOff)}</td><td>${p(option.rejectionReason ?? option.recommendation ?? 'Recommended option')}</td></tr>`
+    : `<tr><th>${p(option.title)}</th><td>${p(option.decision)}</td><td>${p(option.owner)}</td><td>${p(option.timing)}</td><td>${p(option.tradeOff)}</td></tr>`).join('');
+  const heading = detailed ? '<tr><th>Option</th><th>Cost / effort</th><th>Benefit / recommendation</th><th>Trade-off</th><th>Rejection reason / status</th></tr>' : '<tr><th>Option</th><th>Decision</th><th>Accountable owner</th><th>Timing</th><th>Trade-off</th></tr>';
+  const detail = detailed ? `<p>${p(options[0]?.recommendation ?? 'MK recommendation is recorded in the decision register.')}</p><p>${p(options[0]?.rationale ?? 'Recommendation rationale is retained in the decision register.')}</p><p>Decision owner: ${p(options[0]?.owner)} · Decision deadline: ${p(options[0]?.timing)}</p>` : '';
+  return exhibitResult('E7', 'Compare leadership options', `${detail}<table class="mk-table"><thead>${heading}</thead><tbody>${rows || `<tr><td colspan="5">No options supplied.</td></tr>`}</tbody></table>`, source(ctx), ['options', 'cost', 'benefit', 'tradeOff', 'recommendation', 'rationale', 'owner', 'deadline']);
 }
 
 export function renderE8Roadmap(ctx: ExhibitContext): ExhibitResult {
-  const rows = ctx.projection.actions.slice(0, 16).map((action) => `<tr><th>${escapeHtml(action.deliverable)}</th><td>${escapeHtml(action.period)}</td><td>${escapeHtml(action.accountableExecutive)}</td><td>${escapeHtml(action.successMeasure)}</td></tr>`).join('');
+  const rows = ctx.projection.actions.slice(0, 16).map((action) => `<tr><th>${p(action.deliverable)}</th><td>${p(action.period)}</td><td>${p(action.accountableExecutive)}</td><td>${p(action.successMeasure)}</td></tr>`).join('');
   return exhibitResult('E8', 'Sequence the remediation roadmap', `<table class="mk-table"><thead><tr><th>Action</th><th>Timing</th><th>Owner</th><th>Success measure</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No roadmap actions supplied.</td></tr>'}</tbody></table>`, source(ctx), ['actions', 'timing', 'owner', 'successMeasure']);
 }
 
 export function renderE9ControlDesign(ctx: ExhibitContext): ExhibitResult {
-  const rows = ctx.projection.controls.slice(0, 16).map((control) => `<tr><th>${escapeHtml(control.controlObjective)}</th><td>${escapeHtml(control.accountableExecutive)}</td><td>${escapeHtml(control.operatingFrequency)}</td><td>${escapeHtml(control.effectivenessTest)}</td><td>${escapeHtml(control.escalationThreshold)}</td></tr>`).join('');
-  return exhibitResult('E9', 'Test control design', `<table class="mk-table"><thead><tr><th>Objective</th><th>Executive</th><th>Frequency</th><th>Effectiveness test</th><th>Escalation</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No control improvements supplied.</td></tr>'}</tbody></table>`, source(ctx), ['controls', 'objective', 'owner', 'frequency', 'effectiveness', 'escalation']);
+  const rows = ctx.projection.controls.slice(0, 16).map((control) => `<tr><th>${p(control.controlObjective)}</th><td>${p(control.accountableExecutive)}</td><td>${p(control.operatingFrequency)}</td><td>${p(control.effectivenessTest)}</td><td>${p(control.escalationThreshold)}</td></tr>`).join('');
+  return exhibitResult('E9', 'Specify control design', `<table class="mk-table"><thead><tr><th>Objective</th><th>Executive</th><th>Frequency</th><th>Effectiveness measure</th><th>Escalation</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No control improvements supplied.</td></tr>'}</tbody></table>`, source(ctx), ['controls', 'objective', 'owner', 'frequency', 'effectiveness', 'escalation']);
 }
 
 export function renderE10BoardOversight(ctx: ExhibitContext): ExhibitResult {
-  const rows = ctx.projection.decisions.slice(0, 8).map((decision) => `<tr><th>${escapeHtml(decision.decisionRequired)}</th><td>${escapeHtml(decision.accountableExecutive)}</td><td>${escapeHtml(decision.targetPeriod)}</td><td>${escapeHtml(decision.evidenceDrivingIt)}</td></tr>`).join('');
+  const rows = ctx.projection.decisions.slice(0, 8).map((decision) => `<tr><th>${p(decision.decisionRequired)}</th><td>${p(decision.accountableExecutive)}</td><td>${p(decision.targetPeriod)}</td><td>${p(decision.evidenceDrivingIt)}</td></tr>`).join('');
   return exhibitResult('E10', 'Focus board oversight', `<table class="mk-table"><thead><tr><th>Decision</th><th>Accountable executive</th><th>Timing</th><th>Oversight question</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No leadership decisions supplied.</td></tr>'}</tbody></table>`, source(ctx), ['decisions', 'accountableExecutive', 'timing', 'oversightQuestion']);
 }
 

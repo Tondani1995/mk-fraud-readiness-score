@@ -2,13 +2,13 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/jkyoir",
-    "id": "jkyoir",
+    "aid": "sl/x5gfh1",
+    "id": "x5gfh1",
     "slide": 2,
-    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
+    "layoutId": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+    "masterLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
     "masterLayoutName": "Master",
     "backgroundColor": "#FBF9F5",
     "frame": {
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
+      "id": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+      "parentLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+      "id": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/i9kf6h8f",
+      "aid": "sh/1gr2d8ry",
       "id": "1",
       "bbox": [
         72,
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/5wby1c7q",
+      "aid": "sh/ed0jits7",
       "id": "2",
       "bbox": [
         72,
@@ -134,8 +134,8 @@
         80
       ],
       "geometry": "rect",
-      "text": "The recorded position is developing; assurance is narrower than the score.",
-      "textPreview": "The recorded position is developing; assurance is narrower than the score.",
+      "text": "The recorded position is developing; reliance is narrower than the score.",
+      "textPreview": "The recorded position is developing; reliance is narrower than the score.",
       "resolvedFontSize": 39,
       "resolvedTextStyle": {
         "fontSize": 39,
@@ -155,18 +155,18 @@
         "lines": [
           {
             "index": 1,
-            "text": "The recorded position is developing; assurance is"
+            "text": "The recorded position is developing; reliance is narrower"
           },
           {
             "index": 2,
-            "text": "narrower than the score."
+            "text": "than the score."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "The recorded position is developing; assurance is narrower than the score.",
+          "text": "The recorded position is developing; reliance is narrower than the score.",
           "resolvedTextStyle": {
             "fontSize": 39,
             "color": "#142F4C",
@@ -175,7 +175,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "The recorded position is developing; assurance is narrower than the score.",
+              "text": "The recorded position is developing; reliance is narrower than the score.",
               "fontSize": 39,
               "color": "#142F4C",
               "bold": true
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/kv2h8r65",
+      "aid": "sh/fe9kby9s",
       "id": "3",
       "bbox": [
         72,
@@ -199,8 +199,8 @@
         28
       ],
       "geometry": "rect",
-      "text": "Separate the deterministic result from what the evidence review can support.",
-      "textPreview": "Separate the deterministic result from what the evidence review can support.",
+      "text": "Separate the deterministic result from the information boundary.",
+      "textPreview": "Separate the deterministic result from the information boundary.",
       "resolvedFontSize": 18,
       "resolvedTextStyle": {
         "fontSize": 18,
@@ -219,14 +219,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "Separate the deterministic result from what the evidence review can support."
+            "text": "Separate the deterministic result from the information boundary."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Separate the deterministic result from what the evidence review can support.",
+          "text": "Separate the deterministic result from the information boundary.",
           "resolvedTextStyle": {
             "fontSize": 18,
             "color": "#5A6B7C"
@@ -234,7 +234,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Separate the deterministic result from what the evidence review can support.",
+              "text": "Separate the deterministic result from the information boundary.",
               "fontSize": 18,
               "color": "#5A6B7C"
             }
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/7ytg3mpw",
+      "aid": "sh/ojilonq9",
       "id": "4",
       "bbox": [
         72,
@@ -264,7 +264,7 @@
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/6xkzahob",
+      "aid": "sh/pkb2hsru",
       "id": "5",
       "bbox": [
         72,
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/t0by5w72",
+      "aid": "sh/2h03md8j",
       "id": "6",
       "bbox": [
         1135,
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/sz2hcr6h",
+      "aid": "sh/ni9kfi94",
       "id": "7",
       "bbox": [
         72,
@@ -399,7 +399,7 @@
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/n29gr2ps",
+      "aid": "sh/cn2lsnql",
       "id": "8",
       "bbox": [
         72,
@@ -416,7 +416,7 @@
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/m1gfyx87",
+      "aid": "sh/xob2lsr6",
       "id": "9",
       "bbox": [
         90,
@@ -477,7 +477,7 @@
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/cbe9sre5",
+      "aid": "sh/5svu54bq",
       "id": "10",
       "bbox": [
         90,
@@ -538,7 +538,7 @@
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/dcna1wfa",
+      "aid": "sh/4r2twzu5",
       "id": "11",
       "bbox": [
         90,
@@ -596,7 +596,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/q9wrqhwz",
+      "aid": "sh/jqtc3utk",
       "id": "12",
       "bbox": [
         334,
@@ -613,7 +613,7 @@
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ra5szmxk",
+      "aid": "sh/ipkbu9cz",
       "id": "13",
       "bbox": [
         334,
@@ -630,7 +630,7 @@
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/0fytwre1",
+      "aid": "sh/twvu9obm",
       "id": "14",
       "bbox": [
         352,
@@ -691,7 +691,7 @@
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/1g7a5wfm",
+      "aid": "sh/svmt0ja1",
       "id": "15",
       "bbox": [
         352,
@@ -752,7 +752,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/edgbuhwv",
+      "aid": "sh/rudc7etg",
       "id": "16",
       "bbox": [
         352,
@@ -810,7 +810,7 @@
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/zeps3mxg",
+      "aid": "sh/6t4by9cb",
       "id": "17",
       "bbox": [
         596,
@@ -827,7 +827,7 @@
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/gju907ex",
+      "aid": "sh/90buxkbi",
       "id": "18",
       "bbox": [
         596,
@@ -844,7 +844,7 @@
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/hk3atcf2",
+      "aid": "sh/8zitofux",
       "id": "19",
       "bbox": [
         614,
@@ -853,8 +853,8 @@
         28
       ],
       "geometry": "rect",
-      "text": "Supported evidence",
-      "textPreview": "Supported evidence",
+      "text": "Review notes in scope",
+      "textPreview": "Review notes in scope",
       "resolvedFontSize": 15,
       "resolvedTextStyle": {
         "fontSize": 15,
@@ -874,14 +874,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "Supported evidence"
+            "text": "Review notes in scope"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Supported evidence",
+          "text": "Review notes in scope",
           "resolvedTextStyle": {
             "fontSize": 15,
             "color": "#5A6B7C",
@@ -890,7 +890,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Supported evidence",
+              "text": "Review notes in scope",
               "fontSize": 15,
               "color": "#5A6B7C",
               "bold": true
@@ -905,7 +905,7 @@
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/x4byh43u",
+      "aid": "sh/03mt4f2t",
       "id": "20",
       "bbox": [
         614,
@@ -914,8 +914,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "3",
-      "textPreview": "3",
+      "text": "1",
+      "textPreview": "1",
       "resolvedFontSize": 32,
       "resolvedTextStyle": {
         "fontSize": 32,
@@ -935,14 +935,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "3"
+            "text": "1"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "3",
+          "text": "1",
           "resolvedTextStyle": {
             "fontSize": 32,
             "color": "#142F4C",
@@ -951,7 +951,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "3",
+              "text": "1",
               "fontSize": 32,
               "color": "#142F4C",
               "bold": true
@@ -966,7 +966,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/w32h8z29",
+      "aid": "sh/l4vudkje",
       "id": "21",
       "bbox": [
         614,
@@ -975,8 +975,8 @@
         22
       ],
       "geometry": "rect",
-      "text": "of 12 items",
-      "textPreview": "of 12 items",
+      "text": "of 64 items",
+      "textPreview": "of 64 items",
       "resolvedFontSize": 14,
       "resolvedTextStyle": {
         "fontSize": 14,
@@ -995,14 +995,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "of 12 items"
+            "text": "of 64 items"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "of 12 items",
+          "text": "of 64 items",
           "resolvedTextStyle": {
             "fontSize": 14,
             "color": "#5A6B7C"
@@ -1010,7 +1010,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "of 12 items",
+              "text": "of 64 items",
               "fontSize": 14,
               "color": "#5A6B7C"
             }
@@ -1024,7 +1024,7 @@
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/b2tgfulo",
+      "aid": "sh/y14b2pkn",
       "id": "22",
       "bbox": [
         858,
@@ -1041,7 +1041,7 @@
       "order": 23,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/a1kz6p43",
+      "aid": "sh/z2dcbu18",
       "id": "23",
       "bbox": [
         858,
@@ -1058,7 +1058,7 @@
       "order": 24,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/lsvyl43q",
+      "aid": "sh/876d8z2p",
       "id": "24",
       "bbox": [
         876,
@@ -1067,8 +1067,8 @@
         28
       ],
       "geometry": "rect",
-      "text": "Unresolved evidence",
-      "textPreview": "Unresolved evidence",
+      "text": "Open information items",
+      "textPreview": "Open information items",
       "resolvedFontSize": 15,
       "resolvedTextStyle": {
         "fontSize": 15,
@@ -1088,14 +1088,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "Unresolved evidence"
+            "text": "Open information items"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Unresolved evidence",
+          "text": "Open information items",
           "resolvedTextStyle": {
             "fontSize": 15,
             "color": "#5A6B7C",
@@ -1104,7 +1104,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Unresolved evidence",
+              "text": "Open information items",
               "fontSize": 15,
               "color": "#5A6B7C",
               "bold": true
@@ -1119,7 +1119,7 @@
       "order": 25,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/krmhcz2l",
+      "aid": "sh/98fuh4ja",
       "id": "25",
       "bbox": [
         876,
@@ -1128,8 +1128,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "8",
-      "textPreview": "8",
+      "text": "63",
+      "textPreview": "63",
       "resolvedFontSize": 32,
       "resolvedTextStyle": {
         "fontSize": 32,
@@ -1149,14 +1149,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "8"
+            "text": "63"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "8",
+          "text": "63",
           "resolvedTextStyle": {
             "fontSize": 32,
             "color": "#142F4C",
@@ -1165,7 +1165,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "8",
+              "text": "63",
               "fontSize": 32,
               "color": "#142F4C",
               "bold": true
@@ -1180,7 +1180,7 @@
       "order": 26,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/jqdgjel0",
+      "aid": "sh/m5ob6pkz",
       "id": "26",
       "bbox": [
         876,
@@ -1238,7 +1238,7 @@
       "order": 27,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/y54za9kf",
+      "aid": "sh/n6xcfu14",
       "id": "27",
       "bbox": [
         72,
@@ -1255,7 +1255,7 @@
       "order": 28,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/twfipo32",
+      "aid": "sh/wb6dcz21",
       "id": "28",
       "bbox": [
         98,
@@ -1316,7 +1316,7 @@
       "order": 29,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/8vmhgj2h",
+      "aid": "sh/xcful4jm",
       "id": "29",
       "bbox": [
         98,

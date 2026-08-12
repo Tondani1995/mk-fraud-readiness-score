@@ -29,19 +29,19 @@ for (const [key, fixture] of Object.entries(comprehensiveFixtures)) {
   assert.ok(model.findings.some((finding) => finding.validationStatus === 'SELF_REPORTED' || finding.validationStatus === 'NOT_VALIDATED_INSUFFICIENT' || finding.validationStatus === 'VALIDATED_SUPPORTED'), `${key}: visible status`);
   const report = renderComprehensiveReportHtml(model);
   const board = renderBoardReadoutHtml(model);
-  assert.match(report, /Evidence-validation summary/);
-  assert.match(report, /Self-reported position|Evidence reviewed/);
+  assert.match(report, /Strategic themes and exposure/);
+  assert.match(report, /Recorded assessment|Review note|Management review record/);
   assert.match(board, /Board readout/);
   assert.equal((board.match(/class="board-page/g) ?? []).length, BOARD_READOUT_PAGE_COUNT(), `${key}: board readout page count`);
   const presentation = buildExecutivePresentationModel(model);
   assert.equal(presentation.slides.length, 10, `${key}: presentation content model is 8-12 slides`);
-  assert.ok(presentation.workshop.agenda.some((item) => item.title === 'Evidence disagreements'), `${key}: workshop supports evidence disagreements`);
+  assert.ok(presentation.workshop.agenda.some((item) => item.title === 'Information boundary'), `${key}: workshop supports information boundary`);
   results.push({ key, evidenceItems: model.evidenceRequestPack.length, validated: model.validationSummary.validatedSupported, unresolved: model.validationSummary.unresolved, reportSections: (report.match(/data-section=/g) ?? []).length });
 }
 
 const first = buildComprehensiveDeliveryModel(comprehensiveFixtures.weakOrganisationMeaningfulEvidence.analytical, comprehensiveFixtures.weakOrganisationMeaningfulEvidence.reviewer);
 const sheets = buildComprehensiveRegisterSheets(first);
-assert.equal(sheets.length, 7, 'annotated workbook has seven required sheets');
+assert.equal(sheets.length, 6, 'annotated workbook has six register sheets plus Read me and Summary');
 assert.equal(sheets.find((sheet) => sheet.name === 'Material Findings').rows.length, first.materialFindings.length, 'workbook keeps full material findings');
 assert.equal(sheets.find((sheet) => sheet.name === 'Risk Register').rows.length, first.riskRegister.length, 'workbook keeps full risk register');
 assert.equal(safeSpreadsheetCell('=HYPERLINK("https://example.com")'), "'=HYPERLINK(\"https://example.com\")", 'formula injection protection');
@@ -108,7 +108,7 @@ assert.equal(denseSheets.find((sheet) => sheet.name === 'Material Findings').row
 assert.equal(denseSheets.find((sheet) => sheet.name === 'Risk Register').rows.length, 16, 'dense register retains all L1 risks');
 assert.equal(denseSheets.find((sheet) => sheet.name === 'Control Actions').rows.length, 24, 'dense register retains all L1 controls');
 assert.equal(denseSheets.find((sheet) => sheet.name === 'Roadmap').rows.length, 36, 'dense register retains all L1 roadmap candidates');
-assert.ok(denseSheets.find((sheet) => sheet.name === 'Evidence Validation').columns.includes('actualArtefactsExamined'));
+assert.ok(denseSheets.find((sheet) => sheet.name === 'Question Traceability').columns.includes('questionCode'));
 assert.ok(denseSheets.find((sheet) => sheet.name === 'Management Decisions').columns.includes('keyTradeOffs'));
 
 console.log(JSON.stringify({ passed: true, fixtures: results, denseProjection: { l1: denseProjection.sourceCounts, l2: { findings: denseProjection.findings.length, risks: denseProjection.risks.length, scenarios: denseProjection.scenarios.length, controls: denseProjection.controlActions.length, roadmap: denseProjection.roadmapActions.length, evidence: denseProjection.evidenceItems.length }, riskOrder: denseProjection.risks.slice(0, 8).map((risk) => `${risk.priority}:${risk.id}`) }, workbookSheets: sheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows.length, columns: sheet.columns.length })), boardReadoutPages: BOARD_READOUT_PAGE_COUNT(), accessibility: 'static keyboard/label checks passed' }, null, 2));

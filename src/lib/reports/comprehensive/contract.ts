@@ -14,6 +14,7 @@ import type {
   ValidationSummary
 } from './types';
 import { adaptBackendEvidenceStatus } from './types';
+import { enrichDecisionReviews } from './decision-options';
 
 const STATUS_ORDER: EvidenceValidationStatus[] = [
   'NOT_REQUESTED',
@@ -226,7 +227,7 @@ function buildChanges(
     .map((finding) => ({
       subject: finding.title,
       before: `Self-reported position: ${finding.responseMeaning}`,
-      after: clean(finding.adjustedInterpretation, finding.validationStatus === 'VALIDATED_SUPPORTED' ? 'Evidence supports the recorded control position for the reviewed scope.' : 'The evidence review did not support an unqualified conclusion for the recorded scope.'),
+      after: clean(finding.adjustedInterpretation, finding.validationStatus === 'VALIDATED_SUPPORTED' ? 'The recorded control position remains bounded to the named scope and period.' : 'The supplied information does not establish an unqualified conclusion for the recorded scope.'),
       status: finding.validationStatus,
       linkedRefs: finding.evidenceRefsReviewed.length > 0 ? finding.evidenceRefsReviewed : finding.evidenceToRequest.map((_, index) => `evidence:${finding.id}:${index + 1}`)
     }));
@@ -254,7 +255,7 @@ export function buildComprehensiveDeliveryModel(
     evidenceReviews: reviewerInput.evidenceReviews,
     riskReviews: reviewerInput.riskReviews ?? [],
     controlDesignReviews: reviewerInput.controlDesignReviews ?? [],
-    decisionReviews: reviewerInput.decisionReviews ?? [],
+    decisionReviews: enrichDecisionReviews(analytical.evidenceModel.leadershipDecisions, reviewerInput.decisionReviews ?? []),
     findings,
     materialFindings: analytical.evidenceModel.materialFindings,
     riskRegister: analytical.evidenceModel.riskRegister,

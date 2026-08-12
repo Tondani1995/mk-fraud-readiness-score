@@ -1,28 +1,28 @@
 {
-  "essentialPages": 28,
-  "comprehensivePages": 35,
+  "essentialPages": 30,
+  "comprehensivePages": 38,
   "boardPages": 7,
   "workshopPages": 10,
   "presentationSlides": 10,
   "essentialSheets": [
-    "Findings",
-    "Risks",
-    "Control Actions",
-    "Evidence Checklist",
-    "Roadmap",
-    "Functional Agenda",
-    "Question Trace",
-    "Control Improvements"
-  ],
-  "comprehensiveSheets": [
+    "Read me",
     "Summary",
     "Material Findings",
     "Risk Register",
     "Control Actions",
-    "Evidence Validation",
     "Roadmap",
-    "Reviewer Observations",
-    "Management Decisions"
+    "Management Decisions",
+    "Question Traceability"
+  ],
+  "comprehensiveSheets": [
+    "Read me",
+    "Summary",
+    "Material Findings",
+    "Risk Register",
+    "Control Actions",
+    "Roadmap",
+    "Management Decisions",
+    "Question Traceability"
   ],
   "prohibitedTokenHits": [],
   "source": {

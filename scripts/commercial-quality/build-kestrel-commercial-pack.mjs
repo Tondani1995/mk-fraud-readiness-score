@@ -7,7 +7,7 @@ import { loadComprehensiveReviewerInput } from '../../src/lib/comprehensive/revi
 import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardReadoutHtml, renderComprehensiveReportHtml, renderWorkshopMaterialHtml } from '../../src/lib/reports/comprehensive/index.ts';
 import { buildComprehensiveRegisterWorkbook } from '../../src/lib/reports/comprehensive/workbook-builder.ts';
 import { renderHtmlToPdfBuffer } from '../../src/lib/reports/render-pdf.ts';
-import { buildKestrelEvidenceRichCertification } from '../../src/lib/reports/comprehensive/realistic-kestrel-certification.ts';
+import { COMMERCIAL_PRODUCT_VERSION, REPORTING_BIBLE_VERSION } from '../../src/lib/reports/reporting-bible.ts';
 
 const outputDir = path.resolve(process.env.COMMERCIAL_OUTPUT_DIR ?? 'outputs/commercial-quality');
 const orderReference = process.env.COMPREHENSIVE_ORDER_REFERENCE ?? 'MKORD-2026-7FBBEE23';
@@ -17,9 +17,11 @@ const engagement = await getEngagementByOrderReference(orderReference);
 if (!engagement) throw new Error(`Comprehensive engagement not found for ${orderReference}`);
 const assembled = await assembleReportData(orderReference);
 const persistedReviewerInput = await loadComprehensiveReviewerInput(engagement.id);
-const certified = buildKestrelEvidenceRichCertification(assembled);
-const model = buildComprehensiveDeliveryModel(certified.analytical, certified.reviewer);
-buildComprehensiveDeliveryModel(model.analytical, model.reviewerInput);
+// The paid artefact must be generated from the persisted deterministic analytical universe and
+// the persisted human-review record. Do not expand, cycle or replace those records with a fixture
+// or synthetic stress profile: the Reporting Bible makes the deterministic engine the sole source
+// of truth and requires every narrative section to remain traceable to supplied facts.
+const model = await fromAssembledReportData(assembled, persistedReviewerInput);
 
 const pdfs = [
   ['comprehensive-main-report.pdf', renderComprehensiveReportHtml(model), 'MK Fraud Readiness · Comprehensive · Confidential'],
@@ -32,9 +34,28 @@ for (const [filename, html, footerLabel] of pdfs) {
 
 const workbook = await buildComprehensiveRegisterWorkbook(model);
 await fs.writeFile(path.join(outputDir, 'comprehensive-annotated-register.xlsx'), workbook.bytes);
+await fs.writeFile(path.join(outputDir, 'comprehensive-source-manifest.json'), JSON.stringify({
+  reportingBibleVersion: REPORTING_BIBLE_VERSION,
+  productVersion: COMMERCIAL_PRODUCT_VERSION,
+  source: 'persisted deterministic analytical universe and persisted management review record',
+  organisation: assembled.organisationName,
+  orderReference,
+  assessmentReference: assembled.assessmentReference,
+  scoreRunId: assembled.currentScoreRunId,
+  methodologyVersionId: assembled.scoreRun.methodologyVersionId,
+  analyticalCounts: {
+    findings: model.findings.length,
+    risks: model.riskRegister.length,
+    controls: model.controlImprovements.length,
+    evidenceRequirements: model.evidenceRequestPack.length,
+    roadmapActions: model.roadmapActions.length,
+    questionTraces: assembled.questionTraces.length,
+    leadershipDecisions: model.leadershipDecisions.length
+  }
+}, null, 2));
 
 console.log(JSON.stringify({
-  source: 'persisted Kestrel engagement with evidence-rich review universe',
+  source: 'persisted Kestrel engagement and persisted management review record',
   orderReference,
   assessmentReference: assembled.assessmentReference,
   organisationName: assembled.organisationName,

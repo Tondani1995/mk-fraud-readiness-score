@@ -92,7 +92,7 @@ test('only sections following a long register may continue', () => {
   assert.ok(uses.length >= 4, 'the class must be applied to both continuation sections');
   assert.match(template, /'Methodology, limitations and next steps'[\s\S]{0,220}continue-after-long-register/,
     'Methodology must be able to continue after the evidence table');
-  assert.match(template, /section\('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-long-register'\)/);
+  assert.match(template, /section\('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'\)/);
 });
 test('the forced page break is preserved for every other section', () => {
   assert.match(template, /\.cover, \.report-section \{ break-before: page; page-break-before: always; \}/,

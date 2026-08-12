@@ -99,10 +99,10 @@ function excelColumn(index) {
   }
   return result;
 }
-const evidenceSheetData = sheets.find((sheet) => sheet.name === 'Evidence Validation');
-const validationColumn = excelColumn(evidenceSheetData.columns.indexOf('validationStatus'));
-summary.getRange('B7').formulas = [[`=COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"VALIDATED_SUPPORTED")`]];
-summary.getRange('B8').formulas = [[`=COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"SELF_REPORTED")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_REQUESTED")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_VALIDATED_INSUFFICIENT")+COUNTIF('Evidence Validation'!${validationColumn}2:${validationColumn}1000,"NOT_SUPPORTED")`]];
+const traceSheetData = sheets.find((sheet) => sheet.name === 'Question Traceability');
+const traceColumn = excelColumn(traceSheetData.columns.indexOf('reviewerNote'));
+summary.getRange('B7').formulas = [[`=COUNTA('Question Traceability'!${traceColumn}2:${traceColumn}1000)`]];
+summary.getRange('B8').formulas = [[`=COUNTA('Question Traceability'!A2:A1000)-COUNTA('Question Traceability'!${traceColumn}2:${traceColumn}1000)`]];
 
 const scan = await workbook.inspect({ kind: 'match', searchTerm: '#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A', options: { useRegex: true, maxResults: 300 }, summary: 'Comprehensive workbook formula error scan' });
 const summaryInspect = await workbook.inspect({ kind: 'table', range: 'Summary!A1:F14', include: 'values,formulas', tableMaxRows: 16, tableMaxCols: 8 });

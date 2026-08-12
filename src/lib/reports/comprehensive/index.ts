@@ -5,6 +5,7 @@ export * from './presentation-model';
 export * from './workshop';
 export * from './projection';
 export * from './persisted-review-adapter';
+export * from './decision-options';
 export * from './artifact-contract';
 export {
   BOARD_READOUT_PAGE_COUNT,

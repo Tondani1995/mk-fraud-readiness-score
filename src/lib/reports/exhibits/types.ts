@@ -15,7 +15,19 @@ export type ExhibitResult = {
 
 export type DomainDatum = { code: string; name: string; score: number | null; controlCount?: number };
 export type SlopeDatum = { label: string; score: number; period?: string };
-export type OptionDatum = { id: string; title: string; decision: string; owner: string; timing: string; tradeOff: string };
+export type OptionDatum = {
+  id: string;
+  title: string;
+  decision: string;
+  owner: string;
+  timing: string;
+  tradeOff: string;
+  cost?: string;
+  benefit?: string;
+  rejectionReason?: string;
+  recommendation?: string;
+  rationale?: string;
+};
 
 export type ExhibitContext = {
   projection: CommercialProjection;

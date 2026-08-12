@@ -58,7 +58,7 @@ export const REPORT_TOC_ENTRIES: TocEntry[] = [
   { key: 'Priority findings, contradictions and scenarios', label: 'Priority findings, contradictions and scenarios' },
   { key: 'Priority risks', label: 'Priority risks' },
   { key: 'Leadership decisions and roadmap', label: 'Leadership decisions and roadmap' },
-  { key: 'Evidence validation priorities', label: 'Evidence validation priorities' },
+  { key: 'Proof requirements', label: 'Proof requirements' },
   { key: 'Methodology, limitations and next steps', label: 'Methodology, limitations and next steps' },
   // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference
   // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the
@@ -85,13 +85,6 @@ function esc(value: unknown): string {
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
     .replace(/\bD\d+-Q\d+\b/g, '')
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate')
-    .replace(/effectiveness validate/gi, 'effectiveness review')
-    .replace(/validate results/gi, 'evidence review results')
-    .replace(/\bsynthetic identity\b/gi, 'identity misuse')
-    .replace(/An interaction covered by the recorded control condition:/gi, 'The recorded control condition concerns:')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -252,7 +245,7 @@ export function renderReportHtml(
     <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
     ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
-    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and verification priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
+    ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
     <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
 
   const heatmap = data.domainResults.map((domain) => {
@@ -289,14 +282,14 @@ export function renderReportHtml(
     return `<div class="compact-card alert-card">
       <div class="card-eyebrow">${severityLabel} · ${esc(gap.domainName)}</div>
       <h3>${esc(gap.prompt)}</h3>
-      <p>${esc(commentary?.body ?? 'Leadership should validate the operating evidence and remediation ownership for this recorded condition.')}</p>
+      <p>${esc(commentary?.body ?? 'Leadership should agree the operating proof and remediation ownership for this recorded condition.')}</p>
     </div>`;
   }).join('');
 
   const capCards = data.maturityCapEvents.map((event) => `<div class="compact-card amber-card">
     <div class="card-eyebrow">Maturity constraint · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>
     <h3>${esc(event.relatedQuestionPrompt ?? event.reason)}</h3>
-    <p>This recorded condition limits the final maturity reading to <strong>${esc(event.capTo)}</strong>. The constraint remains a self-assessment result until operating evidence is independently examined.</p>
+    <p>This recorded condition limits the final maturity reading to <strong>${esc(event.capTo)}</strong>. The constraint remains a recorded assessment result until management supplies the defined operating proof.</p>
   </div>`).join('');
 
   const systemic = projection.systemic;
@@ -378,12 +371,16 @@ export function renderReportHtml(
   const scenarioCard = (item: AdvisoryEvidenceModel['scenarios'][number], index: number) => `<article class="long-record scenario-record">
     <div class="record-heading"><div><span class="record-number">Scenario ${index + 1} · ${esc(item.scenarioBasis.replaceAll('_', ' '))}</span><h3>${esc(item.title)}</h3></div></div>
     <p class="disclaimer">${esc(item.disclaimer)}</p>
-    <div class="record-grid two">
+    <div class="record-grid two scenario-components">
+      ${labelled('Actor / opportunity', item.confirmedOperatingContext.join('; '))}
       ${labelled('Entry point', item.entryPoint)}
-      ${labelled('Sequence', item.fraudSequence)}
-      ${labelledList('Early warning indicators', item.earlyWarningIndicators)}
-      ${labelled('Immediate containment', item.immediateContainment)}
-      ${labelled('Longer-term response', item.longerTermResponse)}
+      ${labelled('Mechanism', item.fraudSequence)}
+      ${labelled('Control bypassed', item.controlsExpected.join('; '))}
+      ${labelled('Concealment', item.concealmentMechanism)}
+      ${labelled('Consequence', [...item.likelyImpact, item.financialImpact, item.operationalImpact].join('; '))}
+      ${labelledList('Warning indicators', item.earlyWarningIndicators)}
+      ${labelled('Containment', item.immediateContainment)}
+      ${labelled('Long-term response', item.longerTermResponse)}
     </div>
   </article>`;
 
@@ -456,17 +453,17 @@ export function renderReportHtml(
          contents-page scan locates each entry by its heading text, so a prose copy of that text on
          an earlier page is found first and the printed page number and bookmark then point at the
          mention rather than the section. -->
-    <p class="lede">The items below are the immediate validation priorities linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see the closing section of this report).</p>
+    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see the closing section of this report).</p>
     <div class="evidence-priority-table">
     ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
-    <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require an evidence-review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
+    <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require a separately scoped review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
     </div>`;
 
   const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity constraints and advisory model use only the recorded assessment inputs and the deterministic methodology.</p>
-    <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and validate the specified operating evidence before treating a control as effective or a finding as resolved.</p>
+    <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain the specified operating proof before treating a control as effective or a finding as resolved.</p>
     <p><strong>Control completeness.</strong> Every priority control should state the What, Who, Population, Frequency, Evidence retained, Independent check, Escalation trigger and recipient, SLA, Effectiveness measure and Failure response.</p>
     <p class="section-note">Source: persisted assessment record, evidence model and supporting register.</p>
-    <p><strong>Next step.</strong> Commission independent validation of the operating evidence listed in this report's evidence-validation section and appendix, in the sequence set by the leadership decisions above.</p>`;
+    <p><strong>Next step.</strong> Agree the proof requirements listed in this report and supporting register, then sequence them through the leadership decisions above.</p>`;
 
   // Customer-facing replacement for the removed internal controller/release-status callout: a
   // concrete, per-report "Recommended next step" derived from the single highest-priority evidence
@@ -477,7 +474,7 @@ export function renderReportHtml(
   // least one validation item), so this always has real, varying-per-report content to show.
   const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
   const recommendedNextStep = topEvidenceItem
-    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate validation priority; the complete sequence is set out in Evidence validation priorities above and the full checklist in the appendix.</p></div>`
+    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the appendix.</p></div>`
     : '';
 
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
@@ -635,7 +632,7 @@ export function renderReportHtml(
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
       : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
-    section('Evidence validation priorities', 'Evidence validation priorities', evidencePriorityBlock, 'long-section continue-after-long-register'),
+    section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
     section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
     appendixSections
   ].join('\n');
@@ -780,6 +777,7 @@ export function renderReportHtml(
   .field:last-child { break-before: avoid; page-break-before: avoid; }
   tr:last-child { break-before: avoid; page-break-before: avoid; }
   .record-grid .field { display:block; }
+  .scenario-components .field { padding:2.2mm 0; }
   .field-label { color:var(--mk-brass);font-size:6.5pt;font-weight:700;letter-spacing:.45px;text-transform:uppercase;margin-bottom:.7mm; }
   .field-value { font-size:8.4pt; }
   .field-value p { margin:0; }.field-value ul { margin-top:0; }

@@ -130,12 +130,16 @@ function scenarioForRisk(risk: RiskRegisterEntry, linked: MaterialFinding[], suf
     entryPoint: mechanism
       ? mechanism.entry.entryPoint
       : lead
-        ? `An interaction covered by the recorded control condition: ${consequenceClause(lead.title)}.`
+        ? `The recorded control condition is engaged through ${consequenceClause(lead.title).replace(/\.$/, '')}.`
         : `An ordinary process, system, person or third-party interaction relevant to ${stableUnique(ordered.map((finding) => finding.domainName)).join(', ')}.`,
     linkedControlWeaknesses: resilience ? [] : ordered.map((finding) => finding.title),
     fraudSequence: resilience
       ? `Test whether the self-reported controls would prevent, detect and respond if ${risk.riskEvent}. This is a resilience exercise, not a claim that the control failed.`
-      : `An actor exploits the recorded control condition so that ${risk.riskEvent}.`,
+      : [
+        `A threat actor exploits the recorded control condition so that ${risk.riskEvent}.`,
+        `Misuse can occur when an actor exploits the recorded control condition and ${risk.riskEvent}.`,
+        `An unauthorised actor uses the recorded control condition to create a pathway where ${risk.riskEvent}.`
+      ][stableToken(`${risk.id}|${suffix || 'primary'}`).charCodeAt(0) % 3],
     controlsExpected: stableUnique(ordered.map((finding) => finding.expectedControlStandard)),
     concealmentMechanism: resilience
       ? 'The exercise tests whether apparently legitimate activity would be distinguished from misuse through retained operating evidence.'

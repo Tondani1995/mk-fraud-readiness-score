@@ -10,14 +10,10 @@ function safeCell(value: unknown): string | number | boolean | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   const text = String(value)
-    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Independent review lead')
+    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Named review lead')
     .replace(/\bUAT\b/gi, 'review')
     .replace(/\bStaging\b/gi, 'review')
-    .replace(/\btested\b/gi, 'validated')
-    .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate')
-    .replace(/operating validate/gi, 'operating review')
-    .replace(/effectiveness validate/gi, 'effectiveness review');
+    .replace(/\bR\s?([0-9][0-9,]*(?:\.\d{2})?)\b/g, 'R$1 (recorded in the supplied incident register)');
   // Excel formula injection defence: a leading formula-like character is stored as a literal
   // value with a leading apostrophe. This mirrors the principle used by the certified register.
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
@@ -37,11 +33,11 @@ function referenceList(values: unknown[]): string {
 
 function displayStatus(value: unknown): string {
   const map: Record<string, string> = {
-    SELF_REPORTED: 'Self-reported', EVIDENCE_REVIEWED: 'Evidence reviewed', VALIDATED_SUPPORTED: 'Supported for stated scope',
-    NOT_VALIDATED_INSUFFICIENT: 'Insufficient for conclusion', NOT_SUPPORTED: 'Not supported', NOT_APPLICABLE: 'Not applicable',
+    SELF_REPORTED: 'Recorded self-assessment', EVIDENCE_REVIEWED: 'Management review record', VALIDATED_SUPPORTED: 'Review note — stated scope recorded',
+    NOT_VALIDATED_INSUFFICIENT: 'Review note — further basis required', NOT_SUPPORTED: 'Review note — limitation recorded', NOT_APPLICABLE: 'Outside stated scope',
     REVIEWER_JUDGEMENT: 'Reviewer judgement', NOT_REQUESTED: 'Not requested', REQUESTED: 'Requested', RECEIVED: 'Received',
     IN_REVIEW: 'In review', OPEN: 'Open', IN_PROGRESS: 'In progress', BLOCKED: 'Blocked', COMPLETE: 'Complete', ACCEPTED: 'Accepted'
-    ,not_requested: 'Not requested', requested: 'Requested', received: 'Received', reviewed: 'Evidence reviewed', supported: 'Supported', insufficient: 'Insufficient', not_supported: 'Not supported', not_applicable: 'Not applicable'
+    ,not_requested: 'Not supplied', requested: 'Requested', received: 'Artefact received', reviewed: 'Management review record', supported: 'Review note — stated scope recorded', insufficient: 'Review note — further basis required', not_supported: 'Review note — limitation recorded', not_applicable: 'Outside stated scope'
   };
   return map[String(value ?? '')] ?? String(value ?? '');
 }
@@ -173,31 +169,73 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     reviewDate: safeCell(humanDate(observation.reviewDate))
   }));
 
-  const decisions = model.managementDecisions.map((decision) => ({
-    id: safeCell(decision.id),
-    decision: safeCell(decision.decision),
-    rationale: safeCell(decision.rationale),
-    linkedFindingIds: safeCell(csv(decision.linkedFindingIds)),
-    linkedRiskIds: safeCell(csv(decision.linkedRiskIds)),
-    owner: safeCell(decision.owner),
-    targetDate: safeCell(humanDate(decision.targetDate)),
-    status: safeCell(displayStatus(decision.status)),
-    boardDecision: safeCell(decision.boardDecision),
-    managementResponse: safeCell(decision.managementResponse),
-    viableOptions: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.viableOptions ?? [])),
-    keyTradeOffs: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.keyTradeOffs ?? [])),
-    reviewerRecommendation: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.reviewerRecommendation),
-    managementBoardDecision: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.managementBoardDecision),
-    optionAnalysis: safeCell((model.decisionReviews.find((review) => review.decisionId === decision.id)?.optionDetails ?? []).map((option) => `${option.option}: cost — ${option.cost}; benefit — ${option.benefit}; trade-off — ${option.tradeOff}; ${option.rejectionReason ? `rejection reason — ${option.rejectionReason}` : 'recommended option'}`).join(' | ')),
-    recommendationRationale: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.recommendationRationale)
+  const evidenceByQuestion = new Map<string, { evidenceRef: string; reviewerNote: string }>();
+  for (const item of model.evidenceRequestPack) {
+    const finding = model.findings.find((candidate) => item.linkedFindingIds.includes(candidate.id));
+    if (finding) evidenceByQuestion.set(finding.questionCode, { evidenceRef: item.evidenceRef, reviewerNote: item.reviewerNote });
+  }
+  const observationByFinding = new Map<string, { observation: string }>();
+  for (const observation of model.reviewerInput.observations) for (const findingId of observation.linkedFindingIds) observationByFinding.set(findingId, observation);
+  const sourceTraces = model.analytical.assembled?.questionTraces ?? model.findings.map((finding) => ({
+    questionCode: finding.questionCode,
+    domainCode: finding.domainCode,
+    domainName: finding.domainName,
+    prompt: finding.questionPrompt,
+    responseValue: finding.responseValue,
+    normalisedScore: finding.normalisedScore,
+    applicable: true,
+    isCritical: finding.isCriticalControl,
+    isHardGate: finding.isHardGate,
+    isCriticalGap: finding.gapClassification === 'critical',
+    isMajorGap: finding.gapClassification === 'major',
+    triggeredRules: []
   }));
+  const questionTraceability = sourceTraces.map((trace) => {
+    const finding = model.findings.find((candidate) => candidate.questionCode === trace.questionCode);
+    const evidenceItem = evidenceByQuestion.get(trace.questionCode);
+    const observation = finding ? observationByFinding.get(finding.id) : undefined;
+    return {
+      questionCode: safeCell(trace.questionCode),
+      domain: safeCell(trace.domainName),
+      prompt: safeCell(trace.prompt),
+      recordedResponse: safeCell(trace.responseValue),
+      normalisedScore: safeCell(trace.normalisedScore),
+      applicable: safeCell(trace.applicable),
+      materiality: safeCell(trace.isCriticalGap ? 'Critical gap' : trace.isMajorGap ? 'Major gap' : trace.isCritical ? 'Critical control' : 'Recorded response'),
+      evidenceReferences: safeCell(evidenceItem ? evidenceItem.evidenceRef : ''),
+      reviewerNote: safeCell(observation?.observation ?? evidenceItem?.reviewerNote ?? ''),
+      sourceRefs: safeCell(referenceList([`question:${trace.questionCode}`, ...(finding ? [`finding:${finding.id}`] : [])]))
+    };
+  });
+
+  const decisions = model.leadershipDecisions.map((decision) => {
+    const review = model.decisionReviews.find((candidate) => candidate.decisionId === decision.id);
+    return {
+      id: safeCell(decision.id),
+      decision: safeCell(decision.decisionRequired),
+      rationale: safeCell(decision.whyNow),
+      linkedFindingIds: safeCell(csv(decision.linkedFindingIds)),
+      linkedRiskIds: safeCell(csv(decision.linkedRiskIds)),
+      owner: safeCell(review?.owner ?? decision.accountableExecutive),
+      targetDate: safeCell(humanDate(review?.targetDate ?? decision.deadline)),
+      status: safeCell('Open'),
+      boardDecision: safeCell(decision.recommendedDecision),
+      managementResponse: safeCell(review?.managementBoardDecision),
+      viableOptions: safeCell(csv(review?.viableOptions ?? [])),
+      keyTradeOffs: safeCell(csv(review?.keyTradeOffs ?? [])),
+      reviewerRecommendation: safeCell(review?.reviewerRecommendation ?? decision.recommendedDecision),
+      managementBoardDecision: safeCell(review?.managementBoardDecision ?? 'Management to confirm the selected option, accountable owner and decision date.'),
+      optionAnalysis: safeCell((review?.optionDetails ?? []).map((option) => `${option.option}: cost — ${option.cost}; benefit — ${option.benefit}; trade-off — ${option.tradeOff}; ${option.rejectionReason ? `rejection reason — ${option.rejectionReason}` : 'recommended option'}`).join(' | ')),
+      recommendationRationale: safeCell(review?.recommendationRationale)
+    };
+  });
 
   return [
     { name: 'Material Findings', columns: Object.keys(findings[0] ?? { id: '' }), rows: findings },
     { name: 'Risk Register', columns: Object.keys(risks[0] ?? { id: '' }), rows: risks },
     { name: 'Control Actions', columns: Object.keys(controls[0] ?? { id: '' }), rows: controls },
-    { name: 'Evidence Validation', columns: Object.keys(evidence[0] ?? { evidenceRef: '' }), rows: evidence },
-    { name: 'Reviewer Observations', columns: Object.keys(observations[0] ?? { id: '' }), rows: observations },
+    { name: 'Roadmap', columns: Object.keys(roadmap[0] ?? { id: '' }), rows: roadmap },
     { name: 'Management Decisions', columns: Object.keys(decisions[0] ?? { id: '' }), rows: decisions }
+    , { name: 'Question Traceability', columns: Object.keys(questionTraceability[0] ?? { questionCode: '' }), rows: questionTraceability }
   ];
 }

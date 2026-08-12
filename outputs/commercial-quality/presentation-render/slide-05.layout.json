@@ -2,13 +2,13 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/btmv8f",
-    "id": "btmv8f",
+    "aid": "sl/494lpx",
+    "id": "494lpx",
     "slide": 5,
-    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
+    "layoutId": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+    "masterLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
     "masterLayoutName": "Master",
     "backgroundColor": "#FBF9F5",
     "frame": {
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
+      "id": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+      "parentLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
+      "id": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/rylsnmts",
+      "aid": "sh/fahsfyhs",
       "id": "1",
       "bbox": [
         72,
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/szu9grad",
+      "aid": "sh/0bqt83yd",
       "id": "2",
       "bbox": [
         72,
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/dknapwby",
+      "aid": "sh/1czahozi",
       "id": "3",
       "bbox": [
         72,
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/itcrahcb",
+      "aid": "sh/2d8batg3",
       "id": "4",
       "bbox": [
         72,
@@ -264,7 +264,7 @@
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3ulsjmtw",
+      "aid": "sh/nehcjyho",
       "id": "5",
       "bbox": [
         72,
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/4vu9c7uh",
+      "aid": "sh/ofqtc3y9",
       "id": "6",
       "bbox": [
         1135,
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/5w3alcbm",
+      "aid": "sh/pgzul8zu",
       "id": "7",
       "bbox": [
         88,
@@ -391,8 +391,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "A supplier bank change may redirect a legitimate payment",
-      "textPreview": "A supplier bank change may redirect a legitimate payment",
+      "text": "Unauthorised system access enables transaction or record manipulation",
+      "textPreview": "Unauthorised system access enables transaction or record manipulation",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -412,18 +412,18 @@
         "lines": [
           {
             "index": 1,
-            "text": "A supplier bank change may redirect a"
+            "text": "Unauthorised system access enables"
           },
           {
             "index": 2,
-            "text": "legitimate payment"
+            "text": "transaction or record manipulation"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "A supplier bank change may redirect a legitimate payment",
+          "text": "Unauthorised system access enables transaction or record manipulation",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -432,7 +432,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "A supplier bank change may redirect a legitimate payment",
+              "text": "Unauthorised system access enables transaction or record manipulation",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -447,7 +447,7 @@
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/upsr6xcz",
+      "aid": "sh/a1sbedgf",
       "id": "8",
       "bbox": [
         505,
@@ -464,7 +464,7 @@
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/vq1sf2tk",
+      "aid": "sh/b21cnih0",
       "id": "9",
       "bbox": [
         505,
@@ -481,7 +481,7 @@
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/jytknqtc",
+      "aid": "sh/nyd0fal8",
       "id": "10",
       "bbox": [
         892,
@@ -542,7 +542,7 @@
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ixkjelc7",
+      "aid": "sh/2x4j6pkn",
       "id": "11",
       "bbox": [
         1010,
@@ -551,11 +551,11 @@
         45
       ],
       "geometry": "rect",
-      "text": "Implement a complete role-based access review.",
-      "textPreview": "Implement a complete role-based access review.",
-      "resolvedFontSize": 14,
+      "text": "Unauthorised system access enables transaction or record manipulation. IT…",
+      "textPreview": "Unauthorised system access enables transaction or record manipulation. IT…",
+      "resolvedFontSize": 13,
       "resolvedTextStyle": {
-        "fontSize": 14,
+        "fontSize": 13,
         "typeface": "+mn-lt",
         "color": "#5A6B7C",
         "alignment": "left",
@@ -567,35 +567,39 @@
         }
       },
       "textLayout": {
-        "lineCount": 3,
+        "lineCount": 4,
         "lines": [
           {
             "index": 1,
-            "text": "Implement a complete"
+            "text": "Unauthorised system"
           },
           {
             "index": 2,
-            "text": "role-based access"
+            "text": "access enables"
           },
           {
             "index": 3,
-            "text": "review."
+            "text": "transaction or record"
+          },
+          {
+            "index": 4,
+            "text": "manipulation. IT…"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Implement a complete role-based access review.",
+          "text": "Unauthorised system access enables transaction or record manipulation. IT…",
           "resolvedTextStyle": {
-            "fontSize": 14,
+            "fontSize": 13,
             "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Implement a complete role-based access review.",
-              "fontSize": 14,
+              "text": "Unauthorised system access enables transaction or record manipulation. IT…",
+              "fontSize": 13,
               "color": "#5A6B7C"
             }
           ],
@@ -608,7 +612,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/50v2p0bi",
+      "aid": "sh/p0vihk3e",
       "id": "12",
       "bbox": [
         88,
@@ -617,8 +621,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "Privileged access may enable unauthorised record changes",
-      "textPreview": "Privileged access may enable unauthorised record changes",
+      "text": "Fraud Detection Capability control effectiveness risk",
+      "textPreview": "Fraud Detection Capability control effectiveness risk",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -638,18 +642,18 @@
         "lines": [
           {
             "index": 1,
-            "text": "Privileged access may enable unauthorised"
+            "text": "Fraud Detection Capability control"
           },
           {
             "index": 2,
-            "text": "record changes"
+            "text": "effectiveness risk"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Privileged access may enable unauthorised record changes",
+          "text": "Fraud Detection Capability control effectiveness risk",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -658,7 +662,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Privileged access may enable unauthorised record changes",
+              "text": "Fraud Detection Capability control effectiveness risk",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -673,7 +677,7 @@
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/kz21gvux",
+      "aid": "sh/ozm18f2t",
       "id": "13",
       "bbox": [
         505,
@@ -690,7 +694,7 @@
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/72dkrato",
+      "aid": "sh/fud0balc",
       "id": "14",
       "bbox": [
         505,
@@ -707,7 +711,7 @@
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/614ji5c3",
+      "aid": "sh/etkj25kr",
       "id": "15",
       "bbox": [
         892,
@@ -768,7 +772,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/tov2t0bu",
+      "aid": "sh/1wvidk32",
       "id": "16",
       "bbox": [
         1010,
@@ -777,11 +781,11 @@
         45
       ],
       "geometry": "rect",
-      "text": "Implement a complete role-based access review.",
-      "textPreview": "Implement a complete role-based access review.",
-      "resolvedFontSize": 14,
+      "text": "Fraud Detection Capability control effectiveness risk. The monitoring owner…",
+      "textPreview": "Fraud Detection Capability control effectiveness risk. The monitoring owner…",
+      "resolvedFontSize": 13,
       "resolvedTextStyle": {
-        "fontSize": 14,
+        "fontSize": 13,
         "typeface": "+mn-lt",
         "color": "#5A6B7C",
         "alignment": "left",
@@ -793,35 +797,39 @@
         }
       },
       "textLayout": {
-        "lineCount": 3,
+        "lineCount": 4,
         "lines": [
           {
             "index": 1,
-            "text": "Implement a complete"
+            "text": "Fraud Detection"
           },
           {
             "index": 2,
-            "text": "role-based access"
+            "text": "Capability control"
           },
           {
             "index": 3,
-            "text": "review."
+            "text": "effectiveness risk. The"
+          },
+          {
+            "index": 4,
+            "text": "monitoring owner…"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Implement a complete role-based access review.",
+          "text": "Fraud Detection Capability control effectiveness risk. The monitoring owner…",
           "resolvedTextStyle": {
-            "fontSize": 14,
+            "fontSize": 13,
             "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Implement a complete role-based access review.",
-              "fontSize": 14,
+              "text": "Fraud Detection Capability control effectiveness risk. The monitoring owner…",
+              "fontSize": 13,
               "color": "#5A6B7C"
             }
           ],
@@ -834,7 +842,7 @@
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/snm1kfu9",
+      "aid": "sh/0vm14f2h",
       "id": "17",
       "bbox": [
         88,
@@ -843,8 +851,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "Fraud-risk decisions may remain unchallenged",
-      "textPreview": "Fraud-risk decisions may remain unchallenged",
+      "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
+      "textPreview": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -864,18 +872,18 @@
         "lines": [
           {
             "index": 1,
-            "text": "Fraud-risk decisions may remain"
+            "text": "Continuous Improvement and Fraud Risk"
           },
           {
             "index": 2,
-            "text": "unchallenged"
+            "text": "Monitoring control effectiveness risk"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Fraud-risk decisions may remain unchallenged",
+          "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -884,7 +892,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Fraud-risk decisions may remain unchallenged",
+              "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -899,7 +907,7 @@
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/n690f6tk",
+      "aid": "sh/zqxknelg",
       "id": "18",
       "bbox": [
         505,
@@ -916,24 +924,24 @@
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/m50j61cz",
+      "aid": "sh/ypoje9kv",
       "id": "19",
       "bbox": [
         505,
         356,
-        260,
+        360,
         20
       ],
       "geometry": "rect",
-      "fillColor": "#C9A227",
-      "lineColor": "#C9A227",
+      "fillColor": "#A32020",
+      "lineColor": "#A32020",
       "lineWidth": 0
     },
     {
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ql8ne9w7",
+      "aid": "sh/uls3md43",
       "id": "20",
       "bbox": [
         892,
@@ -942,13 +950,13 @@
         30
       ],
       "geometry": "rect",
-      "text": "High",
-      "textPreview": "High",
+      "text": "Critical",
+      "textPreview": "Critical",
       "resolvedFontSize": 16,
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C9A227",
+        "color": "#A32020",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -963,25 +971,25 @@
         "lines": [
           {
             "index": 1,
-            "text": "High"
+            "text": "Critical"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "High",
+          "text": "Critical",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C9A227",
+            "color": "#A32020",
             "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "High",
+              "text": "Critical",
               "fontSize": 16,
-              "color": "#C9A227",
+              "color": "#A32020",
               "bold": true
             }
           ],
@@ -994,7 +1002,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/rmh4neds",
+      "aid": "sh/vm14fy5o",
       "id": "21",
       "bbox": [
         1010,
@@ -1003,11 +1011,11 @@
         45
       ],
       "geometry": "rect",
-      "text": "Implement a complete role-based access review.",
-      "textPreview": "Implement a complete role-based access review.",
-      "resolvedFontSize": 14,
+      "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk.…",
+      "textPreview": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk.…",
+      "resolvedFontSize": 13,
       "resolvedTextStyle": {
-        "fontSize": 14,
+        "fontSize": 13,
         "typeface": "+mn-lt",
         "color": "#5A6B7C",
         "alignment": "left",
@@ -1019,35 +1027,39 @@
         }
       },
       "textLayout": {
-        "lineCount": 3,
+        "lineCount": 4,
         "lines": [
           {
             "index": 1,
-            "text": "Implement a complete"
+            "text": "Continuous Improvement"
           },
           {
             "index": 2,
-            "text": "role-based access"
+            "text": "and Fraud Risk"
           },
           {
             "index": 3,
-            "text": "review."
+            "text": "Monitoring control"
+          },
+          {
+            "index": 4,
+            "text": "effectiveness risk.…"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Implement a complete role-based access review.",
+          "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk.…",
           "resolvedTextStyle": {
-            "fontSize": 14,
+            "fontSize": 13,
             "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Implement a complete role-based access review.",
-              "fontSize": 14,
+              "text": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk.…",
+              "fontSize": 13,
               "color": "#5A6B7C"
             }
           ],
@@ -1060,7 +1072,7 @@
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/cnq5gjed",
+      "aid": "sh/gnalo3m9",
       "id": "22",
       "bbox": [
         88,
@@ -1069,230 +1081,8 @@
         42
       ],
       "geometry": "rect",
-      "text": "Stale detection rules may delay an alert",
-      "textPreview": "Stale detection rules may delay an alert",
-      "resolvedFontSize": 17,
-      "resolvedTextStyle": {
-        "fontSize": 17,
-        "typeface": "+mn-lt",
-        "color": "#142F4C",
-        "bold": true,
-        "alignment": "left",
-        "insets": {
-          "top": 4.8,
-          "right": 9.6,
-          "bottom": 4.8,
-          "left": 9.6
-        }
-      },
-      "textLayout": {
-        "lineCount": 1,
-        "lines": [
-          {
-            "index": 1,
-            "text": "Stale detection rules may delay an alert"
-          }
-        ]
-      },
-      "paragraphs": [
-        {
-          "index": 1,
-          "text": "Stale detection rules may delay an alert",
-          "resolvedTextStyle": {
-            "fontSize": 17,
-            "color": "#142F4C",
-            "bold": true
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Stale detection rules may delay an alert",
-              "fontSize": 17,
-              "color": "#142F4C",
-              "bold": true
-            }
-          ],
-          "marginLeft": 0
-        }
-      ],
-      "lineWidth": 0
-    },
-    {
-      "order": 23,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/dozmpovy",
-      "id": "23",
-      "bbox": [
-        505,
-        426,
-        360,
-        20
-      ],
-      "geometry": "rect",
-      "fillColor": "#D9E1E7",
-      "lineColor": "#D9E1E7",
-      "lineWidth": 0
-    },
-    {
-      "order": 24,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/2hona9wb",
-      "id": "24",
-      "bbox": [
-        505,
-        426,
-        260,
-        20
-      ],
-      "geometry": "rect",
-      "fillColor": "#C9A227",
-      "lineColor": "#C9A227",
-      "lineWidth": 0
-    },
-    {
-      "order": 25,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/3ix4jedw",
-      "id": "25",
-      "bbox": [
-        892,
-        420,
-        100,
-        30
-      ],
-      "geometry": "rect",
-      "text": "High",
-      "textPreview": "High",
-      "resolvedFontSize": 16,
-      "resolvedTextStyle": {
-        "fontSize": 16,
-        "typeface": "+mn-lt",
-        "color": "#C9A227",
-        "bold": true,
-        "alignment": "left",
-        "insets": {
-          "top": 4.8,
-          "right": 9.6,
-          "bottom": 4.8,
-          "left": 9.6
-        }
-      },
-      "textLayout": {
-        "lineCount": 1,
-        "lines": [
-          {
-            "index": 1,
-            "text": "High"
-          }
-        ]
-      },
-      "paragraphs": [
-        {
-          "index": 1,
-          "text": "High",
-          "resolvedTextStyle": {
-            "fontSize": 16,
-            "color": "#C9A227",
-            "bold": true
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "High",
-              "fontSize": 16,
-              "color": "#C9A227",
-              "bold": true
-            }
-          ],
-          "marginLeft": 0
-        }
-      ],
-      "lineWidth": 0
-    },
-    {
-      "order": 26,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/4jq5czeh",
-      "id": "26",
-      "bbox": [
-        1010,
-        418,
-        170,
-        45
-      ],
-      "geometry": "rect",
-      "text": "Implement a complete role-based access review.",
-      "textPreview": "Implement a complete role-based access review.",
-      "resolvedFontSize": 14,
-      "resolvedTextStyle": {
-        "fontSize": 14,
-        "typeface": "+mn-lt",
-        "color": "#5A6B7C",
-        "alignment": "left",
-        "insets": {
-          "top": 4.8,
-          "right": 9.6,
-          "bottom": 4.8,
-          "left": 9.6
-        }
-      },
-      "textLayout": {
-        "lineCount": 3,
-        "lines": [
-          {
-            "index": 1,
-            "text": "Implement a complete"
-          },
-          {
-            "index": 2,
-            "text": "role-based access"
-          },
-          {
-            "index": 3,
-            "text": "review."
-          }
-        ]
-      },
-      "paragraphs": [
-        {
-          "index": 1,
-          "text": "Implement a complete role-based access review.",
-          "resolvedTextStyle": {
-            "fontSize": 14,
-            "color": "#5A6B7C"
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Implement a complete role-based access review.",
-              "fontSize": 14,
-              "color": "#5A6B7C"
-            }
-          ],
-          "marginLeft": 0
-        }
-      ],
-      "lineWidth": 0
-    },
-    {
-      "order": 27,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/pkzml4v2",
-      "id": "27",
-      "bbox": [
-        88,
-        488,
-        390,
-        42
-      ],
-      "geometry": "rect",
-      "text": "Incident lessons may not reduce repeat exposure",
-      "textPreview": "Incident lessons may not reduce repeat exposure",
+      "text": "Fraud Risk Identification control effectiveness risk",
+      "textPreview": "Fraud Risk Identification control effectiveness risk",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -1312,18 +1102,18 @@
         "lines": [
           {
             "index": 1,
-            "text": "Incident lessons may not reduce repeat"
+            "text": "Fraud Risk Identification control"
           },
           {
             "index": 2,
-            "text": "exposure"
+            "text": "effectiveness risk"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Incident lessons may not reduce repeat exposure",
+          "text": "Fraud Risk Identification control effectiveness risk",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -1332,7 +1122,233 @@
           "runs": [
             {
               "index": 1,
-              "text": "Incident lessons may not reduce repeat exposure",
+              "text": "Fraud Risk Identification control effectiveness risk",
+              "fontSize": 17,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hojmh8nu",
+      "id": "23",
+      "bbox": [
+        505,
+        426,
+        360,
+        20
+      ],
+      "geometry": "rect",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ips3ad4z",
+      "id": "24",
+      "bbox": [
+        505,
+        426,
+        360,
+        20
+      ],
+      "geometry": "rect",
+      "fillColor": "#A32020",
+      "lineColor": "#A32020",
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3q14ji5k",
+      "id": "25",
+      "bbox": [
+        892,
+        420,
+        100,
+        30
+      ],
+      "geometry": "rect",
+      "text": "Critical",
+      "textPreview": "Critical",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#A32020",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Critical"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Critical",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#A32020",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Critical",
+              "fontSize": 16,
+              "color": "#A32020",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4ba5cnm5",
+      "id": "26",
+      "bbox": [
+        1010,
+        418,
+        170,
+        45
+      ],
+      "geometry": "rect",
+      "text": "Fraud Risk Identification control effectiveness risk. The Head of…",
+      "textPreview": "Fraud Risk Identification control effectiveness risk. The Head of…",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5A6B7C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Fraud Risk Identification"
+          },
+          {
+            "index": 2,
+            "text": "control effectiveness risk."
+          },
+          {
+            "index": 3,
+            "text": "The Head of…"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Fraud Risk Identification control effectiveness risk. The Head of…",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5A6B7C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Fraud Risk Identification control effectiveness risk. The Head of…",
+              "fontSize": 13,
+              "color": "#5A6B7C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5c3mls3q",
+      "id": "27",
+      "bbox": [
+        88,
+        488,
+        390,
+        42
+      ],
+      "geometry": "rect",
+      "text": "Digital and Identity Fraud Risk control effectiveness risk",
+      "textPreview": "Digital and Identity Fraud Risk control effectiveness risk",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Digital and Identity Fraud Risk control"
+          },
+          {
+            "index": 2,
+            "text": "effectiveness risk"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Digital and Identity Fraud Risk control effectiveness risk",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Digital and Identity Fraud Risk control effectiveness risk",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -1347,7 +1363,7 @@
       "order": 28,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/uto36pwf",
+      "aid": "sh/yt83et4v",
       "id": "28",
       "bbox": [
         505,
@@ -1364,24 +1380,24 @@
       "order": 29,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/fux4fudk",
+      "aid": "sh/zuh47e5g",
       "id": "29",
       "bbox": [
         505,
         496,
-        260,
+        360,
         20
       ],
       "geometry": "rect",
-      "fillColor": "#C9A227",
-      "lineColor": "#C9A227",
+      "fillColor": "#A32020",
+      "lineColor": "#A32020",
       "lineWidth": 0
     },
     {
       "order": 30,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/hkny1wje",
+      "aid": "sh/18n6dw7y",
       "id": "30",
       "bbox": [
         892,
@@ -1390,13 +1406,13 @@
         30
       ],
       "geometry": "rect",
-      "text": "High",
-      "textPreview": "High",
+      "text": "Critical",
+      "textPreview": "Critical",
       "resolvedFontSize": 16,
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C9A227",
+        "color": "#A32020",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1411,25 +1427,25 @@
         "lines": [
           {
             "index": 1,
-            "text": "High"
+            "text": "Critical"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "High",
+          "text": "Critical",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C9A227",
+            "color": "#A32020",
             "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "High",
+              "text": "Critical",
               "fontSize": 16,
-              "color": "#C9A227",
+              "color": "#A32020",
               "bold": true
             }
           ],
@@ -1442,7 +1458,7 @@
       "order": 31,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/wjeh8r2t",
+      "aid": "sh/07epkr6d",
       "id": "31",
       "bbox": [
         1010,
@@ -1451,11 +1467,11 @@
         45
       ],
       "geometry": "rect",
-      "text": "Implement a complete role-based access review.",
-      "textPreview": "Implement a complete role-based access review.",
-      "resolvedFontSize": 14,
+      "text": "Digital and Identity Fraud Risk control effectiveness risk. The…",
+      "textPreview": "Digital and Identity Fraud Risk control effectiveness risk. The…",
+      "resolvedFontSize": 13,
       "resolvedTextStyle": {
-        "fontSize": 14,
+        "fontSize": 13,
         "typeface": "+mn-lt",
         "color": "#5A6B7C",
         "alignment": "left",
@@ -1471,31 +1487,31 @@
         "lines": [
           {
             "index": 1,
-            "text": "Implement a complete"
+            "text": "Digital and Identity Fraud"
           },
           {
             "index": 2,
-            "text": "role-based access"
+            "text": "Risk control effectiveness"
           },
           {
             "index": 3,
-            "text": "review."
+            "text": "risk. The…"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Implement a complete role-based access review.",
+          "text": "Digital and Identity Fraud Risk control effectiveness risk. The…",
           "resolvedTextStyle": {
-            "fontSize": 14,
+            "fontSize": 13,
             "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Implement a complete role-based access review.",
-              "fontSize": 14,
+              "text": "Digital and Identity Fraud Risk control effectiveness risk. The…",
+              "fontSize": 13,
               "color": "#5A6B7C"
             }
           ],
