@@ -1,4 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { MK_TOKENS } from './design/tokens';
 
 let browserPromise: Promise<any> | null = null;
 
@@ -220,7 +221,7 @@ export async function renderHtmlToPdfBuffer(html: string, options?: { footerLabe
       preferCSSPageSize: true,
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
-      footerTemplate: `<div style="width:100%;padding:0 14mm;color:#6c665b;font:7px Arial,sans-serif;text-align:right;border-top:1px solid #ded5c5;"><span style="float:left;padding-top:4px;">${footerLabel}</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+      footerTemplate: `<div style="width:100%;padding:0 14mm;color:${MK_TOKENS.muted};font:7px Arial,sans-serif;text-align:right;border-top:1px solid ${MK_TOKENS.rule};"><span style="float:left;padding-top:4px;">${footerLabel}</span><span style="display:inline-block;padding-top:4px;"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
       margin: { top: '12mm', right: '13mm', bottom: '15mm', left: '13mm' },
       timeout: pdfRenderTimeoutMs
     });

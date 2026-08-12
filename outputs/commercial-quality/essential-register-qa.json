@@ -4,7 +4,7 @@
   "sheets": [
     {
       "name": "Read me",
-      "rows": 5,
+      "rows": 6,
       "columns": 3
     },
     {
@@ -20,7 +20,7 @@
     {
       "name": "Control Actions",
       "rows": 34,
-      "columns": 17
+      "columns": 18
     },
     {
       "name": "Evidence Checklist",

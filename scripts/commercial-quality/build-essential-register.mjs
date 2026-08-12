@@ -6,6 +6,7 @@ import { assembleReportData } from '../../src/lib/reports/assemble-report-data.t
 import { buildAdvisoryEvidenceModel } from '../../src/lib/reports/evidence-model/index.ts';
 import { buildEssentialProjection } from '../../src/lib/reports/essential-projection.ts';
 import { supportingRegisterSheetData } from '../../src/lib/reports/supporting-register-workbook.ts';
+import { MK_TOKENS } from '../../src/lib/reports/design/tokens.ts';
 
 const moduleRoot = process.env.CODEX_NODE_MODULES ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
 const requireFromBundle = createRequire(path.join(moduleRoot, 'package.json'));
@@ -22,9 +23,7 @@ const sheets = [...built.sheets, 'Control Improvements'];
 const rows = [...built.data, built.controlImprovements.rows];
 const schemas = [...built.schemas, built.controlImprovements.schema];
 const workbook = Workbook.create();
-const navy = '#142f4c';
-const pale = '#f3f6f8';
-const grid = '#d9e1e7';
+const navy = MK_TOKENS.navy700;
 
 function columnName(index) {
   let n = index + 1; let out = '';
@@ -47,7 +46,7 @@ for (let index = 0; index < sheets.length; index += 1) {
   const end = columnName(headers.length - 1);
   sheet.getRange(`A1:${end}1`).values = [headers];
   if (values.length) sheet.getRange(`A2:${end}${values.length + 1}`).values = values;
-  sheet.getRange(`A1:${end}1`).format = { fill: navy, font: { bold: true, color: '#FFFFFF' }, wrapText: true, rowHeight: 34 };
+  sheet.getRange(`A1:${end}1`).format = { fill: navy, font: { bold: true, color: MK_TOKENS.white }, wrapText: true, rowHeight: 34 };
   if (values.length) {
     const table = sheet.tables.add(`A1:${end}${values.length + 1}`, true, `${sheets[index].replaceAll(' ', '')}Table`);
     table.showFilterButton = true;

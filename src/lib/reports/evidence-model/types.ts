@@ -200,6 +200,7 @@ export interface ControlImprovementEntry {
   targetPeriod: TargetPeriod;
   effectivenessTest: string;
   escalationThreshold: string;
+  failureResponse?: string;
   evidenceRefs: string[];
 }
 

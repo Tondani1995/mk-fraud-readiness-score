@@ -198,6 +198,7 @@ export interface ControlActionRecord {
   accountableOwner: string;
   processOwner: string;
   oversightFunction: string;
+  failureResponse: string;
   targetPeriod: string;
   escalationThreshold: string;
   materialityClass: string;
@@ -287,6 +288,8 @@ export function buildControlActionRecords(
         accountableOwner: lead.accountableOwner,
         processOwner: lead.processOwner,
         oversightFunction: lead.oversightFunction,
+        failureResponse: control?.failureResponse
+          ?? 'If the threshold is reached, record the exception, escalate to the oversight function and track closure evidence.',
         targetPeriod: lead.targetPeriod,
         escalationThreshold: lead.escalationThreshold,
         materialityClass: lead.materialityClass,

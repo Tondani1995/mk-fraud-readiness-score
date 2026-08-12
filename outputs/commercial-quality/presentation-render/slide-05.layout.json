@@ -2,15 +2,15 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/5u9rcw",
-    "id": "5u9rcw",
+    "aid": "sl/btmv8f",
+    "id": "btmv8f",
     "slide": 5,
-    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
     "masterLayoutName": "Master",
-    "backgroundColor": "#F7F4EE",
+    "backgroundColor": "#FBF9F5",
     "frame": {
       "left": 0,
       "top": 0,
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ruxwbu14",
+      "aid": "sh/rylsnmts",
       "id": "1",
       "bbox": [
         72,
@@ -79,7 +79,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -104,7 +104,7 @@
           "text": "COMPREHENSIVE REVIEW · 05",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -112,7 +112,7 @@
               "index": 1,
               "text": "COMPREHENSIVE REVIEW · 05",
               "fontSize": 14,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/sv6d4zip",
+      "aid": "sh/szu9grad",
       "id": "2",
       "bbox": [
         72,
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/dwfed4ja",
+      "aid": "sh/dknapwby",
       "id": "3",
       "bbox": [
         72,
@@ -205,7 +205,7 @@
       "resolvedTextStyle": {
         "fontSize": 18,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -229,14 +229,14 @@
           "text": "Top risk pathways are shown as operating exposure, not as allegations.",
           "resolvedTextStyle": {
             "fontSize": 18,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Top risk pathways are shown as operating exposure, not as allegations.",
               "fontSize": 18,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/exov690v",
+      "aid": "sh/itcrahcb",
       "id": "4",
       "bbox": [
         72,
@@ -257,14 +257,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/fyxwfe10",
+      "aid": "sh/3ulsjmtw",
       "id": "5",
       "bbox": [
         72,
@@ -279,7 +279,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -303,14 +303,14 @@
           "text": "MK Fraud Readiness · Comprehensive",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "MK Fraud Readiness · Comprehensive",
               "fontSize": 13,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/0zqd8jil",
+      "aid": "sh/4vu9c7uh",
       "id": "6",
       "bbox": [
         1135,
@@ -337,7 +337,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "right",
         "insets": {
           "top": 4.8,
@@ -361,7 +361,7 @@
           "text": "05 / 10",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "alignment": "right"
           },
           "runs": [
@@ -369,7 +369,7 @@
               "index": 1,
               "text": "05 / 10",
               "fontSize": 13,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "alignment": "right"
             }
           ],
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/10zeh4j6",
+      "aid": "sh/5w3alcbm",
       "id": "7",
       "bbox": [
         88,
@@ -447,7 +447,7 @@
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/u14vu5kb",
+      "aid": "sh/upsr6xcz",
       "id": "8",
       "bbox": [
         505,
@@ -456,15 +456,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#E4EAEE",
-      "lineColor": "#E4EAEE",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
       "lineWidth": 0
     },
     {
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/v2dw3a1w",
+      "aid": "sh/vq1sf2tk",
       "id": "9",
       "bbox": [
         505,
@@ -473,15 +473,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#A93E38",
-      "lineColor": "#A93E38",
+      "fillColor": "#A32020",
+      "lineColor": "#A32020",
       "lineWidth": 0
     },
     {
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/jupcbi1s",
+      "aid": "sh/jytknqtc",
       "id": "10",
       "bbox": [
         892,
@@ -496,7 +496,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#A93E38",
+        "color": "#A32020",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -521,7 +521,7 @@
           "text": "Critical",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#A93E38",
+            "color": "#A32020",
             "bold": true
           },
           "runs": [
@@ -529,7 +529,7 @@
               "index": 1,
               "text": "Critical",
               "fontSize": 16,
-              "color": "#A93E38",
+              "color": "#A32020",
               "bold": true
             }
           ],
@@ -542,7 +542,7 @@
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/i9gvid0n",
+      "aid": "sh/ixkjelc7",
       "id": "11",
       "bbox": [
         1010,
@@ -557,7 +557,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -589,14 +589,14 @@
           "text": "Implement a complete role-based access review.",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Implement a complete role-based access review.",
               "fontSize": 14,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -608,7 +608,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/5w7udsjy",
+      "aid": "sh/50v2p0bi",
       "id": "12",
       "bbox": [
         88,
@@ -673,7 +673,7 @@
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/4vydknid",
+      "aid": "sh/kz21gvux",
       "id": "13",
       "bbox": [
         505,
@@ -682,15 +682,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#E4EAEE",
-      "lineColor": "#E4EAEE",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
       "lineWidth": 0
     },
     {
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/v65c7i1w",
+      "aid": "sh/72dkrato",
       "id": "14",
       "bbox": [
         505,
@@ -699,15 +699,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#A93E38",
-      "lineColor": "#A93E38",
+      "fillColor": "#A32020",
+      "lineColor": "#A32020",
       "lineWidth": 0
     },
     {
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/u5wved0b",
+      "aid": "sh/614ji5c3",
       "id": "15",
       "bbox": [
         892,
@@ -722,7 +722,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#A93E38",
+        "color": "#A32020",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -747,7 +747,7 @@
           "text": "Critical",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#A93E38",
+            "color": "#A32020",
             "bold": true
           },
           "runs": [
@@ -755,7 +755,7 @@
               "index": 1,
               "text": "Critical",
               "fontSize": 16,
-              "color": "#A93E38",
+              "color": "#A32020",
               "bold": true
             }
           ],
@@ -768,7 +768,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/h87u98j2",
+      "aid": "sh/tov2t0bu",
       "id": "16",
       "bbox": [
         1010,
@@ -783,7 +783,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -815,14 +815,14 @@
           "text": "Implement a complete role-based access review.",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Implement a complete role-based access review.",
               "fontSize": 14,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -834,7 +834,7 @@
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/w7ydg3ih",
+      "aid": "sh/snm1kfu9",
       "id": "17",
       "bbox": [
         88,
@@ -899,7 +899,7 @@
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/n25c3y10",
+      "aid": "sh/n690f6tk",
       "id": "18",
       "bbox": [
         505,
@@ -908,15 +908,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#E4EAEE",
-      "lineColor": "#E4EAEE",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
       "lineWidth": 0
     },
     {
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/m1wvat0f",
+      "aid": "sh/m50j61cz",
       "id": "19",
       "bbox": [
         505,
@@ -925,15 +925,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/qxcvmt47",
+      "aid": "sh/ql8ne9w7",
       "id": "20",
       "bbox": [
         892,
@@ -948,7 +948,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -973,7 +973,7 @@
           "text": "High",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -981,7 +981,7 @@
               "index": 1,
               "text": "High",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -994,7 +994,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/bylwfyls",
+      "aid": "sh/rmh4neds",
       "id": "21",
       "bbox": [
         1010,
@@ -1009,7 +1009,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1041,14 +1041,14 @@
           "text": "Implement a complete role-based access review.",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Implement a complete role-based access review.",
               "fontSize": 14,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -1060,7 +1060,7 @@
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/czudo3md",
+      "aid": "sh/cnq5gjed",
       "id": "22",
       "bbox": [
         88,
@@ -1121,7 +1121,7 @@
       "order": 23,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/d0neh83i",
+      "aid": "sh/dozmpovy",
       "id": "23",
       "bbox": [
         505,
@@ -1130,15 +1130,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#E4EAEE",
-      "lineColor": "#E4EAEE",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
       "lineWidth": 0
     },
     {
       "order": 24,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/y1wvqt43",
+      "aid": "sh/2hona9wb",
       "id": "24",
       "bbox": [
         505,
@@ -1147,15 +1147,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 25,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/z25wjylo",
+      "aid": "sh/3ix4jedw",
       "id": "25",
       "bbox": [
         892,
@@ -1170,7 +1170,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1195,7 +1195,7 @@
           "text": "High",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -1203,7 +1203,7 @@
               "index": 1,
               "text": "High",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -1216,7 +1216,7 @@
       "order": 26,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/03eds3m9",
+      "aid": "sh/4jq5czeh",
       "id": "26",
       "bbox": [
         1010,
@@ -1231,7 +1231,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1263,14 +1263,14 @@
           "text": "Implement a complete role-based access review.",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Implement a complete role-based access review.",
               "fontSize": 14,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -1282,7 +1282,7 @@
       "order": 27,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/l4nel83u",
+      "aid": "sh/pkzml4v2",
       "id": "27",
       "bbox": [
         88,
@@ -1347,7 +1347,7 @@
       "order": 28,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/m5wfudkf",
+      "aid": "sh/uto36pwf",
       "id": "28",
       "bbox": [
         505,
@@ -1356,15 +1356,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#E4EAEE",
-      "lineColor": "#E4EAEE",
+      "fillColor": "#D9E1E7",
+      "lineColor": "#D9E1E7",
       "lineWidth": 0
     },
     {
       "order": 29,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/765wnil0",
+      "aid": "sh/fux4fudk",
       "id": "29",
       "bbox": [
         505,
@@ -1373,15 +1373,15 @@
         20
       ],
       "geometry": "rect",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 30,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/hcbq9gre",
+      "aid": "sh/hkny1wje",
       "id": "30",
       "bbox": [
         892,
@@ -1396,7 +1396,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1421,7 +1421,7 @@
           "text": "High",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -1429,7 +1429,7 @@
               "index": 1,
               "text": "High",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -1442,7 +1442,7 @@
       "order": 31,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/gbip0bat",
+      "aid": "sh/wjeh8r2t",
       "id": "31",
       "bbox": [
         1010,
@@ -1457,7 +1457,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1489,14 +1489,14 @@
           "text": "Implement a complete role-based access review.",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Implement a complete role-based access review.",
               "fontSize": 14,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0

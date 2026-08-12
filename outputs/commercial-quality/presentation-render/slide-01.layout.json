@@ -2,13 +2,13 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/pkj92u",
-    "id": "pkj92u",
+    "aid": "sl/ewccxy",
+    "id": "ewccxy",
     "slide": 1,
-    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
     "masterLayoutName": "Master",
     "backgroundColor": "#142F4C",
     "frame": {
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/5c3mxsjy",
+      "aid": "sh/hwb2h07m",
       "id": "1",
       "bbox": [
         0,
@@ -73,15 +73,15 @@
         720
       ],
       "geometry": "rect",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/i9sn2d0n",
+      "aid": "sh/utk36lob",
       "id": "2",
       "bbox": [
         88,
@@ -96,7 +96,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#CFDDE7",
+        "color": "#D9E1E7",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -121,7 +121,7 @@
           "text": "MK FRAUD READINESS",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#CFDDE7",
+            "color": "#D9E1E7",
             "bold": true
           },
           "runs": [
@@ -129,7 +129,7 @@
               "index": 1,
               "text": "MK FRAUD READINESS",
               "fontSize": 16,
-              "color": "#CFDDE7",
+              "color": "#D9E1E7",
               "bold": true
             }
           ],
@@ -142,7 +142,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ja14vi18",
+      "aid": "sh/vutkfqpg",
       "id": "3",
       "bbox": [
         88,
@@ -211,7 +211,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/wna503ih",
+      "aid": "sh/8ril4bq5",
       "id": "4",
       "bbox": [
         90,
@@ -226,7 +226,7 @@
       "resolvedTextStyle": {
         "fontSize": 22,
         "typeface": "+mn-lt",
-        "color": "#DCE7F1",
+        "color": "#D9E1E7",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -254,14 +254,14 @@
           "text": "Kestrel Industrial Supply (Pty) Ltd",
           "resolvedTextStyle": {
             "fontSize": 22,
-            "color": "#DCE7F1"
+            "color": "#D9E1E7"
           },
           "runs": [
             {
               "index": 1,
               "text": "Kestrel Industrial Supply (Pty) Ltd",
               "fontSize": 22,
-              "color": "#DCE7F1"
+              "color": "#D9E1E7"
             }
           ],
           "marginLeft": 0
@@ -271,14 +271,14 @@
           "text": "Comprehensive review · evidence-led engagement",
           "resolvedTextStyle": {
             "fontSize": 22,
-            "color": "#DCE7F1"
+            "color": "#D9E1E7"
           },
           "runs": [
             {
               "index": 1,
               "text": "Comprehensive review · evidence-led engagement",
               "fontSize": 22,
-              "color": "#DCE7F1"
+              "color": "#D9E1E7"
             }
           ],
           "marginLeft": 0
@@ -290,7 +290,7 @@
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/x8jmt8j2",
+      "aid": "sh/9sr2dg7q",
       "id": "5",
       "bbox": [
         90,
@@ -305,7 +305,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#B9CFDF",
+        "color": "#D9E1E7",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -329,14 +329,14 @@
           "text": "Named reviewer: Independent review lead",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#B9CFDF"
+            "color": "#D9E1E7"
           },
           "runs": [
             {
               "index": 1,
               "text": "Named reviewer: Independent review lead",
               "fontSize": 16,
-              "color": "#B9CFDF"
+              "color": "#D9E1E7"
             }
           ],
           "marginLeft": 0
@@ -348,7 +348,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/alsnyd0b",
+      "aid": "sh/mp0j218z",
       "id": "6",
       "bbox": [
         930,
@@ -363,7 +363,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "right",
         "insets": {
@@ -392,7 +392,7 @@
           "text": "CONFIDENTIAL · DECISION SUPPORT",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true,
             "alignment": "right"
           },
@@ -401,7 +401,7 @@
               "index": 1,
               "text": "CONFIDENTIAL · DECISION SUPPORT",
               "fontSize": 13,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true,
               "alignment": "right"
             }

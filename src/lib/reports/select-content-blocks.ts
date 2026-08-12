@@ -169,7 +169,7 @@ function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock |
   if (adaptiveState === 'visibility_limited') {
     return {
       title: 'Visibility-limited assessment',
-      body: 'A reliable Fraud Readiness Score was not issued because the submitted assessment did not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
+      body: 'The submitted assessment leaves the reported readiness position provisional because the available responses do not provide enough visibility. This report identifies where the control position could not be confirmed and the evidence needed for verification.',
       usedFallback: true
     };
   }

@@ -35,6 +35,9 @@ const sourceManifest = {
 };
 await fs.mkdir(final, { recursive: true });
 for (const name of artefacts) await fs.copyFile(path.join(source, name), path.join(final, name));
+for (const name of ['gate-output.json', 'gate-output.md', 'gate-applicability.md', 'fixture-manifest.json']) {
+  await fs.copyFile(path.join(root, 'docs/commercial-quality', name), path.join(final, name));
+}
 const verification = { label: 'MK FRAUD READINESS PREMIUM PRODUCT', status: 'OWNER REVIEW PACKAGE — OBJECTIVE GATES PASSED', branch: 'commercial/mk-fraud-readiness-95-quality', sourceManifest, artefacts: rows, gateOutput: 'docs/commercial-quality/gate-output.json', note: 'Implementation evidence only. Commercial owner review, market readiness and launch approval remain human decisions.' };
 await fs.writeFile(path.join(final, 'generation-manifest.json'), JSON.stringify(verification, null, 2));
 await fs.writeFile(path.join(final, 'owner-review-sheet.md'), '# Owner review sheet\n\n## Human owner completion\n\n- Owner: \n- Review date: \n- Decision: \n- Conditions / actions: \n- Signature: \n\nThis sheet is intentionally blank. Codex does not self-score or complete the commercial review.');

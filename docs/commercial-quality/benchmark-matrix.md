@@ -2,7 +2,7 @@
 
 | Artefact / control | File or scope | Observed | Target | Result |
 |---|---|---|---|---|
-| Essential main report | essential-main-report.pdf | 28 pages | 28–34 pages | **PASS** |
+| Essential main report | essential-main-report.pdf | 29 pages | 28–34 pages | **PASS** |
 | Essential supporting register | essential-supporting-register.xlsx | 8 sheets | 8 sheets | **PASS** |
 | Comprehensive main report | comprehensive-main-report.pdf | 36 pages | 34–38 pages | **PASS** |
 | Board readout | comprehensive-board-readout.pdf | 7 pages | 7 pages | **PASS** |

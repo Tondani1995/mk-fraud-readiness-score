@@ -39,6 +39,7 @@ function readMeSheetData(data: AssembledReportData, model: AdvisoryEvidenceModel
   const rows = [
     { field: 'Workbook purpose', value: 'Essential fraud-readiness supporting register', note: 'Complete question, finding, evidence and action trace' },
     { field: 'Organisation', value: data.organisationName, note: 'Persisted assessment source' },
+    { field: 'Deterministic readiness', value: data.scoreRun.overallScore === null ? 'Not scored' : data.scoreRun.overallScore, note: data.scoreRun.finalMaturity ?? 'Recorded maturity' },
     { field: 'How to read it', value: 'Customer-facing meaning comes first; technical references appear last.', note: 'Question Trace retains the complete response universe.' },
     { field: 'Date convention', value: 'DD MMM YYYY', note: 'No ISO timestamps in customer-facing cells' },
     { field: 'Status boundary', value: 'Recorded self-assessment is not independent validation.', note: 'Use the named evidence and effectiveness fields for follow-up.' }
@@ -57,7 +58,9 @@ function text(value: unknown): string {
   return String(value)
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate');
+    .replace(/\btest\b/gi, 'validate')
+    .replace(/\bsynthetic identity\b/gi, 'identity misuse')
+    .replace(/\bsynthetic\b/gi, 'constructed');
 }
 
 /** v4 Column contract: { header, cell } -- NOT the v3 { column, value } shape. */
@@ -138,6 +141,7 @@ export function supportingRegisterSheetData(
     stringColumn('Oversight function', (row) => row.oversightFunction),
     stringColumn('Target period', (row) => row.targetPeriod),
     stringColumn('Escalation threshold', (row) => row.escalationThreshold),
+    stringColumn('Failure response', (row) => row.failureResponse),
     technicalStringColumn('Linked findings', (row) => row.linkedFindingIds),
     technicalStringColumn('Linked risks', (row) => row.linkedRiskIds),
     technicalStringColumn('Linked roadmap actions', (row) => row.linkedRoadmapActionIds),

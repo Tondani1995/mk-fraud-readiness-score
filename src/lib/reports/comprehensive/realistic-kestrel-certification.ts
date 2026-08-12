@@ -42,7 +42,7 @@ export function buildKestrelEvidenceRichCertification(
     ['EVID-KES-04', 'Supplier onboarding sample pack and due-diligence exceptions', 'D7'],
     ['EVID-KES-05', 'User access recertification export and removal log', 'D8'],
     ['EVID-KES-06', 'Privileged account register and emergency-access review', 'D8'],
-    ['EVID-KES-07', 'Detection rule catalogue, tuning log and alert ageing report', 'D4'],
+    ['EVID-KES-07', 'Detection rule catalogue, tuning log and evidence review record', 'D4'],
     ['EVID-KES-08', 'Incident register, investigation closure pack and lessons log', 'D5'],
     ['EVID-KES-09', 'Whistleblowing case register and independent reporting route', 'D6'],
     ['EVID-KES-10', 'Role-based fraud awareness completion and exception report', 'D9'],
@@ -251,7 +251,17 @@ export function buildKestrelEvidenceRichCertification(
   }));
   reviewer.riskReviews = analytical.evidenceModel.riskRegister.map((risk) => ({ riskId: risk.id, evidenceRefs: risk.evidenceRefs, reviewerInterpretation: `The ${risk.priority.toLowerCase()} pathway remains plausible for the reviewed operating context.`, assuranceStatement: 'Assurance is limited to the named evidence and review scope.', limitation: 'No full-population operating test was performed.', reviewerConfidence: risk.priority === 'Critical' ? 'HIGH' : 'MEDIUM' }));
   reviewer.controlDesignReviews = analytical.evidenceModel.controlImprovements.map((control) => ({ controlId: control.id, evidenceRefsReviewed: control.evidenceRefs, designAssessment: 'The design direction is appropriate but needs complete population, exception handling and effectiveness evidence.', designGapLimitation: 'Operating effectiveness and exception closure remain to be demonstrated.', reviewerObservation: 'The control design critique is recorded separately from the deterministic control condition.', recommendedAdjustment: control.controlDesign }));
-  const decisionReview = (decision: typeof decisions[number], id: string, owner: string) => ({ decisionId: id, viableOptions: decision[5].split('; '), keyTradeOffs: [decision[6]], reviewerRecommendation: `Select the option that gives ${owner} a named first deliverable, a costed trade-off and a review checkpoint.`, managementBoardDecision: `Management to confirm ${owner} as accountable and record the selected option.`, owner, targetDate: decision[4] });
+  const decisionReview = (decision: typeof decisions[number], id: string, owner: string) => {
+    const viableOptions = decision[5].split('; ');
+    const optionDetails = viableOptions.map((option, index) => ({
+      option,
+      cost: index === 0 ? 'Internal management time and process ownership.' : index === 1 ? 'Specialist fees and a handover dependency.' : 'Targeted validation cost plus internal coordination time.',
+      benefit: index === 0 ? 'Builds durable internal ownership and operating context.' : index === 1 ? 'Accelerates independent capability and first-cycle delivery.' : 'Balances internal accountability with specialist assurance at the decision point.',
+      tradeOff: index === 0 ? 'Slower capability uplift while the operating rhythm is established.' : index === 1 ? 'Faster assurance, with recurring cost and dependency on the partner.' : 'Requires clear boundaries so blended ownership does not dilute accountability.',
+      rejectionReason: index === 0 ? 'Not recommended where immediate independent validation is needed.' : index === 1 ? undefined : 'Not recommended where the organisation cannot fund parallel coordination.'
+    }));
+    return { decisionId: id, viableOptions, keyTradeOffs: [decision[6]], optionDetails, reviewerRecommendation: `Select ${viableOptions[1]} because it gives ${owner} a named first deliverable and an independent review checkpoint.`, recommendationRationale: `This option best balances the stated urgency, control ownership and evidence requirement for ${owner}.`, managementBoardDecision: `Management to confirm ${owner} as accountable and record the selected option.`, owner, targetDate: decision[4] };
+  };
   reviewer.decisionReviews = decisions.flatMap((decision) => [decisionReview(decision, decision[0], decision[3]), decisionReview(decision, `MD-${decision[0].slice(4)}`, decision[3])]);
   reviewer.observations = evidence.slice(0, 8).map(([id, label], index) => ({ id: `OBS-KES-${String(index + 1).padStart(2, '0')}`, subject: `Evidence review: ${label}`, observation: statusForIndex(index)[2], validationStatus: statusForIndex(index)[0] as any, linkedEvidenceRefs: [`evidence:${id}`], linkedFindingIds: [analytical.evidenceModel.materialFindings[index].id], reviewerName: 'Independent review lead', reviewDate: '2026-08-10' }));
   reviewer.managementDecisions = decisions.map((decision, index) => ({ id: `MD-${decision[0].slice(4)}`, decision: decision[2], rationale: decision[6], linkedFindingIds: [analytical.evidenceModel.materialFindings[index].id], linkedRiskIds: [analytical.evidenceModel.riskRegister[index].id], owner: decision[3], targetDate: decision[4], status: index === 0 ? 'ACCEPTED' : 'OPEN', boardDecision: `Management to confirm the selected option, owner and evidence checkpoint for ${decision[3]}.` }));

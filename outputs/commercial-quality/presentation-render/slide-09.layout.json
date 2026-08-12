@@ -2,15 +2,15 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/ye5wlj",
-    "id": "ye5wlj",
+    "aid": "sl/j0gwzx",
+    "id": "j0gwzx",
     "slide": 9,
-    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
     "masterLayoutName": "Master",
-    "backgroundColor": "#F7F4EE",
+    "backgroundColor": "#FBF9F5",
     "frame": {
       "left": 0,
       "top": 0,
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/q1gnmx47",
+      "aid": "sh/0jyhgj2x",
       "id": "1",
       "bbox": [
         72,
@@ -79,7 +79,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -104,7 +104,7 @@
           "text": "COMPREHENSIVE REVIEW · 09",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -112,7 +112,7 @@
               "index": 1,
               "text": "COMPREHENSIVE REVIEW · 09",
               "fontSize": 14,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/d47mxcny",
+      "aid": "sh/zipg7ylc",
       "id": "2",
       "bbox": [
         72,
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/c3y5o7md",
+      "aid": "sh/ehgfetk7",
       "id": "3",
       "bbox": [
         72,
@@ -205,7 +205,7 @@
       "resolvedTextStyle": {
         "fontSize": 18,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -229,14 +229,14 @@
           "text": "Accountability is the mechanism that turns advisory judgement into operating change.",
           "resolvedTextStyle": {
             "fontSize": 18,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Accountability is the mechanism that turns advisory judgement into operating change.",
               "fontSize": 18,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3e54r25g",
+      "aid": "sh/dg7y5o3m",
       "id": "4",
       "bbox": [
         72,
@@ -257,14 +257,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/2dw3ix4b",
+      "aid": "sh/cfyxcj21",
       "id": "5",
       "bbox": [
         72,
@@ -279,7 +279,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -303,14 +303,14 @@
           "text": "MK Fraud Readiness · Comprehensive",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "MK Fraud Readiness · Comprehensive",
               "fontSize": 13,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/pgnmtsnm",
+      "aid": "sh/repg3elg",
       "id": "6",
       "bbox": [
         1135,
@@ -337,7 +337,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "right",
         "insets": {
           "top": 4.8,
@@ -361,7 +361,7 @@
           "text": "09 / 10",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "alignment": "right"
           },
           "runs": [
@@ -369,7 +369,7 @@
               "index": 1,
               "text": "09 / 10",
               "fontSize": 13,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "alignment": "right"
             }
           ],
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ofe5knm1",
+      "aid": "sh/qdgfa9kv",
       "id": "7",
       "bbox": [
         88,
@@ -391,14 +391,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/na943m50",
+      "aid": "sh/pcny143a",
       "id": "8",
       "bbox": [
         88,
@@ -463,7 +463,7 @@
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/m90nuh4f",
+      "aid": "sh/4bex8z2p",
       "id": "9",
       "bbox": [
         450,
@@ -478,7 +478,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -502,14 +502,14 @@
           "text": "Financial Controller",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Financial Controller",
               "fontSize": 16,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -521,7 +521,7 @@
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/87u5cnep",
+      "aid": "sh/e5srup87",
       "id": "10",
       "bbox": [
         665,
@@ -536,7 +536,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -561,7 +561,7 @@
           "text": "30 days",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -569,7 +569,7 @@
               "index": 1,
               "text": "30 days",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -582,7 +582,7 @@
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/t836lsva",
+      "aid": "sh/fqls3ups",
       "id": "11",
       "bbox": [
         790,
@@ -597,7 +597,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -621,14 +621,14 @@
           "text": "100% of in-scope access reviewed.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "100% of in-scope access reviewed.",
               "fontSize": 15,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -640,7 +640,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/65cnadwj",
+      "aid": "sh/0ru9wzqd",
       "id": "12",
       "bbox": [
         88,
@@ -649,14 +649,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/76lojid4",
+      "aid": "sh/1s3a5k7i",
       "id": "13",
       "bbox": [
         88,
@@ -721,7 +721,7 @@
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/k3u583et",
+      "aid": "sh/q1srq58v",
       "id": "14",
       "bbox": [
         450,
@@ -736,7 +736,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -764,14 +764,14 @@
           "text": "Chief Information Officer",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Chief Information Officer",
               "fontSize": 16,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -783,7 +783,7 @@
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/l436h8ve",
+      "aid": "sh/r218zapg",
       "id": "15",
       "bbox": [
         665,
@@ -798,7 +798,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -823,7 +823,7 @@
           "text": "30 days",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -831,7 +831,7 @@
               "index": 1,
               "text": "30 days",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -844,7 +844,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/y1sn6twn",
+      "aid": "sh/s3a9sfq1",
       "id": "16",
       "bbox": [
         790,
@@ -859,7 +859,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -883,14 +883,14 @@
           "text": "100% of in-scope access reviewed.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "100% of in-scope access reviewed.",
               "fontSize": 15,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -902,7 +902,7 @@
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/j2lofyd8",
+      "aid": "sh/d4jq1k7m",
       "id": "17",
       "bbox": [
         88,
@@ -911,14 +911,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/wfa543eh",
+      "aid": "sh/ix8rm58z",
       "id": "18",
       "bbox": [
         88,
@@ -983,7 +983,7 @@
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/x0j6dov2",
+      "aid": "sh/3yh8va9k",
       "id": "19",
       "bbox": [
         450,
@@ -998,7 +998,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1022,14 +1022,14 @@
           "text": "Financial Controller",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Financial Controller",
               "fontSize": 16,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -1041,7 +1041,7 @@
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/dkbul03u",
+      "aid": "sh/7qdg7210",
       "id": "20",
       "bbox": [
         665,
@@ -1056,7 +1056,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1081,7 +1081,7 @@
           "text": "30 days",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -1089,7 +1089,7 @@
               "index": 1,
               "text": "30 days",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -1102,7 +1102,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/cjidsv29",
+      "aid": "sh/mp4fexkf",
       "id": "21",
       "bbox": [
         790,
@@ -1117,7 +1117,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1141,14 +1141,14 @@
           "text": "100% of in-scope access reviewed.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "100% of in-scope access reviewed.",
               "fontSize": 15,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -1160,7 +1160,7 @@
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ri9cjqlo",
+      "aid": "sh/9svy9cj6",
       "id": "22",
       "bbox": [
         88,
@@ -1169,14 +1169,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 23,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/qh0vqlk3",
+      "aid": "sh/8rmxg72l",
       "id": "23",
       "bbox": [
         88,
@@ -1241,7 +1241,7 @@
       "order": 24,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/pwruhg3i",
+      "aid": "sh/vuxgbm1w",
       "id": "24",
       "bbox": [
         450,
@@ -1256,7 +1256,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1284,14 +1284,14 @@
           "text": "Chief Information Officer",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Chief Information Officer",
               "fontSize": 16,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -1303,7 +1303,7 @@
       "order": 25,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/4vidob2x",
+      "aid": "sh/ut4fihkr",
       "id": "25",
       "bbox": [
         665,
@@ -1318,7 +1318,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1343,7 +1343,7 @@
           "text": "30 days",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -1351,7 +1351,7 @@
               "index": 1,
               "text": "30 days",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -1364,7 +1364,7 @@
       "order": 26,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3u9cf6ls",
+      "aid": "sh/hwfydwj2",
       "id": "26",
       "bbox": [
         790,
@@ -1379,7 +1379,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1403,14 +1403,14 @@
           "text": "100% of in-scope access reviewed.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "100% of in-scope access reviewed.",
               "fontSize": 15,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -1422,7 +1422,7 @@
       "order": 27,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/2t0vmlk7",
+      "aid": "sh/wv6xkr2h",
       "id": "27",
       "bbox": [
         88,
@@ -1431,14 +1431,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 28,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/9svetkj2",
+      "aid": "sh/bytwzils",
       "id": "28",
       "bbox": [
         88,
@@ -1503,7 +1503,7 @@
       "order": 29,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/or2d0f2h",
+      "aid": "sh/axkf6dk7",
       "id": "29",
       "bbox": [
         450,
@@ -1518,7 +1518,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1546,14 +1546,14 @@
           "text": "Chief Information Officer",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Chief Information Officer",
               "fontSize": 16,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -1565,7 +1565,7 @@
       "order": 30,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/6xwreh0z",
+      "aid": "sh/g3idgji5",
       "id": "30",
       "bbox": [
         665,
@@ -1580,7 +1580,7 @@
       "resolvedTextStyle": {
         "fontSize": 16,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1605,7 +1605,7 @@
           "text": "60 days",
           "resolvedTextStyle": {
             "fontSize": 16,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -1613,7 +1613,7 @@
               "index": 1,
               "text": "60 days",
               "fontSize": 16,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -1626,7 +1626,7 @@
       "order": 31,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/7y5sn21k",
+      "aid": "sh/14ru9ojq",
       "id": "31",
       "bbox": [
         790,
@@ -1641,7 +1641,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1665,14 +1665,14 @@
           "text": "All active rules reviewed monthly.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "All active rules reviewed monthly.",
               "fontSize": 15,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -1684,7 +1684,7 @@
       "order": 32,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/8ze9g7ip",
+      "aid": "sh/e1gbe90z",
       "id": "32",
       "bbox": [
         450,
@@ -1699,7 +1699,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1724,7 +1724,7 @@
           "text": "Owner",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "bold": true
           },
           "runs": [
@@ -1732,7 +1732,7 @@
               "index": 1,
               "text": "Owner",
               "fontSize": 14,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "bold": true
             }
           ],
@@ -1745,7 +1745,7 @@
       "order": 33,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/t0napcja",
+      "aid": "sh/f2pc7e1k",
       "id": "33",
       "bbox": [
         665,
@@ -1760,7 +1760,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1785,7 +1785,7 @@
           "text": "Timing",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "bold": true
           },
           "runs": [
@@ -1793,7 +1793,7 @@
               "index": 1,
               "text": "Timing",
               "fontSize": 14,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "bold": true
             }
           ],
@@ -1806,7 +1806,7 @@
       "order": 34,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ytcrax0n",
+      "aid": "sh/sfytcji9",
       "id": "34",
       "bbox": [
         790,
@@ -1821,7 +1821,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -1846,7 +1846,7 @@
           "text": "Effectiveness measure",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "bold": true
           },
           "runs": [
@@ -1854,7 +1854,7 @@
               "index": 1,
               "text": "Effectiveness measure",
               "fontSize": 14,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "bold": true
             }
           ],

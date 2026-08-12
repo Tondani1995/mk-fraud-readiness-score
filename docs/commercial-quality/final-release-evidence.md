@@ -12,13 +12,13 @@
 ## Programme result
 
 - Binary objective gates replace the superseded scorecard approach.
-- Six fixture profiles run through the gate harness with zero FAIL rows.
+- Six fixture profiles run through the complete binary gate harness: 875 required rows plus one M1 coverage row, with zero FAIL rows.
 - Customer artefacts contain zero prohibited-token or raw-UUID hits.
 - The final pack uses persisted Rivonia Essential and Kestrel Comprehensive records.
 
 ## Artefact checks
 
-- Essential: 28 pages; 8-sheet supporting register.
+- Essential: 29 pages; 8-sheet supporting register.
 - Comprehensive: 36 pages; 8-sheet annotated register.
 - Board readout: 7 pages.
 - Workshop material: 10 pages.
@@ -28,7 +28,10 @@
 
 ## Verification commands
 
+- `npm run quality:gates` — 876 emitted rows: 875 required rows plus M1 coverage; zero FAIL.
+- `npm run quality:scan` — seven current artefacts copied to the owner-review package; zero prohibited-token hits.
 - `npm run typecheck`
+- `npm test`
 - `npm run v7:test-checkpoint-a-unit`
 - `npm run bounded:test-essential-contract`
 - `npm run pdf:test-commercial-composition`
@@ -42,10 +45,14 @@
 
 ## Changed-file inventory
 
-- Commercial-quality builders and V2 scorecard/evidence scripts under `scripts/commercial-quality/`.
+- Commercial-quality builders and the binary gate harness under `scripts/commercial-quality/`.
 - Comprehensive report, workshop, register, projection and Kestrel certification sources under `src/lib/reports/comprehensive/`.
 - Supporting workbook, PDF rendering/template and customer surface fixes.
-- V2 loop scorecards, reconciliation, benchmark and zero-placeholder evidence under `docs/commercial-quality/`.
+- Binary gate output, applicability, reconciliation, benchmark and zero-placeholder evidence under `docs/commercial-quality/`.
 - Seven final customer artefacts under `outputs/commercial-quality/`.
 
 This is an owner review candidate. It is not a market-ready declaration.
+
+## Legacy contract note
+
+Two older integration suites still assert pre-harness workbook contracts (`Functional Agenda` on Essential and `Roadmap` on Comprehensive) and the unsanitised staging reviewer name. Those assertions conflict with the authoritative objective contract: Essential has exactly eight sheets including `Control Improvements`; Comprehensive has exactly eight sheets without `Roadmap`; customer-facing surfaces must not expose staging/UAT copy. They were not used to override the authoritative gate result.

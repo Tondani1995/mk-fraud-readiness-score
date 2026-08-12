@@ -1,5 +1,7 @@
 # Binary gate applicability
 
+The runner executes model invariants plus the actual customer-facing artefacts listed in the generated package. Fixtures F2–F6 use the Comprehensive artefact set; F1 uses the Essential set.
+
 | Gate | Applicable artefacts |
 |---|---|
 | A1 | PDF, PPTX |

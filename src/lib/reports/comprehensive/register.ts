@@ -116,6 +116,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     implementationDifficulty: safeCell(control.implementationDifficulty),
     targetPeriod: safeCell(control.targetPeriod),
     effectivenessTest: safeCell(control.effectivenessTest),
+    failureResponse: safeCell(control.failureResponse),
     evidenceRequired: safeCell(csv(control.requiredEvidence)),
     evidenceRefs: safeCell(referenceList(control.evidenceRefs)),
     reviewerEvidenceRefs: safeCell(referenceList(model.controlDesignReviews.find((review) => review.controlId === control.id)?.evidenceRefsReviewed ?? [])),
@@ -186,7 +187,9 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     viableOptions: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.viableOptions ?? [])),
     keyTradeOffs: safeCell(csv(model.decisionReviews.find((review) => review.decisionId === decision.id)?.keyTradeOffs ?? [])),
     reviewerRecommendation: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.reviewerRecommendation),
-    managementBoardDecision: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.managementBoardDecision)
+    managementBoardDecision: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.managementBoardDecision),
+    optionAnalysis: safeCell((model.decisionReviews.find((review) => review.decisionId === decision.id)?.optionDetails ?? []).map((option) => `${option.option}: cost — ${option.cost}; benefit — ${option.benefit}; trade-off — ${option.tradeOff}; ${option.rejectionReason ? `rejection reason — ${option.rejectionReason}` : 'recommended option'}`).join(' | ')),
+    recommendationRationale: safeCell(model.decisionReviews.find((review) => review.decisionId === decision.id)?.recommendationRationale)
   }));
 
   return [

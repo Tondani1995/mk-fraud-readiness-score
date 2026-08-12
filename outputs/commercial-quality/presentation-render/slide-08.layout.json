@@ -2,15 +2,15 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/r9e2cq",
-    "id": "r9e2cq",
+    "aid": "sl/t0wflf",
+    "id": "t0wflf",
     "slide": 8,
-    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutId": "83c71974-5c28-435e-8da6-92b4eca74e0d",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
     "masterLayoutName": "Master",
-    "backgroundColor": "#F7F4EE",
+    "backgroundColor": "#FBF9F5",
     "frame": {
       "left": 0,
       "top": 0,
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "id": "83c71974-5c28-435e-8da6-92b4eca74e0d",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "parentLayoutId": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "id": "87edb7e3-0402-409c-bbd1-b5b1ddc46d30",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/4rito3ix",
+      "aid": "sh/j6xo3ylk",
       "id": "1",
       "bbox": [
         72,
@@ -79,7 +79,7 @@
       "resolvedTextStyle": {
         "fontSize": 14,
         "typeface": "+mn-lt",
-        "color": "#C77B35",
+        "color": "#C9A227",
         "bold": true,
         "alignment": "left",
         "insets": {
@@ -104,7 +104,7 @@
           "text": "COMPREHENSIVE REVIEW · 08",
           "resolvedTextStyle": {
             "fontSize": 14,
-            "color": "#C77B35",
+            "color": "#C9A227",
             "bold": true
           },
           "runs": [
@@ -112,7 +112,7 @@
               "index": 1,
               "text": "COMPREHENSIVE REVIEW · 08",
               "fontSize": 14,
-              "color": "#C77B35",
+              "color": "#C9A227",
               "bold": true
             }
           ],
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3q9svy1c",
+      "aid": "sh/k7qpw325",
       "id": "2",
       "bbox": [
         72,
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/2p0bmt0r",
+      "aid": "sh/58z6583q",
       "id": "3",
       "bbox": [
         72,
@@ -205,7 +205,7 @@
       "resolvedTextStyle": {
         "fontSize": 18,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -229,14 +229,14 @@
           "text": "Sequence the work so early progress creates a reliable control baseline.",
           "resolvedTextStyle": {
             "fontSize": 18,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "Sequence the work so early progress creates a reliable control baseline.",
               "fontSize": 18,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ho7atoj6",
+      "aid": "sh/6t87ydkb",
       "id": "4",
       "bbox": [
         72,
@@ -257,14 +257,14 @@
         0
       ],
       "geometry": "line",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/gnytkjil",
+      "aid": "sh/7uho7ilw",
       "id": "5",
       "bbox": [
         72,
@@ -279,7 +279,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -303,14 +303,14 @@
           "text": "MK Fraud Readiness · Comprehensive",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080"
+            "color": "#5A6B7C"
           },
           "runs": [
             {
               "index": 1,
               "text": "MK Fraud Readiness · Comprehensive",
               "fontSize": 13,
-              "color": "#5E7080"
+              "color": "#5A6B7C"
             }
           ],
           "marginLeft": 0
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/fmpsre10",
+      "aid": "sh/svqp0n21",
       "id": "6",
       "bbox": [
         1135,
@@ -337,7 +337,7 @@
       "resolvedTextStyle": {
         "fontSize": 13,
         "typeface": "+mn-lt",
-        "color": "#5E7080",
+        "color": "#5A6B7C",
         "alignment": "right",
         "insets": {
           "top": 4.8,
@@ -361,7 +361,7 @@
           "text": "08 / 10",
           "resolvedTextStyle": {
             "fontSize": 13,
-            "color": "#5E7080",
+            "color": "#5A6B7C",
             "alignment": "right"
           },
           "runs": [
@@ -369,7 +369,7 @@
               "index": 1,
               "text": "08 / 10",
               "fontSize": 13,
-              "color": "#5E7080",
+              "color": "#5A6B7C",
               "alignment": "right"
             }
           ],
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ulgbit0v",
+      "aid": "sh/twz69s3m",
       "id": "7",
       "bbox": [
         88,
@@ -392,14 +392,14 @@
       ],
       "geometry": "roundRect",
       "fillColor": "#FFFFFF",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/1kbu5sza",
+      "aid": "sh/md4nm94r",
       "id": "8",
       "bbox": [
         88,
@@ -408,7 +408,7 @@
         8
       ],
       "geometry": "rect",
-      "fillColor": "#C77B35",
+      "fillColor": "#C9A227",
       "lineColor": "#142F4C",
       "lineWidth": 0
     },
@@ -416,7 +416,7 @@
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/0j2twni5",
+      "aid": "sh/nydovelc",
       "id": "9",
       "bbox": [
         110,
@@ -477,7 +477,7 @@
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/2d87ahsb",
+      "aid": "sh/n29cfi1g",
       "id": "10",
       "bbox": [
         110,
@@ -486,15 +486,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3yh83mtg",
+      "aid": "sh/210bmdkv",
       "id": "11",
       "bbox": [
         134,
@@ -509,7 +509,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -537,14 +537,14 @@
           "text": "Approve the detection ownership mandate and first evidence cycle.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Approve the detection ownership mandate and first evidence cycle.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -556,7 +556,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/4zqpcra1",
+      "aid": "sh/p4buh8j6",
       "id": "12",
       "bbox": [
         110,
@@ -565,15 +565,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/p0zq5cbm",
+      "aid": "sh/o32to321",
       "id": "13",
       "bbox": [
         134,
@@ -588,7 +588,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -616,14 +616,14 @@
           "text": "Run the first fixed-cycle detection tuning review.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Run the first fixed-cycle detection tuning review.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -635,7 +635,7 @@
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/u9o76xsz",
+      "aid": "sh/fy9cby14",
       "id": "14",
       "bbox": [
         110,
@@ -644,15 +644,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/fax8z2tk",
+      "aid": "sh/ex0bitkj",
       "id": "15",
       "bbox": [
         134,
@@ -667,7 +667,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -695,14 +695,14 @@
           "text": "Review segregation-of-duties overrides and expiry.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Review segregation-of-duties overrides and expiry.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -714,7 +714,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/gbqp87a5",
+      "aid": "sh/10rud8ja",
       "id": "16",
       "bbox": [
         428,
@@ -724,14 +724,14 @@
       ],
       "geometry": "roundRect",
       "fillColor": "#FFFFFF",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/hczq1cbq",
+      "aid": "sh/gzitk32p",
       "id": "17",
       "bbox": [
         428,
@@ -748,7 +748,7 @@
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/e5sri1s3",
+      "aid": "sh/rapc7y18",
       "id": "18",
       "bbox": [
         450,
@@ -809,7 +809,7 @@
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/z618b6to",
+      "aid": "sh/69gbetkn",
       "id": "19",
       "bbox": [
         450,
@@ -818,15 +818,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/bat43y9g",
+      "aid": "sh/u5gvqt4f",
       "id": "20",
       "bbox": [
         474,
@@ -841,7 +841,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -873,14 +873,14 @@
           "text": "Reconcile supplier bank-detail changes and add independent verification.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Reconcile supplier bank-detail changes and add independent verification.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -892,7 +892,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/a9knat8v",
+      "aid": "sh/v6pczel0",
       "id": "21",
       "bbox": [
         450,
@@ -901,15 +901,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/xcvm58r6",
+      "aid": "sh/w7ydsjml",
       "id": "22",
       "bbox": [
         474,
@@ -924,7 +924,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -952,14 +952,14 @@
           "text": "Reconcile role-based awareness coverage.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Reconcile role-based awareness coverage.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -971,7 +971,7 @@
       "order": 23,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/wb25c3ql",
+      "aid": "sh/h87u1o36",
       "id": "23",
       "bbox": [
         450,
@@ -980,15 +980,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 24,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/jedo7y9c",
+      "aid": "sh/i9gvut4r",
       "id": "24",
       "bbox": [
         474,
@@ -1003,7 +1003,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1031,14 +1031,14 @@
           "text": "Link incident closure to root cause and control improvement.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Link incident closure to root cause and control improvement.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0
@@ -1050,7 +1050,7 @@
       "order": 25,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/yd4net8r",
+      "aid": "sh/japc3ylc",
       "id": "25",
       "bbox": [
         768,
@@ -1060,14 +1060,14 @@
       ],
       "geometry": "roundRect",
       "fillColor": "#FFFFFF",
-      "lineColor": "#D8E0E5",
+      "lineColor": "#D9E1E7",
       "lineWidth": 1
     },
     {
       "order": 26,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/lgv698ri",
+      "aid": "sh/4vydw3mh",
       "id": "26",
       "bbox": [
         768,
@@ -1076,7 +1076,7 @@
         8
       ],
       "geometry": "rect",
-      "fillColor": "#2D7C57",
+      "fillColor": "#1F6B4A",
       "lineColor": "#142F4C",
       "lineWidth": 0
     },
@@ -1084,7 +1084,7 @@
       "order": 27,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/kfm5g3qx",
+      "aid": "sh/5wru5832",
       "id": "27",
       "bbox": [
         790,
@@ -1145,7 +1145,7 @@
       "order": 28,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/7idobi98",
+      "aid": "sh/6x0vyd4n",
       "id": "28",
       "bbox": [
         790,
@@ -1154,15 +1154,15 @@
         10
       ],
       "geometry": "ellipse",
-      "fillColor": "#C77B35",
-      "lineColor": "#C77B35",
+      "fillColor": "#C9A227",
+      "lineColor": "#C9A227",
       "lineWidth": 0
     },
     {
       "order": 29,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/6h4nid83",
+      "aid": "sh/ry9c7yl8",
       "id": "29",
       "bbox": [
         814,
@@ -1177,7 +1177,7 @@
       "resolvedTextStyle": {
         "fontSize": 15,
         "typeface": "+mn-lt",
-        "color": "#172232",
+        "color": "#1A2634",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1205,14 +1205,14 @@
           "text": "Approve the detection ownership mandate and first evidence cycle.",
           "resolvedTextStyle": {
             "fontSize": 15,
-            "color": "#172232"
+            "color": "#1A2634"
           },
           "runs": [
             {
               "index": 1,
               "text": "Approve the detection ownership mandate and first evidence cycle.",
               "fontSize": 15,
-              "color": "#172232"
+              "color": "#1A2634"
             }
           ],
           "marginLeft": 0

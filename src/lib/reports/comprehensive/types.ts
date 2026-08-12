@@ -104,7 +104,15 @@ export interface ReviewerDecisionReview {
   decisionId: string;
   viableOptions: string[];
   keyTradeOffs: string[];
+  optionDetails?: Array<{
+    option: string;
+    cost: string;
+    benefit: string;
+    tradeOff: string;
+    rejectionReason?: string;
+  }>;
   reviewerRecommendation?: string;
+  recommendationRationale?: string;
   managementBoardDecision?: string;
   owner?: string;
   targetDate?: string;

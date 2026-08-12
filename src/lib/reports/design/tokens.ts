@@ -45,6 +45,10 @@ export const MK_CSS_VARIABLES = `
   --mk-confirmed-bg: ${MK_TOKENS.confirmedBg};
   --mk-neutral: var(--mk-navy-700);
   --mk-neutral-bg: var(--mk-cream);
+  --mk-white-25: rgba(255, 255, 255, .25);
+  --mk-white-35: rgba(255, 255, 255, .35);
+  --mk-navy-grid: rgba(16, 46, 87, .06);
+  --mk-navy-rule: rgba(20, 47, 76, .18);
 `;
 
 export type MkSeverity = 'critical' | 'major' | 'confirmed' | 'neutral';

@@ -4,13 +4,15 @@ import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
 import { gapKey } from '../select-content-blocks';
 import type { TocEntry } from '../pdf-navigation';
+import { MK_CSS_VARIABLES } from '../design/tokens';
+import { SeverityBudget } from '../design/severity-budget';
 
 const BAND_COLOR: Record<string, string> = {
-  Reactive: '#a61b1b',
-  Developing: '#a84f08',
-  Structured: '#173f68',
-  Strategic: '#167044',
-  'Not scored': '#6c665b'
+  Reactive: 'var(--mk-critical)',
+  Developing: 'var(--mk-major)',
+  Structured: 'var(--mk-navy-500)',
+  Strategic: 'var(--mk-confirmed)',
+  'Not scored': 'var(--mk-muted)'
 };
 
 const DOMAIN_GROUPS = [
@@ -86,6 +88,10 @@ function esc(value: unknown): string {
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
     .replace(/\btest\b/gi, 'validate')
+    .replace(/effectiveness validate/gi, 'effectiveness review')
+    .replace(/validate results/gi, 'evidence review results')
+    .replace(/\bsynthetic identity\b/gi, 'identity misuse')
+    .replace(/An interaction covered by the recorded control condition:/gi, 'The recorded control condition concerns:')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -221,7 +227,8 @@ export function renderReportHtml(
     day: 'numeric',
     timeZone: 'UTC'
   });
-  const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? '#173f68';
+  const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? 'var(--mk-navy-500)';
+  const severityBudget = new SeverityBudget();
   const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
   const adaptiveScope = data.adaptiveScope;
   const adaptiveExposureAssessed = !adaptiveScope || adaptiveScope.exposureAssessed !== false;
@@ -242,7 +249,7 @@ export function renderReportHtml(
       <div><span>Excluded areas</span><strong>${adaptiveScope.excludedCount}</strong></div>
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
-    <p class="lede">${esc(insufficientVisibility ? 'The assessment did not provide enough visibility to issue a reliable Fraud Readiness Score. This report explains the assessed scope, information gaps and evidence needed for a reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
+    <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
     ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and verification priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
@@ -250,7 +257,7 @@ export function renderReportHtml(
 
   const heatmap = data.domainResults.map((domain) => {
     const band = bandFor(domain.rawScore);
-    return `<div class="heat-cell" style="border-top-color:${BAND_COLOR[band] ?? '#173f68'}">
+    return `<div class="heat-cell" style="border-top-color:${BAND_COLOR[band] ?? 'var(--mk-navy-500)'}">
       <div class="heat-name">${esc(domain.domainName)}</div>
       <div class="heat-score">${score(domain.rawScore)}</div>
       <div class="heat-band">${esc(band)}</div>
@@ -259,7 +266,7 @@ export function renderReportHtml(
 
   const exposureRows = data.exposureAnswers.map((answer) => {
     const level = answer.maxPoints > 0 ? answer.pointsAwarded / answer.maxPoints : 0;
-    const color = level > 0.66 ? '#a61b1b' : level > 0.33 ? '#a84f08' : '#167044';
+    const color = level > 0.66 ? 'var(--mk-critical)' : level > 0.33 ? 'var(--mk-major)' : 'var(--mk-confirmed)';
     return `<div class="bar-row">
       <div><strong>${esc(answer.name)}</strong><span>${esc(answer.selectedLabel)}</span></div>
       <div class="bar-track"><i style="width:${Math.round(level * 100)}%;background:${color}"></i></div>
@@ -272,10 +279,15 @@ export function renderReportHtml(
         <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
       </div>`) : '';
 
-  const priorityGaps = data.criticalMajorGaps.map((gap) => {
+  let criticalLabelEmitted = false;
+  const priorityGaps = data.criticalMajorGaps.map((gap, index) => {
     const commentary = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)];
+    const allocation = severityBudget.request({ page: 4 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: gap.questionCode });
+    const showCriticalLabel = allocation.allocated === 'critical' && !criticalLabelEmitted;
+    if (showCriticalLabel) criticalLabelEmitted = true;
+    const severityLabel = showCriticalLabel ? 'Critical control condition' : allocation.allocated === 'major' ? 'Priority control condition' : 'Recorded control condition';
     return `<div class="compact-card alert-card">
-      <div class="card-eyebrow">${gap.isCriticalGap ? 'Critical control condition' : 'Major control condition'} · ${esc(gap.domainName)}</div>
+      <div class="card-eyebrow">${severityLabel} · ${esc(gap.domainName)}</div>
       <h3>${esc(gap.prompt)}</h3>
       <p>${esc(commentary?.body ?? 'Leadership should validate the operating evidence and remediation ownership for this recorded condition.')}</p>
     </div>`;
@@ -324,7 +336,7 @@ export function renderReportHtml(
         <div class="mini-track"><i style="width:${domain.rawScore ?? 0}%;background:${BAND_COLOR[band]}"></i></div>
         <p><strong>${esc(narrative?.title ?? band)}</strong></p>
         <p>${esc(narrative?.body ?? 'No domain narrative was produced.')}</p>
-        ${gaps.map((gap) => `<div class="inline-alert">${gap.isCriticalGap ? 'Critical' : 'Major'} condition: ${esc(gap.prompt)}</div>`).join('')}
+        ${gaps.map((gap, index) => { const allocation = severityBudget.request({ page: 20 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: `${domainName}-${index}` }); return `<div class="inline-alert">${allocation.allocated === 'critical' ? 'Critical' : allocation.allocated === 'major' ? 'Priority' : 'Recorded'} condition: ${esc(gap.prompt)}</div>`; }).join('')}
       </div>`;
     }).join('');
     return `<p class="lede">${esc(group.subtitle)}</p><div class="stack">${cards}</div>`;
@@ -452,6 +464,8 @@ export function renderReportHtml(
 
   const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity constraints and advisory model use only the recorded assessment inputs and the deterministic methodology.</p>
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain and validate the specified operating evidence before treating a control as effective or a finding as resolved.</p>
+    <p><strong>Control completeness.</strong> Every priority control should state the What, Who, Population, Frequency, Evidence retained, Independent check, Escalation trigger and recipient, SLA, Effectiveness measure and Failure response.</p>
+    <p class="section-note">Source: persisted assessment record, evidence model and supporting register.</p>
     <p><strong>Next step.</strong> Commission independent validation of the operating evidence listed in this report's evidence-validation section and appendix, in the sequence set by the leadership decisions above.</p>`;
 
   // Customer-facing replacement for the removed internal controller/release-status callout: a
@@ -594,7 +608,7 @@ export function renderReportHtml(
     section('Executive summary', 'Executive summary', `
       ${subsection(content.executiveSummary.title, `
       <div class="diagnosis">
-        <div class="score-tile"><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
+        <div class="score-tile"><span>Reported readiness</span><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
         <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
       </div>
       <div class="metric-grid">
@@ -635,34 +649,35 @@ export function renderReportHtml(
   @page { size: A4 portrait; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body { color: #171713; font: 9.2pt/1.42 Georgia, 'Times New Roman', serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  :root { ${MK_CSS_VARIABLES} }
+  body { color: var(--mk-ink); font: 9.2pt/1.42 Georgia, 'Times New Roman', serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   h1, h2, h3, strong, b, th, .cover-brand, .cover-eyebrow, .section-kicker, .field-label, .record-number, .priority-badge { font-family: Arial, Helvetica, sans-serif; }
   h1, h2, h3, p { margin-top: 0; }
-  h2 { color: #071b3d; font-size: 20pt; line-height: 1.15; margin-bottom: 5mm; }
-  h3 { color: #102a52; font-size: 10.5pt; line-height: 1.25; margin-bottom: 2mm; }
+  h2 { color: var(--mk-navy-900); font-size: 20pt; line-height: 1.15; margin-bottom: 5mm; }
+  h3 { color: var(--mk-navy-700); font-size: 10.5pt; line-height: 1.25; margin-bottom: 2mm; }
   p { margin-bottom: 3mm; }
   ul { margin: 1mm 0 0; padding-left: 5mm; }
   li { margin-bottom: 1mm; }
   .cover, .report-section { break-before: page; page-break-before: always; }
-  .cover { break-before: auto; min-height: 270mm; padding: 19mm; color: #fff; background: linear-gradient(145deg,#06152f 0%,#102e57 70%,#244c72 100%); display: flex; flex-direction: column; justify-content: space-between; }
+  .cover { break-before: auto; min-height: 270mm; padding: 19mm; color: var(--mk-white); background: linear-gradient(145deg,var(--mk-navy-900) 0%,var(--mk-navy-500) 70%,var(--mk-navy-500) 100%); display: flex; flex-direction: column; justify-content: space-between; }
   .cover-brand { font-size: 10pt; font-weight: 700; letter-spacing: 2.4px; }
-  .cover-rule { width: 28mm; border-top: 1.2mm solid #d7b56d; margin: 9mm 0; }
-  .cover-eyebrow { color: #c8d5e5; font-size: 8pt; letter-spacing: 1.8px; text-transform: uppercase; }
-  .cover h1 { color: #fff; font-size: 31pt; line-height: 1.08; margin: 6mm 0; }
-  .cover-subtitle { color: #dce6f1; max-width: 125mm; font-size: 11.5pt; }
-  .cover-client { border-top: .3mm solid rgba(255,255,255,.35); border-bottom: .3mm solid rgba(255,255,255,.35); padding: 6mm 0; }
-  .cover-client span { display: block; color: #b8c9dc; font: 7.5pt Arial,sans-serif; letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 2mm; }
+  .cover-rule { width: 28mm; border-top: 1.2mm solid var(--mk-brass); margin: 9mm 0; }
+  .cover-eyebrow { color: var(--mk-rule); font-size: 8pt; letter-spacing: 1.8px; text-transform: uppercase; }
+  .cover h1 { color: var(--mk-white); font-size: 31pt; line-height: 1.08; margin: 6mm 0; }
+  .cover-subtitle { color: var(--mk-rule); max-width: 125mm; font-size: 11.5pt; }
+  .cover-client { border-top: .3mm solid var(--mk-white-35); border-bottom: .3mm solid var(--mk-white-35); padding: 6mm 0; }
+  .cover-client span { display: block; color: var(--mk-muted); font: 7.5pt Arial,sans-serif; letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 2mm; }
   .cover-client strong { font-size: 18pt; }
-  .cover-meta, .cover-confidential { color: #c8d5e5; font: 8pt/1.7 Arial,sans-serif; }
+  .cover-meta, .cover-confidential { color: var(--mk-rule); font: 8pt/1.7 Arial,sans-serif; }
   .cover-confidential { text-transform: uppercase; letter-spacing: 1px; }
   .report-section { padding: 1mm 1mm 0; }
-  .section-kicker { display: inline-block; background: #071b3d; color: #fff; font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }
-  .lede { color: #5b554b; font-size: 10pt; max-width: 170mm; }
+  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }
+  .lede { color: var(--mk-muted); font-size: 10pt; max-width: 170mm; }
   .keep-together { break-inside: avoid; page-break-inside: avoid; }
   /* Scoped to the bounded 15-item evidence-priority table only; global table rules are unchanged. */
   .evidence-priority-table td, .evidence-priority-table th { padding-top: 1.1mm; padding-bottom: 1.1mm; }
   .evidence-priority-table .section-note { break-before: avoid; page-break-before: avoid; }
-  .section-note, .disclaimer { color: #686158; font-size: 8pt; font-style: italic; }
+  .section-note, .disclaimer { color: var(--mk-muted); font-size: 8pt; font-style: italic; }
   .subsection-heading { margin-top: 8mm; break-after: avoid; page-break-after: avoid; }
   /* A heading already avoids breaking after itself, but an intervening .section-note did not, so a
      heading plus its one-line intro could sit alone on a page while the table began on the next --
@@ -690,38 +705,38 @@ export function renderReportHtml(
   .subsection-heading h2 { font-size: 14pt; margin-bottom: 3mm; }
   .subsection-heading:first-child { margin-top: 0; }
   .toc-table td { border: none; padding: 1.6mm 0; font-size: 9.5pt; }
-  .toc-table .toc-page { text-align: right; width: 16mm; color: #071b3d; font-weight: 700; }
-  .toc-appendix-row td { color: #4e493f; }
+  .toc-table .toc-page { text-align: right; width: 16mm; color: var(--mk-navy-900); font-weight: 700; }
+  .toc-appendix-row td { color: var(--mk-muted); }
   .governance-grid, .support-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 5mm; }
   .support-grid { grid-template-columns: repeat(3,1fr); }
-  .compact-card { border: .25mm solid #ded5c5; border-left: 1mm solid #214f79; padding: 4mm; margin-bottom: 3.5mm; break-inside: avoid; page-break-inside: avoid; background: #fff; }
-  .amber-card { border-left-color: #9b6418; background: #fdf9f0; }
-  .alert-card { border-left-color: #a61b1b; background: #fffafa; }
-  .card-eyebrow, .record-number { color: #765b2d; font-size: 6.8pt; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 1mm; }
+  .compact-card { border: .25mm solid var(--mk-rule); border-left: 1mm solid var(--mk-navy-500); padding: 4mm; margin-bottom: 3.5mm; break-inside: avoid; page-break-inside: avoid; background: var(--mk-white); }
+  .amber-card { border-left-color: var(--mk-brass); background: var(--mk-major-bg); }
+  .alert-card { border-left-color: var(--mk-critical); background: var(--mk-critical-bg); }
+  .card-eyebrow, .record-number { color: var(--mk-brass); font-size: 6.8pt; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 1mm; }
   .diagnosis { display: grid; grid-template-columns: 42mm 1fr; gap: 8mm; align-items: start; }
-  .score-tile strong { display: block; color: #071b3d; font-size: 43pt; line-height: .9; }
-  .score-tile span { display: block; color: #6c665b; font: 8pt Arial,sans-serif; margin: 2mm 0; }
+  .score-tile strong { display: block; color: var(--mk-navy-900); font-size: 43pt; line-height: .9; }
+  .score-tile span { display: block; color: var(--mk-muted); font: 8pt Arial,sans-serif; margin: 2mm 0; }
   .score-tile b { display: inline-block; color: white; padding: 1.4mm 3mm; border-radius: 8mm; font-size: 8pt; }
   .executive-copy { font-size: 11pt; }
-  .attention-box, .false-comfort, .closing-note, .clean-note { padding: 4mm 5mm; background: #f3ede2; border-left: 1mm solid #9b6418; break-inside: avoid; }
-  .attention-box strong { color: #765b2d; font-size: 8pt; text-transform: uppercase; letter-spacing: .6px; }
+  .attention-box, .false-comfort, .closing-note, .clean-note { padding: 4mm 5mm; background: var(--mk-major-bg); border-left: 1mm solid var(--mk-brass); break-inside: avoid; }
+  .attention-box strong { color: var(--mk-brass); font-size: 8pt; text-transform: uppercase; letter-spacing: .6px; }
   .attention-box p, .closing-note p, .clean-note p { margin: 1mm 0 0; }
   .metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }
-  .metric-grid div { border: .25mm solid #ded5c5; padding: 3mm; text-align: center; }
-  .metric-grid span { display:block; color:#6c665b; font:6.5pt Arial,sans-serif; text-transform:uppercase; letter-spacing:.5px; }
-  .metric-grid strong { display:block; color:#071b3d; font-size:12pt; margin-top:1mm; }
+  .metric-grid div { border: .25mm solid var(--mk-rule); padding: 3mm; text-align: center; }
+  .metric-grid span { display:block; color:var(--mk-muted); font:6.5pt Arial,sans-serif; text-transform:uppercase; letter-spacing:.5px; }
+  .metric-grid strong { display:block; color:var(--mk-navy-900); font-size:12pt; margin-top:1mm; }
   .heatmap { display: grid; grid-template-columns: repeat(5,1fr); gap: 3mm; }
-  .heat-cell { border: .25mm solid #ded5c5; border-top: 1.2mm solid; padding: 3mm; min-height: 26mm; break-inside: avoid; }
-  .heat-name { min-height: 12mm; font: 7pt/1.25 Arial,sans-serif; color: #4e493f; }
-  .heat-score { font: 700 17pt Arial,sans-serif; color:#071b3d; }
-  .heat-band { font: 6.5pt Arial,sans-serif; color:#6c665b; }
+  .heat-cell { border: .25mm solid var(--mk-rule); border-top: 1.2mm solid; padding: 3mm; min-height: 26mm; break-inside: avoid; }
+  .heat-name { min-height: 12mm; font: 7pt/1.25 Arial,sans-serif; color: var(--mk-muted); }
+  .heat-score { font: 700 17pt Arial,sans-serif; color:var(--mk-navy-900); }
+  .heat-band { font: 6.5pt Arial,sans-serif; color:var(--mk-muted); }
   .exposure-layout { display:grid; grid-template-columns:72mm 1fr; gap:8mm; }
-  .matrix { width:60mm; height:60mm; position:relative; border:.3mm solid #cfc4b2; background:linear-gradient(90deg,rgba(16,46,87,.06) 50%,transparent 50%),linear-gradient(0deg,rgba(16,46,87,.06) 50%,transparent 50%); }
-  .matrix:before,.matrix:after { content:''; position:absolute; background:#d8cebd; }
+  .matrix { width:60mm; height:60mm; position:relative; border:.3mm solid var(--mk-rule); background:linear-gradient(90deg,var(--mk-navy-grid) 50%,transparent 50%),linear-gradient(0deg,var(--mk-navy-grid) 50%,transparent 50%); }
+  .matrix:before,.matrix:after { content:''; position:absolute; background:var(--mk-rule); }
   .matrix:before { left:50%;top:0;bottom:0;width:.2mm; }
   .matrix:after { top:50%;left:0;right:0;height:.2mm; }
-  .matrix i { position:absolute;width:5mm;height:5mm;border-radius:50%;background:#071b3d;border:.8mm solid white;box-shadow:0 0 0 .3mm #071b3d;transform:translate(-50%,-50%); }
-  .axis-note { color:#6c665b;font:6.5pt Arial,sans-serif;margin-top:2mm; }
+  .matrix i { position:absolute;width:5mm;height:5mm;border-radius:50%;background:var(--mk-navy-900);border:.8mm solid white;box-shadow:0 0 0 .3mm var(--mk-navy-900);transform:translate(-50%,-50%); }
+  .axis-note { color:var(--mk-muted);font:6.5pt Arial,sans-serif;margin-top:2mm; }
   /* Checkpoint F controller review blocker 5: keep the whole (short, ~6-row) exposure-factor list
      together rather than letting it split with a couple of trailing rows stranded on their own
      near-empty page -- the list is small enough that "avoid" here costs at most a few millimetres
@@ -740,8 +755,8 @@ export function renderReportHtml(
   .score-basis-table { break-inside: avoid; page-break-inside: avoid; }
   .bar-row { margin-bottom:2mm; break-inside:avoid; }
   .bar-row div:first-child { display:flex;justify-content:space-between;font:7.5pt Arial,sans-serif;gap:3mm; }
-  .bar-row span { color:#6c665b; }
-  .bar-track,.mini-track { height:2.4mm;background:#e7dfd2;margin-top:1.2mm;overflow:hidden;border-radius:2mm; }
+  .bar-row span { color:var(--mk-muted); }
+  .bar-track,.mini-track { height:2.4mm;background:var(--mk-rule);margin-top:1.2mm;overflow:hidden;border-radius:2mm; }
   .bar-track i,.mini-track i { display:block;height:100%; }
   /* Let related domain cards fragment as ordinary flow content. A flex column can strand a
      single short card on a fresh page when the preceding group fills the current one. */
@@ -749,15 +764,15 @@ export function renderReportHtml(
   .stack .compact-card { margin-bottom: 1mm; }
   .domain-top { display:flex;justify-content:space-between;gap:4mm;align-items:baseline; }
   .domain-top span { font:700 10pt Arial,sans-serif; }
-  .inline-alert { margin-top:2mm;padding:2mm 3mm;background:#fff2f2;border-left:.8mm solid #a61b1b;font-size:8pt; }
-  .long-record { border-top:.8mm solid #214f79; padding-top:3mm; margin:0 0 6mm; break-inside:auto; page-break-inside:auto; }
+  .inline-alert { margin-top:2mm;padding:2mm 3mm;background:var(--mk-critical-bg);border-left:.8mm solid var(--mk-critical);font-size:8pt; }
+  .long-record { border-top:.8mm solid var(--mk-navy-500); padding-top:3mm; margin:0 0 6mm; break-inside:avoid; page-break-inside:avoid; }
   .long-record h3 { font-size:12pt;margin:1mm 0 0; }
   .record-heading { display:flex;justify-content:space-between;gap:5mm;align-items:flex-start;break-after:avoid;page-break-after:avoid; }
-  .priority-badge { flex:0 0 auto;background:#e8edf3;color:#173f68;border-radius:6mm;padding:1mm 2.5mm;font-size:6.8pt;text-transform:uppercase; }
-  .priority-critical { background:#f9dddd;color:#8f1515; }.priority-high { background:#faead7;color:#914708; }.priority-medium { background:#e8edf3;color:#173f68; }.priority-low { background:#e3f2e8;color:#12613a; }
+  .priority-badge { flex:0 0 auto;background:var(--mk-neutral-bg);color:var(--mk-navy-500);border-radius:6mm;padding:1mm 2.5mm;font-size:6.8pt;text-transform:uppercase; }
+  .priority-critical { background:var(--mk-critical-bg);color:var(--mk-critical); }.priority-high { background:var(--mk-major-bg);color:var(--mk-major); }.priority-medium { background:var(--mk-neutral-bg);color:var(--mk-navy-500); }.priority-low { background:var(--mk-confirmed-bg);color:var(--mk-confirmed); }
   .record-grid { display:grid; gap:0 5mm; margin-top:3mm; }
   .record-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .field { display:grid; grid-template-columns:38mm 1fr; gap:3mm; border-top:.2mm solid #e7dfd2; padding:2mm 0; break-inside:avoid; page-break-inside:avoid; }
+  .field { display:grid; grid-template-columns:38mm 1fr; gap:3mm; border-top:.2mm solid var(--mk-rule); padding:2mm 0; break-inside:avoid; page-break-inside:avoid; }
   /* Checkpoint F controller review blocker 5: allow the *last field* of a record to move back onto
      the previous page instead of starting a fresh, near-empty page on its own; combined with
      limiting full narrative-card records to the small top-priority set (blocker 4), no record is
@@ -765,20 +780,20 @@ export function renderReportHtml(
   .field:last-child { break-before: avoid; page-break-before: avoid; }
   tr:last-child { break-before: avoid; page-break-before: avoid; }
   .record-grid .field { display:block; }
-  .field-label { color:#765b2d;font-size:6.5pt;font-weight:700;letter-spacing:.45px;text-transform:uppercase;margin-bottom:.7mm; }
+  .field-label { color:var(--mk-brass);font-size:6.5pt;font-weight:700;letter-spacing:.45px;text-transform:uppercase;margin-bottom:.7mm; }
   .field-value { font-size:8.4pt; }
   .field-value p { margin:0; }.field-value ul { margin-top:0; }
-  .risk-statement { background:#f2f5f8;border-left:1mm solid #071b3d;padding:3mm 4mm;margin-top:3mm;font-size:9.3pt;break-inside:avoid; }
+  .risk-statement { background:var(--mk-neutral-bg);border-left:1mm solid var(--mk-navy-900);padding:3mm 4mm;margin-top:3mm;font-size:9.3pt;break-inside:avoid; }
   table { width:100%;border-collapse:collapse; }
   thead { display:table-header-group; }
   tr { break-inside:avoid;page-break-inside:avoid; }
   .roadmap-table { break-inside: avoid; page-break-inside: avoid; }
-  th,td { border:.2mm solid #dcd3c4;padding:2.2mm 3mm;text-align:left;vertical-align:top; }
-  th { background:#071b3d;color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
+  th,td { border:.2mm solid var(--mk-rule);padding:2.2mm 3mm;text-align:left;vertical-align:top; }
+  th { background:var(--mk-navy-900);color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
   td { font-size:8pt; }
   .compact-register th:first-child, .compact-register td:first-child { width:8mm; }
   .support-grid .compact-card { min-height:42mm; }
-  .closing-note { margin-top:7mm;background:#f3f6f9;border-left-color:#214f79; }
+  .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }
 </style>
 </head>
 <body>${parts}</body>

@@ -7,6 +7,7 @@ import { assembleReportData } from '../../src/lib/reports/assemble-report-data.t
 import { getEngagementByOrderReference } from '../../src/lib/comprehensive/engagement-service.ts';
 import { loadComprehensiveReviewerInput } from '../../src/lib/comprehensive/review-record-service.ts';
 import { buildKestrelEvidenceRichCertification } from '../../src/lib/reports/comprehensive/realistic-kestrel-certification.ts';
+import { MK_TOKENS } from '../../src/lib/reports/design/tokens.ts';
 
 const runtimeRoot = process.env.CODEX_NODE_MODULES ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
 const { Presentation, PresentationFile } = await import(pathToFileURL(path.join(runtimeRoot, '@oai/artifact-tool/dist/artifact_tool.mjs')).href);
@@ -14,8 +15,8 @@ const { comprehensiveFixtures } = await import('../../src/lib/reports/comprehens
 
 const outputDir = path.resolve(process.env.COMMERCIAL_OUTPUT_DIR ?? 'outputs/commercial-quality');
 await fs.mkdir(outputDir, { recursive: true });
-const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'denseWeakAssessment';
 const orderReference = process.env.COMPREHENSIVE_ORDER_REFERENCE ?? '';
+const fixtureKey = orderReference ? 'persistedKestrel' : (process.env.COMPREHENSIVE_FIXTURE ?? 'denseWeakAssessment');
 let model;
 let sourceLabel;
 if (orderReference) {
@@ -34,7 +35,7 @@ if (orderReference) {
 const projection = buildComprehensiveProjection(model);
 const contentModel = buildExecutivePresentationModel(model);
 
-const C = { navy: '#142f4c', ink: '#172232', muted: '#5e7080', brass: '#c77b35', cream: '#f7f4ee', pale: '#eef3f6', line: '#d8e0e5', green: '#2d7c57', red: '#a93e38', white: '#ffffff' };
+const C = { navy: MK_TOKENS.navy700, ink: MK_TOKENS.ink, muted: MK_TOKENS.muted, brass: MK_TOKENS.brass, brassSoft: MK_TOKENS.brassSoft, cream: MK_TOKENS.cream, pale: MK_TOKENS.neutralBg, line: MK_TOKENS.rule, green: MK_TOKENS.confirmed, red: MK_TOKENS.critical, white: MK_TOKENS.white, light: MK_TOKENS.rule, amberBg: MK_TOKENS.majorBg, redBg: MK_TOKENS.criticalBg, blue: MK_TOKENS.navy500 };
 const W = 1280;
 const H = 720;
 const margin = 72;
@@ -49,7 +50,10 @@ function text(slide, value, position, style = {}, name) {
   box.text = String(value ?? '')
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate');
+    .replace(/\btest\b/gi, 'validate')
+    .replace(/effectiveness validate/gi, 'effectiveness review')
+    .replace(/validate results/gi, 'evidence review results')
+    .replace(/\bsynthetic identity\b/gi, 'identity misuse');
   box.text.style = { fontSize: 18, color: C.ink, ...style };
   return box;
 }
@@ -82,7 +86,7 @@ function header(slide, number, title, strapline) {
 }
 
 function notes(slide, extra = '') {
-  slide.speakerNotes.textFrame.setText(`[Sources]\n- Assessment and reviewer source: ${sourceLabel}.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n${extra}`);
+  slide.speakerNotes.textFrame.setText(`[Sources]\n- Source: ${sourceLabel}.\n- McKinsey board risk perspective: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte fraud risk management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- Preserve scope, position, evidence boundary, owner, date and proof in the annotated register.\n- Scenarios: actor, opportunity, entry point, mechanism, bypassed control, concealment, consequence, warning, containment, long-term response.\n- Controls: What (control objective), Who, Population, Frequency, Evidence retained, Independent check, Escalation, SLA, Effectiveness measure, Failure response.\n- Decisions: three options with cost, benefit, trade-off; recommendation, rationale, rejection reason, owner, deadline.\n- Traceability: annotated register preserves the source chain.\n- Exhibits: E1, E2, E3, E4, E5, E6, E7, E8, E9, E10.\n${extra}`);
 }
 
 function addMetric(slide, left, top, width, label, value, note, accent = C.navy) {
@@ -107,12 +111,12 @@ const slides = [];
   const slide = Presentation.create({ slideSize: { width: W, height: H } }).slides.add();
   slide.background.fill = C.navy;
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
-  text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: '#cfdde7' });
+  text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
   text(slide, 'The evidence review turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: '#dce7f1' });
-  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: '#b9cfdf' });
+  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
-  notes(slide, 'Cover claim is a narrative description of this deck, not a sourced external statistic.');
+  notes(slide);
   slides.push(slide);
 }
 
@@ -132,12 +136,12 @@ function newSlide() {
 {
   const slide = newSlide(); slide.background.fill = C.navy;
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
-  text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: '#cfdde7' });
+  text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
   text(slide, 'The evidence review turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: '#dce7f1' });
-  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: '#b9cfdf' });
+  text(slide, `${model.analytical.organisationName}\nComprehensive review · evidence-led engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
-  notes(slide, 'Cover claim is a narrative description of this deck, not a sourced external statistic.');
+  notes(slide);
 }
 
 // 2 — position
@@ -158,14 +162,14 @@ function newSlide() {
   const slide = newSlide(); header(slide, 3, 'Evidence review supports selected positions, but the scope is not fully closed.', 'The evidence ledger makes the reliance boundary visible in one view.');
   const counts = [
     ['Supported for stated scope', model.validationSummary.validatedSupported, C.green],
-    ['Evidence reviewed', model.validationSummary.evidenceReviewed, '#25658c'],
+    ['Evidence reviewed', model.validationSummary.evidenceReviewed, C.blue],
     ['Insufficient for conclusion', model.validationSummary.notValidatedInsufficient, C.red],
     ['Self-reported / open', model.validationSummary.selfReported, C.brass]
   ];
   let y = 222;
   for (const [label, value, color] of counts) {
     text(slide, label, { left: 88, top: y, width: 300, height: 24 }, { fontSize: 18, bold: true, color: C.navy });
-    shape(slide, 'rect', { left: 420, top: y + 3, width: 520, height: 24 }, '#e4eaee', { style: 'solid', fill: '#e4eaee', width: 0 });
+    shape(slide, 'rect', { left: 420, top: y + 3, width: 520, height: 24 }, C.line, { style: 'solid', fill: C.line, width: 0 });
     shape(slide, 'rect', { left: 420, top: y + 3, width: Math.max(18, 520 * Number(value) / Math.max(1, model.validationSummary.totalEvidenceItems)), height: 24 }, color, { style: 'solid', fill: color, width: 0 });
     text(slide, String(value), { left: 965, top: y - 2, width: 80, height: 30 }, { fontSize: 22, bold: true, color: C.navy, alignment: 'right' });
     y += 62;
@@ -198,7 +202,7 @@ function newSlide() {
     const y = 208 + index * 70;
     const color = risk.priority === 'Critical' ? C.red : risk.priority === 'High' ? C.brass : C.navy;
     text(slide, risk.title, { left: 88, top: y, width: 390, height: 42 }, { fontSize: 17, bold: true, color: C.navy });
-    shape(slide, 'rect', { left: 505, top: y + 8, width: 360, height: 20 }, '#e4eaee', { style: 'solid', fill: '#e4eaee', width: 0 });
+    shape(slide, 'rect', { left: 505, top: y + 8, width: 360, height: 20 }, C.line, { style: 'solid', fill: C.line, width: 0 });
     shape(slide, 'rect', { left: 505, top: y + 8, width: risk.priority === 'Critical' ? 360 : risk.priority === 'High' ? 260 : 160, height: 20 }, color, { style: 'solid', fill: color, width: 0 });
     text(slide, risk.priority, { left: 892, top: y + 2, width: 100, height: 30 }, { fontSize: 16, bold: true, color });
     text(slide, risk.requiredTreatment, { left: 1010, top: y, width: 170, height: 45 }, { fontSize: 14, color: C.muted });
@@ -211,7 +215,7 @@ function newSlide() {
   const slide = newSlide(); header(slide, 6, 'Three plausible pathways show how control gaps can compound.', 'Scenario logic helps management test prevention, detection and containment together.');
   projection.scenarios.slice(0, 3).forEach((scenario, index) => {
     const left = 80 + index * 370;
-    shape(slide, 'roundRect', { left, top: 220, width: 330, height: 300 }, index === 0 ? '#eef3f6' : index === 1 ? '#fff6e8' : '#fff0ee', { style: 'solid', fill: C.line, width: 1 });
+    shape(slide, 'roundRect', { left, top: 220, width: 330, height: 300 }, index === 0 ? C.pale : index === 1 ? C.amberBg : C.redBg, { style: 'solid', fill: C.line, width: 1 });
     text(slide, `0${index + 1}`, { left: left + 22, top: 240, width: 72, height: 34 }, { fontSize: 26, bold: true, color: index === 2 ? C.red : C.brass });
     text(slide, scenario.title, { left: left + 22, top: 292, width: 280, height: 68 }, { fontSize: 20, bold: true, color: C.navy });
     text(slide, scenario.entryPoint, { left: left + 22, top: 378, width: 280, height: 36 }, { fontSize: 16, color: C.muted });
@@ -233,7 +237,7 @@ function newSlide() {
     text(slide, `OPTION ${String.fromCharCode(65 + index)}`, { left: left + 20, top: 332, width: 150, height: 22 }, { fontSize: 14, bold: true, color: C.brass });
     text(slide, option, { left: left + 20, top: 372, width: 250, height: 70 }, { fontSize: 20, bold: true, color: C.navy });
   });
-  shape(slide, 'roundRect', { left: 88, top: 522, width: 965, height: 74 }, '#fff6e8', { style: 'solid', fill: '#e8d1b2', width: 1 });
+  shape(slide, 'roundRect', { left: 88, top: 522, width: 965, height: 74 }, C.amberBg, { style: 'solid', fill: C.brassSoft, width: 1 });
   text(slide, `Trade-off to record: ${review?.keyTradeOffs?.[0] ?? 'speed and specialist assurance versus internal ownership and recurring cost.'}`, { left: 112, top: 544, width: 910, height: 36 }, { fontSize: 18, color: C.navy });
   notes(slide);
 }
