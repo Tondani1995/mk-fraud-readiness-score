@@ -1,0 +1,255 @@
+{"kind":"deck","id":"pr/hwm46n","name":"Deck"}
+{"kind":"layout","layoutId":"7628515a-ea4d-4b21-9b93-78346f131674","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"7f0c6670-933c-44fb-bcb6-df62597687b6","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/pkj92u","slide":1,"title":"MK FRAUD READINESS","textShapes":5}
+{"kind":"shape","id":"sh/5c3mxsjy","slide":1,"bbox":[0,0,22,720]}
+{"kind":"textbox","id":"sh/i9sn2d0n","slide":1,"text":"MK FRAUD READINESS","textPreview":"MK FRAUD READINESS","textChars":18,"textLines":1,"bbox":[88,92,420,30]}
+{"kind":"textbox","id":"sh/ja14vi18","slide":1,"text":"The evidence review turns a diagnostic into a management decision record.","textPreview":"The evidence review turns a diagnostic into a management decision record.","textChars":73,"textLines":1,"bbox":[88,188,900,150]}
+{"kind":"textbox","id":"sh/wna503ih","slide":1,"text":"Kestrel Industrial Supply (Pty) Ltd\nComprehensive review · evidence-led engagement","textPreview":"Kestrel Industrial Supply (Pty) Ltd | Comprehensive review · evidence-led engagement","textChars":82,"textLines":2,"bbox":[90,430,640,80]}
+{"kind":"textbox","id":"sh/x8jmt8j2","slide":1,"text":"Named reviewer: Independent review lead","textPreview":"Named reviewer: Independent review lead","textChars":39,"textLines":1,"bbox":[90,590,700,28]}
+{"kind":"textbox","id":"sh/alsnyd0b","slide":1,"text":"CONFIDENTIAL · DECISION SUPPORT","textPreview":"CONFIDENTIAL · DECISION SUPPORT","textChars":31,"textLines":1,"bbox":[930,600,250,24]}
+{"kind":"notes","id":"nt/pkj92u","slide":1,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\nCover claim is a narrative description of this deck, not a sourced external statistic."}
+{"kind":"slide","id":"sl/17xfc8","slide":2,"title":"COMPREHENSIVE REVIEW · 02","textShapes":19}
+{"kind":"textbox","id":"sh/lsve5c72","slide":2,"text":"COMPREHENSIVE REVIEW · 02","textPreview":"COMPREHENSIVE REVIEW · 02","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/yp4vaxor","slide":2,"text":"The recorded position is developing; assurance is narrower than the score.","textPreview":"The recorded position is developing; assurance is narrower than the score.","textChars":74,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/jqdw32pw","slide":2,"text":"Separate the deterministic result from what the evidence review can support.","textPreview":"Separate the deterministic result from what the evidence review can support.","textChars":76,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/8v6dgr6t","slide":2,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/twfe9w7e","slide":2,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/6t4vehon","slide":2,"text":"02 / 10","textPreview":"02 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/7uxw7mp8","slide":2,"bbox":[72,208,240,128]}
+{"kind":"shape","id":"sh/oz2d4nq9","slide":2,"bbox":[72,208,240,6]}
+{"kind":"textbox","id":"sh/p0bexs7u","slide":2,"text":"Reported readiness","textPreview":"Reported readiness","textChars":18,"textLines":1,"bbox":[90,226,204,28]}
+{"kind":"textbox","id":"sh/lcb2p4vy","slide":2,"text":"55 / 100","textPreview":"55 / 100","textChars":8,"textLines":1,"bbox":[90,255,204,42]}
+{"kind":"textbox","id":"sh/0bi1gzed","slide":2,"text":"Developing","textPreview":"Developing","textChars":10,"textLines":1,"bbox":[90,302,204,22]}
+{"kind":"shape","id":"sh/za9knuds","slide":2,"bbox":[334,208,240,128]}
+{"kind":"shape","id":"sh/yp0jepwn","slide":2,"bbox":[334,208,240,6]}
+{"kind":"textbox","id":"sh/9gb2t4va","slide":2,"text":"Exposure position","textPreview":"Exposure position","textChars":17,"textLines":1,"bbox":[352,226,204,28]}
+{"kind":"textbox","id":"sh/8f21kzep","slide":2,"text":"0 / 100","textPreview":"0 / 100","textChars":7,"textLines":1,"bbox":[352,255,204,42]}
+{"kind":"textbox","id":"sh/netkrud4","slide":2,"text":"Not assessed","textPreview":"Not assessed","textChars":12,"textLines":1,"bbox":[352,302,204,22]}
+{"kind":"shape","id":"sh/mdkjipwj","slide":2,"bbox":[596,208,240,128]}
+{"kind":"shape","id":"sh/xkv2hov6","slide":2,"bbox":[596,208,240,6]}
+{"kind":"textbox","id":"sh/wj21ojel","slide":2,"text":"Supported evidence","textPreview":"Supported evidence","textChars":18,"textLines":1,"bbox":[614,226,204,28]}
+{"kind":"textbox","id":"sh/gzud0r69","slide":2,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[614,255,204,42]}
+{"kind":"textbox","id":"sh/h03u9c7u","slide":2,"text":"of 12 items","textPreview":"of 12 items","textChars":11,"textLines":1,"bbox":[614,302,204,22]}
+{"kind":"shape","id":"sh/uxcvyho3","slide":2,"bbox":[858,208,240,128]}
+{"kind":"shape","id":"sh/fylc7mpo","slide":2,"bbox":[858,208,240,6]}
+{"kind":"textbox","id":"sh/o3ed4r65","slide":2,"text":"Unresolved evidence","textPreview":"Unresolved evidence","textChars":19,"textLines":1,"bbox":[876,226,204,28]}
+{"kind":"textbox","id":"sh/ponedw7q","slide":2,"text":"8","textPreview":"8","textChars":1,"textLines":1,"bbox":[876,255,204,42]}
+{"kind":"textbox","id":"sh/21wv2hoz","slide":2,"text":"items requiring closure","textPreview":"items requiring closure","textChars":23,"textLines":1,"bbox":[876,302,204,22]}
+{"kind":"shape","id":"sh/325cbmpk","slide":2,"bbox":[72,390,1026,130]}
+{"kind":"textbox","id":"sh/k7ads7q1","slide":2,"text":"Management reading","textPreview":"Management reading","textChars":18,"textLines":1,"bbox":[98,416,230,28]}
+{"kind":"textbox","id":"sh/5sju1s7m","slide":2,"text":"The score is the locked recorded result. Human review changes the confidence, scope and decision implications around that result; it does not silently recalculate it.","textPreview":"The score is the locked recorded result. Human review changes the confidence, scope and decision implications around that result; it does...","textChars":166,"textLines":1,"bbox":[98,454,940,54]}
+{"kind":"notes","id":"nt/17xfc8","slide":2,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/xies31","slide":3,"title":"COMPREHENSIVE REVIEW · 03","textShapes":15}
+{"kind":"textbox","id":"sh/rmxkvupg","slide":3,"text":"COMPREHENSIVE REVIEW · 03","textPreview":"COMPREHENSIVE REVIEW · 03","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/sn6l4z61","slide":3,"text":"Evidence review supports selected positions, but the scope is not fully closed.","textPreview":"Evidence review supports selected positions, but the scope is not fully closed.","textChars":79,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/toz2x47m","slide":3,"text":"The evidence ledger makes the reliance boundary visible in one view.","textPreview":"The evidence ledger makes the reliance boundary visible in one view.","textChars":68,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/ixo3ypoz","slide":3,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/jyxkrupk","slide":3,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/4z6l0z65","slide":3,"text":"03 / 10","textPreview":"03 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"textbox","id":"sh/5kf2t47a","slide":3,"text":"Supported for stated scope","textPreview":"Supported for stated scope","textChars":26,"textLines":1,"bbox":[88,222,300,24]}
+{"kind":"shape","id":"sh/2t83ato3","slide":3,"bbox":[420,225,520,24]}
+{"kind":"shape","id":"sh/3uh43ypo","slide":3,"bbox":[420,225,130,24]}
+{"kind":"textbox","id":"sh/7ahsryt4","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[965,220,80,30]}
+{"kind":"textbox","id":"sh/69oridcj","slide":3,"text":"Evidence reviewed","textPreview":"Evidence reviewed","textChars":17,"textLines":1,"bbox":[88,284,300,24]}
+{"kind":"shape","id":"sh/tczat8ba","slide":3,"bbox":[420,287,520,24]}
+{"kind":"shape","id":"sh/sbq9k3up","slide":3,"bbox":[420,287,43.33,24]}
+{"kind":"textbox","id":"sh/fyhsvit0","slide":3,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[965,282,80,30]}
+{"kind":"textbox","id":"sh/ux8rmdcv","slide":3,"text":"Insufficient for conclusion","textPreview":"Insufficient for conclusion","textChars":27,"textLines":1,"bbox":[88,346,300,24]}
+{"kind":"shape","id":"sh/h0zaxsb6","slide":3,"bbox":[420,349,520,24]}
+{"kind":"shape","id":"sh/gzq9onul","slide":3,"bbox":[420,349,86.67,24]}
+{"kind":"textbox","id":"sh/321szitc","slide":3,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[965,344,80,30]}
+{"kind":"textbox","id":"sh/21srqxcr","slide":3,"text":"Self-reported / open","textPreview":"Self-reported / open","textChars":20,"textLines":1,"bbox":[88,408,300,24]}
+{"kind":"shape","id":"sh/excvihwz","slide":3,"bbox":[420,411,520,24]}
+{"kind":"shape","id":"sh/zylcrmdk","slide":3,"bbox":[420,411,173.33,24]}
+{"kind":"textbox","id":"sh/0zudkre5","slide":3,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[965,406,80,30]}
+{"kind":"shape","id":"sh/103utwvq","slide":3,"bbox":[88,500,965,92]}
+{"kind":"textbox","id":"sh/qtcvehw3","slide":3,"text":"What the board can rely on","textPreview":"What the board can rely on","textChars":26,"textLines":1,"bbox":[112,522,310,26]}
+{"kind":"textbox","id":"sh/rulcnmd8","slide":3,"text":"Only the named evidence scope. “Insufficient” means the evidence did not establish a conclusion; it does not mean misconduct occurred.","textPreview":"Only the named evidence scope. “Insufficient” means the evidence did not establish a conclusion; it does not mean misconduct occurred.","textChars":134,"textLines":1,"bbox":[112,556,870,32]}
+{"kind":"notes","id":"nt/xies31","slide":3,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/4p3u9r","slide":4,"title":"COMPREHENSIVE REVIEW · 04","textShapes":17}
+{"kind":"textbox","id":"sh/nm1ojapo","slide":4,"text":"COMPREHENSIVE REVIEW · 04","textPreview":"COMPREHENSIVE REVIEW · 04","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/8napsfq9","slide":4,"text":"Human review adds judgement where the self-assessment is too broad.","textPreview":"Human review adds judgement where the self-assessment is too broad.","textChars":67,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/9oj6lk7u","slide":4,"text":"The review narrows claims to the population and artefacts actually examined.","textPreview":"The review narrows claims to the population and artefacts actually examined.","textChars":76,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/yh87m587","slide":4,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/zihofaps","slide":4,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/0japofqx","slide":4,"text":"04 / 10","textPreview":"04 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/lkj6hk7i","slide":4,"bbox":[88,208,8,68]}
+{"kind":"textbox","id":"sh/idc7y98b","slide":4,"text":"Awareness completion is not reconciled to higher-risk roles","textPreview":"Awareness completion is not reconciled to higher-risk roles","textChars":59,"textLines":1,"bbox":[116,208,330,28]}
+{"kind":"textbox","id":"sh/jel8rupw","slide":4,"text":"Recorded: Self-reported position: Exists only informally or inconsistently","textPreview":"Recorded: Self-reported position: Exists only informally or inconsistently","textChars":74,"textLines":1,"bbox":[470,208,310,28]}
+{"kind":"textbox","id":"sh/jytszmtw","slide":4,"text":"Reviewer view: Retain the deterministic issue while keeping assurance bounded.","textPreview":"Reviewer view: Retain the deterministic issue while keeping assurance bounded.","textChars":78,"textLines":1,"bbox":[800,208,270,52]}
+{"kind":"shape","id":"sh/ydkr6hcb","slide":4,"bbox":[88,302,8,68]}
+{"kind":"textbox","id":"sh/50va1cb2","slide":4,"text":"Committee oversight does not yet evidence a complete fraud-risk cycle","textPreview":"Committee oversight does not yet evidence a complete fraud-risk cycle","textChars":69,"textLines":1,"bbox":[116,302,330,28]}
+{"kind":"textbox","id":"sh/kz298ruh","slide":4,"text":"Recorded: Self-reported position: No control exists","textPreview":"Recorded: Self-reported position: No control exists","textChars":51,"textLines":1,"bbox":[470,302,310,28]}
+{"kind":"textbox","id":"sh/72ds3mt8","slide":4,"text":"Reviewer view: Retain the conclusion for the reviewed scope only.","textPreview":"Reviewer view: Retain the conclusion for the reviewed scope only.","textChars":65,"textLines":1,"bbox":[800,302,270,52]}
+{"kind":"shape","id":"sh/614rahcn","slide":4,"bbox":[88,396,8,68]}
+{"kind":"textbox","id":"sh/t4va5wby","slide":4,"text":"Detection tuning and alert ageing need a fixed management rhythm","textPreview":"Detection tuning and alert ageing need a fixed management rhythm","textChars":64,"textLines":1,"bbox":[116,396,330,28]}
+{"kind":"textbox","id":"sh/s3m9crud","slide":4,"text":"Recorded: Self-reported position: No control exists","textPreview":"Recorded: Self-reported position: No control exists","textChars":51,"textLines":1,"bbox":[470,396,310,28]}
+{"kind":"textbox","id":"sh/f6ds76t4","slide":4,"text":"Reviewer view: Retain the deterministic issue while keeping assurance bounded.","textPreview":"Reviewer view: Retain the deterministic issue while keeping assurance bounded.","textChars":78,"textLines":1,"bbox":[800,396,270,52]}
+{"kind":"shape","id":"sh/u54re1cj","slide":4,"bbox":[88,490,8,68]}
+{"kind":"textbox","id":"sh/qds3mp03","slide":4,"text":"Evidence review: Approved fraud risk management policy and committee terms","textPreview":"Evidence review: Approved fraud risk management policy and committee terms","textChars":74,"textLines":1,"bbox":[116,490,330,28]}
+{"kind":"textbox","id":"sh/be14vuho","slide":4,"text":"Recorded: Self-reported position retained unless separately evidenced.","textPreview":"Recorded: Self-reported position retained unless separately evidenced.","textChars":70,"textLines":1,"bbox":[470,490,310,28]}
+{"kind":"textbox","id":"sh/czalozi9","slide":4,"text":"Reviewer view: The reviewed artefact supports the stated scope.","textPreview":"Reviewer view: The reviewed artefact supports the stated scope.","textChars":63,"textLines":1,"bbox":[800,490,270,52]}
+{"kind":"notes","id":"nt/4p3u9r","slide":4,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/5u9rcw","slide":5,"title":"COMPREHENSIVE REVIEW · 05","textShapes":20}
+{"kind":"textbox","id":"sh/ruxwbu14","slide":5,"text":"COMPREHENSIVE REVIEW · 05","textPreview":"COMPREHENSIVE REVIEW · 05","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/sv6d4zip","slide":5,"text":"Risk concentrates where ownership, detection and response do not yet connect.","textPreview":"Risk concentrates where ownership, detection and response do not yet connect.","textChars":77,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/dwfed4ja","slide":5,"text":"Top risk pathways are shown as operating exposure, not as allegations.","textPreview":"Top risk pathways are shown as operating exposure, not as allegations.","textChars":70,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/exov690v","slide":5,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/fyxwfe10","slide":5,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/0zqd8jil","slide":5,"text":"05 / 10","textPreview":"05 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"textbox","id":"sh/10zeh4j6","slide":5,"text":"A supplier bank change may redirect a legitimate payment","textPreview":"A supplier bank change may redirect a legitimate payment","textChars":56,"textLines":1,"bbox":[88,208,390,42]}
+{"kind":"shape","id":"sh/u14vu5kb","slide":5,"bbox":[505,216,360,20]}
+{"kind":"shape","id":"sh/v2dw3a1w","slide":5,"bbox":[505,216,360,20]}
+{"kind":"textbox","id":"sh/jupcbi1s","slide":5,"text":"Critical","textPreview":"Critical","textChars":8,"textLines":1,"bbox":[892,210,100,30]}
+{"kind":"textbox","id":"sh/i9gvid0n","slide":5,"text":"Implement a complete role-based access review.","textPreview":"Implement a complete role-based access review.","textChars":46,"textLines":1,"bbox":[1010,208,170,45]}
+{"kind":"textbox","id":"sh/5w7udsjy","slide":5,"text":"Privileged access may enable unauthorised record changes","textPreview":"Privileged access may enable unauthorised record changes","textChars":56,"textLines":1,"bbox":[88,278,390,42]}
+{"kind":"shape","id":"sh/4vydknid","slide":5,"bbox":[505,286,360,20]}
+{"kind":"shape","id":"sh/v65c7i1w","slide":5,"bbox":[505,286,360,20]}
+{"kind":"textbox","id":"sh/u5wved0b","slide":5,"text":"Critical","textPreview":"Critical","textChars":8,"textLines":1,"bbox":[892,280,100,30]}
+{"kind":"textbox","id":"sh/h87u98j2","slide":5,"text":"Implement a complete role-based access review.","textPreview":"Implement a complete role-based access review.","textChars":46,"textLines":1,"bbox":[1010,278,170,45]}
+{"kind":"textbox","id":"sh/w7ydg3ih","slide":5,"text":"Fraud-risk decisions may remain unchallenged","textPreview":"Fraud-risk decisions may remain unchallenged","textChars":44,"textLines":1,"bbox":[88,348,390,42]}
+{"kind":"shape","id":"sh/n25c3y10","slide":5,"bbox":[505,356,360,20]}
+{"kind":"shape","id":"sh/m1wvat0f","slide":5,"bbox":[505,356,260,20]}
+{"kind":"textbox","id":"sh/qxcvmt47","slide":5,"text":"High","textPreview":"High","textChars":4,"textLines":1,"bbox":[892,350,100,30]}
+{"kind":"textbox","id":"sh/bylwfyls","slide":5,"text":"Implement a complete role-based access review.","textPreview":"Implement a complete role-based access review.","textChars":46,"textLines":1,"bbox":[1010,348,170,45]}
+{"kind":"textbox","id":"sh/czudo3md","slide":5,"text":"Stale detection rules may delay an alert","textPreview":"Stale detection rules may delay an alert","textChars":40,"textLines":1,"bbox":[88,418,390,42]}
+{"kind":"shape","id":"sh/d0neh83i","slide":5,"bbox":[505,426,360,20]}
+{"kind":"shape","id":"sh/y1wvqt43","slide":5,"bbox":[505,426,260,20]}
+{"kind":"textbox","id":"sh/z25wjylo","slide":5,"text":"High","textPreview":"High","textChars":4,"textLines":1,"bbox":[892,420,100,30]}
+{"kind":"textbox","id":"sh/03eds3m9","slide":5,"text":"Implement a complete role-based access review.","textPreview":"Implement a complete role-based access review.","textChars":46,"textLines":1,"bbox":[1010,418,170,45]}
+{"kind":"textbox","id":"sh/l4nel83u","slide":5,"text":"Incident lessons may not reduce repeat exposure","textPreview":"Incident lessons may not reduce repeat exposure","textChars":47,"textLines":1,"bbox":[88,488,390,42]}
+{"kind":"shape","id":"sh/m5wfudkf","slide":5,"bbox":[505,496,360,20]}
+{"kind":"shape","id":"sh/765wnil0","slide":5,"bbox":[505,496,260,20]}
+{"kind":"textbox","id":"sh/hcbq9gre","slide":5,"text":"High","textPreview":"High","textChars":4,"textLines":1,"bbox":[892,490,100,30]}
+{"kind":"textbox","id":"sh/gbip0bat","slide":5,"text":"Implement a complete role-based access review.","textPreview":"Implement a complete role-based access review.","textChars":46,"textLines":1,"bbox":[1010,488,170,45]}
+{"kind":"notes","id":"nt/5u9rcw","slide":5,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/4qboar","slide":6,"title":"COMPREHENSIVE REVIEW · 06","textShapes":17}
+{"kind":"textbox","id":"sh/ripcju9s","slide":6,"text":"COMPREHENSIVE REVIEW · 06","textPreview":"COMPREHENSIVE REVIEW · 06","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/sjytszqd","slide":6,"text":"Three plausible pathways show how control gaps can compound.","textPreview":"Three plausible pathways show how control gaps can compound.","textChars":60,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/dk7ul4ry","slide":6,"text":"Scenario logic helps management validate prevention, detection and containment together.","textPreview":"Scenario logic helps management validate prevention, detection and containment together.","textChars":88,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/idwbmp8b","slide":6,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/3e5cfu9w","slide":6,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/4fetozqh","slide":6,"text":"06 / 10","textPreview":"06 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/5gnuhkr2","slide":6,"bbox":[80,220,330,300]}
+{"kind":"textbox","id":"sh/upcbi58f","slide":6,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[102,240,72,34]}
+{"kind":"textbox","id":"sh/va5cba9k","slide":6,"text":"Supplier bank-detail redirection","textPreview":"Supplier bank-detail redirection","textChars":32,"textLines":1,"bbox":[102,292,280,68]}
+{"kind":"textbox","id":"sh/z6twvals","slide":6,"text":"A stale or excessive account remains active.","textPreview":"A stale or excessive account remains active.","textChars":44,"textLines":1,"bbox":[102,378,280,36]}
+{"kind":"textbox","id":"sh/y50vm547","slide":6,"text":"An unauthorised change is made and the audit trail is obscured or discovered late.","textPreview":"An unauthorised change is made and the audit trail is obscured or discovered late.","textChars":82,"textLines":1,"bbox":[102,424,280,76]}
+{"kind":"shape","id":"sh/l8bexk3i","slide":6,"bbox":[450,220,330,300]}
+{"kind":"textbox","id":"sh/k72dofmx","slide":6,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[472,240,72,34]}
+{"kind":"textbox","id":"sh/7atwzulo","slide":6,"text":"Incident escalation delay","textPreview":"Incident escalation delay","textChars":25,"textLines":1,"bbox":[472,292,280,68]}
+{"kind":"textbox","id":"sh/m9kvqp43","slide":6,"text":"A stale or excessive account remains active.","textPreview":"A stale or excessive account remains active.","textChars":44,"textLines":1,"bbox":[472,378,280,36]}
+{"kind":"textbox","id":"sh/9cbe1k3u","slide":6,"text":"An unauthorised change is made and the audit trail is obscured or discovered late.","textPreview":"An unauthorised change is made and the audit trail is obscured or discovered late.","textChars":82,"textLines":1,"bbox":[472,424,280,76]}
+{"kind":"shape","id":"sh/8b2dszm9","slide":6,"bbox":[820,220,330,300]}
+{"kind":"textbox","id":"sh/ne9cnqlk","slide":6,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[842,240,72,34]}
+{"kind":"textbox","id":"sh/2dgvel4z","slide":6,"text":"Privileged access misuse","textPreview":"Privileged access misuse","textChars":24,"textLines":1,"bbox":[842,292,280,68]}
+{"kind":"textbox","id":"sh/6toz2ton","slide":6,"text":"A pattern changes after the last rule review.","textPreview":"A pattern changes after the last rule review.","textChars":45,"textLines":1,"bbox":[842,378,280,36]}
+{"kind":"textbox","id":"sh/ruxgvy58","slide":6,"text":"Activity continues below or outside stale thresholds until a manual review identifies it.","textPreview":"Activity continues below or outside stale thresholds until a manual review identifies it.","textChars":89,"textLines":1,"bbox":[842,424,280,76]}
+{"kind":"notes","id":"nt/4qboar","slide":6,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/68owz2","slide":7,"title":"COMPREHENSIVE REVIEW · 07","textShapes":13}
+{"kind":"textbox","id":"sh/654jedsn","slide":7,"text":"COMPREHENSIVE REVIEW · 07","textPreview":"COMPREHENSIVE REVIEW · 07","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/t8fip8be","slide":7,"text":"Management must choose how to close the access-review gap.","textPreview":"Management must choose how to close the access-review gap.","textChars":58,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/s761gnat","slide":7,"text":"Options and trade-offs make the decision explicit before the action plan is agreed.","textPreview":"Options and trade-offs make the decision explicit before the action plan is agreed.","textChars":83,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/fax0rit4","slide":7,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/u9ojidsj","slide":7,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/hcfitsba","slide":7,"text":"07 / 10","textPreview":"07 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"textbox","id":"sh/gb61knap","slide":7,"text":"Approve the Financial Controller mandate for detection ownership and evidence-led oversight.","textPreview":"Approve the Financial Controller mandate for detection ownership and evidence-led oversight.","textChars":92,"textLines":1,"bbox":[88,212,980,52]}
+{"kind":"shape","id":"sh/3eh0v2tg","slide":7,"bbox":[88,312,295,160]}
+{"kind":"textbox","id":"sh/2dojmxsv","slide":7,"text":"OPTION A","textPreview":"OPTION A","textChars":8,"textLines":1,"bbox":[108,332,150,22]}
+{"kind":"textbox","id":"sh/4fql4reh","slide":7,"text":"Option A: assign ownership internally","textPreview":"Option A: assign ownership internally","textChars":37,"textLines":1,"bbox":[108,372,250,70]}
+{"kind":"shape","id":"sh/5gz2xcvm","slide":7,"bbox":[423,312,295,160]}
+{"kind":"textbox","id":"sh/id832hwb","slide":7,"text":"OPTION B","textPreview":"OPTION B","textChars":8,"textLines":1,"bbox":[443,332,150,22]}
+{"kind":"textbox","id":"sh/3ehkvmdw","slide":7,"text":"Option B: appoint a specialist partner for the first cycle","textPreview":"Option B: appoint a specialist partner for the first cycle","textChars":58,"textLines":1,"bbox":[443,372,250,70]}
+{"kind":"shape","id":"sh/s3al8rud","slide":7,"bbox":[758,312,295,160]}
+{"kind":"textbox","id":"sh/d4jm1wvy","slide":7,"text":"OPTION C","textPreview":"OPTION C","textChars":8,"textLines":1,"bbox":[778,332,150,22]}
+{"kind":"textbox","id":"sh/q1s36hw7","slide":7,"text":"Option C: combine internal ownership with targeted specialist validation.","textPreview":"Option C: combine internal ownership with targeted specialist validation.","textChars":73,"textLines":1,"bbox":[778,372,250,70]}
+{"kind":"shape","id":"sh/r214zmds","slide":7,"bbox":[88,522,965,74]}
+{"kind":"textbox","id":"sh/07alcbup","slide":7,"text":"Trade-off to record: Option B provides the fastest independent capability uplift but creates recurring cost and a handover dependency.","textPreview":"Trade-off to record: Option B provides the fastest independent capability uplift but creates recurring cost and a handover dependency.","textChars":134,"textLines":1,"bbox":[112,544,910,36]}
+{"kind":"notes","id":"nt/68owz2","slide":7,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/r9e2cq","slide":8,"title":"COMPREHENSIVE REVIEW · 08","textShapes":15}
+{"kind":"textbox","id":"sh/4rito3ix","slide":8,"text":"COMPREHENSIVE REVIEW · 08","textPreview":"COMPREHENSIVE REVIEW · 08","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/3q9svy1c","slide":8,"text":"The first 90 days should establish population, ownership and validate evidence.","textPreview":"The first 90 days should establish population, ownership and validate evidence.","textChars":79,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/2p0bmt0r","slide":8,"text":"Sequence the work so early progress creates a reliable control baseline.","textPreview":"Sequence the work so early progress creates a reliable control baseline.","textChars":72,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/ho7atoj6","slide":8,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/gnytkjil","slide":8,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/fmpsre10","slide":8,"text":"08 / 10","textPreview":"08 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/ulgbit0v","slide":8,"bbox":[88,220,300,330]}
+{"kind":"shape","id":"sh/1kbu5sza","slide":8,"bbox":[88,220,300,8]}
+{"kind":"textbox","id":"sh/0j2twni5","slide":8,"text":"30 days","textPreview":"30 days","textChars":7,"textLines":1,"bbox":[110,248,220,30]}
+{"kind":"shape","id":"sh/2d87ahsb","slide":8,"bbox":[110,308,10,10]}
+{"kind":"textbox","id":"sh/3yh83mtg","slide":8,"text":"Approve the detection ownership mandate and first evidence cycle.","textPreview":"Approve the detection ownership mandate and first evidence cycle.","textChars":65,"textLines":1,"bbox":[134,300,250,64]}
+{"kind":"shape","id":"sh/4zqpcra1","slide":8,"bbox":[110,376,10,10]}
+{"kind":"textbox","id":"sh/p0zq5cbm","slide":8,"text":"Run the first fixed-cycle detection tuning review.","textPreview":"Run the first fixed-cycle detection tuning review.","textChars":50,"textLines":1,"bbox":[134,368,250,64]}
+{"kind":"shape","id":"sh/u9o76xsz","slide":8,"bbox":[110,444,10,10]}
+{"kind":"textbox","id":"sh/fax8z2tk","slide":8,"text":"Review segregation-of-duties overrides and expiry.","textPreview":"Review segregation-of-duties overrides and expiry.","textChars":50,"textLines":1,"bbox":[134,436,250,64]}
+{"kind":"shape","id":"sh/gbqp87a5","slide":8,"bbox":[428,220,300,330]}
+{"kind":"shape","id":"sh/hczq1cbq","slide":8,"bbox":[428,220,300,8]}
+{"kind":"textbox","id":"sh/e5sri1s3","slide":8,"text":"60 days","textPreview":"60 days","textChars":7,"textLines":1,"bbox":[450,248,220,30]}
+{"kind":"shape","id":"sh/z618b6to","slide":8,"bbox":[450,308,10,10]}
+{"kind":"textbox","id":"sh/bat43y9g","slide":8,"text":"Reconcile supplier bank-detail changes and add independent verification.","textPreview":"Reconcile supplier bank-detail changes and add independent verification.","textChars":72,"textLines":1,"bbox":[474,300,250,64]}
+{"kind":"shape","id":"sh/a9knat8v","slide":8,"bbox":[450,376,10,10]}
+{"kind":"textbox","id":"sh/xcvm58r6","slide":8,"text":"Reconcile role-based awareness coverage.","textPreview":"Reconcile role-based awareness coverage.","textChars":40,"textLines":1,"bbox":[474,368,250,64]}
+{"kind":"shape","id":"sh/wb25c3ql","slide":8,"bbox":[450,444,10,10]}
+{"kind":"textbox","id":"sh/jedo7y9c","slide":8,"text":"Link incident closure to root cause and control improvement.","textPreview":"Link incident closure to root cause and control improvement.","textChars":60,"textLines":1,"bbox":[474,436,250,64]}
+{"kind":"shape","id":"sh/yd4net8r","slide":8,"bbox":[768,220,300,330]}
+{"kind":"shape","id":"sh/lgv698ri","slide":8,"bbox":[768,220,300,8]}
+{"kind":"textbox","id":"sh/kfm5g3qx","slide":8,"text":"90 days","textPreview":"90 days","textChars":7,"textLines":1,"bbox":[790,248,220,30]}
+{"kind":"shape","id":"sh/7idobi98","slide":8,"bbox":[790,308,10,10]}
+{"kind":"textbox","id":"sh/6h4nid83","slide":8,"text":"Approve the detection ownership mandate and first evidence cycle.","textPreview":"Approve the detection ownership mandate and first evidence cycle.","textChars":65,"textLines":1,"bbox":[814,300,250,64]}
+{"kind":"notes","id":"nt/r9e2cq","slide":8,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/ye5wlj","slide":9,"title":"COMPREHENSIVE REVIEW · 09","textShapes":28}
+{"kind":"textbox","id":"sh/q1gnmx47","slide":9,"text":"COMPREHENSIVE REVIEW · 09","textPreview":"COMPREHENSIVE REVIEW · 09","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/d47mxcny","slide":9,"text":"Every action needs an owner, an effectiveness measure and a board checkpoint.","textPreview":"Every action needs an owner, an effectiveness measure and a board checkpoint.","textChars":77,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/c3y5o7md","slide":9,"text":"Accountability is the mechanism that turns advisory judgement into operating change.","textPreview":"Accountability is the mechanism that turns advisory judgement into operating change.","textChars":84,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/3e54r25g","slide":9,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/2dw3ix4b","slide":9,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/pgnmtsnm","slide":9,"text":"09 / 10","textPreview":"09 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/ofe5knm1","slide":9,"bbox":[88,262,1000,0]}
+{"kind":"textbox","id":"sh/na943m50","slide":9,"text":"Approve the detection ownership mandate and first evidence cycle.","textPreview":"Approve the detection ownership mandate and first evidence cycle.","textChars":65,"textLines":1,"bbox":[88,208,340,44]}
+{"kind":"textbox","id":"sh/m90nuh4f","slide":9,"text":"Financial Controller","textPreview":"Financial Controller","textChars":20,"textLines":1,"bbox":[450,208,190,42]}
+{"kind":"textbox","id":"sh/87u5cnep","slide":9,"text":"30 days","textPreview":"30 days","textChars":7,"textLines":1,"bbox":[665,208,100,42]}
+{"kind":"textbox","id":"sh/t836lsva","slide":9,"text":"100% of in-scope access reviewed.","textPreview":"100% of in-scope access reviewed.","textChars":33,"textLines":1,"bbox":[790,208,300,42]}
+{"kind":"shape","id":"sh/65cnadwj","slide":9,"bbox":[88,334,1000,0]}
+{"kind":"textbox","id":"sh/76lojid4","slide":9,"text":"Run the first fixed-cycle detection tuning review.","textPreview":"Run the first fixed-cycle detection tuning review.","textChars":50,"textLines":1,"bbox":[88,280,340,44]}
+{"kind":"textbox","id":"sh/k3u583et","slide":9,"text":"Chief Information Officer","textPreview":"Chief Information Officer","textChars":25,"textLines":1,"bbox":[450,280,190,42]}
+{"kind":"textbox","id":"sh/l436h8ve","slide":9,"text":"30 days","textPreview":"30 days","textChars":7,"textLines":1,"bbox":[665,280,100,42]}
+{"kind":"textbox","id":"sh/y1sn6twn","slide":9,"text":"100% of in-scope access reviewed.","textPreview":"100% of in-scope access reviewed.","textChars":33,"textLines":1,"bbox":[790,280,300,42]}
+{"kind":"shape","id":"sh/j2lofyd8","slide":9,"bbox":[88,406,1000,0]}
+{"kind":"textbox","id":"sh/wfa543eh","slide":9,"text":"Review segregation-of-duties overrides and expiry.","textPreview":"Review segregation-of-duties overrides and expiry.","textChars":50,"textLines":1,"bbox":[88,352,340,44]}
+{"kind":"textbox","id":"sh/x0j6dov2","slide":9,"text":"Financial Controller","textPreview":"Financial Controller","textChars":20,"textLines":1,"bbox":[450,352,190,42]}
+{"kind":"textbox","id":"sh/dkbul03u","slide":9,"text":"30 days","textPreview":"30 days","textChars":7,"textLines":1,"bbox":[665,352,100,42]}
+{"kind":"textbox","id":"sh/cjidsv29","slide":9,"text":"100% of in-scope access reviewed.","textPreview":"100% of in-scope access reviewed.","textChars":33,"textLines":1,"bbox":[790,352,300,42]}
+{"kind":"shape","id":"sh/ri9cjqlo","slide":9,"bbox":[88,478,1000,0]}
+{"kind":"textbox","id":"sh/qh0vqlk3","slide":9,"text":"Reconcile supplier bank-detail changes and add independent verification.","textPreview":"Reconcile supplier bank-detail changes and add independent verification.","textChars":72,"textLines":1,"bbox":[88,424,340,44]}
+{"kind":"textbox","id":"sh/pwruhg3i","slide":9,"text":"Chief Information Officer","textPreview":"Chief Information Officer","textChars":25,"textLines":1,"bbox":[450,424,190,42]}
+{"kind":"textbox","id":"sh/4vidob2x","slide":9,"text":"30 days","textPreview":"30 days","textChars":7,"textLines":1,"bbox":[665,424,100,42]}
+{"kind":"textbox","id":"sh/3u9cf6ls","slide":9,"text":"100% of in-scope access reviewed.","textPreview":"100% of in-scope access reviewed.","textChars":33,"textLines":1,"bbox":[790,424,300,42]}
+{"kind":"shape","id":"sh/2t0vmlk7","slide":9,"bbox":[88,550,1000,0]}
+{"kind":"textbox","id":"sh/9svetkj2","slide":9,"text":"Reconcile supplier bank-detail changes and add independent verification.","textPreview":"Reconcile supplier bank-detail changes and add independent verification.","textChars":72,"textLines":1,"bbox":[88,496,340,44]}
+{"kind":"textbox","id":"sh/or2d0f2h","slide":9,"text":"Chief Information Officer","textPreview":"Chief Information Officer","textChars":25,"textLines":1,"bbox":[450,496,190,42]}
+{"kind":"textbox","id":"sh/6xwreh0z","slide":9,"text":"60 days","textPreview":"60 days","textChars":7,"textLines":1,"bbox":[665,496,100,42]}
+{"kind":"textbox","id":"sh/7y5sn21k","slide":9,"text":"All active rules reviewed monthly.","textPreview":"All active rules reviewed monthly.","textChars":34,"textLines":1,"bbox":[790,496,300,42]}
+{"kind":"textbox","id":"sh/8ze9g7ip","slide":9,"text":"Owner","textPreview":"Owner","textChars":5,"textLines":1,"bbox":[450,178,190,24]}
+{"kind":"textbox","id":"sh/t0napcja","slide":9,"text":"Timing","textPreview":"Timing","textChars":6,"textLines":1,"bbox":[665,178,100,24]}
+{"kind":"textbox","id":"sh/ytcrax0n","slide":9,"text":"Effectiveness measure","textPreview":"Effectiveness measure","textChars":21,"textLines":1,"bbox":[790,178,240,24]}
+{"kind":"notes","id":"nt/ye5wlj","slide":9,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}
+{"kind":"slide","id":"sl/2dnjf9","slide":10,"title":"COMPREHENSIVE REVIEW · 10","textShapes":11}
+{"kind":"textbox","id":"sh/3ih43yhk","slide":10,"text":"COMPREHENSIVE REVIEW · 10","textPreview":"COMPREHENSIVE REVIEW · 10","textChars":25,"textLines":1,"bbox":[72,42,360,24]}
+{"kind":"textbox","id":"sh/ojq5c3i5","slide":10,"text":"Next checkpoint: review evidence closure and overdue action ageing.","textPreview":"Next checkpoint: review evidence closure and overdue action ageing.","textChars":67,"textLines":1,"bbox":[72,76,1080,80]}
+{"kind":"textbox","id":"sh/pkjm58zq","slide":10,"text":"The deliverable is complete when the decision record and proof of operation are both maintained.","textPreview":"The deliverable is complete when the decision record and proof of operation are both maintained.","textChars":96,"textLines":1,"bbox":[72,164,1050,28]}
+{"kind":"shape","id":"sh/et836903","slide":10,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/fuh4zeho","slide":10,"text":"MK Fraud Readiness · Comprehensive","textPreview":"MK Fraud Readiness · Comprehensive","textChars":34,"textLines":1,"bbox":[72,676,420,22]}
+{"kind":"textbox","id":"sh/gvql8ji9","slide":10,"text":"10 / 10","textPreview":"10 / 10","textChars":7,"textLines":1,"bbox":[1135,676,72,22]}
+{"kind":"shape","id":"sh/1wzm1ozu","slide":10,"bbox":[88,228,950,220]}
+{"kind":"textbox","id":"sh/6po32907","slide":10,"text":"Bring four things to the next review","textPreview":"Bring four things to the next review","textChars":36,"textLines":1,"bbox":[122,260,500,32]}
+{"kind":"shape","id":"sh/rqx4ve1s","slide":10,"bbox":[124,320,10,10]}
+{"kind":"textbox","id":"sh/vmpsbqh0","slide":10,"text":"Completed evidence items with a clear scope statement","textPreview":"Completed evidence items with a clear scope statement","textChars":53,"textLines":1,"bbox":[148,312,800,34]}
+{"kind":"shape","id":"sh/ulgbilgf","slide":10,"bbox":[124,358,10,10]}
+{"kind":"textbox","id":"sh/horad0zq","slide":10,"text":"Open action ageing by accountable owner","textPreview":"Open action ageing by accountable owner","textChars":39,"textLines":1,"bbox":[148,350,800,34]}
+{"kind":"shape","id":"sh/gnytkvy5","slide":10,"bbox":[124,396,10,10]}
+{"kind":"textbox","id":"sh/3q9sfqhw","slide":10,"text":"Effectiveness measures for the highest-priority controls","textPreview":"Effectiveness measures for the highest-priority controls","textChars":56,"textLines":1,"bbox":[148,388,800,34]}
+{"kind":"shape","id":"sh/ip0bm5gb","slide":10,"bbox":[124,434,10,10]}
+{"kind":"textbox","id":"sh/5cruh0z2","slide":10,"text":"Explicit residual-risk and escalation decisions","textPreview":"Explicit residual-risk and escalation decisions","textChars":47,"textLines":1,"bbox":[148,426,800,34]}
+{"kind":"textbox","id":"sh/4bitovyh","slide":10,"text":"The board should see the decision, the owner, the date and the proof - not a longer register.","textPreview":"The board should see the decision, the owner, the date and the proof - not a longer register.","textChars":93,"textLines":1,"bbox":[88,505,950,54]}
+{"kind":"notes","id":"nt/2dnjf9","slide":10,"text":"[Sources]\n- Assessment and reviewer source: persisted Kestrel engagement MKORD-2026-7FBBEE23.\n- McKinsey, A board perspective on enterprise risk management: https://www.mckinsey.com/~/media/mckinsey/dotcom/client_service/risk/working%20papers/18_a_board_perspective_on_enterprise_risk_management.pdf\n- Deloitte, Fraud Risk Management: https://www.deloitte.com/ch/en/services/financial-advisory/perspectives/fraud-risk-management-strategic-imperative.html\n- BCG, The Expanding Agenda for Boards of Directors: https://www.bcg.com/publications/2024/expanding-agenda-for-boards-of-directors\n- Bain, TCFD recommendations: https://www.bain.com/contentassets/6b37083d53dc4e9aa676993fa0c4c7dc/2022-tcfd-recommendations.pdf\n"}

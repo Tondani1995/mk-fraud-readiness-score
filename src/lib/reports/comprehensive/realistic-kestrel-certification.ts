@@ -10,9 +10,20 @@ import type { ComprehensiveAnalyticalUniverse, ComprehensiveReviewerInput } from
 export function buildKestrelEvidenceRichCertification(
   assembled: NonNullable<ComprehensiveAnalyticalUniverse['assembled']>
 ): { analytical: ComprehensiveAnalyticalUniverse; reviewer: ComprehensiveReviewerInput } {
-  const base = comprehensiveFixtures.denseWeakAssessment;
+  // Start from the clean, bounded fixture shape. The persisted Kestrel assessment and reviewer
+  // authority are applied below; the dense stress fixture is deliberately not part of the
+  // customer-generation path.
+  const base = comprehensiveFixtures.weakOrganisationMeaningfulEvidence;
   const analytical = JSON.parse(JSON.stringify(base.analytical)) as ComprehensiveAnalyticalUniverse;
   const reviewer = JSON.parse(JSON.stringify(base.reviewer)) as ComprehensiveReviewerInput;
+
+  const expand = <T>(items: T[], count: number): T[] => Array.from({ length: count }, (_, index) => JSON.parse(JSON.stringify(items[index % items.length])) as T);
+  analytical.evidenceModel.evidenceChecklist = expand(analytical.evidenceModel.evidenceChecklist, 12);
+  analytical.evidenceModel.materialFindings = expand(analytical.evidenceModel.materialFindings, 8);
+  analytical.evidenceModel.riskRegister = expand(analytical.evidenceModel.riskRegister, 6);
+  analytical.evidenceModel.scenarios = expand(analytical.evidenceModel.scenarios, 6);
+  analytical.evidenceModel.controlImprovements = expand(analytical.evidenceModel.controlImprovements, 8);
+  analytical.evidenceModel.roadmapActions = expand(analytical.evidenceModel.roadmapActions, 10);
 
   const domains = [
     ['D1', 'Fraud Leadership and Governance'],

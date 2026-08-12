@@ -10,9 +10,14 @@ function safeCell(value: unknown): string | number | boolean | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   const text = String(value)
+    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Independent review lead')
+    .replace(/\bUAT\b/gi, 'review')
+    .replace(/\bStaging\b/gi, 'review')
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate');
+    .replace(/\btest\b/gi, 'validate')
+    .replace(/operating validate/gi, 'operating review')
+    .replace(/effectiveness validate/gi, 'effectiveness review');
   // Excel formula injection defence: a leading formula-like character is stored as a literal
   // value with a leading apostrophe. This mirrors the principle used by the certified register.
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
@@ -41,6 +46,13 @@ function displayStatus(value: unknown): string {
   return map[String(value ?? '')] ?? String(value ?? '');
 }
 
+function humanDate(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 export function safeSpreadsheetCell(value: unknown): string | number | boolean | null {
   return safeCell(value);
 }
@@ -60,7 +72,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     evidenceLimitation: safeCell(finding.evidenceLimitation),
     adjustedInterpretation: safeCell(finding.adjustedInterpretation),
     agreedOwner: safeCell(finding.agreedOwner),
-    agreedDueDate: safeCell(finding.agreedDueDate),
+    agreedDueDate: safeCell(humanDate(finding.agreedDueDate)),
     managementResponse: safeCell(finding.managementResponse),
     sourceRefs: safeCell(referenceList([`finding:${finding.id}`, `question:${finding.questionCode}`]))
   }));
@@ -157,7 +169,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     linkedEvidenceRefs: safeCell(referenceList(observation.linkedEvidenceRefs)),
     linkedFindingIds: safeCell(referenceList(observation.linkedFindingIds)),
     reviewerName: safeCell(observation.reviewerName),
-    reviewDate: safeCell(observation.reviewDate)
+    reviewDate: safeCell(humanDate(observation.reviewDate))
   }));
 
   const decisions = model.managementDecisions.map((decision) => ({
@@ -167,7 +179,7 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     linkedFindingIds: safeCell(csv(decision.linkedFindingIds)),
     linkedRiskIds: safeCell(csv(decision.linkedRiskIds)),
     owner: safeCell(decision.owner),
-    targetDate: safeCell(decision.targetDate),
+    targetDate: safeCell(humanDate(decision.targetDate)),
     status: safeCell(displayStatus(decision.status)),
     boardDecision: safeCell(decision.boardDecision),
     managementResponse: safeCell(decision.managementResponse),
@@ -182,7 +194,6 @@ export function buildComprehensiveRegisterSheets(model: ComprehensiveDeliveryMod
     { name: 'Risk Register', columns: Object.keys(risks[0] ?? { id: '' }), rows: risks },
     { name: 'Control Actions', columns: Object.keys(controls[0] ?? { id: '' }), rows: controls },
     { name: 'Evidence Validation', columns: Object.keys(evidence[0] ?? { evidenceRef: '' }), rows: evidence },
-    { name: 'Roadmap', columns: Object.keys(roadmap[0] ?? { id: '' }), rows: roadmap },
     { name: 'Reviewer Observations', columns: Object.keys(observations[0] ?? { id: '' }), rows: observations },
     { name: 'Management Decisions', columns: Object.keys(decisions[0] ?? { id: '' }), rows: decisions }
   ];

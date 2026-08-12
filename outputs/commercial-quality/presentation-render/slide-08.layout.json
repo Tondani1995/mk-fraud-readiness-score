@@ -1,0 +1,1225 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/r9e2cq",
+    "id": "r9e2cq",
+    "slide": 8,
+    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F4EE",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4rito3ix",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 08",
+      "textPreview": "COMPREHENSIVE REVIEW · 08",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C77B35",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 08"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 08",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C77B35",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 08",
+              "fontSize": 14,
+              "color": "#C77B35",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3q9svy1c",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "The first 90 days should establish population, ownership and validate evidence.",
+      "textPreview": "The first 90 days should establish population, ownership and validate evidence.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The first 90 days should establish population, ownership"
+          },
+          {
+            "index": 2,
+            "text": "and validate evidence."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The first 90 days should establish population, ownership and validate evidence.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The first 90 days should establish population, ownership and validate evidence.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2p0bmt0r",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Sequence the work so early progress creates a reliable control baseline.",
+      "textPreview": "Sequence the work so early progress creates a reliable control baseline.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Sequence the work so early progress creates a reliable control baseline."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Sequence the work so early progress creates a reliable control baseline.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Sequence the work so early progress creates a reliable control baseline.",
+              "fontSize": 18,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ho7atoj6",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D8E0E5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gnytkjil",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fmpsre10",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "08 / 10",
+      "textPreview": "08 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "08 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "08 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5E7080",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "08 / 10",
+              "fontSize": 13,
+              "color": "#5E7080",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ulgbit0v",
+      "id": "7",
+      "bbox": [
+        88,
+        220,
+        300,
+        330
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D8E0E5",
+      "lineWidth": 1
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1kbu5sza",
+      "id": "8",
+      "bbox": [
+        88,
+        220,
+        300,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#C77B35",
+      "lineColor": "#142F4C",
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0j2twni5",
+      "id": "9",
+      "bbox": [
+        110,
+        248,
+        220,
+        30
+      ],
+      "geometry": "rect",
+      "text": "30 days",
+      "textPreview": "30 days",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "30 days",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "30 days",
+              "fontSize": 24,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2d87ahsb",
+      "id": "10",
+      "bbox": [
+        110,
+        308,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3yh83mtg",
+      "id": "11",
+      "bbox": [
+        134,
+        300,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Approve the detection ownership mandate and first evidence cycle.",
+      "textPreview": "Approve the detection ownership mandate and first evidence cycle.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Approve the detection ownership"
+          },
+          {
+            "index": 2,
+            "text": "mandate and first evidence cycle."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Approve the detection ownership mandate and first evidence cycle.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Approve the detection ownership mandate and first evidence cycle.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4zqpcra1",
+      "id": "12",
+      "bbox": [
+        110,
+        376,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p0zq5cbm",
+      "id": "13",
+      "bbox": [
+        134,
+        368,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Run the first fixed-cycle detection tuning review.",
+      "textPreview": "Run the first fixed-cycle detection tuning review.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Run the first fixed-cycle detection"
+          },
+          {
+            "index": 2,
+            "text": "tuning review."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Run the first fixed-cycle detection tuning review.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Run the first fixed-cycle detection tuning review.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u9o76xsz",
+      "id": "14",
+      "bbox": [
+        110,
+        444,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fax8z2tk",
+      "id": "15",
+      "bbox": [
+        134,
+        436,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Review segregation-of-duties overrides and expiry.",
+      "textPreview": "Review segregation-of-duties overrides and expiry.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Review segregation-of-duties"
+          },
+          {
+            "index": 2,
+            "text": "overrides and expiry."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Review segregation-of-duties overrides and expiry.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Review segregation-of-duties overrides and expiry.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gbqp87a5",
+      "id": "16",
+      "bbox": [
+        428,
+        220,
+        300,
+        330
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D8E0E5",
+      "lineWidth": 1
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hczq1cbq",
+      "id": "17",
+      "bbox": [
+        428,
+        220,
+        300,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#142F4C",
+      "lineColor": "#142F4C",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e5sri1s3",
+      "id": "18",
+      "bbox": [
+        450,
+        248,
+        220,
+        30
+      ],
+      "geometry": "rect",
+      "text": "60 days",
+      "textPreview": "60 days",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "60 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "60 days",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "60 days",
+              "fontSize": 24,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z618b6to",
+      "id": "19",
+      "bbox": [
+        450,
+        308,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bat43y9g",
+      "id": "20",
+      "bbox": [
+        474,
+        300,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Reconcile supplier bank-detail changes and add independent verification.",
+      "textPreview": "Reconcile supplier bank-detail changes and add independent verification.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reconcile supplier bank-detail"
+          },
+          {
+            "index": 2,
+            "text": "changes and add independent"
+          },
+          {
+            "index": 3,
+            "text": "verification."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reconcile supplier bank-detail changes and add independent verification.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reconcile supplier bank-detail changes and add independent verification.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a9knat8v",
+      "id": "21",
+      "bbox": [
+        450,
+        376,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xcvm58r6",
+      "id": "22",
+      "bbox": [
+        474,
+        368,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Reconcile role-based awareness coverage.",
+      "textPreview": "Reconcile role-based awareness coverage.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reconcile role-based awareness"
+          },
+          {
+            "index": 2,
+            "text": "coverage."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reconcile role-based awareness coverage.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reconcile role-based awareness coverage.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wb25c3ql",
+      "id": "23",
+      "bbox": [
+        450,
+        444,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jedo7y9c",
+      "id": "24",
+      "bbox": [
+        474,
+        436,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Link incident closure to root cause and control improvement.",
+      "textPreview": "Link incident closure to root cause and control improvement.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Link incident closure to root cause"
+          },
+          {
+            "index": 2,
+            "text": "and control improvement."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Link incident closure to root cause and control improvement.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Link incident closure to root cause and control improvement.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yd4net8r",
+      "id": "25",
+      "bbox": [
+        768,
+        220,
+        300,
+        330
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D8E0E5",
+      "lineWidth": 1
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lgv698ri",
+      "id": "26",
+      "bbox": [
+        768,
+        220,
+        300,
+        8
+      ],
+      "geometry": "rect",
+      "fillColor": "#2D7C57",
+      "lineColor": "#142F4C",
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kfm5g3qx",
+      "id": "27",
+      "bbox": [
+        790,
+        248,
+        220,
+        30
+      ],
+      "geometry": "rect",
+      "text": "90 days",
+      "textPreview": "90 days",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "90 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "90 days",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "90 days",
+              "fontSize": 24,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 28,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7idobi98",
+      "id": "28",
+      "bbox": [
+        790,
+        308,
+        10,
+        10
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 29,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6h4nid83",
+      "id": "29",
+      "bbox": [
+        814,
+        300,
+        250,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Approve the detection ownership mandate and first evidence cycle.",
+      "textPreview": "Approve the detection ownership mandate and first evidence cycle.",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Approve the detection ownership"
+          },
+          {
+            "index": 2,
+            "text": "mandate and first evidence cycle."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Approve the detection ownership mandate and first evidence cycle.",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Approve the detection ownership mandate and first evidence cycle.",
+              "fontSize": 15,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

@@ -1,4 +1,4 @@
-# MK FRAUD READINESS COMMERCIAL QUALITY — OWNER REVIEW CANDIDATE V2
+# MK FRAUD READINESS PREMIUM PRODUCT
 
 ## Release identity
 
@@ -11,16 +11,15 @@
 
 ## Programme result
 
-- Ten V2 loops completed; 40 KPIs scored with A/B/C reasons and final score as the minimum.
-- Every loop minimum is at least 9.5; no KPI is below threshold.
-- Hard-trust KPI minimum is 9.9 in every loop.
+- Binary objective gates replace the superseded scorecard approach.
+- Six fixture profiles run through the gate harness with zero FAIL rows.
 - Customer artefacts contain zero prohibited-token or raw-UUID hits.
 - The final pack uses persisted Rivonia Essential and Kestrel Comprehensive records.
 
 ## Artefact checks
 
 - Essential: 28 pages; 8-sheet supporting register.
-- Comprehensive: 35 pages; 8-sheet annotated register.
+- Comprehensive: 36 pages; 8-sheet annotated register.
 - Board readout: 7 pages.
 - Workshop material: 10 pages.
 - Executive presentation: 10 slides; overflow test passed.

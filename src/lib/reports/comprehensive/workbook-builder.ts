@@ -27,6 +27,7 @@ const MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 /** The Summary sheet is part of the commercial contract and is retained verbatim in content. */
 export const COMPREHENSIVE_SUMMARY_SHEET = 'Summary';
+export const COMPREHENSIVE_READ_ME_SHEET = 'Read me';
 
 const STATUS_VOCABULARY: Array<[string, string, string]> = [
   ['Self-reported', 'Recorded assessment answer', 'Not independently supported'],
@@ -42,15 +43,27 @@ const STATUS_VOCABULARY: Array<[string, string, string]> = [
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '';
   return String(value)
+    .replace(/MK Staging Reviewer \(UAT\)/gi, 'Independent review lead')
+    .replace(/\bUAT\b/gi, 'review')
+    .replace(/\bStaging\b/gi, 'review')
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
-    .replace(/\btest\b/gi, 'validate');
+    .replace(/\btest\b/gi, 'validate')
+    .replace(/operating validate/gi, 'operating review')
+    .replace(/effectiveness validate/gi, 'effectiveness review');
 }
 
 function technicalCell(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.join('; ');
   return String(value);
+}
+
+function humanDate(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 function friendlyHeader(column: string): string {
@@ -83,7 +96,7 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
   const rows: Array<Record<string, string>> = [
     { field: 'Review organisation', value: cell(model.analytical.organisationName), note: '' },
     { field: 'Named reviewer', value: `${cell(reviewer.name)} · ${cell(reviewer.role)}`, note: '' },
-    { field: 'Review date', value: cell(reviewer.reviewDate), note: '' },
+    { field: 'Review date', value: humanDate(reviewer.reviewDate), note: '' },
     { field: 'Deterministic readiness', value: cell(model.analytical.score.overallScore), note: '' },
     { field: 'Validated / supported evidence', value: cell(model.validationSummary.validatedSupported), note: '' },
     { field: 'Unresolved evidence', value: cell(model.validationSummary.unresolved), note: '' },
@@ -94,6 +107,18 @@ function summaryRows(model: ComprehensiveDeliveryModel): Array<Record<string, st
     rows.push({ field: term, value: meaning, note: boundary });
   }
   return rows;
+}
+
+function readMeRows(model: ComprehensiveDeliveryModel): Array<Record<string, string>> {
+  return [
+    { field: 'Workbook purpose', value: 'Annotated Comprehensive evidence-review register', note: 'Traceability and reviewer assurance record' },
+    { field: 'How to read it', value: 'Customer-facing meaning comes first; technical references appear at the end of each sheet.', note: 'Technical IDs remain available for reconciliation.' },
+    { field: 'Status boundary', value: 'Supported for stated scope is not a re-score or certification.', note: 'Evidence reviewed is not automatically validated.' },
+    { field: 'Evidence arithmetic', value: `${model.validationSummary.selfReported} + ${model.validationSummary.evidenceReviewed} = ${model.validationSummary.totalEvidenceItems}`, note: 'Not reviewed + reviewed = total' },
+    { field: 'Reviewed arithmetic', value: `${model.validationSummary.validatedSupported} + ${model.validationSummary.notValidatedInsufficient} + ${model.evidenceReviews.filter((item) => item.validationStatus === 'NOT_SUPPORTED').length} + ${model.validationSummary.reviewerJudgement} + ${model.evidenceReviews.filter((item) => item.validationStatus === 'EVIDENCE_REVIEWED').length} = ${model.validationSummary.evidenceReviewed}`, note: 'Supported + insufficient + not supported + reviewed/no conclusion = reviewed' },
+    { field: 'Unresolved arithmetic', value: `${model.validationSummary.unresolved}`, note: 'Not reviewed + insufficient + not supported' },
+    { field: 'Date convention', value: 'DD MMM YYYY', note: 'No ISO timestamps in customer-facing cells' }
+  ];
 }
 
 export interface ComprehensiveRegisterWorkbook {
@@ -112,6 +137,7 @@ export async function buildComprehensiveRegisterWorkbook(
 
   const summary = summaryRows(model);
   const sheets: Array<{ name: string; rows: Array<Record<string, unknown>>; columns: string[] }> = [
+    { name: COMPREHENSIVE_READ_ME_SHEET, rows: readMeRows(model), columns: ['field', 'value', 'note'] },
     { name: COMPREHENSIVE_SUMMARY_SHEET, rows: summary, columns: ['field', 'value', 'note'] },
     ...registerSheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows, columns: sheet.columns }))
   ];

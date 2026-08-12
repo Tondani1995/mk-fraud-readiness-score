@@ -26,14 +26,30 @@ export const SUPPORTING_REGISTER_MIME_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export const SUPPORTING_REGISTER_SHEETS = [
+  'Read me',
   'Findings',
   'Risks',
   'Control Actions',
   'Evidence Checklist',
   'Roadmap',
-  'Functional Agenda',
   'Question Trace'
 ] as const;
+
+function readMeSheetData(data: AssembledReportData, model: AdvisoryEvidenceModel) {
+  const rows = [
+    { field: 'Workbook purpose', value: 'Essential fraud-readiness supporting register', note: 'Complete question, finding, evidence and action trace' },
+    { field: 'Organisation', value: data.organisationName, note: 'Persisted assessment source' },
+    { field: 'How to read it', value: 'Customer-facing meaning comes first; technical references appear last.', note: 'Question Trace retains the complete response universe.' },
+    { field: 'Date convention', value: 'DD MMM YYYY', note: 'No ISO timestamps in customer-facing cells' },
+    { field: 'Status boundary', value: 'Recorded self-assessment is not independent validation.', note: 'Use the named evidence and effectiveness fields for follow-up.' }
+  ];
+  const schema = [
+    { header: 'Field', cell: (row: typeof rows[number]) => row.field },
+    { header: 'Meaning', cell: (row: typeof rows[number]) => row.value },
+    { header: 'Boundary', cell: (row: typeof rows[number]) => row.note }
+  ];
+  return { rows, schema };
+}
 
 function text(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -67,6 +83,7 @@ export function supportingRegisterSheetData(
   model: AdvisoryEvidenceModel
 ) {
   const controlActionRecords = buildControlActionRecords(model);
+  const readMe = readMeSheetData(data, model);
 
   const findings = model.materialFindings;
   const findingsSchema: Column<(typeof findings)[number]>[] = [
@@ -195,8 +212,8 @@ export function supportingRegisterSheetData(
 
   return {
     sheets: [...SUPPORTING_REGISTER_SHEETS],
-    data: [findings, risks, controlActionRecords, evidence, roadmap, agenda, traces],
-    schemas: [findingsSchema, risksSchema, carsSchema, evidenceSchema, roadmapSchema, agendaSchema, tracesSchema],
+    data: [readMe.rows, findings, risks, controlActionRecords, evidence, roadmap, traces],
+    schemas: [readMe.schema, findingsSchema, risksSchema, carsSchema, evidenceSchema, roadmapSchema, tracesSchema],
     /** Control improvements ship as extra columns on the Control Actions sheet's source model. */
     controlImprovements: { rows: controls, schema: controlsSchema }
   };

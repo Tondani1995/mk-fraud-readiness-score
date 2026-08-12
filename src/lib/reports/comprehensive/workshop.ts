@@ -6,6 +6,7 @@ function esc(value: unknown): string {
     .replace(/\btested\b/gi, 'validated')
     .replace(/\btesting\b/gi, 'validation')
     .replace(/\btest\b/gi, 'validate')
+    .replace(/effectiveness validate/gi, 'effectiveness review')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')

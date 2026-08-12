@@ -80,6 +80,7 @@ export const APPENDIX_START_MARKER = 'Appendix';
 
 function esc(value: unknown): string {
   return String(value ?? '')
+    .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
     .replace(/\bD\d+-Q\d+\b/g, '')
     .replace(/\btested\b/gi, 'validated')

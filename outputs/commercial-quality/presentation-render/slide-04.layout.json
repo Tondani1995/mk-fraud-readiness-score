@@ -1,0 +1,1231 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/4p3u9r",
+    "id": "4p3u9r",
+    "slide": 4,
+    "layoutId": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F4EE",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "7f0c6670-933c-44fb-bcb6-df62597687b6",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "7628515a-ea4d-4b21-9b93-78346f131674",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nm1ojapo",
+      "id": "1",
+      "bbox": [
+        72,
+        42,
+        360,
+        24
+      ],
+      "geometry": "rect",
+      "text": "COMPREHENSIVE REVIEW · 04",
+      "textPreview": "COMPREHENSIVE REVIEW · 04",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#C77B35",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "COMPREHENSIVE REVIEW · 04"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "COMPREHENSIVE REVIEW · 04",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#C77B35",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "COMPREHENSIVE REVIEW · 04",
+              "fontSize": 14,
+              "color": "#C77B35",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8napsfq9",
+      "id": "2",
+      "bbox": [
+        72,
+        76,
+        1080,
+        80
+      ],
+      "geometry": "rect",
+      "text": "Human review adds judgement where the self-assessment is too broad.",
+      "textPreview": "Human review adds judgement where the self-assessment is too broad.",
+      "resolvedFontSize": 39,
+      "resolvedTextStyle": {
+        "fontSize": 39,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Human review adds judgement where the"
+          },
+          {
+            "index": 2,
+            "text": "self-assessment is too broad."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Human review adds judgement where the self-assessment is too broad.",
+          "resolvedTextStyle": {
+            "fontSize": 39,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Human review adds judgement where the self-assessment is too broad.",
+              "fontSize": 39,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9oj6lk7u",
+      "id": "3",
+      "bbox": [
+        72,
+        164,
+        1050,
+        28
+      ],
+      "geometry": "rect",
+      "text": "The review narrows claims to the population and artefacts actually examined.",
+      "textPreview": "The review narrows claims to the population and artefacts actually examined.",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The review narrows claims to the population and artefacts actually examined."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The review narrows claims to the population and artefacts actually examined.",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The review narrows claims to the population and artefacts actually examined.",
+              "fontSize": 18,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yh87m587",
+      "id": "4",
+      "bbox": [
+        72,
+        664,
+        1136,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#D8E0E5",
+      "lineWidth": 1
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zihofaps",
+      "id": "5",
+      "bbox": [
+        72,
+        676,
+        420,
+        22
+      ],
+      "geometry": "rect",
+      "text": "MK Fraud Readiness · Comprehensive",
+      "textPreview": "MK Fraud Readiness · Comprehensive",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MK Fraud Readiness · Comprehensive"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MK Fraud Readiness · Comprehensive",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MK Fraud Readiness · Comprehensive",
+              "fontSize": 13,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0japofqx",
+      "id": "6",
+      "bbox": [
+        1135,
+        676,
+        72,
+        22
+      ],
+      "geometry": "rect",
+      "text": "04 / 10",
+      "textPreview": "04 / 10",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "right",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "04 / 10"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "04 / 10",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#5E7080",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "04 / 10",
+              "fontSize": 13,
+              "color": "#5E7080",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkj6hk7i",
+      "id": "7",
+      "bbox": [
+        88,
+        208,
+        8,
+        68
+      ],
+      "geometry": "rect",
+      "fillColor": "#2D7C57",
+      "lineColor": "#2D7C57",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/idc7y98b",
+      "id": "8",
+      "bbox": [
+        116,
+        208,
+        330,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Awareness completion is not reconciled to higher-risk roles",
+      "textPreview": "Awareness completion is not reconciled to higher-risk roles",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Awareness completion is not"
+          },
+          {
+            "index": 2,
+            "text": "reconciled to higher-risk roles"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Awareness completion is not reconciled to higher-risk roles",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Awareness completion is not reconciled to higher-risk roles",
+              "fontSize": 18,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jel8rupw",
+      "id": "9",
+      "bbox": [
+        470,
+        208,
+        310,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Recorded: Self-reported position: Exists only informally or inconsistently",
+      "textPreview": "Recorded: Self-reported position: Exists only informally or inconsistently",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Recorded: Self-reported position: Exists"
+          },
+          {
+            "index": 2,
+            "text": "only informally or inconsistently"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Recorded: Self-reported position: Exists only informally or inconsistently",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recorded: Self-reported position: Exists only informally or inconsistently",
+              "fontSize": 16,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jytszmtw",
+      "id": "10",
+      "bbox": [
+        800,
+        208,
+        270,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+      "textPreview": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reviewer view: Retain the"
+          },
+          {
+            "index": 2,
+            "text": "deterministic issue while keeping"
+          },
+          {
+            "index": 3,
+            "text": "assurance bounded."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+              "fontSize": 16,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ydkr6hcb",
+      "id": "11",
+      "bbox": [
+        88,
+        302,
+        8,
+        68
+      ],
+      "geometry": "rect",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/50va1cb2",
+      "id": "12",
+      "bbox": [
+        116,
+        302,
+        330,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Committee oversight does not yet evidence a complete fraud-risk cycle",
+      "textPreview": "Committee oversight does not yet evidence a complete fraud-risk cycle",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Committee oversight does not yet"
+          },
+          {
+            "index": 2,
+            "text": "evidence a complete fraud-risk"
+          },
+          {
+            "index": 3,
+            "text": "cycle"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Committee oversight does not yet evidence a complete fraud-risk cycle",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Committee oversight does not yet evidence a complete fraud-risk cycle",
+              "fontSize": 18,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kz298ruh",
+      "id": "13",
+      "bbox": [
+        470,
+        302,
+        310,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Recorded: Self-reported position: No control exists",
+      "textPreview": "Recorded: Self-reported position: No control exists",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Recorded: Self-reported position: No"
+          },
+          {
+            "index": 2,
+            "text": "control exists"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Recorded: Self-reported position: No control exists",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recorded: Self-reported position: No control exists",
+              "fontSize": 16,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/72ds3mt8",
+      "id": "14",
+      "bbox": [
+        800,
+        302,
+        270,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Reviewer view: Retain the conclusion for the reviewed scope only.",
+      "textPreview": "Reviewer view: Retain the conclusion for the reviewed scope only.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reviewer view: Retain the"
+          },
+          {
+            "index": 2,
+            "text": "conclusion for the reviewed scope"
+          },
+          {
+            "index": 3,
+            "text": "only."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reviewer view: Retain the conclusion for the reviewed scope only.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reviewer view: Retain the conclusion for the reviewed scope only.",
+              "fontSize": 16,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/614rahcn",
+      "id": "15",
+      "bbox": [
+        88,
+        396,
+        8,
+        68
+      ],
+      "geometry": "rect",
+      "fillColor": "#2D7C57",
+      "lineColor": "#2D7C57",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t4va5wby",
+      "id": "16",
+      "bbox": [
+        116,
+        396,
+        330,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Detection tuning and alert ageing need a fixed management rhythm",
+      "textPreview": "Detection tuning and alert ageing need a fixed management rhythm",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Detection tuning and alert ageing"
+          },
+          {
+            "index": 2,
+            "text": "need a fixed management rhythm"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Detection tuning and alert ageing need a fixed management rhythm",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Detection tuning and alert ageing need a fixed management rhythm",
+              "fontSize": 18,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/s3m9crud",
+      "id": "17",
+      "bbox": [
+        470,
+        396,
+        310,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Recorded: Self-reported position: No control exists",
+      "textPreview": "Recorded: Self-reported position: No control exists",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Recorded: Self-reported position: No"
+          },
+          {
+            "index": 2,
+            "text": "control exists"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Recorded: Self-reported position: No control exists",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recorded: Self-reported position: No control exists",
+              "fontSize": 16,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f6ds76t4",
+      "id": "18",
+      "bbox": [
+        800,
+        396,
+        270,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+      "textPreview": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reviewer view: Retain the"
+          },
+          {
+            "index": 2,
+            "text": "deterministic issue while keeping"
+          },
+          {
+            "index": 3,
+            "text": "assurance bounded."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reviewer view: Retain the deterministic issue while keeping assurance bounded.",
+              "fontSize": 16,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u54re1cj",
+      "id": "19",
+      "bbox": [
+        88,
+        490,
+        8,
+        68
+      ],
+      "geometry": "rect",
+      "fillColor": "#C77B35",
+      "lineColor": "#C77B35",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qds3mp03",
+      "id": "20",
+      "bbox": [
+        116,
+        490,
+        330,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Evidence review: Approved fraud risk management policy and committee terms",
+      "textPreview": "Evidence review: Approved fraud risk management policy and committee terms",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Evidence review: Approved fraud"
+          },
+          {
+            "index": 2,
+            "text": "risk management policy and"
+          },
+          {
+            "index": 3,
+            "text": "committee terms"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Evidence review: Approved fraud risk management policy and committee terms",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#142F4C",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Evidence review: Approved fraud risk management policy and committee terms",
+              "fontSize": 18,
+              "color": "#142F4C",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/be14vuho",
+      "id": "21",
+      "bbox": [
+        470,
+        490,
+        310,
+        28
+      ],
+      "geometry": "rect",
+      "text": "Recorded: Self-reported position retained unless separately evidenced.",
+      "textPreview": "Recorded: Self-reported position retained unless separately evidenced.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#5E7080",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Recorded: Self-reported position"
+          },
+          {
+            "index": 2,
+            "text": "retained unless separately evidenced."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Recorded: Self-reported position retained unless separately evidenced.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#5E7080"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Recorded: Self-reported position retained unless separately evidenced.",
+              "fontSize": 16,
+              "color": "#5E7080"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/czalozi9",
+      "id": "22",
+      "bbox": [
+        800,
+        490,
+        270,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Reviewer view: The reviewed artefact supports the stated scope.",
+      "textPreview": "Reviewer view: The reviewed artefact supports the stated scope.",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#172232",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Reviewer view: The reviewed"
+          },
+          {
+            "index": 2,
+            "text": "artefact supports the stated"
+          },
+          {
+            "index": 3,
+            "text": "scope."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Reviewer view: The reviewed artefact supports the stated scope.",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#172232"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Reviewer view: The reviewed artefact supports the stated scope.",
+              "fontSize": 16,
+              "color": "#172232"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

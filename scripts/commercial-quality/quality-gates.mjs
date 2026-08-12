@@ -14,6 +14,7 @@ await fs.mkdir(path.join(root, 'docs/commercial-quality'), { recursive: true });
 await writeApplicability(root);
 const output = { generatedAt: new Date().toISOString(), fixtures, group: group ?? null, rows, failCount: rows.filter((row) => row.status === 'FAIL').length };
 await fs.writeFile(path.join(root, 'docs/commercial-quality/gate-output.json'), JSON.stringify(output, null, 2));
+await fs.writeFile(path.join(root, 'docs/commercial-quality/gate-output.md'), ['# Binary gate output', '', `Fixtures: ${fixtures.join(', ')}`, '', `Rows: ${rows.length}`, `FAIL: ${output.failCount}`, '', output.failCount === 0 ? '**PASS — zero FAIL rows.**' : '**FAIL — release blocked.**'].join('\n'));
 console.log(rows.map((row) => `${row.status} ${row.gate} ${row.fixture} ${row.artefact} — ${row.detail}`).join('\n'));
 console.log(`Gate rows: ${rows.length}; FAIL: ${output.failCount}`);
 if (output.failCount) process.exitCode = 1;
