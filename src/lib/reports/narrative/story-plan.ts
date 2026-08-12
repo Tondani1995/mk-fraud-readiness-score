@@ -25,6 +25,7 @@ export interface NarrativeStoryPlan {
   controlOrder: string[];
   decisionOrder: string[];
   roadmapOrder: string[];
+  maturationOrder: string[];
   standaloneFindingReasons: Record<string, string>;
   narrativeBounds: NarrativeFactPack['narrativeBounds'];
   requiredConclusion: string;
@@ -32,6 +33,7 @@ export interface NarrativeStoryPlan {
 }
 
 function ids<T extends { factRef: string }>(items: T[]): string[] { return items.map((item) => item.factRef); }
+function maturationIds(items: NarrativeFactPack['maturationSteps']): string[] { return items.map((item) => item.maturationRef); }
 
 export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStoryPlan {
   const essential = pack.productTier === 'essential';
@@ -68,16 +70,18 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     findingOrder: ids(pack.findings.slice(0, essential ? 8 : 8)),
     scenarioOrder: ids(pack.scenarios),
     riskOrder: ids(pack.risks.filter((risk) => risk.linkedFindingRefs.some((findingRef) => ids(pack.findings.slice(0, essential ? 8 : 8)).includes(findingRef)))),
-    controlOrder: ids(pack.controls.slice(0, essential ? 6 : 5)),
+    controlOrder: ids(pack.controls.slice(0, essential ? 6 : 6)),
     decisionOrder: ids(pack.decisions.slice(0, essential ? 6 : 5)),
     roadmapOrder: ids(pack.roadmap.slice(0, essential ? 6 : 12)),
+    maturationOrder: maturationIds(pack.maturationSteps),
     standaloneFindingReasons: pack.standaloneFindingReasons,
     narrativeBounds: {
       ...pack.narrativeBounds,
       findingCount: Math.min(pack.findings.length, 8),
-      controlCount: Math.min(pack.controls.length, essential ? 6 : 5),
+      controlCount: Math.min(pack.controls.length, essential ? 6 : 6),
       decisionCount: Math.min(pack.decisions.length, essential ? 6 : 5),
-      managementResponseCount: Math.min(pack.roadmap.length, essential ? 6 : 12)
+      managementResponseCount: Math.min(pack.roadmap.length, essential ? 6 : 12),
+      maturationCount: pack.maturationSteps.length
     },
     requiredConclusion: essential
       ? 'Explain what management should recognise, which few changes matter most, what should be true within 90 days and the sensible next step.'
@@ -95,14 +99,15 @@ export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: Narrati
     ['findings', ids(pack.findings.slice(0, pack.productTier === 'essential' ? 8 : 8)), plan.findingOrder],
     ['scenarios', ids(pack.scenarios), plan.scenarioOrder],
     ['risks', ids(pack.risks.filter((risk) => risk.linkedFindingRefs.some((findingRef) => plan.findingOrder.includes(findingRef)))), plan.riskOrder],
-    ['controls', ids(pack.controls.slice(0, pack.productTier === 'essential' ? 6 : 5)), plan.controlOrder],
+    ['controls', ids(pack.controls.slice(0, pack.productTier === 'essential' ? 6 : 6)), plan.controlOrder],
     ['decisions', ids(pack.decisions.slice(0, pack.productTier === 'essential' ? 6 : 5)), plan.decisionOrder],
     ['roadmap', ids(pack.roadmap.slice(0, pack.productTier === 'essential' ? 6 : 12)), plan.roadmapOrder]
   ] as const) {
     if (JSON.stringify(expected) !== JSON.stringify(actual)) throw new Error(`Story Plan ${name} order does not match deterministic Fact Pack order.`);
   }
+  if (JSON.stringify(maturationIds(pack.maturationSteps)) !== JSON.stringify(plan.maturationOrder)) throw new Error('Story Plan maturation order does not match deterministic Fact Pack order.');
   if (!plan.requiredConclusion.trim()) throw new Error('Story Plan must define a required conclusion.');
-  if (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8) throw new Error('Story Plan finding narrative core must contain 5-8 findings.');
-  if (plan.productTier === 'essential' && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) throw new Error('Essential Story Plan must contain 2-3 scenarios.');
-  if (plan.productTier === 'comprehensive' && (plan.narrativeBounds.scenarioCount < 3 || plan.narrativeBounds.scenarioCount > 4)) throw new Error('Comprehensive Story Plan must contain 3-4 scenarios.');
+  if ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 1 || plan.narrativeBounds.findingCount > 8))) throw new Error('Story Plan finding narrative core is outside the permitted profile bounds.');
+  if (plan.productTier === 'essential' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 3)))) throw new Error('Essential Story Plan contains an invalid scenario count for the recorded readiness profile.');
+  if (plan.productTier === 'comprehensive' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 3 || plan.narrativeBounds.scenarioCount > 4)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 4)))) throw new Error('Comprehensive Story Plan contains an invalid scenario count for the recorded readiness profile.');
 }

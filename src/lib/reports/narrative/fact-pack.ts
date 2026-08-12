@@ -5,6 +5,7 @@ import type { ComprehensiveDeliveryModel } from '../comprehensive/types';
 import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-model/semantic-mappings';
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
 import { REPORTING_BIBLE_VERSION } from '../reporting-bible';
+import { buildNarrativeMaturationSteps, type NarrativeMaturationStep } from './maturation';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -167,6 +168,7 @@ export interface NarrativeBounds {
   controlCount: number;
   decisionCount: number;
   managementResponseCount: number;
+  maturationCount?: number;
 }
 
 export interface NarrativeProofFact {
@@ -211,6 +213,8 @@ export interface NarrativeFactPack {
   decisions: NarrativeDecisionFact[];
   roadmap: NarrativeRoadmapFact[];
   proofOfProgress: NarrativeProofFact[];
+  maturationSteps: NarrativeMaturationStep[];
+  highReadinessSparseNarrativeReason?: string;
   prohibitedClaims: string[];
   narrativeBounds: NarrativeBounds;
   facts: NarrativeFact[];
@@ -226,6 +230,9 @@ function cleanFactLanguage(value: unknown, fallback = ''): string {
     .replace(/This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\.?/gi, '')
     .replace(/Because the self-reported control position has not yet been independently validated with operating evidence,\s*/gi, 'Because the recorded control position may not operate consistently across the full population, ')
     .replace(/This does not assert a control defect\.\s*/gi, '')
+    .replace(/not yet independently validated/gi, 'not yet demonstrated')
+    .replace(/independently validated/gi, 'independently reviewed')
+    .replace(/independent(?:ly)? review(?:ed|ing)?/gi, 'review')
     .replace(/The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect\.?/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -443,6 +450,9 @@ function buildRiskFacts(risks: RiskRegisterEntry[], findings: MaterialFinding[],
   const cleanRisk = (value: string, fallback: string): string => cleanFactLanguage(value, fallback)
     .replace(/Impact requires case-specific validation\.?/gi, '')
     .replace(/Operating impact requires case-specific validation\.?/gi, '')
+    .replace(/independent operating evidence has not yet validated/gi, 'the recorded control position has not yet demonstrated')
+    .replace(/independently validate the reported control\(s\) across the complete population, required frequency and under pressure before relying on the self-assessment\.?/gi, 'complete the approved treatment and retain the named operating records across the complete population and required frequency')
+    .replace(/independently validate/gi, 'review')
     .replace(/does not meet the exact expected standard/gi, 'is not yet consistently designed to the expected control standard')
     .replace(/Consequence pathway:\s*/gi, '')
     .replace(/\s+/g, ' ')
@@ -459,7 +469,7 @@ function buildRiskFacts(risks: RiskRegisterEntry[], findings: MaterialFinding[],
     impact: text(risk.impact),
     qualitativeConsequence: consequenceFor(risk),
     linkedFindingRefs: risk.linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
-    approvedTreatment: text(risk.requiredTreatment),
+    approvedTreatment: cleanRisk(text(risk.requiredTreatment), 'Complete the approved treatment and retain the named operating records.'),
     owner: text(risk.accountableExecutive),
     targetPeriod: text(risk.targetPeriod)
   }));
@@ -769,6 +779,11 @@ function selectThemeCoveredControls(controls: ControlImprovementEntry[], finding
     if (selected.length >= limit) break;
     if (!selected.some((item) => item.id === control.id)) selected.push(control);
   }
+  for (const finding of findings) {
+    if (selected.length >= limit) break;
+    const candidate = controls.find((control) => control.linkedFindingId === finding.id && !selected.some((item) => item.id === control.id));
+    if (candidate) selected.push(candidate);
+  }
   return selected.slice(0, limit);
 }
 
@@ -790,10 +805,9 @@ function selectThemeSpecificDecisions(decisions: LeadershipDecision[], findings:
     if (selected.length >= limit) break;
     const allowed = new Set(familyForTarget.get(target) ?? []);
     const candidate = sorted.find((decision) => !selected.some((item) => item.id === decision.id) && decision.linkedFindingIds.some((id) => allowed.has(findings.find((finding) => finding.id === id)?.primarySemanticFamily ?? 'FRAUD_GOVERNANCE')));
-    const fallback = candidate ?? sorted.find((decision) => !selected.some((item) => item.id === decision.id));
-    if (fallback) {
-      selected.push(fallback);
-      overrides.set(fallback.id, target);
+    if (candidate) {
+      selected.push(candidate);
+      overrides.set(candidate.id, target);
     }
   }
   return { decisions: selected.slice(0, limit), semanticFamilyOverrides: overrides };
@@ -823,12 +837,17 @@ function buildPack(input: {
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
   const scenarios = buildScenarioFacts(input.selectedScenarios, input.selectedFindings, input.selectedRisks, findingRefs, riskRefs, input.tier);
   const controls = buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
-  const decisions = buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides);
+  const decisions = buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
+    .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
   const domains = buildDomains(input.data, findings);
   const themes = buildThemeFacts(input.evidenceModel.contradictions, input.selectedFindings, input.selectedRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
   const standaloneFindingReasons = Object.fromEntries(findings.filter((finding) => !themedFindingRefs.has(finding.factRef)).map((finding) => [finding.factRef, 'Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.']));
   const roadmap = buildRoadmapFacts(input.selectedRoadmap, input.selectedFindings, findingRefs, input.tier);
+  const highReadinessSparseNarrativeReason = findings.length < 5 && ((input.score.score ?? 0) >= 70 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
+    ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the recorded result and does not invent additional weaknesses.`
+    : undefined;
+  const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings) : [];
   const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the recorded profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
@@ -842,6 +861,7 @@ function buildPack(input: {
     ...controls.map((control) => makeFact(control.factRef, 'control', control, [control.sourceId])),
     ...decisions.map((decision) => makeFact(decision.factRef, 'decision', decision, [decision.sourceId])),
     ...roadmap.map((item) => makeFact(item.factRef, 'roadmap', item, [item.sourceId])),
+    ...maturationSteps.map((item) => makeFact(item.maturationRef, 'maturation', item, [item.linkedFindingRef, item.linkedControlRef])),
     ...buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
   ];
   return {
@@ -865,6 +885,8 @@ function buildPack(input: {
     decisions,
     roadmap,
     proofOfProgress: buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride),
+    maturationSteps,
+    highReadinessSparseNarrativeReason,
     prohibitedClaims: [
       'independent operating effectiveness', 'evidence validation', 'confirmed fraud event',
       'invented incident, loss, customer, supplier, system or interview', 'unsupported Rand amount',
@@ -876,7 +898,8 @@ function buildPack(input: {
       scenarioCount: scenarios.length,
       controlCount: controls.length,
       decisionCount: decisions.length,
-      managementResponseCount: roadmap.length
+      managementResponseCount: roadmap.length,
+      maturationCount: maturationSteps.length
     },
     facts
   };
@@ -932,7 +955,7 @@ export function buildComprehensiveNarrativeFactPack(model: ComprehensiveDelivery
   const selectedFindings = selectNarrativeFindings(model.findings, 8);
   const selectedFindingIds = new Set(selectedFindings.map((finding) => finding.id));
   const selectedRisks = model.riskRegister.filter((risk) => risk.linkedFindingIds.some((id) => selectedFindingIds.has(id)));
-  const selectedControls = selectThemeCoveredControls(model.controlImprovements.filter((control) => selectedFindingIds.has(control.linkedFindingId)), selectedFindings, 5);
+  const selectedControls = selectThemeCoveredControls(model.controlImprovements.filter((control) => selectedFindingIds.has(control.linkedFindingId)), selectedFindings, 6);
   const decisionSelection = selectThemeSpecificDecisions(model.leadershipDecisions.filter((decision) => decision.linkedFindingIds.some((id) => selectedFindingIds.has(id))), selectedFindings, 5);
   const selectedDecisions = decisionSelection.decisions;
   const selectedRoadmap = model.roadmapActions.filter((action) => selectedFindingIds.has(action.linkedFindingId)).slice(0, 12);
@@ -974,13 +997,16 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
   if (pack.roadmap.some((item) => !item.sourceFindingRef || !pack.findings.some((finding) => finding.factRef === item.sourceFindingRef && finding.primarySemanticFamily === item.primarySemanticFamily))) throw new Error('Narrative roadmap source is incompatible with its semantic family.');
   if (pack.scenarios.some((scenario) => !pack.findings.filter((finding) => scenario.linkedFindingRefs.includes(finding.factRef)).some((finding) => finding.fraudPathwayFamilies.includes(scenario.scenarioFamily)))) throw new Error('Narrative scenario pathway is not supported by its linked finding family.');
   for (const scenario of pack.scenarios) assertScenario(scenario);
-  const themeRange = pack.productTier === 'essential' ? [3, 5] : [3, 5];
+  const sparseHighReadiness = Boolean(pack.highReadinessSparseNarrativeReason);
+  const themeRange = sparseHighReadiness ? [1, 5] : [3, 5];
   if (pack.findings.length >= 6 && (pack.systemicThemeInputs.length < themeRange[0] || pack.systemicThemeInputs.length > themeRange[1])) throw new Error(`${pack.productTier} Fact Pack requires 3-5 systemic themes when the finding set has sufficient variation.`);
   if (pack.systemicThemeInputs.some((theme) => theme.findingRefs.length === 0 || theme.riskRefs.length === 0 || !theme.whyTogether)) throw new Error('Narrative theme is missing finding, risk or relationship basis.');
   const covered = new Set(pack.systemicThemeInputs.flatMap((theme) => theme.findingRefs));
   for (const finding of pack.findings) if (!covered.has(finding.factRef) && !pack.standaloneFindingReasons[finding.factRef]) throw new Error(`Priority finding ${finding.factRef} is orphaned from themes and has no standalone reason.`);
-  const scenarioRange = pack.productTier === 'essential' ? [2, 3] : [3, 4];
+  const scenarioRange = pack.productTier === 'essential' ? (sparseHighReadiness ? [0, 3] : [2, 3]) : sparseHighReadiness ? [0, 4] : [3, 4];
   if (pack.scenarios.length < scenarioRange[0] || pack.scenarios.length > scenarioRange[1]) throw new Error(`${pack.productTier} Fact Pack requires ${scenarioRange[0]}-${scenarioRange[1]} real fraud pathway scenarios.`);
+  if (pack.productTier === 'essential' && pack.maturationSteps.length !== 0) throw new Error('Essential Fact Pack must not contain twelve-month maturation steps.');
+  if (pack.productTier === 'comprehensive' && pack.maturationSteps.some((step) => !step.linkedFindingRef || !step.linkedControlRef || !step.accountableExecutive || !step.processOwner || !step.dependency || !step.successMeasure || !step.proofOfProgress)) throw new Error('Comprehensive maturation step is missing a required management object.');
   const forbidden = /evidence validation|independent evidence review|self-reported claims remain unverified|approve a fixed governance cadence/i;
   if (pack.decisions.some((decision) => forbidden.test([decision.question, decision.recommendedRoute, decision.rationale, decision.consequenceOfDelay].join(' ')))) throw new Error('Fact Pack contains an evidence-validation decision or claim.');
   if (pack.roadmap.some((item) => /apply immediate escalation|deliver the exact control design|independently validate/i.test([item.managementOutcome, item.priorityWork, item.proofOfCompletion, item.failureTrigger].join(' ')))) throw new Error('Fact Pack contains legacy or assurance-validation roadmap language.');

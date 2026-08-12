@@ -192,10 +192,16 @@ const denseFindingReviews: ComprehensiveReviewerInput['findingReviews'] = denseF
   agreedDueDate: finding.targetPeriod
 }));
 
+const denseDecisionTitles = [
+  'Approve the supplier-payment control reset and named financial accountability.',
+  'Decide the fixed-cycle detection and exception-monitoring investment.',
+  'Mandate evidence preservation and closure discipline for high-priority fraud risks.'
+];
+
 const denseLeadershipDecisions: LeadershipDecision[] = [1, 2, 3].map((index) => ({
   ...leadershipDecisions[0],
   id: `DEC-DENSE-${index}`,
-  decisionRequired: `Approve dense remediation decision ${index}.`,
+  decisionRequired: denseDecisionTitles[index - 1],
   linkedFindingIds: [denseFindings[index - 1].id],
   linkedRiskIds: [denseRisks[index - 1].id],
   evidenceRefs: [denseEvidenceChecklist[index - 1].evidenceRef]
@@ -203,14 +209,14 @@ const denseLeadershipDecisions: LeadershipDecision[] = [1, 2, 3].map((index) => 
 
 const denseManagementDecisions: ComprehensiveReviewerInput['managementDecisions'] = [1, 2, 3].map((index) => ({
   id: `MD-DENSE-${index}`,
-  decision: `Approve the dense remediation investment and ownership decision ${index}.`,
-  rationale: `The priority condition requires a bounded decision and evidence-backed delivery plan ${index}.`,
+  decision: denseDecisionTitles[index - 1],
+  rationale: 'The priority condition requires a bounded decision and evidence-backed delivery plan.',
   linkedFindingIds: [denseFindings[index - 1].id],
   linkedRiskIds: [denseRisks[index - 1].id],
   owner: denseFindings[index - 1].accountableOwner,
   targetDate: denseFindings[index - 1].targetPeriod,
   status: 'OPEN',
-  boardDecision: `Board to approve option ${index} and review evidence at the next checkpoint.`
+  boardDecision: 'Board to approve the selected option and review evidence at the next checkpoint.'
 }));
 
 const denseAnalytical: ComprehensiveAnalyticalUniverse = {

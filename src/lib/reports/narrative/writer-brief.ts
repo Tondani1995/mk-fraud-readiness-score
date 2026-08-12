@@ -10,6 +10,7 @@ export interface NarrativeWriterBrief {
   organisation: { name: string; sectorFacts: string[] };
   assessmentBasis: string;
   assuranceBoundary: string;
+  highReadinessSparseNarrativeReason?: string;
   assessment: {
     score: number | null;
     maturity: string | null;
@@ -126,6 +127,21 @@ export interface NarrativeWriterBrief {
     successMeasure: string;
     failureTrigger: string;
   }>;
+  maturationSteps: Array<{
+    maturationRef: string;
+    linkedFindingRef: string;
+    linkedControlRef: string;
+    semanticFamilyLabel: string;
+    phase: string;
+    phaseWindow: string;
+    managementOutcome: string;
+    priorityActivity: string;
+    accountableExecutive: string;
+    processOwner: string;
+    dependency: string;
+    successMeasure: string;
+    proofOfProgress: string;
+  }>;
   proofOfProgress: Array<{
     factRef: string;
     requirement: string;
@@ -148,6 +164,7 @@ export interface NarrativeWriterBrief {
     controlOrder: string[];
     decisionOrder: string[];
     roadmapOrder: string[];
+    maturationOrder: string[];
     narrativeBounds: NarrativeFactPack['narrativeBounds'];
     requiredConclusion: string;
   };
@@ -259,6 +276,7 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
   const controls = ordered(pack.controls, plan.controlOrder);
   const decisions = ordered(pack.decisions, plan.decisionOrder);
   const roadmap = ordered(pack.roadmap, plan.roadmapOrder);
+  const maturationSteps = plan.maturationOrder.map((ref) => pack.maturationSteps.find((item) => item.maturationRef === ref)).filter((item): item is NarrativeFactPack['maturationSteps'][number] => Boolean(item));
   const selectedFindingRefs = new Set(findings.map((item) => item.factRef));
   const selectedScenarioRefs = new Set(scenarios.map((item) => item.factRef));
   const selectedControlRefs = new Set(controls.map((item) => item.factRef));
@@ -271,6 +289,7 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
     organisation: { name: pack.organisation.name, sectorFacts: pack.organisation.sectorFacts.filter(Boolean) },
     assessmentBasis: 'The assessment is based on management’s recorded self-assessment and deterministic scoring inputs.',
     assuranceBoundary: 'The assessment does not independently verify operating effectiveness, evidence or every in-scope control.',
+    highReadinessSparseNarrativeReason: pack.highReadinessSparseNarrativeReason,
     assessment: {
       score: pack.assessment.score,
       maturity: pack.assessment.maturity,
@@ -314,8 +333,9 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
     controls: controls.map(({ factRef, primarySemanticFamily, objective, currentState, targetState, accountableExecutive, processOwner, population, frequency, proofRetained, independentCheck, escalationTrigger, sla, effectivenessMeasure, failureResponse, dependencies, linkedFindingRefs }) => ({ factRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), objective: cleanWriterText(objective), currentState: cleanControlState(currentState), targetState: cleanWriterText(targetState), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), population: cleanWriterText(population), frequency: cleanWriterText(frequency), proofRetained: proofRetained.map(cleanWriterText), independentCheck: cleanWriterText(independentCheck), escalationTrigger: cleanWriterText(escalationTrigger), sla: cleanWriterText(sla), effectivenessMeasure: cleanWriterText(effectivenessMeasure), failureResponse: cleanWriterText(failureResponse), dependencies: dependencies.map(cleanWriterText), linkedFindingRefs })),
     decisions: decisions.map(({ factRef, decisionSemanticFamily, question, options, recommendedRoute, rationale, owner, targetDate, consequenceOfDelay, linkedFindingRefs }) => ({ factRef, decisionFamilyLabel: label(decisionLabels, decisionSemanticFamily), question: cleanWriterText(question), options: options.map((option) => ({ option: cleanWriterText(option.option), cost: cleanWriterText(option.cost), benefit: cleanWriterText(option.benefit), tradeOff: cleanWriterText(option.tradeOff) })), recommendedRoute: cleanWriterText(recommendedRoute), rationale: cleanWriterText(rationale), owner: cleanWriterText(owner), targetDate: cleanWriterText(targetDate), consequenceOfDelay: cleanWriterText(consequenceOfDelay), linkedFindingRefs })),
     roadmap: roadmap.map(({ factRef, sourceFindingRef, primarySemanticFamily, phase, managementOutcome, priorityWork, accountableExecutive, processOwner, targetPeriod, dependencies, proofOfCompletion, successMeasure, failureTrigger }) => ({ factRef, sourceFindingRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), phase, managementOutcome: cleanWriterText(managementOutcome), priorityWork: cleanWriterText(priorityWork), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), targetPeriod, dependencies: dependencies.map(cleanWriterText), proofOfCompletion: cleanWriterText(proofOfCompletion), successMeasure: cleanWriterText(successMeasure), failureTrigger: cleanWriterText(failureTrigger) })),
+    maturationSteps: maturationSteps.map(({ maturationRef, linkedFindingRef, linkedControlRef, semanticFamily, phase, phaseWindow, managementOutcome, priorityActivity, accountableExecutive, processOwner, dependency, successMeasure, proofOfProgress }) => ({ maturationRef, linkedFindingRef, linkedControlRef, semanticFamilyLabel: label(familyLabels, semanticFamily), phase, phaseWindow, managementOutcome: cleanWriterText(managementOutcome), priorityActivity: cleanWriterText(priorityActivity), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), dependency: cleanWriterText(dependency), successMeasure: cleanWriterText(successMeasure), proofOfProgress: cleanWriterText(proofOfProgress) })),
     proofOfProgress: proofOfProgress.map(({ factRef, requirement, owner, whyItMatters, expectedRecency, requiredPopulation, acceptableExamples }) => ({ factRef, requirement: cleanWriterText(requirement), owner: cleanWriterText(owner), whyItMatters: cleanWriterText(whyItMatters), expectedRecency: cleanWriterText(expectedRecency), requiredPopulation: cleanWriterText(requiredPopulation), acceptableExamples: acceptableExamples.map(cleanWriterText) })),
-    narrativeBounds: { themeCount: themes.length, findingCount: findings.length, scenarioCount: scenarios.length, controlCount: controls.length, decisionCount: decisions.length, managementResponseCount: roadmap.length },
+    narrativeBounds: { themeCount: themes.length, findingCount: findings.length, scenarioCount: scenarios.length, controlCount: controls.length, decisionCount: decisions.length, managementResponseCount: roadmap.length, maturationCount: maturationSteps.length },
     standaloneFindingReasons: pack.standaloneFindingReasons,
     prohibitedClaims: [
       'Do not present operating effectiveness as independently established.',
@@ -333,7 +353,8 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
       controlOrder: controls.map((item) => item.factRef),
       decisionOrder: decisions.map((item) => item.factRef),
       roadmapOrder: roadmap.map((item) => item.factRef),
-      narrativeBounds: { themeCount: themes.length, findingCount: findings.length, scenarioCount: scenarios.length, controlCount: controls.length, decisionCount: decisions.length, managementResponseCount: roadmap.length },
+      maturationOrder: maturationSteps.map((item) => item.maturationRef),
+      narrativeBounds: { themeCount: themes.length, findingCount: findings.length, scenarioCount: scenarios.length, controlCount: controls.length, decisionCount: decisions.length, managementResponseCount: roadmap.length, maturationCount: maturationSteps.length },
       requiredConclusion: plan.requiredConclusion
     }
   };
@@ -349,5 +370,7 @@ export function assertNarrativeWriterBrief(brief: NarrativeWriterBrief): void {
   if (brief.scenarios.some((scenario) => !scenario.scenarioFamilyLabel || scenario.linkedFindingRefs.length === 0 || !scenario.currentControlWeakness || !scenario.requiredControlResponse)) throw new Error('Narrative Writer Brief contains an incomplete scenario.');
   if (brief.risks.some((risk) => !risk.title || !risk.cause || !risk.riskEvent || !risk.qualitativeConsequence || !risk.owner || !risk.targetPeriod)) throw new Error('Narrative Writer Brief contains an incomplete risk.');
   if (brief.proofOfProgress.some((proof) => !proof.requirement || !proof.owner || !proof.whyItMatters || !proof.expectedRecency || !proof.requiredPopulation || proof.acceptableExamples.length === 0 || /to be confirmed|Evidence mapped to ,|placeholder|TBD/i.test(JSON.stringify(proof)))) throw new Error('Narrative Writer Brief contains low-quality proof guidance.');
+  if (brief.productTier === 'essential' && brief.maturationSteps.length !== 0) throw new Error('Essential Writer Brief must not contain maturation steps.');
+  if (brief.maturationSteps.some((step) => !step.maturationRef || !step.linkedFindingRef || !step.linkedControlRef || !step.semanticFamilyLabel || !step.phase || !step.phaseWindow || !step.managementOutcome || !step.priorityActivity || !step.accountableExecutive || !step.processOwner || !step.dependency || !step.successMeasure || !step.proofOfProgress)) throw new Error('Writer Brief contains an incomplete maturation step.');
   if ((payload.match(/not independently verified/gi) ?? []).length > 1) throw new Error('Narrative Writer Brief repeats the assurance boundary inside its payload.');
 }
