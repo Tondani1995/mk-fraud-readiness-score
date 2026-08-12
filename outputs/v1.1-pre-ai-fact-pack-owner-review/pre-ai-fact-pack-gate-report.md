@@ -1,7 +1,7 @@
 # MK FRAUD READINESS v1.1 PRE-AI FACT PACK GATE
 
 Status: **PASS**
-Checked: 2026-08-12T19:51:32.808Z
+Checked: 2026-08-12T19:52:26.106Z
 
 | Gate | Status | Detail |
 |---|---|---|
@@ -21,7 +21,7 @@ This gate runs before any AI manuscript spend. It does not configure or call an 
 # MK FRAUD READINESS v1.1 PRE-AI FACT PACK GATE
 
 Status: **PASS**
-Checked: 2026-08-12T19:51:32.809Z
+Checked: 2026-08-12T19:52:26.107Z
 
 | Gate | Status | Detail |
 |---|---|---|

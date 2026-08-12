@@ -30,10 +30,10 @@
     "essential": "MKORD-2026-22FF6B69",
     "comprehensive": "MKORD-2026-7FBBEE23"
   },
-  "generatedFromCommit": "2cf9ada24a781d9c8c7577737f794226f50c93b8",
+  "generatedFromCommit": "86d6d8a76e805ec57e652a3caa1723e646c0fbad",
   "generatedFiles": {
     "essential-fact-pack.json": {
-      "sha256": "d82b6aa52af60053b70517f0a918966282133af7834c24148b98619f25bd9d5a",
+      "sha256": "e322809474528a7fb080855972a4a4c4aec9631493d23d49c08a1fc19921d6ac",
       "bytes": 196471
     },
     "essential-story-plan.json": {
@@ -41,7 +41,7 @@
       "bytes": 5158
     },
     "comprehensive-fact-pack.json": {
-      "sha256": "4014da37a801555cf6b22e113871880a7de99be7d60dd008d2b77dbe37074896",
+      "sha256": "90afe74e53301e6721cd3daec15846bf16ce43ad760efdcfc91fce8507ef28c4",
       "bytes": 279286
     },
     "comprehensive-story-plan.json": {
@@ -49,7 +49,7 @@
       "bytes": 6670
     },
     "pre-ai-fact-pack-gate-report.md": {
-      "sha256": "3ca50ad4761d6dff6af67f9008c37fc6af9d643fc04a81a7a04b37c6fe11a88d",
+      "sha256": "2d6931c70299ce3f763a7545b1e2bd761619cf7cf9e27809cfe0e75e43c0d461",
       "bytes": 2411
     }
   }
