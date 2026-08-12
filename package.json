@@ -13,6 +13,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/test-stage1-foundations.mjs",
+    "quality:gates": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/quality-gates.mjs",
     "consolidation:test-routes": "node scripts/consolidation-route-tests.mjs",
     "consolidation:test-respondent": "node scripts/consolidation-local-respondent-integration.mjs",
     "phase3:smoke": "node scripts/phase3-smoke-check.mjs",
