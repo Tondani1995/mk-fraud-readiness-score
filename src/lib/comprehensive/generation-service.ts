@@ -6,7 +6,6 @@ import { buildComprehensiveDeliveryModel, fromAssembledReportData, renderBoardRe
 import { buildComprehensiveRegisterWorkbookBytes } from '@/lib/reports/comprehensive/workbook-builder';
 import { registerComprehensivePackageAtomically, type AtomicPackageUpload } from './package-registration';
 import { getEngagementByOrderReference, canReadComprehensiveEngagement } from './engagement-service';
-import { loadComprehensiveReviewerInput } from './review-record-service';
 import type { AdminRole } from '@/lib/types/domain';
 
 const PDF_MIME = 'application/pdf';
@@ -29,7 +28,7 @@ export type ComprehensiveGenerationResult =
   | { ok: false; reason: 'forbidden' | 'engagement_not_found' | 'review_incomplete' | 'payment_not_verified' | 'presentation_upload_required' | 'generation_failed'; message: string; engagementId?: string; reportId?: string; artifactVersion?: number };
 
 /**
- * Real production boundary: persisted assessment -> persisted reviewer input -> deterministic
+ * Real production boundary: persisted assessment -> deterministic analytical universe ->
  * Comprehensive model -> actual PDF/XLSX/PDF/PDF bytes -> private storage -> immutable metadata.
  * The presentation is deliberately a reviewer-uploaded approved template because this repository
  * has no safe PPTX authoring dependency; closure remains blocked until that exact artefact exists.
@@ -43,22 +42,16 @@ export async function generateComprehensivePackage(input: {
   const engagement = await getEngagementByOrderReference(input.orderReference);
   if (!engagement) return { ok: false, reason: 'engagement_not_found', message: 'No Comprehensive engagement exists for that order.' };
 
-  let reviewerInput;
-  try {
-    reviewerInput = await loadComprehensiveReviewerInput(engagement.id);
-  } catch (error) {
-    return { ok: false, reason: 'review_incomplete', message: error instanceof Error ? error.message : 'Mandatory human review records are incomplete.' };
-  }
   if (!input.executivePresentation) {
-    return { ok: false, reason: 'presentation_upload_required', message: 'Generation is fail-closed until the reviewer uploads the approved executive presentation template.', engagementId: engagement.id };
+    return { ok: false, reason: 'presentation_upload_required', message: 'Generation requires the approved executive presentation template.', engagementId: engagement.id };
   }
 
   try {
     const assembled = await assembleReportData(input.orderReference);
-    const model = await fromAssembledReportData(assembled, reviewerInput);
+    const model = await fromAssembledReportData(assembled);
     // Explicitly build the bounded projection before rendering so the production path cannot
     // accidentally render an unbounded analytical universe.
-    buildComprehensiveDeliveryModel(model.analytical, model.reviewerInput);
+    buildComprehensiveDeliveryModel(model.analytical);
     const reportPdf = await renderHtmlToPdfBuffer(renderComprehensiveReportHtml(model));
     const boardPdf = await renderHtmlToPdfBuffer(renderBoardReadoutHtml(model));
     const workshopPdf = await renderHtmlToPdfBuffer(renderWorkshopMaterialHtml(model));

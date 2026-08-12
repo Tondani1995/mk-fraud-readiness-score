@@ -10,7 +10,7 @@ await fs.mkdir(outputDir, { recursive: true });
 const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'denseWeakAssessment';
 const fixture = comprehensiveFixtures[fixtureKey];
 if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
-const model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
+const model = buildComprehensiveDeliveryModel(fixture.analytical);
 
 const deliverables = [
   ['comprehensive-main-report.pdf', renderComprehensiveReportHtml(model), 'MK Fraud Readiness · Comprehensive · Confidential'],
@@ -30,8 +30,7 @@ console.log(JSON.stringify({
   model: {
     findings: model.findings.length,
     risks: model.riskRegister.length,
-    evidenceItems: model.evidenceRequestPack.length,
-    validatedSupported: model.validationSummary.validatedSupported,
-    unresolved: model.validationSummary.unresolved
+    proofRequirements: model.proofRequirements.length,
+    controlBlueprints: model.controlImprovements.length
   }
 }, null, 2));

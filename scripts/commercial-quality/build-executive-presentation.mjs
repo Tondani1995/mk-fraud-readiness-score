@@ -4,8 +4,6 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildComprehensiveDeliveryModel, fromAssembledReportData, buildExecutivePresentationModel, buildComprehensiveProjection } from '../../src/lib/reports/comprehensive/index.ts';
 import { assembleReportData } from '../../src/lib/reports/assemble-report-data.ts';
-import { getEngagementByOrderReference } from '../../src/lib/comprehensive/engagement-service.ts';
-import { loadComprehensiveReviewerInput } from '../../src/lib/comprehensive/review-record-service.ts';
 import { MK_TOKENS } from '../../src/lib/reports/design/tokens.ts';
 
 const runtimeRoot = process.env.CODEX_NODE_MODULES ?? '/Users/tondani/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
@@ -19,16 +17,13 @@ const fixtureKey = orderReference ? 'persistedKestrel' : (process.env.COMPREHENS
 let model;
 let sourceLabel;
 if (orderReference) {
-  const engagement = await getEngagementByOrderReference(orderReference);
-  if (!engagement) throw new Error(`Comprehensive engagement not found for ${orderReference}`);
   const assembled = await assembleReportData(orderReference);
-  const reviewerInput = await loadComprehensiveReviewerInput(engagement.id);
-  model = await fromAssembledReportData(assembled, reviewerInput);
-  sourceLabel = `persisted Kestrel engagement ${orderReference}`;
+  model = await fromAssembledReportData(assembled);
+  sourceLabel = `persisted Kestrel assessment ${orderReference}`;
 } else {
   const fixture = comprehensiveFixtures[fixtureKey];
   if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
-  model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
+  model = buildComprehensiveDeliveryModel(fixture.analytical);
   sourceLabel = `internal reference profile ${fixtureKey}`;
 }
 const projection = buildComprehensiveProjection(model);
@@ -56,6 +51,7 @@ function publicText(value) {
     .replace(/\bAn interaction covered by the recorded control condition:\s*/gi, 'The recorded control condition is engaged through ')
     .replace(/\bAn actor exploits the recorded control condition so that\b/gi, 'A threat actor can exploit the recorded control condition when')
     .replace(/\bvalidated\b/gi, 'checked')
+    .replace(/\bnamed reviewers\b/gi, 'designated control owners')
     .replace(/\bD\d+[- ]Q\d+\b/g, 'the named question')
     .replace(/\b(?:MF|CI|RA|SC|OBS|EVID|DEC|ACT|RISK)-[A-Z0-9-]+\b/g, 'the named record');
 }
@@ -79,16 +75,6 @@ function executiveRiskText(value) {
   const raw = publicText(value);
   const words = raw.split(/\s+/).filter(Boolean);
   return words.length > 9 ? `${words.slice(0, 9).join(' ')}…` : raw;
-}
-
-function reviewerDisplayName(value) {
-  const raw = String(value ?? '').trim();
-  return /staging|uat/i.test(raw) ? 'Named review lead' : raw;
-}
-
-function reviewerDisplayRole(value) {
-  const raw = String(value ?? '').trim();
-  return !raw || /^(reviewer|approver)$/i.test(raw) ? 'Review lead' : raw.replaceAll('_', ' ');
 }
 
 function line(slide, left, top, width, color = C.line, widthPx = 1) {
@@ -136,8 +122,8 @@ const slides = [];
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
   text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
   text(slide, 'The target-state blueprint turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
-  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
+  text(slide, `${model.analytical.organisationName}\nComprehensive blueprint · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, "Based on management's recorded Fraud Readiness assessment responses", { left: 90, top: 590, width: 800, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
   notes(slide);
   slides.push(slide);
@@ -161,8 +147,8 @@ function newSlide() {
   shape(slide, 'rect', { left: 0, top: 0, width: 22, height: H }, C.brass, { style: 'solid', fill: C.brass, width: 0 });
   text(slide, 'MK FRAUD READINESS', { left: 88, top: 92, width: 420, height: 30 }, { fontSize: 16, bold: true, color: C.light });
   text(slide, 'The target-state blueprint turns a diagnostic into a management decision record.', { left: 88, top: 188, width: 900, height: 150 }, { fontSize: 50, bold: true, color: C.white });
-  text(slide, `${model.analytical.organisationName}\nComprehensive review · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
-  text(slide, `Named reviewer: ${reviewerDisplayName(model.reviewerInput.reviewer.name)}`, { left: 90, top: 590, width: 700, height: 28 }, { fontSize: 16, color: C.light });
+  text(slide, `${model.analytical.organisationName}\nComprehensive blueprint · strategic design engagement`, { left: 90, top: 430, width: 640, height: 80 }, { fontSize: 22, color: C.light });
+  text(slide, "Based on management's recorded Fraud Readiness assessment responses", { left: 90, top: 590, width: 800, height: 28 }, { fontSize: 16, color: C.light });
   text(slide, 'CONFIDENTIAL · DECISION SUPPORT', { left: 930, top: 600, width: 250, height: 24 }, { fontSize: 13, bold: true, color: C.brass, alignment: 'right' });
   notes(slide);
 }
@@ -172,49 +158,49 @@ function newSlide() {
   const slide = newSlide(); header(slide, 2, 'The recorded position is developing; reliance is narrower than the score.', 'Separate the deterministic result from the information boundary.');
   addMetric(slide, 72, 208, 240, 'Reported readiness', `${Math.round(model.analytical.score.overallScore ?? 0)} / 100`, model.analytical.score.finalMaturity ?? 'Not scored', C.navy);
   addMetric(slide, 334, 208, 240, 'Exposure position', `${Math.round(model.analytical.score.exposureScore ?? 0)} / 100`, model.analytical.score.exposureBand ?? 'Not assessed', C.red);
-  addMetric(slide, 596, 208, 240, 'Review notes in scope', `${model.validationSummary.validatedSupported}`, `of ${model.validationSummary.totalEvidenceItems} items`, C.green);
-  addMetric(slide, 858, 208, 240, 'Open information items', `${model.validationSummary.unresolved}`, 'items requiring closure', C.brass);
+  addMetric(slide, 596, 208, 240, 'Material findings', `${model.findings.length}`, 'priority diagnosis', C.green);
+  addMetric(slide, 858, 208, 240, 'Target controls', `${model.controlImprovements.length}`, 'blueprints to build', C.brass);
   shape(slide, 'roundRect', { left: 72, top: 390, width: 1026, height: 130 }, C.pale, { style: 'solid', fill: C.line, width: 1 });
   text(slide, 'Management reading', { left: 98, top: 416, width: 230, height: 28 }, { fontSize: 16, bold: true, color: C.brass });
-  text(slide, 'The score is the locked recorded result. Human review changes the confidence, scope and decision implications around that result; it does not silently recalculate it.', { left: 98, top: 454, width: 940, height: 54 }, { fontSize: 20, color: C.navy });
+  text(slide, "The score is the locked recorded result. The blueprint translates management's recorded responses into diagnosis, decisions and target-state control design.", { left: 98, top: 454, width: 940, height: 54 }, { fontSize: 20, color: C.navy });
   notes(slide);
 }
 
-// 3 — information ledger
+// 3 — diagnosis and exposure
 {
-  const slide = newSlide(); header(slide, 3, 'The information boundary is visible before decisions are made.', 'The register makes scope, review notes and open items visible in one view.');
+  const slide = newSlide(); header(slide, 3, 'Diagnosis shows where exposure concentrates.', 'Material findings, risks and control blueprints are the decision-useful analytical universe.');
   const counts = [
-    ['Review note — stated scope', model.validationSummary.validatedSupported, C.green],
-    ['Management review record', model.validationSummary.evidenceReviewed, C.blue],
-    ['Further basis required', model.validationSummary.notValidatedInsufficient, C.red],
-    ['Recorded / open', model.validationSummary.selfReported, C.brass]
+    ['Material findings', model.findings.length, C.green],
+    ['Priority risks', model.riskRegister.length, C.blue],
+    ['Scenarios', model.scenarios.length, C.red],
+    ['Target controls', model.controlImprovements.length, C.brass]
   ];
   let y = 222;
   for (const [label, value, color] of counts) {
     text(slide, label, { left: 88, top: y, width: 300, height: 24 }, { fontSize: 18, bold: true, color: C.navy });
     shape(slide, 'rect', { left: 420, top: y + 3, width: 520, height: 24 }, C.line, { style: 'solid', fill: C.line, width: 0 });
-    shape(slide, 'rect', { left: 420, top: y + 3, width: Math.max(18, 520 * Number(value) / Math.max(1, model.validationSummary.totalEvidenceItems)), height: 24 }, color, { style: 'solid', fill: color, width: 0 });
+    shape(slide, 'rect', { left: 420, top: y + 3, width: Math.max(18, 520 * Number(value) / Math.max(1, model.findings.length + model.riskRegister.length + model.scenarios.length + model.controlImprovements.length)), height: 24 }, color, { style: 'solid', fill: color, width: 0 });
     text(slide, String(value), { left: 965, top: y - 2, width: 80, height: 30 }, { fontSize: 22, bold: true, color: C.navy, alignment: 'right' });
     y += 62;
   }
   shape(slide, 'roundRect', { left: 88, top: 500, width: 965, height: 92 }, C.white, { style: 'solid', fill: C.line, width: 1 });
-  text(slide, 'What the board can rely on', { left: 112, top: 522, width: 310, height: 26 }, { fontSize: 16, bold: true, color: C.brass });
-  text(slide, 'Only the named information scope. An open item limits reliance; it does not mean misconduct occurred.', { left: 112, top: 556, width: 870, height: 32 }, { fontSize: 18, color: C.ink });
+  text(slide, 'Blueprint reading rule', { left: 112, top: 522, width: 310, height: 26 }, { fontSize: 16, bold: true, color: C.brass });
+  text(slide, 'The deterministic engine decides; bounded narrative explains. The target state is a management design, not a claim that operating effectiveness is already established.', { left: 112, top: 556, width: 870, height: 32 }, { fontSize: 18, color: C.ink });
   notes(slide);
 }
 
-// 4 — evidence change
+// 4 — theme interaction
 {
-  const slide = newSlide(); header(slide, 4, 'Management review adds context where the assessment is too broad.', 'Review notes narrow the conversation to the population and records actually supplied.');
-  const changes = model.changesAfterEvidenceReview.slice(0, 4).map((change) => ({ ...change, subject: /^(finding|risk|control_design|decision|management_action):/i.test(change.subject) ? change.subject.split(':', 1)[0].replaceAll('_', ' ') : change.subject }));
+  const slide = newSlide(); header(slide, 4, 'The themes interact across the control environment.', 'Use interaction patterns to prioritise target-state design.');
+  const changes = model.contradictions.slice(0, 4);
   changes.forEach((change, index) => {
     const y = 208 + index * 94;
     shape(slide, 'rect', { left: 88, top: y, width: 8, height: 68 }, index % 2 === 0 ? C.green : C.brass, { style: 'solid', fill: index % 2 === 0 ? C.green : C.brass, width: 0 });
-    text(slide, change.subject, { left: 116, top: y, width: 330, height: 28 }, { fontSize: 18, bold: true, color: C.navy });
-    text(slide, `Recorded: ${change.before}`, { left: 470, top: y, width: 310, height: 28 }, { fontSize: 16, color: C.muted });
-    text(slide, `Review note: ${executiveReviewText(change.after)}`, { left: 800, top: y, width: 270, height: 52 }, { fontSize: 15, color: C.ink });
+    text(slide, change.title, { left: 116, top: y, width: 330, height: 28 }, { fontSize: 18, bold: true, color: C.navy });
+    text(slide, `Why it matters: ${executiveReviewText(change.whyItMatters)}`, { left: 470, top: y, width: 310, height: 28 }, { fontSize: 16, color: C.muted });
+    text(slide, `Leadership response: ${executiveReviewText(change.whatLeadershipShouldVerify)}`, { left: 800, top: y, width: 270, height: 52 }, { fontSize: 15, color: C.ink });
   });
-  if (!changes.length) addBullets(slide, ['No reviewer adjustment was supplied for this fixture.', 'The recorded position remains self-reported.'], 96, 240, 900);
+  if (!changes.length) addBullets(slide, ['No cross-domain interaction is currently recorded.', 'Use the complete analytical register for the underlying question traces.'], 96, 240, 900);
   notes(slide);
 }
 
@@ -251,9 +237,9 @@ function newSlide() {
 {
   const slide = newSlide(); header(slide, 7, 'Management must choose how to close the access-review gap.', 'Options and trade-offs make the decision explicit before the action plan is agreed.');
   const decision = model.leadershipDecisions[0];
-  const review = decision ? model.decisionReviews.find((item) => item.decisionId === decision.id) : undefined;
+  const decisionOptions = decision ? model.decisionOptionSets.find((item) => item.decisionId === decision.id) : undefined;
   text(slide, decision?.decisionRequired ?? 'Confirm the priority control and evidence decision.', { left: 88, top: 212, width: 980, height: 52 }, { fontSize: 24, bold: true, color: C.navy });
-  const options = review?.optionDetails?.slice(0, 3) ?? [];
+  const options = decisionOptions?.optionDetails?.slice(0, 3) ?? [];
   options.forEach((option, index) => {
     const left = 88 + index * 335;
     shape(slide, 'roundRect', { left, top: 312, width: 295, height: 160 }, C.white, { style: 'solid', fill: C.line, width: 1 });
@@ -262,9 +248,9 @@ function newSlide() {
     text(slide, `Cost: ${publicText(option.cost)}\nBenefit: ${publicText(option.benefit)}\nTrade-off: ${publicText(option.tradeOff)}\n${option.rejectionReason ? `Rejection reason: ${publicText(option.rejectionReason)}` : 'Recommended option'}`, { left: left + 20, top: 422, width: 250, height: 66 }, { fontSize: 12, color: C.muted });
   });
   shape(slide, 'roundRect', { left: 88, top: 522, width: 965, height: 74 }, C.amberBg, { style: 'solid', fill: C.brassSoft, width: 1 });
-  text(slide, `MK recommendation: ${executiveReviewText(review?.reviewerRecommendation ?? decision?.recommendedDecision, 18)}`, { left: 112, top: 532, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
-  text(slide, `Recommendation rationale: ${executiveReviewText(review?.recommendationRationale, 18)}`, { left: 112, top: 552, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
-  text(slide, `Owner: ${publicText(review?.owner ?? decision?.accountableExecutive)} · Deadline: ${publicText(review?.targetDate ?? decision?.deadline)}`, { left: 112, top: 572, width: 910, height: 18 }, { fontSize: 13, color: C.navy });
+  text(slide, `Deterministic recommendation: ${executiveReviewText(decisionOptions?.deterministicRecommendation ?? decision?.recommendedDecision, 18)}`, { left: 112, top: 532, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
+  text(slide, `Recommendation rationale: ${executiveReviewText(decisionOptions?.recommendationRationale, 18)}`, { left: 112, top: 552, width: 910, height: 20 }, { fontSize: 13, color: C.navy });
+  text(slide, `Owner: ${publicText(decisionOptions?.owner ?? decision?.accountableExecutive)} · Target period: ${publicText(decisionOptions?.targetPeriod ?? decision?.targetPeriod)}`, { left: 112, top: 572, width: 910, height: 18 }, { fontSize: 13, color: C.navy });
   notes(slide);
 }
 
@@ -302,11 +288,11 @@ function newSlide() {
 
 // 10 — close
 {
-  const slide = newSlide(); header(slide, 10, 'Next checkpoint: review evidence closure and overdue action ageing.', 'The deliverable is complete when the decision record and proof of operation are both maintained.');
+  const slide = newSlide(); header(slide, 10, 'Next checkpoint: review proof, measures and overdue action ageing.', 'The blueprint is useful when the decision record and operating measures are maintained.');
   shape(slide, 'roundRect', { left: 88, top: 228, width: 950, height: 220 }, C.navy, { style: 'solid', fill: C.navy, width: 0 });
   text(slide, 'Bring four things to the next review', { left: 122, top: 260, width: 500, height: 32 }, { fontSize: 23, bold: true, color: C.brass });
-  addBullets(slide, ['Completed evidence items with a clear scope statement', 'Open action ageing by accountable owner', 'Effectiveness measures for the highest-priority controls', 'Explicit residual-risk and escalation decisions'], 124, 312, 800, 38, C.white);
-  text(slide, 'The board should see the decision, the owner, the date and the proof - not a longer register.', { left: 88, top: 505, width: 950, height: 54 }, { fontSize: 24, bold: true, color: C.navy });
+  addBullets(slide, ['Proof requirements and retained control records', 'Open action ageing by accountable owner', 'Effectiveness measures for the highest-priority controls', 'Explicit residual-risk and escalation decisions'], 124, 312, 800, 38, C.white);
+  text(slide, 'The board should see the decision, the owner, the target period, the measure and the response - not a longer register.', { left: 88, top: 505, width: 950, height: 54 }, { fontSize: 24, bold: true, color: C.navy });
   notes(slide);
 }
 

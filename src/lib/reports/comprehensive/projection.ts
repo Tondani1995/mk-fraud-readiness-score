@@ -1,5 +1,5 @@
 import type { ControlImprovementEntry, PlausibleScenario, RiskRegisterEntry, RoadmapAction } from '../evidence-model/types';
-import type { ComprehensiveDeliveryModel, ComprehensiveFindingView, EvidenceRequestPackItem } from './types';
+import type { ComprehensiveDeliveryModel, ComprehensiveFindingView, ProofRequirement } from './types';
 
 export const COMPREHENSIVE_L2_LIMITS = {
   // L2 is the executive storyline; the annotated register remains the complete L1 universe.
@@ -19,7 +19,7 @@ export interface ComprehensiveProjection {
   scenarios: PlausibleScenario[];
   controlActions: ControlImprovementEntry[];
   roadmapActions: RoadmapAction[];
-  evidenceItems: EvidenceRequestPackItem[];
+  evidenceItems: ProofRequirement[];
   sourceCounts: {
     findings: number;
     risks: number;
@@ -111,8 +111,8 @@ export function buildComprehensiveProjection(model: ComprehensiveDeliveryModel):
   const controlActions = sortControls(model.controlImprovements, findings);
   const roadmapCandidates = sortRoadmap(model.roadmapActions, risks, findings);
   const roadmapActions = selectDependencyClosedRoadmap(roadmapCandidates, COMPREHENSIVE_L2_LIMITS.roadmapActions);
-  const evidenceItems = [...model.evidenceRequestPack]
-    .sort((a, b) => ({ HIGH: 3, MEDIUM: 2, LOW: 1 }[b.priority] - { HIGH: 3, MEDIUM: 2, LOW: 1 }[a.priority]) || a.evidenceRef.localeCompare(b.evidenceRef))
+  const evidenceItems = [...model.proofRequirements]
+    .sort((a, b) => ({ HIGH: 3, MEDIUM: 2, LOW: 1 }[b.priority] - { HIGH: 3, MEDIUM: 2, LOW: 1 }[a.priority]) || a.proofRef.localeCompare(b.proofRef))
     .slice(0, COMPREHENSIVE_L2_LIMITS.evidenceItems);
   return {
     findings: findings.slice(0, COMPREHENSIVE_L2_LIMITS.findings),
@@ -127,7 +127,7 @@ export function buildComprehensiveProjection(model: ComprehensiveDeliveryModel):
       scenarios: model.scenarios.length,
       controlActions: model.controlImprovements.length,
       roadmapActions: model.roadmapActions.length,
-      evidenceItems: model.evidenceRequestPack.length
+      evidenceItems: model.proofRequirements.length
     }
   };
 }

@@ -2,13 +2,13 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/2wzmwp",
-    "id": "2wzmwp",
+    "aid": "sl/bjy8q9",
+    "id": "bjy8q9",
     "slide": 7,
-    "layoutId": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
     "masterLayoutName": "Master",
     "backgroundColor": "#FBF9F5",
     "frame": {
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/xcja1g3q",
+      "aid": "sh/3utczaho",
       "id": "1",
       "bbox": [
         72,
@@ -125,7 +125,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/a9sb61kz",
+      "aid": "sh/4v2d8fy9",
       "id": "2",
       "bbox": [
         72,
@@ -190,7 +190,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ba1sz6lk",
+      "aid": "sh/pwbu1kzu",
       "id": "3",
       "bbox": [
         72,
@@ -248,7 +248,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/kfutcv2h",
+      "aid": "sh/qxkvapgz",
       "id": "4",
       "bbox": [
         72,
@@ -264,7 +264,7 @@
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/lg3a5032",
+      "aid": "sh/rytc3uhk",
       "id": "5",
       "bbox": [
         72,
@@ -322,7 +322,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ydcbalkb",
+      "aid": "sh/cz2dczy5",
       "id": "6",
       "bbox": [
         1135,
@@ -382,7 +382,7 @@
       "order": 7,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/zels3qlw",
+      "aid": "sh/d0be5kzq",
       "id": "7",
       "bbox": [
         88,
@@ -447,7 +447,7 @@
       "order": 8,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/83utgv2d",
+      "aid": "sh/61gvylgv",
       "id": "8",
       "bbox": [
         88,
@@ -464,7 +464,7 @@
       "order": 9,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/t43u903y",
+      "aid": "sh/72pcrqhg",
       "id": "9",
       "bbox": [
         108,
@@ -525,7 +525,7 @@
       "order": 10,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/po72hg36",
+      "aid": "sh/7ypgza9c",
       "id": "10",
       "bbox": [
         108,
@@ -534,8 +534,8 @@
         44
       ],
       "geometry": "rect",
-      "text": "Option A - retain accountability with the Finance Director (rejected: design and adjudication would sit with one executive)",
-      "textPreview": "Option A - retain accountability with the Finance Director (rejected: design and adjudication would sit with one executive)",
+      "text": "Option A — deliver through existing internal ownership",
+      "textPreview": "Option A — deliver through existing internal ownership",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -551,38 +551,22 @@
         }
       },
       "textLayout": {
-        "lineCount": 6,
+        "lineCount": 2,
         "lines": [
           {
             "index": 1,
-            "text": "Option A - retain"
+            "text": "Option A — deliver through"
           },
           {
             "index": 2,
-            "text": "accountability with the"
-          },
-          {
-            "index": 3,
-            "text": "Finance Director (rejected:"
-          },
-          {
-            "index": 4,
-            "text": "design and adjudication"
-          },
-          {
-            "index": 5,
-            "text": "would sit with one"
-          },
-          {
-            "index": 6,
-            "text": "executive)"
+            "text": "existing internal ownership"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Option A - retain accountability with the Finance Director (rejected: design and adjudication would sit with one executive)",
+          "text": "Option A — deliver through existing internal ownership",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -591,7 +575,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Option A - retain accountability with the Finance Director (rejected: design and adjudication would sit with one executive)",
+              "text": "Option A — deliver through existing internal ownership",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -606,7 +590,7 @@
       "order": 11,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/one1ob21",
+      "aid": "sh/6xgfq5sr",
       "id": "11",
       "bbox": [
         108,
@@ -615,8 +599,8 @@
         66
       ],
       "geometry": "rect",
-      "text": "Cost: Cost and effort require management confirmation before approval.\nBenefit: Builds durable ownership inside the organisation.\nTrade-off: Uses internal capacity and may move more slowly where capability is immature.\nRejection reason: rejected: design and adjudication would sit with one executive",
-      "textPreview": "Cost: Cost and effort require management confirmation before approval. | Benefit: Builds durable ownership inside the organisation. | Tra...",
+      "text": "Cost: Internal capacity and management time.\nBenefit: Builds durable ownership inside the organisation.\nTrade-off: May move more slowly where capability is immature.\nRecommended option",
+      "textPreview": "Cost: Internal capacity and management time. | Benefit: Builds durable ownership inside the organisation. | Trade-off: May move more slow...",
       "resolvedFontSize": 12,
       "resolvedTextStyle": {
         "fontSize": 12,
@@ -631,15 +615,15 @@
         }
       },
       "textLayout": {
-        "lineCount": 9,
+        "lineCount": 7,
         "lines": [
           {
             "index": 1,
-            "text": "Cost: Cost and effort require management"
+            "text": "Cost: Internal capacity and management"
           },
           {
             "index": 2,
-            "text": "confirmation before approval."
+            "text": "time."
           },
           {
             "index": 3,
@@ -651,30 +635,22 @@
           },
           {
             "index": 5,
-            "text": "Trade-off: Uses internal capacity and may"
+            "text": "Trade-off: May move more slowly where"
           },
           {
             "index": 6,
-            "text": "move more slowly where capability is"
+            "text": "capability is immature."
           },
           {
             "index": 7,
-            "text": "immature."
-          },
-          {
-            "index": 8,
-            "text": "Rejection reason: rejected: design and"
-          },
-          {
-            "index": 9,
-            "text": "adjudication would sit with one executive"
+            "text": "Recommended option"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Cost: Cost and effort require management confirmation before approval.",
+          "text": "Cost: Internal capacity and management time.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -682,7 +658,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Cost: Cost and effort require management confirmation before approval.",
+              "text": "Cost: Internal capacity and management time.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -708,7 +684,7 @@
         },
         {
           "index": 3,
-          "text": "Trade-off: Uses internal capacity and may move more slowly where capability is immature.",
+          "text": "Trade-off: May move more slowly where capability is immature.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -716,7 +692,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Trade-off: Uses internal capacity and may move more slowly where capability is immature.",
+              "text": "Trade-off: May move more slowly where capability is immature.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -725,7 +701,7 @@
         },
         {
           "index": 4,
-          "text": "Rejection reason: rejected: design and adjudication would sit with one executive",
+          "text": "Recommended option",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -733,7 +709,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Rejection reason: rejected: design and adjudication would sit with one executive",
+              "text": "Recommended option",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -747,7 +723,7 @@
       "order": 12,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/3m5kf6lg",
+      "aid": "sh/t07y1kri",
       "id": "12",
       "bbox": [
         423,
@@ -764,7 +740,7 @@
       "order": 13,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/2lwjm1kv",
+      "aid": "sh/szyxsfax",
       "id": "13",
       "bbox": [
         443,
@@ -825,7 +801,7 @@
       "order": 14,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/ds72lg3i",
+      "aid": "sh/ja5gvatg",
       "id": "14",
       "bbox": [
         443,
@@ -834,8 +810,8 @@
         44
       ],
       "geometry": "rect",
-      "text": "Option B - delegate detection design to the Financial Controller with quarterly Audit and Risk Committee reporting (recommended and accepted)",
-      "textPreview": "Option B - delegate detection design to the Financial Controller with quarterly Audit and Risk Committee reporting (recommended and accep...",
+      "text": "Option B — use bounded specialist support",
+      "textPreview": "Option B — use bounded specialist support",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -851,42 +827,22 @@
         }
       },
       "textLayout": {
-        "lineCount": 7,
+        "lineCount": 2,
         "lines": [
           {
             "index": 1,
-            "text": "Option B - delegate"
+            "text": "Option B — use bounded"
           },
           {
             "index": 2,
-            "text": "detection design to the"
-          },
-          {
-            "index": 3,
-            "text": "Financial Controller with"
-          },
-          {
-            "index": 4,
-            "text": "quarterly Audit and Risk"
-          },
-          {
-            "index": 5,
-            "text": "Committee reporting"
-          },
-          {
-            "index": 6,
-            "text": "(recommended and"
-          },
-          {
-            "index": 7,
-            "text": "accepted)"
+            "text": "specialist support"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Option B - delegate detection design to the Financial Controller with quarterly Audit and Risk Committee reporting (recommended and accepted)",
+          "text": "Option B — use bounded specialist support",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -895,7 +851,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Option B - delegate detection design to the Financial Controller with quarterly Audit and Risk Committee reporting (recommended and accepted)",
+              "text": "Option B — use bounded specialist support",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -910,7 +866,7 @@
       "order": 15,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/cry1sb2x",
+      "aid": "sh/i9wfm5sv",
       "id": "15",
       "bbox": [
         443,
@@ -919,8 +875,8 @@
         66
       ],
       "geometry": "rect",
-      "text": "Cost: Cost and effort require management confirmation before approval.\nBenefit: Adds focused specialist capacity against the named priority.\nTrade-off: Introduces external cost, handover effort and a dependency on clear scope.\nRecommended option",
-      "textPreview": "Cost: Cost and effort require management confirmation before approval. | Benefit: Adds focused specialist capacity against the named prio...",
+      "text": "Cost: Targeted specialist budget and handover effort.\nBenefit: Adds focused capacity against the named priority.\nTrade-off: Requires clear scope, procurement and transfer of ownership.\nRecommended option",
+      "textPreview": "Cost: Targeted specialist budget and handover effort. | Benefit: Adds focused capacity against the named priority. | Trade-off: Requires ...",
       "resolvedFontSize": 12,
       "resolvedTextStyle": {
         "fontSize": 12,
@@ -935,38 +891,34 @@
         }
       },
       "textLayout": {
-        "lineCount": 8,
+        "lineCount": 7,
         "lines": [
           {
             "index": 1,
-            "text": "Cost: Cost and effort require management"
+            "text": "Cost: Targeted specialist budget and"
           },
           {
             "index": 2,
-            "text": "confirmation before approval."
+            "text": "handover effort."
           },
           {
             "index": 3,
-            "text": "Benefit: Adds focused specialist capacity"
+            "text": "Benefit: Adds focused capacity against"
           },
           {
             "index": 4,
-            "text": "against the named priority."
+            "text": "the named priority."
           },
           {
             "index": 5,
-            "text": "Trade-off: Introduces external cost,"
+            "text": "Trade-off: Requires clear scope,"
           },
           {
             "index": 6,
-            "text": "handover effort and a dependency on"
+            "text": "procurement and transfer of ownership."
           },
           {
             "index": 7,
-            "text": "clear scope."
-          },
-          {
-            "index": 8,
             "text": "Recommended option"
           }
         ]
@@ -974,7 +926,7 @@
       "paragraphs": [
         {
           "index": 1,
-          "text": "Cost: Cost and effort require management confirmation before approval.",
+          "text": "Cost: Targeted specialist budget and handover effort.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -982,7 +934,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Cost: Cost and effort require management confirmation before approval.",
+              "text": "Cost: Targeted specialist budget and handover effort.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -991,7 +943,7 @@
         },
         {
           "index": 2,
-          "text": "Benefit: Adds focused specialist capacity against the named priority.",
+          "text": "Benefit: Adds focused capacity against the named priority.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -999,7 +951,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Benefit: Adds focused specialist capacity against the named priority.",
+              "text": "Benefit: Adds focused capacity against the named priority.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -1008,7 +960,7 @@
         },
         {
           "index": 3,
-          "text": "Trade-off: Introduces external cost, handover effort and a dependency on clear scope.",
+          "text": "Trade-off: Requires clear scope, procurement and transfer of ownership.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -1016,7 +968,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Trade-off: Introduces external cost, handover effort and a dependency on clear scope.",
+              "text": "Trade-off: Requires clear scope, procurement and transfer of ownership.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -1047,7 +999,7 @@
       "order": 16,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/bqpkj6lc",
+      "aid": "sh/5w7yxkr6",
       "id": "16",
       "bbox": [
         758,
@@ -1064,7 +1016,7 @@
       "order": 17,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/qpgjq1kr",
+      "aid": "sh/kvyxofa1",
       "id": "17",
       "bbox": [
         778,
@@ -1125,7 +1077,7 @@
       "order": 18,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/twni9w3e",
+      "aid": "sh/v65grqt4",
       "id": "18",
       "bbox": [
         778,
@@ -1134,8 +1086,8 @@
         44
       ],
       "geometry": "rect",
-      "text": "Option C - outsource monitoring to an external provider (rejected at current maturity: Kestrel cannot yet specify the indicator set it needs)",
-      "textPreview": "Option C - outsource monitoring to an external provider (rejected at current maturity: Kestrel cannot yet specify the indicator set it ne...",
+      "text": "Option C — combine internal ownership with targeted specialist support",
+      "textPreview": "Option C — combine internal ownership with targeted specialist support",
       "resolvedFontSize": 17,
       "resolvedTextStyle": {
         "fontSize": 17,
@@ -1151,38 +1103,26 @@
         }
       },
       "textLayout": {
-        "lineCount": 6,
+        "lineCount": 3,
         "lines": [
           {
             "index": 1,
-            "text": "Option C - outsource"
+            "text": "Option C — combine"
           },
           {
             "index": 2,
-            "text": "monitoring to an external"
+            "text": "internal ownership with"
           },
           {
             "index": 3,
-            "text": "provider (rejected at current"
-          },
-          {
-            "index": 4,
-            "text": "maturity: Kestrel cannot yet"
-          },
-          {
-            "index": 5,
-            "text": "specify the indicator set it"
-          },
-          {
-            "index": 6,
-            "text": "needs)"
+            "text": "targeted specialist support"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Option C - outsource monitoring to an external provider (rejected at current maturity: Kestrel cannot yet specify the indicator set it needs)",
+          "text": "Option C — combine internal ownership with targeted specialist support",
           "resolvedTextStyle": {
             "fontSize": 17,
             "color": "#142F4C",
@@ -1191,7 +1131,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Option C - outsource monitoring to an external provider (rejected at current maturity: Kestrel cannot yet specify the indicator set it needs)",
+              "text": "Option C — combine internal ownership with targeted specialist support",
               "fontSize": 17,
               "color": "#142F4C",
               "bold": true
@@ -1206,7 +1146,7 @@
       "order": 19,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/svu1gr2t",
+      "aid": "sh/a5wfilsj",
       "id": "19",
       "bbox": [
         778,
@@ -1215,8 +1155,8 @@
         66
       ],
       "geometry": "rect",
-      "text": "Cost: Cost and effort require management confirmation before approval.\nBenefit: Combines internal accountability with targeted specialist support.\nTrade-off: Needs explicit boundaries so ownership and escalation are not diluted.\nRejection reason: rejected at current maturity: Kestrel cannot yet specify the indicator set it needs",
-      "textPreview": "Cost: Cost and effort require management confirmation before approval. | Benefit: Combines internal accountability with targeted speciali...",
+      "text": "Cost: Combined internal capacity plus targeted specialist budget.\nBenefit: Keeps accountability internal while accelerating the priority design.\nTrade-off: Needs explicit boundaries so ownership and escalation are not diluted.\nRecommended option",
+      "textPreview": "Cost: Combined internal capacity plus targeted specialist budget. | Benefit: Keeps accountability internal while accelerating the priorit...",
       "resolvedFontSize": 12,
       "resolvedTextStyle": {
         "fontSize": 12,
@@ -1231,23 +1171,23 @@
         }
       },
       "textLayout": {
-        "lineCount": 9,
+        "lineCount": 7,
         "lines": [
           {
             "index": 1,
-            "text": "Cost: Cost and effort require management"
+            "text": "Cost: Combined internal capacity plus"
           },
           {
             "index": 2,
-            "text": "confirmation before approval."
+            "text": "targeted specialist budget."
           },
           {
             "index": 3,
-            "text": "Benefit: Combines internal accountability"
+            "text": "Benefit: Keeps accountability internal"
           },
           {
             "index": 4,
-            "text": "with targeted specialist support."
+            "text": "while accelerating the priority design."
           },
           {
             "index": 5,
@@ -1259,22 +1199,14 @@
           },
           {
             "index": 7,
-            "text": "Rejection reason: rejected at current"
-          },
-          {
-            "index": 8,
-            "text": "maturity: Kestrel cannot yet specify the"
-          },
-          {
-            "index": 9,
-            "text": "indicator set it needs"
+            "text": "Recommended option"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Cost: Cost and effort require management confirmation before approval.",
+          "text": "Cost: Combined internal capacity plus targeted specialist budget.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -1282,7 +1214,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Cost: Cost and effort require management confirmation before approval.",
+              "text": "Cost: Combined internal capacity plus targeted specialist budget.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -1291,7 +1223,7 @@
         },
         {
           "index": 2,
-          "text": "Benefit: Combines internal accountability with targeted specialist support.",
+          "text": "Benefit: Keeps accountability internal while accelerating the priority design.",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -1299,7 +1231,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Benefit: Combines internal accountability with targeted specialist support.",
+              "text": "Benefit: Keeps accountability internal while accelerating the priority design.",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -1325,7 +1257,7 @@
         },
         {
           "index": 4,
-          "text": "Rejection reason: rejected at current maturity: Kestrel cannot yet specify the indicator set it needs",
+          "text": "Recommended option",
           "resolvedTextStyle": {
             "fontSize": 12,
             "color": "#5A6B7C"
@@ -1333,7 +1265,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Rejection reason: rejected at current maturity: Kestrel cannot yet specify the indicator set it needs",
+              "text": "Recommended option",
               "fontSize": 12,
               "color": "#5A6B7C"
             }
@@ -1347,7 +1279,7 @@
       "order": 20,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/kbitcbel",
+      "aid": "sh/y1czalcr",
       "id": "20",
       "bbox": [
         88,
@@ -1364,7 +1296,7 @@
       "order": 21,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/5cralgf6",
+      "aid": "sh/z2lg3qdw",
       "id": "21",
       "bbox": [
         112,
@@ -1373,8 +1305,8 @@
         20
       ],
       "geometry": "rect",
-      "text": "MK recommendation: Viable options considered. Option A - leave accountability with the Finance Director as the policy currently states. Trade-off:…",
-      "textPreview": "MK recommendation: Viable options considered. Option A - leave accountability with the Finance Director as the policy currently states. T...",
+      "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
+      "textPreview": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
       "resolvedFontSize": 13,
       "resolvedTextStyle": {
         "fontSize": 13,
@@ -1393,14 +1325,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "MK recommendation: Viable options considered. Option A - leave accountability with the Finance Director as the policy currently states. Trade-off:…"
+            "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "MK recommendation: Viable options considered. Option A - leave accountability with the Finance Director as the policy currently states. Trade-off:…",
+          "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
           "resolvedTextStyle": {
             "fontSize": 13,
             "color": "#142F4C"
@@ -1408,7 +1340,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "MK recommendation: Viable options considered. Option A - leave accountability with the Finance Director as the policy currently states. Trade-off:…",
+              "text": "Deterministic recommendation: Name one accountable executive per linked control and approve a 30-day escalation route.",
               "fontSize": 13,
               "color": "#142F4C"
             }
@@ -1422,7 +1354,7 @@
       "order": 22,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/i90balwv",
+      "aid": "sh/03uhcvuh",
       "id": "22",
       "bbox": [
         112,
@@ -1431,70 +1363,8 @@
         20
       ],
       "geometry": "rect",
-      "text": "Recommendation rationale: The recommendation follows the linked deterministic finding and risk priorities; management must confirm the final route, cost and…",
-      "textPreview": "Recommendation rationale: The recommendation follows the linked deterministic finding and risk priorities; management must confirm the fi...",
-      "resolvedFontSize": 13,
-      "resolvedTextStyle": {
-        "fontSize": 13,
-        "typeface": "+mn-lt",
-        "color": "#142F4C",
-        "alignment": "left",
-        "insets": {
-          "top": 4.8,
-          "right": 9.6,
-          "bottom": 4.8,
-          "left": 9.6
-        }
-      },
-      "textLayout": {
-        "lineCount": 2,
-        "lines": [
-          {
-            "index": 1,
-            "text": "Recommendation rationale: The recommendation follows the linked deterministic finding and risk priorities; management must confirm the final route,"
-          },
-          {
-            "index": 2,
-            "text": "cost and…"
-          }
-        ]
-      },
-      "paragraphs": [
-        {
-          "index": 1,
-          "text": "Recommendation rationale: The recommendation follows the linked deterministic finding and risk priorities; management must confirm the final route, cost and…",
-          "resolvedTextStyle": {
-            "fontSize": 13,
-            "color": "#142F4C"
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Recommendation rationale: The recommendation follows the linked deterministic finding and risk priorities; management must confirm the final route, cost and…",
-              "fontSize": 13,
-              "color": "#142F4C"
-            }
-          ],
-          "marginLeft": 0
-        }
-      ],
-      "lineWidth": 0
-    },
-    {
-      "order": 23,
-      "kind": "shape",
-      "scope": "slide",
-      "aid": "sh/ja9sjqxg",
-      "id": "23",
-      "bbox": [
-        112,
-        572,
-        910,
-        18
-      ],
-      "geometry": "rect",
-      "text": "Owner: CEO / Managing Director · Deadline: 30 days",
-      "textPreview": "Owner: CEO / Managing Director · Deadline: 30 days",
+      "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
+      "textPreview": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm t...",
       "resolvedFontSize": 13,
       "resolvedTextStyle": {
         "fontSize": 13,
@@ -1513,14 +1383,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "Owner: CEO / Managing Director · Deadline: 30 days"
+            "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Owner: CEO / Managing Director · Deadline: 30 days",
+          "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
           "resolvedTextStyle": {
             "fontSize": 13,
             "color": "#142F4C"
@@ -1528,7 +1398,65 @@
           "runs": [
             {
               "index": 1,
-              "text": "Owner: CEO / Managing Director · Deadline: 30 days",
+              "text": "Recommendation rationale: The recorded assessment links this decision to 8 material finding(s) and 8 risk(s). Management should confirm the final…",
+              "fontSize": 13,
+              "color": "#142F4C"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l4ny50v2",
+      "id": "23",
+      "bbox": [
+        112,
+        572,
+        910,
+        18
+      ],
+      "geometry": "rect",
+      "text": "Owner: CEO / Managing Director · Target period: 30 days",
+      "textPreview": "Owner: CEO / Managing Director · Target period: 30 days",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#142F4C",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Owner: CEO / Managing Director · Target period: 30 days"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Owner: CEO / Managing Director · Target period: 30 days",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#142F4C"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Owner: CEO / Managing Director · Target period: 30 days",
               "fontSize": 13,
               "color": "#142F4C"
             }

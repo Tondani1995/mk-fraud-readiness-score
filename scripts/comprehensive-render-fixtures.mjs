@@ -47,7 +47,7 @@ async function renderPdf(html, outputPath, footerText) {
 const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'weakOrganisationMeaningfulEvidence';
 const fixture = comprehensiveFixtures[fixtureKey];
 if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
-const model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
+const model = buildComprehensiveDeliveryModel(fixture.analytical);
 const reportHtml = renderComprehensiveReportHtml(model);
 const boardHtml = renderBoardReadoutHtml(model);
 const suffix = fixtureKey === 'weakOrganisationMeaningfulEvidence' ? 'fixture' : fixtureKey.replaceAll(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();

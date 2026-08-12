@@ -1,7 +1,7 @@
 {
   "reportingBibleVersion": "1.0",
   "productVersion": "1.0.0",
-  "source": "persisted deterministic analytical universe and persisted management review record",
+  "source": "persisted deterministic assessment analytical universe",
   "organisation": "Kestrel Industrial Supply (Pty) Ltd",
   "orderReference": "MKORD-2026-7FBBEE23",
   "assessmentReference": "MKFRS-2026-95B3815A0C",
@@ -11,7 +11,7 @@
     "findings": 15,
     "risks": 15,
     "controls": 15,
-    "evidenceRequirements": 64,
+    "proofRequirements": 64,
     "roadmapActions": 15,
     "questionTraces": 68,
     "leadershipDecisions": 6

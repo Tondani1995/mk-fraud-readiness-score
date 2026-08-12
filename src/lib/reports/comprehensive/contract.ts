@@ -1,284 +1,130 @@
 import type { AssembledReportData } from '../types';
 import type { EvidenceChecklistItem, MaterialFinding } from '../evidence-model/types';
 import type {
-  BackendEvidenceStatus,
   ComprehensiveAnalyticalUniverse,
   ComprehensiveDeliveryModel,
   ComprehensiveFindingView,
-  ComprehensiveReviewerInput,
-  EvidenceItemConclusion,
-  EvidenceRequestPackItem,
-  EvidenceValidationStatus,
-  ReviewerEvidenceReview,
-  ReviewerFindingReview,
-  ValidationSummary
+  DecisionOptionDetail,
+  DecisionOptionSet,
+  ProofRequirement
 } from './types';
-import { adaptBackendEvidenceStatus } from './types';
-import { enrichDecisionReviews } from './decision-options';
-
-const STATUS_ORDER: EvidenceValidationStatus[] = [
-  'NOT_REQUESTED',
-  'REQUESTED',
-  'RECEIVED',
-  'SELF_REPORTED',
-  'EVIDENCE_REVIEWED',
-  'VALIDATED_SUPPORTED',
-  'NOT_SUPPORTED',
-  'NOT_VALIDATED_INSUFFICIENT',
-  'NOT_APPLICABLE',
-  'REVIEWER_JUDGEMENT'
-];
+import { buildDecisionOptionSets } from './decision-options';
 
 const clean = (value: string | undefined | null, fallback: string): string => {
   const text = value?.trim();
   return text ? text : fallback;
 };
 
-function priorityForFinding(finding: MaterialFinding): EvidenceRequestPackItem['priority'] {
+function priorityForFinding(finding: MaterialFinding): ProofRequirement['priority'] {
   if (finding.isCriticalControl || finding.isHardGate || finding.gapClassification === 'critical') return 'HIGH';
   if (finding.gapClassification === 'major' || finding.linkedExposureFactorCodes.length > 0) return 'MEDIUM';
   return 'LOW';
 }
 
-const EVIDENCE_PRIORITY_RANK: Record<EvidenceRequestPackItem['priority'], number> = {
-  HIGH: 3,
-  MEDIUM: 2,
-  LOW: 1
-};
-
 function findingForEvidence(item: EvidenceChecklistItem, findings: MaterialFinding[]): MaterialFinding | null {
   return findings.find((finding) => item.linkedFindingIds.includes(finding.id)) ?? null;
 }
 
-function reviewForEvidence(ref: string, reviews: ReviewerEvidenceReview[]): ReviewerEvidenceReview | null {
-  return reviews.find((review) => review.evidenceRef === ref) ?? null;
-}
-
-function reviewForFinding(id: string, reviews: ReviewerFindingReview[]): ReviewerFindingReview | null {
-  return reviews.find((review) => review.findingId === id) ?? null;
-}
-
-function backendStatusForReview(review: ReviewerEvidenceReview): BackendEvidenceStatus {
-  if (review.backendStatus) return review.backendStatus;
-  switch (review.validationStatus) {
-    case 'VALIDATED_SUPPORTED': return 'supported';
-    case 'NOT_SUPPORTED': return 'not_supported';
-    case 'NOT_VALIDATED_INSUFFICIENT': return 'insufficient';
-    case 'NOT_APPLICABLE': return 'not_applicable';
-    case 'EVIDENCE_REVIEWED': return 'reviewed';
-    default: return 'received';
-  }
-}
-
-function presentationStatusForReview(review: ReviewerEvidenceReview): EvidenceValidationStatus {
-  return review.backendStatus ? adaptBackendEvidenceStatus(review.backendStatus).presentationStatus : review.validationStatus;
-}
-
-function conclusionForEvidenceReview(review: ReviewerEvidenceReview): EvidenceItemConclusion | null {
-  if (review.reviewerConclusion) return review.reviewerConclusion;
-  switch (presentationStatusForReview(review)) {
-    case 'VALIDATED_SUPPORTED': return 'SUPPORTED';
-    case 'NOT_SUPPORTED': return 'NOT_SUPPORTED';
-    case 'NOT_VALIDATED_INSUFFICIENT': return 'INSUFFICIENT';
-    case 'NOT_APPLICABLE': return 'NOT_APPLICABLE';
-    case 'EVIDENCE_REVIEWED': return 'REVIEWED';
-    default: return null;
-  }
-}
-
-function evidenceWasActuallyReviewed(review: ReviewerEvidenceReview): boolean {
-  return review.evidenceExamined.length > 0 && ['EVIDENCE_REVIEWED', 'VALIDATED_SUPPORTED', 'NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(review));
-}
-
-function statusForFindingConclusion(conclusion: ReviewerFindingReview['reviewerConclusion']): EvidenceValidationStatus {
-  switch (conclusion) {
-    case 'SUPPORTED': return 'VALIDATED_SUPPORTED';
-    case 'NOT_SUPPORTED': return 'NOT_SUPPORTED';
-    case 'INSUFFICIENT': return 'NOT_VALIDATED_INSUFFICIENT';
-    case 'NOT_APPLICABLE': return 'NOT_APPLICABLE';
-    default: return 'EVIDENCE_REVIEWED';
-  }
-}
-
-function assertFindingReviewCoherent(
-  finding: MaterialFinding,
-  review: ReviewerFindingReview,
-  evidenceRefs: string[],
-  evidenceReviews: ReviewerEvidenceReview[]
-): void {
-  if (review.evidenceRefs.length === 0) throw new Error(`Finding review ${finding.id} must name at least one evidence reference.`);
-  const allowedRefs = new Set(evidenceRefs);
-  const linkedReviews = review.evidenceRefs.map((ref) => {
-    if (!allowedRefs.has(ref)) throw new Error(`Finding review ${finding.id} references evidence not linked to the finding: ${ref}`);
-    const evidenceReview = reviewForEvidence(ref, evidenceReviews);
-    if (!evidenceReview || !evidenceWasActuallyReviewed(evidenceReview)) throw new Error(`Finding review ${finding.id} references evidence that was not actually reviewed: ${ref}`);
-    return evidenceReview;
-  });
-  if (review.reviewerConclusion === 'SUPPORTED') {
-    const hasNegativeEvidence = linkedReviews.some((item) => ['NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE'].includes(presentationStatusForReview(item)));
-    const hasSupportingEvidence = linkedReviews.some((item) => presentationStatusForReview(item) === 'VALIDATED_SUPPORTED');
-    const coherentResolution = Boolean(review.reviewerObservation?.trim() && review.adjustedInterpretation?.trim());
-    if (!hasSupportingEvidence && !coherentResolution) throw new Error(`Finding review ${finding.id} claims support without a supported evidence conclusion or coherent reviewer resolution.`);
-    if (hasNegativeEvidence && !coherentResolution) {
-      throw new Error(`Finding review ${finding.id} must explain how negative or insufficient evidence was resolved before claiming support.`);
-    }
-  }
-}
-
-function statusForFinding(finding: MaterialFinding, evidenceRefs: string[], evidenceReviews: ReviewerEvidenceReview[], findingReviews: ReviewerFindingReview[]): EvidenceValidationStatus {
-  const direct = reviewForFinding(finding.id, findingReviews);
-  if (direct) {
-    assertFindingReviewCoherent(finding, direct, evidenceRefs, evidenceReviews);
-    return statusForFindingConclusion(direct.reviewerConclusion);
-  }
-  const linked = evidenceReviews.filter((review) => evidenceRefs.includes(review.evidenceRef) && evidenceWasActuallyReviewed(review));
-  return linked.length > 0 ? 'EVIDENCE_REVIEWED' : 'SELF_REPORTED';
-}
-
-function buildPackItem(item: EvidenceChecklistItem, findings: MaterialFinding[], reviews: ReviewerEvidenceReview[]): EvidenceRequestPackItem {
-  const finding = findingForEvidence(item, findings);
-  const review = reviewForEvidence(item.evidenceRef, reviews);
-  const linkedFindings = findings.filter((candidate) => item.linkedFindingIds.includes(candidate.id));
-  const linkedDomain = [...new Set(linkedFindings.map((candidate) => candidate.domainName))].join('; ') || 'Cross-domain';
-  const acceptableExamples = [...new Set(linkedFindings.flatMap((candidate) => candidate.minimumEvidenceCharacteristics))];
-  const status = review ? presentationStatusForReview(review) : 'NOT_REQUESTED';
-  return {
-    evidenceRef: item.evidenceRef,
-    evidenceItem: item.artefact,
-    linkedDomain,
-    linkedFindingIds: item.linkedFindingIds,
-    linkedFinding: linkedFindings.map((candidate) => candidate.title).join('; ') || 'Linked analytical item not available',
-    linkedControlIds: linkedFindings.map((candidate) => `CI-${candidate.questionCode}`),
-    whatMKWantsToInspect: item.provesWhat,
-    whyItMatters: finding?.whyItMatters ?? 'The item provides operating context for a recorded control or risk decision.',
-    acceptableExamples: acceptableExamples.length > 0 ? acceptableExamples : ['A current control artefact and a traceable operating record.'],
-    priority: linkedFindings.reduce<EvidenceRequestPackItem['priority']>((highest, candidate) => {
-      const priority = priorityForFinding(candidate);
-      return priority === 'HIGH' || (priority === 'MEDIUM' && highest === 'LOW') ? priority : highest;
-    }, 'LOW'),
-    requestedStatus: review ? 'IN_REVIEW' : 'NOT_REQUESTED',
-    backendStatus: review ? backendStatusForReview(review) : 'not_requested',
-    validationStatus: status,
-    reviewerNote: clean(review?.reviewerObservation, status === 'SELF_REPORTED' ? 'No reviewer evidence note recorded.' : 'Reviewer status recorded; see reviewer observation and limitations.'),
-    actualArtefactsExamined: review?.evidenceExamined ?? [],
-    whatEvidenceDemonstrated: review?.reviewerObservation ?? null,
-    whatEvidenceDidNotDemonstrate: review?.evidenceLimitation ?? null,
-    reviewerConclusion: review ? conclusionForEvidenceReview(review) : null,
-    reviewerConfidence: review?.reviewerConfidence ?? null,
-    privacyBoundary: 'Send the minimum necessary business records. Do not include personal data unless it is needed to demonstrate the control and has been approved under MK privacy procedures.'
-  };
-}
-
-export function buildEvidenceRequestPack(
-  analytical: ComprehensiveAnalyticalUniverse,
-  reviewerInput: ComprehensiveReviewerInput
-): EvidenceRequestPackItem[] {
+/** Convert the analytical evidence checklist into proof requirements only. */
+export function buildProofRequirements(analytical: ComprehensiveAnalyticalUniverse): ProofRequirement[] {
+  const findings = analytical.evidenceModel.materialFindings;
   return analytical.evidenceModel.evidenceChecklist
-    .map((item) => buildPackItem(item, analytical.evidenceModel.materialFindings, reviewerInput.evidenceReviews))
-    .sort((a, b) => EVIDENCE_PRIORITY_RANK[b.priority] - EVIDENCE_PRIORITY_RANK[a.priority] || a.evidenceRef.localeCompare(b.evidenceRef));
+    .map((item) => {
+      const linkedFindings = findings.filter((finding) => item.linkedFindingIds.includes(finding.id));
+      const finding = findingForEvidence(item, findings);
+      const priority = linkedFindings.reduce<ProofRequirement['priority']>((current, candidate) => {
+        const candidatePriority = priorityForFinding(candidate);
+        return candidatePriority === 'HIGH' || (candidatePriority === 'MEDIUM' && current === 'LOW') ? candidatePriority : current;
+      }, 'LOW');
+      return {
+        proofRef: item.evidenceRef,
+        requirement: item.artefact,
+        linkedDomain: linkedFindings.map((candidate) => candidate.domainName).join('; ') || 'Cross-domain',
+        linkedFindingIds: item.linkedFindingIds,
+        linkedRiskIds: item.linkedRiskIds,
+        linkedControlIds: linkedFindings.map((candidate) => `CI-${candidate.questionCode}`),
+        whyItMatters: finding?.whyItMatters ?? 'The requirement supports a repeatable control record and management decision.',
+        acceptableExamples: [...new Set(linkedFindings.flatMap((candidate) => candidate.minimumEvidenceCharacteristics))].length > 0
+          ? [...new Set(linkedFindings.flatMap((candidate) => candidate.minimumEvidenceCharacteristics))]
+          : item.minimumAcceptableCharacteristics,
+        priority,
+        proofOwner: item.likelyOwner,
+        expectedRecency: item.expectedRecency,
+        requiredPopulation: item.requiredPopulation,
+        privacyBoundary: 'Use the minimum necessary business record for the named population and period. Do not include personal data unless needed and approved under MK privacy procedures.'
+      } satisfies ProofRequirement;
+    })
+    .sort((a, b) => ({ HIGH: 3, MEDIUM: 2, LOW: 1 }[b.priority] - { HIGH: 3, MEDIUM: 2, LOW: 1 }[a.priority] || a.proofRef.localeCompare(b.proofRef)));
 }
 
-function buildValidationSummary(items: EvidenceRequestPackItem[]): ValidationSummary {
-  const summary = {
-    totalEvidenceItems: items.length,
-    selfReported: 0,
-    evidenceReviewed: 0,
-    validatedSupported: 0,
-    notValidatedInsufficient: 0,
-    reviewerJudgement: 0,
-    unresolved: 0
-  } satisfies ValidationSummary;
-  for (const item of items) {
-    if (['SELF_REPORTED', 'NOT_REQUESTED', 'REQUESTED', 'RECEIVED'].includes(item.validationStatus)) summary.selfReported += 1;
-    if (item.validationStatus === 'EVIDENCE_REVIEWED') summary.evidenceReviewed += 1;
-    if (item.validationStatus === 'VALIDATED_SUPPORTED') summary.validatedSupported += 1;
-    if (item.validationStatus === 'NOT_VALIDATED_INSUFFICIENT') summary.notValidatedInsufficient += 1;
-    if (item.validationStatus === 'REVIEWER_JUDGEMENT') summary.reviewerJudgement += 1;
-    if (['SELF_REPORTED', 'NOT_REQUESTED', 'REQUESTED', 'RECEIVED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_SUPPORTED'].includes(item.validationStatus)) summary.unresolved += 1;
-  }
-  return summary;
-}
-
-function buildFindingView(finding: MaterialFinding, input: ComprehensiveReviewerInput, evidenceChecklist: EvidenceChecklistItem[], evidenceReviews: ReviewerEvidenceReview[]): ComprehensiveFindingView {
-  const review = reviewForFinding(finding.id, input.findingReviews);
-  const evidenceRefs = evidenceChecklist.filter((item) => item.linkedFindingIds.includes(finding.id)).map((item) => item.evidenceRef);
-  const status = statusForFinding(finding, evidenceRefs, evidenceReviews, input.findingReviews);
-  if (review) assertFindingReviewCoherent(finding, review, evidenceRefs, evidenceReviews);
+function buildFindingView(finding: MaterialFinding): ComprehensiveFindingView {
   return {
     ...finding,
-    validationStatus: status,
-    evidenceRefsReviewed: review?.evidenceRefs ?? evidenceRefs.filter((ref) => evidenceReviews.some((item) => item.evidenceRef === ref)),
-    reviewerObservation: review?.reviewerObservation ?? null,
-    evidenceLimitation: review?.evidenceLimitation ?? null,
-    adjustedInterpretation: review?.adjustedInterpretation ?? null,
-    agreedOwner: review?.agreedOwner ?? null,
-    agreedDueDate: review?.agreedDueDate ?? null,
-    managementResponse: review?.managementResponse ?? null
+    interpretation: clean(finding.diagnosis, `The recorded response creates a ${finding.materialityClass.replaceAll('_', ' ')} condition.`),
+    managementImplication: clean(finding.recommendedControl, 'Management should define the target control, accountable owner and effectiveness measure.')
   };
 }
 
-function buildChanges(
-  findings: ComprehensiveFindingView[],
-  evidenceReviews: ReviewerEvidenceReview[],
-  input: ComprehensiveReviewerInput
-): ComprehensiveDeliveryModel['changesAfterEvidenceReview'] {
-  const changes = findings
-    .filter((finding) => finding.validationStatus !== 'SELF_REPORTED')
-    .map((finding) => ({
-      subject: finding.title,
-      before: `Self-reported position: ${finding.responseMeaning}`,
-      after: clean(finding.adjustedInterpretation, finding.validationStatus === 'VALIDATED_SUPPORTED' ? 'The recorded control position remains bounded to the named scope and period.' : 'The supplied information does not establish an unqualified conclusion for the recorded scope.'),
-      status: finding.validationStatus,
-      linkedRefs: finding.evidenceRefsReviewed.length > 0 ? finding.evidenceRefsReviewed : finding.evidenceToRequest.map((_, index) => `evidence:${finding.id}:${index + 1}`)
-    }));
-  const observationChanges = input.observations.map((observation) => ({
-    subject: observation.subject,
-    before: 'Self-reported position retained unless separately evidenced.',
-    after: observation.observation,
-    status: observation.validationStatus,
-    linkedRefs: observation.linkedEvidenceRefs
-  }));
-  return [...changes, ...observationChanges].sort((a, b) => `${a.subject}|${STATUS_ORDER.indexOf(a.status)}`.localeCompare(`${b.subject}|${STATUS_ORDER.indexOf(b.status)}`));
+function buildNarrativeBriefs(model: Omit<ComprehensiveDeliveryModel, 'narrativeBriefs'>): ComprehensiveDeliveryModel['narrativeBriefs'] {
+  const score = model.analytical.score;
+  const basis = "This report provides strategic fraud-risk analysis and control design based on management's recorded Fraud Readiness assessment responses. It does not independently verify operating effectiveness.";
+  return [
+    { section: 'diagnosis', layer: 'diagnosis', requiredConclusion: 'The recorded assessment establishes the current readiness and exposure position.', deterministicFacts: [`Readiness score: ${score.overallScore ?? 'not scored'}.`, `Exposure score: ${score.exposureScore ?? 'not scored'}.`, `${model.findings.length} material findings and ${model.riskRegister.length} risks are in the analytical universe.`], mustInclude: [basis, 'Assessment responses, not reviewer records, are the source of the position.'], mustNotClaim: ['independent operating effectiveness', 'evidence validation', 'reviewer conclusion'], transitionToNext: 'Use the interpretation layer to explain concentration, interactions and fraud pathways.' },
+    { section: 'interpretation', layer: 'interpretation', requiredConclusion: 'Material findings and scenarios explain where exposure concentrates and why it matters.', deterministicFacts: [`${model.scenarios.length} deterministic scenario pathways are available.`, `${model.contradictions.length} cross-domain interactions are available.`, `${model.proofRequirements.length} proof requirements define what management should retain during implementation.`], mustInclude: ['Conditional scenario language.', 'Links between findings, risks, scenarios and control weaknesses.'], mustNotClaim: ['confirmed fraud event', 'validated evidence', 'independent assurance'], transitionToNext: 'Translate the interpretation into target-state controls, decisions and ownership.' },
+    { section: 'design', layer: 'design', requiredConclusion: 'The target state is a set of owned controls, decisions, measures and sequenced actions.', deterministicFacts: [`${model.controlImprovements.length} control blueprints are available.`, `${model.leadershipDecisions.length} leadership decisions are available.`, `${model.roadmapActions.length} roadmap actions are available.`], mustInclude: ['Control objective, owner, population, frequency, proof, escalation, SLA, effectiveness measure and failure response.', 'The four implementation horizons: first 30 days, days 31–90, months 4–6 and months 7–12.'], mustNotClaim: ['completed remediation', 'operating effectiveness already established', 'customer evidence review'], transitionToNext: 'Close with management decisions, scorecard measures and the next checkpoint.' }
+  ];
 }
 
-export function buildComprehensiveDeliveryModel(
-  analytical: ComprehensiveAnalyticalUniverse,
-  reviewerInput: ComprehensiveReviewerInput
-): ComprehensiveDeliveryModel {
-  const evidenceRequestPack = buildEvidenceRequestPack(analytical, reviewerInput);
-  const findings = analytical.evidenceModel.materialFindings.map((finding) => buildFindingView(finding, reviewerInput, analytical.evidenceModel.evidenceChecklist, reviewerInput.evidenceReviews));
-  return {
+export function buildComprehensiveDeliveryModel(analytical: ComprehensiveAnalyticalUniverse): ComprehensiveDeliveryModel {
+  const findings = analytical.evidenceModel.materialFindings.map(buildFindingView);
+  const proofRequirements = buildProofRequirements(analytical);
+  const evidenceRequestPack = proofRequirements.map((item) => ({
+    evidenceRef: item.proofRef,
+    evidenceItem: item.requirement,
+    linkedDomain: item.linkedDomain,
+    linkedFindingIds: item.linkedFindingIds,
+    linkedFinding: item.linkedFindingIds[0] ?? '',
+    linkedControlIds: item.linkedControlIds,
+    whatMKWantsToInspect: item.requirement,
+    whyItMatters: item.whyItMatters,
+    acceptableExamples: item.acceptableExamples,
+    priority: item.priority,
+    requestedStatus: 'NOT_APPLICABLE',
+    backendStatus: 'not_applicable',
+    validationStatus: 'NOT_APPLICABLE',
+    reviewerNote: '',
+    actualArtefactsExamined: [],
+    whatEvidenceDemonstrated: null,
+    whatEvidenceDidNotDemonstrate: null,
+    reviewerConclusion: null,
+    reviewerConfidence: null,
+    privacyBoundary: item.privacyBoundary
+  }));
+  const base = {
     analytical,
-    reviewerInput,
-    evidenceRequestPack,
-    validationSummary: buildValidationSummary(evidenceRequestPack),
-    evidenceReviews: reviewerInput.evidenceReviews,
-    riskReviews: reviewerInput.riskReviews ?? [],
-    controlDesignReviews: reviewerInput.controlDesignReviews ?? [],
-    decisionReviews: enrichDecisionReviews(analytical.evidenceModel.leadershipDecisions, reviewerInput.decisionReviews ?? []),
     findings,
     materialFindings: analytical.evidenceModel.materialFindings,
     riskRegister: analytical.evidenceModel.riskRegister,
     controlImprovements: analytical.evidenceModel.controlImprovements,
+    proofRequirements,
+    evidenceRequestPack,
     evidenceChecklist: analytical.evidenceModel.evidenceChecklist,
     scenarios: analytical.evidenceModel.scenarios,
     contradictions: analytical.evidenceModel.contradictions,
     roadmapActions: analytical.evidenceModel.roadmapActions,
     leadershipDecisions: analytical.evidenceModel.leadershipDecisions,
-    managementDecisions: reviewerInput.managementDecisions,
-    changesAfterEvidenceReview: buildChanges(findings, reviewerInput.evidenceReviews, reviewerInput)
+    decisionOptionSets: [] as DecisionOptionSet[],
   };
+  const model = { ...base, decisionOptionSets: buildDecisionOptionSets(base.leadershipDecisions) } as Omit<ComprehensiveDeliveryModel, 'narrativeBriefs'>;
+  return { ...model, narrativeBriefs: buildNarrativeBriefs(model) };
 }
 
-export async function fromAssembledReportData(data: AssembledReportData, reviewerInput: ComprehensiveReviewerInput): Promise<ComprehensiveDeliveryModel> {
-  // Keep the pure presentation/fixture path free of server/database imports. The production
-  // adapter loads the existing analytical builder only when an assembled report is actually
-  // supplied by the paid-order integration lane.
+export async function fromAssembledReportData(data: AssembledReportData): Promise<ComprehensiveDeliveryModel> {
   const { buildAdvisoryEvidenceModel } = await import('../evidence-model');
-  const model = buildAdvisoryEvidenceModel(data);
+  const evidenceModel = buildAdvisoryEvidenceModel(data);
   return buildComprehensiveDeliveryModel({
     assembled: data,
-    evidenceModel: model,
+    evidenceModel,
     score: {
       overallScore: data.scoreRun.overallScore,
       calculatedMaturity: data.scoreRun.calculatedMaturity,
@@ -296,22 +142,16 @@ export async function fromAssembledReportData(data: AssembledReportData, reviewe
     organisationName: data.organisationName,
     assessmentReference: data.assessmentReference,
     generatedAt: data.generatedAt
-  }, reviewerInput);
+  });
 }
 
-/** A machine-checkable guard used by fixtures and integration tests. */
-export function assertNoFalseValidation(model: ComprehensiveDeliveryModel): void {
-  for (const item of model.evidenceRequestPack) {
-    if (item.validationStatus === 'VALIDATED_SUPPORTED' && !model.evidenceReviews.some((review) => review.evidenceRef === item.evidenceRef && presentationStatusForReview(review) === 'VALIDATED_SUPPORTED')) {
-      throw new Error(`False validation: ${item.evidenceRef} is marked validated without a reviewer evidence review.`);
-    }
-  }
-  for (const finding of model.findings) {
-    const review = reviewForFinding(finding.id, model.reviewerInput.findingReviews);
-    const evidenceRefs = model.analytical.evidenceModel.evidenceChecklist.filter((item) => item.linkedFindingIds.includes(finding.id)).map((item) => item.evidenceRef);
-    if (review) assertFindingReviewCoherent(finding, review, evidenceRefs, model.reviewerInput.evidenceReviews);
-    if (finding.validationStatus === 'VALIDATED_SUPPORTED' && (!review || review.reviewerConclusion !== 'SUPPORTED' || finding.evidenceRefsReviewed.length === 0)) {
-      throw new Error(`False validation: ${finding.id} lacks an explicit coherent reviewer-supported conclusion.`);
-    }
+/** Assert that the automated model contains no evidence-review or reviewer state. */
+export function assertComprehensiveBlueprintContract(model: ComprehensiveDeliveryModel): void {
+  if ('reviewerInput' in model || 'validationSummary' in model || 'evidenceReviews' in model) throw new Error('Comprehensive blueprint must not contain reviewer/evidence-review state.');
+  if (!model.analytical.evidenceModel || model.findings.length === 0) throw new Error('Comprehensive blueprint requires the deterministic analytical universe.');
+  if (model.narrativeBriefs.some((brief) => !brief.mustNotClaim.some((claim) => /validat|reviewer|operating effectiveness|assurance|evidence review/i.test(claim)))) {
+    throw new Error('Comprehensive narrative brief must declare its assurance boundary.');
   }
 }
+
+export type { DecisionOptionDetail };

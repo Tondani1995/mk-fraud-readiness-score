@@ -14,7 +14,7 @@ await fs.mkdir(outputDir, { recursive: true });
 const fixtureKey = process.env.COMPREHENSIVE_FIXTURE ?? 'weakOrganisationMeaningfulEvidence';
 const fixture = comprehensiveFixtures[fixtureKey];
 if (!fixture) throw new Error(`Unknown Comprehensive fixture: ${fixtureKey}`);
-const model = buildComprehensiveDeliveryModel(fixture.analytical, fixture.reviewer);
+const model = buildComprehensiveDeliveryModel(fixture.analytical);
 const sheets = buildComprehensiveRegisterSheets(model);
 const workbook = Workbook.create();
 

@@ -31,7 +31,7 @@ const check = (name, condition, detail) => {
   console.error(`  FAIL  ${name}${detail ? ` -- ${detail}` : ''}`);
 };
 
-console.log(`joint-launch: Comprehensive reviewer-annotated register (${orderReference})`);
+console.log(`joint-launch: Comprehensive blueprint register (${orderReference})`);
 
 // 1/2. No source-level dependency on the agent runtime.
 const source = await readFile(path.resolve('src/lib/reports/comprehensive/workbook-builder.ts'), 'utf8');
@@ -44,15 +44,9 @@ check('CODEX_NODE_MODULES is unset for this run', process.env.CODEX_NODE_MODULES
 
 const { assembleReportData } = await import('../src/lib/reports/assemble-report-data.ts');
 const { fromAssembledReportData } = await import('../src/lib/reports/comprehensive/index.ts');
-const { loadComprehensiveReviewerInput } = await import('../src/lib/comprehensive/review-record-service.ts');
 const { buildComprehensiveRegisterWorkbook } = await import('../src/lib/reports/comprehensive/workbook-builder.ts');
-const { getEngagementByOrderReference } = await import('../src/lib/comprehensive/engagement-service.ts');
-
-const engagement = await getEngagementByOrderReference(orderReference);
-if (!engagement) { console.error('  FAIL  engagement not found'); process.exit(1); }
-const reviewerInput = await loadComprehensiveReviewerInput(engagement.id);
 const assembled = await assembleReportData(orderReference);
-const model = await fromAssembledReportData(assembled, reviewerInput);
+const model = await fromAssembledReportData(assembled);
 
 // 3. Generation succeeds with CODEX_NODE_MODULES unset, and produces a valid XLSX.
 let workbook;
@@ -101,19 +95,19 @@ check('workbook is a readable OPC package', entries.has('[Content_Types].xml') &
 // 4. Every expected Comprehensive sheet is present.
 const workbookXml = entries.get('xl/workbook.xml') ?? '';
 const sheetNames = [...workbookXml.matchAll(/<sheet[^>]*name="([^"]+)"/g)].map((m) => m[1]);
-const expected = ['Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Roadmap', 'Management Decisions', 'Question Traceability'];
+const expected = ['Read me', 'Summary', 'Material Findings', 'Risk Register', 'Control Actions', 'Evidence Checklist', 'Roadmap', 'Management Decisions'];
 for (const name of expected) {
   check(`sheet present: ${name}`, sheetNames.includes(name), sheetNames.join(' | '));
 }
 
 const allText = [...entries.entries()].filter(([n]) => n.startsWith('xl/')).map(([, c]) => c).join('\n');
 
-// 5/6. Reviewer annotations, evidence classifications and management decisions survive into XLSX.
-check('reviewer display name appears in the workbook', allText.includes(/staging|uat/i.test(model.reviewerInput.reviewer.name) ? 'Named review lead' : model.reviewerInput.reviewer.name));
-const statuses = ['SUPPORTED', 'INSUFFICIENT', 'NOT_SUPPORTED'];
-const presentStatuses = statuses.filter((s) => allText.toUpperCase().includes(s));
-check('evidence classifications survive into the XLSX', presentStatuses.length >= 2, `found ${presentStatuses.join(',') || 'none'}`);
-const conclusions = model.reviewerInput.decisions ?? [];
+// 5/6. Deterministic blueprint content survives into XLSX without reviewer state.
+for (const forbidden of ['Named reviewer', 'Independent reviewer', 'evidence-validation status', 'Reviewer judgement', 'Reviewer sign-off', 'reviewerObservation', 'validationStatus', 'Question Traceability']) {
+  check(`no customer review dependency: ${forbidden}`, !allText.toLowerCase().includes(forbidden.toLowerCase()));
+}
+check('basis statement survives into the workbook', allText.includes("management's recorded Fraud Readiness assessment responses"));
+check('proof requirements survive into the workbook', allText.includes('Proof ID') || allText.includes('proofRef') || allText.includes('Proof reference'));
 check('management decisions sheet carries content', (workbook.rowCounts['Management Decisions'] ?? 0) > 0);
 check('material findings sheet carries content', (workbook.rowCounts['Material Findings'] ?? 0) > 0);
 

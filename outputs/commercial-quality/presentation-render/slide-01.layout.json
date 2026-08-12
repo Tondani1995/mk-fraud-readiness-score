@@ -2,13 +2,13 @@
   "schema": "openai.presentation.layout/v4",
   "unit": "px",
   "slide": {
-    "aid": "sl/ned91w",
-    "id": "ned91w",
+    "aid": "sl/eg03es",
+    "id": "eg03es",
     "slide": 1,
-    "layoutId": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
+    "layoutId": "0b759b52-2caa-4b35-99a6-d63c0989730f",
     "layoutName": "Title Slide",
     "layoutType": "title",
-    "masterLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+    "masterLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
     "masterLayoutName": "Master",
     "backgroundColor": "#142F4C",
     "frame": {
@@ -45,15 +45,15 @@
   "inheritedLayers": [
     {
       "scope": "layout",
-      "id": "27dc14f6-1d0a-48ae-a32e-65929ad6f18a",
+      "id": "0b759b52-2caa-4b35-99a6-d63c0989730f",
       "name": "Title Slide",
       "type": "title",
-      "parentLayoutId": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+      "parentLayoutId": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
       "elements": []
     },
     {
       "scope": "master",
-      "id": "80687c86-a62d-4dfa-aeb6-c183cb4c0a8c",
+      "id": "98aef717-9852-473d-9ed4-ead1f4f69c3a",
       "name": "Master",
       "type": "master",
       "elements": []
@@ -64,7 +64,7 @@
       "order": 1,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/sf2x0vid",
+      "aid": "sh/p03m50z2",
       "id": "1",
       "bbox": [
         0,
@@ -81,7 +81,7 @@
       "order": 2,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/retgrq1s",
+      "aid": "sh/2xcna5gr",
       "id": "2",
       "bbox": [
         88,
@@ -142,7 +142,7 @@
       "order": 3,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/qdkfyl07",
+      "aid": "sh/nyl43qhc",
       "id": "3",
       "bbox": [
         88,
@@ -211,7 +211,7 @@
       "order": 4,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/1kbyxkju",
+      "aid": "sh/c3u5gfyt",
       "id": "4",
       "bbox": [
         90,
@@ -220,8 +220,8 @@
         80
       ],
       "geometry": "rect",
-      "text": "Kestrel Industrial Supply (Pty) Ltd\nComprehensive review · strategic design engagement",
-      "textPreview": "Kestrel Industrial Supply (Pty) Ltd | Comprehensive review · strategic design engagement",
+      "text": "Kestrel Industrial Supply (Pty) Ltd\nComprehensive blueprint · strategic design engagement",
+      "textPreview": "Kestrel Industrial Supply (Pty) Ltd | Comprehensive blueprint · strategic design engagement",
       "resolvedFontSize": 22,
       "resolvedTextStyle": {
         "fontSize": 22,
@@ -244,7 +244,7 @@
           },
           {
             "index": 2,
-            "text": "Comprehensive review · strategic design engagement"
+            "text": "Comprehensive blueprint · strategic design engagement"
           }
         ]
       },
@@ -268,7 +268,7 @@
         },
         {
           "index": 2,
-          "text": "Comprehensive review · strategic design engagement",
+          "text": "Comprehensive blueprint · strategic design engagement",
           "resolvedTextStyle": {
             "fontSize": 22,
             "color": "#D9E1E7"
@@ -276,7 +276,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Comprehensive review · strategic design engagement",
+              "text": "Comprehensive blueprint · strategic design engagement",
               "fontSize": 22,
               "color": "#D9E1E7"
             }
@@ -290,17 +290,17 @@
       "order": 5,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/0j2x4fi9",
+      "aid": "sh/x4n69kze",
       "id": "5",
       "bbox": [
         90,
         590,
-        700,
+        800,
         28
       ],
       "geometry": "rect",
-      "text": "Named reviewer: Named review lead",
-      "textPreview": "Named reviewer: Named review lead",
+      "text": "Based on management's recorded Fraud Readiness assessment responses",
+      "textPreview": "Based on management's recorded Fraud Readiness assessment responses",
       "resolvedFontSize": 16,
       "resolvedTextStyle": {
         "fontSize": 16,
@@ -319,14 +319,14 @@
         "lines": [
           {
             "index": 1,
-            "text": "Named reviewer: Named review lead"
+            "text": "Based on management's recorded Fraud Readiness assessment responses"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Named reviewer: Named review lead",
+          "text": "Based on management's recorded Fraud Readiness assessment responses",
           "resolvedTextStyle": {
             "fontSize": 16,
             "color": "#D9E1E7"
@@ -334,7 +334,7 @@
           "runs": [
             {
               "index": 1,
-              "text": "Named reviewer: Named review lead",
+              "text": "Based on management's recorded Fraud Readiness assessment responses",
               "fontSize": 16,
               "color": "#D9E1E7"
             }
@@ -348,7 +348,7 @@
       "order": 6,
       "kind": "shape",
       "scope": "slide",
-      "aid": "sh/fitgva14",
+      "aid": "sh/a1cne5gn",
       "id": "6",
       "bbox": [
         930,

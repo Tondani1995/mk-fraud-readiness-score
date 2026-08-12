@@ -1,128 +1,128 @@
-{"kind":"slide","id":"sl/ned91w","slide":1,"title":"MK FRAUD READINESS","textShapes":5}
-{"kind":"shape","id":"sh/sf2x0vid","slide":1,"bbox":[0,0,22,720]}
-{"kind":"textbox","id":"sh/retgrq1s","slide":1,"textChars":18,"textLines":1}
-{"kind":"textbox","id":"sh/qdkfyl07","slide":1,"textChars":80,"textLines":1}
-{"kind":"textbox","id":"sh/1kbyxkju","slide":1,"textChars":86,"textLines":2}
-{"kind":"textbox","id":"sh/0j2x4fi9","slide":1,"textChars":33,"textLines":1}
-{"kind":"textbox","id":"sh/fitgva14","slide":1,"textChars":31,"textLines":1}
-{"kind":"notes","id":"nt/ned91w","slide":1,"text":"[Sources] | - Source: persisted Kestrel engagement MKORD-2026-7FBBEE23. | - M..."}
-{"kind":"slide","id":"sl/x5gfh1","slide":2,"title":"COMPREHENSIVE REVIEW · 02","textShapes":19}
-{"kind":"textbox","id":"sh/1gr2d8ry","slide":2,"textChars":25,"textLines":1}
-{"kind":"textbox","id":"sh/ed0jits7","slide":2,"textChars":73,"textLines":1}
-{"kind":"textbox","id":"sh/fe9kby9s","slide":2,"textChars":64,"textLines":1}
-{"kind":"shape","id":"sh/ojilonq9","slide":2,"bbox":[72,664,1136,0]}
-{"kind":"textbox","id":"sh/pkb2hsru","slide":2,"textChars":34,"textLines":1}
-{"kind":"textbox","id":"sh/2h03md8j","slide":2,"textChars":7,"textLines":1}
-{"kind":"shape","id":"sh/ni9kfi94","slide":2,"bbox":[72,208,240,128]}
-{"kind":"shape","id":"sh/cn2lsnql","slide":2,"bbox":[72,208,240,6]}
-{"kind":"textbox","id":"sh/xob2lsr6","slide":2,"textChars":18,"textLines":1}
-{"kind":"textbox","id":"sh/5svu54bq","slide":2,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/4r2twzu5","slide":2,"textChars":10,"textLines":1}
-{"kind":"shape","id":"sh/jqtc3utk","slide":2,"bbox":[334,208,240,128]}
-{"kind":"shape","id":"sh/ipkbu9cz","slide":2,"bbox":[334,208,240,6]}
-{"kind":"textbox","id":"sh/twvu9obm","slide":2,"textChars":17,"textLines":1}
-{"kind":"textbox","id":"sh/svmt0ja1","slide":2,"textChars":7,"textLines":1}
-{"kind":"textbox","id":"sh/rudc7etg","slide":2,"textChars":12,"textLines":1}
-{"kind":"shape","id":"sh/6t4by9cb","slide":2,"bbox":[596,208,240,128]}
-{"kind":"shape","id":"sh/90buxkbi","slide":2,"bbox":[596,208,240,6]}
-{"kind":"textbox","id":"sh/8zitofux","slide":2,"textChars":21,"textLines":1}
-{"kind":"textbox","id":"sh/03mt4f2t","slide":2,"textChars":1,"textLines":1}
-{"kind":"textbox","id":"sh/l4vudkje","slide":2,"textChars":11,"textLines":1}
-{"kind":"shape","id":"sh/y14b2pkn","slide":2,"bbox":[858,208,240,128]}
-{"kind":"shape","id":"sh/z2dcbu18","slide":2,"bbox":[858,208,240,6]}
-{"kind":"textbox","id":"sh/876d8z2p","slide":2,"textChars":22,"textLines":1}
-{"kind":"textbox","id":"sh/98fuh4ja","slide":2,"textChars":2,"textLines":1}
-{"kind":"textbox","id":"sh/m5ob6pkz","slide":2,"textChars":23,"textLines":1}
-{"kind":"shape","id":"sh/n6xcfu14","slide":2,"bbox":[72,390,1026,130]}
-{"kind":"textbox","id":"sh/wb6dcz21","slide":2,"textChars":18,"textLines":1}
-{"kind":"textbox","id":"sh/xcful4jm","slide":2,"textChars":166,"textLines":1}
-{"kind":"notes","id":"nt/x5gfh1","slide":2,"text":"[Sources] | - Source: persisted Kestrel engagement MKORD-2026-7FBBEE23. | - M..."}
-{"kind":"slide","id":"sl/busuzg","slide":3,"title":"COMPREHENSIVE REVIEW · 03","textShapes":15}
-{"kind":"textbox","id":"sh/cbyxgr2l","slide":3,"textChars":25,"textLines":1}
-{"kind":"textbox","id":"sh/rapw7m10","slide":3,"textChars":62,"textLines":1}
-{"kind":"textbox","id":"sh/q9gfe1kf","slide":3,"textChars":74,"textLines":1}
-{"kind":"shape","id":"sh/p87e5wju","slide":3,"bbox":[72,664,1136,0]}
-{"kind":"textbox","id":"sh/47edcr29","slide":3,"textChars":34,"textLines":1}
-{"kind":"textbox","id":"sh/365w3m14","slide":3,"textChars":7,"textLines":1}
-{"kind":"textbox","id":"sh/25wvahkj","slide":3,"textChars":26,"textLines":1}
-{"kind":"shape","id":"sh/94rehgje","slide":3,"bbox":[420,225,520,24]}
-{"kind":"shape","id":"sh/83ixobit","slide":3,"bbox":[420,225,18,24]}
-{"kind":"textbox","id":"sh/254bq1kf","slide":3,"textChars":1,"textLines":1}
-{"kind":"textbox","id":"sh/n6dcz610","slide":3,"textChars":24,"textLines":1}
-{"kind":"shape","id":"sh/o7mtsb2l","slide":3,"bbox":[420,287,520,24]}
-{"kind":"shape","id":"sh/p8vu1gj6","slide":3,"bbox":[420,287,18,24]}
-{"kind":"textbox","id":"sh/e1kbm1kj","slide":3,"textChars":1,"textLines":1}
-{"kind":"textbox","id":"sh/f2tcv614","slide":3,"textChars":22,"textLines":1}
-{"kind":"shape","id":"sh/03mtor2p","slide":3,"bbox":[420,349,520,24]}
-{"kind":"shape","id":"sh/14vuxwja","slide":3,"bbox":[420,349,18,24]}
-{"kind":"textbox","id":"sh/yxobylkn","slide":3,"textChars":1,"textLines":1}
-{"kind":"textbox","id":"sh/zyxc7q18","slide":3,"textChars":15,"textLines":1}
-{"kind":"shape","id":"sh/vip8zi1k","slide":3,"bbox":[420,411,520,24]}
-{"kind":"shape","id":"sh/uhgrqd0z","slide":3,"bbox":[420,411,495.62,24]}
-{"kind":"textbox","id":"sh/hkrq1szq","slide":3,"textChars":2,"textLines":1}
-{"kind":"shape","id":"sh/gjy9sni5","slide":3,"bbox":[88,500,965,92]}
-{"kind":"textbox","id":"sh/369832hw","slide":3,"textChars":26,"textLines":1}
-{"kind":"textbox","id":"sh/i50rux0b","slide":3,"textChars":101,"textLines":1}
-{"kind":"notes","id":"nt/busuzg","slide":3,"text":"[Sources] | - Source: persisted Kestrel engagement MKORD-2026-7FBBEE23. | - M..."}
-{"kind":"slide","id":"sl/xwwqi6","slide":4,"title":"COMPREHENSIVE REVIEW · 04","textShapes":17}
-{"kind":"textbox","id":"sh/snml4fed","slide":4,"textChars":25,"textLines":1}
-{"kind":"textbox","id":"sh/7md4baxs","slide":4,"textChars":65,"textLines":1}
-{"kind":"textbox","id":"sh/6l4325w7","slide":4,"textChars":85,"textLines":1}
-{"kind":"shape","id":"sh/hsfmhkfu","slide":4,"bbox":[72,664,1136,0]}
-{"kind":"textbox","id":"sh/gr6l8ze9","slide":4,"textChars":34,"textLines":1}
-{"kind":"textbox","id":"sh/fqd4fuxo","slide":4,"textChars":7,"textLines":1}
-{"kind":"shape","id":"sh/up436pw3","slide":4,"bbox":[88,208,8,68]}
-{"kind":"textbox","id":"sh/xwb250fq","slide":4,"textChars":14,"textLines":1}
-{"kind":"textbox","id":"sh/wv2lwvy5","slide":4,"textChars":70,"textLines":1}
-{"kind":"textbox","id":"sh/a58b6l4f","slide":4,"textChars":192,"textLines":1}
-{"kind":"shape","id":"sh/b6hcfql0","slide":4,"bbox":[88,302,8,68]}
-{"kind":"textbox","id":"sh/c7at8bml","slide":4,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/x8juhg36","slide":4,"textChars":70,"textLines":1}
-{"kind":"textbox","id":"sh/y9sval4r","slide":4,"textChars":171,"textLines":1}
-{"kind":"shape","id":"sh/za1cjqlw","slide":4,"bbox":[88,396,8,68]}
-{"kind":"textbox","id":"sh/kbadcvmh","slide":4,"textChars":7,"textLines":1}
-{"kind":"textbox","id":"sh/lcjul032","slide":4,"textChars":70,"textLines":1}
-{"kind":"textbox","id":"sh/mdsve54n","slide":4,"textChars":196,"textLines":1}
-{"kind":"shape","id":"sh/7ylcnal8","slide":4,"bbox":[88,490,8,68]}
-{"kind":"textbox","id":"sh/j2lcba1g","slide":4,"textChars":136,"textLines":1}
-{"kind":"textbox","id":"sh/i1cb250v","slide":4,"textChars":140,"textLines":1}
-{"kind":"textbox","id":"sh/543udkj6","slide":4,"textChars":106,"textLines":1}
-{"kind":"notes","id":"nt/xwwqi6","slide":4,"text":"[Sources] | - Source: persisted Kestrel engagement MKORD-2026-7FBBEE23. | - M..."}
-{"kind":"slide","id":"sl/494lpx","slide":5,"title":"COMPREHENSIVE REVIEW · 05","textShapes":20}
-{"kind":"textbox","id":"sh/fahsfyhs","slide":5,"textChars":25,"textLines":1}
-{"kind":"textbox","id":"sh/0bqt83yd","slide":5,"textChars":77,"textLines":1}
-{"kind":"textbox","id":"sh/1czahozi","slide":5,"textChars":70,"textLines":1}
-{"kind":"shape","id":"sh/2d8batg3","slide":5,"bbox":[72,664,1136,0]}
-{"kind":"textbox","id":"sh/nehcjyho","slide":5,"textChars":34,"textLines":1}
-{"kind":"textbox","id":"sh/ofqtc3y9","slide":5,"textChars":7,"textLines":1}
-{"kind":"textbox","id":"sh/pgzul8zu","slide":5,"textChars":69,"textLines":1}
-{"kind":"shape","id":"sh/a1sbedgf","slide":5,"bbox":[505,216,360,20]}
-{"kind":"shape","id":"sh/b21cnih0","slide":5,"bbox":[505,216,360,20]}
-{"kind":"textbox","id":"sh/nyd0fal8","slide":5,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/2x4j6pkn","slide":5,"textChars":74,"textLines":1}
-{"kind":"textbox","id":"sh/p0vihk3e","slide":5,"textChars":53,"textLines":1}
-{"kind":"shape","id":"sh/ozm18f2t","slide":5,"bbox":[505,286,360,20]}
-{"kind":"shape","id":"sh/fud0balc","slide":5,"bbox":[505,286,360,20]}
-{"kind":"textbox","id":"sh/etkj25kr","slide":5,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/1wvidk32","slide":5,"textChars":76,"textLines":1}
-{"kind":"textbox","id":"sh/0vm14f2h","slide":5,"textChars":75,"textLines":1}
-{"kind":"shape","id":"sh/zqxknelg","slide":5,"bbox":[505,356,360,20]}
-{"kind":"shape","id":"sh/ypoje9kv","slide":5,"bbox":[505,356,360,20]}
-{"kind":"textbox","id":"sh/uls3md43","slide":5,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/vm14fy5o","slide":5,"textChars":77,"textLines":1}
-{"kind":"textbox","id":"sh/gnalo3m9","slide":5,"textChars":52,"textLines":1}
-{"kind":"shape","id":"sh/hojmh8nu","slide":5,"bbox":[505,426,360,20]}
-{"kind":"shape","id":"sh/ips3ad4z","slide":5,"bbox":[505,426,360,20]}
-{"kind":"textbox","id":"sh/3q14ji5k","slide":5,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/4ba5cnm5","slide":5,"textChars":66,"textLines":1}
-{"kind":"textbox","id":"sh/5c3mls3q","slide":5,"textChars":58,"textLines":1}
-{"kind":"shape","id":"sh/yt83et4v","slide":5,"bbox":[505,496,360,20]}
-{"kind":"shape","id":"sh/zuh47e5g","slide":5,"bbox":[505,496,360,20]}
-{"kind":"textbox","id":"sh/18n6dw7y","slide":5,"textChars":8,"textLines":1}
-{"kind":"textbox","id":"sh/07epkr6d","slide":5,"textChars":64,"textLines":1}
-{"kind":"notes","id":"nt/494lpx","slide":5,"text":"[Sources] | - Source: persisted Kestrel engagement MKORD-2026-7FBBEE23. | - M..."}
-{"kind":"slide","id":"sl/9h47sb","slide":6,"title":"COMPREHENSIVE REVIEW · 06","textShapes":17}
-{"kind":"textbox","id":"sh/psjahg7y","slide":6,"textChars":25,"textLines":1}
-{"kind":"textbox","id":"sh/2psr6lon","slide":6,"textChars":60,"textLines":1}
-{"kind":"textbox","id":"sh/3q18fqp8","slide":6,"textChars":84,"textLines":1}
-{"kind":"notice","message":"Truncated: omitted 130 lines. Increase maxChars or narrow target."}
+{"kind":"slide","id":"sl/eg03es","slide":1,"title":"MK FRAUD READINESS","textShapes":5}
+{"kind":"shape","id":"sh/p03m50z2","slide":1,"bbox":[0,0,22,720]}
+{"kind":"textbox","id":"sh/2xcna5gr","slide":1,"textChars":18,"textLines":1}
+{"kind":"textbox","id":"sh/nyl43qhc","slide":1,"textChars":80,"textLines":1}
+{"kind":"textbox","id":"sh/c3u5gfyt","slide":1,"textChars":89,"textLines":2}
+{"kind":"textbox","id":"sh/x4n69kze","slide":1,"textChars":67,"textLines":1}
+{"kind":"textbox","id":"sh/a1cne5gn","slide":1,"textChars":31,"textLines":1}
+{"kind":"notes","id":"nt/eg03es","slide":1,"text":"[Sources] | - Source: persisted Kestrel assessment MKORD-2026-7FBBEE23. | - M..."}
+{"kind":"slide","id":"sl/8kcc7o","slide":2,"title":"COMPREHENSIVE REVIEW · 02","textShapes":19}
+{"kind":"textbox","id":"sh/xsfmpw3e","slide":2,"textChars":25,"textLines":1}
+{"kind":"textbox","id":"sh/ap43uh4n","slide":2,"textChars":73,"textLines":1}
+{"kind":"textbox","id":"sh/bqx4nml8","slide":2,"textChars":64,"textLines":1}
+{"kind":"shape","id":"sh/kv650bm5","slide":2,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/lwfmtg3a","slide":2,"textChars":34,"textLines":1}
+{"kind":"textbox","id":"sh/ytony14z","slide":2,"textChars":7,"textLines":1}
+{"kind":"shape","id":"sh/zux4r6lk","slide":2,"bbox":[72,208,240,128]}
+{"kind":"shape","id":"sh/0zmlo7ml","slide":2,"bbox":[72,208,240,6]}
+{"kind":"textbox","id":"sh/10vmhc36","slide":2,"textChars":18,"textLines":1}
+{"kind":"textbox","id":"sh/xcre983m","slide":2,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/wbixg3m1","slide":2,"textChars":10,"textLines":1}
+{"kind":"shape","id":"sh/ba9w7ylg","slide":2,"bbox":[334,208,240,128]}
+{"kind":"shape","id":"sh/a90fed4b","slide":2,"bbox":[334,208,240,6]}
+{"kind":"textbox","id":"sh/l0byds3y","slide":2,"textChars":17,"textLines":1}
+{"kind":"textbox","id":"sh/kz2xknmd","slide":2,"textChars":7,"textLines":1}
+{"kind":"textbox","id":"sh/je9wbils","slide":2,"textChars":12,"textLines":1}
+{"kind":"shape","id":"sh/yd0fid47","slide":2,"bbox":[596,208,240,128]}
+{"kind":"shape","id":"sh/t4byhs3u","slide":2,"bbox":[596,208,240,6]}
+{"kind":"textbox","id":"sh/832xonm9","slide":2,"textChars":17,"textLines":1}
+{"kind":"textbox","id":"sh/cju90vex","slide":2,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/dk3q90f2","slide":2,"textChars":18,"textLines":1}
+{"kind":"shape","id":"sh/qxc7ylwr","slide":2,"bbox":[858,208,240,128]}
+{"kind":"shape","id":"sh/ril87qxc","slide":2,"bbox":[858,208,240,6]}
+{"kind":"textbox","id":"sh/0ne94fet","slide":2,"textChars":15,"textLines":1}
+{"kind":"textbox","id":"sh/1onqd0fe","slide":2,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/elcr25wn","slide":2,"textChars":19,"textLines":1}
+{"kind":"shape","id":"sh/zml8bax8","slide":2,"bbox":[72,390,1026,130]}
+{"kind":"textbox","id":"sh/grapsbyp","slide":2,"textChars":18,"textLines":1}
+{"kind":"textbox","id":"sh/hsjq1gfa","slide":2,"textChars":156,"textLines":1}
+{"kind":"notes","id":"nt/8kcc7o","slide":2,"text":"[Sources] | - Source: persisted Kestrel assessment MKORD-2026-7FBBEE23. | - M..."}
+{"kind":"slide","id":"sl/ztbnh1","slide":3,"title":"COMPREHENSIVE REVIEW · 03","textShapes":15}
+{"kind":"textbox","id":"sh/98batkji","slide":3,"textChars":25,"textLines":1}
+{"kind":"textbox","id":"sh/m5kbipk7","slide":3,"textChars":44,"textLines":1}
+{"kind":"textbox","id":"sh/76tsru1s","slide":3,"textChars":92,"textLines":1}
+{"kind":"shape","id":"sh/kj2tgf21","slide":3,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/lkbapkjm","slide":3,"textChars":34,"textLines":1}
+{"kind":"textbox","id":"sh/yh0be5kv","slide":3,"textChars":7,"textLines":1}
+{"kind":"textbox","id":"sh/zitsna1g","slide":3,"textChars":17,"textLines":1}
+{"kind":"shape","id":"sh/cfitcv25","slide":3,"bbox":[420,225,520,24]}
+{"kind":"shape","id":"sh/xgral0jq","slide":3,"bbox":[420,225,156,24]}
+{"kind":"textbox","id":"sh/1wnilo7u","slide":3,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/gvehcjq9","slide":3,"textChars":14,"textLines":1}
+{"kind":"shape","id":"sh/fu50jepo","slide":3,"bbox":[420,287,520,24]}
+{"kind":"shape","id":"sh/etwza983","slide":3,"bbox":[420,287,156,24]}
+{"kind":"textbox","id":"sh/tsnih47i","slide":3,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/sreh8zqd","slide":3,"textChars":9,"textLines":1}
+{"kind":"shape","id":"sh/r6l0fups","slide":3,"bbox":[420,349,520,24]}
+{"kind":"shape","id":"sh/65cz6p87","slide":3,"bbox":[420,349,52,24]}
+{"kind":"textbox","id":"sh/543id4rm","slide":3,"textChars":1,"textLines":1}
+{"kind":"textbox","id":"sh/43uh4zq1","slide":3,"textChars":15,"textLines":1}
+{"kind":"shape","id":"sh/wji9gj29","slide":3,"bbox":[420,411,520,24]}
+{"kind":"shape","id":"sh/hkra9o3u","slide":3,"bbox":[420,411,156,24]}
+{"kind":"textbox","id":"sh/uhgretk3","slide":3,"textChars":2,"textLines":1}
+{"kind":"shape","id":"sh/vi9s7ylo","slide":3,"bbox":[88,500,965,92]}
+{"kind":"textbox","id":"sh/8vy9cj2x","slide":3,"textChars":22,"textLines":1}
+{"kind":"textbox","id":"sh/9w7q5o3i","slide":3,"textChars":167,"textLines":1}
+{"kind":"notes","id":"nt/ztbnh1","slide":3,"text":"[Sources] | - Source: persisted Kestrel assessment MKORD-2026-7FBBEE23. | - M..."}
+{"kind":"slide","id":"sl/k119t8","slide":4,"title":"COMPREHENSIVE REVIEW · 04","textShapes":7}
+{"kind":"textbox","id":"sh/8zq1k3q9","slide":4,"textChars":25,"textLines":1}
+{"kind":"textbox","id":"sh/nehkrypo","slide":4,"textChars":51,"textLines":1}
+{"kind":"textbox","id":"sh/md8jit83","slide":4,"textChars":59,"textLines":1}
+{"kind":"shape","id":"sh/lcz2po7i","slide":4,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/0b61gjqx","slide":4,"textChars":34,"textLines":1}
+{"kind":"textbox","id":"sh/zax0nepc","slide":4,"textChars":7,"textLines":1}
+{"kind":"shape","id":"sh/y9oje98r","slide":4,"bbox":[96,248,10,10]}
+{"kind":"textbox","id":"sh/58j21s7m","slide":4,"textChars":50,"textLines":1}
+{"kind":"shape","id":"sh/k7a1sn6h","slide":4,"bbox":[96,290,10,10]}
+{"kind":"textbox","id":"sh/mdszils3","slide":4,"textChars":72,"textLines":1}
+{"kind":"notes","id":"nt/k119t8","slide":4,"text":"[Sources] | - Source: persisted Kestrel assessment MKORD-2026-7FBBEE23. | - M..."}
+{"kind":"slide","id":"sl/ot2d6q","slide":5,"title":"COMPREHENSIVE REVIEW · 05","textShapes":20}
+{"kind":"textbox","id":"sh/ytkr610j","slide":5,"textChars":25,"textLines":1}
+{"kind":"textbox","id":"sh/lgbq1gzu","slide":5,"textChars":77,"textLines":1}
+{"kind":"textbox","id":"sh/0v298bi9","slide":5,"textChars":70,"textLines":1}
+{"kind":"shape","id":"sh/nit83qh0","slide":5,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/mhkral0f","slide":5,"textChars":34,"textLines":1}
+{"kind":"textbox","id":"sh/9kva50z6","slide":5,"textChars":7,"textLines":1}
+{"kind":"textbox","id":"sh/8j29cvil","slide":5,"textChars":69,"textLines":1}
+{"kind":"shape","id":"sh/3m98rmhw","slide":5,"bbox":[505,216,360,20]}
+{"kind":"shape","id":"sh/2l07yh0b","slide":5,"bbox":[505,216,360,20]}
+{"kind":"textbox","id":"sh/o3ut0jyh","slide":5,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/p43a94z2","slide":5,"textChars":74,"textLines":1}
+{"kind":"textbox","id":"sh/21cby90b","slide":5,"textChars":53,"textLines":1}
+{"kind":"shape","id":"sh/n2ls7ehw","slide":5,"bbox":[505,286,360,20]}
+{"kind":"shape","id":"sh/c7et4jyd","slide":5,"bbox":[505,286,360,20]}
+{"kind":"textbox","id":"sh/x8nadozy","slide":5,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/a5cb29g7","slide":5,"textChars":76,"textLines":1}
+{"kind":"textbox","id":"sh/b6lsbehs","slide":5,"textChars":75,"textLines":1}
+{"kind":"shape","id":"sh/sbatsfi9","slide":5,"bbox":[505,356,360,20]}
+{"kind":"shape","id":"sh/dcja1kzu","slide":5,"bbox":[505,356,360,20]}
+{"kind":"textbox","id":"sh/t8bq5gri","slide":5,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/s729wbax","slide":5,"textChars":77,"textLines":1}
+{"kind":"textbox","id":"sh/76t8369c","slide":5,"textChars":52,"textLines":1}
+{"kind":"shape","id":"sh/65kru1sr","slide":5,"bbox":[505,426,360,20]}
+{"kind":"shape","id":"sh/hwvq90re","slide":5,"bbox":[505,426,360,20]}
+{"kind":"textbox","id":"sh/gv290va9","slide":5,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/fut87q9o","slide":5,"textChars":66,"textLines":1}
+{"kind":"textbox","id":"sh/u9kryls3","slide":5,"textChars":58,"textLines":1}
+{"kind":"shape","id":"sh/p0vqd0rq","slide":5,"bbox":[505,496,360,20]}
+{"kind":"shape","id":"sh/4zm94va5","slide":5,"bbox":[505,496,360,20]}
+{"kind":"textbox","id":"sh/m5gnyx8n","slide":5,"textChars":8,"textLines":1}
+{"kind":"textbox","id":"sh/n6por2p8","slide":5,"textChars":64,"textLines":1}
+{"kind":"notes","id":"nt/ot2d6q","slide":5,"text":"[Sources] | - Source: persisted Kestrel assessment MKORD-2026-7FBBEE23. | - M..."}
+{"kind":"slide","id":"sl/9sqfqr","slide":6,"title":"COMPREHENSIVE REVIEW · 06","textShapes":17}
+{"kind":"textbox","id":"sh/6d0ba98v","slide":6,"textChars":25,"textLines":1}
+{"kind":"textbox","id":"sh/tgralo7m","slide":6,"textChars":60,"textLines":1}
+{"kind":"textbox","id":"sh/sfitcjq1","slide":6,"textChars":84,"textLines":1}
+{"kind":"shape","id":"sh/fi9sneps","slide":6,"bbox":[72,664,1136,0]}
+{"kind":"textbox","id":"sh/eh0bet87","slide":6,"textChars":34,"textLines":1}
+{"kind":"textbox","id":"sh/1kbupo7i","slide":6,"textChars":7,"textLines":1}
+{"kind":"shape","id":"sh/gj2tgjqd","slide":6,"bbox":[80,220,330,300]}
+{"kind":"textbox","id":"sh/36tcrypo","slide":6,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/25kbit83","slide":6,"textChars":144,"textLines":1}
+{"kind":"textbox","id":"sh/gfit4zed","slide":6,"textChars":186,"textLines":1}
+{"kind":"textbox","id":"sh/hgrux4vy","slide":6,"textChars":220,"textLines":1}
+{"kind":"shape","id":"sh/ud0b2pw7","slide":6,"bbox":[450,220,330,300]}
+{"kind":"textbox","id":"sh/ve9cvuds","slide":6,"textChars":2,"textLines":1}
+{"kind":"textbox","id":"sh/432t8zep","slide":6,"textChars":152,"textLines":1}
+{"kind":"textbox","id":"sh/54bu14vu","slide":6,"textChars":178,"textLines":1}
+{"kind":"notice","message":"Truncated: omitted 118 lines. Increase maxChars or narrow target."}
