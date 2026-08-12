@@ -8,7 +8,7 @@
   },
   "assessment": {
     "reference": "MKFRS-2026-F4047D75C0",
-    "generatedAt": "2026-08-12T19:50:38.549Z",
+    "generatedAt": "2026-08-12T19:51:32.772Z",
     "score": 35.55,
     "maturity": "Reactive",
     "calculatedMaturity": "Reactive",
@@ -136,7 +136,7 @@
   "systemicThemeInputs": [
     {
       "factRef": "THEME-001",
-      "title": "Detection-evasion pathway",
+      "title": "Monitoring, escalation and detection coverage",
       "findingRefs": [
         "FINDING-005",
         "FINDING-008"
@@ -159,7 +159,7 @@
     },
     {
       "factRef": "THEME-002",
-      "title": "Identity and account-takeover pathway",
+      "title": "Identity verification and sensitive-change discipline",
       "findingRefs": [
         "FINDING-006"
       ],
@@ -178,7 +178,7 @@
     },
     {
       "factRef": "THEME-003",
-      "title": "Incident concealment and repeat-exposure pathway",
+      "title": "Incident response and evidence integrity",
       "findingRefs": [
         "FINDING-004",
         "FINDING-008"
@@ -201,7 +201,7 @@
     },
     {
       "factRef": "THEME-004",
-      "title": "Privileged access misuse pathway",
+      "title": "Identity and access governance",
       "findingRefs": [
         "FINDING-002",
         "FINDING-006"
@@ -222,7 +222,7 @@
     },
     {
       "factRef": "THEME-005",
-      "title": "Supplier and payment diversion pathway",
+      "title": "Supplier and payment integrity",
       "findingRefs": [
         "FINDING-002",
         "FINDING-003",
@@ -1640,7 +1640,7 @@
       "kind": "systemic_theme",
       "value": {
         "factRef": "THEME-001",
-        "title": "Detection-evasion pathway",
+        "title": "Monitoring, escalation and detection coverage",
         "findingRefs": [
           "FINDING-005",
           "FINDING-008"
@@ -1675,7 +1675,7 @@
       "kind": "systemic_theme",
       "value": {
         "factRef": "THEME-002",
-        "title": "Identity and account-takeover pathway",
+        "title": "Identity verification and sensitive-change discipline",
         "findingRefs": [
           "FINDING-006"
         ],
@@ -1703,7 +1703,7 @@
       "kind": "systemic_theme",
       "value": {
         "factRef": "THEME-003",
-        "title": "Incident concealment and repeat-exposure pathway",
+        "title": "Incident response and evidence integrity",
         "findingRefs": [
           "FINDING-004",
           "FINDING-008"
@@ -1738,7 +1738,7 @@
       "kind": "systemic_theme",
       "value": {
         "factRef": "THEME-004",
-        "title": "Privileged access misuse pathway",
+        "title": "Identity and access governance",
         "findingRefs": [
           "FINDING-002",
           "FINDING-006"
@@ -1769,7 +1769,7 @@
       "kind": "systemic_theme",
       "value": {
         "factRef": "THEME-005",
-        "title": "Supplier and payment diversion pathway",
+        "title": "Supplier and payment integrity",
         "findingRefs": [
           "FINDING-002",
           "FINDING-003",
