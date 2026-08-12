@@ -1,0 +1,3323 @@
+{
+  "schemaVersion": "mk-reporting-bible-1.1-fact-pack-v1",
+  "bibleVersion": "1.1",
+  "productTier": "essential",
+  "organisation": {
+    "name": "Rivonia Health Logistics (Pty) Ltd",
+    "sectorFacts": []
+  },
+  "assessment": {
+    "reference": "MKFRS-2026-F4047D75C0",
+    "generatedAt": "2026-08-12T19:50:38.549Z",
+    "score": 35.55,
+    "maturity": "Reactive",
+    "calculatedMaturity": "Reactive",
+    "exposureScore": null,
+    "exposureBand": null,
+    "coveragePct": 100,
+    "uncertaintyRatePct": 4.18,
+    "criticalGapCount": 17,
+    "majorGapCount": 8,
+    "uncertaintyFacts": [
+      "One or more hard-gate critical controls scored 0 or 1. One or more hard-gate critical controls scored 2. Three or more critical controls scored 0, 1 or 2. Core domain D2 scored below 40. Core domain D1 scored below 60.",
+      "Use as a directional result only; differences in scope or uncertainty may limit comparison with other assessments."
+    ]
+  },
+  "domains": [
+    {
+      "factRef": "DOMAIN-D1",
+      "code": "D1",
+      "name": "Fraud Leadership and Governance",
+      "score": 42,
+      "maturity": null,
+      "weightPct": 12,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D2",
+      "code": "D2",
+      "name": "Fraud Risk Identification",
+      "score": 25.64,
+      "maturity": null,
+      "weightPct": 12,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D3",
+      "code": "D3",
+      "name": "Operational Fraud Controls",
+      "score": 50.97,
+      "maturity": null,
+      "weightPct": 14,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D4",
+      "code": "D4",
+      "name": "Fraud Detection Capability",
+      "score": 20,
+      "maturity": null,
+      "weightPct": 14,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D5",
+      "code": "D5",
+      "name": "Fraud Incident Response",
+      "score": 40,
+      "maturity": null,
+      "weightPct": 10,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D6",
+      "code": "D6",
+      "name": "Whistleblowing and Reporting Culture",
+      "score": 73.57,
+      "maturity": null,
+      "weightPct": 6,
+      "coveragePct": 100,
+      "criticalGapCount": 0
+    },
+    {
+      "factRef": "DOMAIN-D7",
+      "code": "D7",
+      "name": "Third-Party and Supply Chain Fraud Risk",
+      "score": 20.59,
+      "maturity": null,
+      "weightPct": 10,
+      "coveragePct": 100,
+      "criticalGapCount": 2
+    },
+    {
+      "factRef": "DOMAIN-D8",
+      "code": "D8",
+      "name": "Digital and Identity Fraud Risk",
+      "score": 31.89,
+      "maturity": null,
+      "weightPct": 12,
+      "coveragePct": 100,
+      "criticalGapCount": 4
+    },
+    {
+      "factRef": "DOMAIN-D9",
+      "code": "D9",
+      "name": "Fraud Culture and Awareness",
+      "score": 40,
+      "maturity": null,
+      "weightPct": 5,
+      "coveragePct": 100,
+      "criticalGapCount": 0
+    },
+    {
+      "factRef": "DOMAIN-D10",
+      "code": "D10",
+      "name": "Continuous Improvement and Fraud Risk Monitoring",
+      "score": 24,
+      "maturity": null,
+      "weightPct": 5,
+      "coveragePct": 100,
+      "criticalGapCount": 1
+    }
+  ],
+  "relativeStrengths": [
+    {
+      "factRef": "STRENGTH-001",
+      "title": "Whistleblowing and Reporting Culture is a relative strength in the recorded profile",
+      "basis": "The recorded domain position is 73.57 out of 100.",
+      "domainCode": "D6"
+    }
+  ],
+  "systemicThemeInputs": [
+    {
+      "factRef": "THEME-001",
+      "title": "Detection-evasion pathway",
+      "findingRefs": [
+        "FINDING-005",
+        "FINDING-008"
+      ],
+      "domainCodes": [
+        "D10",
+        "D4"
+      ],
+      "riskRefs": [
+        "RISK-001",
+        "RISK-003"
+      ],
+      "scenarioRefs": [
+        "SCENARIO-002",
+        "SCENARIO-003"
+      ],
+      "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+      "fraudRiskRelationship": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded. Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+      "whyTogether": "These findings connect monitoring coverage, exception review and escalation authority to the risk that unusual activity remains below timely challenge."
+    },
+    {
+      "factRef": "THEME-002",
+      "title": "Identity and account-takeover pathway",
+      "findingRefs": [
+        "FINDING-006"
+      ],
+      "domainCodes": [
+        "D8"
+      ],
+      "riskRefs": [
+        "RISK-004"
+      ],
+      "scenarioRefs": [
+        "SCENARIO-001"
+      ],
+      "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+      "fraudRiskRelationship": "An unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+      "whyTogether": "These findings connect identity verification, authentication evidence and profile-change monitoring to the risk of misuse under a legitimate identity."
+    },
+    {
+      "factRef": "THEME-003",
+      "title": "Incident concealment and repeat-exposure pathway",
+      "findingRefs": [
+        "FINDING-004",
+        "FINDING-008"
+      ],
+      "domainCodes": [
+        "D10",
+        "D5"
+      ],
+      "riskRefs": [
+        "RISK-001",
+        "RISK-005"
+      ],
+      "scenarioRefs": [
+        "SCENARIO-002",
+        "SCENARIO-003"
+      ],
+      "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+      "fraudRiskRelationship": "Uncontrolled collection or transfer can alter, lose or contaminate evidence, undermining investigation, recovery or disciplinary action. Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+      "whyTogether": "These findings connect reporting, evidence preservation and incident escalation to the organisation’s ability to contain a matter and prevent repeat exposure."
+    },
+    {
+      "factRef": "THEME-004",
+      "title": "Privileged access misuse pathway",
+      "findingRefs": [
+        "FINDING-002",
+        "FINDING-006"
+      ],
+      "domainCodes": [
+        "D3",
+        "D8"
+      ],
+      "riskRefs": [
+        "RISK-004"
+      ],
+      "scenarioRefs": [
+        "SCENARIO-001"
+      ],
+      "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+      "fraudRiskRelationship": "A fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments. An unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+      "whyTogether": "These findings connect excessive or insufficiently reviewed access to the ability to alter value-bearing records, entitlements or audit trails."
+    },
+    {
+      "factRef": "THEME-005",
+      "title": "Supplier and payment diversion pathway",
+      "findingRefs": [
+        "FINDING-002",
+        "FINDING-003",
+        "FINDING-006"
+      ],
+      "domainCodes": [
+        "D3",
+        "D7",
+        "D8"
+      ],
+      "riskRefs": [
+        "RISK-004"
+      ],
+      "scenarioRefs": [
+        "SCENARIO-001"
+      ],
+      "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+      "fraudRiskRelationship": "A fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments. An impersonator or insider can redirect legitimate payments by submitting altered invoices or false bank details.",
+      "whyTogether": "These findings connect supplier identity, onboarding and payment-instruction controls to the point at which value can be redirected."
+    }
+  ],
+  "standaloneFindingReasons": {
+    "FINDING-001": "Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.",
+    "FINDING-007": "Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit."
+  },
+  "findings": [
+    {
+      "factRef": "FINDING-001",
+      "sourceId": "MF-D1-Q04",
+      "title": "Fraud Leadership and Governance: Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist.",
+      "domain": "Fraud Leadership and Governance",
+      "questionCode": "D1-Q04",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Management-versus-assurance role separation was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded maturity_constraint concerns Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because when assurance owns the control it later reviews, gaps can be accepted or missed without an independent challenge.",
+      "materialityReason": "maturity_constraint selected at deterministic priority 2680.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "maturity_constraint",
+      "priorityScore": 2680,
+      "owner": "CEO / Managing Director",
+      "processOwner": "Head of Risk and business control owners",
+      "targetPeriod": "30 days",
+      "approvedControlResponse": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners, reserves independent testing and unrestricted reporting for internal audit or equivalent assurance, and requires annual conflict review; the company secretary retains the approved RACI and minutes.",
+      "effectivenessMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "sourceRefs": [
+        "MF-D1-Q04",
+        "D1-Q04"
+      ]
+    },
+    {
+      "factRef": "FINDING-002",
+      "sourceId": "MF-D3-Q03",
+      "title": "Operational Fraud Controls: Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators.",
+      "domain": "Operational Fraud Controls",
+      "questionCode": "D3-Q03",
+      "recordedPosition": "The control, process or capability does not exist or is not recognised as required.",
+      "deterministicCondition": "Not in place: The control, process or capability does not exist or is not recognised as required.",
+      "interpretation": "Supplier-onboarding verification was self-assessed as \"Not in place\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because a fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments.",
+      "materialityReason": "control_failure selected at deterministic priority 2660.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2660,
+      "owner": "CFO / COO",
+      "processOwner": "Procurement / Vendor Master",
+      "targetPeriod": "60 days",
+      "approvedControlResponse": "Procurement performs a pre-activation checklist across every proposed supplier, independently verifies registration and bank ownership, screens beneficial owners and conflicts, risk-rates the supplier, and blocks ERP activation until a second reviewer signs; the vendor master retains the evidence package.",
+      "effectivenessMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+      "sourceRefs": [
+        "MF-D3-Q03",
+        "D3-Q03"
+      ]
+    },
+    {
+      "factRef": "FINDING-003",
+      "sourceId": "MF-D7-Q04",
+      "title": "Third-Party and Supply Chain Fraud Risk: Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation.",
+      "domain": "Third-Party and Supply Chain Fraud Risk",
+      "questionCode": "D7-Q04",
+      "recordedPosition": "The control, process or capability does not exist or is not recognised as required.",
+      "deterministicCondition": "Not in place: The control, process or capability does not exist or is not recognised as required.",
+      "interpretation": "Supplier payment and bank-detail-change verification was self-assessed as \"Not in place\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because an impersonator or insider can redirect legitimate payments by submitting altered invoices or false bank details.",
+      "materialityReason": "control_failure selected at deterministic priority 2660.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2660,
+      "owner": "CFO",
+      "processOwner": "Accounts Payable / Vendor Master",
+      "targetPeriod": "30 days",
+      "approvedControlResponse": "Accounts Payable quarantines every bank-detail change, retrieves a contact from the pre-change vendor master, completes and records an outbound callback, obtains second-person approval from someone outside vendor-master maintenance, blocks payment until verification, and gives the CFO a monthly report of all changes, failures and bypass attempts.",
+      "effectivenessMeasure": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+      "sourceRefs": [
+        "MF-D7-Q04",
+        "D7-Q04"
+      ]
+    },
+    {
+      "factRef": "FINDING-004",
+      "sourceId": "MF-D5-Q05",
+      "title": "Fraud Incident Response: Evidence linked to suspected fraud is identified, preserved and handled appropriately.",
+      "domain": "Fraud Incident Response",
+      "questionCode": "D5-Q05",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Fraud evidence preservation and chain of custody was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns Evidence linked to suspected fraud is identified, preserved and handled appropriately and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because uncontrolled collection or transfer can alter, lose or contaminate evidence, undermining investigation, recovery or disciplinary action.",
+      "materialityReason": "control_failure selected at deterministic priority 2430.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2430,
+      "owner": "General Counsel / COO",
+      "processOwner": "Investigation lead / Evidence custodian",
+      "targetPeriod": "60 days",
+      "approvedControlResponse": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.",
+      "effectivenessMeasure": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+      "sourceRefs": [
+        "MF-D5-Q05",
+        "D5-Q05"
+      ]
+    },
+    {
+      "factRef": "FINDING-005",
+      "sourceId": "MF-D4-Q01",
+      "title": "Fraud Detection Capability: The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+      "domain": "Fraud Detection Capability",
+      "questionCode": "D4-Q01",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Transaction and activity monitoring was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.",
+      "materialityReason": "control_failure selected at deterministic priority 2300.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2300,
+      "owner": "CFO / COO",
+      "processOwner": "Fraud monitoring owner",
+      "targetPeriod": "90 days",
+      "approvedControlResponse": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.",
+      "effectivenessMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+      "sourceRefs": [
+        "MF-D4-Q01",
+        "D4-Q01"
+      ]
+    },
+    {
+      "factRef": "FINDING-006",
+      "sourceId": "MF-D8-Q01",
+      "title": "Digital and Identity Fraud Risk: The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm.",
+      "domain": "Digital and Identity Fraud Risk",
+      "questionCode": "D8-Q01",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Identity verification at risk points was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+      "materialityReason": "control_failure selected at deterministic priority 2300.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2300,
+      "owner": "COO / CFO",
+      "processOwner": "Process owners for onboarding and activation",
+      "targetPeriod": "60 days",
+      "approvedControlResponse": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+      "effectivenessMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "sourceRefs": [
+        "MF-D8-Q01",
+        "D8-Q01"
+      ]
+    },
+    {
+      "factRef": "FINDING-007",
+      "sourceId": "MF-D2-Q01",
+      "title": "Fraud Risk Identification: The organisation has completed a structured fraud risk assessment within the past two years.",
+      "domain": "Fraud Risk Identification",
+      "questionCode": "D2-Q01",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Structured fraud risk assessment currency was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns The organisation has completed a structured fraud risk assessment within the past two years and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.",
+      "materialityReason": "control_failure selected at deterministic priority 2220.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2220,
+      "owner": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "targetPeriod": "90 days",
+      "approvedControlResponse": "The Head of Risk must run a documented fraud risk assessment at least every two years using a repeatable method: scope the material processes and channels, identify fraud scenarios per process with the roles able to execute them, rate likelihood and impact before and after existing controls, name a treatment owner and due date for every unacceptable residual risk, and obtain governing-body approval of the plan; assessment date, participants and method are retained.",
+      "effectivenessMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+      "sourceRefs": [
+        "MF-D2-Q01",
+        "D2-Q01"
+      ]
+    },
+    {
+      "factRef": "FINDING-008",
+      "sourceId": "MF-D10-Q01",
+      "title": "Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews its fraud risks and control environment.",
+      "domain": "Continuous Improvement and Fraud Risk Monitoring",
+      "questionCode": "D10-Q01",
+      "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+      "interpretation": "Periodic fraud risk and control environment review was self-assessed as \"Initial / ad hoc\"",
+      "advisoryMeaningBasis": "The recorded control_failure concerns The organisation periodically reviews its fraud risks and control environment and connects to the linked fraud pathway and control response.",
+      "whyItMatters": "The condition matters because controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+      "materialityReason": "control_failure selected at deterministic priority 2220.",
+      "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+      "materiality": "control_failure",
+      "priorityScore": 2220,
+      "owner": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "targetPeriod": "90 days",
+      "approvedControlResponse": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+      "effectivenessMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+      "sourceRefs": [
+        "MF-D10-Q01",
+        "D10-Q01"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "factRef": "RISK-001",
+      "sourceId": "RISK-CONTROL-D10-Q01",
+      "title": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
+      "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier. Consequence pathway: Impact requires case-specific validation; Operating impact requires case-specific validation.",
+      "cause": "the assessed control design or operation does not meet the exact expected standard",
+      "event": "controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "Severe",
+      "linkedFindingRefs": [
+        "FINDING-008"
+      ],
+      "approvedTreatment": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+      "owner": "CEO / Managing Director",
+      "targetPeriod": "90 days"
+    },
+    {
+      "factRef": "RISK-002",
+      "sourceId": "RISK-CONTROL-D2-Q01",
+      "title": "Fraud Risk Identification control effectiveness risk",
+      "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded. Consequence pathway: Impact requires case-specific validation; Operating impact requires case-specific validation.",
+      "cause": "the assessed control design or operation does not meet the exact expected standard",
+      "event": "without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "Severe",
+      "linkedFindingRefs": [
+        "FINDING-007"
+      ],
+      "approvedTreatment": "The Head of Risk must run a documented fraud risk assessment at least every two years using a repeatable method: scope the material processes and channels, identify fraud scenarios per process with the roles able to execute them, rate likelihood and impact before and after existing controls, name a treatment owner and due date for every unacceptable residual risk, and obtain governing-body approval of the plan; assessment date, participants and method are retained.",
+      "owner": "CEO / Managing Director",
+      "targetPeriod": "90 days"
+    },
+    {
+      "factRef": "RISK-003",
+      "sourceId": "RISK-CONTROL-D4-Q01",
+      "title": "Fraud Detection Capability control effectiveness risk",
+      "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded. Consequence pathway: Alert backlogs can conceal important anomalies; unreviewed exceptions can allow losses to compound.",
+      "cause": "the assessed control design or operation does not meet the exact expected standard",
+      "event": "without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "Severe",
+      "linkedFindingRefs": [
+        "FINDING-005"
+      ],
+      "approvedTreatment": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.",
+      "owner": "CFO / COO",
+      "targetPeriod": "90 days"
+    },
+    {
+      "factRef": "RISK-004",
+      "sourceId": "RISK-CONTROL-D8-Q01",
+      "title": "Digital and Identity Fraud Risk control effectiveness risk",
+      "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name. Consequence pathway: compromised or privileged access can alter records and transactions; Digital misuse can evade prevention and monitoring.",
+      "cause": "the assessed control design or operation does not meet the exact expected standard",
+      "event": "an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "Severe",
+      "linkedFindingRefs": [
+        "FINDING-006"
+      ],
+      "approvedTreatment": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+      "owner": "COO / CFO",
+      "targetPeriod": "60 days"
+    },
+    {
+      "factRef": "RISK-005",
+      "sourceId": "RISK-EVIDENCE-INTEGRITY",
+      "title": "Fraud evidence loses integrity or chain of custody",
+      "statement": "Because evidence identification, preservation, integrity checks and custody transfers are not consistently controlled, there is a risk that material evidence is altered, lost, contaminated or cannot be shown to be authentic. Consequence pathway: evidence, retention or legal-hold duties may be breached; investigations must be repeated or abandoned; recovery, disciplinary or legal outcomes are weakened; the organisation cannot substantiate its response.",
+      "cause": "evidence identification, preservation, integrity checks and custody transfers are not consistently controlled",
+      "event": "material evidence is altered, lost, contaminated or cannot be shown to be authentic",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "High",
+      "linkedFindingRefs": [
+        "FINDING-004"
+      ],
+      "approvedTreatment": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.",
+      "owner": "General Counsel / COO",
+      "targetPeriod": "60 days"
+    },
+    {
+      "factRef": "RISK-006",
+      "sourceId": "RISK-GOVERNANCE-ACCOUNTABILITY",
+      "title": "Fraud-risk accountability and escalation failure",
+      "statement": "Because management ownership and independent assurance responsibilities are not clearly separated, there is a risk that a material control is operated and certified without independent challenge. Consequence pathway: assurance conclusions cannot be relied upon for remediation decisions; control failure remains undetected and permits avoidable loss; governance reporting may provide false comfort.",
+      "cause": "management ownership and independent assurance responsibilities are not clearly separated",
+      "event": "a material control is operated and certified without independent challenge",
+      "priority": "Critical",
+      "likelihood": "High",
+      "impact": "High",
+      "linkedFindingRefs": [
+        "FINDING-001"
+      ],
+      "approvedTreatment": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners, reserves independent testing and unrestricted reporting for internal audit or equivalent assurance, and requires annual conflict review; the company secretary retains the approved RACI and minutes. The CEO must issue a dated fraud-risk accountability mandate naming one executive, delegated decision rights, budget authority, quarterly reporting obligations and a 30-day escalation route for overdue control actions; the company secretary retains approvals and quarterly packs.",
+      "owner": "CEO / Managing Director",
+      "targetPeriod": "30 days"
+    }
+  ],
+  "scenarios": [
+    {
+      "factRef": "SCENARIO-001",
+      "sourceId": "SYNTH-SUPPLIER_PAYMENT_DIVERSION",
+      "scenarioFamily": "supplier_payment_diversion",
+      "title": "Supplier or payment instruction is diverted through a compromised or fictitious relationship",
+      "actorClass": "An external actor using a compromised supplier communication channel",
+      "opportunity": "Supplier bank-detail changes are not yet consistently verified through a trusted independent channel before payment.",
+      "entryPoint": "A supplier or bank-detail amendment is submitted shortly before a scheduled payment.",
+      "mechanism": "An actor submits a credible-looking bank-detail change and diverts a genuine payment before the change is independently challenged.",
+      "controlWeakness": "Procurement performs a pre-activation checklist across every proposed supplier, independently verifies registration and bank ownership, screens beneficial owners and conflicts, risk-rates the supplier, and blocks ERP activation until a second reviewer signs; the vendor master retains the evidence package.; Accounts Payable quarantines every bank-detail change, retrieves a contact from the pre-change vendor master, completes and records an outbound callback, obtains second-person approval from someone outside vendor-master maintenance, blocks payment until verification, and gives the CFO a monthly report of all changes, failures and bypass attempts.; The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+      "concealment": "An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.",
+      "consequence": "A diverted payment or fictitious supplier relationship can create financial loss and delayed recovery. Direct -- access or supplier-control weakness can enable unauthorised payments or manipulation. Preventive controls may not match current roles or approved suppliers.",
+      "warningIndicators": [
+        "New or reactivated supplier before independent verification",
+        "Bank-detail change shortly before payment",
+        "Urgent payment request that bypasses the normal callback route"
+      ],
+      "immediateContainment": "Pause the affected supplier or payment instruction, independently confirm the trusted beneficiary details and preserve the approval trail.",
+      "longTermResponse": "Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.",
+      "linkedFindingRefs": [
+        "FINDING-002",
+        "FINDING-003",
+        "FINDING-006"
+      ],
+      "linkedRiskRefs": [
+        "RISK-004"
+      ]
+    },
+    {
+      "factRef": "SCENARIO-002",
+      "sourceId": "SC-RISK-CONTROL-D10-Q01-PRIMARY-6E971211",
+      "scenarioFamily": "incident_concealment",
+      "title": "Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat",
+      "actorClass": "An internal or external actor seeking to delay or weaken investigation",
+      "opportunity": "Records relating to suspected fraud are not yet consistently preserved, access-controlled and handled through a clear custody process.",
+      "entryPoint": "A suspected matter generates records before a retention, legal-hold or custody decision is made.",
+      "mechanism": "An actor delays, alters or fragments relevant records so that the scope, timing or responsibility for the suspected matter becomes harder to establish.",
+      "controlWeakness": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.; The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+      "concealment": "The activity may appear routine until complete population review, independent approval or exception monitoring exposes it.",
+      "consequence": "Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified. Indirect -- delayed response or compromised evidence increases investigation and recovery cost. Containment, investigation and legal action may be weakened.",
+      "warningIndicators": [
+        "An exception, access, approval or incident record that cannot be reconciled to the complete in-scope population.",
+        "Review overdue, or a key control found lapsed with no remediation owner.",
+        "Concern is reported through a channel controlled by the implicated process",
+        "Relevant records are unavailable or custody is unclear",
+        "Severity or containment decision remains overdue"
+      ],
+      "immediateContainment": "Escalate to CEO / Managing Director, preserve relevant records and apply the control's escalation threshold: Review overdue, or a key control found lapsed with no remediation owner.",
+      "longTermResponse": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+      "linkedFindingRefs": [
+        "FINDING-004",
+        "FINDING-008"
+      ],
+      "linkedRiskRefs": [
+        "RISK-001",
+        "RISK-005"
+      ]
+    },
+    {
+      "factRef": "SCENARIO-003",
+      "sourceId": "SYNTH-DETECTION_EVASION",
+      "scenarioFamily": "detection_evasion",
+      "title": "Unusual activity avoids timely challenge because monitoring or escalation coverage is incomplete",
+      "actorClass": "An internal or external actor using an unusual transaction pattern",
+      "opportunity": "Monitoring and exception review are not yet sufficiently deliberate or repeatable to challenge unusual activity promptly.",
+      "entryPoint": "A transaction, adjustment or operational activity falls outside the expected pattern without a timely review route.",
+      "mechanism": "An actor splits, disguises or times activity so that it remains below or outside the available monitoring and exception thresholds.",
+      "controlWeakness": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.; The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+      "concealment": "An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.",
+      "consequence": "Delayed detection allows suspicious activity or losses to continue and exceptions to accumulate. Direct -- unreviewed exceptions can allow losses to compound. Alert backlogs can conceal important anomalies.",
+      "warningIndicators": [
+        "Repeated low-value or threshold-adjacent activity",
+        "Alert or exception backlog grows without assigned owner",
+        "Monitoring rule is not updated after a material process change"
+      ],
+      "immediateContainment": "Assign and triage the affected alerts or exceptions, preserve the relevant activity record and escalate overdue items.",
+      "longTermResponse": "Define monitoring coverage, red flags, review ownership, closure evidence and threshold-change governance.",
+      "linkedFindingRefs": [
+        "FINDING-005",
+        "FINDING-008"
+      ],
+      "linkedRiskRefs": [
+        "RISK-001",
+        "RISK-003"
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "factRef": "CONTROL-001",
+      "sourceId": "CI-D1-Q04",
+      "objective": "Close the material control weakness recorded for \"Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "Management designs and operates fraud controls; internal audit or another independent function periodically tests them and reports without assuming management responsibility.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk and business control owners",
+      "population": "The complete in-scope population for annual mandate review and quarterly exception reporting must be reconciled before sampling.",
+      "frequency": "Annual mandate review and quarterly exception reporting",
+      "proofRetained": [
+        "Approved fraud-risk RACI",
+        "Audit-committee minutes showing independent reporting",
+        "Internal audit charter or assurance mandate"
+      ],
+      "independentCheck": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "escalationTrigger": "Any assurance reviewer assigned operational ownership of the control under review.",
+      "sla": "Independent assurance mandate; Named management control owners",
+      "effectivenessMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Independent assurance mandate",
+        "Named management control owners"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-001"
+      ]
+    },
+    {
+      "factRef": "CONTROL-002",
+      "sourceId": "CI-D3-Q03",
+      "objective": "Close the material control weakness recorded for \"Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators\".",
+      "currentState": "Not in place — The control, process or capability does not exist or is not recognised as required.; self-assessed and not independently verified.",
+      "targetState": "Every supplier is verified against legal identity, ownership, tax/banking and risk indicators before activation, with enhanced review for high-risk suppliers.",
+      "accountableExecutive": "CFO / COO",
+      "processOwner": "Procurement / Vendor Master",
+      "population": "The complete in-scope population for before every supplier activation; annual refresh for high-risk suppliers must be reconciled before sampling.",
+      "frequency": "Before every supplier activation; annual refresh for high-risk suppliers",
+      "proofRetained": [
+        "Beneficial-ownership/conflict screening",
+        "Completed onboarding checklist",
+        "Independent registration and bank verification",
+        "Second-reviewer approval"
+      ],
+      "independentCheck": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+      "escalationTrigger": "Any supplier activated before verification or any ownership/conflict match unresolved.",
+      "sla": "Controlled vendor-master workflow",
+      "effectivenessMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Controlled vendor-master workflow"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-002"
+      ]
+    },
+    {
+      "factRef": "CONTROL-003",
+      "sourceId": "CI-D7-Q04",
+      "objective": "Close the material control weakness recorded for \"Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation\".",
+      "currentState": "Not in place — The control, process or capability does not exist or is not recognised as required.; self-assessed and not independently verified.",
+      "targetState": "Every bank-detail change is verified independently through a trusted pre-existing contact and segregated from payment approval; invoices are matched to approved supplier and purchasing records.",
+      "accountableExecutive": "CFO",
+      "processOwner": "Accounts Payable / Vendor Master",
+      "population": "The complete in-scope population for every change and invoice; monthly exception reporting must be reconciled before sampling.",
+      "frequency": "Every change and invoice; monthly exception reporting",
+      "proofRetained": [
+        "Bank-detail-change request",
+        "Independent approval",
+        "Monthly CFO exception report",
+        "Payment hold/release audit trail",
+        "Pre-existing contact record and callback log"
+      ],
+      "independentCheck": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+      "escalationTrigger": "Any unverified change released, callback mismatch or attempt to bypass segregation.",
+      "sla": "Controlled vendor master; Supplier due diligence",
+      "effectivenessMeasure": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Controlled vendor master",
+        "Supplier due diligence"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-003"
+      ]
+    },
+    {
+      "factRef": "CONTROL-004",
+      "sourceId": "CI-D5-Q05",
+      "objective": "Close the material control weakness recorded for \"Evidence linked to suspected fraud is identified, preserved and handled appropriately\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "Evidence is collected under legal direction where needed, hashed or sealed, logged through every transfer, access-restricted and retained under an approved schedule.",
+      "accountableExecutive": "General Counsel / COO",
+      "processOwner": "Investigation lead / Evidence custodian",
+      "population": "The complete in-scope population for at collection and every transfer; quarterly custody-log review must be reconciled before sampling.",
+      "frequency": "At collection and every transfer; quarterly custody-log review",
+      "proofRetained": [
+        "Chain-of-custody forms",
+        "Evidence register",
+        "Hash or seal records",
+        "Repository access log",
+        "Retention/legal-hold instruction"
+      ],
+      "independentCheck": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+      "escalationTrigger": "Any unexplained custody gap, integrity mismatch or unauthorised repository access.",
+      "sla": "Approved secure evidence repository; Incident-response severity process",
+      "effectivenessMeasure": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Approved secure evidence repository",
+        "Incident-response severity process"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-004"
+      ]
+    },
+    {
+      "factRef": "CONTROL-005",
+      "sourceId": "CI-D4-Q01",
+      "objective": "Close the material control weakness recorded for \"The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "Defined monitoring covers the material transaction and activity population, uses risk-based indicators, and produces reviewable output on a set rhythm rather than relying on incidental discovery.",
+      "accountableExecutive": "CFO / COO",
+      "processOwner": "Fraud monitoring owner",
+      "population": "The complete in-scope population for defined monitoring rhythm, at minimum monthly, with continuous capture must be reconciled before sampling.",
+      "frequency": "Defined monitoring rhythm, at minimum monthly, with continuous capture",
+      "proofRetained": [
+        "Coverage report against process fraud maps",
+        "Monitoring output for recent periods",
+        "Population reconciliation to source systems",
+        "Red-flag indicator definitions per process"
+      ],
+      "independentCheck": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+      "escalationTrigger": "A material process unmonitored, or a monitoring cycle missed without escalation.",
+      "sla": "Access to transactional data; Process fraud maps",
+      "effectivenessMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Access to transactional data",
+        "Process fraud maps"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-005"
+      ]
+    },
+    {
+      "factRef": "CONTROL-006",
+      "sourceId": "CI-D8-Q01",
+      "objective": "Close the material control weakness recorded for \"The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "Identity verification is applied at defined risk points using independent sources proportionate to risk, with results recorded, exceptions approved and re-verification on sensitive change.",
+      "accountableExecutive": "COO / CFO",
+      "processOwner": "Process owners for onboarding and activation",
+      "population": "The complete in-scope population for at every defined risk point and on sensitive change must be reconciled before sampling.",
+      "frequency": "At every defined risk point and on sensitive change",
+      "proofRetained": [
+        "Defined verification risk points and required checks",
+        "Exception approvals",
+        "re-verification records for sensitive changes",
+        "Verification records with source and date"
+      ],
+      "independentCheck": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "escalationTrigger": "Activation before verification, an unapproved exception, or a sensitive change without re-verification.",
+      "sla": "Data-protection and retention rules; Onboarding processes",
+      "effectivenessMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Data-protection and retention rules",
+        "Onboarding processes"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-006"
+      ]
+    },
+    {
+      "factRef": "CONTROL-007",
+      "sourceId": "CI-D10-Q01",
+      "objective": "Close the material control weakness recorded for \"The organisation periodically reviews its fraud risks and control environment\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "A scheduled review reassesses fraud risks, tests whether key controls still operate as designed, and reports a consolidated position with owned actions to governance.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "population": "The complete in-scope population for at least annually, and after any material incident or restructuring must be reconciled before sampling.",
+      "frequency": "At least annually, and after any material incident or restructuring",
+      "proofRetained": [
+        "Consolidated report to governance with actions and due dates",
+        "Key control operating evidence sampled in the period",
+        "Lapsed or degraded control register",
+        "Review scope and schedule"
+      ],
+      "independentCheck": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+      "escalationTrigger": "Review overdue, or a key control found lapsed with no remediation owner.",
+      "sla": "Fraud risk assessment; Key control inventory",
+      "effectivenessMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Fraud risk assessment",
+        "Key control inventory"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-008"
+      ]
+    },
+    {
+      "factRef": "CONTROL-008",
+      "sourceId": "CI-D2-Q01",
+      "objective": "Close the material control weakness recorded for \"The organisation has completed a structured fraud risk assessment within the past two years\".",
+      "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+      "targetState": "A structured fraud risk assessment completed within the past two years covers the material processes, uses a repeatable method, rates inherent and residual risk, names owners and produces a tracked treatment plan.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "population": "The complete in-scope population for full assessment at least every two years, with interim refresh on material change must be reconciled before sampling.",
+      "frequency": "Full assessment at least every two years, with interim refresh on material change",
+      "proofRetained": [
+        "Approved treatment plan with owners and due dates",
+        "Dated fraud risk assessment report",
+        "Documented method and participant list",
+        "Governing-body approval record",
+        "Scenario-level inherent and residual ratings"
+      ],
+      "independentCheck": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+      "escalationTrigger": "Assessment older than 24 months, or any unacceptable residual risk without a funded owner and due date.",
+      "sla": "Enterprise risk register; Process inventory",
+      "effectivenessMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+      "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+      "dependencies": [
+        "Enterprise risk register",
+        "Process inventory"
+      ],
+      "linkedFindingRefs": [
+        "FINDING-007"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "factRef": "DECISION-001",
+      "sourceId": "DEC-ACCOUNTABLE-EXECUTIVE-MANDATE",
+      "decisionFamily": "accountable_executive_mandate",
+      "question": "Approve accountable executive mandates and escalation authority for priority remediation.",
+      "options": [
+        {
+          "option": "Name one accountable executive with explicit decision rights",
+          "cost": "Executive attention and a signed mandate.",
+          "benefit": "Creates a single route for ownership, escalation and resource decisions.",
+          "tradeOff": "Requires the named executive to resolve cross-functional blockers."
+        },
+        {
+          "option": "Create a dedicated fraud-risk programme owner",
+          "cost": "Dedicated capacity and management reporting effort.",
+          "benefit": "Improves coordination across domains and keeps the treatment plan visible.",
+          "tradeOff": "May create a coordination layer unless process owners retain delivery accountability."
+        },
+        {
+          "option": "Split ownership by risk pathway with one executive sponsor",
+          "cost": "Multiple owner commitments and a sponsor forum.",
+          "benefit": "Matches ownership to operational processes while retaining executive escalation.",
+          "tradeOff": "Needs clear boundaries to avoid gaps between pathway owners."
+        }
+      ],
+      "recommendedRoute": "Name one accountable executive per linked control and approve a 30-day escalation route.",
+      "rationale": "The recorded assessment links this decision to 16 material finding(s) and 14 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "CEO / Managing Director",
+      "targetDate": "30 days",
+      "consequenceOfDelay": "Priority controls remain ownerless or blocked and the maturity reading remains constrained.",
+      "linkedFindingRefs": [
+        "FINDING-001",
+        "FINDING-008",
+        "FINDING-007",
+        "FINDING-002",
+        "FINDING-005",
+        "FINDING-004",
+        "FINDING-003",
+        "FINDING-006"
+      ]
+    },
+    {
+      "factRef": "DECISION-002",
+      "sourceId": "DEC-RISK-ACCEPTANCE-OR-REMEDIATION",
+      "decisionFamily": "risk_acceptance_or_remediation",
+      "question": "Choose and record remediation rather than passive acceptance for Critical and High risks.",
+      "options": [
+        {
+          "option": "Remediate within the approved target period",
+          "cost": "Immediate process and control-delivery capacity.",
+          "benefit": "Reduces the recorded exposure pathway with a defined completion horizon.",
+          "tradeOff": "Competes with other operational priorities in the near term."
+        },
+        {
+          "option": "Time-bound acceptance with a compensating control",
+          "cost": "Owner attention, expiry tracking and interim control operation.",
+          "benefit": "Makes a temporary acceptance explicit while limiting unmanaged exposure.",
+          "tradeOff": "Leaves residual exposure until the expiry decision is revisited."
+        },
+        {
+          "option": "Commission targeted specialist remediation",
+          "cost": "Bounded specialist budget and internal handover time.",
+          "benefit": "Adds focused design capacity where the risk is complex or time-sensitive.",
+          "tradeOff": "Requires procurement, scope control and retained internal ownership."
+        }
+      ],
+      "recommendedRoute": "Approve linked treatments; any temporary acceptance must name an owner, expiry and compensating control.",
+      "rationale": "The recorded assessment links this decision to 18 material finding(s) and 15 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "CEO / Managing Director",
+      "targetDate": "30 days",
+      "consequenceOfDelay": "Known risk pathways remain untreated without a documented acceptance basis.",
+      "linkedFindingRefs": [
+        "FINDING-001",
+        "FINDING-008",
+        "FINDING-007",
+        "FINDING-002",
+        "FINDING-005",
+        "FINDING-004",
+        "FINDING-003",
+        "FINDING-006"
+      ]
+    },
+    {
+      "factRef": "DECISION-003",
+      "sourceId": "DEC-CONTROL-DESIGN-STANDARD",
+      "decisionFamily": "control_design_standard",
+      "question": "Approve exact question-level control designs as the minimum implementation standard.",
+      "options": [
+        {
+          "option": "Adopt the approved control blueprint as the minimum standard",
+          "cost": "Implementation effort across the named process population.",
+          "benefit": "Creates a consistent baseline for objective, ownership, proof and escalation.",
+          "tradeOff": "May require process changes where current practice is materially different."
+        },
+        {
+          "option": "Tailor the blueprint by process while preserving the minimum fields",
+          "cost": "Design workshops and documented deviations.",
+          "benefit": "Fits operational reality without losing the control objective or proof standard.",
+          "tradeOff": "Needs oversight review to prevent inconsistent weakening."
+        },
+        {
+          "option": "Pilot the blueprint in the highest-risk process before scaling",
+          "cost": "Pilot management time, measurement and subsequent rollout.",
+          "benefit": "Tests usability and effectiveness measures before wider adoption.",
+          "tradeOff": "Leaves other processes on the prior design during the pilot period."
+        }
+      ],
+      "recommendedRoute": "Adopt the control-improvement register; deviations require documented oversight approval.",
+      "rationale": "The recorded assessment links this decision to 34 material finding(s) and 31 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "CEO / Managing Director",
+      "targetDate": "30 days",
+      "consequenceOfDelay": "Partial or inconsistent designs fail to address the causal pathway.",
+      "linkedFindingRefs": [
+        "FINDING-001",
+        "FINDING-008",
+        "FINDING-007",
+        "FINDING-002",
+        "FINDING-005",
+        "FINDING-004",
+        "FINDING-003",
+        "FINDING-006"
+      ]
+    },
+    {
+      "factRef": "DECISION-004",
+      "sourceId": "DEC-FUNDING-RESOURCE-ALLOCATION",
+      "decisionFamily": "funding_resource_allocation",
+      "question": "Approve specialist capacity and resources for high-difficulty controls.",
+      "options": [
+        {
+          "option": "Fund delivery through existing teams and confirmed capacity",
+          "cost": "Reprioritisation and protected management time.",
+          "benefit": "Keeps capability and accountability inside the organisation.",
+          "tradeOff": "May extend delivery where specialist capacity is already constrained."
+        },
+        {
+          "option": "Fund bounded specialist support for the named priority",
+          "cost": "Targeted external budget and handover effort.",
+          "benefit": "Accelerates complex design or implementation work.",
+          "tradeOff": "Requires scope, procurement and transfer of ownership."
+        },
+        {
+          "option": "Use a hybrid internal and specialist delivery plan",
+          "cost": "Internal capacity plus a defined specialist work package.",
+          "benefit": "Retains internal accountability while accelerating the constrained workstream.",
+          "tradeOff": "Needs explicit interfaces so responsibility is not diluted."
+        }
+      ],
+      "recommendedRoute": "Fund the named supporting functions and require a resource-confirmed delivery plan.",
+      "rationale": "The recorded assessment links this decision to 6 material finding(s) and 6 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "General Counsel / COO",
+      "targetDate": "60 days",
+      "consequenceOfDelay": "The highest-complexity gaps remain open despite nominal approval.",
+      "linkedFindingRefs": [
+        "FINDING-004"
+      ]
+    },
+    {
+      "factRef": "DECISION-005",
+      "sourceId": "DEC-SEQUENCING-DEPENDENCY",
+      "decisionFamily": "sequencing_dependency",
+      "question": "Approve prerequisite-first sequencing for dependent improvements.",
+      "options": [
+        {
+          "option": "Complete prerequisites before dependent control work",
+          "cost": "Early focus on ownership, data or process foundations.",
+          "benefit": "Reduces the risk of downstream controls being built on incomplete inputs.",
+          "tradeOff": "Later controls may start after the first target period."
+        },
+        {
+          "option": "Run workstreams in parallel with explicit dependency guardrails",
+          "cost": "Cross-workstream coordination and dependency tracking.",
+          "benefit": "Shortens the overall path while making prerequisites visible.",
+          "tradeOff": "Requires disciplined escalation when a dependency slips."
+        },
+        {
+          "option": "Defer the dependent control with an interim containment measure",
+          "cost": "Interim control operation and expiry management.",
+          "benefit": "Prevents unmanaged exposure while a prerequisite is prepared.",
+          "tradeOff": "The interim measure may be less efficient or less complete."
+        }
+      ],
+      "recommendedRoute": "Use authoritative roadmap dependency IDs and escalate threatened prerequisites.",
+      "rationale": "The recorded assessment links this decision to 34 material finding(s) and 31 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "CEO / Managing Director",
+      "targetDate": "30 days",
+      "consequenceOfDelay": "Downstream controls are implemented on incomplete foundations.",
+      "linkedFindingRefs": [
+        "FINDING-001",
+        "FINDING-008",
+        "FINDING-007",
+        "FINDING-002",
+        "FINDING-005",
+        "FINDING-004",
+        "FINDING-003",
+        "FINDING-006"
+      ]
+    },
+    {
+      "factRef": "DECISION-006",
+      "sourceId": "DEC-GOVERNANCE-REPORTING-CADENCE",
+      "decisionFamily": "governance_reporting_cadence",
+      "question": "Approve a fixed fraud-risk implementation and control-effectiveness review cadence.",
+      "options": [
+        {
+          "option": "Monthly implementation review with quarterly control-effectiveness review",
+          "cost": "A recurring management pack and oversight agenda.",
+          "benefit": "Surfaces delivery slippage and effectiveness exceptions at useful intervals.",
+          "tradeOff": "Requires reliable measures and clear escalation ownership."
+        },
+        {
+          "option": "Quarterly programme review with event-triggered escalation",
+          "cost": "Quarterly reporting plus defined trigger monitoring.",
+          "benefit": "Reduces routine reporting effort while retaining escalation for material change.",
+          "tradeOff": "Smaller delivery slippage may remain unseen between quarterly reviews."
+        },
+        {
+          "option": "Monthly pathway-owner review with consolidated executive reporting",
+          "cost": "Owner-level review time and a consolidated reporting process.",
+          "benefit": "Connects operational action to executive decisions without duplicating every detail.",
+          "tradeOff": "Needs consistent pathway measures and disciplined consolidation."
+        }
+      ],
+      "recommendedRoute": "Require monthly implementation reporting and quarterly control-effectiveness review through the organisation’s management and oversight route.",
+      "rationale": "The recorded assessment links this decision to 3 material finding(s) and 3 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+      "owner": "CEO / Managing Director",
+      "targetDate": "30 days",
+      "consequenceOfDelay": "Actions lose momentum, exceptions remain open and management receives the control position too late to intervene.",
+      "linkedFindingRefs": [
+        "FINDING-001",
+        "FINDING-002",
+        "FINDING-003"
+      ]
+    }
+  ],
+  "roadmap": [
+    {
+      "factRef": "ROADMAP-001",
+      "sourceId": "RA-D1-Q04",
+      "phase": "STABILISE",
+      "managementOutcome": "Access rights and privileged activity are restricted, recertified and escalated when exceptions remain open.",
+      "priorityWork": "Reconcile the complete access population, remove excess privilege and retain periodic recertification evidence.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk and business control owners",
+      "targetPeriod": "30 days",
+      "dependencies": [],
+      "proofOfCompletion": "Approved fraud-risk RACI; Audit-committee minutes showing independent reporting; Internal audit charter or assurance mandate",
+      "successMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+      "failureTrigger": "Any assurance reviewer assigned operational ownership of the control under review."
+    },
+    {
+      "factRef": "ROADMAP-002",
+      "sourceId": "RA-D3-Q03",
+      "phase": "ESTABLISH",
+      "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+      "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+      "accountableExecutive": "CFO / COO",
+      "processOwner": "Procurement / Vendor Master",
+      "targetPeriod": "60 days",
+      "dependencies": [],
+      "proofOfCompletion": "Beneficial-ownership/conflict screening; Completed onboarding checklist; Independent registration and bank verification; Second-reviewer approval",
+      "successMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+      "failureTrigger": "Any supplier activated before verification or any ownership/conflict match unresolved."
+    },
+    {
+      "factRef": "ROADMAP-003",
+      "sourceId": "RA-D8-Q01",
+      "phase": "ESTABLISH",
+      "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+      "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+      "accountableExecutive": "COO / CFO",
+      "processOwner": "Process owners for onboarding and activation",
+      "targetPeriod": "60 days",
+      "dependencies": [],
+      "proofOfCompletion": "Defined verification risk points and required checks; Exception approvals; re-verification records for sensitive changes; Verification records with source and date",
+      "successMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+      "failureTrigger": "Activation before verification, an unapproved exception, or a sensitive change without re-verification."
+    },
+    {
+      "factRef": "ROADMAP-004",
+      "sourceId": "RA-D4-Q01",
+      "phase": "ESTABLISH",
+      "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+      "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+      "accountableExecutive": "CFO / COO",
+      "processOwner": "Fraud monitoring owner",
+      "targetPeriod": "90 days",
+      "dependencies": [],
+      "proofOfCompletion": "Coverage report against process fraud maps; Monitoring output for recent periods; Population reconciliation to source systems; Red-flag indicator definitions per process",
+      "successMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+      "failureTrigger": "A material process unmonitored, or a monitoring cycle missed without escalation."
+    },
+    {
+      "factRef": "ROADMAP-005",
+      "sourceId": "RA-D10-Q01",
+      "phase": "ESTABLISH",
+      "managementOutcome": "Fraud monitoring and exception review operate with defined coverage, ownership, closure evidence and escalation.",
+      "priorityWork": "Define monitoring coverage, red flags, review ownership, closure evidence and overdue escalation.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "targetPeriod": "90 days",
+      "dependencies": [],
+      "proofOfCompletion": "Consolidated report to governance with actions and due dates; Key control operating evidence sampled in the period; Lapsed or degraded control register; Review scope and schedule",
+      "successMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+      "failureTrigger": "Review overdue, or a key control found lapsed with no remediation owner."
+    },
+    {
+      "factRef": "ROADMAP-006",
+      "sourceId": "RA-D2-Q01",
+      "phase": "ESTABLISH",
+      "managementOutcome": "Access rights and privileged activity are restricted, recertified and escalated when exceptions remain open.",
+      "priorityWork": "Reconcile the complete access population, remove excess privilege and retain periodic recertification evidence.",
+      "accountableExecutive": "CEO / Managing Director",
+      "processOwner": "Head of Risk",
+      "targetPeriod": "90 days",
+      "dependencies": [],
+      "proofOfCompletion": "Approved treatment plan with owners and due dates; Dated fraud risk assessment report; Documented method and participant list; Governing-body approval record; Scenario-level inherent and residual ratings",
+      "successMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+      "failureTrigger": "Assessment older than 24 months, or any unacceptable residual risk without a funded owner and due date."
+    }
+  ],
+  "proofOfProgress": [
+    {
+      "factRef": "PROOF-001",
+      "sourceId": "EVID-APPROVED-FRAUD-RISK-RACI-86E525D5",
+      "requirement": "Approved fraud-risk RACI",
+      "owner": "Head of Risk and business control owners",
+      "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Annual mandate review and quarterly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Gives assurance unrestricted reporting access",
+        "Records conflicts and recusals",
+        "Separates operation from testing for each key control"
+      ]
+    },
+    {
+      "factRef": "PROOF-002",
+      "sourceId": "EVID-AUDIT-COMMITTEE-MINUTES-SHOWING-INDE-ECC8910E",
+      "requirement": "Audit-committee minutes showing independent reporting",
+      "owner": "Head of Risk and business control owners",
+      "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Annual mandate review and quarterly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Gives assurance unrestricted reporting access",
+        "Records conflicts and recusals",
+        "Separates operation from testing for each key control"
+      ]
+    },
+    {
+      "factRef": "PROOF-003",
+      "sourceId": "EVID-INTERNAL-AUDIT-CHARTER-OR-ASSURANCE--3006FCE0",
+      "requirement": "Internal audit charter or assurance mandate",
+      "owner": "Head of Risk and business control owners",
+      "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Annual mandate review and quarterly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Gives assurance unrestricted reporting access",
+        "Records conflicts and recusals",
+        "Separates operation from testing for each key control"
+      ]
+    },
+    {
+      "factRef": "PROOF-004",
+      "sourceId": "EVID-BENEFICIAL-OWNERSHIP-CONFLICT-SCREEN-198B87A0",
+      "requirement": "Beneficial-ownership/conflict screening",
+      "owner": "Procurement / Vendor Master",
+      "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Covers the full supplier population added in the period",
+        "Evidence predates activation",
+        "Reviewer is different from requester"
+      ]
+    },
+    {
+      "factRef": "PROOF-005",
+      "sourceId": "EVID-COMPLETED-ONBOARDING-CHECKLIST-3D145263",
+      "requirement": "Completed onboarding checklist",
+      "owner": "Procurement / Vendor Master",
+      "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Covers the full supplier population added in the period",
+        "Evidence predates activation",
+        "Reviewer is different from requester"
+      ]
+    },
+    {
+      "factRef": "PROOF-006",
+      "sourceId": "EVID-INDEPENDENT-REGISTRATION-AND-BANK-VE-DB91388E",
+      "requirement": "Independent registration and bank verification",
+      "owner": "Procurement / Vendor Master",
+      "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Covers the full supplier population added in the period",
+        "Evidence predates activation",
+        "Reviewer is different from requester"
+      ]
+    },
+    {
+      "factRef": "PROOF-007",
+      "sourceId": "EVID-SECOND-REVIEWER-APPROVAL-0EF43892",
+      "requirement": "Second-reviewer approval",
+      "owner": "Procurement / Vendor Master",
+      "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Covers the full supplier population added in the period",
+        "Evidence predates activation",
+        "Reviewer is different from requester"
+      ]
+    },
+    {
+      "factRef": "PROOF-008",
+      "sourceId": "EVID-BANK-DETAIL-CHANGE-REQUEST-BEBB9B3B",
+      "requirement": "Bank-detail-change request",
+      "owner": "Accounts Payable / Vendor Master",
+      "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Every change and invoice; monthly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Callback number predates the request",
+        "Covers the complete bank-change population",
+        "Requester, verifier and approver are separated"
+      ]
+    },
+    {
+      "factRef": "PROOF-009",
+      "sourceId": "EVID-INDEPENDENT-APPROVAL-6DB6488C",
+      "requirement": "Independent approval",
+      "owner": "Accounts Payable / Vendor Master",
+      "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Every change and invoice; monthly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Callback number predates the request",
+        "Covers the complete bank-change population",
+        "Requester, verifier and approver are separated"
+      ]
+    },
+    {
+      "factRef": "PROOF-010",
+      "sourceId": "EVID-MONTHLY-CFO-EXCEPTION-REPORT-96C3575D",
+      "requirement": "Monthly CFO exception report",
+      "owner": "Accounts Payable / Vendor Master",
+      "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Every change and invoice; monthly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Callback number predates the request",
+        "Covers the complete bank-change population",
+        "Requester, verifier and approver are separated"
+      ]
+    },
+    {
+      "factRef": "PROOF-011",
+      "sourceId": "EVID-PAYMENT-HOLD-RELEASE-AUDIT-TRAIL-7AC7666F",
+      "requirement": "Payment hold/release audit trail",
+      "owner": "Accounts Payable / Vendor Master",
+      "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Every change and invoice; monthly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Callback number predates the request",
+        "Covers the complete bank-change population",
+        "Requester, verifier and approver are separated"
+      ]
+    },
+    {
+      "factRef": "PROOF-012",
+      "sourceId": "EVID-PRE-EXISTING-CONTACT-RECORD-AND-CALL-22AE8439",
+      "requirement": "Pre-existing contact record and callback log",
+      "owner": "Accounts Payable / Vendor Master",
+      "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "Every change and invoice; monthly exception reporting",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Callback number predates the request",
+        "Covers the complete bank-change population",
+        "Requester, verifier and approver are separated"
+      ]
+    },
+    {
+      "factRef": "PROOF-013",
+      "sourceId": "EVID-CHAIN-OF-CUSTODY-FORMS-7BB3EB2D",
+      "requirement": "Chain-of-custody forms",
+      "owner": "Investigation lead / Evidence custodian",
+      "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Hash or seal reconciles at handover",
+        "Unbroken timestamped custody trail",
+        "Unique evidence identifier on every item"
+      ]
+    },
+    {
+      "factRef": "PROOF-014",
+      "sourceId": "EVID-EVIDENCE-REGISTER-3EBB98C5",
+      "requirement": "Evidence register",
+      "owner": "Investigation lead / Evidence custodian",
+      "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Hash or seal reconciles at handover",
+        "Unbroken timestamped custody trail",
+        "Unique evidence identifier on every item"
+      ]
+    },
+    {
+      "factRef": "PROOF-015",
+      "sourceId": "EVID-HASH-OR-SEAL-RECORDS-EB93FAB1",
+      "requirement": "Hash or seal records",
+      "owner": "Investigation lead / Evidence custodian",
+      "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+      "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+      "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+      "acceptableExamples": [
+        "Hash or seal reconciles at handover",
+        "Unbroken timestamped custody trail",
+        "Unique evidence identifier on every item"
+      ]
+    }
+  ],
+  "prohibitedClaims": [
+    "independent operating effectiveness",
+    "evidence validation",
+    "confirmed fraud event",
+    "invented incident, loss, customer, supplier, system or interview",
+    "unsupported Rand amount",
+    "legal, regulatory, benchmark, certification or guarantee conclusion",
+    "management motive or competence allegation"
+  ],
+  "narrativeBounds": {
+    "themeCount": 5,
+    "findingCount": 8,
+    "scenarioCount": 3,
+    "controlCount": 8,
+    "decisionCount": 6,
+    "managementResponseCount": 6
+  },
+  "facts": [
+    {
+      "id": "SCORE-001",
+      "kind": "score",
+      "value": {
+        "overall": 35.55,
+        "exposure": null,
+        "exposureBand": null
+      },
+      "sourceRefs": [
+        "score_run"
+      ]
+    },
+    {
+      "id": "MATURITY-001",
+      "kind": "maturity",
+      "value": {
+        "maturity": "Reactive",
+        "calculatedMaturity": "Reactive"
+      },
+      "sourceRefs": [
+        "score_run"
+      ]
+    },
+    {
+      "id": "DOMAIN-D1",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D1",
+        "code": "D1",
+        "name": "Fraud Leadership and Governance",
+        "score": 42,
+        "maturity": null,
+        "weightPct": 12,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D1"
+      ]
+    },
+    {
+      "id": "DOMAIN-D2",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D2",
+        "code": "D2",
+        "name": "Fraud Risk Identification",
+        "score": 25.64,
+        "maturity": null,
+        "weightPct": 12,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D2"
+      ]
+    },
+    {
+      "id": "DOMAIN-D3",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D3",
+        "code": "D3",
+        "name": "Operational Fraud Controls",
+        "score": 50.97,
+        "maturity": null,
+        "weightPct": 14,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D3"
+      ]
+    },
+    {
+      "id": "DOMAIN-D4",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D4",
+        "code": "D4",
+        "name": "Fraud Detection Capability",
+        "score": 20,
+        "maturity": null,
+        "weightPct": 14,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D4"
+      ]
+    },
+    {
+      "id": "DOMAIN-D5",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D5",
+        "code": "D5",
+        "name": "Fraud Incident Response",
+        "score": 40,
+        "maturity": null,
+        "weightPct": 10,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D5"
+      ]
+    },
+    {
+      "id": "DOMAIN-D6",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D6",
+        "code": "D6",
+        "name": "Whistleblowing and Reporting Culture",
+        "score": 73.57,
+        "maturity": null,
+        "weightPct": 6,
+        "coveragePct": 100,
+        "criticalGapCount": 0
+      },
+      "sourceRefs": [
+        "D6"
+      ]
+    },
+    {
+      "id": "DOMAIN-D7",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D7",
+        "code": "D7",
+        "name": "Third-Party and Supply Chain Fraud Risk",
+        "score": 20.59,
+        "maturity": null,
+        "weightPct": 10,
+        "coveragePct": 100,
+        "criticalGapCount": 2
+      },
+      "sourceRefs": [
+        "D7"
+      ]
+    },
+    {
+      "id": "DOMAIN-D8",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D8",
+        "code": "D8",
+        "name": "Digital and Identity Fraud Risk",
+        "score": 31.89,
+        "maturity": null,
+        "weightPct": 12,
+        "coveragePct": 100,
+        "criticalGapCount": 4
+      },
+      "sourceRefs": [
+        "D8"
+      ]
+    },
+    {
+      "id": "DOMAIN-D9",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D9",
+        "code": "D9",
+        "name": "Fraud Culture and Awareness",
+        "score": 40,
+        "maturity": null,
+        "weightPct": 5,
+        "coveragePct": 100,
+        "criticalGapCount": 0
+      },
+      "sourceRefs": [
+        "D9"
+      ]
+    },
+    {
+      "id": "DOMAIN-D10",
+      "kind": "domain",
+      "value": {
+        "factRef": "DOMAIN-D10",
+        "code": "D10",
+        "name": "Continuous Improvement and Fraud Risk Monitoring",
+        "score": 24,
+        "maturity": null,
+        "weightPct": 5,
+        "coveragePct": 100,
+        "criticalGapCount": 1
+      },
+      "sourceRefs": [
+        "D10"
+      ]
+    },
+    {
+      "id": "STRENGTH-001",
+      "kind": "relative_strength",
+      "value": {
+        "factRef": "STRENGTH-001",
+        "title": "Whistleblowing and Reporting Culture is a relative strength in the recorded profile",
+        "basis": "The recorded domain position is 73.57 out of 100.",
+        "domainCode": "D6"
+      },
+      "sourceRefs": [
+        "D6"
+      ]
+    },
+    {
+      "id": "THEME-001",
+      "kind": "systemic_theme",
+      "value": {
+        "factRef": "THEME-001",
+        "title": "Detection-evasion pathway",
+        "findingRefs": [
+          "FINDING-005",
+          "FINDING-008"
+        ],
+        "domainCodes": [
+          "D10",
+          "D4"
+        ],
+        "riskRefs": [
+          "RISK-001",
+          "RISK-003"
+        ],
+        "scenarioRefs": [
+          "SCENARIO-002",
+          "SCENARIO-003"
+        ],
+        "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+        "fraudRiskRelationship": "Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded. Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+        "whyTogether": "These findings connect monitoring coverage, exception review and escalation authority to the risk that unusual activity remains below timely challenge."
+      },
+      "sourceRefs": [
+        "FINDING-005",
+        "FINDING-008",
+        "RISK-001",
+        "RISK-003",
+        "SCENARIO-002",
+        "SCENARIO-003"
+      ]
+    },
+    {
+      "id": "THEME-002",
+      "kind": "systemic_theme",
+      "value": {
+        "factRef": "THEME-002",
+        "title": "Identity and account-takeover pathway",
+        "findingRefs": [
+          "FINDING-006"
+        ],
+        "domainCodes": [
+          "D8"
+        ],
+        "riskRefs": [
+          "RISK-004"
+        ],
+        "scenarioRefs": [
+          "SCENARIO-001"
+        ],
+        "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+        "fraudRiskRelationship": "An unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+        "whyTogether": "These findings connect identity verification, authentication evidence and profile-change monitoring to the risk of misuse under a legitimate identity."
+      },
+      "sourceRefs": [
+        "FINDING-006",
+        "RISK-004",
+        "SCENARIO-001"
+      ]
+    },
+    {
+      "id": "THEME-003",
+      "kind": "systemic_theme",
+      "value": {
+        "factRef": "THEME-003",
+        "title": "Incident concealment and repeat-exposure pathway",
+        "findingRefs": [
+          "FINDING-004",
+          "FINDING-008"
+        ],
+        "domainCodes": [
+          "D10",
+          "D5"
+        ],
+        "riskRefs": [
+          "RISK-001",
+          "RISK-005"
+        ],
+        "scenarioRefs": [
+          "SCENARIO-002",
+          "SCENARIO-003"
+        ],
+        "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+        "fraudRiskRelationship": "Uncontrolled collection or transfer can alter, lose or contaminate evidence, undermining investigation, recovery or disciplinary action. Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+        "whyTogether": "These findings connect reporting, evidence preservation and incident escalation to the organisation’s ability to contain a matter and prevent repeat exposure."
+      },
+      "sourceRefs": [
+        "FINDING-004",
+        "FINDING-008",
+        "RISK-001",
+        "RISK-005",
+        "SCENARIO-002",
+        "SCENARIO-003"
+      ]
+    },
+    {
+      "id": "THEME-004",
+      "kind": "systemic_theme",
+      "value": {
+        "factRef": "THEME-004",
+        "title": "Privileged access misuse pathway",
+        "findingRefs": [
+          "FINDING-002",
+          "FINDING-006"
+        ],
+        "domainCodes": [
+          "D3",
+          "D8"
+        ],
+        "riskRefs": [
+          "RISK-004"
+        ],
+        "scenarioRefs": [
+          "SCENARIO-001"
+        ],
+        "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+        "fraudRiskRelationship": "A fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments. An unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+        "whyTogether": "These findings connect excessive or insufficiently reviewed access to the ability to alter value-bearing records, entitlements or audit trails."
+      },
+      "sourceRefs": [
+        "FINDING-002",
+        "FINDING-006",
+        "RISK-004",
+        "SCENARIO-001"
+      ]
+    },
+    {
+      "id": "THEME-005",
+      "kind": "systemic_theme",
+      "value": {
+        "factRef": "THEME-005",
+        "title": "Supplier and payment diversion pathway",
+        "findingRefs": [
+          "FINDING-002",
+          "FINDING-003",
+          "FINDING-006"
+        ],
+        "domainCodes": [
+          "D3",
+          "D7",
+          "D8"
+        ],
+        "riskRefs": [
+          "RISK-004"
+        ],
+        "scenarioRefs": [
+          "SCENARIO-001"
+        ],
+        "managementImplicationBasis": "The selected findings require one connected management response across ownership, control design, monitoring and escalation.",
+        "fraudRiskRelationship": "A fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments. An impersonator or insider can redirect legitimate payments by submitting altered invoices or false bank details.",
+        "whyTogether": "These findings connect supplier identity, onboarding and payment-instruction controls to the point at which value can be redirected."
+      },
+      "sourceRefs": [
+        "FINDING-002",
+        "FINDING-003",
+        "FINDING-006",
+        "RISK-004",
+        "SCENARIO-001"
+      ]
+    },
+    {
+      "id": "FINDING-001",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-001",
+        "sourceId": "MF-D1-Q04",
+        "title": "Fraud Leadership and Governance: Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist.",
+        "domain": "Fraud Leadership and Governance",
+        "questionCode": "D1-Q04",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Management-versus-assurance role separation was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded maturity_constraint concerns Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because when assurance owns the control it later reviews, gaps can be accepted or missed without an independent challenge.",
+        "materialityReason": "maturity_constraint selected at deterministic priority 2680.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "maturity_constraint",
+        "priorityScore": 2680,
+        "owner": "CEO / Managing Director",
+        "processOwner": "Head of Risk and business control owners",
+        "targetPeriod": "30 days",
+        "approvedControlResponse": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners, reserves independent testing and unrestricted reporting for internal audit or equivalent assurance, and requires annual conflict review; the company secretary retains the approved RACI and minutes.",
+        "effectivenessMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+        "sourceRefs": [
+          "MF-D1-Q04",
+          "D1-Q04"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D1-Q04",
+        "D1-Q04"
+      ]
+    },
+    {
+      "id": "FINDING-002",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-002",
+        "sourceId": "MF-D3-Q03",
+        "title": "Operational Fraud Controls: Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators.",
+        "domain": "Operational Fraud Controls",
+        "questionCode": "D3-Q03",
+        "recordedPosition": "The control, process or capability does not exist or is not recognised as required.",
+        "deterministicCondition": "Not in place: The control, process or capability does not exist or is not recognised as required.",
+        "interpretation": "Supplier-onboarding verification was self-assessed as \"Not in place\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because a fictitious or conflicted supplier can be approved and used to route manipulated purchases or payments.",
+        "materialityReason": "control_failure selected at deterministic priority 2660.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2660,
+        "owner": "CFO / COO",
+        "processOwner": "Procurement / Vendor Master",
+        "targetPeriod": "60 days",
+        "approvedControlResponse": "Procurement performs a pre-activation checklist across every proposed supplier, independently verifies registration and bank ownership, screens beneficial owners and conflicts, risk-rates the supplier, and blocks ERP activation until a second reviewer signs; the vendor master retains the evidence package.",
+        "effectivenessMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+        "sourceRefs": [
+          "MF-D3-Q03",
+          "D3-Q03"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D3-Q03",
+        "D3-Q03"
+      ]
+    },
+    {
+      "id": "FINDING-003",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-003",
+        "sourceId": "MF-D7-Q04",
+        "title": "Third-Party and Supply Chain Fraud Risk: Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation.",
+        "domain": "Third-Party and Supply Chain Fraud Risk",
+        "questionCode": "D7-Q04",
+        "recordedPosition": "The control, process or capability does not exist or is not recognised as required.",
+        "deterministicCondition": "Not in place: The control, process or capability does not exist or is not recognised as required.",
+        "interpretation": "Supplier payment and bank-detail-change verification was self-assessed as \"Not in place\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because an impersonator or insider can redirect legitimate payments by submitting altered invoices or false bank details.",
+        "materialityReason": "control_failure selected at deterministic priority 2660.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2660,
+        "owner": "CFO",
+        "processOwner": "Accounts Payable / Vendor Master",
+        "targetPeriod": "30 days",
+        "approvedControlResponse": "Accounts Payable quarantines every bank-detail change, retrieves a contact from the pre-change vendor master, completes and records an outbound callback, obtains second-person approval from someone outside vendor-master maintenance, blocks payment until verification, and gives the CFO a monthly report of all changes, failures and bypass attempts.",
+        "effectivenessMeasure": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+        "sourceRefs": [
+          "MF-D7-Q04",
+          "D7-Q04"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D7-Q04",
+        "D7-Q04"
+      ]
+    },
+    {
+      "id": "FINDING-004",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-004",
+        "sourceId": "MF-D5-Q05",
+        "title": "Fraud Incident Response: Evidence linked to suspected fraud is identified, preserved and handled appropriately.",
+        "domain": "Fraud Incident Response",
+        "questionCode": "D5-Q05",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Fraud evidence preservation and chain of custody was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns Evidence linked to suspected fraud is identified, preserved and handled appropriately and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because uncontrolled collection or transfer can alter, lose or contaminate evidence, undermining investigation, recovery or disciplinary action.",
+        "materialityReason": "control_failure selected at deterministic priority 2430.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2430,
+        "owner": "General Counsel / COO",
+        "processOwner": "Investigation lead / Evidence custodian",
+        "targetPeriod": "60 days",
+        "approvedControlResponse": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.",
+        "effectivenessMeasure": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+        "sourceRefs": [
+          "MF-D5-Q05",
+          "D5-Q05"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D5-Q05",
+        "D5-Q05"
+      ]
+    },
+    {
+      "id": "FINDING-005",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-005",
+        "sourceId": "MF-D4-Q01",
+        "title": "Fraud Detection Capability: The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.",
+        "domain": "Fraud Detection Capability",
+        "questionCode": "D4-Q01",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Transaction and activity monitoring was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.",
+        "materialityReason": "control_failure selected at deterministic priority 2300.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2300,
+        "owner": "CFO / COO",
+        "processOwner": "Fraud monitoring owner",
+        "targetPeriod": "90 days",
+        "approvedControlResponse": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.",
+        "effectivenessMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+        "sourceRefs": [
+          "MF-D4-Q01",
+          "D4-Q01"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D4-Q01",
+        "D4-Q01"
+      ]
+    },
+    {
+      "id": "FINDING-006",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-006",
+        "sourceId": "MF-D8-Q01",
+        "title": "Digital and Identity Fraud Risk: The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm.",
+        "domain": "Digital and Identity Fraud Risk",
+        "questionCode": "D8-Q01",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Identity verification at risk points was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name.",
+        "materialityReason": "control_failure selected at deterministic priority 2300.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2300,
+        "owner": "COO / CFO",
+        "processOwner": "Process owners for onboarding and activation",
+        "targetPeriod": "60 days",
+        "approvedControlResponse": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+        "effectivenessMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+        "sourceRefs": [
+          "MF-D8-Q01",
+          "D8-Q01"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D8-Q01",
+        "D8-Q01"
+      ]
+    },
+    {
+      "id": "FINDING-007",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-007",
+        "sourceId": "MF-D2-Q01",
+        "title": "Fraud Risk Identification: The organisation has completed a structured fraud risk assessment within the past two years.",
+        "domain": "Fraud Risk Identification",
+        "questionCode": "D2-Q01",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Structured fraud risk assessment currency was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns The organisation has completed a structured fraud risk assessment within the past two years and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.",
+        "materialityReason": "control_failure selected at deterministic priority 2220.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2220,
+        "owner": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "targetPeriod": "90 days",
+        "approvedControlResponse": "The Head of Risk must run a documented fraud risk assessment at least every two years using a repeatable method: scope the material processes and channels, identify fraud scenarios per process with the roles able to execute them, rate likelihood and impact before and after existing controls, name a treatment owner and due date for every unacceptable residual risk, and obtain governing-body approval of the plan; assessment date, participants and method are retained.",
+        "effectivenessMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+        "sourceRefs": [
+          "MF-D2-Q01",
+          "D2-Q01"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D2-Q01",
+        "D2-Q01"
+      ]
+    },
+    {
+      "id": "FINDING-008",
+      "kind": "finding",
+      "value": {
+        "factRef": "FINDING-008",
+        "sourceId": "MF-D10-Q01",
+        "title": "Continuous Improvement and Fraud Risk Monitoring: The organisation periodically reviews its fraud risks and control environment.",
+        "domain": "Continuous Improvement and Fraud Risk Monitoring",
+        "questionCode": "D10-Q01",
+        "recordedPosition": "Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "deterministicCondition": "Initial / ad hoc: Some activity may occur informally or reactively, but it is not defined, owned or reliable.",
+        "interpretation": "Periodic fraud risk and control environment review was self-assessed as \"Initial / ad hoc\"",
+        "advisoryMeaningBasis": "The recorded control_failure concerns The organisation periodically reviews its fraud risks and control environment and connects to the linked fraud pathway and control response.",
+        "whyItMatters": "The condition matters because controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier.",
+        "materialityReason": "control_failure selected at deterministic priority 2220.",
+        "assuranceBoundary": "This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.",
+        "materiality": "control_failure",
+        "priorityScore": 2220,
+        "owner": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "targetPeriod": "90 days",
+        "approvedControlResponse": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+        "effectivenessMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+        "sourceRefs": [
+          "MF-D10-Q01",
+          "D10-Q01"
+        ]
+      },
+      "sourceRefs": [
+        "MF-D10-Q01",
+        "D10-Q01"
+      ]
+    },
+    {
+      "id": "RISK-001",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-001",
+        "sourceId": "RISK-CONTROL-D10-Q01",
+        "title": "Continuous Improvement and Fraud Risk Monitoring control effectiveness risk",
+        "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier. Consequence pathway: Impact requires case-specific validation; Operating impact requires case-specific validation.",
+        "cause": "the assessed control design or operation does not meet the exact expected standard",
+        "event": "controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "Severe",
+        "linkedFindingRefs": [
+          "FINDING-008"
+        ],
+        "approvedTreatment": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+        "owner": "CEO / Managing Director",
+        "targetPeriod": "90 days"
+      },
+      "sourceRefs": [
+        "RISK-CONTROL-D10-Q01"
+      ]
+    },
+    {
+      "id": "RISK-002",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-002",
+        "sourceId": "RISK-CONTROL-D2-Q01",
+        "title": "Fraud Risk Identification control effectiveness risk",
+        "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded. Consequence pathway: Impact requires case-specific validation; Operating impact requires case-specific validation.",
+        "cause": "the assessed control design or operation does not meet the exact expected standard",
+        "event": "without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "Severe",
+        "linkedFindingRefs": [
+          "FINDING-007"
+        ],
+        "approvedTreatment": "The Head of Risk must run a documented fraud risk assessment at least every two years using a repeatable method: scope the material processes and channels, identify fraud scenarios per process with the roles able to execute them, rate likelihood and impact before and after existing controls, name a treatment owner and due date for every unacceptable residual risk, and obtain governing-body approval of the plan; assessment date, participants and method are retained.",
+        "owner": "CEO / Managing Director",
+        "targetPeriod": "90 days"
+      },
+      "sourceRefs": [
+        "RISK-CONTROL-D2-Q01"
+      ]
+    },
+    {
+      "id": "RISK-003",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-003",
+        "sourceId": "RISK-CONTROL-D4-Q01",
+        "title": "Fraud Detection Capability control effectiveness risk",
+        "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded. Consequence pathway: Alert backlogs can conceal important anomalies; unreviewed exceptions can allow losses to compound.",
+        "cause": "the assessed control design or operation does not meet the exact expected standard",
+        "event": "without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "Severe",
+        "linkedFindingRefs": [
+          "FINDING-005"
+        ],
+        "approvedTreatment": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.",
+        "owner": "CFO / COO",
+        "targetPeriod": "90 days"
+      },
+      "sourceRefs": [
+        "RISK-CONTROL-D4-Q01"
+      ]
+    },
+    {
+      "id": "RISK-004",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-004",
+        "sourceId": "RISK-CONTROL-D8-Q01",
+        "title": "Digital and Identity Fraud Risk control effectiveness risk",
+        "statement": "Because the assessed control design or operation does not meet the exact expected standard, there is a risk that an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name. Consequence pathway: compromised or privileged access can alter records and transactions; Digital misuse can evade prevention and monitoring.",
+        "cause": "the assessed control design or operation does not meet the exact expected standard",
+        "event": "an unverified or impersonated identity allows a fraudulent party to receive goods, payments, credit, benefits or system access under someone else’s name",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "Severe",
+        "linkedFindingRefs": [
+          "FINDING-006"
+        ],
+        "approvedTreatment": "The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+        "owner": "COO / CFO",
+        "targetPeriod": "60 days"
+      },
+      "sourceRefs": [
+        "RISK-CONTROL-D8-Q01"
+      ]
+    },
+    {
+      "id": "RISK-005",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-005",
+        "sourceId": "RISK-EVIDENCE-INTEGRITY",
+        "title": "Fraud evidence loses integrity or chain of custody",
+        "statement": "Because evidence identification, preservation, integrity checks and custody transfers are not consistently controlled, there is a risk that material evidence is altered, lost, contaminated or cannot be shown to be authentic. Consequence pathway: evidence, retention or legal-hold duties may be breached; investigations must be repeated or abandoned; recovery, disciplinary or legal outcomes are weakened; the organisation cannot substantiate its response.",
+        "cause": "evidence identification, preservation, integrity checks and custody transfers are not consistently controlled",
+        "event": "material evidence is altered, lost, contaminated or cannot be shown to be authentic",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "High",
+        "linkedFindingRefs": [
+          "FINDING-004"
+        ],
+        "approvedTreatment": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.",
+        "owner": "General Counsel / COO",
+        "targetPeriod": "60 days"
+      },
+      "sourceRefs": [
+        "RISK-EVIDENCE-INTEGRITY"
+      ]
+    },
+    {
+      "id": "RISK-006",
+      "kind": "risk",
+      "value": {
+        "factRef": "RISK-006",
+        "sourceId": "RISK-GOVERNANCE-ACCOUNTABILITY",
+        "title": "Fraud-risk accountability and escalation failure",
+        "statement": "Because management ownership and independent assurance responsibilities are not clearly separated, there is a risk that a material control is operated and certified without independent challenge. Consequence pathway: assurance conclusions cannot be relied upon for remediation decisions; control failure remains undetected and permits avoidable loss; governance reporting may provide false comfort.",
+        "cause": "management ownership and independent assurance responsibilities are not clearly separated",
+        "event": "a material control is operated and certified without independent challenge",
+        "priority": "Critical",
+        "likelihood": "High",
+        "impact": "High",
+        "linkedFindingRefs": [
+          "FINDING-001"
+        ],
+        "approvedTreatment": "The CEO and audit-committee chair must approve a RACI that assigns control operation to management and risk owners, reserves independent testing and unrestricted reporting for internal audit or equivalent assurance, and requires annual conflict review; the company secretary retains the approved RACI and minutes. The CEO must issue a dated fraud-risk accountability mandate naming one executive, delegated decision rights, budget authority, quarterly reporting obligations and a 30-day escalation route for overdue control actions; the company secretary retains approvals and quarterly packs.",
+        "owner": "CEO / Managing Director",
+        "targetPeriod": "30 days"
+      },
+      "sourceRefs": [
+        "RISK-GOVERNANCE-ACCOUNTABILITY"
+      ]
+    },
+    {
+      "id": "SCENARIO-001",
+      "kind": "scenario",
+      "value": {
+        "factRef": "SCENARIO-001",
+        "sourceId": "SYNTH-SUPPLIER_PAYMENT_DIVERSION",
+        "scenarioFamily": "supplier_payment_diversion",
+        "title": "Supplier or payment instruction is diverted through a compromised or fictitious relationship",
+        "actorClass": "An external actor using a compromised supplier communication channel",
+        "opportunity": "Supplier bank-detail changes are not yet consistently verified through a trusted independent channel before payment.",
+        "entryPoint": "A supplier or bank-detail amendment is submitted shortly before a scheduled payment.",
+        "mechanism": "An actor submits a credible-looking bank-detail change and diverts a genuine payment before the change is independently challenged.",
+        "controlWeakness": "Procurement performs a pre-activation checklist across every proposed supplier, independently verifies registration and bank ownership, screens beneficial owners and conflicts, risk-rates the supplier, and blocks ERP activation until a second reviewer signs; the vendor master retains the evidence package.; Accounts Payable quarantines every bank-detail change, retrieves a contact from the pre-change vendor master, completes and records an outbound callback, obtains second-person approval from someone outside vendor-master maintenance, blocks payment until verification, and gives the CFO a monthly report of all changes, failures and bypass attempts.; The process owner must define the risk points requiring verification — customer or beneficiary enrolment, employee onboarding, supplier activation and counterparty contracting — and apply proportionate checks against independent sources such as identity documents validated for authenticity, company registration records, and confirmation of contact details through independently obtained channels; results and evidence are retained under applicable data-protection obligations, exceptions require documented approval, and sensitive profile or banking changes trigger re-verification.",
+        "concealment": "An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.",
+        "consequence": "A diverted payment or fictitious supplier relationship can create financial loss and delayed recovery. Direct -- access or supplier-control weakness can enable unauthorised payments or manipulation. Preventive controls may not match current roles or approved suppliers.",
+        "warningIndicators": [
+          "New or reactivated supplier before independent verification",
+          "Bank-detail change shortly before payment",
+          "Urgent payment request that bypasses the normal callback route"
+        ],
+        "immediateContainment": "Pause the affected supplier or payment instruction, independently confirm the trusted beneficiary details and preserve the approval trail.",
+        "longTermResponse": "Implement independent supplier and bank-detail verification, dual approval and complete population monitoring.",
+        "linkedFindingRefs": [
+          "FINDING-002",
+          "FINDING-003",
+          "FINDING-006"
+        ],
+        "linkedRiskRefs": [
+          "RISK-004"
+        ]
+      },
+      "sourceRefs": [
+        "SYNTH-SUPPLIER_PAYMENT_DIVERSION"
+      ]
+    },
+    {
+      "id": "SCENARIO-002",
+      "kind": "scenario",
+      "value": {
+        "factRef": "SCENARIO-002",
+        "sourceId": "SC-RISK-CONTROL-D10-Q01-PRIMARY-6E971211",
+        "scenarioFamily": "incident_concealment",
+        "title": "Records or reporting are weakened after a suspected fraud matter, allowing exposure to repeat",
+        "actorClass": "An internal or external actor seeking to delay or weaken investigation",
+        "opportunity": "Records relating to suspected fraud are not yet consistently preserved, access-controlled and handled through a clear custody process.",
+        "entryPoint": "A suspected matter generates records before a retention, legal-hold or custody decision is made.",
+        "mechanism": "An actor delays, alters or fragments relevant records so that the scope, timing or responsibility for the suspected matter becomes harder to establish.",
+        "controlWeakness": "The investigation lead opens an evidence register for every material case; trained custodians identify sources, create forensic copies or sealed originals, record hashes/seal numbers, collector/time/location and every transfer, store evidence in access-controlled repositories, and escalate any custody break immediately to Legal.; The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+        "concealment": "The activity may appear routine until complete population review, independent approval or exception monitoring exposes it.",
+        "consequence": "Weak reporting, containment or evidence integrity can delay recovery and allow repeat exposure to remain unidentified. Indirect -- delayed response or compromised evidence increases investigation and recovery cost. Containment, investigation and legal action may be weakened.",
+        "warningIndicators": [
+          "An exception, access, approval or incident record that cannot be reconciled to the complete in-scope population.",
+          "Review overdue, or a key control found lapsed with no remediation owner.",
+          "Concern is reported through a channel controlled by the implicated process",
+          "Relevant records are unavailable or custody is unclear",
+          "Severity or containment decision remains overdue"
+        ],
+        "immediateContainment": "Escalate to CEO / Managing Director, preserve relevant records and apply the control's escalation threshold: Review overdue, or a key control found lapsed with no remediation owner.",
+        "longTermResponse": "The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+        "linkedFindingRefs": [
+          "FINDING-004",
+          "FINDING-008"
+        ],
+        "linkedRiskRefs": [
+          "RISK-001",
+          "RISK-005"
+        ]
+      },
+      "sourceRefs": [
+        "SC-RISK-CONTROL-D10-Q01-PRIMARY-6E971211"
+      ]
+    },
+    {
+      "id": "SCENARIO-003",
+      "kind": "scenario",
+      "value": {
+        "factRef": "SCENARIO-003",
+        "sourceId": "SYNTH-DETECTION_EVASION",
+        "scenarioFamily": "detection_evasion",
+        "title": "Unusual activity avoids timely challenge because monitoring or escalation coverage is incomplete",
+        "actorClass": "An internal or external actor using an unusual transaction pattern",
+        "opportunity": "Monitoring and exception review are not yet sufficiently deliberate or repeatable to challenge unusual activity promptly.",
+        "entryPoint": "A transaction, adjustment or operational activity falls outside the expected pattern without a timely review route.",
+        "mechanism": "An actor splits, disguises or times activity so that it remains below or outside the available monitoring and exception thresholds.",
+        "controlWeakness": "The monitoring owner must define red-flag indicators per material process — duplicate payments, round-value patterns, out-of-hours activity, unusual volume by user, adjustments reversing prior entries, and supplier or customer concentration — run them against the complete transaction population on a set rhythm, and route output into the exception queue with named reviewers and SLAs; coverage against the process fraud maps is reported to the fraud forum.; The Head of Risk must run a scheduled review that revisits the fraud risk assessment for continued relevance, confirms for each key control that it still has a named owner and is still operating by sampling recent evidence rather than accepting attestation, records any control that has lapsed or degraded, and reports a consolidated risk and control position to the governing body with owned remediation actions and due dates.",
+        "concealment": "An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.",
+        "consequence": "Delayed detection allows suspicious activity or losses to continue and exceptions to accumulate. Direct -- unreviewed exceptions can allow losses to compound. Alert backlogs can conceal important anomalies.",
+        "warningIndicators": [
+          "Repeated low-value or threshold-adjacent activity",
+          "Alert or exception backlog grows without assigned owner",
+          "Monitoring rule is not updated after a material process change"
+        ],
+        "immediateContainment": "Assign and triage the affected alerts or exceptions, preserve the relevant activity record and escalate overdue items.",
+        "longTermResponse": "Define monitoring coverage, red flags, review ownership, closure evidence and threshold-change governance.",
+        "linkedFindingRefs": [
+          "FINDING-005",
+          "FINDING-008"
+        ],
+        "linkedRiskRefs": [
+          "RISK-001",
+          "RISK-003"
+        ]
+      },
+      "sourceRefs": [
+        "SYNTH-DETECTION_EVASION"
+      ]
+    },
+    {
+      "id": "CONTROL-001",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-001",
+        "sourceId": "CI-D1-Q04",
+        "objective": "Close the material control weakness recorded for \"Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "Management designs and operates fraud controls; internal audit or another independent function periodically tests them and reports without assuming management responsibility.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk and business control owners",
+        "population": "The complete in-scope population for annual mandate review and quarterly exception reporting must be reconciled before sampling.",
+        "frequency": "Annual mandate review and quarterly exception reporting",
+        "proofRetained": [
+          "Approved fraud-risk RACI",
+          "Audit-committee minutes showing independent reporting",
+          "Internal audit charter or assurance mandate"
+        ],
+        "independentCheck": "No key fraud control is both operated and independently certified by the same accountable function.",
+        "escalationTrigger": "Any assurance reviewer assigned operational ownership of the control under review.",
+        "sla": "Independent assurance mandate; Named management control owners",
+        "effectivenessMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Independent assurance mandate",
+          "Named management control owners"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-001"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D1-Q04"
+      ]
+    },
+    {
+      "id": "CONTROL-002",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-002",
+        "sourceId": "CI-D3-Q03",
+        "objective": "Close the material control weakness recorded for \"Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators\".",
+        "currentState": "Not in place — The control, process or capability does not exist or is not recognised as required.; self-assessed and not independently verified.",
+        "targetState": "Every supplier is verified against legal identity, ownership, tax/banking and risk indicators before activation, with enhanced review for high-risk suppliers.",
+        "accountableExecutive": "CFO / COO",
+        "processOwner": "Procurement / Vendor Master",
+        "population": "The complete in-scope population for before every supplier activation; annual refresh for high-risk suppliers must be reconciled before sampling.",
+        "frequency": "Before every supplier activation; annual refresh for high-risk suppliers",
+        "proofRetained": [
+          "Beneficial-ownership/conflict screening",
+          "Completed onboarding checklist",
+          "Independent registration and bank verification",
+          "Second-reviewer approval"
+        ],
+        "independentCheck": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+        "escalationTrigger": "Any supplier activated before verification or any ownership/conflict match unresolved.",
+        "sla": "Controlled vendor-master workflow",
+        "effectivenessMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Controlled vendor-master workflow"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-002"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D3-Q03"
+      ]
+    },
+    {
+      "id": "CONTROL-003",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-003",
+        "sourceId": "CI-D7-Q04",
+        "objective": "Close the material control weakness recorded for \"Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation\".",
+        "currentState": "Not in place — The control, process or capability does not exist or is not recognised as required.; self-assessed and not independently verified.",
+        "targetState": "Every bank-detail change is verified independently through a trusted pre-existing contact and segregated from payment approval; invoices are matched to approved supplier and purchasing records.",
+        "accountableExecutive": "CFO",
+        "processOwner": "Accounts Payable / Vendor Master",
+        "population": "The complete in-scope population for every change and invoice; monthly exception reporting must be reconciled before sampling.",
+        "frequency": "Every change and invoice; monthly exception reporting",
+        "proofRetained": [
+          "Bank-detail-change request",
+          "Independent approval",
+          "Monthly CFO exception report",
+          "Payment hold/release audit trail",
+          "Pre-existing contact record and callback log"
+        ],
+        "independentCheck": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+        "escalationTrigger": "Any unverified change released, callback mismatch or attempt to bypass segregation.",
+        "sla": "Controlled vendor master; Supplier due diligence",
+        "effectivenessMeasure": "100% of bank-detail changes independently verified before the first payment; zero unapproved bypasses.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Controlled vendor master",
+          "Supplier due diligence"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-003"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D7-Q04"
+      ]
+    },
+    {
+      "id": "CONTROL-004",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-004",
+        "sourceId": "CI-D5-Q05",
+        "objective": "Close the material control weakness recorded for \"Evidence linked to suspected fraud is identified, preserved and handled appropriately\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "Evidence is collected under legal direction where needed, hashed or sealed, logged through every transfer, access-restricted and retained under an approved schedule.",
+        "accountableExecutive": "General Counsel / COO",
+        "processOwner": "Investigation lead / Evidence custodian",
+        "population": "The complete in-scope population for at collection and every transfer; quarterly custody-log review must be reconciled before sampling.",
+        "frequency": "At collection and every transfer; quarterly custody-log review",
+        "proofRetained": [
+          "Chain-of-custody forms",
+          "Evidence register",
+          "Hash or seal records",
+          "Repository access log",
+          "Retention/legal-hold instruction"
+        ],
+        "independentCheck": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+        "escalationTrigger": "Any unexplained custody gap, integrity mismatch or unauthorised repository access.",
+        "sla": "Approved secure evidence repository; Incident-response severity process",
+        "effectivenessMeasure": "100% of sampled material-case evidence has a complete custody trail and matching integrity check.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Approved secure evidence repository",
+          "Incident-response severity process"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-004"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D5-Q05"
+      ]
+    },
+    {
+      "id": "CONTROL-005",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-005",
+        "sourceId": "CI-D4-Q01",
+        "objective": "Close the material control weakness recorded for \"The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "Defined monitoring covers the material transaction and activity population, uses risk-based indicators, and produces reviewable output on a set rhythm rather than relying on incidental discovery.",
+        "accountableExecutive": "CFO / COO",
+        "processOwner": "Fraud monitoring owner",
+        "population": "The complete in-scope population for defined monitoring rhythm, at minimum monthly, with continuous capture must be reconciled before sampling.",
+        "frequency": "Defined monitoring rhythm, at minimum monthly, with continuous capture",
+        "proofRetained": [
+          "Coverage report against process fraud maps",
+          "Monitoring output for recent periods",
+          "Population reconciliation to source systems",
+          "Red-flag indicator definitions per process"
+        ],
+        "independentCheck": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+        "escalationTrigger": "A material process unmonitored, or a monitoring cycle missed without escalation.",
+        "sla": "Access to transactional data; Process fraud maps",
+        "effectivenessMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Access to transactional data",
+          "Process fraud maps"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-005"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D4-Q01"
+      ]
+    },
+    {
+      "id": "CONTROL-006",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-006",
+        "sourceId": "CI-D8-Q01",
+        "objective": "Close the material control weakness recorded for \"The organisation verifies the identity of customers, users, employees, suppliers or counterparties where identity misuse could create fraud loss or harm\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "Identity verification is applied at defined risk points using independent sources proportionate to risk, with results recorded, exceptions approved and re-verification on sensitive change.",
+        "accountableExecutive": "COO / CFO",
+        "processOwner": "Process owners for onboarding and activation",
+        "population": "The complete in-scope population for at every defined risk point and on sensitive change must be reconciled before sampling.",
+        "frequency": "At every defined risk point and on sensitive change",
+        "proofRetained": [
+          "Defined verification risk points and required checks",
+          "Exception approvals",
+          "re-verification records for sensitive changes",
+          "Verification records with source and date"
+        ],
+        "independentCheck": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+        "escalationTrigger": "Activation before verification, an unapproved exception, or a sensitive change without re-verification.",
+        "sla": "Data-protection and retention rules; Onboarding processes",
+        "effectivenessMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Data-protection and retention rules",
+          "Onboarding processes"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-006"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D8-Q01"
+      ]
+    },
+    {
+      "id": "CONTROL-007",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-007",
+        "sourceId": "CI-D10-Q01",
+        "objective": "Close the material control weakness recorded for \"The organisation periodically reviews its fraud risks and control environment\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "A scheduled review reassesses fraud risks, tests whether key controls still operate as designed, and reports a consolidated position with owned actions to governance.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "population": "The complete in-scope population for at least annually, and after any material incident or restructuring must be reconciled before sampling.",
+        "frequency": "At least annually, and after any material incident or restructuring",
+        "proofRetained": [
+          "Consolidated report to governance with actions and due dates",
+          "Key control operating evidence sampled in the period",
+          "Lapsed or degraded control register",
+          "Review scope and schedule"
+        ],
+        "independentCheck": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+        "escalationTrigger": "Review overdue, or a key control found lapsed with no remediation owner.",
+        "sla": "Fraud risk assessment; Key control inventory",
+        "effectivenessMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Fraud risk assessment",
+          "Key control inventory"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-008"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D10-Q01"
+      ]
+    },
+    {
+      "id": "CONTROL-008",
+      "kind": "control",
+      "value": {
+        "factRef": "CONTROL-008",
+        "sourceId": "CI-D2-Q01",
+        "objective": "Close the material control weakness recorded for \"The organisation has completed a structured fraud risk assessment within the past two years\".",
+        "currentState": "Initial / ad hoc — Some activity may occur informally or reactively, but it is not defined, owned or reliable.; self-assessed and not independently verified.",
+        "targetState": "A structured fraud risk assessment completed within the past two years covers the material processes, uses a repeatable method, rates inherent and residual risk, names owners and produces a tracked treatment plan.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "population": "The complete in-scope population for full assessment at least every two years, with interim refresh on material change must be reconciled before sampling.",
+        "frequency": "Full assessment at least every two years, with interim refresh on material change",
+        "proofRetained": [
+          "Approved treatment plan with owners and due dates",
+          "Dated fraud risk assessment report",
+          "Documented method and participant list",
+          "Governing-body approval record",
+          "Scenario-level inherent and residual ratings"
+        ],
+        "independentCheck": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+        "escalationTrigger": "Assessment older than 24 months, or any unacceptable residual risk without a funded owner and due date.",
+        "sla": "Enterprise risk register; Process inventory",
+        "effectivenessMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+        "failureResponse": "Escalate exceptions through the defined owner and oversight route.",
+        "dependencies": [
+          "Enterprise risk register",
+          "Process inventory"
+        ],
+        "linkedFindingRefs": [
+          "FINDING-007"
+        ]
+      },
+      "sourceRefs": [
+        "CI-D2-Q01"
+      ]
+    },
+    {
+      "id": "DECISION-001",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-001",
+        "sourceId": "DEC-ACCOUNTABLE-EXECUTIVE-MANDATE",
+        "decisionFamily": "accountable_executive_mandate",
+        "question": "Approve accountable executive mandates and escalation authority for priority remediation.",
+        "options": [
+          {
+            "option": "Name one accountable executive with explicit decision rights",
+            "cost": "Executive attention and a signed mandate.",
+            "benefit": "Creates a single route for ownership, escalation and resource decisions.",
+            "tradeOff": "Requires the named executive to resolve cross-functional blockers."
+          },
+          {
+            "option": "Create a dedicated fraud-risk programme owner",
+            "cost": "Dedicated capacity and management reporting effort.",
+            "benefit": "Improves coordination across domains and keeps the treatment plan visible.",
+            "tradeOff": "May create a coordination layer unless process owners retain delivery accountability."
+          },
+          {
+            "option": "Split ownership by risk pathway with one executive sponsor",
+            "cost": "Multiple owner commitments and a sponsor forum.",
+            "benefit": "Matches ownership to operational processes while retaining executive escalation.",
+            "tradeOff": "Needs clear boundaries to avoid gaps between pathway owners."
+          }
+        ],
+        "recommendedRoute": "Name one accountable executive per linked control and approve a 30-day escalation route.",
+        "rationale": "The recorded assessment links this decision to 16 material finding(s) and 14 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "CEO / Managing Director",
+        "targetDate": "30 days",
+        "consequenceOfDelay": "Priority controls remain ownerless or blocked and the maturity reading remains constrained.",
+        "linkedFindingRefs": [
+          "FINDING-001",
+          "FINDING-008",
+          "FINDING-007",
+          "FINDING-002",
+          "FINDING-005",
+          "FINDING-004",
+          "FINDING-003",
+          "FINDING-006"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-ACCOUNTABLE-EXECUTIVE-MANDATE"
+      ]
+    },
+    {
+      "id": "DECISION-002",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-002",
+        "sourceId": "DEC-RISK-ACCEPTANCE-OR-REMEDIATION",
+        "decisionFamily": "risk_acceptance_or_remediation",
+        "question": "Choose and record remediation rather than passive acceptance for Critical and High risks.",
+        "options": [
+          {
+            "option": "Remediate within the approved target period",
+            "cost": "Immediate process and control-delivery capacity.",
+            "benefit": "Reduces the recorded exposure pathway with a defined completion horizon.",
+            "tradeOff": "Competes with other operational priorities in the near term."
+          },
+          {
+            "option": "Time-bound acceptance with a compensating control",
+            "cost": "Owner attention, expiry tracking and interim control operation.",
+            "benefit": "Makes a temporary acceptance explicit while limiting unmanaged exposure.",
+            "tradeOff": "Leaves residual exposure until the expiry decision is revisited."
+          },
+          {
+            "option": "Commission targeted specialist remediation",
+            "cost": "Bounded specialist budget and internal handover time.",
+            "benefit": "Adds focused design capacity where the risk is complex or time-sensitive.",
+            "tradeOff": "Requires procurement, scope control and retained internal ownership."
+          }
+        ],
+        "recommendedRoute": "Approve linked treatments; any temporary acceptance must name an owner, expiry and compensating control.",
+        "rationale": "The recorded assessment links this decision to 18 material finding(s) and 15 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "CEO / Managing Director",
+        "targetDate": "30 days",
+        "consequenceOfDelay": "Known risk pathways remain untreated without a documented acceptance basis.",
+        "linkedFindingRefs": [
+          "FINDING-001",
+          "FINDING-008",
+          "FINDING-007",
+          "FINDING-002",
+          "FINDING-005",
+          "FINDING-004",
+          "FINDING-003",
+          "FINDING-006"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-RISK-ACCEPTANCE-OR-REMEDIATION"
+      ]
+    },
+    {
+      "id": "DECISION-003",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-003",
+        "sourceId": "DEC-CONTROL-DESIGN-STANDARD",
+        "decisionFamily": "control_design_standard",
+        "question": "Approve exact question-level control designs as the minimum implementation standard.",
+        "options": [
+          {
+            "option": "Adopt the approved control blueprint as the minimum standard",
+            "cost": "Implementation effort across the named process population.",
+            "benefit": "Creates a consistent baseline for objective, ownership, proof and escalation.",
+            "tradeOff": "May require process changes where current practice is materially different."
+          },
+          {
+            "option": "Tailor the blueprint by process while preserving the minimum fields",
+            "cost": "Design workshops and documented deviations.",
+            "benefit": "Fits operational reality without losing the control objective or proof standard.",
+            "tradeOff": "Needs oversight review to prevent inconsistent weakening."
+          },
+          {
+            "option": "Pilot the blueprint in the highest-risk process before scaling",
+            "cost": "Pilot management time, measurement and subsequent rollout.",
+            "benefit": "Tests usability and effectiveness measures before wider adoption.",
+            "tradeOff": "Leaves other processes on the prior design during the pilot period."
+          }
+        ],
+        "recommendedRoute": "Adopt the control-improvement register; deviations require documented oversight approval.",
+        "rationale": "The recorded assessment links this decision to 34 material finding(s) and 31 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "CEO / Managing Director",
+        "targetDate": "30 days",
+        "consequenceOfDelay": "Partial or inconsistent designs fail to address the causal pathway.",
+        "linkedFindingRefs": [
+          "FINDING-001",
+          "FINDING-008",
+          "FINDING-007",
+          "FINDING-002",
+          "FINDING-005",
+          "FINDING-004",
+          "FINDING-003",
+          "FINDING-006"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-CONTROL-DESIGN-STANDARD"
+      ]
+    },
+    {
+      "id": "DECISION-004",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-004",
+        "sourceId": "DEC-FUNDING-RESOURCE-ALLOCATION",
+        "decisionFamily": "funding_resource_allocation",
+        "question": "Approve specialist capacity and resources for high-difficulty controls.",
+        "options": [
+          {
+            "option": "Fund delivery through existing teams and confirmed capacity",
+            "cost": "Reprioritisation and protected management time.",
+            "benefit": "Keeps capability and accountability inside the organisation.",
+            "tradeOff": "May extend delivery where specialist capacity is already constrained."
+          },
+          {
+            "option": "Fund bounded specialist support for the named priority",
+            "cost": "Targeted external budget and handover effort.",
+            "benefit": "Accelerates complex design or implementation work.",
+            "tradeOff": "Requires scope, procurement and transfer of ownership."
+          },
+          {
+            "option": "Use a hybrid internal and specialist delivery plan",
+            "cost": "Internal capacity plus a defined specialist work package.",
+            "benefit": "Retains internal accountability while accelerating the constrained workstream.",
+            "tradeOff": "Needs explicit interfaces so responsibility is not diluted."
+          }
+        ],
+        "recommendedRoute": "Fund the named supporting functions and require a resource-confirmed delivery plan.",
+        "rationale": "The recorded assessment links this decision to 6 material finding(s) and 6 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "General Counsel / COO",
+        "targetDate": "60 days",
+        "consequenceOfDelay": "The highest-complexity gaps remain open despite nominal approval.",
+        "linkedFindingRefs": [
+          "FINDING-004"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-FUNDING-RESOURCE-ALLOCATION"
+      ]
+    },
+    {
+      "id": "DECISION-005",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-005",
+        "sourceId": "DEC-SEQUENCING-DEPENDENCY",
+        "decisionFamily": "sequencing_dependency",
+        "question": "Approve prerequisite-first sequencing for dependent improvements.",
+        "options": [
+          {
+            "option": "Complete prerequisites before dependent control work",
+            "cost": "Early focus on ownership, data or process foundations.",
+            "benefit": "Reduces the risk of downstream controls being built on incomplete inputs.",
+            "tradeOff": "Later controls may start after the first target period."
+          },
+          {
+            "option": "Run workstreams in parallel with explicit dependency guardrails",
+            "cost": "Cross-workstream coordination and dependency tracking.",
+            "benefit": "Shortens the overall path while making prerequisites visible.",
+            "tradeOff": "Requires disciplined escalation when a dependency slips."
+          },
+          {
+            "option": "Defer the dependent control with an interim containment measure",
+            "cost": "Interim control operation and expiry management.",
+            "benefit": "Prevents unmanaged exposure while a prerequisite is prepared.",
+            "tradeOff": "The interim measure may be less efficient or less complete."
+          }
+        ],
+        "recommendedRoute": "Use authoritative roadmap dependency IDs and escalate threatened prerequisites.",
+        "rationale": "The recorded assessment links this decision to 34 material finding(s) and 31 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "CEO / Managing Director",
+        "targetDate": "30 days",
+        "consequenceOfDelay": "Downstream controls are implemented on incomplete foundations.",
+        "linkedFindingRefs": [
+          "FINDING-001",
+          "FINDING-008",
+          "FINDING-007",
+          "FINDING-002",
+          "FINDING-005",
+          "FINDING-004",
+          "FINDING-003",
+          "FINDING-006"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-SEQUENCING-DEPENDENCY"
+      ]
+    },
+    {
+      "id": "DECISION-006",
+      "kind": "decision",
+      "value": {
+        "factRef": "DECISION-006",
+        "sourceId": "DEC-GOVERNANCE-REPORTING-CADENCE",
+        "decisionFamily": "governance_reporting_cadence",
+        "question": "Approve a fixed fraud-risk implementation and control-effectiveness review cadence.",
+        "options": [
+          {
+            "option": "Monthly implementation review with quarterly control-effectiveness review",
+            "cost": "A recurring management pack and oversight agenda.",
+            "benefit": "Surfaces delivery slippage and effectiveness exceptions at useful intervals.",
+            "tradeOff": "Requires reliable measures and clear escalation ownership."
+          },
+          {
+            "option": "Quarterly programme review with event-triggered escalation",
+            "cost": "Quarterly reporting plus defined trigger monitoring.",
+            "benefit": "Reduces routine reporting effort while retaining escalation for material change.",
+            "tradeOff": "Smaller delivery slippage may remain unseen between quarterly reviews."
+          },
+          {
+            "option": "Monthly pathway-owner review with consolidated executive reporting",
+            "cost": "Owner-level review time and a consolidated reporting process.",
+            "benefit": "Connects operational action to executive decisions without duplicating every detail.",
+            "tradeOff": "Needs consistent pathway measures and disciplined consolidation."
+          }
+        ],
+        "recommendedRoute": "Require monthly implementation reporting and quarterly control-effectiveness review through the organisation’s management and oversight route.",
+        "rationale": "The recorded assessment links this decision to 3 material finding(s) and 3 risk(s). Management should confirm the final route, cost and delivery capacity for this issue.",
+        "owner": "CEO / Managing Director",
+        "targetDate": "30 days",
+        "consequenceOfDelay": "Actions lose momentum, exceptions remain open and management receives the control position too late to intervene.",
+        "linkedFindingRefs": [
+          "FINDING-001",
+          "FINDING-002",
+          "FINDING-003"
+        ]
+      },
+      "sourceRefs": [
+        "DEC-GOVERNANCE-REPORTING-CADENCE"
+      ]
+    },
+    {
+      "id": "ROADMAP-001",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-001",
+        "sourceId": "RA-D1-Q04",
+        "phase": "STABILISE",
+        "managementOutcome": "Access rights and privileged activity are restricted, recertified and escalated when exceptions remain open.",
+        "priorityWork": "Reconcile the complete access population, remove excess privilege and retain periodic recertification evidence.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk and business control owners",
+        "targetPeriod": "30 days",
+        "dependencies": [],
+        "proofOfCompletion": "Approved fraud-risk RACI; Audit-committee minutes showing independent reporting; Internal audit charter or assurance mandate",
+        "successMeasure": "No key fraud control is both operated and independently certified by the same accountable function.",
+        "failureTrigger": "Any assurance reviewer assigned operational ownership of the control under review."
+      },
+      "sourceRefs": [
+        "RA-D1-Q04"
+      ]
+    },
+    {
+      "id": "ROADMAP-002",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-002",
+        "sourceId": "RA-D3-Q03",
+        "phase": "ESTABLISH",
+        "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+        "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+        "accountableExecutive": "CFO / COO",
+        "processOwner": "Procurement / Vendor Master",
+        "targetPeriod": "60 days",
+        "dependencies": [],
+        "proofOfCompletion": "Beneficial-ownership/conflict screening; Completed onboarding checklist; Independent registration and bank verification; Second-reviewer approval",
+        "successMeasure": "100% of newly activated suppliers have a complete, pre-activation evidence pack and independent approval.",
+        "failureTrigger": "Any supplier activated before verification or any ownership/conflict match unresolved."
+      },
+      "sourceRefs": [
+        "RA-D3-Q03"
+      ]
+    },
+    {
+      "id": "ROADMAP-003",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-003",
+        "sourceId": "RA-D8-Q01",
+        "phase": "ESTABLISH",
+        "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+        "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+        "accountableExecutive": "COO / CFO",
+        "processOwner": "Process owners for onboarding and activation",
+        "targetPeriod": "60 days",
+        "dependencies": [],
+        "proofOfCompletion": "Defined verification risk points and required checks; Exception approvals; re-verification records for sensitive changes; Verification records with source and date",
+        "successMeasure": "100% of in-scope enrolments and activations carry completed verification before activation, with all exceptions approved.",
+        "failureTrigger": "Activation before verification, an unapproved exception, or a sensitive change without re-verification."
+      },
+      "sourceRefs": [
+        "RA-D8-Q01"
+      ]
+    },
+    {
+      "id": "ROADMAP-004",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-004",
+        "sourceId": "RA-D4-Q01",
+        "phase": "ESTABLISH",
+        "managementOutcome": "Supplier and payment integrity controls are owned, independently checked and monitored across the complete payable population.",
+        "priorityWork": "Implement supplier onboarding, beneficiary verification and dual approval for payment-instruction changes.",
+        "accountableExecutive": "CFO / COO",
+        "processOwner": "Fraud monitoring owner",
+        "targetPeriod": "90 days",
+        "dependencies": [],
+        "proofOfCompletion": "Coverage report against process fraud maps; Monitoring output for recent periods; Population reconciliation to source systems; Red-flag indicator definitions per process",
+        "successMeasure": "Monitoring covers all material processes on rhythm with reconciled population totals and routed output.",
+        "failureTrigger": "A material process unmonitored, or a monitoring cycle missed without escalation."
+      },
+      "sourceRefs": [
+        "RA-D4-Q01"
+      ]
+    },
+    {
+      "id": "ROADMAP-005",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-005",
+        "sourceId": "RA-D10-Q01",
+        "phase": "ESTABLISH",
+        "managementOutcome": "Fraud monitoring and exception review operate with defined coverage, ownership, closure evidence and escalation.",
+        "priorityWork": "Define monitoring coverage, red flags, review ownership, closure evidence and overdue escalation.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "targetPeriod": "90 days",
+        "dependencies": [],
+        "proofOfCompletion": "Consolidated report to governance with actions and due dates; Key control operating evidence sampled in the period; Lapsed or degraded control register; Review scope and schedule",
+        "successMeasure": "Every key control is evidence-tested within the review cycle, with lapses remediated by due date.",
+        "failureTrigger": "Review overdue, or a key control found lapsed with no remediation owner."
+      },
+      "sourceRefs": [
+        "RA-D10-Q01"
+      ]
+    },
+    {
+      "id": "ROADMAP-006",
+      "kind": "roadmap",
+      "value": {
+        "factRef": "ROADMAP-006",
+        "sourceId": "RA-D2-Q01",
+        "phase": "ESTABLISH",
+        "managementOutcome": "Access rights and privileged activity are restricted, recertified and escalated when exceptions remain open.",
+        "priorityWork": "Reconcile the complete access population, remove excess privilege and retain periodic recertification evidence.",
+        "accountableExecutive": "CEO / Managing Director",
+        "processOwner": "Head of Risk",
+        "targetPeriod": "90 days",
+        "dependencies": [],
+        "proofOfCompletion": "Approved treatment plan with owners and due dates; Dated fraud risk assessment report; Documented method and participant list; Governing-body approval record; Scenario-level inherent and residual ratings",
+        "successMeasure": "A fraud risk assessment less than 24 months old covers all material processes with an approved, in-date treatment plan.",
+        "failureTrigger": "Assessment older than 24 months, or any unacceptable residual risk without a funded owner and due date."
+      },
+      "sourceRefs": [
+        "RA-D2-Q01"
+      ]
+    },
+    {
+      "id": "PROOF-001",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-001",
+        "sourceId": "EVID-APPROVED-FRAUD-RISK-RACI-86E525D5",
+        "requirement": "Approved fraud-risk RACI",
+        "owner": "Head of Risk and business control owners",
+        "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Annual mandate review and quarterly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Gives assurance unrestricted reporting access",
+          "Records conflicts and recusals",
+          "Separates operation from testing for each key control"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-APPROVED-FRAUD-RISK-RACI-86E525D5"
+      ]
+    },
+    {
+      "id": "PROOF-002",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-002",
+        "sourceId": "EVID-AUDIT-COMMITTEE-MINUTES-SHOWING-INDE-ECC8910E",
+        "requirement": "Audit-committee minutes showing independent reporting",
+        "owner": "Head of Risk and business control owners",
+        "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Annual mandate review and quarterly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Gives assurance unrestricted reporting access",
+          "Records conflicts and recusals",
+          "Separates operation from testing for each key control"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-AUDIT-COMMITTEE-MINUTES-SHOWING-INDE-ECC8910E"
+      ]
+    },
+    {
+      "id": "PROOF-003",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-003",
+        "sourceId": "EVID-INTERNAL-AUDIT-CHARTER-OR-ASSURANCE--3006FCE0",
+        "requirement": "Internal audit charter or assurance mandate",
+        "owner": "Head of Risk and business control owners",
+        "whyItMatters": "Whether Management owns fraud risk, while internal audit or assurance functions provide independent review where they exist operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Annual mandate review and quarterly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Gives assurance unrestricted reporting access",
+          "Records conflicts and recusals",
+          "Separates operation from testing for each key control"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-INTERNAL-AUDIT-CHARTER-OR-ASSURANCE--3006FCE0"
+      ]
+    },
+    {
+      "id": "PROOF-004",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-004",
+        "sourceId": "EVID-BENEFICIAL-OWNERSHIP-CONFLICT-SCREEN-198B87A0",
+        "requirement": "Beneficial-ownership/conflict screening",
+        "owner": "Procurement / Vendor Master",
+        "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Covers the full supplier population added in the period",
+          "Evidence predates activation",
+          "Reviewer is different from requester"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-BENEFICIAL-OWNERSHIP-CONFLICT-SCREEN-198B87A0"
+      ]
+    },
+    {
+      "id": "PROOF-005",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-005",
+        "sourceId": "EVID-COMPLETED-ONBOARDING-CHECKLIST-3D145263",
+        "requirement": "Completed onboarding checklist",
+        "owner": "Procurement / Vendor Master",
+        "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Covers the full supplier population added in the period",
+          "Evidence predates activation",
+          "Reviewer is different from requester"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-COMPLETED-ONBOARDING-CHECKLIST-3D145263"
+      ]
+    },
+    {
+      "id": "PROOF-006",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-006",
+        "sourceId": "EVID-INDEPENDENT-REGISTRATION-AND-BANK-VE-DB91388E",
+        "requirement": "Independent registration and bank verification",
+        "owner": "Procurement / Vendor Master",
+        "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Covers the full supplier population added in the period",
+          "Evidence predates activation",
+          "Reviewer is different from requester"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-INDEPENDENT-REGISTRATION-AND-BANK-VE-DB91388E"
+      ]
+    },
+    {
+      "id": "PROOF-007",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-007",
+        "sourceId": "EVID-SECOND-REVIEWER-APPROVAL-0EF43892",
+        "requirement": "Second-reviewer approval",
+        "owner": "Procurement / Vendor Master",
+        "whyItMatters": "Whether Supplier onboarding includes checks on business information, ownership, banking details or other fraud-risk indicators operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Before every supplier activation; annual refresh for high-risk suppliers",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Covers the full supplier population added in the period",
+          "Evidence predates activation",
+          "Reviewer is different from requester"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-SECOND-REVIEWER-APPROVAL-0EF43892"
+      ]
+    },
+    {
+      "id": "PROOF-008",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-008",
+        "sourceId": "EVID-BANK-DETAIL-CHANGE-REQUEST-BEBB9B3B",
+        "requirement": "Bank-detail-change request",
+        "owner": "Accounts Payable / Vendor Master",
+        "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Every change and invoice; monthly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Callback number predates the request",
+          "Covers the complete bank-change population",
+          "Requester, verifier and approver are separated"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-BANK-DETAIL-CHANGE-REQUEST-BEBB9B3B"
+      ]
+    },
+    {
+      "id": "PROOF-009",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-009",
+        "sourceId": "EVID-INDEPENDENT-APPROVAL-6DB6488C",
+        "requirement": "Independent approval",
+        "owner": "Accounts Payable / Vendor Master",
+        "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Every change and invoice; monthly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Callback number predates the request",
+          "Covers the complete bank-change population",
+          "Requester, verifier and approver are separated"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-INDEPENDENT-APPROVAL-6DB6488C"
+      ]
+    },
+    {
+      "id": "PROOF-010",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-010",
+        "sourceId": "EVID-MONTHLY-CFO-EXCEPTION-REPORT-96C3575D",
+        "requirement": "Monthly CFO exception report",
+        "owner": "Accounts Payable / Vendor Master",
+        "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Every change and invoice; monthly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Callback number predates the request",
+          "Covers the complete bank-change population",
+          "Requester, verifier and approver are separated"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-MONTHLY-CFO-EXCEPTION-REPORT-96C3575D"
+      ]
+    },
+    {
+      "id": "PROOF-011",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-011",
+        "sourceId": "EVID-PAYMENT-HOLD-RELEASE-AUDIT-TRAIL-7AC7666F",
+        "requirement": "Payment hold/release audit trail",
+        "owner": "Accounts Payable / Vendor Master",
+        "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Every change and invoice; monthly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Callback number predates the request",
+          "Covers the complete bank-change population",
+          "Requester, verifier and approver are separated"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-PAYMENT-HOLD-RELEASE-AUDIT-TRAIL-7AC7666F"
+      ]
+    },
+    {
+      "id": "PROOF-012",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-012",
+        "sourceId": "EVID-PRE-EXISTING-CONTACT-RECORD-AND-CALL-22AE8439",
+        "requirement": "Pre-existing contact record and callback log",
+        "owner": "Accounts Payable / Vendor Master",
+        "whyItMatters": "Whether Supplier payment processes include checks to reduce invoice manipulation, fake vendors, bank-detail changes or vendor impersonation operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "Every change and invoice; monthly exception reporting",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Callback number predates the request",
+          "Covers the complete bank-change population",
+          "Requester, verifier and approver are separated"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-PRE-EXISTING-CONTACT-RECORD-AND-CALL-22AE8439"
+      ]
+    },
+    {
+      "id": "PROOF-013",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-013",
+        "sourceId": "EVID-CHAIN-OF-CUSTODY-FORMS-7BB3EB2D",
+        "requirement": "Chain-of-custody forms",
+        "owner": "Investigation lead / Evidence custodian",
+        "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Hash or seal reconciles at handover",
+          "Unbroken timestamped custody trail",
+          "Unique evidence identifier on every item"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-CHAIN-OF-CUSTODY-FORMS-7BB3EB2D"
+      ]
+    },
+    {
+      "id": "PROOF-014",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-014",
+        "sourceId": "EVID-EVIDENCE-REGISTER-3EBB98C5",
+        "requirement": "Evidence register",
+        "owner": "Investigation lead / Evidence custodian",
+        "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Hash or seal reconciles at handover",
+          "Unbroken timestamped custody trail",
+          "Unique evidence identifier on every item"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-EVIDENCE-REGISTER-3EBB98C5"
+      ]
+    },
+    {
+      "id": "PROOF-015",
+      "kind": "proof_of_progress",
+      "value": {
+        "factRef": "PROOF-015",
+        "sourceId": "EVID-HASH-OR-SEAL-RECORDS-EB93FAB1",
+        "requirement": "Hash or seal records",
+        "owner": "Investigation lead / Evidence custodian",
+        "whyItMatters": "Whether Evidence linked to suspected fraud is identified, preserved and handled appropriately operates to the exact expected control standard across the complete in-scope population.",
+        "expectedRecency": "At collection and every transfer; quarterly custody-log review",
+        "requiredPopulation": "Complete in-scope population for the stated operating period, reconciled to the source system or register.",
+        "acceptableExamples": [
+          "Hash or seal reconciles at handover",
+          "Unbroken timestamped custody trail",
+          "Unique evidence identifier on every item"
+        ]
+      },
+      "sourceRefs": [
+        "EVID-HASH-OR-SEAL-RECORDS-EB93FAB1"
+      ]
+    }
+  ]
+}

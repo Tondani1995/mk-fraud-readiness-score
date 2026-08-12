@@ -32,13 +32,16 @@ function metadata(provider: string, model: string, pack: NarrativeFactPack, plan
   return { provider, model, promptVersion: V11_NARRATIVE_PROMPT_VERSION, generationMode: 'ai', generatedAt: new Date().toISOString(), generationId: identity?.identity.generationId, responseId, inputFactPackSha256: sha(pack), inputStoryPlanSha256: sha(plan) };
 }
 
-async function objectCall<T>(input: { model: string; provider: string; prompt: string; schema: z.ZodType<T>; pack: NarrativeFactPack; plan: NarrativeStoryPlan }): Promise<{ value: T; metadata: NarrativeWriterMetadata }> {
+type NarrativeWritePhase = 'spine' | 'section' | 'coherence';
+const TOKEN_BUDGETS: Record<NarrativeWritePhase, number> = { spine: 2200, section: 2800, coherence: 16000 };
+
+async function objectCall<T>(input: { model: string; provider: string; prompt: string; schema: z.ZodType<T>; pack: NarrativeFactPack; plan: NarrativeStoryPlan; phase: NarrativeWritePhase }): Promise<{ value: T; metadata: NarrativeWriterMetadata }> {
   const response = await generateText({
     model: input.model,
     system: 'You are the constrained MK Fraud Readiness v1.1 advisory writer. Deterministic facts are the sole authority. Write only fluent, calm, non-accusatory executive prose. Do not invent or change any fact, priority, owner, timing, control, scenario, decision or number. Every heading and material paragraph must carry stable Fact Pack claimRefs. Do not emit raw IDs in text. Do not claim evidence validation or independent operating effectiveness. Return only the requested structured object.',
     prompt: input.prompt,
     output: Output.object({ schema: input.schema, name: 'mk_fraud_readiness_v11_manuscript' }),
-    maxOutputTokens: 7000,
+    maxOutputTokens: TOKEN_BUDGETS[input.phase],
     maxRetries: 0,
     providerOptions: { gateway: { only: [input.provider] } },
     abortSignal: AbortSignal.timeout(240_000)
@@ -59,17 +62,17 @@ export class V11AiNarrativeWriter implements NarrativeWriter {
   }
 
   async writeSpine(input: { factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeSpine> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: spineSchema, pack: input.factPack, plan: input.storyPlan, prompt: `Write the executive narrative spine first. Establish the central management story from diagnosis to findings to conditional exposure pathways to treatment. Use claimRefs from the Fact Pack.\n\n${contextPayload(input.factPack, input.storyPlan)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: spineSchema, pack: input.factPack, plan: input.storyPlan, phase: 'spine', prompt: `Write the executive narrative spine first. Establish the central management story from diagnosis to findings to conditional exposure pathways to treatment. Use claimRefs from the Fact Pack.\n\n${contextPayload(input.factPack, input.storyPlan)}` });
     return { schemaVersion: 'mk-reporting-bible-1.1-manuscript-v1', bibleVersion: '1.1', productTier: input.factPack.productTier, ...result.value, writerMetadata: result.metadata };
   }
 
   async writeSection(input: NarrativeWriterContext): Promise<NarrativeManuscriptSection> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: sectionSchema, pack: input.factPack, plan: input.storyPlan, prompt: `Write section ${input.currentSectionId}. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: sectionSchema, pack: input.factPack, plan: input.storyPlan, phase: 'section', prompt: `Write section ${input.currentSectionId}. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
     return result.value;
   }
 
   async coherencePass(input: { manuscript: NarrativeManuscript; factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeManuscript> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: z.object({ sections: z.array(sectionSchema).min(1) }).strict(), pack: input.factPack, plan: input.storyPlan, prompt: `Perform one bounded editorial coherence pass over this manuscript. Smooth transitions, remove repetition, standardise terminology and preserve every deterministic fact, priority, owner, timing, control, scenario, decision and claim reference. Do not add analytical content. Return all sections.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nMANUSCRIPT\n${JSON.stringify(input.manuscript)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: z.object({ sections: z.array(sectionSchema).min(1) }).strict(), pack: input.factPack, plan: input.storyPlan, phase: 'coherence', prompt: `Perform one bounded editorial coherence pass over this manuscript. Smooth transitions, remove repetition, standardise terminology and preserve every deterministic fact, priority, owner, timing, control, scenario, decision and claim reference. Do not add analytical content. Return all sections.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nMANUSCRIPT\n${JSON.stringify(input.manuscript)}` });
     return { ...input.manuscript, sections: result.value.sections, writerMetadata: { ...input.manuscript.writerMetadata, generatedAt: new Date().toISOString() } };
   }
 }

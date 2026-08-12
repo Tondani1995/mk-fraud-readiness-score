@@ -25,6 +25,8 @@ export interface NarrativeStoryPlan {
   controlOrder: string[];
   decisionOrder: string[];
   roadmapOrder: string[];
+  standaloneFindingReasons: Record<string, string>;
+  narrativeBounds: NarrativeFactPack['narrativeBounds'];
   requiredConclusion: string;
   prohibitedClaims: string[];
 }
@@ -63,12 +65,20 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
       : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
     movements,
     themeOrder: ids(pack.systemicThemeInputs),
-    findingOrder: ids(pack.findings),
+    findingOrder: ids(pack.findings.slice(0, essential ? 8 : 8)),
     scenarioOrder: ids(pack.scenarios),
-    riskOrder: ids(pack.risks),
-    controlOrder: ids(pack.controls),
-    decisionOrder: ids(pack.decisions),
-    roadmapOrder: ids(pack.roadmap),
+    riskOrder: ids(pack.risks.filter((risk) => risk.linkedFindingRefs.some((findingRef) => ids(pack.findings.slice(0, essential ? 8 : 8)).includes(findingRef)))),
+    controlOrder: ids(pack.controls.slice(0, essential ? 6 : 5)),
+    decisionOrder: ids(pack.decisions.slice(0, essential ? 6 : 5)),
+    roadmapOrder: ids(pack.roadmap.slice(0, essential ? 6 : 12)),
+    standaloneFindingReasons: pack.standaloneFindingReasons,
+    narrativeBounds: {
+      ...pack.narrativeBounds,
+      findingCount: Math.min(pack.findings.length, 8),
+      controlCount: Math.min(pack.controls.length, essential ? 6 : 5),
+      decisionCount: Math.min(pack.decisions.length, essential ? 6 : 5),
+      managementResponseCount: Math.min(pack.roadmap.length, essential ? 6 : 12)
+    },
     requiredConclusion: essential
       ? 'Explain what management should recognise, which few changes matter most, what should be true within 90 days and the sensible next step.'
       : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
@@ -82,14 +92,17 @@ export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: Narrati
   if (plan.movements.length < 6) throw new Error('Story Plan requires connected product movements.');
   for (const [name, expected, actual] of [
     ['themes', ids(pack.systemicThemeInputs), plan.themeOrder],
-    ['findings', ids(pack.findings), plan.findingOrder],
+    ['findings', ids(pack.findings.slice(0, pack.productTier === 'essential' ? 8 : 8)), plan.findingOrder],
     ['scenarios', ids(pack.scenarios), plan.scenarioOrder],
-    ['risks', ids(pack.risks), plan.riskOrder],
-    ['controls', ids(pack.controls), plan.controlOrder],
-    ['decisions', ids(pack.decisions), plan.decisionOrder],
-    ['roadmap', ids(pack.roadmap), plan.roadmapOrder]
+    ['risks', ids(pack.risks.filter((risk) => risk.linkedFindingRefs.some((findingRef) => plan.findingOrder.includes(findingRef)))), plan.riskOrder],
+    ['controls', ids(pack.controls.slice(0, pack.productTier === 'essential' ? 6 : 5)), plan.controlOrder],
+    ['decisions', ids(pack.decisions.slice(0, pack.productTier === 'essential' ? 6 : 5)), plan.decisionOrder],
+    ['roadmap', ids(pack.roadmap.slice(0, pack.productTier === 'essential' ? 6 : 12)), plan.roadmapOrder]
   ] as const) {
     if (JSON.stringify(expected) !== JSON.stringify(actual)) throw new Error(`Story Plan ${name} order does not match deterministic Fact Pack order.`);
   }
   if (!plan.requiredConclusion.trim()) throw new Error('Story Plan must define a required conclusion.');
+  if (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8) throw new Error('Story Plan finding narrative core must contain 5-8 findings.');
+  if (plan.productTier === 'essential' && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) throw new Error('Essential Story Plan must contain 2-3 scenarios.');
+  if (plan.productTier === 'comprehensive' && (plan.narrativeBounds.scenarioCount < 3 || plan.narrativeBounds.scenarioCount > 4)) throw new Error('Comprehensive Story Plan must contain 3-4 scenarios.');
 }

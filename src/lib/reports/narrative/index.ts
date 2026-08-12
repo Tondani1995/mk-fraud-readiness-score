@@ -6,3 +6,4 @@ export * from './editorial-validation';
 export * from './ai-writer';
 export * from './orchestrator';
 export * from './release-gate';
+export * from './pre-ai-gates';

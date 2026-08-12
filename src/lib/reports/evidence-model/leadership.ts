@@ -127,11 +127,11 @@ export function buildLeadershipDecisions(findings: MaterialFinding[], risks: Ris
 
   const cadenceFindings = assurance.length > 0 ? assurance : ordered.slice(0, Math.min(3, ordered.length));
   candidates.push(makeDecision('governance_reporting_cadence', cadenceFindings, risksFor(cadenceFindings, risks), {
-    decisionRequired: 'Approve a fixed governance cadence for evidence validation and overdue escalation.',
+    decisionRequired: 'Approve a fixed fraud-risk implementation and control-effectiveness review cadence.',
     whyNow: 'The linked registers require continuing governance to become a managed programme.',
-    recommendedDecision: 'Require monthly implementation reporting and quarterly independent evidence review.',
-    consequenceOfDelay: 'Actions lose momentum and self-reported claims remain unverified.',
-    immediateNextDeliverable: 'First governance-pack date, owner and required evidence fields.'
+    recommendedDecision: 'Require monthly implementation reporting and quarterly control-effectiveness review through the organisation’s management and oversight route.',
+    consequenceOfDelay: 'Actions lose momentum, exceptions remain open and management receives the control position too late to intervene.',
+    immediateNextDeliverable: 'First governance-pack date, owner, control-effectiveness measures and overdue escalation fields.'
   }));
 
   const unique = new Map<string, LeadershipDecision>();
