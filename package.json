@@ -20,6 +20,7 @@
     "v11:narrative-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/v11-narrative-contract-tests.mjs",
     "v11:pre-ai-fact-pack": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
     "v11:pre-ai-semantic-integrity": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
+    "v11:six-archetype-pre-ai": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-six-archetype-existing-pre-ai.mjs",
     "consolidation:test-routes": "node scripts/consolidation-route-tests.mjs",
     "consolidation:test-respondent": "node scripts/consolidation-local-respondent-integration.mjs",
     "phase3:smoke": "node scripts/phase3-smoke-check.mjs",
