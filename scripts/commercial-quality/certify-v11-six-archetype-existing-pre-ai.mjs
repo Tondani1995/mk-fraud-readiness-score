@@ -160,9 +160,12 @@ function tierSummary(pack, writerBrief, gate) {
     semanticFamilies: familySetFromFindings(pack.findings),
     fraudPathways: pathwaySetFromFindings(pack.findings),
     themeFamilies: sorted(pack.systemicThemeInputs.map((theme) => theme.themeFamily)),
+    themeCoveredFamilies: sorted(pack.systemicThemeInputs.flatMap((theme) => theme.semanticFamilies ?? [])),
     controlFamilies: sorted(pack.controls.map((control) => control.primarySemanticFamily)),
     decisionFamilies: sorted(writerBrief.decisions.map((decision) => decision.decisionFamilyLabel)),
+    scenarioFamilies: sorted(pack.scenarios.map((scenario) => scenario.scenarioFamily)),
     roadmapTargetPeriods: sorted(writerBrief.roadmap.map((item) => item.targetPeriod)),
+    essentialManagementFocus: sorted(writerBrief.roadmap.slice(0, 3).map((item) => item.priorityWork)),
     highReadinessSparseNarrativeReason: pack.highReadinessSparseNarrativeReason ?? null,
     gateFailures: gate.results.filter((result) => result.status === 'FAIL').map((result) => result.gate)
   };
@@ -304,6 +307,7 @@ function profileFrom(selection, inventory, model, tiers) {
     exposureScore: row.exposureScore, exposureBand: row.exposureBand, coveragePct: row.coveragePct, uncertaintyPct: row.uncertaintyPct,
     criticalGaps: row.criticalGaps, majorGaps: row.majorGaps, capApplied: row.capApplied, capReason: row.capReason,
     domainVector: row.domainVector, strongestDomains: strongest, weakestDomains: weakest,
+    relativeStrengths: [...Object.entries(row.domainVector)].filter(([, value]) => value !== null && value >= 60).sort((a, b) => b[1] - a[1]).map(([code, value]) => `${code} ${value}`),
     legitimateStrengths: model.materialFindings.length === 0 ? ['No material findings recorded.'] : strongest,
     allPrioritySemanticFamilies: modelSummary(model).semanticFamilies,
     allSupportedFraudPathways: modelSummary(model).fraudPathways,
@@ -407,15 +411,15 @@ async function main() {
 
   const matrixRows = selections.map((selection) => {
     const result = results.find((item) => item.selection.key === selection.key);
-    if (!result.profile) return [selection.key, selection.archetype, 'ARCHETYPE COVERAGE GAP', '—', '—', '—', '—', '—', '—', '—', '—', 'No run claimed'];
-    const p = result.profile; const c = result.tiers.comprehensive.summary;
-    return [selection.key, selection.archetype, p.assessmentReference, `${p.overallScore}`, `${p.calculatedMaturity} → ${p.finalMaturity}`, `${p.criticalGaps} / ${p.majorGaps}`, Object.entries(p.domainVector).map(([code, value]) => `${code}:${value}`).join(', '), p.allPrioritySemanticFamilies.join(', '), p.allSupportedFraudPathways.join(', ') || 'None recorded', `${c.themeCount} / ${c.scenarioCount} / ${c.controlCount}`, `${result.tiers.essential.gate.status} / ${result.tiers.comprehensive.gate.status}`];
+    if (!result.profile) return [selection.key, '—', 'ARCHETYPE COVERAGE GAP', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', 'No run claimed'];
+    const p = result.profile; const e = result.tiers.essential.summary; const c = result.tiers.comprehensive.summary;
+    return [selection.key, p.organisation, p.assessmentReference, `${p.overallScore}`, p.calculatedMaturity, p.finalMaturity, `${p.criticalGaps} / ${p.majorGaps}`, pct(p.uncertaintyPct), p.strongestDomains.join(', '), p.weakestDomains.join(', '), p.relativeStrengths.join(', ') || 'None at or above 60', `${c.themeCount} (${c.themeFamilies.join(', ')})`, `${c.findingCount}`, `${c.scenarioCount} (${c.scenarioFamilies.join(', ') || 'None recorded'})`, c.controlFamilies.join(', ') || 'None', c.decisionFamilies.join(', ') || 'None', e.essentialManagementFocus.join('; '), `${result.tiers.essential.gate.status} / ${result.tiers.comprehensive.gate.status}`];
   });
   await writeText(path.join(outputDir, 'certification-fixture-matrix.md'), [
     '# Certification fixture matrix', '',
     '**Status: PARTIAL — five valid existing-assessment archetypes plus one explicit coverage gap.**', '',
     `Inventory count: ${inventory.length} persisted assessments; ${inventory.filter((row) => row.score !== null).length} scored; ${inventory.filter((row) => row.eligibleForExistingProductCertification).length} scored and order-backed.`, '',
-    table(['Key', 'Archetype', 'Assessment', 'Score', 'Calculated → final', 'Critical / major', 'Domain vector', 'Priority families', 'Fraud pathways', 'Comp themes / scenarios / controls', 'Essential / Comp gates'], matrixRows),
+    table(['Key', 'Organisation', 'Assessment reference', 'Score', 'Calculated maturity', 'Final maturity', 'Critical / major gaps', 'Uncertainty %', 'Strongest domains', 'Weakest domains', 'Relative strengths', 'Theme count / families', 'Finding count', 'Scenario count / families', 'Control families', 'Decision families', 'Essential management focus', 'Essential / Comp gates'], matrixRows),
     '',
     'Every selected valid assessment runs both Essential and Comprehensive deterministic paths, regardless of the historical product on its existing order. Comprehensive runs include deterministic 4–6 month Embed and 7–12 month Mature steps. Essential remains a 90-day product path.', '',
     'No AI is configured or called. Manuscripts and PDFs are deliberately absent.'
@@ -435,7 +439,7 @@ async function main() {
   const semanticRows = FAMILY_SET.map((family) => {
     const supporting = valid.filter((result) => result.profile.allPrioritySemanticFamilies.includes(family)).map((result) => result.selection.key);
     const priority = valid.filter((result) => result.tiers.comprehensive.summary.semanticFamilies.includes(family)).map((result) => result.selection.key);
-    const theme = valid.filter((result) => result.tiers.comprehensive.summary.themeFamilies.some((themeFamily) => themeFamily.toLowerCase().includes(family.toLowerCase().replaceAll('_', ' ')))).map((result) => result.selection.key);
+    const theme = valid.filter((result) => result.tiers.comprehensive.summary.themeCoveredFamilies.includes(family)).map((result) => result.selection.key);
     const controls = valid.filter((result) => result.tiers.comprehensive.summary.controlFamilies.includes(family)).map((result) => result.selection.key);
     return [family, supporting.join(', ') || 'None', priority.join(', ') || 'None', theme.join(', ') || 'See theme family anchor', controls.join(', ') || 'See selected control spine'];
   });
