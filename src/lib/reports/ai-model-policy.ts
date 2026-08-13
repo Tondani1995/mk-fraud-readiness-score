@@ -1,12 +1,12 @@
 export const PRIMARY_NARRATIVE_MODEL = 'openai/gpt-5-mini' as const;
-export const SNAPSHOT_PRIMARY_MODEL = PRIMARY_NARRATIVE_MODEL;
-export const SNAPSHOT_MAX_AI_CALLS = 1 as const;
-export const SNAPSHOT_TECHNICAL_FALLBACK = 'deterministic_fallback' as const;
 export const NARRATIVE_FALLBACK_MODELS = Object.freeze([
   'openai/gpt-5.6-luna',
   'openai/gpt-5.6-terra',
   'openai/gpt-5.6-sol'
 ] as const);
+export const SNAPSHOT_PRIMARY_MODEL = PRIMARY_NARRATIVE_MODEL;
+export const SNAPSHOT_MAX_SUCCESSFUL_GENERATIONS = 1 as const;
+export const SNAPSHOT_TECHNICAL_FALLBACK = NARRATIVE_FALLBACK_MODELS;
 
 export type NarrativeModel = typeof PRIMARY_NARRATIVE_MODEL | typeof NARRATIVE_FALLBACK_MODELS[number] | (string & {});
 
@@ -20,16 +20,16 @@ export interface NarrativeModelSelection {
 export interface SnapshotModelSelection {
   requestedModel: typeof SNAPSHOT_PRIMARY_MODEL;
   primaryModel: typeof SNAPSHOT_PRIMARY_MODEL;
-  maxAiCalls: typeof SNAPSHOT_MAX_AI_CALLS;
-  technicalFallback: typeof SNAPSHOT_TECHNICAL_FALLBACK;
+  fallbackModels: typeof NARRATIVE_FALLBACK_MODELS;
+  maxSuccessfulGenerations: typeof SNAPSHOT_MAX_SUCCESSFUL_GENERATIONS;
 }
 
 export function selectSnapshotModel(): SnapshotModelSelection {
   return {
     requestedModel: SNAPSHOT_PRIMARY_MODEL,
     primaryModel: SNAPSHOT_PRIMARY_MODEL,
-    maxAiCalls: SNAPSHOT_MAX_AI_CALLS,
-    technicalFallback: SNAPSHOT_TECHNICAL_FALLBACK
+    fallbackModels: NARRATIVE_FALLBACK_MODELS,
+    maxSuccessfulGenerations: SNAPSHOT_MAX_SUCCESSFUL_GENERATIONS
   };
 }
 

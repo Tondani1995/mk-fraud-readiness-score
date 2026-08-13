@@ -11,7 +11,7 @@ import type { CommercialDomainInsight, CommercialOptionCode, CommercialSnapshotI
 import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
 import type { SnapshotNarrative } from '@/lib/snapshot/narrative';
-import { deterministicSnapshotNarrative } from '@/lib/snapshot/narrative';
+import { unavailableSnapshotNarrative } from '@/lib/snapshot/narrative';
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 
 const SCORE_BASE_PATH = '/score';
@@ -78,7 +78,7 @@ export function FreeSnapshotCard({
   commercialInsights: CommercialSnapshotInsights;
   snapshotNarrative?: SnapshotNarrative;
 }) {
-  const effectiveSnapshotNarrative = snapshotNarrative ?? deterministicSnapshotNarrative(commercialInsights);
+  const effectiveSnapshotNarrative = snapshotNarrative ?? unavailableSnapshotNarrative();
   const showExposure = !snapshot.adaptiveMetrics || snapshot.adaptiveMetrics.exposureAssessed !== false;
   const [selectedOption, setSelectedOption] = useState<CommercialOptionCode | null>(null);
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -189,8 +189,14 @@ export function FreeSnapshotCard({
 
           <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="concise-interpretation-heading">
             <h2 id="concise-interpretation-heading" className="font-semibold text-mk-ink">Concise readiness interpretation</h2>
-            <p className="mt-2">{effectiveSnapshotNarrative.interpretation}</p>
-            <p className="mt-3 font-medium text-mk-ink">{effectiveSnapshotNarrative.nextStep}</p>
+            {effectiveSnapshotNarrative.mode === 'unavailable' ? (
+              <p className="mt-2">The personalised interpretation is temporarily unavailable. Please refresh later or contact MK Fraud Insights if the problem continues.</p>
+            ) : (
+              <>
+                <p className="mt-2">{effectiveSnapshotNarrative.interpretation}</p>
+                <p className="mt-3 font-medium text-mk-ink">{effectiveSnapshotNarrative.nextStep}</p>
+              </>
+            )}
           </section>
 
           {commercialInsights.criticalGapIndicator ? (

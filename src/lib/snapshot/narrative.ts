@@ -23,10 +23,11 @@ export type SnapshotNarrativeInput = {
 export type SnapshotNarrative = {
   interpretation: string;
   nextStep: string;
-  mode: 'ai' | 'deterministic_fallback';
+  mode: 'ai' | 'unavailable';
   model: string;
   promptVersion: string;
   aiCallCount: number;
+  attemptedModels?: string[];
   fallbackReason?: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -64,35 +65,49 @@ export function validateSnapshotNarrative(value: { interpretation: string; nextS
   return [...new Set(issues)];
 }
 
-export function deterministicSnapshotNarrative(insights: CommercialSnapshotInsights, model = selectSnapshotModel().primaryModel): SnapshotNarrative {
-  return { interpretation: insights.conciseInterpretation, nextStep: insights.leadershipPriority, mode: 'deterministic_fallback', model, promptVersion: SNAPSHOT_NARRATIVE_PROMPT_VERSION, aiCallCount: 0, fallbackReason: 'deterministic_snapshot_fallback' };
+export function unavailableSnapshotNarrative(input: { aiCallCount?: number; attemptedModels?: string[]; fallbackReason?: string } = {}): SnapshotNarrative {
+  return {
+    interpretation: '',
+    nextStep: '',
+    mode: 'unavailable',
+    model: 'none',
+    promptVersion: SNAPSHOT_NARRATIVE_PROMPT_VERSION,
+    aiCallCount: input.aiCallCount ?? 0,
+    attemptedModels: input.attemptedModels,
+    fallbackReason: input.fallbackReason ?? 'snapshot_narrative_unavailable'
+  };
 }
 
 export async function buildSnapshotNarrative(input: { snapshot: FreeSnapshot; insights: CommercialSnapshotInsights }): Promise<SnapshotNarrative> {
   const policy = selectSnapshotModel();
-  const deterministic = deterministicSnapshotNarrative(input.insights, policy.primaryModel);
-  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_AI_GATEWAY_API_KEY) return deterministic;
+  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_AI_GATEWAY_API_KEY) return unavailableSnapshotNarrative({ fallbackReason: 'snapshot_ai_unavailable' });
   const narrativeInput = buildSnapshotNarrativeInput(input.snapshot, input.insights);
-  const provider = providerFromModel(policy.requestedModel);
-  try {
-    const response = await generateText({
-      model: policy.requestedModel,
-      system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Write only a concise personalised interpretation and one high-level next step. Do not calculate or create a score, maturity, finding, risk, scenario, control, recommendation, organisation fact or number. Use only the supplied facts. Do not include internal IDs, methodology enums, paid-report detail, roadmaps, blueprints, scenarios or decision architecture. Do not claim that MK, the assessment or the report verified, validated, tested, confirmed or assured operating effectiveness or evidence. Return only the requested object.',
-      prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score and maturity are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
-      output: Output.object({ schema: snapshotNarrativeSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
-      maxOutputTokens: 500,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'product:free-snapshot'] } },
-      abortSignal: AbortSignal.timeout(120_000)
-    });
-    const parsed = snapshotNarrativeSchema.safeParse(response.output);
-    if (!parsed.success) return { ...deterministic, aiCallCount: 1, fallbackReason: 'snapshot_schema_validation_failed' };
-    const issues = validateSnapshotNarrative(parsed.data, narrativeInput);
-    if (issues.length > 0) return { ...deterministic, aiCallCount: 1, fallbackReason: issues.join(',') };
-    const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: policy.requestedModel, providerMetadata: response.providerMetadata, response: response.response });
-    const usage = response.usage;
-    return { ...parsed.data, mode: 'ai', model: policy.requestedModel, promptVersion: SNAPSHOT_NARRATIVE_PROMPT_VERSION, aiCallCount: 1, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens, totalTokens: usage?.totalTokens, providerCostMicros: identity.gatewayCostMicros };
-  } catch (error) {
-    return { ...deterministic, aiCallCount: 1, fallbackReason: error instanceof Error ? 'snapshot_technical_failure:' + error.name : 'snapshot_technical_failure' };
+  const attemptedModels: string[] = [];
+  for (const model of [policy.primaryModel, ...policy.fallbackModels]) {
+    attemptedModels.push(model);
+    const provider = providerFromModel(model);
+    try {
+      const response = await generateText({
+        model,
+        system: 'You are the constrained MK Fraud Readiness free Snapshot editor. Deterministic Snapshot facts are the sole authority. Write only a concise personalised interpretation and one high-level next step. Do not calculate or create a score, maturity, finding, risk, scenario, control, recommendation, organisation fact or number. Use only the supplied facts. Do not include internal IDs, methodology enums, paid-report detail, roadmaps, blueprints, scenarios or decision architecture. Do not claim that MK, the assessment or the report verified, validated, tested, confirmed or assured operating effectiveness or evidence. Return only the requested object.',
+        prompt: 'Use this deterministic Snapshot input and return only the structured object. Keep the total response within ' + SNAPSHOT_NARRATIVE_MAX_WORDS + ' words. The organisation name, score and maturity are supplied facts; do not alter them.\n\n' + JSON.stringify(narrativeInput),
+        output: Output.object({ schema: snapshotNarrativeSchema, name: 'mk_fraud_readiness_snapshot_narrative' }),
+        maxOutputTokens: 500,
+        maxRetries: 0,
+        providerOptions: { gateway: { only: [provider], tags: ['feature:mk-fraud-readiness-snapshot', 'product:free-snapshot'] } },
+        abortSignal: AbortSignal.timeout(120_000)
+      });
+      const parsed = snapshotNarrativeSchema.safeParse(response.output);
+      if (!parsed.success) continue;
+      const issues = validateSnapshotNarrative(parsed.data, narrativeInput);
+      if (issues.length > 0) return unavailableSnapshotNarrative({ aiCallCount: attemptedModels.length, attemptedModels, fallbackReason: issues.join(',') });
+      const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });
+      const usage = response.usage;
+      return { ...parsed.data, mode: 'ai', model, promptVersion: SNAPSHOT_NARRATIVE_PROMPT_VERSION, aiCallCount: attemptedModels.length, attemptedModels, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens, totalTokens: usage?.totalTokens, providerCostMicros: identity.gatewayCostMicros };
+    } catch {
+      // Technical failures only may advance to the next approved model. A structurally valid
+      // candidate that fails narrative validation returns above and never quality-escalates.
+    }
   }
+  return unavailableSnapshotNarrative({ aiCallCount: attemptedModels.length, attemptedModels, fallbackReason: 'snapshot_all_approved_models_unavailable' });
 }

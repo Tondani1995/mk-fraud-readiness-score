@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSnapshotNarrativeInput, deterministicSnapshotNarrative, SNAPSHOT_NARRATIVE_MAX_WORDS, validateSnapshotNarrative } from '../../src/lib/snapshot/narrative.ts';
+import { buildSnapshotNarrativeInput, unavailableSnapshotNarrative, SNAPSHOT_NARRATIVE_MAX_WORDS, validateSnapshotNarrative } from '../../src/lib/snapshot/narrative.ts';
 import { selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 import { buildCommercialSnapshotInsights } from '../../src/lib/snapshot/commercial-insights.ts';
 
@@ -38,13 +38,12 @@ test('Snapshot narrative input is bounded to approved deterministic facts', () =
   assert.equal(JSON.stringify(input).includes('roadmap'), false);
 });
 
-test('deterministic Snapshot fallback does not change authoritative facts', () => {
-  const fallback = deterministicSnapshotNarrative(insights);
-  assert.equal(fallback.mode, 'deterministic_fallback');
-  assert.equal(fallback.aiCallCount, 0);
-  assert.equal(fallback.model, 'openai/gpt-5-mini');
-  assert.equal(fallback.interpretation, insights.conciseInterpretation);
-  assert.equal(fallback.nextStep, insights.leadershipPriority);
+test('Snapshot technical exhaustion fails closed without mechanical narrative', () => {
+  const unavailable = unavailableSnapshotNarrative({ aiCallCount: 4, attemptedModels: ['openai/gpt-5-mini', 'openai/gpt-5.6-luna', 'openai/gpt-5.6-terra', 'openai/gpt-5.6-sol'] });
+  assert.equal(unavailable.mode, 'unavailable');
+  assert.equal(unavailable.aiCallCount, 4);
+  assert.equal(unavailable.interpretation, '');
+  assert.equal(unavailable.nextStep, '');
 });
 
 test('Snapshot validation rejects invented numbers and paid-tier leakage', () => {
@@ -60,11 +59,11 @@ test('Snapshot validation accepts a concise grounded narrative', () => {
   assert.ok((value.interpretation + value.nextStep).split(/\s+/).length < SNAPSHOT_NARRATIVE_MAX_WORDS);
 });
 
-test('Snapshot policy is Mini-first with no paid-model fallback', () => {
+test('Snapshot policy is Mini-first with technical fallback and one successful generation', () => {
   const policy = selectSnapshotModel();
   assert.equal(policy.primaryModel, 'openai/gpt-5-mini');
-  assert.equal(policy.maxAiCalls, 1);
-  assert.equal(policy.technicalFallback, 'deterministic_fallback');
+  assert.deepEqual(policy.fallbackModels, ['openai/gpt-5.6-luna', 'openai/gpt-5.6-terra', 'openai/gpt-5.6-sol']);
+  assert.equal(policy.maxSuccessfulGenerations, 1);
 });
 
-console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'authoritative deterministic fallback', 'invented number rejection', 'paid-tier leakage rejection', 'concise grounded narrative', 'Mini-only one-call Snapshot policy'] }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['bounded Snapshot input', 'closed safe handling after technical exhaustion', 'invented number rejection', 'paid-tier leakage rejection', 'concise grounded narrative', 'Mini-Luna-Terra-Sol technical fallback', 'one successful Snapshot generation'] }, null, 2));
