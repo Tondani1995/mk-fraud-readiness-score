@@ -48,6 +48,7 @@ function metadata(input: WholeManuscriptWriterInput, provider: string, model: st
   const inputTokens = numeric(response.usage?.inputTokens);
   const outputTokens = numeric(response.usage?.outputTokens);
   const totalTokens = numeric(response.usage?.totalTokens);
+  const rawGatewayCost = response.providerMetadata?.gateway?.cost;
   const providerCostMicros = identity?.gatewayCostMicros;
   return {
     contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
@@ -66,6 +67,7 @@ function metadata(input: WholeManuscriptWriterInput, provider: string, model: st
     outputTokens,
     totalTokens,
     providerCostMicros,
+    providerCostRaw: typeof rawGatewayCost === 'string' || typeof rawGatewayCost === 'number' ? rawGatewayCost : undefined,
     executionContract: {
       sdkFunction: 'generateText',
       responseFormat: 'markdown-text',

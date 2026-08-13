@@ -58,6 +58,7 @@ export interface NarrativeWriterMetadata {
   outputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
+  providerCostRaw?: string | number;
 }
 
 export interface NarrativeWriterContext {
