@@ -1,8 +1,8 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
 
-export const REPORT_BLUEPRINT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-report-blueprint-v2';
-export const WHOLE_MANUSCRIPT_CONTEXT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-whole-manuscript-context-v2';
+export const REPORT_BLUEPRINT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-report-blueprint-v3';
+export const WHOLE_MANUSCRIPT_CONTEXT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-whole-manuscript-context-v3';
 
 /** Owner-approved active model contract: GPT-5 mini supports 400k context and 128k output. */
 export const WHOLE_MANUSCRIPT_MODEL_CONTEXT_TOKENS = 400_000;
@@ -11,6 +11,33 @@ export const WHOLE_MANUSCRIPT_EXPECTED_OUTPUT_RESERVE_TOKENS = 8_000;
 export const WHOLE_MANUSCRIPT_OPERATING_MARGIN_TOKENS = 100_000;
 export const WHOLE_MANUSCRIPT_APPROVED_INPUT_TOKENS = WHOLE_MANUSCRIPT_MODEL_CONTEXT_TOKENS - WHOLE_MANUSCRIPT_EXPECTED_OUTPUT_RESERVE_TOKENS - WHOLE_MANUSCRIPT_OPERATING_MARGIN_TOKENS;
 export const WHOLE_MANUSCRIPT_ACTIVE_MODEL = 'openai/gpt-5-mini';
+
+export const NARRATIVE_ROLES = [
+  'JUDGEMENT',
+  'DIAGNOSIS',
+  'EVIDENCE',
+  'EXPOSURE',
+  'EXPOSURE_ILLUSTRATION',
+  'TARGET_STATE',
+  'RESPONSE',
+  'DECISION',
+  'IMPLEMENTATION',
+  'MATURATION',
+  'SUSTAINMENT',
+  'CONCLUSION'
+] as const;
+export type NarrativeRole = typeof NARRATIVE_ROLES[number];
+export const REMEDIATION_STAGES = ['STABILISE', 'ESTABLISH', 'EMBED', 'MATURE'] as const;
+export const SUSTAINMENT_STAGES = ['PRESERVE', 'EMBED', 'MEASURE', 'OPTIMISE'] as const;
+export type TransformationStage = typeof REMEDIATION_STAGES[number] | typeof SUSTAINMENT_STAGES[number];
+
+export interface BlueprintTransformationStage {
+  stage: TransformationStage;
+  narrativeRole: NarrativeRole;
+  supported: boolean;
+  sourceRefs: string[];
+  purpose: string;
+}
 
 export type ReportBlueprintTier = NarrativeProductTier | 'snapshot';
 export type BlueprintExhibitType =
@@ -33,6 +60,7 @@ export interface ReportBlueprintSubsection {
   requiredManagementTakeaway: string;
   requiredFacts: string[];
   claimRefs: string[];
+  narrativeRole: NarrativeRole;
 }
 
 export interface ReportBlueprintSection {
@@ -44,6 +72,7 @@ export interface ReportBlueprintSection {
   requiredFacts: string[];
   claimRefs: string[];
   optionalSubsections: ReportBlueprintSubsection[];
+  narrativeRole: NarrativeRole;
 }
 
 export interface ReportBlueprintExhibit {
@@ -81,6 +110,7 @@ export interface BlueprintChapter {
   linkedControlIds: string[];
   linkedDecisionIds: string[];
   linkedRoadmapIds: string[];
+  narrativeRole: NarrativeRole;
   exhibits: ReportBlueprintExhibit[];
   sections: ReportBlueprintSection[];
 }
@@ -91,6 +121,7 @@ export interface BlueprintContentAssignment {
   chapterId: string;
   sectionId: string;
   assignmentType: 'primary_home';
+  narrativeRole: NarrativeRole;
 }
 
 export interface BlueprintNarrativeCrossReference {
@@ -98,7 +129,26 @@ export interface BlueprintNarrativeCrossReference {
   contentRef: string;
   fromChapterId: string;
   fromSectionId: string;
+  narrativeRole: NarrativeRole;
   referencePurpose: string;
+}
+
+export interface BlueprintNarrativeUsageLedgerEntry {
+  contentType: BlueprintContentAssignment['contentType'] | 'fact';
+  contentRef: string;
+  narrativeRole: NarrativeRole;
+  chapterId: string;
+  sectionId: string;
+  usage: 'primary_home' | 'cross_reference';
+  managementTakeaway: string;
+}
+
+export interface BlueprintNarrativeRoleUsage {
+  factUsage: Record<string, NarrativeRole[]>;
+  findingUsage: Record<string, NarrativeRole[]>;
+  scenarioUsage: Record<string, NarrativeRole[]>;
+  controlUsage: Record<string, NarrativeRole[]>;
+  ledger: BlueprintNarrativeUsageLedgerEntry[];
 }
 
 export interface ReportBlueprint {
@@ -122,6 +172,8 @@ export interface ReportBlueprint {
   findingClusters: FindingCluster[];
   contentAssignments: BlueprintContentAssignment[];
   narrativeCrossReferences: BlueprintNarrativeCrossReference[];
+  narrativeRoleUsage: BlueprintNarrativeRoleUsage;
+  transformationSequence: BlueprintTransformationStage[];
   deterministicRules: string[];
   prohibitedClaims: string[];
 }
@@ -169,6 +221,8 @@ export interface BlueprintValidationResult {
   missingContentRefs: string[];
   duplicateExecutiveMovements: string[];
   duplicateRoadmapMovements: string[];
+  duplicateNarrativeRoles: string[];
+  missingMaterialFacts: string[];
   issues: string[];
 }
 
@@ -177,6 +231,61 @@ const ordered = <T>(values: T[]): T[] => values.filter(Boolean);
 const factIds = (pack: NarrativeFactPack, kind?: string): string[] => pack.facts.filter((fact) => !kind || fact.kind === kind).map((fact) => fact.id);
 const refs = <T extends { factRef: string }>(values: T[]): string[] => values.map((value) => value.factRef);
 const sourceIds = <T extends { sourceId?: string; factRef?: string }>(values: T[]): string[] => values.map((value) => value.sourceId ?? value.factRef ?? '').filter(Boolean);
+
+function narrativeRoleFor(identity: string, title: string): NarrativeRole {
+  const value = `${identity} ${title}`.toUpperCase();
+  if (/EXECUTIVE|POSITION|JUDGEMENT|TAKEAWAY/.test(value)) return 'JUDGEMENT';
+  if (/CONCLUSION/.test(value)) return 'CONCLUSION';
+  if (/PRIORITY-FRAUD-EXPOSURES|MATERIAL-FRAUD-RISK-THEMES|FINDING-SUMMARY/.test(value)) return 'EVIDENCE';
+  if (/SCENARIO|PATHWAY|EXPOSURE/.test(value)) return /PATHWAY|SCENARIO/.test(value) ? 'EXPOSURE_ILLUSTRATION' : 'EXPOSURE';
+  if (/CONTROL|TARGET|RESPONSE/.test(value)) return /RESPONSE/.test(value) ? 'RESPONSE' : 'TARGET_STATE';
+  if (/DECISION|OPTIONS|TRADE-OFF/.test(value)) return 'DECISION';
+  if (/ROADMAP|90-DAY|IMPLEMENTATION/.test(value)) return 'IMPLEMENTATION';
+  if (/MATURATION|OPTIMISATION|OPTIMIZATION/.test(value)) return 'MATURATION';
+  if (/DETERIORATION|WATCHPOINT/.test(value)) return 'EXPOSURE';
+  if (/ANALYTICAL-BASIS/.test(value)) return 'DIAGNOSIS';
+  if (/SUPPORTING-STANDARD/.test(value)) return 'EVIDENCE';
+  if (/SUSTAIN-BLUEPRINT/.test(value)) return 'RESPONSE';
+  if (/SUSTAIN|RESILIENCE/.test(value)) return 'SUSTAINMENT';
+  if (/FINDING|EVIDENCE|MATERIAL/.test(value)) return 'EVIDENCE';
+  if (/DIAGNOS|THEME|PATTERN|SHAPING|HOLDS-READINESS|ANALYTICAL/.test(value)) return 'DIAGNOSIS';
+  return 'EVIDENCE';
+}
+
+const FAMILY_TITLES: Record<string, string> = {
+  FRAUD_GOVERNANCE: 'Fraud-risk ownership and oversight',
+  FRAUD_RISK_IDENTIFICATION: 'Fraud-risk identification and treatment',
+  SUPPLIER_ONBOARDING: 'Supplier onboarding and identity checks',
+  SUPPLIER_PAYMENT_CHANGE: 'Payment-instruction change controls',
+  THIRD_PARTY_OVERSIGHT: 'Third-party oversight and challenge',
+  ORDINARY_ACCESS: 'Role-based access and segregation',
+  PRIVILEGED_ACCESS: 'Privileged access and recertification',
+  IDENTITY_VERIFICATION: 'Identity verification for sensitive change',
+  DETECTION_MONITORING: 'Monitoring, exception review and escalation',
+  INCIDENT_RESPONSE: 'Incident response and containment',
+  EVIDENCE_INTEGRITY: 'Evidence preservation and custody',
+  WHISTLEBLOWING: 'Protected reporting and escalation',
+  FRAUD_AWARENESS: 'Fraud awareness and reporting practice',
+  CONTINUOUS_IMPROVEMENT: 'Control learning and continuous improvement'
+};
+
+function customerTitleForFamily(family: string, role: NarrativeRole, mode: NarrativeFactPack['narrativeMode']): string {
+  const base = FAMILY_TITLES[family] ?? 'Connected fraud-control discipline';
+  if (mode === 'SUSTAINMENT' || role === 'SUSTAINMENT') return `${base} to preserve`;
+  if (role === 'RESPONSE' || role === 'TARGET_STATE') return `Strengthen ${base.toLowerCase()}`;
+  if (role === 'EXPOSURE' || role === 'EXPOSURE_ILLUSTRATION') return `${base} exposure pathway`;
+  return base;
+}
+
+function customerDecisionTitle(decision: NarrativeFactPack['decisions'][number]): string {
+  const value = `${decision.decisionSemanticFamily} ${decision.question}`.toUpperCase();
+  if (/FUND|RESOURCE|CAPACITY/.test(value)) return 'What capacity will implementation require?';
+  if (/SEQUENCE|PRIORIT/.test(value)) return 'What should management address first?';
+  if (/OWNER|MANDATE|GOVERN/.test(value)) return 'Who will own the fraud-control mandate?';
+  if (/ACCESS|PRIVILEGED/.test(value)) return 'Who will govern access and exception decisions?';
+  if (/DETECT|MONITOR|ESCALAT/.test(value)) return 'How will management govern detection and escalation?';
+  return 'What management choice will keep the response moving?';
+}
 
 function tierLabel(tier: ReportBlueprintTier): string {
   return tier === 'snapshot' ? 'Free snapshot' : tier[0].toUpperCase() + tier.slice(1);
@@ -200,7 +309,8 @@ function section(
   takeaway: string,
   requiredFacts: string[],
   claimRefs: string[],
-  optionalSubsections: ReportBlueprintSubsection[] = []
+  optionalSubsections: ReportBlueprintSubsection[] = [],
+  narrativeRole?: NarrativeRole
 ): ReportBlueprintSection {
   const facts = unique(requiredFacts);
   const claims = unique(claimRefs);
@@ -212,7 +322,8 @@ function section(
     requiredManagementTakeaway: takeaway,
     requiredFacts: facts,
     claimRefs: claims,
-    optionalSubsections: optionalSubsections.map((item, index) => ({ ...item, order: index + 1 }))
+    optionalSubsections: optionalSubsections.map((item, index) => ({ ...item, order: index + 1, narrativeRole: item.narrativeRole ?? narrativeRoleFor(item.subsectionId, item.title) })),
+    narrativeRole: narrativeRole ?? narrativeRoleFor(sectionId, title)
   };
 }
 
@@ -223,9 +334,10 @@ function subsection(
   purpose: string,
   takeaway: string,
   requiredFacts: string[],
-  claimRefs: string[]
+  claimRefs: string[],
+  narrativeRole?: NarrativeRole
 ): ReportBlueprintSubsection {
-  return { subsectionId, order, title, purpose, requiredManagementTakeaway: takeaway, requiredFacts: unique(requiredFacts), claimRefs: unique(claimRefs) };
+  return { subsectionId, order, title, purpose, requiredManagementTakeaway: takeaway, requiredFacts: unique(requiredFacts), claimRefs: unique(claimRefs), narrativeRole: narrativeRole ?? narrativeRoleFor(subsectionId, title) };
 }
 
 function chapter(
@@ -254,6 +366,7 @@ function chapter(
     linkedControlIds,
     linkedDecisionIds,
     linkedRoadmapIds,
+    narrativeRole: input.narrativeRole ?? narrativeRoleFor(chapterId, title),
     exhibits: input.exhibits ?? [],
     sections: (input.sections ?? (input.section ? [input.section] : [])).map((item, index) => ({ ...item, order: index + 1 }))
   };
@@ -324,7 +437,8 @@ function assignmentsFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): 
   const add = (contentType: BlueprintContentAssignment['contentType'], contentRefs: string[], chapterId: string, sectionId: string) => contentRefs.forEach((contentRef) => {
     const target = chapters.find((item) => item.chapterId === chapterId);
     const semanticSection = target?.sections.find((item) => item.requiredFacts.includes(contentRef) || item.claimRefs.includes(contentRef));
-    all.push({ contentType, contentRef, chapterId, sectionId: semanticSection?.sectionId ?? sectionId, assignmentType: 'primary_home' });
+    const resolvedSection = semanticSection ?? target?.sections.find((item) => item.sectionId === sectionId);
+    all.push({ contentType, contentRef, chapterId, sectionId: resolvedSection?.sectionId ?? sectionId, assignmentType: 'primary_home', narrativeRole: resolvedSection?.narrativeRole ?? chapters.find((item) => item.chapterId === chapterId)?.narrativeRole ?? 'EVIDENCE' });
   });
   const byId = (id: string) => chapters.find((item) => item.chapterId === id)?.sections[0]?.sectionId ?? '';
   const sustainment = pack.narrativeMode === 'SUSTAINMENT';
@@ -353,7 +467,43 @@ function crossReferencesFor(pack: NarrativeFactPack, chapters: BlueprintChapter[
   const home = new Map(pack.findings.map((finding) => [finding.factRef, chapters.find((chapter) => chapter.chapterId === findingChapterId)?.sections.find((section) => section.requiredFacts.includes(finding.factRef))?.sectionId ?? '']));
   const scenarioChapterId = pack.productTier === 'comprehensive' ? 'HOW-EXPOSURE-COULD-MATERIALISE' : 'EXPOSURE-COULD-MATERIALISE';
   const scenarioSection = chapters.find((chapter) => chapter.chapterId === scenarioChapterId)?.sections[0]?.sectionId ?? '';
-  return [...home.entries()].filter(([, sectionId]) => Boolean(sectionId) && Boolean(scenarioSection)).slice(0, 8).map(([contentRef]) => ({ contentType: 'finding', contentRef, fromChapterId: chapters.find((chapter) => chapter.sections.some((section) => section.sectionId === scenarioSection))?.chapterId ?? '', fromSectionId: scenarioSection, referencePurpose: 'Refer back to the earlier finding only to explain how the conditional pathway connects to management response; do not recreate the finding narrative.' }));
+  const fromChapter = chapters.find((chapter) => chapter.sections.some((section) => section.sectionId === scenarioSection));
+  const fromRole = fromChapter?.sections.find((item) => item.sectionId === scenarioSection)?.narrativeRole ?? 'EXPOSURE_ILLUSTRATION';
+  return [...home.entries()].filter(([, sectionId]) => Boolean(sectionId) && Boolean(scenarioSection)).slice(0, 8).map(([contentRef]) => ({ contentType: 'finding', contentRef, fromChapterId: fromChapter?.chapterId ?? '', fromSectionId: scenarioSection, narrativeRole: fromRole, referencePurpose: 'Refer back to the earlier finding only to explain how the conditional pathway connects to management response; do not recreate the finding narrative.' }));
+}
+
+function narrativeRoleUsage(pack: NarrativeFactPack, chapters: BlueprintChapter[], assignments: BlueprintContentAssignment[], crossReferences: BlueprintNarrativeCrossReference[]): BlueprintNarrativeRoleUsage {
+  const ledger: BlueprintNarrativeUsageLedgerEntry[] = [];
+  for (const assignment of assignments) {
+    const section = chapters.find((chapter) => chapter.chapterId === assignment.chapterId)?.sections.find((item) => item.sectionId === assignment.sectionId);
+    ledger.push({ contentType: assignment.contentType, contentRef: assignment.contentRef, narrativeRole: assignment.narrativeRole, chapterId: assignment.chapterId, sectionId: assignment.sectionId, usage: 'primary_home', managementTakeaway: section?.requiredManagementTakeaway ?? '' });
+  }
+  for (const reference of crossReferences) {
+    const section = chapters.find((chapter) => chapter.chapterId === reference.fromChapterId)?.sections.find((item) => item.sectionId === reference.fromSectionId);
+    ledger.push({ contentType: reference.contentType, contentRef: reference.contentRef, narrativeRole: reference.narrativeRole, chapterId: reference.fromChapterId, sectionId: reference.fromSectionId, usage: 'cross_reference', managementTakeaway: section?.requiredManagementTakeaway ?? '' });
+  }
+  for (const fact of pack.facts) {
+    const surface = chapters.flatMap((chapter) => chapter.sections.map((section) => ({ chapter, section }))).find(({ section }) => section.requiredFacts.includes(fact.id) || section.claimRefs.includes(fact.id));
+    if (surface) ledger.push({ contentType: 'fact', contentRef: fact.id, narrativeRole: surface.section.narrativeRole, chapterId: surface.chapter.chapterId, sectionId: surface.section.sectionId, usage: 'primary_home', managementTakeaway: surface.section.requiredManagementTakeaway });
+  }
+  const grouped = (contentType: BlueprintContentAssignment['contentType'] | 'fact') => Object.fromEntries([...new Set(ledger.filter((item) => item.contentType === contentType).map((item) => item.contentRef))].sort().map((ref) => [ref, [...new Set(ledger.filter((item) => item.contentType === contentType && item.contentRef === ref).map((item) => item.narrativeRole))]]));
+  return { factUsage: grouped('fact'), findingUsage: grouped('finding'), scenarioUsage: grouped('scenario'), controlUsage: grouped('control'), ledger };
+}
+
+function pruneAdaptiveStructure(chapters: BlueprintChapter[]): BlueprintChapter[] {
+  return chapters
+    .map((chapter) => ({ ...chapter, exhibits: chapter.exhibits.filter((item) => item.sourceRefs.length > 0), sections: chapter.sections.filter((item) => item.requiredFacts.length > 0 || item.optionalSubsections.some((subsection) => subsection.requiredFacts.length > 0)) }))
+    .filter((chapter) => chapter.sections.length > 0)
+    .map((chapter, index) => ({ ...chapter, order: index + 1, sections: chapter.sections.map((item, sectionIndex) => ({ ...item, order: sectionIndex + 1 })) }));
+}
+
+function transformationSequence(pack: NarrativeFactPack): BlueprintTransformationStage[] {
+  if (pack.narrativeMode === 'SUSTAINMENT') {
+    const refsFor = (stage: string) => pack.roadmap.filter((item) => item.phase === stage || item.phaseWindow.toUpperCase().includes(stage)).map((item) => item.factRef);
+    return SUSTAINMENT_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 0 ? 'SUSTAINMENT' : index === 1 ? 'IMPLEMENTATION' : 'EVIDENCE', supported: stage === 'PRESERVE' || refsFor(stage).length > 0 || pack.maturationSteps.some((item) => item.phase === stage), sourceRefs: unique([...refsFor(stage), ...pack.maturationSteps.filter((item) => item.phase === stage).map((item) => item.maturationRef)]), purpose: `${stage[0]}${stage.slice(1).toLowerCase()} the recorded readiness standard through a deliberate sustainment rhythm.` }));
+  }
+  const refsFor = (stage: string) => [...pack.roadmap.filter((item) => item.phase === stage).map((item) => item.factRef), ...pack.maturationSteps.filter((item) => item.phase === stage).map((item) => item.maturationRef)];
+  return REMEDIATION_STAGES.map((stage, index) => ({ stage, narrativeRole: index === 3 ? 'MATURATION' : index === 2 ? 'IMPLEMENTATION' : 'RESPONSE', supported: refsFor(stage).length > 0 || stage === 'STABILISE', sourceRefs: refsFor(stage), purpose: `${stage[0]}${stage.slice(1).toLowerCase()} the recorded response through owned actions, proof and progression.` }));
 }
 
 interface SectionSpec {
@@ -364,19 +514,22 @@ interface SectionSpec {
   requiredFacts: string[];
   claimRefs?: string[];
   subsections?: ReportBlueprintSubsection[];
+  narrativeRole?: NarrativeRole;
 }
 
 function reframeSections(chapter: BlueprintChapter, specs: SectionSpec[]): BlueprintChapter {
+  const usableSpecs = specs.filter((spec) => spec.requiredFacts.length > 0 || (spec.subsections ?? []).some((item) => item.requiredFacts.length > 0));
   return {
     ...chapter,
-    sections: specs.map((spec, index) => section(
+    sections: usableSpecs.map((spec, index) => section(
       `${chapter.chapterId}-${spec.suffix}`,
       spec.title,
       spec.purpose,
       spec.takeaway,
       spec.requiredFacts,
       spec.claimRefs ?? spec.requiredFacts,
-      spec.subsections ?? []
+      spec.subsections ?? [],
+      spec.narrativeRole
     )).map((item, index) => ({ ...item, order: index + 1 }))
   };
 }
@@ -399,11 +552,11 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
     if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, byControlFamily.map((family, index) => {
       const controls = pack.controls.filter((control) => control.primarySemanticFamily === family);
       const decisions = pack.decisions.filter((decision) => decision.linkedFindingRefs.some((ref) => controls.some((control) => control.linkedFindingRefs.includes(ref))));
-      return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: family.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: 'The response should make objective, owner, proof, challenge and effectiveness visible.', requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef])) : [] };
+      return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: 'The response should make objective, owner, proof, challenge and effectiveness visible.', requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], narrativeRole: 'RESPONSE', subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef], 'RESPONSE')) : [] };
     }));
     if (chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION') return reframeSections(chapter, [
-      ...roadmapPeriods.map((period) => ({ suffix: period.replace(/\s+/g, '-').toUpperCase(), title: `By ${period}`, purpose: `Sequence the deterministic actions targeted for ${period}.`, takeaway: 'The action has an accountable owner, dependency and proof of completion.', requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === period).map((item) => item.factRef) })),
-      { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Close the first operating cycle with one practical management commitment.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef) }
+      ...roadmapPeriods.map((period) => ({ suffix: period.replace(/\s+/g, '-').toUpperCase(), title: `By ${period}`, purpose: `Sequence the deterministic actions targeted for ${period}.`, takeaway: 'The action has an accountable owner, dependency and proof of completion.', requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === period).map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' as NarrativeRole })),
+      { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Close the first operating cycle with one practical management commitment.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'CONCLUSION' as NarrativeRole }
     ]);
     return chapter;
   });
@@ -417,11 +570,11 @@ function sustainmentEssentialHierarchy(pack: NarrativeFactPack, chapters: Bluepr
     ]);
     if (chapter.chapterId === 'READINESS-SUPPORTING-STANDARDS') return reframeSections(chapter, pack.relativeStrengths.map((strength, index) => ({ suffix: `STANDARD-${String(index + 1).padStart(2, '0')}`, title: strength.title, purpose: strength.basis, takeaway: 'Retain ownership, review rhythm and proof for this supporting standard.', requiredFacts: [strength.factRef, strength.domainCode] })));
     if (chapter.chapterId === 'SUSTAINMENT-PRIORITIES') return reframeSections(chapter, pack.sustainmentPriorities.map((priority, index) => ({ suffix: `PRIORITY-${String(index + 1).padStart(2, '0')}`, title: priority.title, purpose: priority.managementFocus, takeaway: 'Keep this healthy discipline current and visible.', requiredFacts: [priority.factRef] })));
-    if (chapter.chapterId === 'DETERIORATION-WATCHPOINTS') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `WATCH-${String(index + 1).padStart(2, '0')}`, title: `${family.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())} watchpoint`, purpose: 'Describe supported deterioration triggers without manufacturing a weakness.', takeaway: 'Change-triggered review should make drift visible early.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef) })));
+    if (chapter.chapterId === 'DETERIORATION-WATCHPOINTS') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `WATCH-${String(index + 1).padStart(2, '0')}`, title: `${customerTitleForFamily(family, 'SUSTAINMENT', pack.narrativeMode)} watchpoint`, purpose: 'Describe supported deterioration triggers without manufacturing a weakness.', takeaway: 'Change-triggered review should make drift visible early.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), narrativeRole: 'EXPOSURE' })));
     if (chapter.chapterId === 'SUSTAINMENT-BLUEPRINT') return reframeSections(chapter, [
-      { suffix: 'OWNERSHIP', title: 'Ownership and review rhythm', purpose: 'Set the first sustainment actions that keep accountability current.', takeaway: 'Ownership and cadence remain visible.', requiredFacts: pack.controls.map((item) => item.factRef) },
-      { suffix: 'INFORMATION', title: 'Management information and proof', purpose: 'Set the records and indicators that show the strong standard remains current.', takeaway: 'Management information should reveal early deterioration.', requiredFacts: [...pack.decisions.map((item) => item.factRef), ...pack.roadmap.map((item) => item.factRef)] },
-      { suffix: 'NINETY-DAY', title: 'First 90 days', purpose: 'Close the initial sustainment sequence.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef) }
+      { suffix: 'OWNERSHIP', title: 'Ownership and review rhythm', purpose: 'Set the first sustainment actions that keep accountability current.', takeaway: 'Ownership and cadence remain visible.', requiredFacts: pack.controls.map((item) => item.factRef), narrativeRole: 'SUSTAINMENT' },
+      { suffix: 'INFORMATION', title: 'Management information and proof', purpose: 'Set the records and indicators that show the strong standard remains current.', takeaway: 'Management information should reveal early deterioration.', requiredFacts: [...pack.decisions.map((item) => item.factRef), ...pack.roadmap.map((item) => item.factRef)], narrativeRole: 'EVIDENCE' },
+      { suffix: 'NINETY-DAY', title: 'First 90 days', purpose: 'Close the initial sustainment sequence.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' }
     ]);
     return chapter;
   });
@@ -437,10 +590,10 @@ function comprehensiveHierarchy(pack: NarrativeFactPack, chapters: BlueprintChap
     if (chapter.chapterId === 'SYSTEMIC-FRAUD-READINESS-DIAGNOSIS') return reframeSections(chapter, pack.systemicThemeInputs.map((theme, index) => ({ suffix: `THEME-${String(index + 1).padStart(2, '0')}`, title: theme.title, purpose: theme.whyTogether, takeaway: theme.managementQuestion, requiredFacts: [theme.factRef, ...theme.findingRefs] })));
     if (chapter.chapterId === 'MATERIAL-FRAUD-RISK-THEMES') return reframeSections(chapter, clusterFindings(pack).map((cluster, index) => ({ suffix: `CLUSTER-${String(index + 1).padStart(2, '0')}`, title: cluster.title, purpose: cluster.whyTogether, takeaway: 'The cluster requires connected treatment across owners, controls and oversight.', requiredFacts: cluster.findingRefs, subsections: cluster.findingRefs.length > 1 ? cluster.findingRefs.map((ref, subIndex) => subsection(`FINDING-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Material finding', 'Interpret this finding in the context of the wider theme.', 'The finding is not treated as an isolated score.', [ref], [ref])) : [] })));
     if (chapter.chapterId === 'HOW-EXPOSURE-COULD-MATERIALISE') return reframeSections(chapter, pack.scenarios.map((scenario, index) => ({ suffix: `PATHWAY-${String(index + 1).padStart(2, '0')}`, title: scenario.title, purpose: 'Explain the conditional pathway and the controls that should interrupt it.', takeaway: 'The scenario is a conditional management test, not an allegation.', requiredFacts: [scenario.factRef], subsections: [subsection(`PATHWAY-${String(index + 1).padStart(2, '0')}-MECHANISM`, 1, 'Mechanism and management response', 'Connect the mechanism, warning indicators, containment and long-term response.', 'The pathway informs target control design.', [scenario.factRef], [scenario.factRef])]})));
-    if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `FAMILY-${String(index + 1).padStart(2, '0')}`, title: family.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()), purpose: 'Present the target control environment by coherent control family.', takeaway: 'The target design connects objective, ownership, proof, challenge and effectiveness.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), subsections: pack.controls.filter((control) => control.primarySemanticFamily === family).slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Control blueprint', 'Explain how the target control responds to the connected exposure.', 'The control is designed for an owner, population, frequency and proof.', [control.factRef], [control.factRef])) })));
-    if (chapter.chapterId === 'MANAGEMENT-DECISIONS-REQUIRED') return reframeSections(chapter, pack.decisions.map((decision, index) => ({ suffix: `DECISION-${String(index + 1).padStart(2, '0')}`, title: decision.decisionFamily, purpose: decision.question, takeaway: 'Leadership should choose a route with owner, date and consequence of delay visible.', requiredFacts: [decision.factRef], subsections: [subsection(`DECISION-${String(index + 1).padStart(2, '0')}-OPTIONS`, 1, 'Options and trade-offs', 'Show the viable routes, benefits and trade-offs before the recommendation.', 'The decision remains a genuine management choice.', [decision.factRef], [decision.factRef])]})));
-    if (chapter.chapterId === 'IMPLEMENTATION-BLUEPRINT') return reframeSections(chapter, [...new Set(pack.roadmap.map((item) => item.phase))].map((phase, index) => ({ suffix: phase, title: phase[0] + phase.slice(1).toLowerCase(), purpose: 'Sequence the implementation actions, owners, dependencies and proof for this horizon.', takeaway: 'The implementation route makes progress and accountability visible.', requiredFacts: pack.roadmap.filter((item) => item.phase === phase).map((item) => item.factRef) })));
-    if (chapter.chapterId === 'TWELVE-MONTH-MATURATION') return reframeSections(chapter, [...new Set(pack.maturationSteps.map((step) => step.phase))].map((phase, index) => ({ suffix: phase, title: phase === 'EMBED' ? 'Embed the operating rhythm' : 'Mature and measure the environment', purpose: 'Show how the deterministic maturation step moves the target environment forward.', takeaway: 'Progress is measured through owned outcomes and proof of progress.', requiredFacts: pack.maturationSteps.filter((step) => step.phase === phase).map((item) => item.maturationRef) })));
+    if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `FAMILY-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'TARGET_STATE', pack.narrativeMode), purpose: 'Present the target control environment by coherent control family.', takeaway: 'The target design connects objective, ownership, proof, challenge and effectiveness.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), narrativeRole: 'TARGET_STATE', subsections: pack.controls.filter((control) => control.primarySemanticFamily === family).slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Control blueprint', 'Explain how the target control responds to the connected exposure.', 'The control is designed for an owner, population, frequency and proof.', [control.factRef], [control.factRef], 'TARGET_STATE')) })));
+    if (chapter.chapterId === 'MANAGEMENT-DECISIONS-REQUIRED') return reframeSections(chapter, pack.decisions.map((decision, index) => ({ suffix: `DECISION-${String(index + 1).padStart(2, '0')}`, title: customerDecisionTitle(decision), purpose: decision.question, takeaway: 'Leadership should choose a route with owner, date and consequence of delay visible.', requiredFacts: [decision.factRef], narrativeRole: 'DECISION', subsections: [subsection(`DECISION-${String(index + 1).padStart(2, '0')}-OPTIONS`, 1, 'Options and trade-offs', 'Show the viable routes, benefits and trade-offs before the recommendation.', 'The decision remains a genuine management choice.', [decision.factRef], [decision.factRef], 'DECISION')]})));
+    if (chapter.chapterId === 'IMPLEMENTATION-BLUEPRINT') return reframeSections(chapter, [...new Set(pack.roadmap.map((item) => item.phase))].map((phase, index) => ({ suffix: phase, title: phase[0] + phase.slice(1).toLowerCase(), purpose: 'Sequence the implementation actions, owners, dependencies and proof for this horizon.', takeaway: 'The implementation route makes progress and accountability visible.', requiredFacts: pack.roadmap.filter((item) => item.phase === phase).map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' })));
+    if (chapter.chapterId === 'TWELVE-MONTH-MATURATION') return reframeSections(chapter, [...new Set(pack.maturationSteps.map((step) => step.phase))].map((phase, index) => ({ suffix: phase, title: phase === 'EMBED' ? 'Embed the operating rhythm' : 'Mature and measure the environment', purpose: 'Show how the deterministic maturation step moves the target environment forward.', takeaway: 'Progress is measured through owned outcomes and proof of progress.', requiredFacts: pack.maturationSteps.filter((step) => step.phase === phase).map((item) => item.maturationRef), narrativeRole: 'MATURATION' })));
     return chapter;
   });
 }
@@ -519,9 +672,9 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
   const baseChapters = pack.productTier === 'essential'
     ? (pack.narrativeMode === 'SUSTAINMENT' ? sustainmentEssential(pack) : remediationEssential(pack))
     : comprehensiveChapters(pack);
-  const chapters = pack.productTier === 'essential'
+  const chapters = pruneAdaptiveStructure((pack.productTier === 'essential'
     ? (pack.narrativeMode === 'SUSTAINMENT' ? sustainmentEssentialHierarchy(pack, baseChapters) : essentialRemediationHierarchy(pack, baseChapters))
-    : comprehensiveHierarchy(pack, baseChapters);
+    : comprehensiveHierarchy(pack, baseChapters)));
   const findingClusters = clusterFindings(pack);
   const contentAssignments = assignmentsFor(pack, chapters);
   const narrativeCrossReferences = crossReferencesFor(pack, chapters);
@@ -548,6 +701,8 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
     findingClusters,
     contentAssignments,
     narrativeCrossReferences,
+    narrativeRoleUsage: narrativeRoleUsage(pack, chapters, contentAssignments, narrativeCrossReferences),
+    transformationSequence: transformationSequence(pack),
     deterministicRules: [
       'Chapter titles, order, section identity and management meaning are deterministic and may not be changed by the writer.',
       'The Fact Pack and semantic graph are the only source of material claims, numbers, findings, scenarios, controls, decisions and roadmap actions.',
@@ -569,11 +724,11 @@ export function buildSnapshotReportBlueprint(input: { organisation: { name: stri
   const maturity = input.maturity ?? null;
   const facts = unique(input.permittedFactRefs ?? []);
   const chapters = [
-    chapter('SNAPSHOT-POSITION', 1, 'Where the organisation stands', 'State the recorded snapshot position.', 'The reader should understand the recorded position and its boundary.', { requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-POSITION-SECTION', 'Where the organisation stands', 'Give a concise orientation.', 'The snapshot is a limited strategic view.', facts, facts) }),
-    chapter('SNAPSHOT-SHAPE', 2, 'What shapes the result', 'Explain the small number of deterministic drivers available in the snapshot.', 'The result should be read through its supported pattern.', { requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-SHAPE-SECTION', 'What shapes the result', 'Connect the available drivers.', 'The available facts explain the result at snapshot depth.', facts, facts) }),
-    chapter('SNAPSHOT-ATTENTION', 3, 'What deserves attention', 'Identify supported areas for management attention without commercial-tier leakage.', 'The reader should know the practical area to explore next.', { requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-ATTENTION-SECTION', 'What deserves attention', 'Keep attention focused and bounded.', 'Attention is directional, not a full premium diagnosis.', facts, facts) }),
-    chapter('SNAPSHOT-MEANING', 4, 'Practical meaning', 'Translate the snapshot into a concise management implication.', 'The snapshot should be useful without pretending to be a full report.', { requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-MEANING-SECTION', 'Practical meaning', 'Provide one practical implication.', 'The implication remains within the free snapshot boundary.', facts, facts) }),
-    chapter('SNAPSHOT-DEEPER-INTERPRETATION', 5, 'Why deeper interpretation is useful', 'Explain why a deeper interpretation may help without exposing premium labels, pricing or fulfilment language.', 'The reader should understand the value of deeper interpretation without commercial leakage.', { requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-DEEPER-INTERPRETATION-SECTION', 'Why deeper interpretation is useful', 'Close with a clean next step.', 'Further interpretation can connect patterns to management action while this snapshot remains bounded.', facts, facts) })
+    chapter('SNAPSHOT-POSITION', 1, 'Where the organisation stands', 'State the recorded snapshot position.', 'The reader should understand the recorded position and its boundary.', { narrativeRole: 'JUDGEMENT', requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-POSITION-SECTION', 'Where the organisation stands', 'Give a concise orientation.', 'The snapshot is a limited strategic view.', facts, facts, [], 'JUDGEMENT') }),
+    chapter('SNAPSHOT-SHAPE', 2, 'What shapes the result', 'Explain the small number of deterministic drivers available in the snapshot.', 'The result should be read through its supported pattern.', { narrativeRole: 'DIAGNOSIS', requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-SHAPE-SECTION', 'What shapes the result', 'Connect the available drivers.', 'The available facts explain the result at snapshot depth.', facts, facts, [], 'DIAGNOSIS') }),
+    chapter('SNAPSHOT-ATTENTION', 3, 'What deserves attention', 'Identify supported areas for management attention without commercial-tier leakage.', 'The reader should know the practical area to explore next.', { narrativeRole: 'EXPOSURE', requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-ATTENTION-SECTION', 'What deserves attention', 'Keep attention focused and bounded.', 'Attention is directional, not a full premium diagnosis.', facts, facts, [], 'EXPOSURE') }),
+    chapter('SNAPSHOT-MEANING', 4, 'Practical meaning', 'Translate the snapshot into a concise management implication.', 'The snapshot should be useful without pretending to be a full report.', { narrativeRole: 'RESPONSE', requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-MEANING-SECTION', 'Practical meaning', 'Provide one practical implication.', 'The implication remains within the free snapshot boundary.', facts, facts, [], 'RESPONSE') }),
+    chapter('SNAPSHOT-DEEPER-INTERPRETATION', 5, 'Why deeper interpretation is useful', 'Explain why a deeper interpretation may help without exposing premium labels, pricing or fulfilment language.', 'The reader should understand the value of deeper interpretation without commercial leakage.', { narrativeRole: 'CONCLUSION', requiredFacts: facts, claimRefs: facts, section: section('SNAPSHOT-DEEPER-INTERPRETATION-SECTION', 'Why deeper interpretation is useful', 'Close with a clean next step.', 'Further interpretation can connect patterns to management action while this snapshot remains bounded.', facts, facts, [], 'CONCLUSION') })
   ];
   return {
     schemaVersion: REPORT_BLUEPRINT_SCHEMA_VERSION,
@@ -588,6 +743,8 @@ export function buildSnapshotReportBlueprint(input: { organisation: { name: stri
     findingClusters: [],
     contentAssignments: [],
     narrativeCrossReferences: [],
+    narrativeRoleUsage: { factUsage: {}, findingUsage: {}, scenarioUsage: {}, controlUsage: {}, ledger: [] },
+    transformationSequence: [],
     deterministicRules: ['Snapshot remains compact and free of premium-tier, pricing and fulfilment language.', 'Technical fallback remains Mini → Luna → Terra → Sol when a live writer is separately authorised.'],
     prohibitedClaims: ['Essential', 'Comprehensive', 'R7,500', 'R35,000', 'paid report', 'order', 'payment']
   };
@@ -608,18 +765,32 @@ export function validateReportBlueprint(blueprint: ReportBlueprint, pack?: Narra
   for (const assignment of assignments) byRef.set(assignment.contentRef, [...(byRef.get(assignment.contentRef) ?? []), assignment]);
   for (const [ref, rows] of byRef) if (rows.length > 1) duplicateContentRefs.push(ref);
   const missingContentRefs = pack ? expectedAssignments(pack).filter((ref) => !byRef.has(ref)) : [];
+  const duplicateNarrativeRoles: string[] = [];
+  for (let index = 1; index < blueprint.chapters.length; index += 1) {
+    if (blueprint.chapters[index - 1]!.narrativeRole === blueprint.chapters[index]!.narrativeRole) duplicateNarrativeRoles.push(`${blueprint.chapters[index - 1]!.chapterId} → ${blueprint.chapters[index]!.chapterId}`);
+  }
+  const materialRefs = pack ? [...refs(pack.findings), ...refs(pack.systemicThemeInputs), ...refs(pack.scenarios), ...refs(pack.controls), ...refs(pack.decisions), ...refs(pack.roadmap), ...refs(pack.sustainmentPriorities), ...pack.maturationSteps.map((step) => step.maturationRef)] : [];
+  const factSurface = new Set(blueprint.chapters.flatMap((chapter) => [chapter.requiredFacts, chapter.claimRefs, ...chapter.sections.flatMap((section) => [section.requiredFacts, section.claimRefs, ...section.optionalSubsections.flatMap((subsection) => [subsection.requiredFacts, subsection.claimRefs])])]).flat());
+  const missingMaterialFacts = materialRefs.filter((ref) => !factSurface.has(ref));
   if (duplicateContentRefs.length) issues.push(`Content assigned more than once: ${duplicateContentRefs.join(', ')}`);
   if (missingContentRefs.length) issues.push(`Content has no primary assignment: ${missingContentRefs.join(', ')}`);
+  if (duplicateNarrativeRoles.length > 0) issues.push(`Adjacent chapters repeat the same narrative role: ${duplicateNarrativeRoles.join(', ')}`);
+  if (missingMaterialFacts.length) issues.push(`Material content is absent from the narrative surface: ${missingMaterialFacts.join(', ')}`);
   const executive = blueprint.chapters.filter((chapter) => /executive assessment|executive diagnosis/i.test(chapter.title)).map((chapter) => chapter.chapterId);
-  const roadmap = blueprint.chapters.filter((chapter) => /roadmap|implementation blueprint|maturation|optimisation blueprint/i.test(chapter.title)).map((chapter) => chapter.chapterId);
+  const roadmap = blueprint.chapters.filter((chapter) => chapter.narrativeRole === 'IMPLEMENTATION' || chapter.narrativeRole === 'MATURATION').map((chapter) => chapter.chapterId);
   const duplicateExecutiveMovements = executive.length > 1 ? executive : [];
   const duplicateRoadmapMovements = roadmap.length > 1 ? roadmap : [];
   if (duplicateExecutiveMovements.length) issues.push('Blueprint contains duplicate executive movements.');
-  if (duplicateRoadmapMovements.length && blueprint.reportTier === 'essential') issues.push('Essential Blueprint contains duplicate roadmap movements.');
+  if (duplicateRoadmapMovements.length > 1 && blueprint.reportTier === 'essential') issues.push('Essential Blueprint contains duplicate roadmap movements.');
+  if (blueprint.chapters.filter((chapter) => chapter.narrativeRole === 'IMPLEMENTATION').length > 1 || blueprint.chapters.filter((chapter) => chapter.narrativeRole === 'MATURATION').length > 1) issues.push('Blueprint contains duplicate implementation or maturation movements.');
   const chapterIds = blueprint.chapters.map((chapter) => chapter.chapterId);
   if (new Set(chapterIds).size !== chapterIds.length) issues.push('Chapter IDs must be unique.');
   if (blueprint.chapters.some((chapter, index) => chapter.order !== index + 1)) issues.push('Chapter ordering is not contiguous.');
-  if (blueprint.chapters.some((chapter) => chapter.sections.length === 0 || chapter.sections.some((section) => !section.title || !section.purpose || !section.requiredManagementTakeaway))) issues.push('Every chapter requires a meaningful deterministic section contract.');
+  if (blueprint.chapters.some((chapter) => chapter.sections.length === 0 || chapter.sections.some((section) => !section.title || !section.purpose || !section.requiredManagementTakeaway || !NARRATIVE_ROLES.includes(section.narrativeRole) || section.optionalSubsections.some((subsection) => !subsection.title || !subsection.purpose || !subsection.requiredManagementTakeaway || !NARRATIVE_ROLES.includes(subsection.narrativeRole))))) issues.push('Every chapter requires a meaningful deterministic section and subsection contract.');
+  if (blueprint.chapters.some((chapter) => !NARRATIVE_ROLES.includes(chapter.narrativeRole))) issues.push('Every chapter requires an explicit narrative role.');
+  if (blueprint.contentAssignments.some((assignment) => !NARRATIVE_ROLES.includes(assignment.narrativeRole))) issues.push('Every content assignment requires an explicit narrative role.');
+  if (blueprint.reportTier === 'comprehensive' && blueprint.narrativeMode !== 'SUSTAINMENT' && blueprint.transformationSequence.filter((stage) => stage.supported).map((stage) => stage.stage).join(' → ') !== 'STABILISE → ESTABLISH → EMBED → MATURE') issues.push('Comprehensive remediation Blueprint must expose the full STABILISE → ESTABLISH → EMBED → MATURE progression.');
+  if (blueprint.narrativeMode === 'SUSTAINMENT' && blueprint.transformationSequence.map((stage) => stage.stage).join(' → ') !== 'PRESERVE → EMBED → MEASURE → OPTIMISE') issues.push('Sustainment Blueprint must expose the PRESERVE → EMBED → MEASURE → OPTIMISE progression.');
   if (blueprint.narrativeMode === 'SUSTAINMENT' && (blueprint.findingClusters.length > 0 || blueprint.chapters.some((chapter) => chapter.linkedFindingIds.length || chapter.linkedScenarioIds.length))) issues.push('Sustainment Blueprint may not contain finding or scenario content.');
   if (blueprint.reportTier === 'snapshot') {
     const customerSurface = [
@@ -631,7 +802,7 @@ export function validateReportBlueprint(blueprint: ReportBlueprint, pack?: Narra
     ].join(' ');
     if (/essential|comprehensive|R\s*7,500|R\s*35,000|paid report|order|payment/i.test(customerSurface)) issues.push('Snapshot Blueprint contains paid-product leakage.');
   }
-  return { ok: issues.length === 0, duplicateContentRefs, missingContentRefs, duplicateExecutiveMovements, duplicateRoadmapMovements, issues };
+  return { ok: issues.length === 0, duplicateContentRefs, missingContentRefs, duplicateExecutiveMovements, duplicateRoadmapMovements, duplicateNarrativeRoles, missingMaterialFacts, issues };
 }
 
 export function assertReportBlueprint(blueprint: ReportBlueprint, pack?: NarrativeFactPack): void {

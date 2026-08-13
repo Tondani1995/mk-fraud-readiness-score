@@ -373,15 +373,20 @@ AI may improve section headings and expression, but it may not reorder material 
 
 The v1.1 implementation addendum inserts a deterministic **Report Blueprint** between the Story
 Plan / Writer Brief and AI writing. The Blueprint owns the complete customer-facing chapter,
-section, subsection, exhibit-placement and analytical-content-assignment contract. A future live
-writer receives one complete Blueprint context and returns one complete manuscript; a minimum
-coherent chapter partition is permitted only when measured context exceeds the approved model
-limit. The earlier spine → independent section → coherence implementation remains a compatibility
-path while migration is controlled and is not the target architecture.
+section, subsection, exhibit-placement and analytical-content-assignment contract. Each narrative
+unit carries an explicit role, and a deterministic usage ledger records the first home and any
+deliberate cross-reference for facts, findings, scenarios and controls. Remediation reports expose
+the ordered STABILISE → ESTABLISH → EMBED → MATURE sequence; sustainment reports expose PRESERVE
+→ EMBED → MEASURE → OPTIMISE while retaining unsupported stages as unsupported rather than
+manufacturing weakness. A future live writer receives one complete Blueprint context and returns
+one complete manuscript; a minimum coherent chapter partition is permitted only when measured
+context exceeds the approved model limit. The earlier spine → independent section → coherence
+implementation remains a compatibility path while migration is controlled and is not the target
+architecture.
 
 This addendum does not change the Reporting Bible's product promise, assurance boundary,
 deterministic truth authority, tier scope or renderer rules. Its implementation identifier is
-`mk-reporting-bible-1.1-whole-manuscript-blueprint-v2`.
+`mk-reporting-bible-1.1-whole-manuscript-blueprint-v3`.
 
 AI must not write isolated content fragments with no awareness of the report around them.
 

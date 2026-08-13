@@ -29,6 +29,11 @@ assert.equal(rivoniaBlueprint.chapters.flatMap((chapter) => chapter.exhibits).ev
 assert.equal(rivoniaBlueprint.contentAssignments.every((item) => item.assignmentType === 'primary_home'), true);
 assert.equal(rivoniaBlueprint.narrativeCrossReferences.length > 0, true);
 assert.equal(rivoniaBlueprint.chapters.flatMap((chapter) => chapter.exhibits).every((item) => item.sourceRefs.length > 0), true);
+assert.equal(rivoniaBlueprint.chapters.every((chapter) => chapter.narrativeRole && chapter.sections.every((section) => section.narrativeRole && section.optionalSubsections.every((subsection) => subsection.narrativeRole))), true);
+assert.deepEqual(rivoniaBlueprint.transformationSequence.map((stage) => stage.stage), ['STABILISE', 'ESTABLISH', 'EMBED', 'MATURE']);
+assert.equal(rivoniaBlueprint.narrativeRoleUsage.ledger.length > 0, true);
+assert.equal(Object.keys(rivoniaBlueprint.narrativeRoleUsage.findingUsage).length > 0, true);
+assert.equal(/\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b/.test(rivoniaBlueprint.chapters.flatMap((chapter) => [chapter.title, chapter.purpose, chapter.requiredManagementTakeaway, ...chapter.sections.flatMap((section) => [section.title, section.purpose, section.requiredManagementTakeaway, ...section.optionalSubsections.map((subsection) => subsection.title)])]).join(' ')), false);
 assert.equal(validateReportBlueprint(rivoniaBlueprint, rivoniaPack).ok, true);
 assert.deepEqual(buildReportBlueprint(rivoniaPack, rivoniaPlan), rivoniaBlueprint);
 const rivoniaContext = buildWholeManuscriptContext(rivoniaPack, rivoniaBlueprint);
@@ -59,10 +64,14 @@ assert.equal(kestrelContext.partitionPlan.length, 0);
 assert.equal(kestrelBlueprint.chapters.some((chapter) => chapter.sections.length > 1), true);
 assert.equal(kestrelBlueprint.chapters.flatMap((chapter) => chapter.sections).some((section) => section.optionalSubsections.length > 1), true);
 assert.equal(kestrelBlueprint.narrativeCrossReferences.length > 0, true);
+assert.deepEqual(kestrelBlueprint.transformationSequence.map((stage) => stage.stage), ['STABILISE', 'ESTABLISH', 'EMBED', 'MATURE']);
+assert.equal(kestrelBlueprint.narrativeRoleUsage.ledger.length > 0, true);
 
 const snapshot = buildSnapshotReportBlueprint({ organisation: { name: 'Snapshot Organisation' }, assessmentReference: 'MKFRS-SNAPSHOT' });
 assertReportBlueprint(snapshot);
 assert.equal(snapshot.chapters.length, 5);
+assert.equal(snapshot.chapters.every((chapter) => chapter.narrativeRole && chapter.sections.every((section) => section.narrativeRole)), true);
+assert.deepEqual(snapshot.transformationSequence, []);
 assert.equal(/Essential|Comprehensive|paid report|order|payment/i.test([snapshot.reportTitle, snapshot.executiveStory, ...snapshot.chapters.flatMap((chapter) => [chapter.title, chapter.purpose, chapter.requiredManagementTakeaway])].join(' ')), false);
 
 assert.equal(classifyNarrativeIssue('unknown_claim_ref').severity, 'HARD_TRUTH_FAILURE');
