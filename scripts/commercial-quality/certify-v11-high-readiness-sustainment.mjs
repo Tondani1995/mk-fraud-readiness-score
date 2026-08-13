@@ -99,7 +99,8 @@ function textScan(result) {
   const payload = JSON.stringify({ brief: result.brief, plan: result.plan });
   const forbidden = /material (?:control )?(?:weakness|gap)|priority weakness|control failure|remediation required|urgent remediation|foundational failure|close (?:the )?weakness|implement (?:the )?missing control|validate that|independently validate|before relying on self-assessment|self-reported claims remain unverified/i;
   const machine = /\b[A-Z]{3,}(?:_[A-Z0-9]+){1,}\b/;
-  return { forbiddenLanguage: forbidden.test(payload), machineIdentifier: machine.test(payload), rawTextBytes: Buffer.byteLength(payload) };
+  const languagePayload = payload.replace(/No material weaknesses were identified from the recorded assessment responses\./gi, '');
+  return { forbiddenLanguage: forbidden.test(languagePayload), machineIdentifier: machine.test(payload), rawTextBytes: Buffer.byteLength(payload) };
 }
 
 async function main() {
