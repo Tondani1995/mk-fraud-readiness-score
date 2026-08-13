@@ -50,7 +50,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
   return [
     'Complete only the missing tail of the MK Fraud Readiness v1.1 advisory manuscript as Markdown.',
     '',
-    'This is a bounded technical truncation recovery. The existing manuscript is preserved. Write only narrative beneath the missing deterministic headings listed below. Do not rewrite, repeat or summarise any existing heading or paragraph.',
+    'This is a bounded technical truncation recovery. The existing manuscript is preserved. If the preceding context ends mid-sentence, complete only that interrupted sentence under the current final heading; then emit each missing deterministic heading exactly once, followed by its narrative. Do not rewrite, repeat or summarise any complete existing paragraph.',
     'Do not add, rename or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata. Use only the deterministic Fact Pack and permitted claim references. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance.',
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
