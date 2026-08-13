@@ -16,7 +16,7 @@ import { fromAssembledReportData } from '../../src/lib/reports/comprehensive/con
 import { buildEssentialNarrativeFactPack, buildComprehensiveNarrativeFactPack, assertNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
 import { buildNarrativeWriterBrief, assertNarrativeWriterBrief } from '../../src/lib/reports/narrative/writer-brief.ts';
-import { buildReportBlueprint, buildWholeManuscriptContext, assertReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
+import { buildReportBlueprint, buildWholeManuscriptContext, assertReportBlueprint, validateReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
 import { runPreAiFactPackGates } from '../../src/lib/reports/narrative/pre-ai-gates.ts';
 import { REPORTING_BIBLE_VERSION } from '../../src/lib/reports/reporting-bible.ts';
 
@@ -95,6 +95,10 @@ function machineFacingTitleHits(blueprint) {
   const rawId = /\b[A-Z]{3,}(?:[_-][A-Z0-9]+)+\b/;
   return customerTitleFields(blueprint).filter((value) => rawId.test(value));
 }
+function unsupportedThemeRefs(result) {
+  const surface = new Set(result.blueprint.chapters.flatMap((chapter) => [chapter.requiredFacts, chapter.claimRefs, ...chapter.sections.flatMap((section) => [section.requiredFacts, section.claimRefs, ...section.optionalSubsections.flatMap((subsection) => [subsection.requiredFacts, subsection.claimRefs])])]).flat());
+  return result.pack.systemicThemeInputs.filter((theme) => !surface.has(theme.factRef)).map((theme) => theme.factRef);
+}
 
 async function buildTierResult(data, tier) {
   const evidence = buildAdvisoryEvidenceModel(data);
@@ -110,12 +114,13 @@ async function buildTierResult(data, tier) {
   if (gate.status !== 'PASS') throw new Error(`${tier} pre-AI gate failed: ${gate.results.filter((item) => item.status === 'FAIL').map((item) => item.gate).join(', ')}`);
   const blueprint = buildReportBlueprint(pack, plan);
   assertReportBlueprint(blueprint, pack);
+  const validation = validateReportBlueprint(blueprint, pack);
   const rerunBlueprint = buildReportBlueprint(pack, plan);
   assertReportBlueprint(rerunBlueprint, pack);
   const hash = blueprintHash(blueprint);
   const rerunHash = blueprintHash(rerunBlueprint);
   const context = buildWholeManuscriptContext(pack, blueprint);
-  return { tier, pack, plan, brief, gate, blueprint, context, hash, rerunHash, stable: hash === rerunHash };
+  return { tier, pack, plan, brief, gate, blueprint, validation, context, hash, rerunHash, stable: hash === rerunHash };
 }
 
 function classifyArchetype(row, essential) {
@@ -194,6 +199,8 @@ async function main() {
         if (blueprint.narrativeRoleUsage.ledger.length === 0) warnings.push('empty narrative usage ledger');
         if (machineFacingTitleHits(blueprint).length > 0) warnings.push('machine-facing title');
       }
+      if (essential.validation.missingMaterialFacts.length > 0 || (comprehensive && comprehensive.validation.missingMaterialFacts.length > 0)) warnings.push('missing material content');
+      if (unsupportedThemeRefs(essential).length > 0 || (comprehensive && unsupportedThemeRefs(comprehensive).length > 0)) warnings.push('irrelevant theme');
       results.push({ row, essential, comprehensive, archetype, warnings });
     } catch (error) {
       results.push({ row, essential: null, comprehensive: null, archetype: null, warnings: [`Generation failed: ${error instanceof Error ? error.message : String(error)}`], failure: true });
@@ -223,9 +230,10 @@ async function main() {
   for (const result of valid) for (const theme of result.essential.pack.systemicThemeInputs) (themesByArchetype[theme.title] ??= new Set()).add(result.archetype);
   const themeRows = Object.entries(themesByArchetype).sort(([left], [right]) => left.localeCompare(right)).map(([theme, archetypes]) => [theme, [...archetypes].sort().join(', ')]);
   const emptyChapters = valid.flatMap((result) => [result.essential, result.comprehensive].filter(Boolean).flatMap((tier) => tier.blueprint.chapters.filter((chapter) => chapter.sections.length === 0).map((chapter) => `${result.row.assessmentReference}/${tier.tier}/${chapter.title}`)));
-  const missingMaterial = valid.flatMap((result) => [result.essential, result.comprehensive].filter(Boolean).flatMap((tier) => tier.blueprint ? [] : [result.row.assessmentReference]));
+  const missingMaterial = valid.flatMap((result) => [result.essential, result.comprehensive].filter(Boolean).flatMap((tier) => tier.validation.missingMaterialFacts.map((ref) => `${result.row.assessmentReference}/${tier.tier}/${ref}`)));
+  const irrelevantThemes = valid.flatMap((result) => [result.essential, result.comprehensive].filter(Boolean).flatMap((tier) => unsupportedThemeRefs(tier).map((ref) => `${result.row.assessmentReference}/${tier.tier}/${ref}`)));
   const machineTitleFailures = valid.flatMap((result) => [result.essential, result.comprehensive].filter(Boolean).flatMap((tier) => machineFacingTitleHits(tier.blueprint).map((title) => `${result.row.assessmentReference}/${tier.tier}: ${title}`)));
-  await writeText(path.join(outputDir, 'cross-assessment-reproducibility-report.md'), ['# Cross-assessment reproducibility report', '', `- Assessments inventoried: **${inventory.length}**`, `- Scored completed runs: **${scored.length}**`, `- Deterministically reproducible scored/order-backed assessments: **${valid.length}**`, `- Essential Blueprints passed: **${valid.filter((result) => result.essential).length}**`, `- Comprehensive Blueprints passed: **${valid.filter((result) => result.comprehensive).length}**`, `- Unique structural signatures: **${uniqueSignatures.size}**`, `- Deterministic rerun stability: **${valid.every((result) => result.essential.stable && (!result.comprehensive || result.comprehensive.stable)) ? 'PASS' : 'FAIL'}**`, `- Empty chapters: **${emptyChapters.length}**`, `- Machine-facing title failures: **${machineTitleFailures.length}**`, `- Missing material-content failures: **${missingMaterial.length}**`, `- Sustainment profiles that manufactured weaknesses: **0 observed by the Sustainment Fact Pack contract**`, '', '## Theme coverage across profiles', '', table(['Theme', 'Archetypes observed'], themeRows), '', 'Themes are selected from the authoritative semantic/materiality model. No organisation name, assessment reference or fixture identity participates in Blueprint structure selection.', '', '## Interpretation', '', 'Different deterministic profiles produced different role/sequencing/theme/exhibit signatures. Similar profiles remain comparable through the same role and stage rules. The certification proves generalized Blueprint architecture only; it does not certify AI prose, PDF design or launch readiness.', '', `Archetype coverage gaps: **${['A — broad weak / Reactive', 'B — mixed / Developing', 'C — concentrated exposure', 'D — high-readiness Structured / Sustainment', 'E — maturity-constrained', 'F — Strategic / very high readiness'].filter((key) => !valid.some((result) => result.archetype === key)).join(', ') || 'None observed'}**.`].join('\n'));
+  await writeText(path.join(outputDir, 'cross-assessment-reproducibility-report.md'), ['# Cross-assessment reproducibility report', '', `- Assessments inventoried: **${inventory.length}**`, `- Scored completed runs: **${scored.length}**`, `- Deterministically reproducible scored/order-backed assessments: **${valid.length}**`, `- Essential Blueprints passed: **${valid.filter((result) => result.essential).length}**`, `- Comprehensive Blueprints passed: **${valid.filter((result) => result.comprehensive).length}**`, `- Unique structural signatures: **${uniqueSignatures.size}**`, `- Deterministic rerun stability: **${valid.every((result) => result.essential.stable && (!result.comprehensive || result.comprehensive.stable)) ? 'PASS' : 'FAIL'}**`, `- Empty chapters: **${emptyChapters.length}**`, `- Machine-facing title failures: **${machineTitleFailures.length}**`, `- Irrelevant-theme failures: **${irrelevantThemes.length}**`, `- Missing material-content failures: **${missingMaterial.length}**`, `- Sustainment profiles that manufactured weaknesses: **0 observed by the Sustainment Fact Pack contract**`, '', '## Theme coverage across profiles', '', table(['Theme', 'Archetypes observed'], themeRows), '', 'Themes are selected from the authoritative semantic/materiality model. No organisation name, assessment reference or fixture identity participates in Blueprint structure selection.', '', '## Interpretation', '', 'Different deterministic profiles produced different role/sequencing/theme/exhibit signatures. Similar profiles remain comparable through the same role and stage rules. The certification proves generalized Blueprint architecture only; it does not certify AI prose, PDF design or launch readiness.', '', `Archetype coverage gaps: **${['A — broad weak / Reactive', 'B — mixed / Developing', 'C — concentrated exposure', 'D — high-readiness Structured / Sustainment', 'E — maturity-constrained', 'F — Strategic / very high readiness'].filter((key) => !valid.some((result) => result.archetype === key)).join(', ') || 'None observed'}**.`].join('\n'));
 
   const archetypeKeys = ['A — broad weak / Reactive', 'B — mixed / Developing', 'C — concentrated exposure', 'D — high-readiness Structured / Sustainment', 'E — maturity-constrained', 'F — Strategic / very high readiness'];
   await writeText(path.join(outputDir, 'archetype-coverage.md'), ['# Archetype coverage', '', table(['Archetype', 'Existing reproducible assessment', 'Disposition'], archetypeKeys.map((key) => { const result = valid.find((item) => item.archetype === key); return [key, result ? result.row.assessmentReference : 'None', result ? 'Covered by existing deterministic assessment' : 'ARCHETYPE COVERAGE GAP — no synthetic case created']; })), '', 'Classification uses score, maturity, materiality breadth, pathway/finding shape and sustainment mode. It does not use organisation name.'].join('\n'));
@@ -242,7 +250,7 @@ async function main() {
   for (const [index, [key, result]] of Object.entries(examples).entries()) if (result) { exampleCount += 1; await writeText(path.join(outputDir, `example-${String(index + 1).padStart(2, '0')}-${result.row.assessmentReference.toLowerCase()}.md`), detailedOutline(result, key)); }
   const manifest = {
     title: 'MK FRAUD READINESS v1.1 ASSESSMENT-AGNOSTIC REPORT BLUEPRINT ENGINE — OWNER REVIEW CANDIDATE',
-    status: valid.length === reproducibleRows.length && !overfitHits.length && !machineTitleFailures.length && valid.every((result) => result.warnings.length === 0 && result.essential.stable && (!result.comprehensive || result.comprehensive.stable)) ? 'PASS' : 'FAIL',
+    status: valid.length === reproducibleRows.length && !overfitHits.length && !machineTitleFailures.length && !irrelevantThemes.length && !missingMaterial.length && valid.every((result) => result.warnings.length === 0 && result.essential.stable && (!result.comprehensive || result.comprehensive.stable)) ? 'PASS' : 'FAIL',
     branch, generatedFromCommit: commit, remoteSha, source: { environment: 'Supabase Staging', host: stagingHost, projectRef: 'penhenkzfrtmcxklodtu', readOnly: true, noAssessmentMutation: true, noScoreMutation: true, noOrderMutation: true },
     population: { totalAssessments: inventory.length, scoredAssessments: scored.length, reproducibleScoredOrderBacked: reproducibleRows.length, essentialBlueprints: valid.filter((result) => result.essential).length, comprehensiveBlueprints: valid.filter((result) => result.comprehensive).length, skippedScoredWithoutOrder: skippedScored.length },
     archetypeCoverage: Object.fromEntries(archetypeKeys.map((key) => [key, valid.some((result) => result.archetype === key) ? 'COVERED' : 'ARCHETYPE COVERAGE GAP'])),
@@ -250,7 +258,7 @@ async function main() {
     fiveExamplesGenerated: exampleCount,
     ai: { called: false, callCount: 0, model: null, repairs: 0, tokens: null, providerCost: null },
     outputs: { manuscripts: 'NONE', pdfs: 'NONE', workbooks: 'NONE', deployment: 'NONE', supabaseMutation: 'NONE', productionMutation: 'NONE', customerDelivery: 'NONE' },
-    gates: { allReproducibleEssential: valid.length === reproducibleRows.length, allReproducibleComprehensive: valid.every((result) => result.comprehensive), antiOverfitting: overfitHits.length === 0, rerunStability: valid.every((result) => result.essential.stable && (!result.comprehensive || result.comprehensive.stable)), emptyChapters: emptyChapters.length === 0, machineFacingTitles: machineTitleFailures.length === 0, missingMaterialContent: missingMaterial.length === 0 }
+    gates: { allReproducibleEssential: valid.length === reproducibleRows.length, allReproducibleComprehensive: valid.every((result) => result.comprehensive), antiOverfitting: overfitHits.length === 0, rerunStability: valid.every((result) => result.essential.stable && (!result.comprehensive || result.comprehensive.stable)), emptyChapters: emptyChapters.length === 0, machineFacingTitles: machineTitleFailures.length === 0, irrelevantThemes: irrelevantThemes.length === 0, missingMaterialContent: missingMaterial.length === 0 }
   };
   await writeJson(path.join(outputDir, 'generation-manifest.json'), manifest);
   console.log(JSON.stringify({ status: manifest.status, population: manifest.population, uniqueSignatures: manifest.structuralDiversity.uniqueSignatures, fiveExamples: exampleCount, ai: manifest.ai }, null, 2));
