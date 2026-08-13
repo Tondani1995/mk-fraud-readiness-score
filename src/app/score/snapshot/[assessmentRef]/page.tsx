@@ -9,6 +9,7 @@ import { validateSnapshotToken } from '@/lib/respondent/tokens';
 import { checkRateLimits, getClientIpHashKey, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { buildCommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { loadFreeSnapshotByReference } from '@/lib/snapshot/free-snapshot';
+import { buildSnapshotNarrative } from '@/lib/snapshot/narrative';
 
 type SnapshotPageProps = {
   params: Promise<{ assessmentRef: string }>;
@@ -93,6 +94,7 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
   const requestOrigin = requestOriginFor(requestHeaders);
   const publicSnapshotUrl = requestOrigin ? `${requestOrigin}${snapshotUrl}` : snapshotUrl;
   const commercialInsights = buildCommercialSnapshotInsights(snapshot);
+  const snapshotNarrative = await buildSnapshotNarrative({ snapshot, insights: commercialInsights });
 
   return (
     <SectionShell className="py-12">
@@ -101,7 +103,7 @@ export default async function SnapshotShellPage(props: SnapshotPageProps) {
         title="Your Fraud Readiness Snapshot"
         description="This view is loaded from the persisted score run and can be safely refreshed without recalculating or unlocking the assessment."
       />
-      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={publicSnapshotUrl} commercialInsights={commercialInsights} />
+      <FreeSnapshotCard snapshot={snapshot} snapshotUrl={publicSnapshotUrl} commercialInsights={commercialInsights} snapshotNarrative={snapshotNarrative} />
     </SectionShell>
   );
 }

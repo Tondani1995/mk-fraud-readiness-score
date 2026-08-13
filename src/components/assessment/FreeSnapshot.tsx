@@ -10,6 +10,8 @@ import { TierComparison } from '@/components/products/TierComparison';
 import type { CommercialDomainInsight, CommercialOptionCode, CommercialSnapshotInsights } from '@/lib/snapshot/commercial-insights';
 import { COMMERCIAL_OPTION_CODES } from '@/lib/snapshot/commercial-insights';
 import type { FreeSnapshot } from '@/lib/snapshot/free-snapshot';
+import type { SnapshotNarrative } from '@/lib/snapshot/narrative';
+import { deterministicSnapshotNarrative } from '@/lib/snapshot/narrative';
 import { COMMERCIAL_CATALOGUE, type SelfServicePaidTier } from '@/lib/commercial/product-catalogue';
 
 const SCORE_BASE_PATH = '/score';
@@ -68,12 +70,15 @@ function snapshotTokenFromUrl(snapshotUrl?: string | null) {
 export function FreeSnapshotCard({
   snapshot,
   snapshotUrl,
-  commercialInsights
+  commercialInsights,
+  snapshotNarrative
 }: {
   snapshot: FreeSnapshot;
   snapshotUrl?: string | null;
   commercialInsights: CommercialSnapshotInsights;
+  snapshotNarrative?: SnapshotNarrative;
 }) {
+  const effectiveSnapshotNarrative = snapshotNarrative ?? deterministicSnapshotNarrative(commercialInsights);
   const showExposure = !snapshot.adaptiveMetrics || snapshot.adaptiveMetrics.exposureAssessed !== false;
   const [selectedOption, setSelectedOption] = useState<CommercialOptionCode | null>(null);
   const [requestState, setRequestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -184,7 +189,8 @@ export function FreeSnapshotCard({
 
           <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="concise-interpretation-heading">
             <h2 id="concise-interpretation-heading" className="font-semibold text-mk-ink">Concise readiness interpretation</h2>
-            <p className="mt-2">{commercialInsights.conciseInterpretation}</p>
+            <p className="mt-2">{effectiveSnapshotNarrative.interpretation}</p>
+            <p className="mt-3 font-medium text-mk-ink">{effectiveSnapshotNarrative.nextStep}</p>
           </section>
 
           {commercialInsights.criticalGapIndicator ? (

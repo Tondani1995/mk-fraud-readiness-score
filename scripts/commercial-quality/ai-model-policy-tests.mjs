@@ -2,9 +2,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS, parsePremiumReportAutomationFlags } from '../../src/lib/reports/automation/feature-flags.ts';
-import { PRIMARY_NARRATIVE_MODEL, NARRATIVE_FALLBACK_MODELS, assertTechnicalFallback, isQualityFailureFallbackReason, selectNarrativeModel } from '../../src/lib/reports/ai-model-policy.ts';
+import { PRIMARY_NARRATIVE_MODEL, SNAPSHOT_PRIMARY_MODEL, SNAPSHOT_MAX_AI_CALLS, SNAPSHOT_TECHNICAL_FALLBACK, NARRATIVE_FALLBACK_MODELS, assertTechnicalFallback, isQualityFailureFallbackReason, selectNarrativeModel, selectSnapshotModel } from '../../src/lib/reports/ai-model-policy.ts';
 
 assert.equal(selectNarrativeModel({}).requestedModel, 'openai/gpt-5-mini');
+assert.equal(SNAPSHOT_PRIMARY_MODEL, 'openai/gpt-5-mini');
+assert.equal(selectSnapshotModel().requestedModel, 'openai/gpt-5-mini');
+assert.equal(selectSnapshotModel().maxAiCalls, 1);
+assert.equal(SNAPSHOT_MAX_AI_CALLS, 1);
+assert.equal(SNAPSHOT_TECHNICAL_FALLBACK, 'deterministic_fallback');
 assert.equal(selectNarrativeModel({}).overrideUsed, false);
 assert.deepEqual(NARRATIVE_FALLBACK_MODELS, ['openai/gpt-5.6-luna', 'openai/gpt-5.6-terra', 'openai/gpt-5.6-sol']);
 assert.equal(selectNarrativeModel({ MK_REPORT_AI_MODEL: 'openai/gpt-5.6-sol' }).requestedModel, 'openai/gpt-5.6-sol');
@@ -23,4 +28,4 @@ assert.throws(() => assertTechnicalFallback({ fallbackUsed: true, fallbackFrom: 
 const snapshotSource = fs.readFileSync(new URL('../../src/lib/snapshot/commercial-insights.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(snapshotSource, /generateText|generateObject|@ai-sdk|ai-writer/);
 
-console.log(JSON.stringify({ passed: true, checks: ['Mini global default', 'Mini legacy default', 'explicit override', 'exact technical fallback order', 'fallback metadata required', 'quality failure cannot escalate', 'Snapshot remains NONE/no AI call'], primary: PRIMARY_NARRATIVE_MODEL, fallbacks: NARRATIVE_FALLBACK_MODELS }, null, 2));
+console.log(JSON.stringify({ passed: true, checks: ['Mini global default', 'Mini Snapshot default', 'Snapshot one-call ceiling', 'Snapshot deterministic technical fallback', 'Mini legacy default', 'explicit override', 'exact technical fallback order', 'fallback metadata required', 'quality failure cannot escalate'], primary: PRIMARY_NARRATIVE_MODEL, snapshotPrimary: SNAPSHOT_PRIMARY_MODEL, fallbacks: NARRATIVE_FALLBACK_MODELS }, null, 2));

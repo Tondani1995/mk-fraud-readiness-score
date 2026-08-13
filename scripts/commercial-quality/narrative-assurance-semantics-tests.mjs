@@ -23,12 +23,23 @@ const pass = [
   'The control design is evidence-based and should be retained for implementation.'
 ];
 
+const rivoniaCustomerControl = 'Fraud-risk ownership, structured assessment and periodic review are recorded as initial or ad hoc. Management owns fraud risk, while independent review responsibilities should remain separate where an internal audit or equivalent assurance function exists. The CEO / Managing Director should approve the accountability RACI and establish a scheduled review.';
+const rivoniaAmbiguousDisclaimer = 'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.';
+
 test('prohibited assurance claims remain blocking', () => {
   for (const text of fail) assert.equal(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
 });
 
 test('customer control verification language is allowed', () => {
   for (const text of pass) assert.notEqual(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
+});
+
+test('Rivonia governance role-separation activity is allowed narrowly', () => {
+  assert.equal(classifyAssuranceLanguage(rivoniaCustomerControl)?.category, 'customer_control_activity');
+});
+
+test('Rivonia evidence-validation disclaimer remains fail-closed', () => {
+  assert.equal(classifyAssuranceLanguage(rivoniaAmbiguousDisclaimer)?.category, 'prohibited_assurance');
 });
 
 test('ambiguous independent verification fails closed', () => {

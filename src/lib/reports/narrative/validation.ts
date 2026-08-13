@@ -56,6 +56,9 @@ const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|i
 const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
 const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
 const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
+// Narrow, deterministic exception for the supplied management-versus-assurance role-separation
+// control. Generic independent-review wording remains fail-closed.
+const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equivalent assurance function|assurance function)\b.{0,180}\bindependent review(?: responsibilities)?\b|\bindependent review(?: responsibilities)?\b.{0,180}\b(?:management|internal audit|equivalent assurance function|assurance function)\b/i;
 
 /**
  * Classifies only assurance language in customer-facing narrative text. Explicit claims about MK,
@@ -75,7 +78,9 @@ export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassi
 
   const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(text);
   const hasControlAction = CONTROL_ACTIVITY_ACTION.test(text);
-  if ((hasControlSubject && hasControlAction) || DIRECT_CONTROL_ACTIVITY.test(text)) {
+  if ((hasControlSubject && hasControlAction)
+    || DIRECT_CONTROL_ACTIVITY.test(text)
+    || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(text)) {
     return { category: 'customer_control_activity', matched: ambiguous[0] };
   }
   return { category: 'prohibited_assurance', matched: ambiguous[0] };

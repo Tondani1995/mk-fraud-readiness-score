@@ -24,6 +24,7 @@
     "v11:narrative-call-accounting": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-call-accounting-tests.mjs",
     "v11:narrative-assurance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-assurance-semantics-tests.mjs",
     "v11:narrative-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-owner-review-diagnostics-tests.mjs",
+    "v11:snapshot-narrative": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/snapshot-narrative-tests.mjs",
     "v11:pre-ai-fact-pack": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
     "v11:pre-ai-semantic-integrity": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
     "v11:six-archetype-pre-ai": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-six-archetype-existing-pre-ai.mjs",
