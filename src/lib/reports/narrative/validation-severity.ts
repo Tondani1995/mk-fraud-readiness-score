@@ -8,6 +8,11 @@ export interface ClassifiedNarrativeIssue {
   rationale: string;
 }
 
+export interface NarrativeRecoveryIssueInput {
+  code: string;
+  localSemanticEligible: boolean;
+}
+
 const HARD_TRUTH_CODES = new Set([
   'wrong_bible_version',
   'wrong_product_tier',
@@ -56,6 +61,24 @@ export function classifyNarrativeIssue(code: string): ClassifiedNarrativeIssue {
   if (REPAIRABLE_CODES.has(code)) return { code, severity: 'REPAIRABLE_SEMANTIC_FAILURE', blocking: true, repairEligible: true, rationale: 'A bounded local correction may resolve the semantic defect without changing deterministic meaning.' };
   if (QUALITY_CODES.has(code)) return { code, severity: 'QUALITY_FAILURE', blocking: false, repairEligible: false, rationale: 'The defect affects editorial quality and cannot redefine deterministic truth.' };
   return { code, severity: 'HARD_TRUTH_FAILURE', blocking: true, repairEligible: false, rationale: 'Unknown validation codes fail closed until explicitly classified.' };
+}
+
+/**
+ * Release severity and recovery eligibility are deliberately separate. Assurance language
+ * remains a blocking hard-truth validation result, but an otherwise grounded local wording
+ * defect can be corrected in a bounded block without weakening the validator.
+ */
+export function classifyNarrativeRecoveryIssue(input: NarrativeRecoveryIssueInput): ClassifiedNarrativeIssue {
+  const base = classifyNarrativeIssue(input.code);
+  if (input.code === 'assurance_claim' && input.localSemanticEligible) {
+    return {
+      ...base,
+      severity: 'REPAIRABLE_SEMANTIC_FAILURE',
+      repairEligible: true,
+      rationale: 'The assurance wording remains release-blocking until corrected, but the defect is local to otherwise grounded customer prose and may receive bounded semantic repair.'
+    };
+  }
+  return base;
 }
 
 export function classifyNarrativeIssues(codes: string[]): ClassifiedNarrativeIssue[] {

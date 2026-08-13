@@ -87,7 +87,7 @@ export interface NarrativeWriter {
 
 export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
-  architecture: 'whole-manuscript';
+  architecture: 'whole-manuscript' | 'whole-manuscript-targeted-repair' | 'whole-manuscript-coherence';
   recovery: NarrativeRecoveryBudget;
   inputBlueprintSha256?: string;
   executionContract?: {
@@ -136,6 +136,46 @@ export interface WholeManuscriptTextResult {
   writerMetadata: WholeManuscriptWriterMetadata;
 }
 
+export interface WholeManuscriptRepairInput {
+  context: WholeManuscriptWriterContext;
+  blueprint: ReportBlueprint;
+  previousMarkdown: string;
+  scope: 'block' | 'block+adjacent' | 'subsection' | 'bounded section';
+  sectionId: string;
+  subsectionId?: string;
+  failingPath: string;
+  validationCode: string;
+  matchedPhrase?: string;
+  targetText: string;
+  surroundingProse: string;
+  permittedFacts: NarrativeFactPack['facts'];
+  permittedClaimRefs: string[];
+  requiredManagementTakeaway: string;
+  assuranceBoundary: string;
+}
+
+export interface WholeManuscriptRepairResult {
+  contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
+  architecture: 'whole-manuscript-targeted-repair';
+  repairedText: string;
+  blueprint: ReportBlueprint;
+  writerMetadata: WholeManuscriptWriterMetadata;
+}
+
+export interface WholeManuscriptCoherenceInput {
+  context: WholeManuscriptWriterContext;
+  blueprint: ReportBlueprint;
+  previousMarkdown: string;
+}
+
+export interface WholeManuscriptCoherenceResult {
+  contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
+  architecture: 'whole-manuscript-coherence';
+  markdown: string;
+  blueprint: ReportBlueprint;
+  writerMetadata: WholeManuscriptWriterMetadata;
+}
+
 export interface WholeManuscriptWriterInput {
   context: WholeManuscriptWriterContext;
   factPack: NarrativeFactPack;
@@ -153,6 +193,8 @@ export interface WholeManuscriptWriter {
   readonly promptVersion: string;
   writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult>;
   completeTail(input: WholeManuscriptTailInput): Promise<WholeManuscriptTailResult>;
+  repairBlock(input: WholeManuscriptRepairInput): Promise<WholeManuscriptRepairResult>;
+  coherencePass(input: WholeManuscriptCoherenceInput): Promise<WholeManuscriptCoherenceResult>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {

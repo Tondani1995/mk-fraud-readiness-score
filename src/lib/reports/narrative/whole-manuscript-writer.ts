@@ -2,7 +2,7 @@ import { generateText } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
-import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult } from './manuscript';
+import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
 import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
@@ -76,7 +76,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
   ].join('\n');
 }
 
-function metadata(input: { context: WholeManuscriptWriterInput['context']; blueprint: WholeManuscriptWriterInput['blueprint']; factPack?: unknown }, provider: string, model: string, response: any, prompt: string, maxOutputTokens: number, recovery: WholeManuscriptWriterMetadata['recovery']): WholeManuscriptWriterMetadata {
+function metadata(input: { context: WholeManuscriptWriterInput['context']; blueprint: WholeManuscriptWriterInput['blueprint']; factPack?: unknown }, provider: string, model: string, response: any, prompt: string, maxOutputTokens: number, recovery: WholeManuscriptWriterMetadata['recovery'], architecture: WholeManuscriptWriterMetadata['architecture'] = 'whole-manuscript'): WholeManuscriptWriterMetadata {
   const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });
   const inputTokens = numeric(response.usage?.inputTokens);
   const outputTokens = numeric(response.usage?.outputTokens);
@@ -90,7 +90,7 @@ function metadata(input: { context: WholeManuscriptWriterInput['context']; bluep
     ?? textValue(response.response?.headers?.['x-provider-finish-reason']);
   return {
     contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
-    architecture: 'whole-manuscript',
+    architecture,
     provider,
     model,
     promptVersion: WHOLE_MANUSCRIPT_PROMPT_VERSION,
@@ -238,6 +238,79 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       continuationMarkdown: markdown,
       blueprint: input.blueprint,
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, maxOutputTokens, { ...emptyNarrativeRecoveryBudget(), truncationContinuationCount: 1, totalCalls: 1, totalTokens, totalProviderCostMicros: parseCostMicros(response) })
+    };
+  }
+
+  async repairBlock(input: WholeManuscriptRepairInput): Promise<WholeManuscriptRepairResult> {
+    const permittedFacts = input.permittedFacts.map((fact) => ({ id: fact.id, kind: fact.kind, value: fact.value }));
+    const prompt = [
+      'Repair one bounded customer-facing prose block in an MK Fraud Readiness v1.1 manuscript.',
+      '',
+      'This is a targeted semantic correction, not a report regeneration. Return only the replacement prose for the target block. Do not return a heading, bullets, labels, IDs, claim references, metadata, commentary or code fences.',
+      'Preserve the deterministic meaning exactly. Do not change any score, maturity, finding, scenario, control, owner, timing, decision, roadmap, fact or Blueprint hierarchy.',
+      'The assurance boundary remains strict: do not imply that MK, the assessment, the report or any external reviewer independently verified evidence or operating effectiveness. Customer-owned control design may describe what management should independently review or verify.',
+      '',
+      `REPAIR SCOPE: ${input.scope}`,
+      `FAILING PATH: ${input.failingPath}`,
+      `VALIDATION CODE: ${input.validationCode}`,
+      `MATCHED PHRASE: ${input.matchedPhrase ?? '(not exposed)'}`,
+      `TARGET BLOCK:\n${input.targetText}`,
+      `IMMEDIATELY RELEVANT CONTEXT:\n${input.surroundingProse}`,
+      `PERMITTED FACTS:\n${JSON.stringify(permittedFacts)}`,
+      `PERMITTED CLAIM REFS: ${JSON.stringify(input.permittedClaimRefs)}`,
+      `REQUIRED MANAGEMENT TAKEAWAY: ${input.requiredManagementTakeaway}`,
+      `ASSURANCE BOUNDARY: ${input.assuranceBoundary}`
+    ].join('\n');
+    const response = await generateText({
+      model: this.model,
+      system: 'You are the constrained MK Fraud Readiness v1.1 targeted semantic repair writer. Return only safe replacement prose for the bounded block.',
+      prompt,
+      maxOutputTokens: 900,
+      maxRetries: 0,
+      providerOptions: { gateway: { only: [this.provider] } },
+      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+    });
+    const repairedText = String(response.text ?? '').trim();
+    if (!repairedText) throw new Error('Targeted semantic repair returned empty prose.');
+    return {
+      contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+      architecture: 'whole-manuscript-targeted-repair',
+      repairedText,
+      blueprint: input.blueprint,
+      writerMetadata: metadata(input, this.provider, this.model, response, prompt, 900, { ...emptyNarrativeRecoveryBudget(), targetedRepairCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) }, 'whole-manuscript-targeted-repair')
+    };
+  }
+
+  async coherencePass(input: WholeManuscriptCoherenceInput): Promise<WholeManuscriptCoherenceResult> {
+    const prompt = [
+      'Perform one bounded editorial coherence pass over this complete MK Fraud Readiness v1.1 manuscript.',
+      '',
+      'Return the complete Markdown manuscript with every existing Blueprint heading in the exact same order. Preserve every heading and every deterministic fact. Smooth transitions, remove only genuine repetition and improve connected professional rhythm. Do not add analytical content, identifiers, tables, bullets, metadata or assurance claims.',
+      'Do not claim that MK, the assessment, the report or any reviewer independently verified evidence or operating effectiveness.',
+      '',
+      'BLUEPRINT',
+      JSON.stringify(input.blueprint),
+      '',
+      'CURRENT MANUSCRIPT',
+      input.previousMarkdown
+    ].join('\n');
+    const response = await generateText({
+      model: this.model,
+      system: 'You are the constrained MK Fraud Readiness v1.1 coherence editor. Return only the complete Markdown manuscript.',
+      prompt,
+      maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
+      maxRetries: 0,
+      providerOptions: { gateway: { only: [this.provider] } },
+      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+    });
+    const markdown = String(response.text ?? '').trim();
+    if (!markdown) throw new Error('Whole-manuscript coherence pass returned empty Markdown.');
+    return {
+      contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+      architecture: 'whole-manuscript-coherence',
+      markdown,
+      blueprint: input.blueprint,
+      writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), coherenceCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) }, 'whole-manuscript-coherence')
     };
   }
 }
