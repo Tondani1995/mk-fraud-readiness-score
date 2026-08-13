@@ -1,0 +1,69 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { assembleReportData } from '../../src/lib/reports/assemble-report-data.ts';
+import { buildAdvisoryEvidenceModel } from '../../src/lib/reports/evidence-model/index.ts';
+import { buildEssentialProjection } from '../../src/lib/reports/essential-projection.ts';
+import { fromAssembledReportData } from '../../src/lib/reports/comprehensive/contract.ts';
+import { buildEssentialNarrativeFactPack, buildComprehensiveNarrativeFactPack, assertNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
+import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
+import { buildReportBlueprint, buildSnapshotReportBlueprint, buildWholeManuscriptContext, assertReportBlueprint, validateReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
+import { classifyNarrativeIssue, canReleaseNarrative } from '../../src/lib/reports/narrative/validation-severity.ts';
+import { emptyNarrativeRecoveryBudget, recoveryDecision, assertRecoveryBudget } from '../../src/lib/reports/narrative/recovery-policy.ts';
+
+const rivonia = await assembleReportData('MKORD-2026-22FF6B69');
+const rivoniaEvidence = buildAdvisoryEvidenceModel(rivonia);
+const rivoniaPack = buildEssentialNarrativeFactPack(rivonia, rivoniaEvidence, buildEssentialProjection(rivonia, rivoniaEvidence));
+assertNarrativeFactPack(rivoniaPack);
+const rivoniaPlan = buildNarrativeStoryPlan(rivoniaPack);
+assertNarrativeStoryPlan(rivoniaPlan, rivoniaPack);
+const rivoniaBlueprint = buildReportBlueprint(rivoniaPack, rivoniaPlan);
+assertReportBlueprint(rivoniaBlueprint, rivoniaPack);
+assert.equal(rivoniaBlueprint.chapters.length, 6);
+assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /executive/i.test(chapter.title)).length, 1);
+assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /90 days|roadmap/i.test(chapter.title)).length, 1);
+assert.equal(rivoniaBlueprint.findingClusters.length > 0, true);
+assert.equal(rivoniaBlueprint.chapters.flatMap((chapter) => chapter.exhibits).every((item) => item.sourceRefs.length > 0), true);
+assert.equal(validateReportBlueprint(rivoniaBlueprint, rivoniaPack).ok, true);
+const rivoniaContext = buildWholeManuscriptContext(rivoniaPack, rivoniaBlueprint);
+assert.equal(rivoniaContext.architecture, 'whole-manuscript');
+assert.equal(rivoniaContext.permittedDeterministicFacts.length > 0, true);
+
+const kestrel = await assembleReportData('MKORD-2026-7FBBEE23');
+const kestrelModel = await fromAssembledReportData(kestrel);
+const kestrelPack = buildComprehensiveNarrativeFactPack(kestrelModel);
+assertNarrativeFactPack(kestrelPack);
+const kestrelPlan = buildNarrativeStoryPlan(kestrelPack);
+assertNarrativeStoryPlan(kestrelPlan, kestrelPack);
+const kestrelBlueprint = buildReportBlueprint(kestrelPack, kestrelPlan);
+assertReportBlueprint(kestrelBlueprint, kestrelPack);
+assert.equal(kestrelBlueprint.chapters.length, 9);
+assert.equal(kestrelBlueprint.chapters.filter((chapter) => /executive/i.test(chapter.title)).length, 1);
+assert.equal(kestrelBlueprint.chapters.filter((chapter) => /conclusion/i.test(chapter.title)).length, 1);
+assert.equal(validateReportBlueprint(kestrelBlueprint, kestrelPack).ok, true);
+const kestrelContext = buildWholeManuscriptContext(kestrelPack, kestrelBlueprint);
+assert.equal(kestrelContext.reportBlueprint.reportTier, 'comprehensive');
+assert.equal(kestrelContext.projectedInputTokens.maximum > 0, true);
+
+const snapshot = buildSnapshotReportBlueprint({ organisation: { name: 'Snapshot Organisation' }, assessmentReference: 'MKFRS-SNAPSHOT' });
+assertReportBlueprint(snapshot);
+assert.equal(snapshot.chapters.length, 5);
+assert.equal(/Essential|Comprehensive|paid report|order|payment/i.test([snapshot.reportTitle, snapshot.executiveStory, ...snapshot.chapters.flatMap((chapter) => [chapter.title, chapter.purpose, chapter.requiredManagementTakeaway])].join(' ')), false);
+
+assert.equal(classifyNarrativeIssue('unknown_claim_ref').severity, 'HARD_TRUTH_FAILURE');
+assert.equal(classifyNarrativeIssue('duplicate_statement').repairEligible, true);
+assert.equal(classifyNarrativeIssue('repetition').blocking, false);
+assert.equal(canReleaseNarrative(['repetition']), true);
+assert.equal(canReleaseNarrative(['unknown_claim_ref']), false);
+
+const budget = emptyNarrativeRecoveryBudget();
+assert.equal(recoveryDecision({ budget, issueSeverity: 'REPAIRABLE_SEMANTIC_FAILURE', issueScope: 'block', fullGenerationRejected: false }).scope, 'block');
+budget.targetedRepairCount = 4;
+assert.equal(recoveryDecision({ budget, issueSeverity: 'REPAIRABLE_SEMANTIC_FAILURE', issueScope: 'section', fullGenerationRejected: true }).action, 'FULL_REGENERATION');
+budget.fullRegenerationCount = 1;
+budget.coherenceCount = 1;
+budget.initialGenerationCount = 1;
+budget.totalCalls = 7;
+assert.equal(recoveryDecision({ budget, issueSeverity: 'REPAIRABLE_SEMANTIC_FAILURE', issueScope: 'section', fullGenerationRejected: false }).action, 'HUMAN_REVIEW_REQUIRED');
+assertRecoveryBudget(budget);
+
+console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', rivonia: { chapters: rivoniaBlueprint.chapters.length, clusters: rivoniaBlueprint.findingClusters.length, context: rivoniaContext.projectedInputTokens }, kestrel: { chapters: kestrelBlueprint.chapters.length, clusters: kestrelBlueprint.findingClusters.length, context: kestrelContext.projectedInputTokens }, snapshot: { chapters: snapshot.chapters.length }, severity: 'PASS', recovery: 'PASS' }, null, 2));

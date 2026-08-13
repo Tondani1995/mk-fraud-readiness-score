@@ -12,4 +12,8 @@ export * from './presentation-hygiene';
 export * from './owner-review-diagnostics';
 export * from './call-accounting';
 export * from './section-identity';
+export * from './report-blueprint';
+export * from './validation-severity';
+export * from './recovery-policy';
+export * from './whole-manuscript-writer';
 export * from '../ai-model-policy';

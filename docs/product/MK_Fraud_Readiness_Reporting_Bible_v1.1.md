@@ -369,6 +369,20 @@ AI may improve section headings and expression, but it may not reorder material 
 
 ### 8.1 Full-document context
 
+#### Implementation addendum — whole-manuscript Blueprint architecture
+
+The v1.1 implementation addendum inserts a deterministic **Report Blueprint** between the Story
+Plan / Writer Brief and AI writing. The Blueprint owns the complete customer-facing chapter,
+section, subsection, exhibit-placement and analytical-content-assignment contract. A future live
+writer receives one complete Blueprint context and returns one complete manuscript; a minimum
+coherent chapter partition is permitted only when measured context exceeds the approved model
+limit. The earlier spine → independent section → coherence implementation remains a compatibility
+path while migration is controlled and is not the target architecture.
+
+This addendum does not change the Reporting Bible's product promise, assurance boundary,
+deterministic truth authority, tier scope or renderer rules. Its implementation identifier is
+`mk-reporting-bible-1.1-whole-manuscript-blueprint-v1`.
+
 AI must not write isolated content fragments with no awareness of the report around them.
 
 Each section call should receive at least:

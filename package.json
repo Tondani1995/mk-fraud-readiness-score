@@ -19,6 +19,8 @@
     "v11:manuscript-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/v11-manuscript-gate-scan.mjs",
     "v11:narrative-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/v11-narrative-contract-tests.mjs",
     "v11:narrative-section-identity": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-section-identity-tests.mjs",
+    "v11:report-blueprint": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/report-blueprint-tests.mjs",
+    "v11:build-report-blueprint-owner-review": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-report-blueprint-owner-review.mjs",
     "v11:narrative-provenance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-provenance-boundary-tests.mjs",
     "v11:ai-model-policy": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/ai-model-policy-tests.mjs",
     "v11:narrative-call-accounting": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-call-accounting-tests.mjs",

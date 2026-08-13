@@ -1,8 +1,11 @@
 import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
+import type { ReportBlueprint, WholeManuscriptWriterContext } from './report-blueprint';
+import type { NarrativeRecoveryBudget } from './recovery-policy';
 
 export const NARRATIVE_MANUSCRIPT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-manuscript-v1';
 export const NARRATIVE_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-writer-v1';
+export const WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-whole-manuscript-writer-v1';
 
 export interface NarrativeClaimBlock {
   id: string;
@@ -77,6 +80,31 @@ export interface NarrativeWriter {
   writeSpine(input: { factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeSpine>;
   writeSection(input: NarrativeWriterContext): Promise<NarrativeManuscriptSection>;
   coherencePass(input: { manuscript: NarrativeManuscript; factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeManuscript>;
+}
+
+export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
+  contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
+  architecture: 'whole-manuscript';
+  recovery: NarrativeRecoveryBudget;
+  inputBlueprintSha256?: string;
+}
+
+export interface WholeManuscriptWriterInput {
+  context: WholeManuscriptWriterContext;
+  factPack: NarrativeFactPack;
+  blueprint: ReportBlueprint;
+}
+
+/**
+ * The production boundary for the next writer architecture. It deliberately accepts one
+ * complete report context and returns one complete manuscript; section-by-section generation is
+ * retained only through the legacy NarrativeWriter compatibility interface above.
+ */
+export interface WholeManuscriptWriter {
+  readonly provider: string;
+  readonly model: string;
+  readonly promptVersion: string;
+  writeManuscript(input: WholeManuscriptWriterInput): Promise<NarrativeManuscript & { blueprint: ReportBlueprint; writerMetadata: WholeManuscriptWriterMetadata }>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {
