@@ -85,6 +85,7 @@ const files = {
   snapshot: 'src/components/assessment/FreeSnapshot.tsx',
   snapshotPage: 'src/app/score/snapshot/[assessmentRef]/page.tsx',
   commercialEventRoute: 'src/app/score/api/assessments/[assessmentRef]/commercial-event/route.ts',
+  paidOrderRoute: 'src/app/score/api/assessments/[assessmentRef]/paid-order/route.ts',
   reportRequestRoute: 'src/app/score/api/assessments/[assessmentRef]/report-request/route.ts',
   personalisedRoute: 'src/app/score/api/assessments/[assessmentRef]/personalised-report-request/route.ts',
   freeSnapshot: 'src/lib/snapshot/free-snapshot.ts',
@@ -297,16 +298,16 @@ assertIncludes(files.snapshot, 'Executive interpretation', 'Snapshot has executi
 assertIncludes(files.snapshot, 'Priority areas for management focus', 'Snapshot has approved priority heading');
 assertIncludes(files.snapshot, 'Foundations you can build on', 'Snapshot has approved strength heading');
 assertIncludes(files.snapshot, 'Your snapshot identifies the position. The detailed report explains what to do next.', 'Snapshot uses approved free-vs-paid heading');
-assertIncludes(files.snapshot, 'Full MK Fraud Readiness Report', 'Snapshot shows approved R5 product name');
-assertIncludes(files.snapshot, 'R5,000 including VAT', 'Snapshot shows R5 VAT wording');
-assertIncludes(files.snapshot, 'Advanced Personalised Fraud Readiness Report', 'Snapshot shows approved personalised product name');
-assertIncludes(files.snapshot, 'From R50,000 including VAT', 'Snapshot shows personalised VAT wording');
-assertIncludes(files.snapshot, 'Order the full report', 'Snapshot uses approved R5 button');
-assertIncludes(files.snapshot, 'Confirm your report order', 'R5 path shows order summary before order creation');
-assertIncludes(files.snapshot, 'Continue to EFT instructions', 'R5 order creation is behind EFT continuation');
-assertIncludes(files.snapshot, 'Request a personalised proposal', 'Snapshot uses approved personalised button');
-assertIncludes(files.snapshot, 'Tell us what your organisation needs', 'Personalised form heading is approved');
-assertIncludes(files.snapshot, 'By submitting this request, you consent to MK Fraud Insights contacting you about the personalised fraud-readiness review. Submission does not create a payment obligation or confirm a final scope.', 'R50 consent copy is approved');
+assertIncludes(files.snapshot, 'Report options', 'Snapshot exposes the current paid-product options');
+assertIncludes(files.snapshot, 'Choose Essential', 'Snapshot exposes the current Essential action');
+assertIncludes(files.snapshot, 'Choose Comprehensive', 'Snapshot exposes the current Comprehensive action');
+assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.essential.priceCents', 'Snapshot reads the current Essential price from the catalogue');
+assertIncludes(files.snapshot, 'COMMERCIAL_CATALOGUE.comprehensive.priceCents', 'Snapshot reads the current Comprehensive price from the catalogue');
+assertNotIncludes(files.snapshot, 'R5,000', 'Snapshot must not present the superseded Essential price');
+assertNotIncludes(files.snapshot, 'R50,000', 'Snapshot must not present the superseded Comprehensive/advisory price');
+assertIncludes(files.snapshot, 'Confirm your report order', 'Current paid-product flow shows an order summary before order creation');
+assertIncludes(files.snapshot, 'Continue to EFT instructions', 'Current paid-product order creation is behind EFT continuation');
+assertIncludes(files.snapshot, 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Current paid-product order remains token-bound');
 assertIncludes(files.snapshot, 'IntersectionObserver', 'Snapshot view events use IntersectionObserver');
 assertIncludes(files.snapshot, 'threshold: [0.5]', 'Snapshot observes real section at 50% threshold');
 assertIncludes(files.snapshot, 'eventType="executive_summary_viewed"', 'Executive summary view event is emitted at section visibility');
@@ -324,19 +325,22 @@ assertNotIncludes(files.snapshot, 'AI-generated', 'Snapshot must not mention AI-
 assert(!/\bEXP-0[1-8]\b|\bD(?:[1-9]|10)-Q\d{2}\b|hard-gate|N\/A rule/i.test(read(files.snapshot)), 'Snapshot must not expose internal methodology codes or rule labels.');
 
 const snapshotSource = read(files.snapshot);
-const selectFullReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectFullReport'), snapshotSource.indexOf('async function selectPersonalisedReport'));
-const selectPersonalisedReportBlock = snapshotSource.slice(snapshotSource.indexOf('async function selectPersonalisedReport'), snapshotSource.indexOf('async function requestDetailedReport'));
-assertIncludes(files.snapshot, 'setSelectedOption(COMMERCIAL_OPTION_CODES.essential)', 'Essential selection is a distinct option step');
-assertNotMatchesSource(selectFullReportBlock, /report-request|requestDetailedReport|createOrGetOrder/i, 'R5 selection must not create an order');
-assertMatchesSource(selectFullReportBlock, /essential_selected/, 'Essential selection emits the approved tier-named selection event');
-assertMatchesSource(selectPersonalisedReportBlock, /report_option_selected/, 'R50 card selection emits only generic option analytics');
-assertNotMatchesSource(selectPersonalisedReportBlock, /personalised_report_50000_selected/, 'R50 card selection does not emit specific event or notification');
-assertIncludes(files.snapshot, 'onConfirm={requestDetailedReport}', 'Only order-summary confirmation calls the order route');
-assertSourceOrder(files.snapshot, 'buttonLabel="Order the full report"', 'onConfirm={requestDetailedReport}', 'R5 option selection appears before order confirmation action');
+assertIncludes(files.snapshot, "onClick={() => void selectPaidTier('essential')}", 'Essential selection is a distinct option step');
+assertIncludes(files.snapshot, "onClick={() => void selectPaidTier('comprehensive')}", 'Comprehensive selection is a distinct option step');
+assertIncludes(files.snapshot, 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`)', 'Current tier selection confirms through the paid-order route');
+assertNotIncludes(files.snapshot, 'requestDetailedReport', 'Current snapshot must not use the superseded generic report-request handler');
+assertNotIncludes(files.snapshot, 'selectFullReport', 'Current snapshot must not use the superseded R5 selection handler');
+assertNotIncludes(files.snapshot, 'selectPersonalisedReport', 'Current snapshot must not use the superseded R50 selection handler');
+assertIncludes(files.snapshot, 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Only order-summary confirmation calls the current paid-order handler');
+assertSourceOrder(files.snapshot, 'Choose Essential', 'onConfirm={() => requestPaidOrder(selectedOption)}', 'Paid-tier selection appears before order confirmation action');
+
+assertIncludes(files.paidOrderRoute, 'createPaidOrderForAssessment', 'Current paid-order route uses the commercial order service');
+assertIncludes(files.paidOrderRoute, 'isSelfServicePaidTier', 'Current paid-order route accepts only current self-service tiers');
+assertIncludes(files.paidOrderRoute, 'validateSnapshotToken', 'Current paid-order route requires the private snapshot token');
 
 assertIncludes(files.reportRequestRoute, 'validateSnapshotToken', 'R5 report request route requires snapshot token');
 assertNotIncludes(files.reportRequestRoute, 'consentContact', 'R5 report request route must not require consentContact');
-assertIncludes(files.reportRequestRoute, 'createOrGetOrderForReportRequest', 'R5 confirmation uses existing order engine');
+assertIncludes(files.reportRequestRoute, 'createOrGetOrderForReportRequest', 'Legacy detailed-report request route retains its separate manual EFT compatibility contract');
 
 assertIncludes(files.commercialEventRoute, 'validateSnapshotToken', 'Commercial event route validates snapshot token');
 assertIncludes(files.commercialEventRoute, "'executive_summary_viewed'", 'Commercial event route accepts executive summary view');
@@ -380,8 +384,8 @@ assertIncludes(files.migration, 'data_requests_request_reference_uidx', 'Migrati
 assertIncludes(files.migration, 'data_requests_active_personalised_report_uidx', 'Migration adds active enquiry uniqueness guard');
 assertIncludes(files.migration, 'revoke all on table public.data_requests from anon, authenticated', 'Migration keeps Data API exposure closed');
 assertIncludes(files.migration, 'manual_eft_only', 'Migration records manual EFT boundary');
-assertIncludes(files.migration, 'R5,000 including VAT', 'Migration note records approved R5 offer');
-assertIncludes(files.migration, 'From R50,000 including VAT', 'Migration note records approved personalised offer');
+assertIncludes(files.migration, 'R5,000 including VAT', 'Historical migration note records the superseded Essential offer');
+assertIncludes(files.migration, 'From R50,000 including VAT', 'Historical migration note records the superseded personalised offer');
 assertNotIncludes(files.migration, 'score_runs', 'Migration must not touch score_runs');
 assertNotIncludes(files.migration, 'score_domain_results', 'Migration must not touch score_domain_results');
 assertNotIncludes(files.migration, 'methodology_versions', 'Migration must not touch methodology versions');

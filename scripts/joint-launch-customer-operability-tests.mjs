@@ -58,8 +58,11 @@ check('reviewer workspace exposes payment, evidence, five human records, generat
 });
 
 check('generation is persisted-input based, real-file based and fail-closed for the presentation requirement', () => {
-  assert.match(generation, /loadComprehensiveReviewerInput/);
   assert.match(generation, /assembleReportData/);
+  assert.match(generation, /fromAssembledReportData\(assembled\)/);
+  assert.match(generation, /assertNarrativeCompositionReady/);
+  assert.match(generation, /narrativeRelease/);
+  assert.doesNotMatch(generation, /loadComprehensiveReviewerInput|reviewerInput/);
   assert.match(generation, /renderHtmlToPdfBuffer/);
   assert.match(generation, /buildComprehensiveRegisterWorkbookBytes/);
   assert.match(generation, /registerComprehensivePackageAtomically/);

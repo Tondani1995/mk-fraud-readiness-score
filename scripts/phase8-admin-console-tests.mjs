@@ -153,7 +153,11 @@ assertIncludes('src/components/admin/AdminLoginForm.tsx', "window.location.href 
 assertIncludes('src/components/assessment/StartAssessmentForm.tsx', "fetch(scorePath('/api/assessments/start')", 'Respondent start posts through score base path');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/answers`', 'Assessment autosave posts through score namespace');
 assertIncludes('src/components/assessment/AssessmentEngine.tsx', 'fetch(`/score/api/assessments/${props.assessmentReference}/submit`', 'Assessment submit posts through score namespace');
-assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/report-request`)', 'Snapshot report interest posts through score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', "const SCORE_BASE_PATH = '/score'", 'Snapshot defines the score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(scorePath(`/api/assessments/${snapshot.assessmentReference}/paid-order`)', 'Snapshot paid-order creation posts through score base path');
+assertIncludes('src/components/assessment/FreeSnapshot.tsx', 'snapshotToken: snapshotTokenFromUrl(snapshotUrl)', 'Snapshot paid-order request remains scoped to the private snapshot token');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`/api/assessments/${snapshot.assessmentReference}/paid-order`', 'Snapshot paid-order creation must not bypass the score namespace');
+assertNotIncludes('src/components/assessment/FreeSnapshot.tsx', 'fetch(`https://', 'Snapshot paid-order creation must not hardcode a host');
 assertIncludes('src/app/score/admin/assessments/page.tsx', 'action="/score/admin/assessments"', 'Admin assessment filter form preserves score base path');
 
 assertIncludes('src/app/score/assessment/[assessmentRef]/page.tsx', 'publicDomains(methodology)', 'Assessment page must pass a customer-safe domain view model');
