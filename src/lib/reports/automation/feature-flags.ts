@@ -4,6 +4,9 @@ import {
   PREMIUM_REPORT_SCHEMA_VERSION,
   type PremiumReportAutomationFlags
 } from './types';
+import { selectNarrativeModel } from '../ai-model-policy';
+
+const DEFAULT_NARRATIVE_MODEL = selectNarrativeModel().requestedModel;
 
 export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFlags = Object.freeze({
   securityGateSatisfied: false,
@@ -14,7 +17,7 @@ export const DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS: PremiumReportAutomationFla
   manualDeliveryEnabled: false,
   testRecipientOverrideEnabled: false,
   testRecipientOverride: null,
-  model: process.env.MK_REPORT_AI_MODEL?.trim() || 'openai/gpt-5.5',
+  model: DEFAULT_NARRATIVE_MODEL,
   promptVersion: PREMIUM_REPORT_PROMPT_VERSION,
   schemaVersion: PREMIUM_REPORT_SCHEMA_VERSION,
   contractVersionMismatch: null
@@ -42,7 +45,7 @@ export function parsePremiumReportAutomationFlags(value: unknown): PremiumReport
     testRecipientOverrideEnabled: enabled(source.premium_report_test_recipient_override_enabled),
     testRecipientOverride: optionalText(source.premium_report_test_recipient_override),
     model: optionalText(source.premium_report_ai_model)
-      ?? process.env.MK_REPORT_AI_MODEL?.trim()
+      ?? optionalText(process.env.MK_REPORT_AI_MODEL)
       ?? DEFAULT_PREMIUM_REPORT_AUTOMATION_FLAGS.model,
     // The COMPILED constants are the contract. A database setting cannot relabel the executable
     // prompt and schema: it may only assert what it expects to be deployed. Where it asserts

@@ -11,3 +11,5 @@ export * from './writer-brief';
 export * from './presentation-hygiene';
 export * from './owner-review-diagnostics';
 export * from './call-accounting';
+export * from './section-identity';
+export * from '../ai-model-policy';

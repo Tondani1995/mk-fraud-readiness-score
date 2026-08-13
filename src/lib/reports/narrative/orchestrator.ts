@@ -47,7 +47,7 @@ export async function generateValidatedNarrative(input: { factPack: NarrativeFac
   for (const movement of input.storyPlan.movements) {
     for (const sectionId of movement.sectionIds) {
       const next = input.storyPlan.movements.find((candidate) => candidate.order === movement.order + 1);
-      const section = await input.writer.writeSection({ factPack: input.factPack, storyPlan: input.storyPlan, spine, previousTransition, currentSectionId: sectionId, currentSectionPurpose: movement.objective, nextSectionPurpose: next?.objective ?? input.storyPlan.requiredConclusion, requiredManagementTakeaway: movement.requiredManagementTakeaway, prohibitedClaims: input.storyPlan.prohibitedClaims });
+      const section = await input.writer.writeSection({ factPack: input.factPack, storyPlan: input.storyPlan, spine, previousTransition, currentSectionId: sectionId, currentMovementId: movement.id, currentSectionPurpose: movement.objective, nextSectionPurpose: next?.objective ?? input.storyPlan.requiredConclusion, requiredManagementTakeaway: movement.requiredManagementTakeaway, prohibitedClaims: input.storyPlan.prohibitedClaims });
       sections.push(section);
       previousTransition = section.transition?.text;
     }

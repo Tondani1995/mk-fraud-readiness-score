@@ -8,20 +8,19 @@ import type { NarrativeStoryPlan } from './story-plan';
 import { buildNarrativeWriterBrief, type NarrativeWriterBrief } from './writer-brief';
 import { sanitiseNarrativePresentation } from './presentation-hygiene';
 import { NarrativeAiCallAccounting } from './call-accounting';
+import { selectNarrativeModel } from '../ai-model-policy';
+import { applyDeterministicSectionIdentity, type NarrativeSectionContent } from './section-identity';
 
 export const V11_NARRATIVE_PROMPT_VERSION = 'mk-reporting-bible-1.1-manuscript-advisory-v1';
-export const V11_NARRATIVE_MODEL = process.env.MK_REPORT_AI_MODEL?.trim() ?? '';
+export const V11_NARRATIVE_MODEL = selectNarrativeModel().requestedModel;
 
 const claimBlock = z.object({ id: z.string().min(1), text: z.string().min(1), claimRefs: z.array(z.string().min(1)) }).strict();
 const spineSchema = z.object({ executiveDiagnosis: claimBlock, systemicThemeSummary: claimBlock, centralManagementImplication: claimBlock, route: claimBlock }).strict();
 // The AI Gateway's strict structured-output contract requires every object property to be listed
 // as required. A final section has no transition, so represent that absence as explicit null at
-// the provider boundary and normalise it back to the internal optional manuscript shape below.
-const sectionSchema = z.object({ sectionId: z.string().min(1), movementId: z.string().min(1), heading: claimBlock, paragraphs: z.array(claimBlock).min(1), transition: claimBlock.nullable() }).strict();
-
-function normaliseSection(value: z.infer<typeof sectionSchema>): NarrativeManuscriptSection {
-  return { ...value, transition: value.transition ?? undefined };
-}
+// the provider boundary. Structural identity is deliberately absent: Story Plan IDs are attached
+// by the deterministic application layer after provider output is parsed.
+const sectionSchema = z.object({ heading: claimBlock, paragraphs: z.array(claimBlock).min(1), transition: claimBlock.nullable() }).strict();
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function sha(value: unknown): string { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
@@ -94,15 +93,16 @@ export class V11AiNarrativeWriter implements NarrativeWriter {
   }
 
   async writeSection(input: NarrativeWriterContext): Promise<NarrativeManuscriptSection> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: sectionSchema, pack: input.factPack, plan: input.storyPlan, phase: 'section', sectionId: input.currentSectionId, accounting: this.callAccounting, prompt: `Write section ${input.currentSectionId}. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references. Text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in heading.text, paragraph.text or transition.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never state that MK, the assessment or the report performed or confirmed it. Include the required transition property as a ClaimBlock for every non-final section and as null for the final section.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: sectionSchema, pack: input.factPack, plan: input.storyPlan, phase: 'section', sectionId: input.currentSectionId, accounting: this.callAccounting, prompt: `Write section content for the deterministic Story Plan section ${input.currentSectionId} in movement ${input.currentMovementId}. Do not output sectionId or movementId; the application will attach those exact Story Plan values. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references. Text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in heading.text, paragraph.text or transition.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never state that MK, the assessment or the report performed or confirmed it. Include the required transition property as a ClaimBlock for every non-final section and as null for the final section.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
     this.presentationSanitisedProvenanceTokenCount += result.metadata.presentationSanitisedProvenanceTokenCount ?? 0;
-    return normaliseSection(result.value);
+    return applyDeterministicSectionIdentity(result.value as NarrativeSectionContent, input.currentSectionId, input.currentMovementId);
   }
 
   async coherencePass(input: { manuscript: NarrativeManuscript; factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeManuscript> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: z.object({ sections: z.array(sectionSchema).min(1) }).strict(), pack: input.factPack, plan: input.storyPlan, phase: 'coherence', accounting: this.callAccounting, prompt: `Perform one bounded editorial coherence pass over this manuscript. Smooth transitions, remove repetition, standardise terminology and preserve every deterministic fact, priority, owner, timing, control, scenario, decision and claim reference. Do not add analytical content. Return all sections. Text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in heading.text, paragraph.text or transition.text. Preserve customer control-design language for independent verification or review, but never introduce or imply MK, assessment or report assurance, validation, testing or confirmation of operating effectiveness.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nMANUSCRIPT\n${JSON.stringify(input.manuscript)}` });
+    const coherenceSchema = z.object({ sections: z.array(sectionSchema).length(input.manuscript.sections.length) }).strict();
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: coherenceSchema, pack: input.factPack, plan: input.storyPlan, phase: 'coherence', accounting: this.callAccounting, prompt: `Perform one bounded editorial coherence pass over this manuscript in the exact existing section order. Return only section content (heading, paragraphs and transition); do not output sectionId or movementId. The application will restore the exact Story Plan identities and order. Smooth transitions, remove repetition, standardise terminology and preserve every deterministic fact, priority, owner, timing, control, scenario, decision and claim reference. Do not add analytical content. Text fields are customer prose; claimRefs are internal provenance metadata only. Preserve customer control-design language for independent verification or review, but never introduce or imply MK, assessment or report assurance, validation, testing or confirmation of operating effectiveness.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nMANUSCRIPT\n${JSON.stringify(input.manuscript)}` });
     this.presentationSanitisedProvenanceTokenCount += result.metadata.presentationSanitisedProvenanceTokenCount ?? 0;
-    return { ...input.manuscript, sections: result.value.sections.map(normaliseSection), writerMetadata: { ...input.manuscript.writerMetadata, generatedAt: new Date().toISOString(), presentationSanitisedProvenanceTokenCount: this.presentationSanitisedProvenanceTokenCount } };
+    return { ...input.manuscript, sections: result.value.sections.map((content, index) => applyDeterministicSectionIdentity(content as NarrativeSectionContent, input.manuscript.sections[index].sectionId, input.manuscript.sections[index].movementId)), writerMetadata: { ...input.manuscript.writerMetadata, generatedAt: new Date().toISOString(), presentationSanitisedProvenanceTokenCount: this.presentationSanitisedProvenanceTokenCount } };
   }
 }
 

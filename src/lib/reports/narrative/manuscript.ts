@@ -63,6 +63,7 @@ export interface NarrativeWriterContext {
   spine?: NarrativeSpine;
   previousTransition?: string;
   currentSectionId: string;
+  currentMovementId: string;
   currentSectionPurpose: string;
   nextSectionPurpose: string;
   requiredManagementTakeaway: string;

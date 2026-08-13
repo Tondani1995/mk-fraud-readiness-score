@@ -226,13 +226,24 @@ await test('M4: the minimum commercial-substance control still fires independent
 });
 
 // ---------------------------------------------------------------- L3 actual-byte reconciliation
+// Reporting Bible v1.1 §20.1 is the authoritative Essential workbook contract. The former
+// Functional Agenda expectation is superseded and must not return.
+const AUTHORITATIVE_ESSENTIAL_SHEETS = [
+  'Read me',
+  'Findings',
+  'Risks',
+  'Control Actions',
+  'Evidence Checklist',
+  'Roadmap',
+  'Question Trace',
+  'Control Improvements'
+];
 const GOVERNED = {
   Findings: (m, d) => m.materialFindings.map((x) => x.id),
   Risks: (m) => m.riskRegister.map((x) => x.id),
   'Control Improvements': (m) => m.controlImprovements.map((x) => x.id),
   'Evidence Checklist': (m) => m.evidenceChecklist.map((x) => x.id),
   Roadmap: (m) => m.roadmapActions.map((x) => x.id),
-  'Functional Agenda': (m) => m.functionalAgenda.map((x) => x.id),
   'Question Trace': (m, d) => d.questionTraces.map((x) => x.questionCode)
 };
 
@@ -242,13 +253,16 @@ async function parseWorkbook(bytes) {
 }
 
 let f1Workbook;
-await test('L3: F1 workbook reconciles identifier SETS from actual XLSX bytes', async () => {
+await test('L3: F1 workbook follows the v1.1 eight-sheet contract and reconciles identifier SETS from actual XLSX bytes', async () => {
   const model = buildAdvisoryEvidenceModel(F1);
   const projection = buildEssentialProjection(F1, model);
   f1Workbook = await buildSupportingRegisterWorkbook(F1, model, projection);
   assert.match(f1Workbook.checksumSha256, /^[0-9a-f]{64}$/);
   assert.ok(f1Workbook.bytes.length > 0);
   const parsed = await parseWorkbook(f1Workbook.bytes);
+  assert.deepEqual(Object.keys(parsed), AUTHORITATIVE_ESSENTIAL_SHEETS, 'workbook must use the exact Reporting Bible v1.1 sheet order');
+  assert.equal(Object.keys(parsed).length, 8, 'Reporting Bible v1.1 Essential workbook must contain exactly eight sheets');
+  assert.equal(Object.keys(parsed)[0], 'Read me', 'Read me must be the first sheet');
   for (const [sheet, ids] of Object.entries(GOVERNED)) {
     assert.ok(parsed[sheet], `workbook must contain the ${sheet} sheet`);
     const rows = parsed[sheet].slice(1);                    // header row excluded
@@ -262,6 +276,7 @@ await test('L3: F1 workbook reconciles identifier SETS from actual XLSX bytes', 
 // ---------------------------------------------------------------- L3 adversarial suite
 function reconcile(parsed, model, data) {
   const mismatches = [];
+  if (JSON.stringify(Object.keys(parsed)) !== JSON.stringify(AUTHORITATIVE_ESSENTIAL_SHEETS)) mismatches.push('sheet-contract');
   for (const [sheet, ids] of Object.entries(GOVERNED)) {
     const rows = parsed[sheet]?.slice(1);
     if (!rows) { mismatches.push(`${sheet}:missing`); continue; }
@@ -290,7 +305,7 @@ await test('L3 adversarial: twelve defective workbooks all fail closed', async (
     ['broken provenance (question trace)', mutate((w) => { w['Question Trace'] = w['Question Trace'].map((r, i) => (i === 0 ? r : ['ZZ-Q99', ...r.slice(1)])); })],
     ['first sheet only', { Findings: parsed.Findings }],
     ['empty workbook', {}],
-    ['agenda truncated', mutate((w) => { w['Functional Agenda'] = w['Functional Agenda'].slice(0, 5); })],
+    ['question trace truncated', mutate((w) => { w['Question Trace'] = w['Question Trace'].slice(0, 5); })],
     ['control improvements dropped', mutate((w) => { w['Control Improvements'] = [w['Control Improvements'][0]]; })]
   ];
   for (const [label, defective] of cases) {
