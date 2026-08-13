@@ -1,4 +1,5 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
+import type { NarrativeMode } from '../evidence-model/types';
 import type { NarrativeStoryPlan } from './story-plan';
 
 export const NARRATIVE_WRITER_BRIEF_SCHEMA_VERSION = 'mk-reporting-bible-1.1-writer-brief-v1';
@@ -7,6 +8,7 @@ export interface NarrativeWriterBrief {
   schemaVersion: typeof NARRATIVE_WRITER_BRIEF_SCHEMA_VERSION;
   bibleVersion: '1.1';
   productTier: NarrativeProductTier;
+  narrativeMode: NarrativeMode;
   organisation: { name: string; sectorFacts: string[] };
   assessmentBasis: string;
   assuranceBoundary: string;
@@ -48,6 +50,22 @@ export interface NarrativeWriterBrief {
     targetPeriod: string;
     approvedControlResponse: string;
     effectivenessMeasure: string;
+  }>;
+  sustainmentPriorities: Array<{
+    factRef: string;
+    title: string;
+    domain: string;
+    semanticFamilyLabel: string;
+    recordedPosition: string;
+    currentStrongStandard: string;
+    managementFocus: string;
+    accountableExecutive: string;
+    processOwner: string;
+    operatingFrequency: string;
+    proofRetained: string[];
+    deteriorationTrigger: string;
+    effectivenessIndicator: string;
+    dependencies: string[];
   }>;
   risks: Array<{
     factRef: string;
@@ -99,6 +117,7 @@ export interface NarrativeWriterBrief {
     failureResponse: string;
     dependencies: string[];
     linkedFindingRefs: string[];
+    linkedSustainmentPriorityRefs: string[];
   }>;
   decisions: Array<{
     factRef: string;
@@ -111,6 +130,7 @@ export interface NarrativeWriterBrief {
     targetDate: string;
     consequenceOfDelay: string;
     linkedFindingRefs: string[];
+    linkedSustainmentPriorityRefs: string[];
   }>;
   roadmap: Array<{
     factRef: string;
@@ -126,10 +146,12 @@ export interface NarrativeWriterBrief {
     proofOfCompletion: string;
     successMeasure: string;
     failureTrigger: string;
+    sourceSustainmentPriorityRef?: string;
   }>;
   maturationSteps: Array<{
     maturationRef: string;
     linkedFindingRef: string;
+    linkedSustainmentPriorityRef?: string;
     linkedControlRef: string;
     semanticFamilyLabel: string;
     phase: string;
@@ -286,6 +308,7 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
     schemaVersion: NARRATIVE_WRITER_BRIEF_SCHEMA_VERSION,
     bibleVersion: '1.1',
     productTier: pack.productTier,
+    narrativeMode: pack.narrativeMode,
     organisation: { name: pack.organisation.name, sectorFacts: pack.organisation.sectorFacts.filter(Boolean) },
     assessmentBasis: 'The assessment is based on management’s recorded self-assessment and deterministic scoring inputs.',
     assuranceBoundary: 'The assessment does not independently verify operating effectiveness, evidence or every in-scope control.',
@@ -328,12 +351,28 @@ export function buildNarrativeWriterBrief(pack: NarrativeFactPack, plan: Narrati
       approvedControlResponse: finding.approvedControlResponse,
       effectivenessMeasure: finding.effectivenessMeasure
     })),
+    sustainmentPriorities: pack.sustainmentPriorities.map((priority) => ({
+      factRef: priority.factRef,
+      title: cleanWriterText(priority.title),
+      domain: cleanWriterText(priority.domain),
+      semanticFamilyLabel: label(familyLabels, priority.semanticFamily),
+      recordedPosition: cleanWriterText(priority.recordedPosition),
+      currentStrongStandard: cleanWriterText(priority.currentStrongStandard),
+      managementFocus: cleanWriterText(priority.managementFocus),
+      accountableExecutive: cleanWriterText(priority.accountableExecutive),
+      processOwner: cleanWriterText(priority.processOwner),
+      operatingFrequency: cleanWriterText(priority.operatingFrequency),
+      proofRetained: priority.proofRetained.map(cleanWriterText),
+      deteriorationTrigger: cleanWriterText(priority.deteriorationTrigger),
+      effectivenessIndicator: cleanWriterText(priority.effectivenessIndicator),
+      dependencies: priority.dependencies.map(cleanWriterText)
+    })),
     risks: risks.map(({ factRef, title, cause, riskEvent, priority, likelihood, impact, qualitativeConsequence, linkedFindingRefs, approvedTreatment, owner, targetPeriod }) => ({ factRef, title: cleanWriterText(title), cause: cleanWriterText(cause), riskEvent: cleanWriterText(riskEvent), priority, likelihood, impact, qualitativeConsequence: cleanWriterText(qualitativeConsequence), linkedFindingRefs, approvedTreatment: cleanWriterText(approvedTreatment), owner: cleanWriterText(owner), targetPeriod })),
     scenarios: scenarios.map(({ factRef, scenarioFamily, title, actorClass, opportunity, entryPoint, mechanism, currentControlWeakness, requiredControlResponse, concealment, consequence, warningIndicators, immediateContainment, longTermResponse, linkedFindingRefs, linkedRiskRefs }) => ({ factRef, scenarioFamilyLabel: label(pathwayLabels, scenarioFamily), title: cleanWriterText(title), actorClass: cleanWriterText(actorClass), opportunity: cleanWriterText(opportunity), entryPoint: cleanWriterText(entryPoint), mechanism: cleanWriterText(mechanism), currentControlWeakness: cleanWriterText(currentControlWeakness), requiredControlResponse: cleanWriterText(requiredControlResponse), concealment: cleanWriterText(concealment), consequence: cleanWriterText(consequence), warningIndicators: warningIndicators.map(cleanWriterText), immediateContainment: cleanWriterText(immediateContainment), longTermResponse: cleanWriterText(longTermResponse), linkedFindingRefs, linkedRiskRefs })),
-    controls: controls.map(({ factRef, primarySemanticFamily, objective, currentState, targetState, accountableExecutive, processOwner, population, frequency, proofRetained, independentCheck, escalationTrigger, sla, effectivenessMeasure, failureResponse, dependencies, linkedFindingRefs }) => ({ factRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), objective: cleanWriterText(objective), currentState: cleanControlState(currentState), targetState: cleanWriterText(targetState), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), population: cleanWriterText(population), frequency: cleanWriterText(frequency), proofRetained: proofRetained.map(cleanWriterText), independentCheck: cleanWriterText(independentCheck), escalationTrigger: cleanWriterText(escalationTrigger), sla: cleanWriterText(sla), effectivenessMeasure: cleanWriterText(effectivenessMeasure), failureResponse: cleanWriterText(failureResponse), dependencies: dependencies.map(cleanWriterText), linkedFindingRefs })),
-    decisions: decisions.map(({ factRef, decisionSemanticFamily, question, options, recommendedRoute, rationale, owner, targetDate, consequenceOfDelay, linkedFindingRefs }) => ({ factRef, decisionFamilyLabel: label(decisionLabels, decisionSemanticFamily), question: cleanWriterText(question), options: options.map((option) => ({ option: cleanWriterText(option.option), cost: cleanWriterText(option.cost), benefit: cleanWriterText(option.benefit), tradeOff: cleanWriterText(option.tradeOff) })), recommendedRoute: cleanWriterText(recommendedRoute), rationale: cleanWriterText(rationale), owner: cleanWriterText(owner), targetDate: cleanWriterText(targetDate), consequenceOfDelay: cleanWriterText(consequenceOfDelay), linkedFindingRefs })),
-    roadmap: roadmap.map(({ factRef, sourceFindingRef, primarySemanticFamily, phase, managementOutcome, priorityWork, accountableExecutive, processOwner, targetPeriod, dependencies, proofOfCompletion, successMeasure, failureTrigger }) => ({ factRef, sourceFindingRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), phase, managementOutcome: cleanWriterText(managementOutcome), priorityWork: cleanWriterText(priorityWork), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), targetPeriod, dependencies: dependencies.map(cleanWriterText), proofOfCompletion: cleanWriterText(proofOfCompletion), successMeasure: cleanWriterText(successMeasure), failureTrigger: cleanWriterText(failureTrigger) })),
-    maturationSteps: maturationSteps.map(({ maturationRef, linkedFindingRef, linkedControlRef, semanticFamily, phase, phaseWindow, managementOutcome, priorityActivity, accountableExecutive, processOwner, dependency, successMeasure, proofOfProgress }) => ({ maturationRef, linkedFindingRef, linkedControlRef, semanticFamilyLabel: label(familyLabels, semanticFamily), phase, phaseWindow, managementOutcome: cleanWriterText(managementOutcome), priorityActivity: cleanWriterText(priorityActivity), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), dependency: cleanWriterText(dependency), successMeasure: cleanWriterText(successMeasure), proofOfProgress: cleanWriterText(proofOfProgress) })),
+    controls: controls.map(({ factRef, primarySemanticFamily, objective, currentState, targetState, accountableExecutive, processOwner, population, frequency, proofRetained, independentCheck, escalationTrigger, sla, effectivenessMeasure, failureResponse, dependencies, linkedFindingRefs, linkedSustainmentPriorityRefs }) => ({ factRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), objective: cleanWriterText(objective), currentState: cleanControlState(currentState), targetState: cleanWriterText(targetState), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), population: cleanWriterText(population), frequency: cleanWriterText(frequency), proofRetained: proofRetained.map(cleanWriterText), independentCheck: cleanWriterText(independentCheck), escalationTrigger: cleanWriterText(escalationTrigger), sla: cleanWriterText(sla), effectivenessMeasure: cleanWriterText(effectivenessMeasure), failureResponse: cleanWriterText(failureResponse), dependencies: dependencies.map(cleanWriterText), linkedFindingRefs, linkedSustainmentPriorityRefs })),
+    decisions: decisions.map(({ factRef, decisionSemanticFamily, question, options, recommendedRoute, rationale, owner, targetDate, consequenceOfDelay, linkedFindingRefs, linkedSustainmentPriorityRefs }) => ({ factRef, decisionFamilyLabel: label(decisionLabels, decisionSemanticFamily), question: cleanWriterText(question), options: options.map((option) => ({ option: cleanWriterText(option.option), cost: cleanWriterText(option.cost), benefit: cleanWriterText(option.benefit), tradeOff: cleanWriterText(option.tradeOff) })), recommendedRoute: cleanWriterText(recommendedRoute), rationale: cleanWriterText(rationale), owner: cleanWriterText(owner), targetDate: cleanWriterText(targetDate), consequenceOfDelay: cleanWriterText(consequenceOfDelay), linkedFindingRefs, linkedSustainmentPriorityRefs })),
+    roadmap: roadmap.map(({ factRef, sourceFindingRef, sourceSustainmentPriorityRef, primarySemanticFamily, phase, managementOutcome, priorityWork, accountableExecutive, processOwner, targetPeriod, dependencies, proofOfCompletion, successMeasure, failureTrigger }) => ({ factRef, sourceFindingRef, sourceSustainmentPriorityRef, semanticFamilyLabel: label(familyLabels, primarySemanticFamily), phase, managementOutcome: cleanWriterText(managementOutcome), priorityWork: cleanWriterText(priorityWork), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), targetPeriod, dependencies: dependencies.map(cleanWriterText), proofOfCompletion: cleanWriterText(proofOfCompletion), successMeasure: cleanWriterText(successMeasure), failureTrigger: cleanWriterText(failureTrigger) })),
+    maturationSteps: maturationSteps.map(({ maturationRef, linkedFindingRef, linkedSustainmentPriorityRef, linkedControlRef, semanticFamily, phase, phaseWindow, managementOutcome, priorityActivity, accountableExecutive, processOwner, dependency, successMeasure, proofOfProgress }) => ({ maturationRef, linkedFindingRef, linkedSustainmentPriorityRef, linkedControlRef, semanticFamilyLabel: label(familyLabels, semanticFamily), phase, phaseWindow, managementOutcome: cleanWriterText(managementOutcome), priorityActivity: cleanWriterText(priorityActivity), accountableExecutive: cleanWriterText(accountableExecutive), processOwner: cleanWriterText(processOwner), dependency: cleanWriterText(dependency), successMeasure: cleanWriterText(successMeasure), proofOfProgress: cleanWriterText(proofOfProgress) })),
     proofOfProgress: proofOfProgress.map(({ factRef, requirement, owner, whyItMatters, expectedRecency, requiredPopulation, acceptableExamples }) => ({ factRef, requirement: cleanWriterText(requirement), owner: cleanWriterText(owner), whyItMatters: cleanWriterText(whyItMatters), expectedRecency: cleanWriterText(expectedRecency), requiredPopulation: cleanWriterText(requiredPopulation), acceptableExamples: acceptableExamples.map(cleanWriterText) })),
     narrativeBounds: { themeCount: themes.length, findingCount: findings.length, scenarioCount: scenarios.length, controlCount: controls.length, decisionCount: decisions.length, managementResponseCount: roadmap.length, maturationCount: maturationSteps.length },
     standaloneFindingReasons: pack.standaloneFindingReasons,
@@ -367,10 +406,18 @@ export function assertNarrativeWriterBrief(brief: NarrativeWriterBrief): void {
   }
   if (brief.findings.some((finding) => !finding.factRef || !finding.semanticFamilyLabel || !finding.materialityLabel)) throw new Error('Narrative Writer Brief contains an incomplete finding.');
   if (!brief.assessmentBasis || !brief.assuranceBoundary) throw new Error('Narrative Writer Brief is missing its global assessment basis or assurance boundary.');
+  if (brief.narrativeMode === 'SUSTAINMENT') {
+    if (brief.sustainmentPriorities.length === 0 || brief.findings.length !== 0 || brief.risks.length !== 0 || brief.scenarios.length !== 0) throw new Error('Sustainment Writer Brief must separate priorities from findings, risks and scenarios.');
+    const customerText = JSON.stringify({ priorities: brief.sustainmentPriorities, controls: brief.controls, decisions: brief.decisions, roadmap: brief.roadmap, maturation: brief.maturationSteps });
+    if (/material (?:control )?(?:weakness|gap)|priority weakness|control failure|remediation required|urgent remediation|foundational failure|close (?:the )?weakness|implement (?:the )?missing control|validate that|independently validate|before relying on self-assessment|self-reported claims remain unverified/i.test(customerText)) throw new Error('Sustainment Writer Brief contains weakness or automated evidence-validation language.');
+    if (brief.controls.some((control) => control.linkedFindingRefs.length > 0 || control.linkedSustainmentPriorityRefs.length === 0)) throw new Error('Sustainment Writer Brief controls must link only to sustainment priorities.');
+    if (brief.decisions.some((decision) => decision.linkedFindingRefs.length > 0 || decision.linkedSustainmentPriorityRefs.length === 0)) throw new Error('Sustainment Writer Brief decisions must link only to sustainment priorities.');
+    if (brief.roadmap.some((item) => item.sourceFindingRef || !item.sourceSustainmentPriorityRef)) throw new Error('Sustainment Writer Brief roadmap must link only to sustainment priorities.');
+  }
   if (brief.scenarios.some((scenario) => !scenario.scenarioFamilyLabel || scenario.linkedFindingRefs.length === 0 || !scenario.currentControlWeakness || !scenario.requiredControlResponse)) throw new Error('Narrative Writer Brief contains an incomplete scenario.');
   if (brief.risks.some((risk) => !risk.title || !risk.cause || !risk.riskEvent || !risk.qualitativeConsequence || !risk.owner || !risk.targetPeriod)) throw new Error('Narrative Writer Brief contains an incomplete risk.');
   if (brief.proofOfProgress.some((proof) => !proof.requirement || !proof.owner || !proof.whyItMatters || !proof.expectedRecency || !proof.requiredPopulation || proof.acceptableExamples.length === 0 || /to be confirmed|Evidence mapped to ,|placeholder|TBD/i.test(JSON.stringify(proof)))) throw new Error('Narrative Writer Brief contains low-quality proof guidance.');
   if (brief.productTier === 'essential' && brief.maturationSteps.length !== 0) throw new Error('Essential Writer Brief must not contain maturation steps.');
-  if (brief.maturationSteps.some((step) => !step.maturationRef || !step.linkedFindingRef || !step.linkedControlRef || !step.semanticFamilyLabel || !step.phase || !step.phaseWindow || !step.managementOutcome || !step.priorityActivity || !step.accountableExecutive || !step.processOwner || !step.dependency || !step.successMeasure || !step.proofOfProgress)) throw new Error('Writer Brief contains an incomplete maturation step.');
+  if (brief.maturationSteps.some((step) => !step.maturationRef || (!(step.linkedFindingRef || step.linkedSustainmentPriorityRef)) || !step.linkedControlRef || !step.semanticFamilyLabel || !step.phase || !step.phaseWindow || !step.managementOutcome || !step.priorityActivity || !step.accountableExecutive || !step.processOwner || !step.dependency || !step.successMeasure || !step.proofOfProgress)) throw new Error('Writer Brief contains an incomplete maturation step.');
   if ((payload.match(/not independently verified/gi) ?? []).length > 1) throw new Error('Narrative Writer Brief repeats the assurance boundary inside its payload.');
 }

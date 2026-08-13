@@ -1,4 +1,5 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
+import type { NarrativeMode } from '../evidence-model/types';
 
 export const NARRATIVE_STORY_PLAN_SCHEMA_VERSION = 'mk-reporting-bible-1.1-story-plan-v1';
 
@@ -16,6 +17,7 @@ export interface NarrativeStoryPlan {
   schemaVersion: typeof NARRATIVE_STORY_PLAN_SCHEMA_VERSION;
   bibleVersion: '1.1';
   productTier: NarrativeProductTier;
+  narrativeMode: NarrativeMode;
   executiveStoryObjective: string;
   movements: NarrativeMovement[];
   themeOrder: string[];
@@ -37,8 +39,16 @@ function maturationIds(items: NarrativeFactPack['maturationSteps']): string[] { 
 
 export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStoryPlan {
   const essential = pack.productTier === 'essential';
+  const sustainment = pack.narrativeMode === 'SUSTAINMENT';
   const movements: NarrativeMovement[] = essential
-    ? [
+    ? sustainment ? [
+      { id: 'diagnosis', order: 1, title: 'Executive assessment', objective: 'Explain the recorded readiness position and what it means for management.', sectionIds: ['EXECUTIVE-ASSESSMENT', 'READINESS-PROFILE'], transitionPurpose: 'Set the recorded result and its assurance boundary before moving to sustainment.', requiredManagementTakeaway: 'Management should understand that the recorded profile is strong and the priority is to preserve it.' },
+      { id: 'drivers', order: 2, title: 'What is supporting the result', objective: 'Show the recorded standards and management disciplines supporting readiness.', sectionIds: ['READINESS-SUPPORTING-STANDARDS'], transitionPurpose: 'Move from the score to the operating strengths that need continuity.', requiredManagementTakeaway: 'The result is supported by recorded standards that require continued ownership and review.' },
+      { id: 'findings', order: 3, title: 'Priorities to sustain readiness', objective: 'Set the small number of resilience priorities as management disciplines to preserve.', sectionIds: ['SUSTAINMENT-PRIORITIES'], transitionPurpose: 'Move from current strengths to the practices that protect them from drift.', requiredManagementTakeaway: 'Sustainment priorities preserve readiness through ownership, review and early detection.' },
+      { id: 'exposure', order: 4, title: 'Where deterioration could emerge', objective: 'Identify only supported change or drift watchpoints; do not fabricate fraud scenarios.', sectionIds: ['DETERIORATION-WATCHPOINTS'], transitionPurpose: 'Use supported watchpoints to define early management attention.', requiredManagementTakeaway: 'Management should monitor for change-triggered deterioration through the normal review route.' },
+      { id: 'response', order: 5, title: 'What management should protect and strengthen', objective: 'Set the first 90-day sustainment actions, owners, records and indicators.', sectionIds: ['SUSTAINMENT-BLUEPRINT', 'RESPONSE-30-60-90'], transitionPurpose: 'Close with the management rhythm that keeps readiness durable.', requiredManagementTakeaway: 'Within 90 days, ownership, review cadence and deterioration information should be current.' },
+      { id: 'conclusion', order: 6, title: 'Management conclusion', objective: 'Conclude with the value of preserving readiness and detecting early drift.', sectionIds: ['CONCLUSION'], transitionPurpose: 'End with a clear sustainment commitment.', requiredManagementTakeaway: 'Management should preserve the strong recorded standard and refresh it when material change occurs.' }
+    ] : [
       { id: 'diagnosis', order: 1, title: 'Executive diagnosis', objective: 'Explain where the organisation stands and what the recorded result means.', sectionIds: ['EXECUTIVE-DIAGNOSIS', 'READINESS-PROFILE'], transitionPurpose: 'Show why the score requires a closer look at the few patterns driving it.', requiredManagementTakeaway: 'Management should understand the result, its uncertainty and immediate priority.' },
       { id: 'drivers', order: 2, title: 'What is driving the result', objective: 'Synthesise deterministic finding clusters into management themes.', sectionIds: ['SYSTEMIC-THEMES'], transitionPurpose: 'Move from broad pattern to the findings that matter most.', requiredManagementTakeaway: 'Leadership should focus on the small number of patterns with the greatest fraud-risk consequence.' },
       { id: 'findings', order: 3, title: 'The findings that matter most', objective: 'Explain priority weaknesses as advisory observations.', sectionIds: ['PRIORITY-FINDINGS'], transitionPurpose: 'Show how linked weaknesses could become plausible fraud pathways.', requiredManagementTakeaway: 'Each priority weakness needs an owned treatment, not only a description.' },
@@ -46,7 +56,17 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
       { id: 'response', order: 5, title: 'What management should do first', objective: 'Set first-priority controls and a readable 30/60/90 response.', sectionIds: ['MANAGEMENT-PRIORITIES', 'RESPONSE-30-60-90'], transitionPurpose: 'Close by defining what success should look like after the first response period.', requiredManagementTakeaway: 'Management should know the first controls, owners, timing and success measures.' },
       { id: 'conclusion', order: 6, title: 'Management conclusion', objective: 'Close the diagnosis with a practical next step.', sectionIds: ['CONCLUSION'], transitionPurpose: 'End with the management implication and route forward.', requiredManagementTakeaway: 'Within 90 days the organisation should have accountable ownership, priority controls and a repeatable first operating cycle.' }
     ]
-    : [
+    : sustainment ? [
+      { id: 'diagnosis', order: 1, title: 'Executive assessment', objective: 'State the recorded readiness position and its assurance boundary.', sectionIds: ['EXECUTIVE-ASSESSMENT'], transitionPurpose: 'Clarify the analytical basis before sustainment interpretation.', requiredManagementTakeaway: 'The recorded profile is strong; the management question is how to preserve it.' },
+      { id: 'basis', order: 2, title: 'Analytical basis', objective: 'Explain the recorded standards and domain pattern supporting readiness.', sectionIds: ['ANALYTICAL-BASIS', 'READINESS-PROFILE'], transitionPurpose: 'Move from the score shape to the strengths supporting it.', requiredManagementTakeaway: 'The conclusion follows from recorded responses and deterministic scoring, not independent assurance.' },
+      { id: 'themes', order: 3, title: 'Strengths supporting readiness', objective: 'Connect the recorded standards to the resilience disciplines management should protect.', sectionIds: ['READINESS-SUPPORTING-STANDARDS'], transitionPurpose: 'Move from strengths to the sustainment priorities that preserve them.', requiredManagementTakeaway: 'Current strengths remain valuable when ownership, review and proof are retained.' },
+      { id: 'findings', order: 4, title: 'Sustainment and resilience priorities', objective: 'Set clean management priorities for continuity, review and early detection of drift.', sectionIds: ['SUSTAINMENT-PRIORITIES'], transitionPurpose: 'Move from priority disciplines to supported deterioration watchpoints.', requiredManagementTakeaway: 'Priorities preserve readiness through continuity, review and early detection.' },
+      { id: 'exposure', order: 5, title: 'Emerging or deterioration watchpoints', objective: 'Describe only supported conditions that could erode the recorded position after change.', sectionIds: ['DETERIORATION-WATCHPOINTS'], transitionPurpose: 'Use the watchpoints to define the resilient control environment.', requiredManagementTakeaway: 'Early deterioration should be visible through management information and change-triggered review.' },
+      { id: 'design', order: 6, title: 'Target resilient control environment', objective: 'Describe the current strong standard, ownership, proof, trigger and effectiveness indicator.', sectionIds: ['CONTROL-BLUEPRINTS', 'OPERATING-MODEL'], transitionPurpose: 'Move from the resilient standard to decisions that preserve maturity.', requiredManagementTakeaway: 'A strong control environment stays strong when operating discipline and deterioration signals are explicit.' },
+      { id: 'decisions', order: 7, title: 'Leadership decisions to preserve maturity', objective: 'Set governance, monitoring, ownership and change-trigger decisions with clear trade-offs.', sectionIds: ['LEADERSHIP-DECISIONS'], transitionPurpose: 'Sequence the sustainment route through the twelve-month blueprint.', requiredManagementTakeaway: 'Leadership should protect cadence, ownership continuity and management information.' },
+      { id: 'roadmap', order: 8, title: 'Twelve-month sustainment and optimisation blueprint', objective: 'Show progression from PRESERVE through EMBED, MEASURE and OPTIMISE.', sectionIds: ['SUSTAINMENT-BLUEPRINT', 'SCORECARD'], transitionPurpose: 'Close with the future-state sustainment rhythm.', requiredManagementTakeaway: 'Progress should preserve the current standard, embed the rhythm, measure drift and optimise after change.' },
+      { id: 'conclusion', order: 9, title: 'Management conclusion', objective: 'Close with the route for preserving readiness and detecting early deterioration.', sectionIds: ['CONCLUSION'], transitionPurpose: 'End with a durable management commitment.', requiredManagementTakeaway: 'The value is sustained readiness and early detection of drift, not a price-based assurance claim.' }
+    ] : [
       { id: 'diagnosis', order: 1, title: 'Executive diagnosis', objective: 'State what MK concluded from the recorded assessment.', sectionIds: ['EXECUTIVE-DIAGNOSIS'], transitionPurpose: 'Clarify the analytical basis and boundary before interpretation.', requiredManagementTakeaway: 'Management should understand the current position, its pattern and the leadership priorities.' },
       { id: 'basis', order: 2, title: 'Analytical basis', objective: 'Explain the self-assessment basis and assurance boundary once.', sectionIds: ['ANALYTICAL-BASIS', 'READINESS-PROFILE'], transitionPurpose: 'Move from score shape to the themes that explain concentration.', requiredManagementTakeaway: 'The result is strategic analysis and control design, not independent operating verification.' },
       { id: 'themes', order: 3, title: 'Systemic themes', objective: 'Explain the cross-cutting patterns and interactions supplied by the deterministic layer.', sectionIds: ['SYSTEMIC-THEMES'], transitionPurpose: 'Move from patterns to the material findings supporting them.', requiredManagementTakeaway: 'The material story is created by linked conditions, not isolated question scores.' },
@@ -62,9 +82,10 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
     schemaVersion: NARRATIVE_STORY_PLAN_SCHEMA_VERSION,
     bibleVersion: '1.1',
     productTier: pack.productTier,
+    narrativeMode: pack.narrativeMode,
     executiveStoryObjective: essential
-      ? 'Diagnose the self-assessed fraud-control environment, explain its most material patterns and set the first 90-day response.'
-      : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
+      ? sustainment ? 'Explain the strong recorded position, the disciplines supporting it and the first 90-day sustainment route.' : 'Diagnose the self-assessed fraud-control environment, explain its most material patterns and set the first 90-day response.'
+      : sustainment ? 'Explain the strong recorded environment, define sustainment and deterioration watchpoints, and set the twelve-month resilience route.' : 'Diagnose the self-assessed environment, interpret linked exposure pathways and design the target fraud-control response over 12 months.',
     movements,
     themeOrder: ids(pack.systemicThemeInputs),
     findingOrder: ids(pack.findings.slice(0, essential ? 8 : 8)),
@@ -84,8 +105,8 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
       maturationCount: pack.maturationSteps.length
     },
     requiredConclusion: essential
-      ? 'Explain what management should recognise, which few changes matter most, what should be true within 90 days and the sensible next step.'
-      : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
+      ? sustainment ? 'Explain the strong recorded position, the sustainment priorities, what should remain true within 90 days and how management will detect deterioration.' : 'Explain what management should recognise, which few changes matter most, what should be true within 90 days and the sensible next step.'
+      : sustainment ? 'Explain the strong recorded environment, the transition from preserve to optimise, success at 90 days and 12 months, and the management rhythm that protects maturity.' : 'Explain the current environment, transition required, critical foundations, success at 90 days and 12 months, and when Advisory adds value.',
     prohibitedClaims: pack.prohibitedClaims
   };
 }
@@ -93,6 +114,7 @@ export function buildNarrativeStoryPlan(pack: NarrativeFactPack): NarrativeStory
 export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: NarrativeFactPack): void {
   if (plan.bibleVersion !== '1.1' || pack.bibleVersion !== '1.1') throw new Error('Story Plan and Fact Pack must use Reporting Bible 1.1.');
   if (plan.productTier !== pack.productTier) throw new Error('Story Plan product tier does not match Fact Pack.');
+  if (plan.narrativeMode !== pack.narrativeMode) throw new Error('Story Plan narrative mode does not match Fact Pack.');
   if (plan.movements.length < 6) throw new Error('Story Plan requires connected product movements.');
   for (const [name, expected, actual] of [
     ['themes', ids(pack.systemicThemeInputs), plan.themeOrder],
@@ -107,7 +129,9 @@ export function assertNarrativeStoryPlan(plan: NarrativeStoryPlan, pack: Narrati
   }
   if (JSON.stringify(maturationIds(pack.maturationSteps)) !== JSON.stringify(plan.maturationOrder)) throw new Error('Story Plan maturation order does not match deterministic Fact Pack order.');
   if (!plan.requiredConclusion.trim()) throw new Error('Story Plan must define a required conclusion.');
-  if ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 1 || plan.narrativeBounds.findingCount > 8))) throw new Error('Story Plan finding narrative core is outside the permitted profile bounds.');
-  if (plan.productTier === 'essential' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 3)))) throw new Error('Essential Story Plan contains an invalid scenario count for the recorded readiness profile.');
-  if (plan.productTier === 'comprehensive' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 4)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 4)))) throw new Error('Comprehensive Story Plan contains an invalid scenario count for the recorded readiness profile.');
+  if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.findingCount !== 0) throw new Error('Sustainment Story Plan must contain no customer-facing findings.');
+  if (pack.narrativeMode !== 'SUSTAINMENT' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 5 || plan.narrativeBounds.findingCount > 8)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.findingCount < 1 || plan.narrativeBounds.findingCount > 8)))) throw new Error('Story Plan finding narrative core is outside the permitted profile bounds.');
+  if (pack.narrativeMode === 'SUSTAINMENT' && plan.narrativeBounds.scenarioCount !== 0) throw new Error('Sustainment Story Plan must contain no automated fraud scenarios.');
+  if (pack.narrativeMode !== 'SUSTAINMENT' && plan.productTier === 'essential' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 3)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 3)))) throw new Error('Essential Story Plan contains an invalid scenario count for the recorded readiness profile.');
+  if (pack.narrativeMode !== 'SUSTAINMENT' && plan.productTier === 'comprehensive' && ((!pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 2 || plan.narrativeBounds.scenarioCount > 4)) || (pack.highReadinessSparseNarrativeReason && (plan.narrativeBounds.scenarioCount < 0 || plan.narrativeBounds.scenarioCount > 4)))) throw new Error('Comprehensive Story Plan contains an invalid scenario count for the recorded readiness profile.');
 }

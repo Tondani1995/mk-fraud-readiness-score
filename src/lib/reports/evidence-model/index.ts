@@ -6,6 +6,7 @@ import { buildControlImprovementRegister, buildEvidenceChecklist, buildRiskRegis
 import { buildPlausibleScenarios } from './scenarios';
 import { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependencies';
 import { buildVisibilityGaps } from './visibility-gaps';
+import { buildSustainmentPriorities, deriveNarrativeMode } from './sustainment';
 import type { AdvisoryEvidenceModel, CommercialQualityIssue, QualityGateResult } from './types';
 
 export * from './types';
@@ -21,6 +22,8 @@ export { orderRoadmapActions, RoadmapDependencyError } from './roadmap-dependenc
  */
 export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryEvidenceModel {
   const materialFindings = buildMaterialFindings(data);
+  const narrativeMode = deriveNarrativeMode(data, materialFindings);
+  const sustainmentPriorities = narrativeMode === 'SUSTAINMENT' ? buildSustainmentPriorities(materialFindings) : [];
   const visibilityGaps = buildVisibilityGaps(data);
   // Authoritative: the adaptive metrics say whether exposure was assessed at all. Absent metrics
   // means the non-adaptive path, where exposure evidence is part of the ordinary model.
@@ -39,6 +42,8 @@ export function buildAdvisoryEvidenceModel(data: AssembledReportData): AdvisoryE
   const roadmapActions = buildRoadmapActions(materialFindings, riskRegister);
 
   return {
+    narrativeMode,
+    sustainmentPriorities,
     materialFindings,
     contradictions,
     scenarios,

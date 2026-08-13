@@ -1,6 +1,6 @@
 import type { AssembledReportData } from '../types';
 import type { EssentialProjection } from '../essential-projection';
-import type { AdvisoryEvidenceModel, ControlImprovementEntry, LeadershipDecision, MaterialFinding, PlausibleScenario, RiskRegisterEntry, RoadmapAction } from '../evidence-model/types';
+import type { AdvisoryEvidenceModel, ControlImprovementEntry, LeadershipDecision, MaterialFinding, NarrativeMode, PlausibleScenario, RiskRegisterEntry, RoadmapAction, SustainmentPriority } from '../evidence-model/types';
 import type { ComprehensiveDeliveryModel } from '../comprehensive/types';
 import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-model/semantic-mappings';
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
@@ -126,6 +126,7 @@ export interface NarrativeControlFact {
   failureResponse: string;
   dependencies: string[];
   linkedFindingRefs: string[];
+  linkedSustainmentPriorityRefs: string[];
 }
 
 export interface NarrativeDecisionFact {
@@ -141,6 +142,7 @@ export interface NarrativeDecisionFact {
   targetDate: string;
   consequenceOfDelay: string;
   linkedFindingRefs: string[];
+  linkedSustainmentPriorityRefs: string[];
 }
 
 export interface NarrativeRoadmapFact {
@@ -159,6 +161,24 @@ export interface NarrativeRoadmapFact {
   proofOfCompletion: string;
   successMeasure: string;
   failureTrigger: string;
+  sourceSustainmentPriorityRef?: string;
+}
+
+export interface NarrativeSustainmentPriorityFact {
+  factRef: string;
+  title: string;
+  domain: string;
+  semanticFamily: PrimarySemanticFamily;
+  recordedPosition: string;
+  currentStrongStandard: string;
+  managementFocus: string;
+  accountableExecutive: string;
+  processOwner: string;
+  operatingFrequency: string;
+  proofRetained: string[];
+  deteriorationTrigger: string;
+  effectivenessIndicator: string;
+  dependencies: string[];
 }
 
 export interface NarrativeBounds {
@@ -187,6 +207,7 @@ export interface NarrativeFactPack {
   schemaVersion: typeof NARRATIVE_FACT_PACK_SCHEMA_VERSION;
   bibleVersion: typeof REPORTING_BIBLE_VERSION;
   productTier: NarrativeProductTier;
+  narrativeMode: NarrativeMode;
   organisation: { name: string; sectorFacts: string[] };
   assessment: {
     reference: string;
@@ -207,6 +228,7 @@ export interface NarrativeFactPack {
   systemicThemeInputs: NarrativeThemeFact[];
   standaloneFindingReasons: Record<string, string>;
   findings: NarrativeFindingFact[];
+  sustainmentPriorities: NarrativeSustainmentPriorityFact[];
   risks: NarrativeRiskFact[];
   scenarios: NarrativeScenarioFact[];
   controls: NarrativeControlFact[];
@@ -234,6 +256,21 @@ function cleanFactLanguage(value: unknown, fallback = ''): string {
     .replace(/independently validated/gi, 'independently reviewed')
     .replace(/independent(?:ly)? review(?:ed|ing)?/gi, 'review')
     .replace(/The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect\.?/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanSustainmentLanguage(value: unknown, fallback = ''): string {
+  return cleanFactLanguage(value, fallback)
+    .replace(/lapsed or degraded control register/gi, 'control currency and deterioration register')
+    .replace(/review overdue, or a key control found lapsed with no remediation owner/gi, 'review overdue, or a key control has deteriorated without a named owner')
+    .replace(/with lapses remediated by due date/gi, 'with deterioration addressed by due date')
+    .replace(/\bremediation owner\b/gi, 'named owner')
+    .replace(/\bremediated\b/gi, 'addressed')
+    .replace(/\blapsed\b/gi, 'no longer current')
+    .replace(/\bdegraded\b/gi, 'deteriorated')
+    .replace(/unacceptable residual risk/gi, 'material residual-risk change')
+    .replace(/control failure/gi, 'control deterioration')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -591,7 +628,8 @@ function buildControlFacts(controls: ControlImprovementEntry[], findings: Materi
     effectivenessMeasure: text(control.effectivenessTest),
     failureResponse: text(control.failureResponse, 'Escalate exceptions through the defined owner and oversight route.'),
     dependencies: list(control.dependencies),
-    linkedFindingRefs: [findingRefs.get(control.linkedFindingId) ?? ''].filter(Boolean)
+    linkedFindingRefs: [findingRefs.get(control.linkedFindingId) ?? ''].filter(Boolean),
+    linkedSustainmentPriorityRefs: []
   }));
 }
 
@@ -632,7 +670,8 @@ function buildDecisionFacts(decisions: LeadershipDecision[], findings: MaterialF
       owner: text(optionSet?.owner, decision.accountableExecutive),
       targetDate: text(optionSet?.targetDate, decision.deadline),
       consequenceOfDelay: text(decision.consequenceOfDelay),
-      linkedFindingRefs: decision.linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean)
+      linkedFindingRefs: decision.linkedFindingIds.map((id) => findingRefs.get(id) ?? '').filter(Boolean),
+      linkedSustainmentPriorityRefs: []
     };
   });
 }
@@ -725,6 +764,114 @@ function buildRoadmapFacts(actions: RoadmapAction[], findings: MaterialFinding[]
     proofOfCompletion: text(action.evidenceOfCompletion),
     successMeasure: text(action.successMeasure),
     failureTrigger: text(action.escalationThreshold, 'Escalate when the target-period success measure is not met or an exception remains overdue.')
+  }));
+}
+
+function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): NarrativeSustainmentPriorityFact[] {
+  return priorities.map((priority, index) => ({
+    factRef: `SUSTAINMENT-${String(index + 1).padStart(3, '0')}`,
+    title: priority.title,
+    domain: priority.domainName,
+    semanticFamily: priority.primarySemanticFamily,
+    recordedPosition: `${priority.responseLabel}: ${cleanSustainmentLanguage(priority.responseOperationalMeaning)}`,
+    currentStrongStandard: cleanSustainmentLanguage(priority.currentStrongStandard, 'The recorded control standard is in place.').replace(/[.;]+$/, ''),
+    managementFocus: cleanSustainmentLanguage(priority.managementFocus),
+    accountableExecutive: text(priority.accountableExecutive, 'Chief Executive / Managing Director'),
+    processOwner: text(priority.processOwner, 'Head of Risk'),
+    operatingFrequency: text(priority.operatingFrequency, 'At least annually and after material change'),
+    proofRetained: priority.proofRetained.map((item) => cleanSustainmentLanguage(item)).filter(Boolean),
+    deteriorationTrigger: cleanSustainmentLanguage(priority.deteriorationTrigger, 'Material process, system, product or ownership change.'),
+    effectivenessIndicator: cleanSustainmentLanguage(priority.effectivenessIndicator, 'The review rhythm remains current and exceptions are assigned.'),
+    dependencies: priority.dependencies.map((item) => cleanSustainmentLanguage(item)).filter(Boolean)
+  }));
+}
+
+function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]): NarrativeControlFact[] {
+  return priorities.map((priority, index) => ({
+    factRef: `CONTROL-${String(index + 1).padStart(3, '0')}`,
+    sourceId: priority.factRef,
+    primarySemanticFamily: priority.semanticFamily,
+    objective: `Preserve ${priority.currentStrongStandard.toLowerCase()} and detect deterioration when the operating context changes.`,
+    currentState: `${priority.recordedPosition} The recorded position supports a sustainment treatment.`,
+    targetState: `The current standard remains owned, reviewed and responsive to material change.`,
+    accountableExecutive: priority.accountableExecutive,
+    processOwner: priority.processOwner,
+    population: 'The complete in-scope population for the recorded control standard.',
+    frequency: priority.operatingFrequency,
+    proofRetained: priority.proofRetained,
+    independentCheck: 'Management control-effectiveness review through the normal governance route.',
+    escalationTrigger: priority.deteriorationTrigger,
+    sla: 'Review within the next scheduled management cycle and after a material change.',
+    effectivenessMeasure: priority.effectivenessIndicator,
+    failureResponse: 'Escalate deterioration through the named owner and oversight route, then record the management response.',
+    dependencies: priority.dependencies,
+    linkedFindingRefs: [],
+    linkedSustainmentPriorityRefs: [priority.factRef]
+  }));
+}
+
+function buildSustainmentDecisions(priorities: NarrativeSustainmentPriorityFact[]): NarrativeDecisionFact[] {
+  return priorities.slice(0, 5).map((priority, index) => ({
+    factRef: `DECISION-${String(index + 1).padStart(3, '0')}`,
+    sourceId: priority.factRef,
+    decisionFamily: 'governance_reporting_cadence',
+    decisionSemanticFamily: priority.semanticFamily === 'CONTINUOUS_IMPROVEMENT' ? 'CONTROL_EFFECTIVENESS_CADENCE' : 'FRAUD_GOVERNANCE_MODEL',
+    question: `What management rhythm will preserve ${priority.title.toLowerCase()} as the organisation changes?`,
+    options: [
+      { option: 'Maintain the current review cadence with a change-triggered refresh.', cost: 'Uses the existing management rhythm.', benefit: 'Preserves ownership with minimal additional overhead.', tradeOff: 'Requires disciplined attendance and action closure.' },
+      { option: 'Add a focused management-information view for deterioration indicators.', cost: 'Requires modest reporting and data-owner capacity.', benefit: 'Makes early deterioration visible before the standard is materially affected.', tradeOff: 'Adds a recurring reporting obligation.' },
+      { option: 'Include the priority in the next resilience or control-effectiveness review cycle.', cost: 'Uses planned review capacity.', benefit: 'Connects sustainment to the wider control environment and change agenda.', tradeOff: 'Timing follows the established review calendar.' }
+    ],
+    recommendedRoute: 'Maintain the current cadence, add a simple deterioration indicator and refresh the review after material change.',
+    rationale: `The ${priority.recordedPosition.toLowerCase()} position is strongest when ownership, review rhythm and change-triggered attention remain explicit.`,
+    owner: priority.accountableExecutive,
+    targetDate: 'Within the next 90 days',
+    consequenceOfDelay: 'Ownership or review discipline may drift after change without an early management signal.',
+    linkedFindingRefs: [],
+    linkedSustainmentPriorityRefs: [priority.factRef]
+  }));
+}
+
+function buildSustainmentRoadmap(priorities: NarrativeSustainmentPriorityFact[]): NarrativeRoadmapFact[] {
+  const actions = [
+    { period: '30 days', phase: 'STABILISE' as const, window: '0-30 days', outcome: 'Ownership and the review calendar remain current.', work: 'Confirm the accountable executive, process owner, oversight route and next review date.', proof: 'Retain the current ownership record and approved review calendar.', measure: 'Every sustainment priority has a named owner and scheduled review date.' },
+    { period: '60 days', phase: 'ESTABLISH' as const, window: '31-90 days', outcome: 'The next control-effectiveness review cycle is completed.', work: 'Complete the scheduled review, record exceptions and assign any actions through the normal route.', proof: 'Retain the review record, exception log and action decisions.', measure: 'The scheduled review is completed and any exceptions have owners and dates.' },
+    { period: '90 days', phase: 'ESTABLISH' as const, window: '31-90 days', outcome: 'Management information makes deterioration visible.', work: 'Add the selected effectiveness indicator to management information and trigger refresh after material change.', proof: 'Retain the management-information extract and change-trigger record.', measure: 'The indicator is reported on the agreed rhythm and change-triggered reviews are recorded.' }
+  ];
+  return actions.map((action, index) => {
+    const priority = priorities[index % Math.max(priorities.length, 1)];
+    return {
+      factRef: `ROADMAP-${String(index + 1).padStart(3, '0')}`,
+      sourceId: priority?.factRef ?? 'SUSTAINMENT-001',
+      sourceFindingRef: '',
+      primarySemanticFamily: priority?.semanticFamily ?? 'FRAUD_GOVERNANCE',
+      phase: action.phase,
+      phaseWindow: action.window,
+      managementOutcome: action.outcome,
+      priorityWork: action.work,
+      accountableExecutive: priority?.accountableExecutive ?? 'Chief Executive / Managing Director',
+      processOwner: priority?.processOwner ?? 'Head of Risk',
+      targetPeriod: action.period,
+      dependencies: priority?.dependencies ?? [],
+      proofOfCompletion: action.proof,
+      successMeasure: action.measure,
+      failureTrigger: priority?.deteriorationTrigger ?? 'Escalate when ownership, review timing or the effectiveness indicator is no longer current.',
+      sourceSustainmentPriorityRef: priority?.factRef
+    };
+  });
+}
+
+function buildSustainmentProofFacts(priorities: NarrativeSustainmentPriorityFact[]): NarrativeProofFact[] {
+  return priorities.map((priority, index) => ({
+    factRef: `PROOF-SUSTAINMENT-${String(index + 1).padStart(3, '0')}`,
+    sourceId: priority.factRef,
+    linkedFindingRefs: [],
+    requirement: `Retain the current ownership, review and exception records for ${priority.title.toLowerCase()}.`,
+    owner: priority.processOwner,
+    whyItMatters: 'These records show that the strong recorded standard remains owned and visible through the normal management cycle.',
+    expectedRecency: 'Current for the latest scheduled review and refreshed after material change.',
+    requiredPopulation: 'The complete in-scope population for the recorded standard.',
+    acceptableExamples: priority.proofRetained.length > 0 ? priority.proofRetained : ['Ownership record', 'Review calendar', 'Exception and action log']
   }));
 }
 
@@ -845,26 +992,35 @@ function buildPack(input: {
   selectedControls: ControlImprovementEntry[];
   selectedDecisions: LeadershipDecision[];
   selectedRoadmap: RoadmapAction[];
+  narrativeMode: NarrativeMode;
+  sustainmentPriorities?: SustainmentPriority[];
   proofOverride?: NarrativeProofFact[];
   decisionSemanticFamilyOverrides?: Map<string, string>;
 }): NarrativeFactPack {
-  const findings = buildFindingFacts(input.selectedFindings);
+  const sustainment = input.narrativeMode === 'SUSTAINMENT';
+  const sustainmentPriorityFacts = sustainment ? buildSustainmentPriorityFacts(input.sustainmentPriorities ?? []) : [];
+  const narrativeFindings = sustainment ? [] : input.selectedFindings;
+  const narrativeRisks = sustainment ? [] : input.selectedRisks;
+  const narrativeScenarios = sustainment ? [] : input.selectedScenarios;
+  const findings = buildFindingFacts(narrativeFindings);
   const findingRefs = new Map(findings.map((finding) => [finding.sourceId, finding.factRef]));
-  const risks = buildRiskFacts(input.selectedRisks, input.selectedFindings, findingRefs);
+  const risks = buildRiskFacts(narrativeRisks, narrativeFindings, findingRefs);
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
-  const scenarios = buildScenarioFacts(input.selectedScenarios, input.selectedFindings, input.selectedRisks, findingRefs, riskRefs, input.tier);
-  const controls = buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
-  const decisions = buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
+  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier);
+  const controls = sustainment ? buildSustainmentControls(sustainmentPriorityFacts) : buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
+  const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
   const domains = buildDomains(input.data, findings);
-  const themes = buildThemeFacts(input.evidenceModel.contradictions, input.selectedFindings, input.selectedRisks, scenarios, findingRefs, riskRefs);
+  const themes = buildThemeFacts(input.evidenceModel.contradictions, narrativeFindings, narrativeRisks, scenarios, findingRefs, riskRefs);
   const themedFindingRefs = new Set(themes.flatMap((theme) => theme.findingRefs));
   const standaloneFindingReasons = Object.fromEntries(findings.filter((finding) => !themedFindingRefs.has(finding.factRef)).map((finding) => [finding.factRef, 'Retained as a standalone priority because no other selected finding shares a supported systemic relationship; the linked risk and control response remain explicit.']));
-  const roadmap = buildRoadmapFacts(input.selectedRoadmap, input.selectedFindings, findingRefs, input.tier);
-  const highReadinessSparseNarrativeReason = findings.length < 5 && ((input.score.score ?? 0) >= 60 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
-    ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the recorded result and does not invent additional weaknesses.`
+  const roadmap = sustainment ? buildSustainmentRoadmap(sustainmentPriorityFacts) : buildRoadmapFacts(input.selectedRoadmap, input.selectedFindings, findingRefs, input.tier);
+  const highReadinessSparseNarrativeReason = sustainment
+    ? 'Sustainment mode applies because the selected priorities are assurance-only, critical and major gap counts are zero, and no scoring cap changes final maturity. The priorities are not customer-facing material findings.'
+    : findings.length < 5 && ((input.score.score ?? 0) >= 60 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
+      ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the recorded result and does not invent additional weaknesses.`
     : undefined;
-  const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings) : [];
+  const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
   const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the recorded profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
@@ -879,12 +1035,13 @@ function buildPack(input: {
     ...decisions.map((decision) => makeFact(decision.factRef, 'decision', decision, [decision.sourceId])),
     ...roadmap.map((item) => makeFact(item.factRef, 'roadmap', item, [item.sourceId])),
     ...maturationSteps.map((item) => makeFact(item.maturationRef, 'maturation', item, [item.linkedFindingRef, item.linkedControlRef])),
-    ...buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
+    ...(sustainment ? buildSustainmentProofFacts(sustainmentPriorityFacts) : buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride)).map((item) => makeFact(item.factRef, 'proof_of_progress', item, [item.sourceId]))
   ];
   return {
     schemaVersion: NARRATIVE_FACT_PACK_SCHEMA_VERSION,
     bibleVersion: REPORTING_BIBLE_VERSION,
     productTier: input.tier,
+    narrativeMode: input.narrativeMode,
     organisation: { name: input.organisationName, sectorFacts: [] },
     assessment: {
       ...input.score,
@@ -896,12 +1053,13 @@ function buildPack(input: {
     systemicThemeInputs: themes,
     standaloneFindingReasons,
     findings,
+    sustainmentPriorities: sustainmentPriorityFacts,
     risks,
     scenarios,
     controls,
     decisions,
     roadmap,
-    proofOfProgress: buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride),
+    proofOfProgress: sustainment ? buildSustainmentProofFacts(sustainmentPriorityFacts) : buildProofFacts(input.evidenceModel, findingRefs, input.proofOverride),
     maturationSteps,
     highReadinessSparseNarrativeReason,
     prohibitedClaims: [
@@ -918,7 +1076,10 @@ function buildPack(input: {
       managementResponseCount: roadmap.length,
       maturationCount: maturationSteps.length
     },
-    facts
+    facts: [
+      ...facts,
+      ...sustainmentPriorityFacts.map((priority) => makeFact(priority.factRef, 'sustainment_priority', priority, []))
+    ]
   };
 }
 
@@ -945,6 +1106,8 @@ export function buildEssentialNarrativeFactPack(data: AssembledReportData, evide
   return buildPack({
     tier: 'essential', data, organisationName: data.organisationName, assessmentReference: data.assessmentReference, generatedAt: data.generatedAt,
     score: scoreFromData(data), domainData: data.domainResults, evidenceModel,
+    narrativeMode: evidenceModel.narrativeMode ?? 'REMEDIATION',
+    sustainmentPriorities: evidenceModel.sustainmentPriorities ?? [],
     selectedFindings,
     selectedRisks: evidenceModel.riskRegister,
     selectedScenarios: evidenceModel.scenarios,
@@ -980,6 +1143,8 @@ export function buildComprehensiveNarrativeFactPack(model: ComprehensiveDelivery
   return buildPack({
     tier: 'comprehensive', data, organisationName: model.analytical.organisationName, assessmentReference: model.analytical.assessmentReference, generatedAt: model.analytical.generatedAt,
     score, domainData: data?.domainResults, evidenceModel: model.analytical.evidenceModel,
+    narrativeMode: model.analytical.evidenceModel.narrativeMode ?? 'REMEDIATION',
+    sustainmentPriorities: model.analytical.evidenceModel.sustainmentPriorities ?? [],
     selectedFindings, selectedRisks, selectedScenarios: model.scenarios,
     selectedControls, selectedDecisions, selectedRoadmap, decisionSemanticFamilyOverrides: decisionSelection.semanticFamilyOverrides,
     proofOverride: model.proofRequirements.map((item, index) => ({ factRef: `PROOF-${String(index + 1).padStart(3, '0')}`, sourceId: item.proofRef, linkedFindingRefs: item.linkedFindingIds, requirement: item.requirement, owner: item.proofOwner, whyItMatters: item.whyItMatters, expectedRecency: item.expectedRecency, requiredPopulation: item.requiredPopulation, acceptableExamples: item.acceptableExamples }))
@@ -992,6 +1157,19 @@ export function assertNarrativeFactPack(pack: NarrativeFactPack): void {
   const ids = pack.facts.map((fact) => fact.id);
   if (new Set(ids).size !== ids.length) throw new Error('Narrative Fact Pack contains duplicate stable fact IDs.');
   for (const fact of pack.facts) if (!fact.id || !fact.kind || fact.value === undefined) throw new Error(`Narrative Fact Pack fact ${fact.id || '<missing>'} is incomplete.`);
+  if (pack.narrativeMode === 'SUSTAINMENT') {
+    if (pack.sustainmentPriorities.length === 0) throw new Error('Sustainment Fact Pack requires at least one sustainment priority.');
+    if (pack.findings.length !== 0 || pack.risks.length !== 0 || pack.scenarios.length !== 0 || pack.systemicThemeInputs.length !== 0) throw new Error('Sustainment Fact Pack must separate priorities from findings, risks, scenarios and themes.');
+    if (pack.controls.length === 0 || pack.decisions.length === 0 || pack.roadmap.length === 0) throw new Error('Sustainment Fact Pack requires control, decision and roadmap objects.');
+    if (pack.controls.some((control) => control.linkedFindingRefs.length > 0 || control.linkedSustainmentPriorityRefs.length === 0)) throw new Error('Sustainment controls must link only to sustainment priorities.');
+    if (pack.decisions.some((decision) => decision.linkedFindingRefs.length > 0 || decision.linkedSustainmentPriorityRefs.length === 0)) throw new Error('Sustainment decisions must link only to sustainment priorities.');
+    if (pack.roadmap.some((item) => item.sourceFindingRef || !item.sourceSustainmentPriorityRef)) throw new Error('Sustainment roadmap must link only to sustainment priorities.');
+    const sustainmentText = JSON.stringify({ priorities: pack.sustainmentPriorities, controls: pack.controls, decisions: pack.decisions, roadmap: pack.roadmap, maturation: pack.maturationSteps });
+    if (/material (?:control )?(?:weakness|gap)|priority weakness|control failure|remediation required|urgent remediation|foundational failure|close (?:the )?weakness|implement (?:the )?missing control|validate that|independently validate|before relying on self-assessment|self-reported claims remain unverified/i.test(sustainmentText)) throw new Error('Sustainment Fact Pack contains weakness or automated evidence-validation language.');
+    if (pack.productTier === 'essential' && pack.maturationSteps.length !== 0) throw new Error('Essential Sustainment Fact Pack must not contain twelve-month maturation steps.');
+    if (pack.productTier === 'comprehensive' && pack.maturationSteps.length !== pack.controls.length * 2) throw new Error('Comprehensive Sustainment Fact Pack must contain two maturation steps per sustainment control.');
+    return;
+  }
   if (pack.findings.some((finding) => !finding.primarySemanticFamily || !Array.isArray(finding.fraudPathwayFamilies))) throw new Error('Narrative Fact Pack finding is missing explicit semantic family membership.');
   const themeAnchors: Record<string, PrimarySemanticFamily[]> = {
     FRAUD_GOVERNANCE_AND_RISK_DISCIPLINE: ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'],

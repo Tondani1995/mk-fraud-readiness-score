@@ -1,9 +1,10 @@
-import type { NarrativeControlFact, NarrativeFindingFact } from './fact-pack';
+import type { NarrativeControlFact, NarrativeFindingFact, NarrativeSustainmentPriorityFact } from './fact-pack';
 import type { PrimarySemanticFamily } from '../evidence-model/semantic-mappings';
 
 export interface NarrativeMaturationStep {
   maturationRef: string;
   linkedFindingRef: string;
+  linkedSustainmentPriorityRef?: string;
   linkedControlRef: string;
   semanticFamily: PrimarySemanticFamily;
   phase: 'EMBED' | 'MATURE';
@@ -82,15 +83,19 @@ function patternFor(family: PrimarySemanticFamily): { embed: MaturationPattern; 
   return PATTERNS[family] ?? PATTERNS.CONTINUOUS_IMPROVEMENT!;
 }
 
-export function buildNarrativeMaturationSteps(controls: NarrativeControlFact[], findings: NarrativeFindingFact[]): NarrativeMaturationStep[] {
+export function buildNarrativeMaturationSteps(controls: NarrativeControlFact[], findings: NarrativeFindingFact[], sustainmentPriorities: NarrativeSustainmentPriorityFact[] = []): NarrativeMaturationStep[] {
   const findingByRef = new Map(findings.map((finding) => [finding.factRef, finding]));
+  const priorityByRef = new Map(sustainmentPriorities.map((priority) => [priority.factRef, priority]));
   return controls.flatMap((control, index) => {
     const finding = findingByRef.get(control.linkedFindingRefs[0] ?? '');
-    if (!finding) return [];
+    const sustainmentPriorityRef = control.linkedSustainmentPriorityRefs[0];
+    const sustainmentPriority = priorityByRef.get(sustainmentPriorityRef ?? '');
+    if (!finding && !sustainmentPriority) return [];
     const pattern = patternFor(control.primarySemanticFamily);
     const prefix = `MAT-${String(index + 1).padStart(3, '0')}`;
     const common = {
-      linkedFindingRef: finding.factRef,
+      linkedFindingRef: finding?.factRef ?? '',
+      linkedSustainmentPriorityRef: sustainmentPriority?.factRef,
       linkedControlRef: control.factRef,
       semanticFamily: control.primarySemanticFamily,
       accountableExecutive: control.accountableExecutive,

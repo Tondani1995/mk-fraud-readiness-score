@@ -5,6 +5,34 @@ import type { FraudPathwayFamily, PrimarySemanticFamily } from './semantic-mappi
 export type ImplementationDifficulty = 'Low' | 'Moderate' | 'High';
 export type TargetPeriod = '30 days' | '60 days' | '90 days';
 
+/** Customer narrative posture derived only from recorded control conditions. */
+export type NarrativeMode = 'REMEDIATION' | 'MIXED' | 'SUSTAINMENT';
+
+/**
+ * A strong recorded response that may inform management sustainment language. It is deliberately
+ * not a MaterialFinding: healthy assurance prompts must not become customer-facing weaknesses.
+ */
+export interface SustainmentPriority {
+  id: string;
+  sourceFindingId: string;
+  questionCode: string;
+  title: string;
+  domainCode: string;
+  domainName: string;
+  primarySemanticFamily: PrimarySemanticFamily;
+  responseLabel: string;
+  responseOperationalMeaning: string;
+  currentStrongStandard: string;
+  managementFocus: string;
+  accountableExecutive: string;
+  processOwner: string;
+  operatingFrequency: string;
+  proofRetained: string[];
+  deteriorationTrigger: string;
+  effectivenessIndicator: string;
+  dependencies: string[];
+}
+
 export type MaterialFindingSelectionReason =
   | 'HARD_GATE_FAILURE'
   | 'CRITICAL_CONTROL_FAILURE'
@@ -307,6 +335,8 @@ export interface FunctionalAgendaItem {
 }
 
 export interface AdvisoryEvidenceModel {
+  narrativeMode?: NarrativeMode;
+  sustainmentPriorities?: SustainmentPriority[];
   materialFindings: MaterialFinding[];
   contradictions: Contradiction[];
   scenarios: PlausibleScenario[];
