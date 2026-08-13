@@ -102,7 +102,14 @@ const pending = [
   '20260810122000_joint_launch_comprehensive_evidence.sql',
   '20260810123000_joint_launch_versioned_price_entitlement.sql',
   '20260810124000_joint_launch_atomic_paid_order.sql',
-  '20260810125000_joint_launch_evidence_orphan_alert.sql'
+  '20260810125000_joint_launch_evidence_orphan_alert.sql',
+  // These five approved Production corrections were committed after the initial joint-launch
+  // cutover and must remain inside the disposable postflight ledger replay.
+  '20260810130000_joint_launch_comprehensive_review_records.sql',
+  '20260810131000_joint_launch_last_mile_customer_operability.sql',
+  '20260810140000_final_pre_staging_comprehensive_closure.sql',
+  '20260810150000_fix_paid_order_catalogue_lock_privilege.sql',
+  '20260810160000_fix_comprehensive_package_event_context_and_template.sql'
 ];
 const baselineRpc = [
   ['claim_payment_report_generation', 'text,text,text'],

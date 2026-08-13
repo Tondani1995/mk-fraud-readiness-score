@@ -56,7 +56,7 @@ Each carries its own verification block and aborts its own transaction on failur
 ### 5. Run the migration/postflight contract
 ```bash
 npm run joint-launch:gate-release-window -- --stage post-migration
-psql "$TARGET_DB_URL" -f scripts/rc1-production-postflight.sql   # ledger 102, newest 20260810125000
+psql "$TARGET_DB_URL" -f scripts/rc1-production-postflight.sql   # ledger 109, newest 20260810160000
 ```
 `post-migration` asserts: freeze **still** active, all six migrations applied, Essential 750000,
 Comprehensive 3500000, no active legacy price, exactly one open price version per product, the

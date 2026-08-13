@@ -681,8 +681,8 @@ await test('full migration postflight matches the committed migration set', asyn
     .filter((file) => file.endsWith('.sql'))
     .sort();
   // Pre-G30 AI timeout and budget-diagnostics migrations are Staging-only and must not be
-  // counted against the Production postflight ledger. Production remains at its approved
-  // 88-file baseline.
+  // counted against the Production postflight ledger. The remaining committed files are the
+  // approved Production migration set.
   const productionMigrationFiles = migrationFiles.filter((file) => ![
     '20260805200000_pre_g30_ai_timeout_window.sql',
     '20260806090000_pre_g30_ai_budget_diagnostics.sql',
