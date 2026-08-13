@@ -51,8 +51,10 @@ const ABSOLUTELY_PROHIBITED_ASSURANCE = [
   /\b(?:the report|this report)\b.{0,80}\bprovides?\s+(?:independent\s+)?assurance\b/i
 ];
 
+const NEGATED_ASSURANCE_DISCLAIMER = /\b(?:not|does not|do not|without)\s+(?:a\s+statement\s+that\s+)?(?:existing\s+)?(?:evidence|controls?|operating effectiveness)\s+(?:has been|was|were|is|are)\s+(?:independently\s+)?(?:validated|verified|confirmed|established|assured)\b/i;
+
 const AMBIGUOUS_CONTROL_VERIFICATION = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b/i;
-const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|change(?:s)?|approval|callback|verification step|control(?:s)? activity|control design|payment release|release)\b/i;
+const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|activation|change(?:s)?|approval|callback|verification step|control(?:s)? activity|control design|payment release|release)\b/i;
 const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
 const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
 const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
@@ -67,20 +69,21 @@ const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equi
  * control activity; otherwise it fails closed.
  */
 export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassification | null {
+  const assuranceText = text.replace(NEGATED_ASSURANCE_DISCLAIMER, '');
   for (const pattern of ABSOLUTELY_PROHIBITED_ASSURANCE) {
-    const match = text.match(pattern);
+    const match = assuranceText.match(pattern);
     if (match) return { category: 'prohibited_assurance', matched: match[0] };
   }
 
-  const ambiguous = text.match(AMBIGUOUS_CONTROL_VERIFICATION);
+  const ambiguous = assuranceText.match(AMBIGUOUS_CONTROL_VERIFICATION);
   if (!ambiguous) return null;
-  if (MK_ASSURANCE_ACTOR.test(text)) return { category: 'prohibited_assurance', matched: ambiguous[0] };
+  if (MK_ASSURANCE_ACTOR.test(assuranceText)) return { category: 'prohibited_assurance', matched: ambiguous[0] };
 
-  const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(text);
-  const hasControlAction = CONTROL_ACTIVITY_ACTION.test(text);
+  const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(assuranceText);
+  const hasControlAction = CONTROL_ACTIVITY_ACTION.test(assuranceText);
   if ((hasControlSubject && hasControlAction)
-    || DIRECT_CONTROL_ACTIVITY.test(text)
-    || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(text)) {
+    || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
+    || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
     return { category: 'customer_control_activity', matched: ambiguous[0] };
   }
   return { category: 'prohibited_assurance', matched: ambiguous[0] };

@@ -23,6 +23,13 @@ const pass = [
   'The control design is evidence-based and should be retained for implementation.'
 ];
 
+const negatedDisclaimer = 'This is a target control design, not a statement that existing evidence has been validated.';
+assert.equal(classifyAssuranceLanguage(negatedDisclaimer), null);
+const activationReview = 'Management should independently review whether activation occurred only after verification and whether exceptions were approved.';
+assert.equal(classifyAssuranceLanguage(activationReview)?.category, 'customer_control_activity');
+const negatedPlusPositive = 'This is not a statement that existing evidence has been validated. MK independently verified the controls.';
+assert.equal(classifyAssuranceLanguage(negatedPlusPositive)?.category, 'prohibited_assurance');
+
 const rivoniaCustomerControl = 'Fraud-risk ownership, structured assessment and periodic review are recorded as initial or ad hoc. Management owns fraud risk, while independent review responsibilities should remain separate where an internal audit or equivalent assurance function exists. The CEO / Managing Director should approve the accountability RACI and establish a scheduled review.';
 const rivoniaAmbiguousDisclaimer = 'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.';
 
@@ -38,8 +45,8 @@ test('Rivonia governance role-separation activity is allowed narrowly', () => {
   assert.equal(classifyAssuranceLanguage(rivoniaCustomerControl)?.category, 'customer_control_activity');
 });
 
-test('Rivonia evidence-validation disclaimer remains fail-closed', () => {
-  assert.equal(classifyAssuranceLanguage(rivoniaAmbiguousDisclaimer)?.category, 'prohibited_assurance');
+test('negated evidence-validation disclaimer is not an assurance claim', () => {
+  assert.equal(classifyAssuranceLanguage(rivoniaAmbiguousDisclaimer), null);
 });
 
 test('ambiguous independent verification fails closed', () => {

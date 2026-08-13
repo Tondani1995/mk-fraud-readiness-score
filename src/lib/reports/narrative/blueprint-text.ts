@@ -1,5 +1,6 @@
 import type { NarrativeFactPack } from './fact-pack';
 import type { ReportBlueprint } from './report-blueprint';
+import { classifyAssuranceLanguage } from './validation';
 
 export interface BlueprintHeadingExpectation {
   level: 1 | 2 | 3;
@@ -267,8 +268,6 @@ function numericValues(pack: NarrativeFactPack): Set<string> {
 }
 
 const RAW_ID = /\b(?:D\d+-Q\d+|(?:MF|RISK|SC|CI|RA|DEC|DECISION|THEME|FINDING|CONTROL|PROOF|ROADMAP)-[A-Z0-9-]+|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/;
-const ASSURANCE = /\b(?:independently?\s+(?:verified|reviewed|confirmed)|evidence(?:-linked|-based)?\s+assurance|validated operating effectiveness|the report provides assurance)\b/i;
-
 export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, factPack: NarrativeFactPack): TextFirstValidationReport {
   const hardTruth: TextFirstValidationIssue[] = parsed.errors.map((item) => ({ ...item, severity: 'HARD_TRUTH_FAILURE' }));
   const repairable: TextFirstValidationIssue[] = [];
@@ -280,7 +279,8 @@ export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown,
     paragraphsSeen.push(compact(text));
     if (RAW_ID.test(text)) hardTruth.push({ code: 'raw_internal_id', severity: 'HARD_TRUTH_FAILURE', path, message: 'Raw internal identifiers are not customer-facing prose.' });
     for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!knownNumbers.has(token.replace('%', ''))) hardTruth.push({ code: 'unsupported_numeric_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Numeric claim ${token} is not present in deterministic Fact Pack data.` });
-    if (ASSURANCE.test(text)) hardTruth.push({ code: 'assurance_claim', severity: 'HARD_TRUTH_FAILURE', path, message: 'Unsupported MK or assessment assurance language is prohibited.' });
+    const assurance = classifyAssuranceLanguage(text);
+    if (assurance?.category === 'prohibited_assurance') hardTruth.push({ code: 'assurance_claim', severity: 'HARD_TRUTH_FAILURE', path, message: `Unsupported MK or assessment assurance language is prohibited (${assurance.matched}).` });
     if (/^\s*(?:[-*+]\s|\d+[.)]\s|```)/m.test(text)) quality.push({ code: 'mechanical_format', severity: 'QUALITY_FAILURE', path, message: 'The section contains list or code formatting rather than connected prose.' });
   }
   const duplicateCount = paragraphsSeen.filter((value, index) => value && paragraphsSeen.indexOf(value) !== index).length;

@@ -48,6 +48,10 @@ const unsupportedNumber = parseBlueprintMarkdown(complete.replace('Management sh
 assert.equal(validateBlueprintTextManuscript(unsupportedNumber, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'unsupported_numeric_claim'), true);
 const assurance = parseBlueprintMarkdown(complete.replace('Management should translate', 'The report independently verified operating effectiveness; management should translate'), blueprint);
 assert.equal(validateBlueprintTextManuscript(assurance, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), true);
+const customerOwnedReview = parseBlueprintMarkdown(complete.replace('Management should translate', 'Management should independently review whether supplier activation evidence was completed before release; management should translate'), blueprint);
+assert.equal(validateBlueprintTextManuscript(customerOwnedReview, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), false);
+const customerOwnedVerification = parseBlueprintMarkdown(complete.replace('Management should translate', 'If a bank-detail change is not independently verified through a trusted channel before payment, management should pause release; management should translate'), blueprint);
+assert.equal(validateBlueprintTextManuscript(customerOwnedVerification, blueprint, pack).hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), false);
 
 assert.equal(classifyNarrativeIssue('missing_section').severity, 'HARD_TRUTH_FAILURE');
 assert.equal(classifyNarrativeIssue('repetition').severity, 'QUALITY_FAILURE');
