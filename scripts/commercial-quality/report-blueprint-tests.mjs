@@ -6,7 +6,7 @@ import { buildEssentialProjection } from '../../src/lib/reports/essential-projec
 import { fromAssembledReportData } from '../../src/lib/reports/comprehensive/contract.ts';
 import { buildEssentialNarrativeFactPack, buildComprehensiveNarrativeFactPack, assertNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
-import { buildReportBlueprint, buildSnapshotReportBlueprint, buildWholeManuscriptContext, assertReportBlueprint, validateReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
+import { buildReportBlueprint, buildSnapshotReportBlueprint, buildWholeManuscriptContext, assertReportBlueprint, validateReportBlueprint, WHOLE_MANUSCRIPT_APPROVED_INPUT_TOKENS, WHOLE_MANUSCRIPT_MODEL_CONTEXT_TOKENS } from '../../src/lib/reports/narrative/report-blueprint.ts';
 import { classifyNarrativeIssue, canReleaseNarrative } from '../../src/lib/reports/narrative/validation-severity.ts';
 import { emptyNarrativeRecoveryBudget, recoveryDecision, assertRecoveryBudget } from '../../src/lib/reports/narrative/recovery-policy.ts';
 
@@ -22,11 +22,22 @@ assert.equal(rivoniaBlueprint.chapters.length, 6);
 assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /executive/i.test(chapter.title)).length, 1);
 assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /90 days|roadmap/i.test(chapter.title)).length, 1);
 assert.equal(rivoniaBlueprint.findingClusters.length > 0, true);
+assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.length > 1), true);
+assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.some((section) => section.optionalSubsections.length > 1)), true);
+assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.some((section) => section.optionalSubsections.length === 0)), true);
+assert.equal(rivoniaBlueprint.chapters.flatMap((chapter) => chapter.exhibits).every((item) => item.narrativeLeadIn && item.demonstrates && item.interpretation), true);
+assert.equal(rivoniaBlueprint.contentAssignments.every((item) => item.assignmentType === 'primary_home'), true);
+assert.equal(rivoniaBlueprint.narrativeCrossReferences.length > 0, true);
 assert.equal(rivoniaBlueprint.chapters.flatMap((chapter) => chapter.exhibits).every((item) => item.sourceRefs.length > 0), true);
 assert.equal(validateReportBlueprint(rivoniaBlueprint, rivoniaPack).ok, true);
+assert.deepEqual(buildReportBlueprint(rivoniaPack, rivoniaPlan), rivoniaBlueprint);
 const rivoniaContext = buildWholeManuscriptContext(rivoniaPack, rivoniaBlueprint);
 assert.equal(rivoniaContext.architecture, 'whole-manuscript');
 assert.equal(rivoniaContext.permittedDeterministicFacts.length > 0, true);
+assert.equal(rivoniaContext.singleCallFeasible, true);
+assert.equal(rivoniaContext.partitionPlan.length, 0);
+assert.equal(rivoniaContext.approvedInputTokenLimit, WHOLE_MANUSCRIPT_APPROVED_INPUT_TOKENS);
+assert.equal(WHOLE_MANUSCRIPT_MODEL_CONTEXT_TOKENS, 400000);
 
 const kestrel = await assembleReportData('MKORD-2026-7FBBEE23');
 const kestrelModel = await fromAssembledReportData(kestrel);
@@ -43,6 +54,11 @@ assert.equal(validateReportBlueprint(kestrelBlueprint, kestrelPack).ok, true);
 const kestrelContext = buildWholeManuscriptContext(kestrelPack, kestrelBlueprint);
 assert.equal(kestrelContext.reportBlueprint.reportTier, 'comprehensive');
 assert.equal(kestrelContext.projectedInputTokens.maximum > 0, true);
+assert.equal(kestrelContext.singleCallFeasible, true);
+assert.equal(kestrelContext.partitionPlan.length, 0);
+assert.equal(kestrelBlueprint.chapters.some((chapter) => chapter.sections.length > 1), true);
+assert.equal(kestrelBlueprint.chapters.flatMap((chapter) => chapter.sections).some((section) => section.optionalSubsections.length > 1), true);
+assert.equal(kestrelBlueprint.narrativeCrossReferences.length > 0, true);
 
 const snapshot = buildSnapshotReportBlueprint({ organisation: { name: 'Snapshot Organisation' }, assessmentReference: 'MKFRS-SNAPSHOT' });
 assertReportBlueprint(snapshot);
@@ -54,6 +70,12 @@ assert.equal(classifyNarrativeIssue('duplicate_statement').repairEligible, true)
 assert.equal(classifyNarrativeIssue('repetition').blocking, false);
 assert.equal(canReleaseNarrative(['repetition']), true);
 assert.equal(canReleaseNarrative(['unknown_claim_ref']), false);
+
+const oversizedBlueprint = structuredClone(rivoniaBlueprint);
+oversizedBlueprint.executiveStory = 'x'.repeat(1_000_000);
+const oversizedContext = buildWholeManuscriptContext(rivoniaPack, oversizedBlueprint);
+assert.equal(oversizedContext.singleCallFeasible, false);
+assert.equal(oversizedContext.partitionPlan.length, 2);
 
 const budget = emptyNarrativeRecoveryBudget();
 assert.equal(recoveryDecision({ budget, issueSeverity: 'REPAIRABLE_SEMANTIC_FAILURE', issueScope: 'block', fullGenerationRejected: false }).scope, 'block');

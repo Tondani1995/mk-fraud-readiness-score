@@ -381,7 +381,7 @@ path while migration is controlled and is not the target architecture.
 
 This addendum does not change the Reporting Bible's product promise, assurance boundary,
 deterministic truth authority, tier scope or renderer rules. Its implementation identifier is
-`mk-reporting-bible-1.1-whole-manuscript-blueprint-v1`.
+`mk-reporting-bible-1.1-whole-manuscript-blueprint-v2`.
 
 AI must not write isolated content fragments with no awareness of the report around them.
 
