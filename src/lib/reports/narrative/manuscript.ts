@@ -59,6 +59,8 @@ export interface NarrativeWriterMetadata {
   totalTokens?: number;
   providerCostMicros?: number;
   providerCostRaw?: string | number;
+  finishReason?: string;
+  providerFinishReason?: string;
 }
 
 export interface NarrativeWriterContext {
@@ -100,6 +102,23 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   };
 }
 
+export interface WholeManuscriptTailInput {
+  context: WholeManuscriptWriterContext;
+  blueprint: ReportBlueprint;
+  previousMarkdown: string;
+  missingHeadings: string[];
+  lastCompleteHeading: string;
+  precedingContext: string;
+}
+
+export interface WholeManuscriptTailResult {
+  contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
+  architecture: 'whole-manuscript-tail-completion';
+  markdown: string;
+  blueprint: ReportBlueprint;
+  writerMetadata: WholeManuscriptWriterMetadata;
+}
+
 export interface WholeManuscriptTextResult {
   contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
   architecture: 'whole-manuscript';
@@ -124,6 +143,7 @@ export interface WholeManuscriptWriter {
   readonly model: string;
   readonly promptVersion: string;
   writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult>;
+  completeTail(input: WholeManuscriptTailInput): Promise<WholeManuscriptTailResult>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {

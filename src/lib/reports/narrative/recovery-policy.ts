@@ -7,14 +7,15 @@ export interface NarrativeRecoveryBudget {
   qualityEscalationCount: number;
   coherenceCount: number;
   technicalFallbackCount: number;
+  truncationContinuationCount: number;
   totalCalls: number;
   totalTokens: number;
   totalProviderCostMicros: number;
 }
 
 export interface RecoveryDecision {
-  action: 'TARGETED_REPAIR' | 'FULL_REGENERATION' | 'QUALITY_ESCALATION' | 'COHERENCE_PASS' | 'HUMAN_REVIEW_REQUIRED';
-  scope: 'block' | 'block+adjacent' | 'subsection' | 'bounded section' | 'full manuscript' | 'one model rung' | 'whole manuscript' | 'none';
+  action: 'TARGETED_REPAIR' | 'TAIL_COMPLETION' | 'FULL_REGENERATION' | 'QUALITY_ESCALATION' | 'COHERENCE_PASS' | 'HUMAN_REVIEW_REQUIRED';
+  scope: 'missing tail' | 'block' | 'block+adjacent' | 'subsection' | 'bounded section' | 'full manuscript' | 'one model rung' | 'whole manuscript' | 'none';
   attempt: number;
   reason: string;
 }
@@ -23,14 +24,16 @@ export const MAX_TARGETED_REPAIRS = 4;
 export const MAX_FULL_REGENERATIONS = 1;
 export const MAX_QUALITY_ESCALATIONS = 1;
 export const MAX_COHERENCE_PASSES = 1;
+export const MAX_TRUNCATION_CONTINUATIONS = 1;
 
 export function emptyNarrativeRecoveryBudget(): NarrativeRecoveryBudget {
-  return { initialGenerationCount: 0, targetedRepairCount: 0, fullRegenerationCount: 0, qualityEscalationCount: 0, coherenceCount: 0, technicalFallbackCount: 0, totalCalls: 0, totalTokens: 0, totalProviderCostMicros: 0 };
+  return { initialGenerationCount: 0, targetedRepairCount: 0, fullRegenerationCount: 0, qualityEscalationCount: 0, coherenceCount: 0, technicalFallbackCount: 0, truncationContinuationCount: 0, totalCalls: 0, totalTokens: 0, totalProviderCostMicros: 0 };
 }
 
-export function recoveryDecision(input: { budget: NarrativeRecoveryBudget; issueSeverity: 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE'; issueScope: 'block' | 'adjacent' | 'subsection' | 'section'; fullGenerationRejected: boolean }): RecoveryDecision {
+export function recoveryDecision(input: { budget: NarrativeRecoveryBudget; issueSeverity: 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE' | 'TECHNICAL_TRUNCATION'; issueScope: 'block' | 'adjacent' | 'subsection' | 'section' | 'missing tail'; fullGenerationRejected: boolean }): RecoveryDecision {
   const { budget } = input;
   if (input.issueSeverity === 'HARD_TRUTH_FAILURE') return { action: 'HUMAN_REVIEW_REQUIRED', scope: 'none', attempt: 0, reason: 'Hard truth failures are never repaired automatically.' };
+  if (input.issueSeverity === 'TECHNICAL_TRUNCATION' && budget.truncationContinuationCount < MAX_TRUNCATION_CONTINUATIONS) return { action: 'TAIL_COMPLETION', scope: 'missing tail', attempt: budget.truncationContinuationCount + 1, reason: 'Complete only the deterministic missing suffix after a provider output-boundary stop.' };
   if (input.issueSeverity === 'REPAIRABLE_SEMANTIC_FAILURE' && budget.targetedRepairCount < MAX_TARGETED_REPAIRS) {
     const scopes: RecoveryDecision['scope'][] = ['block', 'block+adjacent', 'subsection', 'bounded section'];
     const scope = scopes[Math.min(budget.targetedRepairCount, scopes.length - 1)]!;
@@ -48,6 +51,7 @@ export function assertRecoveryBudget(budget: NarrativeRecoveryBudget): void {
   if (budget.fullRegenerationCount > MAX_FULL_REGENERATIONS) throw new Error('Full regeneration budget exceeded.');
   if (budget.qualityEscalationCount > MAX_QUALITY_ESCALATIONS) throw new Error('Quality escalation budget exceeded.');
   if (budget.coherenceCount > MAX_COHERENCE_PASSES) throw new Error('Coherence-pass budget exceeded.');
-  const counted = budget.initialGenerationCount + budget.targetedRepairCount + budget.fullRegenerationCount + budget.qualityEscalationCount + budget.coherenceCount + budget.technicalFallbackCount;
+  if (budget.truncationContinuationCount > MAX_TRUNCATION_CONTINUATIONS) throw new Error('Truncation continuation budget exceeded.');
+  const counted = budget.initialGenerationCount + budget.targetedRepairCount + budget.fullRegenerationCount + budget.qualityEscalationCount + budget.coherenceCount + budget.technicalFallbackCount + budget.truncationContinuationCount;
   if (budget.totalCalls < counted) throw new Error('Recovery accounting totalCalls is below recorded phase calls.');
 }

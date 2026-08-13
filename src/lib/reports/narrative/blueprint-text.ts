@@ -15,6 +15,32 @@ export interface BlueprintMarkdownSkeleton {
   headings: BlueprintHeadingExpectation[];
 }
 
+export interface MissingBlueprintTail {
+  ok: boolean;
+  missingHeadings: string[];
+  lastCompleteHeading: string;
+  precedingContext: string;
+  errors: string[];
+}
+
+export type WholeManuscriptGenerationOutcome = 'COMPLETE' | 'TECHNICAL_TRUNCATION' | 'PROVIDER_FAILURE' | 'CONTENT_FILTER';
+
+export function classifyWholeManuscriptGeneration(input: {
+  finishReason?: string;
+  providerFinishReason?: string;
+  outputTokens?: number;
+  maxOutputTokens?: number;
+  missingHeadingCount: number;
+  providerFailed?: boolean;
+}): WholeManuscriptGenerationOutcome {
+  const reasons = [input.finishReason, input.providerFinishReason].filter(Boolean).map((value) => value!.toLowerCase());
+  if (reasons.some((value) => ['length', 'max_tokens', 'token_limit', 'maximum_tokens'].includes(value))) return 'TECHNICAL_TRUNCATION';
+  if (input.providerFailed) return 'PROVIDER_FAILURE';
+  if (reasons.some((value) => value.includes('content_filter') || value.includes('content-filter'))) return 'CONTENT_FILTER';
+  if (input.missingHeadingCount > 0 && input.outputTokens !== undefined && input.maxOutputTokens !== undefined && input.outputTokens >= input.maxOutputTokens) return 'TECHNICAL_TRUNCATION';
+  return input.missingHeadingCount === 0 ? 'COMPLETE' : 'PROVIDER_FAILURE';
+}
+
 export interface BlueprintTextBlock {
   text: string;
   permittedClaimRefs: string[];
@@ -106,6 +132,44 @@ function paragraphs(lines: string[]): string[] {
 function parseHeading(line: string): { level: number; title: string } | null {
   const match = line.match(/^(#{1,6})[ \t]+(.+?)[ \t]*$/);
   return match ? { level: match[1].length, title: match[2] } : null;
+}
+
+function headingTokens(markdown: string): Array<{ level: number; title: string }> {
+  return normalise(markdown).split('\n').flatMap((line) => {
+    const heading = parseHeading(line);
+    return heading ? [heading] : [];
+  });
+}
+
+export function deriveMissingBlueprintTail(markdown: string, blueprint: ReportBlueprint): MissingBlueprintTail {
+  const expected = expectedHeadings(blueprint);
+  const actual = headingTokens(markdown);
+  const errors: string[] = [];
+  if (actual.length > expected.length) errors.push(`received ${actual.length} headings but Blueprint has ${expected.length}`);
+  const compareCount = Math.min(actual.length, expected.length);
+  for (let index = 0; index < compareCount; index += 1) {
+    const wanted = expected[index]!;
+    const received = actual[index]!;
+    if (wanted.level !== received.level || wanted.title !== received.title) errors.push(`heading ${index + 1} diverges at ${received.title}`);
+  }
+  if (!actual.length) errors.push('no complete Blueprint heading is present');
+  const missing = actual.length <= expected.length ? expected.slice(actual.length) : [];
+  const lastCompleteHeading = actual.length ? actual[actual.length - 1]!.title : '';
+  const precedingContext = normalise(markdown).slice(-6000);
+  return { ok: errors.length === 0 && missing.length > 0, missingHeadings: missing.map((heading) => heading.title), lastCompleteHeading, precedingContext, errors };
+}
+
+export function appendBlueprintTail(previousMarkdown: string, tailMarkdown: string, blueprint: ReportBlueprint): string {
+  const tail = deriveMissingBlueprintTail(previousMarkdown, blueprint);
+  if (!tail.ok) throw new Error(`Cannot append Blueprint tail: ${tail.errors.join(' | ')}`);
+  const expectedTail = tail.missingHeadings;
+  const receivedTail = headingTokens(tailMarkdown);
+  const skeleton = expectedHeadings(blueprint).slice(expectedHeadings(blueprint).length - expectedTail.length);
+  if (receivedTail.length !== expectedTail.length || receivedTail.some((heading, index) => heading.title !== skeleton[index]?.title || heading.level !== skeleton[index]?.level)) throw new Error('Tail completion must contain exactly the missing Blueprint headings in order.');
+  const combined = `${normalise(previousMarkdown)}\n\n${normalise(tailMarkdown)}`;
+  const parsed = parseBlueprintMarkdown(combined, blueprint);
+  if (!parsed.ok) throw new Error(`Tail completion failed deterministic binding: ${parsed.errors.map((error) => error.code).join(', ')}`);
+  return combined;
 }
 
 export function parseBlueprintMarkdown(markdown: string, blueprint: ReportBlueprint): ParsedBlueprintMarkdown {

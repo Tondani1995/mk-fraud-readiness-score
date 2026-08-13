@@ -1,4 +1,4 @@
-export type NarrativeValidationSeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE';
+export type NarrativeValidationSeverity = 'HARD_TRUTH_FAILURE' | 'REPAIRABLE_SEMANTIC_FAILURE' | 'QUALITY_FAILURE' | 'TECHNICAL_TRUNCATION';
 
 export interface ClassifiedNarrativeIssue {
   code: string;
@@ -48,7 +48,10 @@ const QUALITY_CODES = new Set([
   'weak_executive_communication'
 ]);
 
+const TECHNICAL_CODES = new Set(['technical_truncation']);
+
 export function classifyNarrativeIssue(code: string): ClassifiedNarrativeIssue {
+  if (TECHNICAL_CODES.has(code)) return { code, severity: 'TECHNICAL_TRUNCATION', blocking: true, repairEligible: false, rationale: 'The provider stopped at the technical output boundary before the deterministic Blueprint tail was complete; one bounded tail completion is permitted.' };
   if (HARD_TRUTH_CODES.has(code)) return { code, severity: 'HARD_TRUTH_FAILURE', blocking: true, repairEligible: false, rationale: 'The report would no longer be grounded in deterministic truth or the fixed report contract.' };
   if (REPAIRABLE_CODES.has(code)) return { code, severity: 'REPAIRABLE_SEMANTIC_FAILURE', blocking: true, repairEligible: true, rationale: 'A bounded local correction may resolve the semantic defect without changing deterministic meaning.' };
   if (QUALITY_CODES.has(code)) return { code, severity: 'QUALITY_FAILURE', blocking: false, repairEligible: false, rationale: 'The defect affects editorial quality and cannot redefine deterministic truth.' };

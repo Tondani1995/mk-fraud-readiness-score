@@ -209,10 +209,71 @@ export interface WholeManuscriptWriterContext {
   };
   projectedInputTokens: ContextTokenRange;
   projectedOutputTokens: ContextTokenRange;
+  outputBudget: WholeManuscriptOutputBudget;
   approvedInputTokenLimit: number;
   singleCallFeasible: boolean;
   partitionPlan: WholeManuscriptPartition[];
   partitioningRule: string;
+}
+
+export interface WholeManuscriptOutputBudget {
+  reportTier: ReportBlueprint['reportTier'];
+  expectedWordRange: { minimum: number; maximum: number };
+  expectedOutputTokens: number;
+  headingCount: number;
+  averageExpectedTokensPerHeading: number;
+  narrativeVarianceTokens: number;
+  headingAndTransitionReserveTokens: number;
+  conclusionReserveTokens: number;
+  safetyMarginTokens: number;
+  hardOutputTokenLimit: number;
+  basis: string;
+}
+
+const OUTPUT_BUDGET_NARRATIVE_VARIANCE = 0.2;
+const OUTPUT_BUDGET_HEADING_VARIANCE = 0.2;
+const OUTPUT_BUDGET_CONCLUSION_HEADING_UNITS = 2;
+const OUTPUT_BUDGET_TAIL_HEADING_UNITS = 3;
+const OUTPUT_BUDGET_MIN_TAIL_TOKENS = 512;
+
+function manuscriptHeadingCount(blueprint: ReportBlueprint): number {
+  return blueprint.chapters.reduce((total, chapter) => total + 1 + chapter.sections.reduce((sectionTotal, section) => sectionTotal + 1 + section.optionalSubsections.length, 0), 0);
+}
+
+function expectedManuscriptWordRange(reportTier: ReportBlueprint['reportTier']): { minimum: number; maximum: number } {
+  if (reportTier === 'snapshot') return { minimum: 700, maximum: 1400 };
+  if (reportTier === 'essential') return { minimum: 2200, maximum: 4200 };
+  return { minimum: 4200, maximum: 7600 };
+}
+
+export function deriveWholeManuscriptOutputBudget(blueprint: ReportBlueprint): WholeManuscriptOutputBudget {
+  const expectedWordRange = expectedManuscriptWordRange(blueprint.reportTier);
+  const expectedOutputTokens = expectedWordRange.maximum;
+  const headingCount = manuscriptHeadingCount(blueprint);
+  if (headingCount < 1) throw new Error('Whole-manuscript output budgeting requires at least one Blueprint heading.');
+  const averageExpectedTokensPerHeading = Math.ceil(expectedOutputTokens / headingCount);
+  const narrativeVarianceTokens = Math.ceil(expectedOutputTokens * OUTPUT_BUDGET_NARRATIVE_VARIANCE);
+  const headingAndTransitionReserveTokens = Math.ceil(expectedOutputTokens * OUTPUT_BUDGET_HEADING_VARIANCE);
+  const conclusionReserveTokens = averageExpectedTokensPerHeading * OUTPUT_BUDGET_CONCLUSION_HEADING_UNITS;
+  const safetyMarginTokens = narrativeVarianceTokens + headingAndTransitionReserveTokens + conclusionReserveTokens;
+  return {
+    reportTier: blueprint.reportTier,
+    expectedWordRange,
+    expectedOutputTokens,
+    headingCount,
+    averageExpectedTokensPerHeading,
+    narrativeVarianceTokens,
+    headingAndTransitionReserveTokens,
+    conclusionReserveTokens,
+    safetyMarginTokens,
+    hardOutputTokenLimit: Math.min(WHOLE_MANUSCRIPT_MODEL_MAX_OUTPUT_TOKENS, expectedOutputTokens + safetyMarginTokens),
+    basis: 'Expected tier envelope is kept separate from the technical limit. Technical headroom is derived from 20% narrative variance, 20% heading/transition variance and two average heading units for the conclusion; the active model maximum remains the hard ceiling.'
+  };
+}
+
+export function deriveTailOutputTokenLimit(outputBudget: WholeManuscriptOutputBudget, missingHeadingCount: number): number {
+  if (!Number.isInteger(missingHeadingCount) || missingHeadingCount < 1) throw new Error('Tail output budgeting requires at least one missing heading.');
+  return Math.min(outputBudget.hardOutputTokenLimit, Math.max(OUTPUT_BUDGET_MIN_TAIL_TOKENS, outputBudget.averageExpectedTokensPerHeading * OUTPUT_BUDGET_TAIL_HEADING_UNITS * missingHeadingCount));
 }
 
 export interface BlueprintValidationResult {
@@ -829,10 +890,11 @@ export function buildWholeManuscriptContext(pack: NarrativeFactPack, blueprint: 
   assertReportBlueprint(blueprint, pack);
   const payload = { blueprint, permittedDeterministicFacts: pack.facts, boundaries: { assurance: commonAssuranceBoundary(), prohibitedClaims: blueprint.prohibitedClaims, sourceOfTruth: 'Deterministic Fact Pack and Report Blueprint only.' } };
   const projectedInputTokens = estimateTokenRange(payload);
-  const outputWords = blueprint.reportTier === 'snapshot' ? { min: 700, max: 1400 } : blueprint.reportTier === 'essential' ? { min: 2200, max: 4200 } : { min: 4200, max: 7600 };
-  const projectedOutputTokens: ContextTokenRange = { minimum: outputWords.min, maximum: outputWords.max, basis: 'Approved manuscript word envelope used as a conservative output-token planning range.' };
+  const outputBudget = deriveWholeManuscriptOutputBudget(blueprint);
+  const outputWords = outputBudget.expectedWordRange;
+  const projectedOutputTokens: ContextTokenRange = { minimum: outputWords.minimum, maximum: outputWords.maximum, basis: 'Approved manuscript word envelope used as a conservative output-token planning range.' };
   const approvedInputTokenLimit = WHOLE_MANUSCRIPT_APPROVED_INPUT_TOKENS;
-  const singleCallFeasible = projectedInputTokens.maximum <= approvedInputTokenLimit && projectedOutputTokens.maximum <= WHOLE_MANUSCRIPT_MODEL_MAX_OUTPUT_TOKENS;
+  const singleCallFeasible = projectedInputTokens.maximum <= approvedInputTokenLimit && outputBudget.hardOutputTokenLimit <= WHOLE_MANUSCRIPT_MODEL_MAX_OUTPUT_TOKENS;
   return {
     schemaVersion: WHOLE_MANUSCRIPT_CONTEXT_SCHEMA_VERSION,
     architecture: 'whole-manuscript',
@@ -842,6 +904,7 @@ export function buildWholeManuscriptContext(pack: NarrativeFactPack, blueprint: 
     style: { voice: 'Senior MK advisory voice: clear, commercially useful, specific, calm and connected.', continuity: ['one authorial voice', 'no repeated executive diagnosis', 'no duplicate conclusion', 'no next-section stitching', 'no register dump as narrative'] },
     projectedInputTokens,
     projectedOutputTokens,
+    outputBudget,
     approvedInputTokenLimit,
     singleCallFeasible,
     partitionPlan: singleCallFeasible ? [] : partitionFor(blueprint),
