@@ -16,5 +16,6 @@ export * from './report-blueprint';
 export * from './validation-severity';
 export * from './recovery-policy';
 export * from './whole-manuscript-writer';
+export * from './whole-manuscript-reconciliation';
 export * from './blueprint-text';
 export * from '../ai-model-policy';

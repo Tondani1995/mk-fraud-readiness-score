@@ -109,12 +109,21 @@ export interface WholeManuscriptTailInput {
   missingHeadings: string[];
   lastCompleteHeading: string;
   precedingContext: string;
+  boundary?: {
+    previousHeadingIndex: number;
+    nextHeadingIndex: number;
+    previousHeading: { level: 1 | 2 | 3; title: string } | null;
+    nextHeading: { level: 1 | 2 | 3; title: string } | null;
+    missingHeadings: string[];
+    continuationMode: 'next_heading' | 'complete_interrupted_prose_then_headings';
+  };
 }
 
 export interface WholeManuscriptTailResult {
   contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
   architecture: 'whole-manuscript-tail-completion';
   markdown: string;
+  continuationMarkdown: string;
   blueprint: ReportBlueprint;
   writerMetadata: WholeManuscriptWriterMetadata;
 }

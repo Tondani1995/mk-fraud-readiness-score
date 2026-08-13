@@ -3,9 +3,10 @@ import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
 import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult } from './manuscript';
-import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, deriveMissingBlueprintTail, type MissingBlueprintTail } from './blueprint-text';
+import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
+import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -55,6 +56,8 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     '',
     `LAST COMPLETE HEADING: ${input.lastCompleteHeading}`,
     `MISSING HEADINGS IN REQUIRED ORDER: ${JSON.stringify(tail.missingHeadings)}`,
+    `EXACT BLUEPRINT CONTINUATION BOUNDARY: ${JSON.stringify(tail.boundary)}`,
+    'When the boundary mode is next_heading, begin with the exact next Blueprint heading. When the boundary mode is complete_interrupted_prose_then_headings, complete only the interrupted sentence first and then emit the exact next Blueprint heading. The application rejects any other boundary, overlap or ordering.',
     '',
     'REQUIRED BLUEPRINT HEADING SKELETON',
     skeleton.markdown,
@@ -144,12 +147,69 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     });
     const markdown = String(response.text ?? '').trim();
     if (!markdown) throw new Error('Whole-manuscript text generation returned empty Markdown.');
-    return {
+    const initialResult: WholeManuscriptTextResult = {
       contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
       architecture: 'whole-manuscript',
       markdown,
       blueprint: input.blueprint,
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) })
+    };
+    const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
+    // A structurally complete manuscript is returned to the caller even when text-first
+    // validation identifies an editorial/semantic issue; the existing bounded semantic-repair
+    // policy owns that path. Only a structurally incomplete, proven truncation may enter tail
+    // reconciliation here.
+    if (initialParsed.ok) return initialResult;
+
+    const missing = deriveMissingBlueprintTail(initialResult.markdown, input.blueprint);
+    const initialOutcome = classifyWholeManuscriptGeneration({
+      finishReason: initialResult.writerMetadata.finishReason,
+      providerFinishReason: initialResult.writerMetadata.providerFinishReason,
+      outputTokens: initialResult.writerMetadata.outputTokens,
+      maxOutputTokens: initialResult.writerMetadata.executionContract?.maxOutputTokens,
+      missingHeadingCount: missing.missingHeadings.length
+    });
+    if (initialOutcome !== 'TECHNICAL_TRUNCATION' || !missing.ok) {
+      throw new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a valid complete manuscript or a proven technical-truncation prefix.', { outcome: initialOutcome, parsed: initialParsed.errors, missing: missing.errors });
+    }
+    const tailResult = await this.completeTail({
+      context: input.context,
+      blueprint: input.blueprint,
+      previousMarkdown: initialResult.markdown,
+      missingHeadings: missing.missingHeadings,
+      lastCompleteHeading: missing.lastCompleteHeading,
+      precedingContext: missing.precedingContext,
+      boundary: missing.boundary
+    });
+    const reconciled = reconcileWholeManuscript({
+      initialMarkdown: initialResult.markdown,
+      continuationMarkdown: tailResult.continuationMarkdown,
+      blueprint: input.blueprint,
+      factPack: input.factPack,
+      initialOutputTokens: initialResult.writerMetadata.outputTokens,
+      initialMaxOutputTokens: initialResult.writerMetadata.executionContract?.maxOutputTokens,
+      initialFinishReason: initialResult.writerMetadata.finishReason,
+      initialProviderFinishReason: initialResult.writerMetadata.providerFinishReason
+    });
+    const initialMeta = initialResult.writerMetadata;
+    const tailMeta = tailResult.writerMetadata;
+    return {
+      ...initialResult,
+      markdown: reconciled.markdown,
+      writerMetadata: {
+        ...initialMeta,
+        generatedAt: tailMeta.generatedAt,
+        generationId: tailMeta.generationId ?? initialMeta.generationId,
+        responseId: tailMeta.responseId ?? initialMeta.responseId,
+        inputTokens: sumOptional(initialMeta.inputTokens, tailMeta.inputTokens),
+        outputTokens: sumOptional(initialMeta.outputTokens, tailMeta.outputTokens),
+        totalTokens: sumOptional(initialMeta.totalTokens, tailMeta.totalTokens),
+        providerCostMicros: sumOptional(initialMeta.providerCostMicros, tailMeta.providerCostMicros),
+        providerCostRaw: sumRawCosts(initialMeta.providerCostRaw, tailMeta.providerCostRaw),
+        finishReason: tailMeta.finishReason ?? initialMeta.finishReason,
+        providerFinishReason: tailMeta.providerFinishReason ?? initialMeta.providerFinishReason,
+        recovery: mergeWholeManuscriptRecoveryBudgets(initialMeta.recovery, tailMeta.recovery)
+      }
     };
   }
 
@@ -175,10 +235,24 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
       architecture: 'whole-manuscript-tail-completion',
       markdown: appended,
+      continuationMarkdown: markdown,
       blueprint: input.blueprint,
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, maxOutputTokens, { ...emptyNarrativeRecoveryBudget(), truncationContinuationCount: 1, totalCalls: 1, totalTokens, totalProviderCostMicros: parseCostMicros(response) })
     };
   }
+}
+
+function sumOptional(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+function sumRawCosts(a: string | number | undefined, b: string | number | undefined): string | number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  const left = typeof a === 'number' ? a : Number(a ?? 0);
+  const right = typeof b === 'number' ? b : Number(b ?? 0);
+  if (Number.isFinite(left) && Number.isFinite(right)) return left + right;
+  return [a, b].filter((value) => value !== undefined).join(' + ');
 }
 
 function parseCostMicros(response: any): number {

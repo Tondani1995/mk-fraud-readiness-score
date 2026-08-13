@@ -57,8 +57,8 @@ const tail = '## Management conclusion\n\nManagement should close the remaining 
 const completed = appendBlueprintTail(previous, tail, testBlueprint);
 assert.match(completed, /## Management conclusion/);
 assert.match(completed, /The current position is described for management action\./);
-assert.throws(() => appendBlueprintTail(previous, `${tail}\n\n## Management conclusion`, testBlueprint), /exactly the missing Blueprint headings/);
-assert.throws(() => appendBlueprintTail(previous, '## Wrong heading\n\nText', testBlueprint), /exactly the missing Blueprint headings/);
+assert.throws(() => appendBlueprintTail(previous, `${tail}\n\n## Management conclusion`, testBlueprint), /Tail completion/);
+assert.throws(() => appendBlueprintTail(previous, '## Wrong heading\n\nText', testBlueprint), /Tail completion/);
 assert.match(skeleton, /## Management conclusion/);
 
 const initial = emptyNarrativeRecoveryBudget();

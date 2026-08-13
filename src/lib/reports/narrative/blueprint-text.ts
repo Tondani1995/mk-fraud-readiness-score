@@ -21,6 +21,14 @@ export interface MissingBlueprintTail {
   missingHeadings: string[];
   lastCompleteHeading: string;
   precedingContext: string;
+  boundary: {
+    previousHeadingIndex: number;
+    nextHeadingIndex: number;
+    previousHeading: BlueprintHeadingExpectation | null;
+    nextHeading: BlueprintHeadingExpectation | null;
+    missingHeadings: string[];
+    continuationMode: 'next_heading' | 'complete_interrupted_prose_then_headings';
+  };
   errors: string[];
 }
 
@@ -157,20 +165,129 @@ export function deriveMissingBlueprintTail(markdown: string, blueprint: ReportBl
   const missing = actual.length <= expected.length ? expected.slice(actual.length) : [];
   const lastCompleteHeading = actual.length ? actual[actual.length - 1]!.title : '';
   const precedingContext = normalise(markdown).slice(-6000);
-  return { ok: errors.length === 0 && missing.length > 0, missingHeadings: missing.map((heading) => heading.title), lastCompleteHeading, precedingContext, errors };
+  return {
+    ok: errors.length === 0 && missing.length > 0,
+    missingHeadings: missing.map((heading) => heading.title),
+    lastCompleteHeading,
+    precedingContext,
+    boundary: {
+      previousHeadingIndex: actual.length - 1,
+      nextHeadingIndex: actual.length,
+      previousHeading: expected[actual.length - 1] ?? null,
+      nextHeading: expected[actual.length] ?? null,
+      missingHeadings: missing.map((heading) => heading.title),
+      continuationMode: /[.!?…\u2019\u201d\)\]]$/.test(precedingContext.split('\n').filter((line) => line.trim()).at(-1)?.trim() ?? '')
+        ? 'next_heading'
+        : 'complete_interrupted_prose_then_headings'
+    },
+    errors
+  };
 }
 
-export function appendBlueprintTail(previousMarkdown: string, tailMarkdown: string, blueprint: ReportBlueprint): string {
+function compactWords(value: string): string[] {
+  return compact(value).split(' ').filter(Boolean);
+}
+
+function proseBlocks(markdown: string): string[] {
+  const blocks: string[] = [];
+  let current: string[] = [];
+  const flush = () => {
+    const value = current.join(' ').replace(/\s+/g, ' ').trim();
+    if (value) blocks.push(value);
+    current = [];
+  };
+  for (const line of normalise(markdown).split('\n')) {
+    if (parseHeading(line)) {
+      flush();
+      continue;
+    }
+    if (!line.trim()) flush();
+    else current.push(line.trim());
+  }
+  flush();
+  return blocks;
+}
+
+function hasWordOverlap(previous: string, continuation: string, minimumWords = 8): boolean {
+  const before = compactWords(previous);
+  const after = compactWords(continuation);
+  const maximum = Math.min(32, before.length, after.length);
+  for (let size = maximum; size >= minimumWords; size -= 1) {
+    const beforeSuffix = before.slice(-size).join(' ');
+    const afterPrefix = after.slice(0, size).join(' ');
+    if (beforeSuffix === afterPrefix) return true;
+  }
+  return false;
+}
+
+function assertNoContinuationOverlap(previousMarkdown: string, tailMarkdown: string): void {
+  const previousBlocks = proseBlocks(previousMarkdown);
+  const continuationBlocks = proseBlocks(tailMarkdown);
+  const previousSet = new Set(previousBlocks.map(compact));
+  for (const block of continuationBlocks) {
+    if (compactWords(block).length >= 8 && previousSet.has(compact(block))) {
+      throw new Error('Tail completion contains a duplicated prose block from the initial response.');
+    }
+  }
+  const previousLast = previousBlocks.at(-1);
+  const continuationFirst = continuationBlocks[0];
+  if (previousLast && continuationFirst && hasWordOverlap(previousLast, continuationFirst)) {
+    throw new Error('Tail completion overlaps the end of the initial response.');
+  }
+}
+
+function assertCompleteContinuationEnding(tailMarkdown: string): void {
+  const lines = normalise(tailMarkdown).split('\n').filter((line) => line.trim());
+  const last = lines.at(-1)?.trim() ?? '';
+  if (!last || parseHeading(last)) throw new Error('Tail completion must end with narrative prose.');
+  const terminal = last.replace(/[ *_`]+$/g, '').trim();
+  if (!/[.!?…\u2019\u201d\)\]]$/.test(terminal)) throw new Error('Tail completion ended before a complete sentence.');
+}
+
+function assertContinuationBoundary(tailMarkdown: string, expected: BlueprintHeadingExpectation, mode: MissingBlueprintTail['boundary']['continuationMode']): void {
+  const lines = normalise(tailMarkdown).split('\n').filter((line) => line.trim());
+  const required = `${'#'.repeat(expected.level)} ${expected.title}`;
+  const firstHeadingIndex = lines.findIndex((line) => parseHeading(line));
+  if (firstHeadingIndex < 0 || lines[firstHeadingIndex]?.trim() !== required) throw new Error(`Tail completion must reach the exact Blueprint boundary: ${required}.`);
+  if (mode === 'next_heading' && firstHeadingIndex !== 0) throw new Error(`Tail completion must begin at the exact Blueprint boundary: ${required}.`);
+  if (mode === 'complete_interrupted_prose_then_headings' && firstHeadingIndex === 0) throw new Error('Tail completion must complete the interrupted prose before the missing Blueprint heading.');
+}
+
+function joinContinuation(previousMarkdown: string, tailMarkdown: string, mode: MissingBlueprintTail['boundary']['continuationMode']): string {
+  const previous = normalise(previousMarkdown);
+  const tail = normalise(tailMarkdown);
+  if (mode === 'next_heading') return `${previous}\n\n${tail}`;
+  const lines = tail.split('\n');
+  const firstHeadingIndex = lines.findIndex((line) => parseHeading(line));
+  if (firstHeadingIndex < 1) throw new Error('Tail completion must contain interrupted prose before its deterministic heading boundary.');
+  const interruptedProse = lines.slice(0, firstHeadingIndex).join('\n').trim();
+  const headingSuffix = lines.slice(firstHeadingIndex).join('\n').trim();
+  if (!interruptedProse || !headingSuffix) throw new Error('Tail completion must contain both interrupted prose completion and the deterministic heading suffix.');
+  return `${previous} ${interruptedProse}\n\n${headingSuffix}`;
+}
+
+export function reconcileBlueprintTail(previousMarkdown: string, tailMarkdown: string, blueprint: ReportBlueprint): string {
   const tail = deriveMissingBlueprintTail(previousMarkdown, blueprint);
   if (!tail.ok) throw new Error(`Cannot append Blueprint tail: ${tail.errors.join(' | ')}`);
   const expectedTail = tail.missingHeadings;
+  if (!normalise(tailMarkdown)) throw new Error('Tail completion returned no content.');
+  if (/```/.test(tailMarkdown)) throw new Error('Tail completion may not contain code fences.');
+  const nextHeading = tail.boundary.nextHeading;
+  if (!nextHeading) throw new Error('Tail completion has no deterministic next Blueprint boundary.');
+  assertContinuationBoundary(tailMarkdown, nextHeading, tail.boundary.continuationMode);
+  assertNoContinuationOverlap(previousMarkdown, tailMarkdown);
   const receivedTail = headingTokens(tailMarkdown);
   const skeleton = expectedHeadings(blueprint).slice(expectedHeadings(blueprint).length - expectedTail.length);
   if (receivedTail.length !== expectedTail.length || receivedTail.some((heading, index) => heading.title !== skeleton[index]?.title || heading.level !== skeleton[index]?.level)) throw new Error('Tail completion must contain exactly the missing Blueprint headings in order.');
-  const combined = `${normalise(previousMarkdown)}\n\n${normalise(tailMarkdown)}`;
+  assertCompleteContinuationEnding(tailMarkdown);
+  const combined = joinContinuation(previousMarkdown, tailMarkdown, tail.boundary.continuationMode);
   const parsed = parseBlueprintMarkdown(combined, blueprint);
   if (!parsed.ok) throw new Error(`Tail completion failed deterministic binding: ${parsed.errors.map((error) => error.code).join(', ')}`);
   return combined;
+}
+
+export function appendBlueprintTail(previousMarkdown: string, tailMarkdown: string, blueprint: ReportBlueprint): string {
+  return reconcileBlueprintTail(previousMarkdown, tailMarkdown, blueprint);
 }
 
 export function parseBlueprintMarkdown(markdown: string, blueprint: ReportBlueprint): ParsedBlueprintMarkdown {
