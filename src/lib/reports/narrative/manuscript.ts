@@ -50,6 +50,7 @@ export interface NarrativeWriterMetadata {
   generationId?: string;
   inputFactPackSha256: string;
   inputStoryPlanSha256: string;
+  presentationSanitisedProvenanceTokenCount?: number;
 }
 
 export interface NarrativeWriterContext {

@@ -8,3 +8,4 @@ export * from './orchestrator';
 export * from './release-gate';
 export * from './pre-ai-gates';
 export * from './writer-brief';
+export * from './presentation-hygiene';
