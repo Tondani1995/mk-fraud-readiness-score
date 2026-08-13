@@ -14,13 +14,35 @@ import { applyDeterministicSectionIdentity, type NarrativeSectionContent } from 
 export const V11_NARRATIVE_PROMPT_VERSION = 'mk-reporting-bible-1.1-manuscript-advisory-v1';
 export const V11_NARRATIVE_MODEL = selectNarrativeModel().requestedModel;
 
-const claimBlock = z.object({ id: z.string().min(1), text: z.string().min(1), claimRefs: z.array(z.string().min(1)) }).strict();
-const spineSchema = z.object({ executiveDiagnosis: claimBlock, systemicThemeSummary: claimBlock, centralManagementImplication: claimBlock, route: claimBlock }).strict();
+function factRefEnum(pack: NarrativeFactPack) {
+  const refs = [...new Set(pack.facts.map((fact) => fact.id).filter(Boolean))];
+  if (refs.length === 0) throw new Error('Narrative Fact Pack must define at least one fact reference before AI dispatch.');
+  return z.enum(Object.fromEntries(refs.map((ref) => [ref, ref])) as Record<string, string>);
+}
+
+/**
+ * The deterministic Fact Pack owns the provenance vocabulary. AI may choose supporting refs,
+ * but the provider structured-output contract cannot return a ref outside this exact set.
+ * There is no reliable section-level authorised-ref map in the current Writer Brief/Story Plan,
+ * so the full Fact Pack set is used for each ClaimBlock.
+ */
+export function createNarrativeClaimBlockSchema(pack: NarrativeFactPack) {
+  return z.object({ id: z.string().min(1), text: z.string().min(1), claimRefs: z.array(factRefEnum(pack)).min(1) }).strict();
+}
+
+export function createNarrativeSpineSchema(pack: NarrativeFactPack) {
+  const claimBlock = createNarrativeClaimBlockSchema(pack);
+  return z.object({ executiveDiagnosis: claimBlock, systemicThemeSummary: claimBlock, centralManagementImplication: claimBlock, route: claimBlock }).strict();
+}
+
 // The AI Gateway's strict structured-output contract requires every object property to be listed
 // as required. A final section has no transition, so represent that absence as explicit null at
 // the provider boundary. Structural identity is deliberately absent: Story Plan IDs are attached
 // by the deterministic application layer after provider output is parsed.
-const sectionSchema = z.object({ heading: claimBlock, paragraphs: z.array(claimBlock).min(1), transition: claimBlock.nullable() }).strict();
+export function createNarrativeSectionSchema(pack: NarrativeFactPack) {
+  const claimBlock = createNarrativeClaimBlockSchema(pack);
+  return z.object({ heading: claimBlock, paragraphs: z.array(claimBlock).min(1), transition: claimBlock.nullable() }).strict();
+}
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function sha(value: unknown): string { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
@@ -87,19 +109,19 @@ export class V11AiNarrativeWriter implements NarrativeWriter {
   }
 
   async writeSpine(input: { factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeSpine> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: spineSchema, pack: input.factPack, plan: input.storyPlan, phase: 'spine', accounting: this.callAccounting, prompt: `Write the executive narrative spine first. Establish the central management story from diagnosis to findings to conditional exposure pathways to treatment. Use claimRefs from the Fact Pack. The text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in executiveDiagnosis.text, systemicThemeSummary.text, centralManagementImplication.text or route.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never attribute it to MK, the assessment or the report.\n\n${contextPayload(input.factPack, input.storyPlan)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: createNarrativeSpineSchema(input.factPack), pack: input.factPack, plan: input.storyPlan, phase: 'spine', accounting: this.callAccounting, prompt: `Write the executive narrative spine first. Establish the central management story from diagnosis to findings to conditional exposure pathways to treatment. Use claimRefs from the Fact Pack. The text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in executiveDiagnosis.text, systemicThemeSummary.text, centralManagementImplication.text or route.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never attribute it to MK, the assessment or the report.\n\n${contextPayload(input.factPack, input.storyPlan)}` });
     this.presentationSanitisedProvenanceTokenCount += result.metadata.presentationSanitisedProvenanceTokenCount ?? 0;
     return { schemaVersion: 'mk-reporting-bible-1.1-manuscript-v1', bibleVersion: '1.1', productTier: input.factPack.productTier, ...result.value, writerMetadata: { ...result.metadata, presentationSanitisedProvenanceTokenCount: this.presentationSanitisedProvenanceTokenCount } };
   }
 
   async writeSection(input: NarrativeWriterContext): Promise<NarrativeManuscriptSection> {
-    const result = await objectCall({ model: this.model, provider: this.provider, schema: sectionSchema, pack: input.factPack, plan: input.storyPlan, phase: 'section', sectionId: input.currentSectionId, accounting: this.callAccounting, prompt: `Write section content for the deterministic Story Plan section ${input.currentSectionId} in movement ${input.currentMovementId}. Do not output sectionId or movementId; the application will attach those exact Story Plan values. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references. Text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in heading.text, paragraph.text or transition.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never state that MK, the assessment or the report performed or confirmed it. Include the required transition property as a ClaimBlock for every non-final section and as null for the final section.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
+    const result = await objectCall({ model: this.model, provider: this.provider, schema: createNarrativeSectionSchema(input.factPack), pack: input.factPack, plan: input.storyPlan, phase: 'section', sectionId: input.currentSectionId, accounting: this.callAccounting, prompt: `Write section content for the deterministic Story Plan section ${input.currentSectionId} in movement ${input.currentMovementId}. Do not output sectionId or movementId; the application will attach those exact Story Plan values. The previous transition is: ${input.previousTransition ?? '(first section)'}. Current purpose: ${input.currentSectionPurpose}. Next section purpose: ${input.nextSectionPurpose}. Required management takeaway: ${input.requiredManagementTakeaway}. Prohibited claims: ${input.prohibitedClaims.join('; ')}. Keep all priorities and facts deterministic; use only relevant Fact Pack references. Text fields are customer prose; claimRefs are internal provenance metadata only. Identifiers may appear in claimRefs but never in heading.text, paragraph.text or transition.text. Independent verification/review may be described only as a customer control activity supplied by the Writer Brief; never state that MK, the assessment or the report performed or confirmed it. Include the required transition property as a ClaimBlock for every non-final section and as null for the final section.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nEXECUTIVE SPINE\n${JSON.stringify(input.spine)}` });
     this.presentationSanitisedProvenanceTokenCount += result.metadata.presentationSanitisedProvenanceTokenCount ?? 0;
     return applyDeterministicSectionIdentity(result.value as NarrativeSectionContent, input.currentSectionId, input.currentMovementId);
   }
 
   async coherencePass(input: { manuscript: NarrativeManuscript; factPack: NarrativeFactPack; storyPlan: NarrativeStoryPlan }): Promise<NarrativeManuscript> {
-    const coherenceSchema = z.object({ sections: z.array(sectionSchema).length(input.manuscript.sections.length) }).strict();
+    const coherenceSchema = z.object({ sections: z.array(createNarrativeSectionSchema(input.factPack)).length(input.manuscript.sections.length) }).strict();
     const result = await objectCall({ model: this.model, provider: this.provider, schema: coherenceSchema, pack: input.factPack, plan: input.storyPlan, phase: 'coherence', accounting: this.callAccounting, prompt: `Perform one bounded editorial coherence pass over this manuscript in the exact existing section order. Return only section content (heading, paragraphs and transition); do not output sectionId or movementId. The application will restore the exact Story Plan identities and order. Smooth transitions, remove repetition, standardise terminology and preserve every deterministic fact, priority, owner, timing, control, scenario, decision and claim reference. Do not add analytical content. Text fields are customer prose; claimRefs are internal provenance metadata only. Preserve customer control-design language for independent verification or review, but never introduce or imply MK, assessment or report assurance, validation, testing or confirmation of operating effectiveness.\n\n${contextPayload(input.factPack, input.storyPlan)}\n\nMANUSCRIPT\n${JSON.stringify(input.manuscript)}` });
     this.presentationSanitisedProvenanceTokenCount += result.metadata.presentationSanitisedProvenanceTokenCount ?? 0;
     return { ...input.manuscript, sections: result.value.sections.map((content, index) => applyDeterministicSectionIdentity(content as NarrativeSectionContent, input.manuscript.sections[index].sectionId, input.manuscript.sections[index].movementId)), writerMetadata: { ...input.manuscript.writerMetadata, generatedAt: new Date().toISOString(), presentationSanitisedProvenanceTokenCount: this.presentationSanitisedProvenanceTokenCount } };
