@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { sanitiseClaimBlock, sanitiseNarrativePresentation } from '../../src/lib/reports/narrative/presentation-hygiene.ts';
-import { validateNarrativeManuscript } from '../../src/lib/reports/narrative/validation.ts';
+import { validateNarrativeManuscript, classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
 
 function pack() {
   return {
@@ -92,6 +92,33 @@ test('F: sanitisation preserves claimRefs and they resolve to Fact Pack facts', 
 
 test('sanitisation fails closed when a provenance-only block would become empty', () => {
   assert.throws(() => sanitiseClaimBlock({ text: 'FINDING-001', claimRefs: ['FINDING-001'] }), /sanitisation removed the complete/);
+});
+
+test('assurance language: explicit MK or report assurance claims remain blocking', () => {
+  const failures = [
+    'MK independently verified the organisation\'s supplier controls.',
+    'The assessment provides independent verification.',
+    'The findings were independently verified.',
+    'Independent verification confirmed the controls operate effectively.',
+    'Operating effectiveness was independently verified.',
+    'The evidence was validated.',
+    'MK\'s review confirmed operating effectiveness.'
+  ];
+  for (const text of failures) assert.equal(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
+});
+
+test('assurance language: customer control verification and review are allowed', () => {
+  const passes = [
+    'Supplier bank-detail changes should be independently verified through a trusted channel before release.',
+    'Sensitive profile changes require independent verification before approval.',
+    'Privileged-access recertification should include independent review.',
+    'Management should retain proof that the independent verification step was completed.'
+  ];
+  for (const text of passes) assert.notEqual(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
+});
+
+test('assurance language: ambiguous independent verification fails closed', () => {
+  assert.equal(classifyAssuranceLanguage('Independent verification is important.')?.category, 'prohibited_assurance');
 });
 
 console.log('Narrative presentation hygiene tests: PASS');

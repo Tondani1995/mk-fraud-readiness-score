@@ -51,6 +51,10 @@ export interface NarrativeWriterMetadata {
   inputFactPackSha256: string;
   inputStoryPlanSha256: string;
   presentationSanitisedProvenanceTokenCount?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  providerCostMicros?: number;
 }
 
 export interface NarrativeWriterContext {

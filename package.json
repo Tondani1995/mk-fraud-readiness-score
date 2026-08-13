@@ -18,6 +18,8 @@
     "reporting:bible-compliance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/reporting-bible-compliance-tests.mjs",
     "v11:manuscript-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/v11-manuscript-gate-scan.mjs",
     "v11:narrative-contract": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/v11-narrative-contract-tests.mjs",
+    "v11:narrative-assurance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-assurance-semantics-tests.mjs",
+    "v11:narrative-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-owner-review-diagnostics-tests.mjs",
     "v11:pre-ai-fact-pack": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
     "v11:pre-ai-semantic-integrity": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/build-v11-manuscript-owner-review.mjs",
     "v11:six-archetype-pre-ai": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/certify-v11-six-archetype-existing-pre-ai.mjs",

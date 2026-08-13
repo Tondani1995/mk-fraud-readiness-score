@@ -27,10 +27,59 @@ const PROHIBITED = [
   { code: 'raw_enum', pattern: /\b(?:control_failure|control_gap|maturity_constraint|assurance_priority|cross_domain_dependency)\b/i, message: 'Raw internal materiality enums are not customer-facing prose.' },
   { code: 'internal_methodology', pattern: /\b(?:hard gate|cap event|aggregate maturity result|priority score|the named record)\b/i, message: 'Internal methodology terms are not customer-facing prose.' },
   { code: 'generic_scenario', pattern: /(?:the recorded control condition is engaged through|an actor exploits the recorded control condition|threat actor exploits the recorded control condition)/i, message: 'Generic stitched scenario language is prohibited.' },
-  { code: 'assurance_claim', pattern: /\b(?:evidence-linked|evidence-based|independently verified|independent verification|validated operating effectiveness|evidence validated|reviewer judgement)\b/i, message: 'Unsupported assurance language is prohibited outside Advisory.' },
   { code: 'mechanical_field_label', pattern: /\b(?:within .{0,100}, the specific control on whether|recorded control condition)\b/i, message: 'Questionnaire-to-paragraph construction is prohibited.' },
   { code: 'accusatory_tone', pattern: /\bmanagement failed\b|\bthe organisation cannot detect fraud\b/i, message: 'Accusatory or absolute customer language is prohibited.' }
 ];
+
+export interface AssuranceLanguageClassification {
+  category: 'prohibited_assurance' | 'customer_control_activity';
+  matched: string;
+}
+
+const ABSOLUTELY_PROHIBITED_ASSURANCE = [
+  /\b(?:evidence-linked|evidence-based)\b.{0,100}\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b/i,
+  /\b(?:assurance|validation|validated|verified|confirmed|effective|operating effectiveness)\b.{0,100}\b(?:evidence-linked|evidence-based)\b/i,
+  /\bvalidated operating effectiveness\b/i,
+  /\bevidence validated\b/i,
+  /\breviewer judgement\b/i,
+  /\bMK\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|reviewed evidence|tested\s+(?:the\s+)?(?:operation|operating effectiveness|controls?)|independently confirmed)\b/i,
+  /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i,
+  /\b(?:independent\s+(?:verification|review)|independently\s+(?:verified|reviewed))\b.{0,100}\b(?:confirmed|established|demonstrates?|shows?)\b.{0,100}\b(?:control|operating effectiveness|operates? effectively)\b/i,
+  /\boperating effectiveness\b.{0,80}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+(?:verified|reviewed)|validated|established|confirmed)\b/i,
+  /\b(?:the\s+)?evidence\b.{0,40}\b(?:was|were|has been|have been)\s+validated\b/i,
+  /\b(?:MK(?:'s)?|the reviewer(?:'s)?)\s+review\b.{0,100}\b(?:confirmed|established|assured|operating effectiveness)\b/i,
+  /\b(?:the report|this report)\b.{0,80}\bprovides?\s+(?:independent\s+)?assurance\b/i
+];
+
+const AMBIGUOUS_CONTROL_VERIFICATION = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b/i;
+const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|change(?:s)?|approval|callback|verification step|control(?:s)? activity|control design|payment release|release)\b/i;
+const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
+const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
+const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
+
+/**
+ * Classifies only assurance language in customer-facing narrative text. Explicit claims about MK,
+ * the assessment, the report or operating effectiveness remain blocking. The ambiguous
+ * independent-verification/review wording is allowed only when it is clearly framed as a customer
+ * control activity; otherwise it fails closed.
+ */
+export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassification | null {
+  for (const pattern of ABSOLUTELY_PROHIBITED_ASSURANCE) {
+    const match = text.match(pattern);
+    if (match) return { category: 'prohibited_assurance', matched: match[0] };
+  }
+
+  const ambiguous = text.match(AMBIGUOUS_CONTROL_VERIFICATION);
+  if (!ambiguous) return null;
+  if (MK_ASSURANCE_ACTOR.test(text)) return { category: 'prohibited_assurance', matched: ambiguous[0] };
+
+  const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(text);
+  const hasControlAction = CONTROL_ACTIVITY_ACTION.test(text);
+  if ((hasControlSubject && hasControlAction) || DIRECT_CONTROL_ACTIVITY.test(text)) {
+    return { category: 'customer_control_activity', matched: ambiguous[0] };
+  }
+  return { category: 'prohibited_assurance', matched: ambiguous[0] };
+}
 
 function issue(code: string, path: string, message: string): NarrativeValidationIssue { return { code, path, message, blocking: true }; }
 function record(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
@@ -67,6 +116,8 @@ function validateBlocks(input: { blocks: Array<{ path: string; block: { text?: s
       if (!known.has(ref)) input.issues.push(issue('unknown_claim_ref', `${path}.claimRefs`, `Claim reference ${ref} is not in the Fact Pack.`));
     }
     for (const rule of PROHIBITED) if (rule.pattern.test(text)) input.issues.push(issue(rule.code, path, rule.message));
+    const assurance = classifyAssuranceLanguage(text);
+    if (assurance?.category === 'prohibited_assurance') input.issues.push(issue('assurance_claim', path, `Unsupported assurance language is prohibited outside Advisory (${assurance.matched}).`));
     for (const token of text.match(/\b\d+(?:\.\d+)?%?\b/g) ?? []) if (!numbers.has(token.replace('%', ''))) input.issues.push(issue('unsupported_numeric_claim', path, `Numeric claim ${token} is not present in the Fact Pack.`));
     if (/^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|```)/m.test(text)) input.issues.push(issue('non_prose_format', path, 'Narrative blocks must be connected plain prose, not bullets or nested headings.'));
   });
