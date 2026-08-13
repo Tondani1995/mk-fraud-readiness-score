@@ -1,46 +1,54 @@
-import { generateText, Output } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
-import { sanitiseNarrativePresentation } from './presentation-hygiene';
-import { NarrativeWriterUnavailableError, type NarrativeClaimBlock, type NarrativeManuscript, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata } from './manuscript';
-import type { ReportBlueprint } from './report-blueprint';
+import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult } from './manuscript';
+import { buildBlueprintMarkdownSkeleton } from './blueprint-text';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 
-export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-v1';
+export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
+export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function sha(value: unknown): string { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
-
-function claimRefEnum(refs: string[]) {
-  const unique = [...new Set(refs.filter(Boolean))];
-  if (unique.length === 0) throw new Error('Whole-manuscript context must contain permitted deterministic fact references.');
-  return z.enum(Object.fromEntries(unique.map((ref) => [ref, ref])) as Record<string, string>);
-}
-
-function claimBlockSchema(refs: string[]) {
-  return z.object({ id: z.string().min(1), text: z.string().min(1), claimRefs: z.array(claimRefEnum(refs)).min(1) }).strict();
-}
-
-function manuscriptSchema(input: WholeManuscriptWriterInput) {
-  const refs = input.context.permittedDeterministicFacts.map((fact) => fact.id);
-  const block = claimBlockSchema(refs);
-  const sections = input.blueprint.chapters.flatMap((chapter) => chapter.sections.map((section) => ({ sectionId: section.sectionId, movementId: chapter.chapterId })));
-  return z.object({
-    spine: z.object({ executiveDiagnosis: block, systemicThemeSummary: block, centralManagementImplication: block, route: block }).strict(),
-    sections: z.array(z.object({ heading: block, paragraphs: z.array(block).min(1), transition: block.nullable() }).strict()).length(sections.length)
-  }).strict();
-}
+function numeric(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
 
 function requireProvider(model = selectNarrativeModel().requestedModel): { model: string; provider: string } {
   if (!model || !(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) throw new NarrativeWriterUnavailableError();
   return { model, provider: providerFromModel(model) };
 }
 
-function metadata(input: WholeManuscriptWriterInput, provider: string, model: string, response: any, usage: any): WholeManuscriptWriterMetadata {
+function generationPrompt(input: WholeManuscriptWriterInput): string {
+  const skeleton = buildBlueprintMarkdownSkeleton(input.blueprint);
+  return [
+    'Write the complete MK Fraud Readiness v1.1 advisory manuscript as Markdown.',
+    '',
+    'The deterministic Blueprint owns every chapter, section, subsection, order, analytical role, required fact, management takeaway and exhibit. Write only narrative beneath the existing headings in the exact skeleton below.',
+    'Do not remove, rename, add or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata outside the skeleton. Do not repeat the executive judgement as a new opening in later chapters. Use connected professional prose with natural transitions. Separate diagnosis, evidence, exposure, target state, response, implementation and conclusion by their assigned Blueprint roles.',
+    'Use only the deterministic Fact Pack and the permitted claim references assigned to each Blueprint section. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance. Do not claim that MK, the assessment or the report independently verified operating effectiveness. Customer control design may describe what management should independently review or verify.',
+    '',
+    'WRITE ONLY THE NARRATIVE UNDER THESE EXISTING HEADINGS.',
+    '',
+    'MARKDOWN SKELETON',
+    skeleton.markdown,
+    '',
+    'DETERMINISTIC REPORT BLUEPRINT',
+    JSON.stringify(input.blueprint),
+    '',
+    'PERMITTED DETERMINISTIC FACTS',
+    JSON.stringify(input.context.permittedDeterministicFacts),
+    '',
+    'BOUNDARIES AND STYLE',
+    JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+  ].join('\n');
+}
+
+function metadata(input: WholeManuscriptWriterInput, provider: string, model: string, response: any, prompt: string): WholeManuscriptWriterMetadata {
   const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });
-  const numeric = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  const inputTokens = numeric(response.usage?.inputTokens);
+  const outputTokens = numeric(response.usage?.outputTokens);
+  const totalTokens = numeric(response.usage?.totalTokens);
+  const providerCostMicros = identity?.gatewayCostMicros;
   return {
     contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
     architecture: 'whole-manuscript',
@@ -54,11 +62,21 @@ function metadata(input: WholeManuscriptWriterInput, provider: string, model: st
     inputFactPackSha256: sha(input.factPack),
     inputStoryPlanSha256: sha(input.blueprint),
     inputBlueprintSha256: sha(input.blueprint),
-    inputTokens: numeric(usage?.inputTokens),
-    outputTokens: numeric(usage?.outputTokens),
-    totalTokens: numeric(usage?.totalTokens),
-    providerCostMicros: identity?.gatewayCostMicros,
-    recovery: { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(usage?.totalTokens) ?? 0, totalProviderCostMicros: identity?.gatewayCostMicros ?? 0 }
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    providerCostMicros,
+    executionContract: {
+      sdkFunction: 'generateText',
+      responseFormat: 'markdown-text',
+      structuredOutput: false,
+      promptBytes: Buffer.byteLength(prompt, 'utf8'),
+      estimatedInputTokens: Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4),
+      maxOutputTokens: input.context.projectedOutputTokens.maximum,
+      timeoutMs: WHOLE_MANUSCRIPT_TIMEOUT_MS,
+      providerOptions: { gateway: { only: [provider] } }
+    },
+    recovery: { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: totalTokens ?? 0, totalProviderCostMicros: providerCostMicros ?? 0 }
   };
 }
 
@@ -73,33 +91,26 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     this.model = resolved.model;
   }
 
-  async writeManuscript(input: WholeManuscriptWriterInput): Promise<NarrativeManuscript & { blueprint: ReportBlueprint; writerMetadata: WholeManuscriptWriterMetadata }> {
+  async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
+    const prompt = generationPrompt(input);
     const response = await generateText({
       model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Report Blueprint decides the report. Write one connected manuscript within its exact chapter and section order. The complete Fact Pack is the only source of material facts. Do not add, remove or reorder chapters. Do not invent numbers, owners, dates, findings, scenarios, controls, decisions or assurance. Keep raw identifiers in claimRefs only. Use one authorial voice, no repeated executive diagnosis, no duplicate conclusion, no next-section stitching and no register dump. Never imply that MK, the assessment or the report independently verified operating effectiveness. Return only the requested structured object.',
-      prompt: JSON.stringify({ architecture: input.context.architecture, blueprint: input.blueprint, permittedDeterministicFacts: input.context.permittedDeterministicFacts, boundaries: input.context.boundaries, style: input.context.style, partitionPlan: input.context.partitionPlan }),
-      output: Output.object({ schema: manuscriptSchema(input), name: 'mk_fraud_readiness_v11_whole_manuscript' }),
+      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+      prompt,
       maxOutputTokens: input.context.projectedOutputTokens.maximum,
       maxRetries: 0,
       providerOptions: { gateway: { only: [this.provider] } },
-      abortSignal: AbortSignal.timeout(240_000)
+      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
     });
-    const sanitised = sanitiseNarrativePresentation(response.output as any);
-    const writerMetadata = metadata(input, this.provider, this.model, response, response.usage);
-    const locations = input.blueprint.chapters.flatMap((chapter) => chapter.sections.map((section) => ({ sectionId: section.sectionId, movementId: chapter.chapterId })));
-    const sections = (sanitised.value.sections as Array<{ heading: NarrativeClaimBlock; paragraphs: NarrativeClaimBlock[]; transition: NarrativeClaimBlock | null }>).map((section, index) => ({ ...locations[index], heading: section.heading, paragraphs: section.paragraphs, ...(section.transition ? { transition: section.transition } : {}) }));
-    const spine = sanitised.value.spine as NarrativeManuscript['spine'];
+    const markdown = String(response.text ?? '').trim();
+    if (!markdown) throw new Error('Whole-manuscript text generation returned empty Markdown.');
     return {
-      schemaVersion: 'mk-reporting-bible-1.1-manuscript-v1',
-      bibleVersion: '1.1',
-      productTier: input.factPack.productTier,
-      organisationName: input.factPack.organisation.name,
-      assessmentReference: input.factPack.assessment.reference,
-      sections,
-      spine: { ...spine, schemaVersion: 'mk-reporting-bible-1.1-manuscript-v1', bibleVersion: '1.1', productTier: input.factPack.productTier, writerMetadata },
+      contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+      architecture: 'whole-manuscript',
+      markdown,
       blueprint: input.blueprint,
-      writerMetadata
+      writerMetadata: metadata(input, this.provider, this.model, response, prompt)
     };
   }
 }

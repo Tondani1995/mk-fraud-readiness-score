@@ -87,6 +87,24 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   architecture: 'whole-manuscript';
   recovery: NarrativeRecoveryBudget;
   inputBlueprintSha256?: string;
+  executionContract?: {
+    sdkFunction: 'generateText';
+    responseFormat: 'markdown-text';
+    structuredOutput: false;
+    promptBytes: number;
+    estimatedInputTokens: number;
+    maxOutputTokens: number;
+    timeoutMs: number;
+    providerOptions: Record<string, unknown>;
+  };
+}
+
+export interface WholeManuscriptTextResult {
+  contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
+  architecture: 'whole-manuscript';
+  markdown: string;
+  blueprint: ReportBlueprint;
+  writerMetadata: WholeManuscriptWriterMetadata;
 }
 
 export interface WholeManuscriptWriterInput {
@@ -104,7 +122,7 @@ export interface WholeManuscriptWriter {
   readonly provider: string;
   readonly model: string;
   readonly promptVersion: string;
-  writeManuscript(input: WholeManuscriptWriterInput): Promise<NarrativeManuscript & { blueprint: ReportBlueprint; writerMetadata: WholeManuscriptWriterMetadata }>;
+  writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {
