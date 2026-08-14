@@ -28,6 +28,7 @@ import {
   generateBoundedNarrativeReport
 } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 import { createV11BoundedSectionWriter } from '../../src/lib/reports/narrative/bounded-section-writer.ts';
+import { BoundedGenerationFailure } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 import { buildEssentialPresentationModel } from '../../src/lib/reports/essential/presentation-model.ts';
 import { validateEssentialPresentation } from '../../src/lib/reports/essential/presentation-validation.ts';
 import { renderEssentialReportHtml } from '../../src/lib/reports/essential/render-essential-html.ts';
@@ -138,13 +139,37 @@ for (const order of orders) {
   } catch (error) {
     record.ok = false;
     record.error = String(error?.message ?? error).slice(0, 400);
+    // A failed case still spent provider calls. Reading the accounting off the
+    // failure keeps portfolio economics honest -- reporting $0.00 for a case that
+    // ran for six minutes understates real production cost.
+    if (error instanceof BoundedGenerationFailure) {
+      const accounting = error.accounting;
+      record.failedAtSlot = error.slotId;
+      record.generation = {
+        initialCalls: accounting.initialCalls,
+        repairCalls: accounting.repairCalls,
+        qualityEscalations: accounting.qualityEscalations,
+        technicalFormatRetries: accounting.technicalFormatRetries,
+        technicalProviderFailures: accounting.technicalProviderFailureCount,
+        technicalOutputParseFailures: accounting.technicalOutputParseFailureCount,
+        totalTokens: accounting.totalTokens,
+        providerCostMicros: accounting.totalProviderCostMicros,
+        models: [...new Set(Object.values(accounting.modelBySlot ?? {}))]
+      };
+      await write(path.join(caseDir, 'generation-accounting.json'), accounting);
+    }
+  } finally {
+    // Release the browser per case. A render that throws mid-loop otherwise
+    // leaves a browser holding the event loop open, and the process never exits
+    // even though every case has finished.
+    await closeRenderBrowser().catch(() => {});
   }
   record.durationMs = Date.now() - startedAt;
   portfolio.push(record);
   await write(path.join(outRoot, 'portfolio', 'portfolio-summary.json'), portfolio);
   console.log(`${record.caseId} ${record.ok ? 'PASS' : 'FAIL'} ${String(record.mode ?? '?').padEnd(11)} ${String(record.score ?? '?').padStart(6)} calls:${record.generation?.initialCalls ?? '-'} rep:${record.generation?.repairCalls ?? '-'} esc:${record.generation?.qualityEscalations ?? '-'} tok:${record.generation?.totalTokens ?? '-'} $${((record.generation?.providerCostMicros ?? 0) / 1e6).toFixed(4)} ${record.validation?.words ?? '-'}w ${Math.round(record.durationMs / 1000)}s ${record.error ?? (record.validation?.issues ?? []).map((i) => i.code).join(',')}`);
 }
-await closeRenderBrowser();
+await closeRenderBrowser().catch(() => {});
 
 const done = portfolio.filter((entry) => entry.ok);
 const cost = portfolio.reduce((sum, entry) => sum + (entry.generation?.providerCostMicros ?? 0), 0) / 1e6;
