@@ -7,6 +7,7 @@
  * readable, so density is checked here as well.
  */
 import type { EssentialReportPresentationModel } from './presentation-model';
+import { scenarioPresentationForExposure } from './content-families';
 
 export const ESSENTIAL_PRESENTATION_VALIDATION_VERSION = 'mk-essential-presentation-validation-v1';
 
@@ -27,7 +28,8 @@ export type PresentationIssueCode =
   | 'PRESENTATION_LABEL_TOO_LONG'
   | 'EXPOSURE_FAMILY_OWNERSHIP'
   | 'SCENARIO_FAMILY_OWNERSHIP'
-  | 'TARGET_STATE_NOT_EVIDENCE';
+  | 'TARGET_STATE_NOT_EVIDENCE'
+  | 'SCENARIO_MECHANIC_CONTAMINATION';
 
 export interface PresentationIssue { code: PresentationIssueCode; message: string }
 
@@ -186,6 +188,18 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
   }
   if (new Set(scenarioFamilies).size !== scenarioFamilies.length) {
     issues.push({ code: 'SCENARIO_FAMILY_OWNERSHIP', message: 'Two scenarios claim the same content family.' });
+  }
+
+  // A scenario's flow and its narrative must describe the same fraud mechanic.
+  // Previously a detection-evasion narrative sat under identity-change nodes:
+  // the families matched, so every family check passed, while the page described
+  // two different frauds.
+  for (const scenario of model.scenarios?.scenarios ?? []) {
+    const terms = scenarioPresentationForExposure(scenario.family)?.mechanicTerms;
+    if (!terms || !scenario.howItUnfolds) continue;
+    if (!terms.test(scenario.howItUnfolds)) {
+      issues.push({ code: 'SCENARIO_MECHANIC_CONTAMINATION', message: `Scenario ${scenario.scenarioId} describes a different mechanic from its pathway nodes: "${scenario.howItUnfolds.slice(0, 90)}"` });
+    }
   }
 
   // "What good looks like" describes an operating state. An artefact name is

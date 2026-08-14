@@ -23,6 +23,8 @@ import {
   exposureFamilyForSemantic,
   familyPresentation,
   isStabilisationFamily,
+  scenarioPresentation,
+  EXPOSURE_CONSEQUENCE,
   type ExposureFamily
 } from './content-families';
 
@@ -95,9 +97,14 @@ export interface PriorityExposureExhibit extends ExhibitBase {
     family?: ExposureFamily;
     exposure: string;
     whyItMatters: string;
+    /** The assessed signals that place this exposure where it is. */
+    assessmentBasis: Array<{ title: string; score: number }>;
+    potentialConsequence: string;
     drivers: Array<{ title: string; score: number }>;
     interruptionPoint: string;
     priority: 'Highest' | 'High' | 'Moderate';
+    /** Why this priority, expressed from the signals rather than asserted. */
+    priorityBasis: string;
   }>;
 }
 
@@ -130,12 +137,14 @@ export interface RoadmapExhibit extends ExhibitBase {
     stage: string;
     window: string;
     primaryOutcome: string;
-    actions: Array<{ action: string; owner: string; dependsOn: string[] }>;
+    actions: Array<{ action: string; owner: string; deliverable: string; completionTest: string; dependsOn: string[] }>;
   }>;
 }
 
 export interface ManagementMetricExhibit extends ExhibitBase {
   rows: Array<{ measure: string; current: string; expectation: string }>;
+  /** Baselines are the assessed condition, not a uniform placeholder. */
+  baselineSource: 'assessed-condition';
 }
 
 export interface EssentialPage {
@@ -335,27 +344,49 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   const scenarios: any[] = Array.isArray(factPack.scenarios) ? factPack.scenarios : [];
   const controls: any[] = Array.isArray(factPack.controls) ? factPack.controls : [];
 
-  const exposureRows = clusters.map((cluster, index) => {
+  // Priority is derived from the assessed signals that drive each family, not
+  // asserted by row order. The weakest supporting domain sets the ranking, so a
+  // reader can see why one exposure outranks another.
+  const familySignals = (family: ExposureFamily | undefined) => sortedDomains
+    .filter((d) => family && exposureFamilyForLabel(String(d.name ?? '')) === family)
+    .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+
+  const exposureDraft = clusters.map((cluster) => {
     const family = exposureFamilyForLabel(cluster);
-    // Resolve supporting content by family. Pairing by array position previously
-    // explained the identity exposure with evidence-custody content, because the
-    // scenario order and the cluster order do not correspond.
     const linkedScenario = scenarios.find((s) => exposureFamilyForScenario(s.scenarioFamily) === family);
     const linkedControls = controls.filter((c) => exposureFamilyForSemantic(c.primarySemanticFamily) === family);
     const presentation = familyPresentation(linkedControls[0]?.primarySemanticFamily);
-    const driverDomains = sortedDomains
-      .filter((d) => family === exposureFamilyForLabel(String(d.name ?? '')))
-      .slice(0, 3);
+    const signals = familySignals(family);
+    const basis = signals.length ? signals : sortedDomains.slice(0, 2).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+    const weakestSignal = Math.min(...basis.map((b) => b.score));
     return {
-      rank: index + 1,
       family,
       exposure: customerText(cluster),
       whyItMatters: sentence(commentary[`EXPOSURE-${family}`] ?? firstSentence(linkedScenario?.opportunity ?? '')),
-      drivers: (driverDomains.length ? driverDomains : sortedDomains.slice(0, 2)).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 })),
+      assessmentBasis: basis,
+      potentialConsequence: firstSentence(linkedScenario?.consequence ?? '') || (family ? EXPOSURE_CONSEQUENCE[family] : ''),
+      drivers: basis,
       interruptionPoint: presentation?.interruptionPoint ?? '',
-      priority: PRIORITY_LABELS[Math.min(index, PRIORITY_LABELS.length - 1)]!
+      weakestSignal
     };
   }).filter((row) => row.exposure && row.whyItMatters && row.interruptionPoint);
+
+  const rankedExposures = [...exposureDraft].sort((a, b) => a.weakestSignal - b.weakestSignal);
+  const exposureRows = rankedExposures.map((row, index) => {
+    const lowest = row.assessmentBasis.reduce((worst, entry) => (entry.score < worst.score ? entry : worst), row.assessmentBasis[0]!);
+    return {
+      rank: index + 1,
+      family: row.family,
+      exposure: row.exposure,
+      whyItMatters: row.whyItMatters,
+      assessmentBasis: row.assessmentBasis,
+      potentialConsequence: row.potentialConsequence,
+      drivers: row.drivers,
+      interruptionPoint: row.interruptionPoint,
+      priority: PRIORITY_LABELS[Math.min(index, PRIORITY_LABELS.length - 1)]!,
+      priorityBasis: `${lowest.title} scores ${lowest.score}, the weakest capability supporting this exposure.`
+    };
+  });
 
   const exposures: PriorityExposureExhibit | undefined = exposureRows.length
     ? { exhibitId: 'EX-PRIORITY-EXPOSURE', sourceRefs: scenarios.map((s) => s.factRef).filter(Boolean), title: sustainment ? 'Residual exposure and watchpoints' : 'Priority fraud exposure', rows: exposureRows }
@@ -370,21 +401,23 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         assuranceNote: 'These are plausible fraud pathways derived from the assessment. They are not allegations that these events have occurred.',
         scenarios: scenarios.map((s, index) => {
           const family = exposureFamilyForScenario(s.scenarioFamily);
-          const owningControl = controls.find((c) => exposureFamilyForSemantic(c.primarySemanticFamily) === family);
-          const presentation = familyPresentation(owningControl?.primarySemanticFamily);
+          // Keyed on the scenario's own family. Resolving through a control that
+          // merely shares the exposure gave a detection-evasion scenario
+          // identity-change nodes while its narrative described structuring.
+          const presentation = scenarioPresentation(s.scenarioFamily);
           return {
             scenarioId: s.factRef ?? `SCENARIO-${index + 1}`,
             family,
             title: customerText(s.title),
-            entryPointShort: presentation?.scenarioEntry ?? '',
-            controlBreakShort: presentation?.scenarioControlBreak ?? '',
-            exposureShort: presentation?.scenarioExposure ?? '',
-            entryPoint: presentation?.scenarioEntry ?? '',
-            controlBreak: presentation?.scenarioControlBreak ?? '',
+            entryPointShort: presentation?.entry ?? '',
+            controlBreakShort: presentation?.controlBreak ?? '',
+            exposureShort: presentation?.exposure ?? '',
+            entryPoint: presentation?.entry ?? '',
+            controlBreak: presentation?.controlBreak ?? '',
             howItUnfolds: sentence(commentary[`SCENARIO-${s.factRef}`] ?? s.mechanism ?? ''),
             warningIndicators: (Array.isArray(s.warningIndicators) ? s.warningIndicators : [])
               .map((w: string) => customerText(w)).filter(Boolean).slice(0, 3),
-            immediateInterruption: presentation?.interruptionPoint ?? ''
+            immediateInterruption: presentation?.interruption ?? ''
           };
         }).filter((s) => s.entryPointShort && s.controlBreakShort && s.exposureShort)
       }
@@ -392,6 +425,13 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
 
   // ---- Management priorities, from the roadmap's distinct outcomes ----
   const roadmapItems: any[] = Array.isArray(factPack.roadmap) ? factPack.roadmap : [];
+  /** The assessed maturity condition for a control family, e.g. "Initial / ad hoc". */
+  function assessedCondition(semanticFamily: string): string {
+    const control = controls.find((c) => String(c.primarySemanticFamily ?? '') === semanticFamily);
+    const state = String(control?.currentState ?? '').split(/\s+[—-]\s+/)[0]?.trim();
+    return state ? customerText(state) : 'Not assessed';
+  }
+
   const seenOutcome = new Set<string>();
   const priorityRows = roadmapItems
     .filter((item) => {
@@ -411,6 +451,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         // The operating state management is aiming at. The artefact that proves
         // it -- a RACI, a callback record, a coverage report -- is evidence, and
         // belongs in the supporting register rather than the executive report.
+        semanticFamily: String(item.primarySemanticFamily ?? ''),
         betterLooksLike: presentation?.targetState ?? '',
         evidenceArtefact: customerText(item.proofOfCompletion ?? '')
       };
@@ -459,6 +500,10 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         actions: items.slice(0, 5).map((item) => ({
           action: familyPresentation(item.primarySemanticFamily)?.shortLabel ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
           owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
+          // What is handed over, and the test that closes it. Themes alone do
+          // not make an implementation plan.
+          deliverable: nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
+          completionTest: nodeLabel(String(item.proofOfCompletion ?? '').split(/;\s*/)[0] ?? '', 130),
           dependsOn: (Array.isArray(item.dependencies) ? item.dependencies : []).map((d: string) => customerText(d)).filter(Boolean)
         }))
       };
@@ -470,9 +515,12 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     exhibitId: 'EX-MANAGEMENT-METRICS',
     sourceRefs: roadmapItems.map((r) => r.factRef).filter(Boolean),
     title: 'What to check at the 90-day point',
+    baselineSource: 'assessed-condition',
     rows: priorityRows.slice(0, 4).map((row) => ({
       measure: row.outcome,
-      current: sustainment ? 'Operating' : 'Not consistently established',
+      // The assessed condition for the owning control family. A single repeated
+      // phrase told management nothing and hid four different baselines.
+      current: assessedCondition(row.semanticFamily),
       expectation: row.betterLooksLike
     }))
   };

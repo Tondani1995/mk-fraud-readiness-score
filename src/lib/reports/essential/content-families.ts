@@ -223,3 +223,92 @@ export const STABILISATION_FAMILIES = ['FRAUD_GOVERNANCE', 'EVIDENCE_INTEGRITY',
 export function isStabilisationFamily(semanticFamily: string | undefined | null): boolean {
   return (STABILISATION_FAMILIES as readonly string[]).includes(String(semanticFamily ?? '').toUpperCase());
 }
+
+/**
+ * Scenario node text, keyed on the scenario's OWN family.
+ *
+ * Previously the nodes were resolved through a control whose family mapped to
+ * the same exposure. Two semantic families -- identity verification and
+ * detection monitoring -- share the identity/transaction exposure, so a
+ * detection-evasion scenario was given identity-change nodes while its
+ * explanatory sentence described transaction structuring. The flow and the
+ * narrative described different fraud mechanics, which reads plausibly and is
+ * wrong.
+ */
+export interface ScenarioPresentation {
+  entry: string;
+  controlBreak: string;
+  exposure: string;
+  interruption: string;
+  /** Vocabulary the narrative must share, so contamination is detectable. */
+  mechanicTerms: RegExp;
+}
+
+const SCENARIO_PRESENTATION: Record<string, ScenarioPresentation> = {
+  SUPPLIER_PAYMENT_DIVERSION: {
+    entry: 'Bank-detail or supplier change submitted',
+    controlBreak: 'Independent verification absent or bypassed',
+    exposure: 'Legitimate payment redirected before challenge',
+    interruption: 'Hold the change, call back on a trusted number, require a second approval.',
+    mechanicTerms: /supplier|payment|bank|vendor|invoice|divert/i
+  },
+  PAYMENT_DIVERSION: {
+    entry: 'Payment instruction amended',
+    controlBreak: 'No independent confirmation before release',
+    exposure: 'Funds released to an unverified destination',
+    interruption: 'Confirm the instruction independently before release.',
+    mechanicTerms: /payment|bank|divert|instruction/i
+  },
+  IDENTITY_COMPROMISE: {
+    entry: 'Sensitive profile or account change requested',
+    controlBreak: 'Change accepted without proportionate verification',
+    exposure: 'Control bypassed at the point of change',
+    interruption: 'Verify the requester through a trusted route before the change takes effect.',
+    mechanicTerms: /identity|profile|account|credential|access|change/i
+  },
+  DETECTION_EVASION: {
+    entry: 'Activity structured to stay below review thresholds',
+    controlBreak: 'No repeatable monitoring or timely exception review',
+    exposure: 'Suspicious activity accumulates unchallenged',
+    interruption: 'Define exception populations, named reviewers and overdue escalation.',
+    mechanicTerms: /monitor|threshold|exception|split|disguise|timing|detect|unusual|accumulat/i
+  },
+  INCIDENT_CONCEALMENT: {
+    entry: 'A suspected fraud matter arises',
+    controlBreak: 'Preservation and custody route is informal',
+    exposure: 'Evidence fragmented, delayed or weakened',
+    interruption: 'Route the matter to a defined intake and preserve records on first report.',
+    mechanicTerms: /record|evidence|custody|preserv|conceal|investigat|delet|alter/i
+  },
+  EVIDENCE_DEGRADATION: {
+    entry: 'Records relating to a suspected matter are handled informally',
+    controlBreak: 'No controlled custody or access trail',
+    exposure: 'Investigation and recovery are undermined',
+    interruption: 'Apply controlled custody from the first report.',
+    mechanicTerms: /record|evidence|custody|access|preserv/i
+  }
+};
+
+export function scenarioPresentation(scenarioFamily: string | undefined | null): ScenarioPresentation | undefined {
+  return SCENARIO_PRESENTATION[String(scenarioFamily ?? '').toUpperCase()];
+}
+
+/**
+ * Consequence framing per exposure family, used where the analytical model does
+ * not supply a short consequence of its own.
+ */
+export const EXPOSURE_CONSEQUENCE: Record<ExposureFamily, string> = {
+  SUPPLIER_PAYMENT_VALUE_DIVERSION: 'Direct cash loss on a genuine obligation, recoverable only if challenged before release.',
+  IDENTITY_TRANSACTION_SENSITIVE_CHANGE: 'Unauthorised change or activity persists undetected, widening the period of exposure.',
+  INCIDENT_CONTAINMENT_LEARNING: 'Containment, recovery and disciplinary options narrow as evidence degrades.'
+};
+
+/**
+ * Resolve scenario presentation from an exposure family. Used by validation,
+ * where only the resolved family is available on the model.
+ */
+export function scenarioPresentationForExposure(family: ExposureFamily | undefined): ScenarioPresentation | undefined {
+  if (!family) return undefined;
+  const scenarioFamily = Object.keys(SCENARIO_TO_EXPOSURE).find((key) => SCENARIO_TO_EXPOSURE[key] === family);
+  return scenarioFamily ? SCENARIO_PRESENTATION[scenarioFamily] : undefined;
+}

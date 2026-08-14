@@ -231,13 +231,14 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
       <h1>${esc(model.exposures.title)}</h1>
       <div class="gap"></div>
       <table>
-        <thead><tr><th style="width:5%">#</th><th style="width:27%">Priority exposure</th><th style="width:26%">Why it matters</th><th style="width:30%">Management interruption point</th><th style="width:12%">Priority</th></tr></thead>
+        <thead><tr><th style="width:4%">#</th><th style="width:20%">Priority exposure</th><th style="width:17%">Assessment basis</th><th style="width:21%">Potential consequence</th><th style="width:24%">Interruption point</th><th style="width:14%">Priority</th></tr></thead>
         <tbody>${model.exposures.rows.map((r) => `<tr>
           <td class="rank">${r.rank}</td>
-          <td><strong>${esc(r.exposure)}</strong></td>
-          <td>${esc(r.whyItMatters)}</td>
+          <td><strong>${esc(r.exposure)}</strong><div class="cap" style="margin-top:1.2mm">${esc(r.whyItMatters)}</div></td>
+          <td>${r.assessmentBasis.map((b) => `${esc(b.title)} <strong>${b.score}</strong>`).join('<br>')}</td>
+          <td>${esc(r.potentialConsequence)}</td>
           <td>${esc(r.interruptionPoint)}</td>
-          <td>${esc(r.priority)}</td></tr>`).join('')}</tbody>
+          <td><strong>${esc(r.priority)}</strong><div class="cap" style="margin-top:1.2mm">${esc(r.priorityBasis)}</div></td></tr>`).join('')}</tbody>
       </table>
       <div class="sp"></div>
       ${pageFoot(model, n, total)}
@@ -261,6 +262,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
           </div>
           <p class="small">${esc(s.howItUnfolds)}</p>
           <p class="cap" style="margin-top:1.5mm"><strong style="color:var(--navy-700)">Interrupted by:</strong> ${esc(s.immediateInterruption)}</p>
+          ${s.warningIndicators.length ? `<p class="cap" style="margin-top:1.2mm"><strong style="color:var(--navy-700)">Warning signs:</strong> ${esc(s.warningIndicators.join(' · '))}</p>` : ''}
         </div>`).join('')}
       <div class="sp"></div>
       <p class="note" style="margin-bottom:5mm">${esc(model.scenarios.assuranceNote)}</p>
@@ -299,7 +301,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
         <div class="stage">
           <div class="hd"><span class="nm">${esc(st.stage)}</span><span class="win">${esc(st.window)}</span></div>
           <div class="out">${esc(st.primaryOutcome)}</div>
-          ${st.actions.map((a) => `<div class="act"><span class="a">${esc(a.action)}${a.dependsOn.length ? ` <span class="dep">· depends on ${esc(a.dependsOn.join(', '))}</span>` : ''}</span><span class="o">${esc(a.owner)}</span></div>`).join('')}
+          ${st.actions.map((a) => `<div class="act"><span class="a"><strong style="color:var(--navy-900)">${esc(a.action)}</strong><div class="cap" style="margin-top:1mm">${esc(a.deliverable)}</div>${a.completionTest ? `<div class="cap" style="margin-top:.8mm"><strong style="color:var(--navy-700)">Complete when:</strong> ${esc(a.completionTest)}</div>` : ''}</span><span class="o">${esc(a.owner)}</span></div>`).join('')}
         </div>`).join('')}
       <div class="sp"></div>
       ${pageFoot(model, n, total)}

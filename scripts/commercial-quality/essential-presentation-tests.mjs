@@ -36,21 +36,59 @@ ok('every diagnostic row has a pattern, multiple signals and an explanation');
 
 // 2-4. Exposure families own the right content and are distinct.
 const exposureFamilies = model.exposures.rows.map((r) => r.family);
-assert.deepEqual(exposureFamilies, [
-  'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+assert.deepEqual([...exposureFamilies].sort(), [
   'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  'INCIDENT_CONTAINMENT_LEARNING'
-], 'exposures resolve to their own families in order');
-ok('exposure family ownership is correct and distinct');
+  'INCIDENT_CONTAINMENT_LEARNING',
+  'SUPPLIER_PAYMENT_VALUE_DIVERSION'
+], 'all three exposure families are present and distinct');
+// Ranking is evidenced by the weakest supporting signal, not asserted by order.
+const weakestPerRow = model.exposures.rows.map((r) => Math.min(...r.assessmentBasis.map((b) => b.score)));
+assert.deepEqual(weakestPerRow, [...weakestPerRow].sort((a, b) => a - b), 'exposures are ranked by weakest supporting signal');
+for (const row of model.exposures.rows) {
+  assert.ok(/scores \d/.test(row.priorityBasis), `exposure ${row.rank} explains its priority from a signal`);
+  assert.ok(row.assessmentBasis.length >= 1, `exposure ${row.rank} shows its assessment basis`);
+  assert.ok(row.potentialConsequence.length > 25, `exposure ${row.rank} states a potential consequence`);
+}
+ok('exposure ownership is distinct and prioritisation is evidenced');
+
+// Scenario narrative must describe the same mechanic as its nodes.
+const contaminated = JSON.parse(JSON.stringify(model));
+contaminated.scenarios.scenarios[0].howItUnfolds = 'An actor splits, disguises or times activity so that it remains below available thresholds.';
+assert.ok(validateEssentialPresentation(contaminated).issues.some((i) => i.code === 'SCENARIO_MECHANIC_CONTAMINATION'),
+  'a supplier scenario explained with detection-evasion mechanics is rejected');
+ok('scenario mechanic contamination is blocked');
+
+// Baselines are the assessed condition, not one repeated phrase.
+const baselines = model.dashboard.rows.map((r) => r.current);
+assert.ok(new Set(baselines).size > 1, `dashboard baselines are differentiated (${new Set(baselines).size} distinct)`);
+assert.ok(!baselines.every((b) => b === 'Not consistently established'), 'baselines are not a uniform placeholder');
+ok('management baselines use the assessed condition');
+
+// Roadmap actions carry a deliverable and a completion test.
+for (const stage of model.roadmap.stages) {
+  for (const action of stage.actions) {
+    assert.ok(action.owner, 'every action has an owner');
+    assert.ok(action.deliverable.length > 20, 'every action has a deliverable');
+    assert.ok(action.completionTest.length > 10, 'every action has a completion test');
+  }
+}
+ok('roadmap actions carry owner, deliverable and completion test');
 
 // 5. The shipped defect: pairing exposures to scenarios by array index.
 // Rivonia's scenario order is supplier / incident / detection while its exposure
 // order is supplier / identity / containment, so index pairing crosses rows 2 and 3.
+const clusterOrder = thesis.priorityExposureClusters.map((c) => exposureFamilyForLabel(c));
 const scenarioOrder = factPack.scenarios.map((s) => exposureFamilyForScenario(s.scenarioFamily));
-const positional = model.exposures.rows.map((_, i) => scenarioOrder[i]);
-assert.notDeepEqual(positional, exposureFamilies, 'index pairing produces a different mapping than family ownership');
-assert.equal(positional[1], 'INCIDENT_CONTAINMENT_LEARNING', 'index pairing would put incident content on the identity exposure');
-assert.equal(exposureFamilies[1], 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE', 'family ownership puts identity content there instead');
+// Positional pairing takes scenario[i] for cluster[i]. On this fixture that puts
+// incident content on the identity cluster and detection content on containment.
+assert.notDeepEqual(scenarioOrder, clusterOrder, 'scenario order does not correspond to cluster order');
+assert.equal(clusterOrder[1], 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE', 'cluster 2 is the identity exposure');
+assert.equal(scenarioOrder[1], 'INCIDENT_CONTAINMENT_LEARNING', 'index pairing would give it incident content');
+// Family resolution ignores position entirely.
+for (const row of model.exposures.rows) {
+  const scenario = factPack.scenarios.find((s) => exposureFamilyForScenario(s.scenarioFamily) === row.family);
+  assert.ok(scenario, `exposure ${row.family} resolves its own scenario by family`);
+}
 ok('the shipped index-pairing defect is reproduced and rejected');
 
 // 6-8. Scenario families.
