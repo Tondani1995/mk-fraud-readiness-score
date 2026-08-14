@@ -104,6 +104,11 @@ export function auditPdfLayout(pdfPath) {
     const body = inkExtent(image, 245, bodyBox);
     const footerBand = inkExtent(image, 245, { top: bodyBox.bottom, bottom: image.height - 1, left: 0, right: image.width - 1 });
     const blank = body.inkPixels === 0;
+    // A deliberately full-bleed page (the navy cover) paints the whole body box.
+    // That is a design decision, not clipped content, so the edge checks below
+    // would otherwise fail every such page.
+    const bodyArea = Math.max(1, (bodyBox.bottom - bodyBox.top) * (bodyBox.right - bodyBox.left));
+    const fullBleed = body.inkPixels / bodyArea > 0.8;
 
     const inkBottomMm = blank ? 0 : body.bottom / PX_PER_MM;
     const safeBottomMm = bodyBottomMm(pageHeightMm);
@@ -111,7 +116,7 @@ export function auditPdfLayout(pdfPath) {
 
     // Body ink reaching the body-box boundary means content sized beyond the box.
     const tol = Math.round(TOLERANCE_MM * PX_PER_MM);
-    const clippedBottom = !blank && body.bottom >= bodyBox.bottom - 1;
+    const clippedBottom = !blank && !fullBleed && body.bottom >= bodyBox.bottom - 1;
     const clippedRight = !blank && body.right >= bodyBox.right + tol;
     const clippedLeft = !blank && body.left <= bodyBox.left - tol;
     const clippedTop = !blank && body.top <= bodyBox.top - tol;
@@ -126,6 +131,7 @@ export function auditPdfLayout(pdfPath) {
       scrollOverflowPx: 0,
       clippedElements: [clippedTop && 'top', clippedBottom && 'bottom', clippedLeft && 'left', clippedRight && 'right'].filter(Boolean),
       blank,
+      fullBleed,
       pass: footerIntrusionMm === 0 && !clipped && !blank
     });
   }
