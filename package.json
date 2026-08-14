@@ -179,7 +179,8 @@
     "joint-launch:gate-release-window": "node scripts/joint-launch-release-window-gate.mjs",
     "joint-launch:test-review-authority-refs": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-review-authority-refs-tests.mjs",
     "joint-launch:test-comprehensive-workbook": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/joint-launch-comprehensive-workbook-tests.mjs",
-    "v11:essential-real-cases": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-real-case-certification.mjs"
+    "v11:essential-real-cases": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-real-case-certification.mjs",
+    "v11:essential-live": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-live-portfolio-certification.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

@@ -450,7 +450,7 @@ function buildFindingFacts(findings: MaterialFinding[]): NarrativeFindingFact[] 
     advisoryMeaningBasis: `The recorded ${materialityLabels[finding.materialityClass] ?? 'priority condition'} concerns ${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} and connects to the linked fraud pathway and control response.`,
     whyItMatters: `The condition matters because ${cleanFactLanguage(finding.fraudMechanism, finding.whyItMatters).replace(/^[A-Z]/, (letter) => letter.toLowerCase())}`,
     materialityReason: `${text(finding.materialityClass)} selected at deterministic priority ${finding.materialityScore}.`,
-    assuranceBoundary: 'This is a deterministic interpretation of the recorded self-assessment; it does not establish operating effectiveness.',
+    assuranceBoundary: 'This is a interpretation of the assessment responses; it does not establish operating effectiveness.',
     materiality: text(finding.materialityClass),
     priorityScore: finding.materialityScore,
     owner: text(finding.accountableOwner),
@@ -565,11 +565,11 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     return candidate && !/case-specific validation|escalate .*threshold|apply the control's escalation threshold|independently validate/i.test(candidate) ? candidate : fallback;
   };
   const currentWeaknessByFamily: Record<string, string> = {
-    supplier_payment_diversion: 'Supplier onboarding and supplier payment-instruction changes are recorded as not consistently verified before activation or payment.',
-    privileged_access_misuse: 'Privileged access is recorded as not consistently restricted, logged and independently recertified.',
-    identity_impersonation: 'Identity verification and sensitive-change monitoring are recorded as partially designed.',
-    detection_evasion: 'Monitoring and exception review are recorded as initial or ad hoc.',
-    incident_concealment: 'Evidence preservation, reporting and custody are recorded as initial or ad hoc.'
+    supplier_payment_diversion: 'Supplier onboarding and supplier payment-instruction changes are not consistently verified before activation or payment.',
+    privileged_access_misuse: 'Privileged access is not consistently restricted, logged and independently recertified.',
+    identity_impersonation: 'Identity verification and sensitive-change monitoring are partially designed.',
+    detection_evasion: 'Monitoring and exception review are at an initial or ad hoc stage.',
+    incident_concealment: 'Evidence preservation, reporting and custody are at an initial or ad hoc stage.'
   };
   const currentWeakness = currentWeaknessByFamily[rule.family.toLowerCase()] ?? unique(members.map((finding) => `${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} is recorded as ${text(finding.responseLabel, 'not consistently in place').toLowerCase()}.`)).join(' ');
   return {
@@ -792,11 +792,11 @@ function buildSustainmentControls(priorities: NarrativeSustainmentPriorityFact[]
     sourceId: priority.factRef,
     primarySemanticFamily: priority.semanticFamily,
     objective: `Preserve ${priority.currentStrongStandard.toLowerCase()} and detect deterioration when the operating context changes.`,
-    currentState: `${priority.recordedPosition} The recorded position supports a sustainment treatment.`,
+    currentState: `${priority.recordedPosition} This position supports a sustainment treatment.`,
     targetState: `The current standard remains owned, reviewed and responsive to material change.`,
     accountableExecutive: priority.accountableExecutive,
     processOwner: priority.processOwner,
-    population: 'The complete in-scope population for the recorded control standard.',
+    population: 'The complete in-scope population for the control standard.',
     frequency: priority.operatingFrequency,
     proofRetained: priority.proofRetained,
     independentCheck: 'Management control-effectiveness review through the normal governance route.',
@@ -868,9 +868,9 @@ function buildSustainmentProofFacts(priorities: NarrativeSustainmentPriorityFact
     linkedFindingRefs: [],
     requirement: `Retain the current ownership, review and exception records for ${priority.title.toLowerCase()}.`,
     owner: priority.processOwner,
-    whyItMatters: 'These records show that the strong recorded standard remains owned and visible through the normal management cycle.',
+    whyItMatters: 'These records show that the strong standard remains owned and visible through the normal management cycle.',
     expectedRecency: 'Current for the latest scheduled review and refreshed after material change.',
-    requiredPopulation: 'The complete in-scope population for the recorded standard.',
+    requiredPopulation: 'The complete in-scope population for that standard.',
     acceptableExamples: priority.proofRetained.length > 0 ? priority.proofRetained : ['Ownership record', 'Review calendar', 'Exception and action log']
   }));
 }
@@ -1018,10 +1018,10 @@ function buildPack(input: {
   const highReadinessSparseNarrativeReason = sustainment
     ? 'Sustainment mode applies because the selected priorities are assurance-only, critical and major gap counts are zero, and no scoring cap changes final maturity. The priorities are not customer-facing material findings.'
     : findings.length < 5 && ((input.score.score ?? 0) >= 60 || /structured|strategic|managed/i.test(input.score.maturity ?? ''))
-      ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the recorded result and does not invent additional weaknesses.`
+      ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.`
     : undefined;
   const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
-  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the recorded profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
+  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the assessed profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),

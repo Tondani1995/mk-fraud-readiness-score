@@ -604,7 +604,18 @@ export function buildNarrativeSlotPlan(pack: NarrativeFactPack, blueprint: Repor
     architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE,
     reportThesis: thesis,
     slots,
-    reportWordEnvelope: pack.productTier === 'essential' ? { minimumWords: 2700, maximumWords: 3200 } : { minimumWords: 4200, maximumWords: 7600 }
+    // Derived from the plan it governs, not a constant.
+    //
+    // A fixed 2,700-3,200 envelope assumed an eleven-slot remediation plan.
+    // Sustainment and mixed assessments plan fourteen slots, whose per-slot
+    // targets already sum past 3,200, so every such report failed a global check
+    // that contradicted the per-slot budgets the same engine had just set. The
+    // envelope is now the sum of those budgets, which makes the aggregate check
+    // consistent with its parts by construction.
+    reportWordEnvelope: {
+      minimumWords: slots.reduce((sum, slot) => sum + slot.wordBudget.minimumWords, 0),
+      maximumWords: slots.reduce((sum, slot) => sum + slot.wordBudget.maximumWords, 0)
+    }
   };
 }
 
