@@ -1,5 +1,6 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
+import { positionAssertion } from '../essential/evidence-support';
 
 export const REPORT_BLUEPRINT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-report-blueprint-v3';
 export const WHOLE_MANUSCRIPT_CONTEXT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-whole-manuscript-context-v3';
@@ -557,6 +558,38 @@ function conclusionDomainRefs(pack: NarrativeFactPack): string[] {
   return unique([...addressed, ...ends]);
 }
 
+/**
+ * The opening takeaway, conditioned on what the assessment actually shows.
+ *
+ * The previous wording asserted "not a zero-base condition" for every
+ * organisation, including one scoring 0.00 on all ten domains.
+ */
+function positionTakeaway(pack: NarrativeFactPack): string {
+  return positionAssertion(pack.domains).takeaway;
+}
+
+/**
+ * The single response section that owns a management decision.
+ *
+ * Decisions link to findings across several control families, so filtering by
+ * "shares any finding" authorised nearly every decision to nearly every
+ * response section. Ownership is the family sharing the most findings with the
+ * decision; ties and unlinked decisions resolve deterministically by position so
+ * every decision has exactly one home.
+ */
+function decisionOwnerFamily(pack: NarrativeFactPack, families: string[], decision: { factRef: string; linkedFindingRefs: string[] }): string | undefined {
+  if (!families.length) return undefined;
+  let best: { family: string; score: number } | undefined;
+  families.forEach((family) => {
+    const controls = pack.controls.filter((control) => control.primarySemanticFamily === family);
+    const score = decision.linkedFindingRefs.filter((ref) => controls.some((control) => control.linkedFindingRefs.includes(ref))).length;
+    if (score > (best?.score ?? 0)) best = { family, score };
+  });
+  if (best) return best.family;
+  const index = pack.decisions.findIndex((entry) => entry.factRef === decision.factRef);
+  return families[Math.max(0, index) % families.length];
+}
+
 /** Is a cross-cutting capability materially weaker than the assessment overall? */
 function crossCuttingIsEnablingWeakness(pack: NarrativeFactPack): boolean {
   const overall = pack.assessment.score;
@@ -724,11 +757,20 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
       // Exhibits carry the domains that materially drive this assessment rather
       // than all ten, so the executive page leads with judgement instead of a
       // recital.
+      // Content ownership, not just content.
+      //
+      // These three sections are three independent provider calls. Authorising
+      // all of them to use the same domain evidence asked three writers to
+      // interpret the same facts, and two of them converged on the same
+      // sentence. Each section now owns one kind of evidence: POSITION owns the
+      // domain scorecard, DRIVERS owns the thematic pattern, and TAKEAWAY owns
+      // the implication, which it draws from the thesis and the preceding
+      // takeaway rather than by reciting evidence a sibling already holds.
       const relevantDomains = materialDomainRefs(pack);
       const executive = reframeSections(chapter, [
-        { suffix: 'POSITION', title: 'Overall readiness position', purpose: 'Lead with the management judgement the score and maturity support, naming the strongest relevant foundation and the materially weaker capabilities.', takeaway: 'The assessed position is a starting point for management attention, not a zero-base condition.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...relevantDomains] },
-        { suffix: 'DRIVERS', title: 'What is shaping the readiness position', purpose: 'Preview the connected pattern beneath the score and the opportunity it creates.', takeaway: 'The report explains the relationships beneath the score rather than reciting every domain.', requiredFacts: [...byTheme.map((item) => item.factRef), ...relevantDomains] },
-        { suffix: 'TAKEAWAY', title: 'What this means for management', purpose: 'State the immediate management implication before the diagnosis chapter.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: [...factIds(pack, 'score'), ...relevantDomains] }
+        { suffix: 'POSITION', title: 'Overall readiness position', purpose: positionAssertion(pack.domains).purpose, takeaway: positionTakeaway(pack), requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...relevantDomains] },
+        { suffix: 'DRIVERS', title: 'What is shaping the readiness position', purpose: 'Explain the connected pattern beneath the score using the assessed themes. Do not restate the domain scorecard, which the opening section owns.', takeaway: 'The report explains the relationships beneath the score rather than reciting every domain.', requiredFacts: byTheme.map((item) => item.factRef) },
+        { suffix: 'TAKEAWAY', title: 'What this means for management', purpose: 'State the immediate management implication. Draw it from the position and pattern already established; do not re-present either.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: factIds(pack, 'score') }
       ]);
       return { ...executive, exhibits: executive.exhibits.map((item) => ({ ...item, sourceRefs: relevantDomains })) };
     }
@@ -772,7 +814,7 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
     }
     if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, byControlFamily.map((family, index) => {
       const controls = pack.controls.filter((control) => control.primarySemanticFamily === family);
-      const decisions = pack.decisions.filter((decision) => decision.linkedFindingRefs.some((ref) => controls.some((control) => control.linkedFindingRefs.includes(ref))));
+      const decisions = pack.decisions.filter((decision) => decisionOwnerFamily(pack, byControlFamily, decision) === family);
       return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: 'The response should make objective, owner, proof, challenge and effectiveness visible.', requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], narrativeRole: 'RESPONSE', subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef], 'RESPONSE')) : [] };
     }));
     if (chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION') {
@@ -813,7 +855,9 @@ function sustainmentEssentialHierarchy(pack: NarrativeFactPack, chapters: Bluepr
     if (chapter.chapterId === 'DETERIORATION-WATCHPOINTS') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `WATCH-${String(index + 1).padStart(2, '0')}`, title: `${customerTitleForFamily(family, 'SUSTAINMENT', pack.narrativeMode)} watchpoint`, purpose: 'Describe supported deterioration triggers without manufacturing a weakness.', takeaway: 'Change-triggered review should make drift visible early.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), narrativeRole: 'EXPOSURE' })));
     if (chapter.chapterId === 'SUSTAINMENT-BLUEPRINT') return reframeSections(chapter, [
       { suffix: 'OWNERSHIP', title: 'Ownership and review rhythm', purpose: 'Set the first sustainment actions that keep accountability current.', takeaway: 'Ownership and cadence remain visible.', requiredFacts: pack.controls.map((item) => item.factRef), narrativeRole: 'SUSTAINMENT' },
-      { suffix: 'INFORMATION', title: 'Management information and proof', purpose: 'Set the records and indicators that show the strong standard remains current.', takeaway: 'Management information should reveal early deterioration.', requiredFacts: [...pack.decisions.map((item) => item.factRef), ...pack.roadmap.map((item) => item.factRef)], narrativeRole: 'EVIDENCE' },
+      // The roadmap belongs to the closing section. Holding it here as well made
+      // both sections argue the same actions.
+      { suffix: 'INFORMATION', title: 'Management information and proof', purpose: 'Set the records and indicators that show the strong standard remains current.', takeaway: 'Management information should reveal early deterioration.', requiredFacts: pack.decisions.map((item) => item.factRef), narrativeRole: 'EVIDENCE' },
       { suffix: 'NINETY-DAY', title: 'First 90 days', purpose: 'Close the initial sustainment sequence.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' }
     ]);
     return chapter;

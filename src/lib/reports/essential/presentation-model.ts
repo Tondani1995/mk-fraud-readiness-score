@@ -16,6 +16,7 @@
  * instead of manufactured weakness.
  */
 
+import { evidenceSupport } from './evidence-support';
 import {
   DIAGNOSTIC_PATTERNS,
   exposureClusters,
@@ -79,6 +80,8 @@ export interface ReadinessScoreExhibit extends ExhibitBase {
   /** compactTitle is for narrow tiles; title remains the full domain name. */
   strongest: { title: string; compactTitle: string; score: number };
   weakest: { title: string; compactTitle: string; score: number };
+  /** Every domain assessed at the same level, so strongest and weakest are ties, not findings. */
+  profileUniform: boolean;
 }
 
 export interface DomainProfileExhibit extends ExhibitBase {
@@ -333,6 +336,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   const maturity: string = thesis.overallPosition?.maturity ?? factPack.assessment?.maturity ?? '';
 
   const sortedDomains = [...domains].sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+  // What the assessment can support, computed once and used wherever the report
+  // is about to describe something as working.
+  const support = evidenceSupport(domains);
   const strongestDomain = sortedDomains[sortedDomains.length - 1];
   const weakestDomain = sortedDomains[0];
 
@@ -346,7 +352,11 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     maturity,
     domainsAssessed: domains.length,
     strongest: { title: customerText(strongestDomain?.name), compactTitle: compactDomainLabel(customerText(strongestDomain?.name)), score: strongestDomain?.score ?? 0 },
-    weakest: { title: customerText(weakestDomain?.name), compactTitle: compactDomainLabel(customerText(weakestDomain?.name)), score: weakestDomain?.score ?? 0 }
+    weakest: { title: customerText(weakestDomain?.name), compactTitle: compactDomainLabel(customerText(weakestDomain?.name)), score: weakestDomain?.score ?? 0 },
+    // Presenting a "strongest" and "weakest" domain on an identical profile
+    // showed management two tiles carrying the same number and implied a
+    // difference the assessment does not support.
+    profileUniform: support.flat
   };
 
   // ---- Domain profile, weakest first ----
@@ -840,11 +850,25 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     const second = sortedDomains[1];
     const org = customerText(factPack.organisation?.name ?? thesis.organisationName ?? 'The organisation');
     if (sustainment) {
+      // Naming a "most developed" capability on an identical profile invents a
+      // ranking the assessment does not contain.
+      if (support.flat) {
+        return sentence(`${org} shows a broadly strong fraud readiness position, assessed at a consistent level across every fraud-risk domain`);
+      }
       return sentence(`${org} shows a broadly strong fraud readiness position, with ${strong.toLowerCase()} the most developed capability and ${weak.toLowerCase()} the area most exposed to drift`);
     }
     const weakPair = second && second.name && customerText(second.name) !== weak
       ? `${weak.toLowerCase()} and ${customerText(second.name).toLowerCase()}`
       : weak.toLowerCase();
+    // "Useful foundations in X" is a claim about evidence. Where no domain has
+    // left the Reactive band there are no foundations to name, and where every
+    // domain is assessed identically there is no strongest capability to name.
+    if (!support.supported.FOUNDATION) {
+      return sentence(`${org} does not yet show an established fraud-control capability in any assessed domain, leaving fraud readiness ${String(maturity).toLowerCase()}`);
+    }
+    if (support.flat) {
+      return sentence(`${org} is assessed at a consistent level across every fraud-risk domain, leaving fraud readiness ${String(maturity).toLowerCase()} with no single capability ahead of the others`);
+    }
     return sentence(`${org} has useful foundations in ${strong.toLowerCase()}, but weak ${weakPair} leave fraud readiness largely ${String(maturity).toLowerCase()}`);
   }
 
@@ -881,6 +905,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       : capabilities[0] ?? 'prevention, detection and response';
     if (sustainment) {
       return sentence(`${org} is operating from a strong position, supported by ${foundationClause}. The management question is no longer whether capability exists but whether it holds as the business changes. The next checkpoint should test whether ${cycle} still operate as one system`);
+    }
+    if (!support.supported.FOUNDATION) {
+      return sentence(`${org} is starting from a low base: no assessed domain yet shows an established fraud-control capability, so the first task is to put ownership, challenge, detection and response in place rather than to connect existing strengths. The next 90-day checkpoint should test whether ${cycle} exist at all and who owns each of them`);
     }
     return sentence(`${org} is not starting from zero. Its ${foundationClause} provide a useful foundation. The weakness is that these capabilities are not yet connected into a repeatable fraud-risk cycle, so ownership, challenge, detection and response do not yet reinforce one another. The next 90-day checkpoint should test whether ${cycle} now operate as one system rather than as separate activities`);
   }

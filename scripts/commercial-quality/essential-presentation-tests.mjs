@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildEssentialPresentationModel } from '../../src/lib/reports/essential/presentation-model.ts';
 import { validateEssentialPresentation, sustainmentClaims } from '../../src/lib/reports/essential/presentation-validation.ts';
+import { evidenceSupport, positionAssertion, FOUNDATION_SCORE_FLOOR } from '../../src/lib/reports/essential/evidence-support.ts';
 import {
   exposureClusters,
   clusterForScenario,
@@ -207,6 +208,84 @@ sustainmentModel.diagnosis.interpretation = SUSTAINMENT_REJECTED[0][1];
 assert.ok(validateEssentialPresentation(sustainmentModel).issues.some((i) => i.code === 'NO_MANUFACTURED_WEAKNESS'),
   'a sustainment report asserting a present inadequacy is rejected');
 ok('sustainment watchpoints and deterioration risks are separated from manufactured weakness');
+
+// 15d. Internal-language validation is sense-aware.
+//
+// CASE-10 was rejected for "capable of prompt response as the business changes"
+// — prompt the adjective. A flat token list cannot tell a leak from ordinary
+// advisory English, so context-dependent words are matched by construction.
+const LANGUAGE_ALLOWED = [
+  'The organisation is capable of prompt response as the business changes.',
+  'Prompt escalation of suspected matters is the management expectation.',
+  'A prompt investigation limits how far value can move.',
+  'The production facility operates three shifts with segregated approval.',
+  'Deployment of additional review capacity is the accountable manager\u2019s decision.',
+  'The review is bounded by the responses given.',
+  'AI-enabled invoice fraud is an emerging pathway for this sector.',
+  'A time slot is reserved each month for the control review.'
+];
+const LANGUAGE_REJECTED = [
+  'The system prompt instructs the writer to summarise.',
+  'The prompt template was updated for this section.',
+  'Narrative slot SLOT-06 covers incident response.',
+  'This report was checked against the production environment.',
+  'The bounded generation engine produced this section.',
+  'AI generation completed without a repair attempt.',
+  'The deterministic fact pack supplied every claim reference.'
+];
+for (const text of LANGUAGE_ALLOWED) {
+  const probe = JSON.parse(JSON.stringify(model));
+  probe.diagnosis.interpretation = text;
+  assert.ok(!validateEssentialPresentation(probe).issues.some((i) => i.code === 'NO_INTERNAL_LANGUAGE'),
+    `ordinary advisory English is not engineering language: "${text}"`);
+}
+for (const text of LANGUAGE_REJECTED) {
+  const probe = JSON.parse(JSON.stringify(model));
+  probe.diagnosis.interpretation = text;
+  assert.ok(validateEssentialPresentation(probe).issues.some((i) => i.code === 'NO_INTERNAL_LANGUAGE'),
+    `engineering language is rejected: "${text}"`);
+}
+ok('internal-language validation distinguishes engineering sense from advisory English');
+
+// 15e. Positive capability language is conditioned on evidence.
+//
+// CASE-01 scored 0.00 on all ten domains and the report still claimed the
+// assessment showed foundations in three named capabilities.
+const domainsOf = (scores) => scores.map((score, index) => ({ factRef: `DOMAIN-D${index + 1}`, code: `D${index + 1}`, name: `Domain ${index + 1}`, score }));
+
+const allZero = evidenceSupport(domainsOf([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+assert.equal(allZero.supported.FOUNDATION, false, 'an all-zero profile supports no foundation claim');
+assert.equal(allZero.supported.NOT_STARTING_FROM_ZERO, false, 'an all-zero profile is a zero-base condition');
+assert.equal(allZero.supported.RELATIVE_STRENGTH, false, 'an all-zero profile has no relative strength');
+assert.match(positionAssertion(domainsOf([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).takeaway, /does not yet show an established capability/i);
+assert.ok(!/not a zero-base|foundation/i.test(positionAssertion(domainsOf(Array(10).fill(0))).takeaway),
+  'the all-zero takeaway never claims a foundation');
+
+// Rivonia: low overall, but reporting culture at 73.57 is a genuine foundation.
+const rivoniaProfile = domainsOf([42, 25.64, 50.97, 20, 40, 73.57, 20.59, 31.89, 40, 24]);
+const rivoniaSupport = evidenceSupport(rivoniaProfile);
+assert.equal(rivoniaSupport.supported.FOUNDATION, true, 'a low overall score does not erase a genuinely strong domain');
+assert.equal(rivoniaSupport.supported.RELATIVE_STRENGTH, true, 'a varied profile with an established domain supports a relative strength');
+assert.equal(rivoniaSupport.strongest.score, 73.57, 'the strongest domain is identified from the profile');
+assert.match(positionAssertion(rivoniaProfile).takeaway, /not a zero-base condition/i);
+
+// Broad low readiness with nothing above the Reactive band.
+const lowNoFoundation = evidenceSupport(domainsOf([12, 20, 8, 30, 25, 18, 22, 10, 35, 28]));
+assert.equal(lowNoFoundation.supported.FOUNDATION, false, 'a profile entirely inside the Reactive band supports no foundation');
+assert.equal(lowNoFoundation.supported.RELATIVE_STRENGTH, false,
+  'the least weak capability in a weak profile is not a strength');
+
+// Flat profiles: consistent capability, but nothing is relatively stronger.
+for (const level of [60, 100]) {
+  const flat = evidenceSupport(domainsOf(Array(10).fill(level)));
+  assert.equal(flat.flat, true, `a profile flat at ${level} is detected as flat`);
+  assert.equal(flat.spread, 0, `a profile flat at ${level} has zero spread`);
+  assert.equal(flat.supported.RELATIVE_STRENGTH, false, `nothing is relatively stronger in a profile flat at ${level}`);
+  assert.equal(flat.supported.FOUNDATION, true, `a profile flat at ${level} still has established capability`);
+  assert.match(positionAssertion(domainsOf(Array(10).fill(level))).takeaway, /consistent capability level/i);
+}
+assert.equal(FOUNDATION_SCORE_FLOOR, 40, 'the foundation floor is the product\u2019s own Reactive/Developing boundary');
+ok('positive capability language is conditioned on deterministic evidence');
 
 // 16. Conclusion does not replay the roadmap.
 assert.ok(!/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(model.conclusion.replace(/next 90-day checkpoint/i, '')),

@@ -104,6 +104,8 @@ td.n,th.n{text-align:right}
 .flow .node.stop{background:var(--navy-500)}
 .flow .arw{width:5mm;display:flex;align-items:center;justify-content:center;color:var(--brass);font-size:10pt}
 .scn{border-left:3px solid var(--navy-700);padding-left:5mm;margin-bottom:6mm}
+.wp{border-left:3px solid var(--mid);background:var(--cream);padding:3.5mm 5mm;margin-bottom:5mm}
+.wp h3{font-size:9.6pt;font-weight:700;color:var(--navy-900);line-height:1.3;margin-bottom:2mm}
 .scn h3{font-size:9.6pt;font-weight:700;color:var(--navy-900);line-height:1.3;margin-bottom:2mm}
 
 /* roadmap */
@@ -194,8 +196,10 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
       <div class="s"><div class="n">${rs.score}</div><div class="l">Readiness score<br>out of 100</div></div>
       <div class="s"><div class="n">${esc(rs.maturity)}</div><div class="l">Maturity band</div></div>
       <div class="s"><div class="n">${rs.domainsAssessed}</div><div class="l">Domains<br>assessed</div></div>
-      <div class="s"><div class="n">${rs.strongest.score.toFixed(2)}</div><div class="l">Strongest domain</div><div class="dn">${esc(rs.strongest.compactTitle)}</div></div>
-      <div class="s"><div class="n">${rs.weakest.score.toFixed(2)}</div><div class="l">Weakest domain</div><div class="dn">${esc(rs.weakest.compactTitle)}</div></div>
+      ${rs.profileUniform
+        ? `<div class="s" style="flex:2"><div class="n">${rs.strongest.score.toFixed(2)}</div><div class="l">All domains assessed</div><div class="dn">Every domain is assessed at the same level, so no capability is stronger or weaker than another.</div></div>`
+        : `<div class="s"><div class="n">${rs.strongest.score.toFixed(2)}</div><div class="l">Strongest domain</div><div class="dn">${esc(rs.strongest.compactTitle)}</div></div>
+      <div class="s"><div class="n">${rs.weakest.score.toFixed(2)}</div><div class="l">Weakest domain</div><div class="dn">${esc(rs.weakest.compactTitle)}</div></div>`}
     </div>
     ${model.pages[1]?.commentary ? `<div class="gap"></div><p class="lede">${esc(model.pages[1].commentary)}</p>` : ''}
     <div class="gap"></div>
@@ -225,6 +229,32 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
 
   let n = 4;
 
+  // strengths
+  //
+  // A sustainment report's analytical value is here: what is actually working,
+  // on what evidence, and what management gets from keeping it. The model built
+  // this exhibit from the start; until now the renderer never consumed it, so
+  // every high-readiness report shipped without it.
+  if (model.strengths) {
+    out.push(`<section class="page">
+      <div class="q">What is supporting readiness?</div>
+      <h1>${esc(model.strengths.title)}</h1>
+      <div class="gap"></div>
+      <table>
+        <thead><tr><th style="width:22%">Capability</th><th style="width:8%">Assessed</th><th style="width:38%">What is in place</th><th style="width:32%">Management value</th></tr></thead>
+        <tbody>${model.strengths.rows.map((r) => `<tr>
+          <td><strong>${esc(r.capability)}</strong></td>
+          <td><strong style="color:var(--strong)">${typeof r.score === 'number' ? r.score.toFixed(2) : '—'}</strong></td>
+          <td>${esc(r.currentStandard)}</td>
+          <td>${esc(r.managementValue)}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="cap" style="margin-top:2.5mm">Assessed positions are drawn from the responses given. They describe what the organisation reports is in place, and have not been independently tested.</div>
+      <div class="sp"></div>
+      ${pageFoot(model, n, total)}
+    </section>`);
+    n += 1;
+  }
+
   // exposures
   if (model.exposures) {
     out.push(`<section class="page">
@@ -242,6 +272,32 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
           <td><strong>${esc(r.priority)}</strong><div class="cap" style="margin-top:2mm;padding-top:1.6mm;border-top:1px solid var(--rule-soft)">${esc(r.priorityBasis)}</div></td></tr>`).join('')}</tbody>
       </table>
       <div class="cap" style="margin-top:2.5mm">Ordered by the weakest capability supporting each exposure. The order indicates where to act first; it is not a risk rating, and closely ranked exposures may warrant similar attention.</div>
+      <div class="sp"></div>
+      ${pageFoot(model, n, total)}
+    </section>`);
+    n += 1;
+  }
+
+  // watchpoints
+  //
+  // Deliberately not styled as findings. A watchpoint is a strength with a
+  // dependency, not a control that has failed, so it takes the amber accent
+  // rather than the red used for exposure, and every row is framed as a
+  // condition that would have to change before the position weakened.
+  if (model.watchpoints) {
+    out.push(`<section class="page">
+      <div class="q">Where could readiness drift?</div>
+      <h1>${esc(model.watchpoints.title)}</h1>
+      <div class="gap"></div>
+      <p class="lede">These are not weaknesses. Each one is a capability the assessment shows is working, together with the condition it depends on and the change that would put it at risk.</p>
+      <div class="gap"></div>
+      ${model.watchpoints.rows.map((r) => `
+        <div class="wp">
+          <h3>${esc(r.currentStrength)}</h3>
+          <p class="small"><strong style="color:var(--navy-700)">Depends on:</strong> ${esc(r.dependency)}</p>
+          <p class="small" style="margin-top:1.2mm"><strong style="color:var(--navy-700)">Would signal drift:</strong> ${esc(r.deteriorationTrigger)}</p>
+          <p class="small" style="margin-top:1.2mm"><strong style="color:var(--navy-700)">Management response:</strong> ${esc(r.managementResponse)}</p>
+        </div>`).join('')}
       <div class="sp"></div>
       ${pageFoot(model, n, total)}
     </section>`);

@@ -43,12 +43,50 @@ export interface EssentialPresentationValidation {
   issues: PresentationIssue[];
 }
 
-/** Engineering vocabulary that must never appear on a customer page. */
+/**
+ * Engineering vocabulary that must never appear on a customer page.
+ *
+ * Split in two, because a flat token list cannot tell a leak from ordinary
+ * English. CASE-10 was rejected for "capable of prompt response as the business
+ * changes" — *prompt* the adjective, matched by a pattern that exists to catch
+ * the engineering noun. The same mistake had already been found twice: "AI"
+ * inside a legitimate organisation name, and severity keywords in the
+ * sustainment classifier.
+ *
+ * Unambiguous terms are engine vocabulary in any sentence. Context-dependent
+ * terms are ordinary business English that only leaks when it appears in an
+ * engineering construction, so those are matched by phrase.
+ */
 const INTERNAL_LANGUAGE = [
-  /\bbounded\b/i, /\bsection engine\b/i, /\bslot(s)?\b/i, /\bowner preview\b/i, /\bowner review\b/i,
-  /\bdeterministic\b/i, /\bfact pack\b/i, /\bsupabase\b/i, /\bproduction\b/i, /\bdeployment\b/i,
-  /\bcommercial qa\b/i, /\bnarrative mode\b/i, /\bAI\b/, /\bprompt\b/i, /\bclaim ref\b/i
+  /\bsection engine\b/i, /\bowner preview\b/i, /\bowner review\b/i, /\bfact pack\b/i,
+  /\bsupabase\b/i, /\bcommercial qa\b/i, /\bnarrative mode\b/i, /\bclaim ref(?:erence)?s?\b/i,
+  /\bdeterministic\b/i, /\bstory plan\b/i, /\bpresentation model\b/i, /\bsemantic famil(?:y|ies)\b/i,
+  /\bslot plan\b/i, /\bslot id\b/i, /\bcluster id\b/i, /\bnarrative role\b/i,
+  /\brepair (?:attempt|pass|call|budget)\b/i, /\bformat retry\b/i, /\bfail(?:ed|s)? closed\b/i,
+  /\bprovider call\b/i, /\btoken budget\b/i, /\bword envelope\b/i
 ];
+
+/**
+ * Words that are engine vocabulary in one sense and ordinary advisory English in
+ * another. Only the engineering construction is a leak.
+ */
+const CONTEXT_DEPENDENT_LANGUAGE: Array<{ term: string; engineering: RegExp[] }> = [
+  // "prompt response", "prompt escalation", "prompt investigation" are correct English.
+  { term: 'prompt', engineering: [/\bsystem prompt\b/i, /\bthe prompts?\b/i, /\bprompts?\s+(?:template|version|contract|injection|scaffold|engineering)\b/i, /\b(?:generation|writer|model)\s+prompt\b/i] },
+  // "time slot", "a slot in the schedule" are correct English.
+  { term: 'slot', engineering: [/\bnarrative slots?\b/i, /\bbounded slots?\b/i, /\bslots?\s+(?:id|identifier|contract|budget)\b/i, /\bSLOT-\d/i, /\bper-slot\b/i] },
+  // A manufacturer legitimately has production lines, staff and facilities.
+  { term: 'production', engineering: [/\bproduction\s+(?:environment|deployment|database|branch|build|pipeline|release)\b/i, /\bin production\b/i, /\bproduction and staging\b/i] },
+  // Capital, staff and resources are legitimately deployed.
+  { term: 'deployment', engineering: [/\bdeployment\s+(?:pipeline|environment|target|branch|slot)\b/i, /\bcontinuous deployment\b/i] },
+  // "bounded by", "a bounded review" are correct English.
+  { term: 'bounded', engineering: [/\bbounded\s+(?:generation|narrative|section|slot|manuscript|report|engine)\b/i] },
+  // AI-enabled fraud is a legitimate subject; organisation names may contain "AI".
+  { term: 'AI', engineering: [/\bAI\s+(?:generation|writer|model|call|output|prompt|pipeline)\b/i, /\bthe AI\b/, /\bAI-generated\b/i, /\bgenerative AI (?:call|output)\b/i] }
+];
+
+/** Exposed so regression tests can exercise the classification directly. */
+export const INTERNAL_LANGUAGE_PATTERNS = { unambiguous: INTERNAL_LANGUAGE, contextDependent: CONTEXT_DEPENDENT_LANGUAGE };
 
 /** Internal identifiers that must stay in the private record. */
 const INTERNAL_IDS = [
@@ -215,6 +253,12 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
   for (const pattern of INTERNAL_LANGUAGE) {
     const hit = engineAuthored.find((text) => pattern.test(text));
     if (hit) issues.push({ code: 'NO_INTERNAL_LANGUAGE', message: `Customer surface contains engineering language matching ${pattern}: "${hit.slice(0, 90)}"` });
+  }
+  for (const { term, engineering } of CONTEXT_DEPENDENT_LANGUAGE) {
+    for (const pattern of engineering) {
+      const hit = engineAuthored.find((text) => pattern.test(text));
+      if (hit) issues.push({ code: 'NO_INTERNAL_LANGUAGE', message: `Customer surface uses "${term}" in its engineering sense (${pattern}): "${hit.slice(0, 90)}"` });
+    }
   }
   for (const pattern of INTERNAL_IDS) {
     const hit = surfaces.find((text) => pattern.test(text));

@@ -184,7 +184,10 @@
     "v11:customer-specific-logic-gate": "node scripts/commercial-quality/customer-specific-logic-gate.mjs",
     "v11:essential-presentation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-presentation-tests.mjs",
     "v11:generic-path-equivalence": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/generic-path-equivalence.mjs",
-    "v11:engine-vocabulary-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/engine-vocabulary-gate.mjs"
+    "v11:engine-vocabulary-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/engine-vocabulary-gate.mjs",
+    "v11:content-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/content-ownership-gate.mjs",
+    "v11:renderer-consumption-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/renderer-consumption-gate.mjs",
+    "v11:evidence-assertion-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/evidence-assertion-gate.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

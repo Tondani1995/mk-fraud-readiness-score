@@ -1021,7 +1021,12 @@ function buildPack(input: {
       ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.`
     : undefined;
   const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
-  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the assessed profile`, basis: `The assessed domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
+  // "Relative" is a claim about the profile, not about the score. Where every
+  // domain is assessed identically nothing is relatively stronger than anything
+  // else, so the capability is described as established rather than comparative.
+  const assessedScores = domains.map((domain) => domain.score).filter((value): value is number => typeof value === 'number');
+  const uniformProfile = assessedScores.length > 1 && Math.max(...assessedScores) === Math.min(...assessedScores);
+  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: uniformProfile ? `${domain.name} is an established capability in the assessed profile` : `${domain.name} is a relative strength in the assessed profile`, basis: `The assessed domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),
