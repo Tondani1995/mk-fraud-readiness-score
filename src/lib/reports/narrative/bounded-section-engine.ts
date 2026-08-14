@@ -12,6 +12,7 @@ export const BOUNDED_SECTION_ENGINE_SCHEMA_VERSION = 'mk-reporting-bible-1.1-bou
 export const BOUNDED_SECTION_PROMPT_VERSION = 'mk-reporting-bible-1.1-bounded-section-prompt-v1';
 export const BOUNDED_SECTION_ENGINE_ARCHITECTURE = 'bounded-section-v1' as const;
 export const MAX_SECTION_REPAIR_CALLS = 2;
+export const MAX_TECHNICAL_FORMAT_RETRIES_PER_SLOT = 1;
 
 export interface ReportThesisContrast {
   contrastId: string;
@@ -151,7 +152,7 @@ export interface BoundedProviderMetadata {
   providerCostMicros?: number;
   providerCostRaw?: string | number;
   finishReason?: string;
-  callType: 'INITIAL' | 'REPAIR' | 'QUALITY_ESCALATION';
+  callType: 'INITIAL' | 'REPAIR' | 'QUALITY_ESCALATION' | 'TECHNICAL_FORMAT_RETRY';
   repairNumber: number;
 }
 
@@ -202,6 +203,10 @@ export interface BoundedSectionProvider {
   generate(contract: NarrativeSectionContract): Promise<BoundedProviderCall>;
   repair(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }, repairNumber: number): Promise<BoundedProviderCall>;
   qualityEscalate?(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }): Promise<BoundedProviderCall>;
+  // Serialization-only recovery. Corrects the JSON envelope of an otherwise
+  // usable answer. It may never reconsider the analytical content, and it is
+  // budgeted separately from semantic repair and quality escalation.
+  formatRetry?(contract: NarrativeSectionContract, rejected: { rawText: string; schemaIssuePaths?: string[]; schemaIssueCodes?: string[] }, originCallType: BoundedProviderMetadata['callType']): Promise<BoundedProviderCall>;
 }
 
 export type NarrativeSlotIssueCode =
@@ -251,6 +256,8 @@ export interface BoundedGenerationAccounting {
   qualityEscalations: number;
   technicalProviderFailureCount: number;
   technicalOutputParseFailureCount: number;
+  technicalFormatRetries: number;
+  technicalFormatRetriesRecovered: number;
   technicalFailures: BoundedTechnicalFailureRecord[];
   failedSlots: string[];
   totalTokens: number;
@@ -796,6 +803,8 @@ export function createEmptyBoundedAccounting(reportGenerationId: string): Bounde
     qualityEscalations: 0,
     technicalProviderFailureCount: 0,
     technicalOutputParseFailureCount: 0,
+    technicalFormatRetries: 0,
+    technicalFormatRetriesRecovered: 0,
     technicalFailures: [],
     failedSlots: [],
     totalTokens: 0,
@@ -822,6 +831,52 @@ function technicalFailureRecord(slotId: string, provider: BoundedSectionProvider
     callType,
     repairNumber
   };
+}
+
+interface FormatRetryBudget { used: number; }
+
+/**
+ * Runs one provider call. If it fails purely because the JSON envelope did not
+ * satisfy the strict schema, spend the single per-slot technical format retry to
+ * correct the serialization only. Any other technical failure, and any failure
+ * once the budget is spent, propagates unchanged so the slot fails closed.
+ */
+async function callWithFormatRecovery(input: {
+  provider: BoundedSectionProvider;
+  contract: NarrativeSectionContract;
+  accounting: BoundedGenerationAccounting;
+  budget: FormatRetryBudget;
+  callType: BoundedProviderMetadata['callType'];
+  repairNumber: number;
+  run: () => Promise<BoundedProviderCall>;
+}): Promise<BoundedProviderCall> {
+  try {
+    return await input.run();
+  } catch (error) {
+    const isParseFailure = error instanceof BoundedTechnicalFailure && error.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE';
+    if (!isParseFailure || !input.provider.formatRetry || input.budget.used >= MAX_TECHNICAL_FORMAT_RETRIES_PER_SLOT) throw error;
+    const rejected = error as BoundedTechnicalFailure;
+    recordTechnicalFailure(input.accounting, technicalFailureRecord(input.contract.slotId, input.provider, input.callType, input.repairNumber, rejected));
+    input.budget.used += 1;
+    input.accounting.technicalFormatRetries += 1;
+    const recovered = await input.provider.formatRetry(input.contract, {
+      rawText: rejected.diagnostics.rawText ?? '',
+      schemaIssuePaths: rejected.diagnostics.schemaIssuePaths,
+      schemaIssueCodes: rejected.diagnostics.schemaIssueCodes
+    }, input.callType);
+    if (recovered.result.slotId !== input.contract.slotId || recovered.result.contractVersion !== input.contract.contractVersion) {
+      throw new BoundedTechnicalFailure({
+        kind: 'TECHNICAL_OUTPUT_PARSE_FAILURE',
+        diagnostics: {
+          errorName: 'BoundedFormatRetryIdentityMismatch',
+          errorMessage: 'Technical format retry returned a different slot identity or contract version.',
+          rawText: rejected.diagnostics.rawText
+        }
+      });
+    }
+    input.accounting.technicalFormatRetriesRecovered += 1;
+    return recovered;
+  }
 }
 
 function recordTechnicalFailure(accounting: BoundedGenerationAccounting, record: BoundedTechnicalFailureRecord): void {
@@ -864,17 +919,19 @@ export async function generateBoundedNarrativeReport(input: {
         if (priorCall.metadata.callType === 'INITIAL') accounting.initialCalls += 1;
         if (priorCall.metadata.callType === 'REPAIR') accounting.repairCalls += 1;
         if (priorCall.metadata.callType === 'QUALITY_ESCALATION') accounting.qualityEscalations += 1;
+        if (priorCall.metadata.callType === 'TECHNICAL_FORMAT_RETRY') accounting.technicalFormatRetries += 1;
       }
       accounting.modelBySlot[slot.slotId] = preApproved.metadata.model;
       approved.push({ ...preApproved, contract, validation });
       continue;
     }
     const calls: BoundedProviderCall[] = [];
+    const formatBudget: FormatRetryBudget = { used: 0 };
     accounting.initialCalls += 1;
     accounting.modelBySlot[slot.slotId] = input.provider.model;
     let call: BoundedProviderCall;
     try {
-      call = await input.provider.generate(contract);
+      call = await callWithFormatRecovery({ provider: input.provider, contract, accounting, budget: formatBudget, callType: 'INITIAL', repairNumber: 0, run: () => input.provider.generate(contract) });
     } catch (error) {
       const failure = technicalFailureRecord(slot.slotId, input.provider, 'INITIAL', 0, error);
       recordTechnicalFailure(accounting, failure);
@@ -893,7 +950,8 @@ export async function generateBoundedNarrativeReport(input: {
       repairNumber += 1;
       accounting.repairCalls += 1;
       try {
-        call = await input.provider.repair(contract, { result: call.result, validation }, repairNumber);
+        const rejectedForRepair = { result: call.result, validation };
+        call = await callWithFormatRecovery({ provider: input.provider, contract, accounting, budget: formatBudget, callType: 'REPAIR', repairNumber, run: () => input.provider.repair(contract, rejectedForRepair, repairNumber) });
       } catch (error) {
         const failure = technicalFailureRecord(slot.slotId, input.provider, 'REPAIR', repairNumber, error);
         recordTechnicalFailure(accounting, failure);
@@ -910,7 +968,8 @@ export async function generateBoundedNarrativeReport(input: {
     if (!validation.ok && input.provider.qualityEscalate && validation.issues.every((issue) => issue.code === 'FIT_OVERFLOW' || issue.code === 'FIT_UNDERFLOW' || issue.code === 'MECHANICAL_LANGUAGE' || issue.code === 'STYLE_FAILURE')) {
       accounting.qualityEscalations += 1;
       try {
-        call = await input.provider.qualityEscalate(contract, { result: call.result, validation });
+        const rejectedForEscalation = { result: call.result, validation };
+        call = await callWithFormatRecovery({ provider: input.provider, contract, accounting, budget: formatBudget, callType: 'QUALITY_ESCALATION', repairNumber: 0, run: () => input.provider.qualityEscalate!(contract, rejectedForEscalation) });
       } catch (error) {
         const failure = technicalFailureRecord(slot.slotId, input.provider, 'QUALITY_ESCALATION', 0, error);
         recordTechnicalFailure(accounting, failure);

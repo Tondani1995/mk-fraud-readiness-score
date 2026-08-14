@@ -124,6 +124,40 @@ function attachResponseDiagnostics(error: unknown, response: any, rawText: strin
   return providerFailure(error, response, rawText);
 }
 
+function formatRetryPrompt(contract: NarrativeSectionContract, rejected: { rawText: string; schemaIssuePaths?: string[]; schemaIssueCodes?: string[] }): string {
+  return [
+    'Your previous reply for this MK Fraud Readiness narrative slot contained the right analysis but the wrong JSON envelope.',
+    '',
+    'THIS IS A SERIALIZATION CORRECTION ONLY.',
+    'Do NOT reconsider, rewrite, shorten, lengthen or improve the analytical content.',
+    'Do NOT change the wording of narrative or managementImplication.',
+    'Do NOT add or remove claim references. Do NOT change requirement coverage.',
+    'Re-emit the SAME answer with the correct keys and types.',
+    '',
+    'REJECTED OUTPUT:',
+    rejected.rawText,
+    '',
+    'SCHEMA ERRORS:',
+    `paths: ${JSON.stringify(rejected.schemaIssuePaths ?? [])}`,
+    `codes: ${JSON.stringify(rejected.schemaIssueCodes ?? [])}`,
+    '',
+    '================ OUTPUT — RETURN THIS OBJECT ONLY ================',
+    'Return exactly one JSON object with exactly these six keys and no others:',
+    JSON.stringify({
+      contractVersion: contract.contractVersion,
+      slotId: contract.slotId,
+      narrative: '<unchanged prose from your rejected output>',
+      managementImplication: '<unchanged implication from your rejected output>',
+      usedClaimRefs: ['<unchanged>'],
+      requirementCoverage: [{ requirementId: '<unchanged>', supportingExcerpt: '<unchanged, verbatim from narrative>' }]
+    }, null, 2),
+    '',
+    `contractVersion MUST be exactly "${contract.contractVersion}". slotId MUST be exactly "${contract.slotId}".`,
+    'DO NOT RETURN any other key, including title, purpose, centralJudgement or transitionCue.',
+    'No Markdown. No code fences. No commentary. One JSON object only.'
+  ].join('\n');
+}
+
 function contractPrompt(contract: NarrativeSectionContract, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }): string {
   const repairInstructions = repair ? [
     '',
@@ -197,8 +231,8 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
     this.provider = resolved.provider;
   }
 
-  private async call(contract: NarrativeSectionContract, callType: BoundedProviderMetadata['callType'], repairNumber: number, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }): Promise<BoundedProviderCall> {
-    const prompt = contractPrompt(contract, repair);
+  private async call(contract: NarrativeSectionContract, callType: BoundedProviderMetadata['callType'], repairNumber: number, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }, formatRecovery?: { rejected: { rawText: string; schemaIssuePaths?: string[]; schemaIssueCodes?: string[] }; originCallType: BoundedProviderMetadata['callType'] }): Promise<BoundedProviderCall> {
+    const prompt = formatRecovery ? formatRetryPrompt(contract, formatRecovery.rejected) : contractPrompt(contract, repair);
     let response: any;
     try {
       response = await generateText({
@@ -236,6 +270,10 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
 
   repair(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }, repairNumber: number): Promise<BoundedProviderCall> {
     return this.call(contract, 'REPAIR', repairNumber, { previous: rejected.result, validation: rejected.validation, repairNumber });
+  }
+
+  formatRetry(contract: NarrativeSectionContract, rejected: { rawText: string; schemaIssuePaths?: string[]; schemaIssueCodes?: string[] }, originCallType: BoundedProviderMetadata['callType']): Promise<BoundedProviderCall> {
+    return this.call(contract, 'TECHNICAL_FORMAT_RETRY', 0, undefined, { rejected, originCallType });
   }
 
   qualityEscalate(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }): Promise<BoundedProviderCall> {

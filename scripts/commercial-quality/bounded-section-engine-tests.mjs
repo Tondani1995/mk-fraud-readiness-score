@@ -322,6 +322,93 @@ await assert.rejects(
   /failed closed/
 );
 
+
+// ============ TECHNICAL FORMAT RETRY (Phase 3) ============
+// Serialization-only recovery. One per slot. Must not consume semantic repair
+// or quality escalation, and must not be able to change slot identity.
+
+const contractFor = (slot) => buildNarrativeSectionContract(slot, pack, thesis);
+const goodJson = (contract) => JSON.stringify(goodResult(contract, 0));
+
+// 1. valid exact JSON parses
+assert.ok(parseBoundedNarrativeSlotText(goodJson(contractFor(plan.slots[0]))), 'valid exact JSON parses');
+
+// 2/4. extra key and missing key both fail the initial strict schema
+const c0 = contractFor(plan.slots[0]);
+assert.throws(() => parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(c0, 0), title: 'Executive assessment' })),
+  (e) => e.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE', 'extra title fails initial schema');
+const { narrative: _dropped, ...missingField } = goodResult(c0, 0);
+assert.throws(() => parseBoundedNarrativeSlotText(JSON.stringify(missingField)),
+  (e) => e.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE', 'missing required field fails initial schema');
+
+// 3. a slot whose FIRST call emits an echoed contract field recovers via one format retry
+let echoFormatRetries = 0;
+const echoOnceProvider = {
+  model: 'test/echo', provider: 'test',
+  async generate(contract) {
+    if (contract.slotId === plan.slots[0].slotId && echoFormatRetries === 0) {
+      parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(contract, 0), title: contract.title }));
+    }
+    return { result: goodResult(contract, plan.slots.findIndex((s) => s.slotId === contract.slotId)), metadata: metadata(contract) };
+  },
+  async repair() { throw new Error('format retry must not consume semantic repair'); },
+  async formatRetry(contract) {
+    echoFormatRetries += 1;
+    return { result: goodResult(contract, 0), metadata: metadata(contract, 'TECHNICAL_FORMAT_RETRY', 0) };
+  }
+};
+const echoRun = await generateBoundedNarrativeReport({ reportGenerationId: 'format-retry-run', pack, blueprint, thesis, plan, provider: echoOnceProvider });
+assert.equal(echoFormatRetries, 1, 'exactly one technical format retry was spent');
+assert.equal(echoRun.accounting.technicalFormatRetries, 1, 'accounting records one technical format retry');
+assert.equal(echoRun.accounting.technicalFormatRetriesRecovered, 1, 'accounting records the recovery');
+assert.equal(echoRun.accounting.repairCalls, 0, 'technical format retry consumed zero semantic repairs');
+assert.equal(echoRun.accounting.qualityEscalations, 0, 'technical format retry consumed zero quality escalations');
+
+// 5/6. a second technical format retry on the same slot is blocked
+let persistentRetries = 0;
+const alwaysMalformedProvider = {
+  model: 'test/malformed', provider: 'test',
+  async generate(contract) { parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(contract, 0), title: 'x' })); },
+  async repair() { throw new Error('unreachable'); },
+  async formatRetry(contract) {
+    persistentRetries += 1;
+    parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(contract, 0), title: 'x' }));
+  }
+};
+await assert.rejects(
+  () => generateBoundedNarrativeReport({ reportGenerationId: 'format-retry-exhausted', pack, blueprint, thesis, plan, provider: alwaysMalformedProvider }),
+  /failed closed/, 'a slot that cannot be serialised fails closed'
+);
+assert.equal(persistentRetries, 1, 'the second technical format retry is blocked by the per-slot budget');
+
+// 7. a format retry that changes slot identity is blocked
+const identitySwapProvider = {
+  model: 'test/swap', provider: 'test',
+  async generate(contract) { parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(contract, 0), title: 'x' })); },
+  async repair() { throw new Error('unreachable'); },
+  async formatRetry(contract) {
+    return { result: { ...goodResult(contract, 0), slotId: 'SLOT-99-SOMEWHERE-ELSE' }, metadata: metadata(contract, 'TECHNICAL_FORMAT_RETRY', 0) };
+  }
+};
+await assert.rejects(
+  () => generateBoundedNarrativeReport({ reportGenerationId: 'format-retry-identity', pack, blueprint, thesis, plan, provider: identitySwapProvider }),
+  /failed closed/, 'a format retry that changes slotId is blocked'
+);
+
+// 8. a format retry that smuggles in an unauthorised ref is still blocked downstream
+const smuggleProvider = {
+  model: 'test/smuggle', provider: 'test',
+  async generate(contract) { parseBoundedNarrativeSlotText(JSON.stringify({ ...goodResult(contract, 0), title: 'x' })); },
+  async repair(contract, rejected, repairNumber) { return { result: { ...goodResult(contract, repairNumber), usedClaimRefs: ['UNKNOWN-CLAIM'] }, metadata: metadata(contract, 'REPAIR', repairNumber) }; },
+  async formatRetry(contract) {
+    return { result: { ...goodResult(contract, 0), usedClaimRefs: ['UNKNOWN-CLAIM'] }, metadata: metadata(contract, 'TECHNICAL_FORMAT_RETRY', 0) };
+  }
+};
+await assert.rejects(
+  () => generateBoundedNarrativeReport({ reportGenerationId: 'format-retry-smuggle', pack, blueprint, thesis, plan, provider: smuggleProvider }),
+  /failed closed/, 'an unauthorised ref introduced by a format retry is blocked by semantic validation'
+);
+
 console.log(JSON.stringify({
   passed: true,
   architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE,
@@ -330,5 +417,5 @@ console.log(JSON.stringify({
   scenarioSlots: plan.slots.filter((slot) => slot.narrativeRole === 'EXPOSURE_ILLUSTRATION').length,
   reportWords: compiled.validation.totalWordCount,
   repairs: compiled.accounting.repairCalls,
-  checks: ['one contract per slot', 'primary-home ownership', 'strict permitted refs', 'required insight excerpts', 'unknown ref rejection', 'hard-truth rejection', 'assurance rejection', 'fit overflow/underflow', 'approved-slot immutability', 'deterministic compilation', 'no whole-manuscript coherence call']
+  checks: ['one contract per slot', 'primary-home ownership', 'strict permitted refs', 'required insight excerpts', 'unknown ref rejection', 'hard-truth rejection', 'assurance rejection', 'fit overflow/underflow', 'approved-slot immutability', 'deterministic compilation', 'no whole-manuscript coherence call', 'technical format retry recovers once', 'second format retry blocked', 'format retry cannot change slot identity', 'format retry ref smuggling blocked', 'format retry consumes no semantic repair']
 }, null, 2));
