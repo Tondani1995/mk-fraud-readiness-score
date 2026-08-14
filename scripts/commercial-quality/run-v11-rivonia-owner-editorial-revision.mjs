@@ -16,7 +16,7 @@ import { recoverWholeManuscript } from '../../src/lib/reports/narrative/whole-ma
 
 const assessmentReference = 'MKFRS-2026-F4047D75C0';
 const orderReference = 'MKORD-2026-22FF6B69';
-const expectedStartingSha = process.env.V11_RIVONIA_OWNER_EXPECTED_SHA ?? 'e1182fbdf874b1e6a73cdef78cdcb712405d6d9b';
+const expectedStartingSha = process.env.V11_RIVONIA_OWNER_EXPECTED_SHA ?? 'a026b5ec44d2af71f7f7beb9af35d24ac8598716';
 const branchName = 'commercial/mk-fraud-readiness-95-quality';
 const model = 'openai/gpt-5.6-terra';
 const previousOutputDir = process.env.V11_RIVONIA_OWNER_PREVIOUS_OUTPUT_DIR ?? '/Users/tondani/Documents/Codex/2026-08-11/p1-no-paid-order-can-be/outputs/v1.1-blueprint-whole-manuscript-rivonia/attempt-02-recovery';
