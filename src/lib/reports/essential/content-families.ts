@@ -395,6 +395,31 @@ const TARGET_STATE_TEMPLATES: Record<string, TargetStateTemplate> = {
   }
 };
 
+/**
+ * How specific a target state should be.
+ *
+ * Specificity is proportional to the priority. A process control names the
+ * points it governs. Monitoring genuinely extends across processes, so naming
+ * them is the advice. A governance or learning priority is broader than any
+ * process list, and enumerating every weak process family there reads as
+ * machine assembly rather than judgement.
+ */
+export type SpecificityScope = 'PROCESS_SPECIFIC' | 'CROSS_PROCESS' | 'ORGANISATION_WIDE';
+
+const SPECIFICITY_SCOPE: Record<string, SpecificityScope> = {
+  SUPPLIER_ONBOARDING: 'PROCESS_SPECIFIC',
+  IDENTITY_VERIFICATION: 'PROCESS_SPECIFIC',
+  EVIDENCE_INTEGRITY: 'PROCESS_SPECIFIC',
+  DETECTION_MONITORING: 'CROSS_PROCESS',
+  FRAUD_GOVERNANCE: 'ORGANISATION_WIDE',
+  FRAUD_RISK_IDENTIFICATION: 'ORGANISATION_WIDE',
+  CONTINUOUS_IMPROVEMENT: 'ORGANISATION_WIDE'
+};
+
+export function specificityScope(semanticFamily: string | undefined | null): SpecificityScope {
+  return SPECIFICITY_SCOPE[String(semanticFamily ?? '').toUpperCase()] ?? 'PROCESS_SPECIFIC';
+}
+
 export function targetStateTemplate(semanticFamily: string | undefined | null): TargetStateTemplate | undefined {
   return TARGET_STATE_TEMPLATES[String(semanticFamily ?? '').toUpperCase()];
 }

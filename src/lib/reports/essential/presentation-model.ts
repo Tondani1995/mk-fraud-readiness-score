@@ -27,6 +27,7 @@ import {
   composeTargetState,
   targetStateTemplate,
   NON_LEVERAGEABLE_DOMAINS,
+  specificityScope,
   EXPOSURE_CONSEQUENCE,
   type ExposureFamily
 } from './content-families';
@@ -512,10 +513,11 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     const weakSignals = sortedDomains
       .filter((d) => exposure && exposureFamilyForLabel(String(d.name ?? '')) === exposure)
       .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
-    // A monitoring or governance priority reaches across every weak area; a
-    // process-specific priority stays with its own points.
-    const reachesAcross = ['DETECTION_MONITORING', 'FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'].includes(semanticFamily.toUpperCase());
-    const pointFamilies = reachesAcross ? unique(weakFamilies) : [semanticFamily];
+    // Only a cross-process priority enumerates the weak process families. A
+    // governance or learning priority is broader than any process list and keeps
+    // its own framing.
+    const scope = specificityScope(semanticFamily);
+    const pointFamilies = scope === 'CROSS_PROCESS' ? unique(weakFamilies) : [semanticFamily];
     // Take one point from each weak family first so a cross-cutting priority
     // names the breadth of the problem rather than three points from one area.
     const perFamily = pointFamilies.map((family) => targetStateTemplate(family)?.processPoints ?? []);
@@ -631,24 +633,35 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
    * opened that way, so roadmap replay is stripped and the thesis restored.
    */
   function managementConclusion(): string {
-    const supplied = customerText(commentary['CONCLUSION'] ?? '');
-    const withoutRoadmap = supplied
-      .split(/(?<=[.!?])\s+/)
-      .filter((line) => !/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(line))
-      .join(' ')
-      .trim();
-    const strong = readinessScore.strongest.title.toLowerCase();
+    // Composed from the thesis rather than harvested commentary. The approved
+    // narrative opened on implementation -- who approves what in the first phase
+    // -- which is the roadmap's job. The conclusion closes the argument the cover
+    // opened, and says nothing about sequencing.
     const org = customerText(factPack.organisation?.name ?? thesis.organisationName ?? 'The organisation');
-    const closing = sustainment
-      ? `The next management checkpoint should test whether that strength has been preserved as the business changes.`
-      : `The next 90-day checkpoint should test whether that connection has been established.`;
-    const opening = sustainment
-      ? `${org} is operating from a strong position, with ${strong} the most developed capability.`
-      : `${org} is not starting from zero. Its ${strong} and pockets of operational control provide a useful foundation.`;
-    const middle = withoutRoadmap.length > 40
-      ? withoutRoadmap
-      : `The immediate weakness is that those capabilities are not yet connected through a repeatable fraud-risk cycle spanning identification, challenge, detection, response and learning.`;
-    return sentence(`${opening} ${middle} ${closing}`.replace(/\s{2,}/g, ' ').trim());
+    const foundations = sortedDomains.slice(-2).reverse()
+      .map((d) => customerText(d.name).toLowerCase())
+      .filter(Boolean);
+    const foundationClause = foundations.length > 1
+      ? `${foundations[0]} and ${foundations[1]}`
+      : foundations[0] ?? 'existing controls';
+    // Single-word capability names. Phrases carrying their own conjunction made
+    // the closing list unreadable. Ownership leads because governance is
+    // cross-cutting and is what connects the rest.
+    const CAPABILITY_NAME: Record<string, string> = {
+      SUPPLIER_PAYMENT_VALUE_DIVERSION: 'challenge',
+      IDENTITY_TRANSACTION_SENSITIVE_CHANGE: 'monitoring',
+      INCIDENT_CONTAINMENT_LEARNING: 'incident response'
+    };
+    const capabilities = unique(['ownership', ...exposureRows
+      .map((row) => (row.family ? CAPABILITY_NAME[row.family] : undefined))
+      .filter((name): name is string => Boolean(name))]);
+    const cycle = capabilities.length > 1
+      ? `${capabilities.slice(0, -1).join(', ')} and ${capabilities[capabilities.length - 1]}`
+      : capabilities[0] ?? 'prevention, detection and response';
+    if (sustainment) {
+      return sentence(`${org} is operating from a strong position, supported by ${foundationClause}. The management question is no longer whether capability exists but whether it holds as the business changes. The next checkpoint should test whether ${cycle} still operate as one system`);
+    }
+    return sentence(`${org} is not starting from zero. Its ${foundationClause} provide a useful foundation. The weakness is that these capabilities are not yet connected into a repeatable fraud-risk cycle, so ownership, challenge, detection and response do not yet reinforce one another. The next 90-day checkpoint should test whether ${cycle} now operate as one system rather than as separate activities`);
   }
 
   // ---- Pages ----

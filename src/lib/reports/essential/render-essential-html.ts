@@ -131,12 +131,12 @@ function pageFoot(_model: EssentialReportPresentationModel, _n: number, _total: 
 }
 
 function domainBars(model: EssentialReportPresentationModel): string {
-  return `<div class="bars">${model.domainProfile.rows.map((r) => `
+  return `<div class="bars">${model.domainProfile.rows.map((r, index, all) => `
     <div class="row">
       <div class="nm">${esc(r.title)}</div>
       <div class="track"><div class="fill ${r.emphasis === 'weak' ? 'weak' : r.emphasis === 'strong' ? 'strong' : ''}" style="width:${Math.max(1, Math.min(100, r.score))}%"></div></div>
       <div class="val">${r.score.toFixed(2)}</div>
-      <div class="band">${esc(r.band)}</div>
+      <div class="band">${index === 0 || all[index - 1].band !== r.band ? esc(r.band) : ''}</div>
     </div>`).join('')}</div>
   <div class="cap" style="margin-top:2.5mm">Ordered weakest first. Overall readiness ${model.readinessScore.score} / 100.</div>`;
 }
@@ -238,7 +238,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
           <td>${r.assessmentBasis.map((b) => `${esc(b.title)} <strong>${b.score}</strong>`).join('<br>')}</td>
           <td>${esc(r.potentialConsequence)}</td>
           <td>${esc(r.interruptionPoint)}</td>
-          <td><strong>${esc(r.priority)}</strong><div class="cap" style="margin-top:1.2mm">${esc(r.priorityBasis)}</div></td></tr>`).join('')}</tbody>
+          <td><strong>${esc(r.priority)}</strong><div class="cap" style="margin-top:2mm;padding-top:1.6mm;border-top:1px solid var(--rule-soft)">${esc(r.priorityBasis)}</div></td></tr>`).join('')}</tbody>
       </table>
       <div class="sp"></div>
       ${pageFoot(model, n, total)}
