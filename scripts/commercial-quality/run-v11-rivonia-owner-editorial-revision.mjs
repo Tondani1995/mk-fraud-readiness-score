@@ -16,7 +16,7 @@ import { recoverWholeManuscript } from '../../src/lib/reports/narrative/whole-ma
 
 const assessmentReference = 'MKFRS-2026-F4047D75C0';
 const orderReference = 'MKORD-2026-22FF6B69';
-const expectedStartingSha = process.env.V11_RIVONIA_OWNER_EXPECTED_SHA ?? 'a026b5ec44d2af71f7f7beb9af35d24ac8598716';
+const expectedStartingSha = process.env.V11_RIVONIA_OWNER_EXPECTED_SHA;
 const branchName = 'commercial/mk-fraud-readiness-95-quality';
 const model = 'openai/gpt-5.6-terra';
 const previousOutputDir = process.env.V11_RIVONIA_OWNER_PREVIOUS_OUTPUT_DIR ?? '/Users/tondani/Documents/Codex/2026-08-11/p1-no-paid-order-can-be/outputs/v1.1-blueprint-whole-manuscript-rivonia/attempt-02-recovery';
@@ -143,7 +143,9 @@ async function main() {
   const branch = execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).trim();
   const startingSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (branch !== branchName) throw new Error(`Unexpected branch ${branch}; expected ${branchName}.`);
-  if (startingSha !== expectedStartingSha) throw new Error(`Unexpected source SHA ${startingSha}; expected ${expectedStartingSha}.`);
+  if (expectedStartingSha && startingSha !== expectedStartingSha) throw new Error(`Unexpected source SHA ${startingSha}; expected ${expectedStartingSha}.`);
+  const remoteAtStart = execFileSync('git', ['ls-remote', 'origin', `refs/heads/${branchName}`], { encoding: 'utf8' }).trim().split(/\s+/)[0] || null;
+  if (remoteAtStart !== startingSha) throw new Error(`Local/remote SHA mismatch before owner revision: ${startingSha} / ${remoteAtStart ?? 'NONE'}.`);
   if (!(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY)) throw new Error('AI gateway configuration is unavailable.');
 
   const oldMarkdown = await fs.readFile(path.join(previousOutputDir, 'essential-manuscript.md'), 'utf8');
