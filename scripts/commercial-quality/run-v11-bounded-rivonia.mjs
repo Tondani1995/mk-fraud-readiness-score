@@ -15,9 +15,7 @@ import {
   buildNarrativeSectionContract,
   buildNarrativeSlotPlan,
   buildReportThesis,
-  generateBoundedNarrativeReport,
-  type BoundedProviderCall,
-  type NarrativeSlotValidationReport
+  generateBoundedNarrativeReport
 } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 import { createV11BoundedSectionWriter } from '../../src/lib/reports/narrative/bounded-section-writer.ts';
 
@@ -64,7 +62,7 @@ for (const slot of slotPlan.slots) {
 
 const writer = createV11BoundedSectionWriter('openai/gpt-5.6-luna');
 const candidatePaths = new Map();
-const candidateEvent = async (event: { slot: typeof slotPlan.slots[number]; contract: ReturnType<typeof buildNarrativeSectionContract>; call: BoundedProviderCall; validation: NarrativeSlotValidationReport; callNumber: number }) => {
+const candidateEvent = async (event) => {
   const candidateDir = path.join(outputDir, 'candidates', event.slot.slotId);
   await fs.mkdir(candidateDir, { recursive: true });
   const callName = `call-${String(event.callNumber).padStart(2, '0')}.json`;
