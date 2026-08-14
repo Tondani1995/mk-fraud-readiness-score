@@ -49,7 +49,19 @@ for (const row of model.exposures.rows) {
   assert.ok(row.assessmentBasis.length >= 1, `exposure ${row.rank} shows its assessment basis`);
   assert.ok(row.potentialConsequence.length > 25, `exposure ${row.rank} states a potential consequence`);
 }
-ok('exposure ownership is distinct and prioritisation is evidenced');
+// Priority is an ordinal position. Band language would overclaim a distinction
+// the assessment cannot support: on this fixture the top two exposures are
+// separated by 0.59 of a point.
+for (const row of model.exposures.rows) {
+  assert.match(row.priority, /^Priority \d+$/, `exposure ${row.rank} uses an ordinal priority, not a band`);
+  assert.ok(!/highest|high|moderate|critical|severe/i.test(row.priority), 'priority carries no risk-band language');
+}
+const topTwoGap = Math.abs(
+  Math.min(...model.exposures.rows[0].assessmentBasis.map((b) => b.score))
+  - Math.min(...model.exposures.rows[1].assessmentBasis.map((b) => b.score))
+);
+assert.ok(topTwoGap < 5, `this fixture separates the top two exposures by ${topTwoGap.toFixed(2)} points, which band labels would misrepresent`);
+ok('exposure ownership is distinct and prioritisation is ordinal and evidenced');
 
 // Scenario narrative must describe the same mechanic as its nodes.
 const contaminated = JSON.parse(JSON.stringify(model));
@@ -136,7 +148,15 @@ assert.ok(stages.length === 3, 'three roadmap stages render');
 assert.ok(stages[0].actions.length >= 2, `30-day stage carries real stabilisation content (${stages[0].actions.length} actions)`);
 const allActions = stages.flatMap((s) => s.actions.map((a) => a.action));
 assert.equal(new Set(allActions).size, allActions.length, 'no action appears in more than one stage');
-ok('roadmap stages are distinct and 30 days is a real stabilisation phase');
+// A material incident/evidence exposure with no first-window action gets an
+// interim route, rather than waiting for the fuller design.
+const hasIncidentExposure = model.exposures.rows.some((r) => r.family === 'INCIDENT_CONTAINMENT_LEARNING');
+if (hasIncidentExposure) {
+  const firstStage = stages[0].actions.map((a) => `${a.action} ${a.deliverable}`).join(' ').toLowerCase();
+  assert.ok(/intake|preserv|evidence|incident/.test(firstStage),
+    'stabilisation includes an interim incident and evidence route where that exposure is material');
+}
+ok('roadmap stages are distinct, 30 days stabilises, and incident intake is staged where material');
 
 // 16. Conclusion does not replay the roadmap.
 assert.ok(!/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(model.conclusion.replace(/next 90-day checkpoint/i, '')),

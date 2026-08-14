@@ -341,15 +341,18 @@ export interface TargetStateTemplate {
   mechanism: string;
   /** Concrete points this family governs, drawn on when the family is weak. */
   processPoints: string[];
+  /** The lead is already a complete clause and takes no process list. */
+  selfContained?: boolean;
 }
 
 const TARGET_STATE_TEMPLATES: Record<string, TargetStateTemplate> = {
   FRAUD_GOVERNANCE: {
-    lead: 'Named ownership, decision authority and escalation cover',
-    connector: 'across',
+    lead: 'Every material fraud risk and key control has a named owner, decision authority and escalation route',
+    connector: '',
     allowsLeverage: false,
-    mechanism: 'a defined reporting rhythm and a recorded decision route',
-    processPoints: ['material fraud risks', 'key controls and their owners']
+    selfContained: true,
+    mechanism: 'a defined reporting rhythm and a recorded decision trail',
+    processPoints: []
   },
   FRAUD_RISK_IDENTIFICATION: {
     lead: 'Fraud risks are mapped and refreshed across',
@@ -387,11 +390,11 @@ const TARGET_STATE_TEMPLATES: Record<string, TargetStateTemplate> = {
     processPoints: ['suspected fraud matters', 'records supporting an investigation']
   },
   CONTINUOUS_IMPROVEMENT: {
-    lead: 'Findings from incidents and reviews drive scheduled refresh across',
+    lead: 'Findings from incidents and reviews drive a scheduled refresh of',
     connector: '',
     allowsLeverage: false,
     mechanism: 'assigned actions and a re-tested control position',
-    processPoints: ['fraud risks and their treatments', 'controls affected by a closed matter']
+    processPoints: ['fraud risks, their treatments and the controls they rely on']
   }
 };
 
@@ -454,6 +457,9 @@ export interface TargetStateIngredients {
 export function composeTargetState(ingredients: TargetStateIngredients): string {
   const template = targetStateTemplate(ingredients.priorityFamily);
   if (!template) return '';
+  if (template.selfContained) {
+    return `${template.lead}, with ${template.mechanism}.`;
+  }
   const points = ingredients.processPoints.length ? ingredients.processPoints : template.processPoints;
   // A point may itself contain "and" ("sensitive identity and account changes").
   // Joining those with a final "and" produces a doubled conjunction, so a list

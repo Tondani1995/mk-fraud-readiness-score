@@ -107,7 +107,12 @@ export interface PriorityExposureExhibit extends ExhibitBase {
     potentialConsequence: string;
     drivers: Array<{ title: string; score: number }>;
     interruptionPoint: string;
-    priority: 'Highest' | 'High' | 'Moderate';
+    /**
+     * Ordinal position, not a risk band. The driving signals can sit fractions
+     * of a point apart, so band language would overclaim a distinction the
+     * assessment does not support.
+     */
+    priority: string;
     /** Why this priority, expressed from the signals rather than asserted. */
     priorityBasis: string;
   }>;
@@ -261,7 +266,7 @@ export interface PresentationInputs {
   commentary?: Record<string, string>;
 }
 
-const PRIORITY_LABELS: Array<PriorityExposureExhibit['rows'][number]['priority']> = ['Highest', 'High', 'Moderate'];
+
 
 export function buildEssentialPresentationModel(input: PresentationInputs): EssentialReportPresentationModel {
   const { factPack, thesis } = input;
@@ -416,7 +421,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       potentialConsequence: row.potentialConsequence,
       drivers: row.drivers,
       interruptionPoint: row.interruptionPoint,
-      priority: PRIORITY_LABELS[Math.min(index, PRIORITY_LABELS.length - 1)]!,
+      priority: `Priority ${index + 1}`,
       priorityBasis: `${lowest.title} scores ${lowest.score}, the weakest capability supporting this exposure.`
     };
   });
@@ -591,11 +596,36 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         return match.test(String(item.targetPeriod ?? '').trim());
       });
       for (const item of items) claimedRefs.add(item.factRef);
+      const staged = [...items];
+      // Where the assessment shows material incident and evidence weakness but
+      // no first-window action covers it, derive an interim route from the
+      // existing control rather than leaving the organisation without one until
+      // the fuller design lands. Conditional: it appears only where that gap is
+      // real, and nothing is invented -- the control already exists.
+      if (stageIndex === 0) {
+        const gapFamily = 'EVIDENCE_INTEGRITY';
+        const alreadyStaged = staged.some((item) => String(item.primarySemanticFamily ?? '').toUpperCase() === gapFamily);
+        const exposureIsMaterial = exposureRows.some((row) => row.family === 'INCIDENT_CONTAINMENT_LEARNING');
+        const control = controls.find((c) => String(c.primarySemanticFamily ?? '').toUpperCase() === gapFamily);
+        if (!alreadyStaged && exposureIsMaterial && control) {
+          const presentation = familyPresentation(gapFamily);
+          staged.push({
+            factRef: control.factRef,
+            primarySemanticFamily: gapFamily,
+            managementOutcome: presentation?.shortLabel ?? 'Controlled incident and evidence handling',
+            priorityWork: 'Stand up an interim intake and preservation route for suspected matters, ahead of the fuller design.',
+            accountableExecutive: 'CEO / Managing Director',
+            proofOfCompletion: 'A named intake point and a preservation instruction issued to managers.',
+            dependencies: [],
+            interim: true
+          });
+        }
+      }
       return {
         stage,
         window,
-        primaryOutcome: customerText(items[0]?.managementOutcome ?? ''),
-        actions: items.slice(0, 5).map((item) => ({
+        primaryOutcome: customerText(staged[0]?.managementOutcome ?? ''),
+        actions: staged.slice(0, 5).map((item) => ({
           action: familyPresentation(item.primarySemanticFamily)?.shortLabel ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
           owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
           // What is handed over, and the test that closes it. Themes alone do

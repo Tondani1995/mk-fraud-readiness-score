@@ -232,7 +232,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
       <h1>${esc(model.exposures.title)}</h1>
       <div class="gap"></div>
       <table>
-        <thead><tr><th style="width:4%">#</th><th style="width:20%">Priority exposure</th><th style="width:17%">Assessment basis</th><th style="width:21%">Potential consequence</th><th style="width:24%">Interruption point</th><th style="width:14%">Priority</th></tr></thead>
+        <thead><tr><th style="width:4%">#</th><th style="width:20%">Priority exposure</th><th style="width:17%">Assessment basis</th><th style="width:21%">Potential consequence</th><th style="width:24%">Interruption point</th><th style="width:14%">Priority order</th></tr></thead>
         <tbody>${model.exposures.rows.map((r) => `<tr>
           <td class="rank">${r.rank}</td>
           <td><strong>${esc(r.exposure)}</strong><div class="cap" style="margin-top:1.2mm">${esc(r.whyItMatters)}</div></td>
@@ -241,6 +241,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
           <td>${esc(r.interruptionPoint)}</td>
           <td><strong>${esc(r.priority)}</strong><div class="cap" style="margin-top:2mm;padding-top:1.6mm;border-top:1px solid var(--rule-soft)">${esc(r.priorityBasis)}</div></td></tr>`).join('')}</tbody>
       </table>
+      <div class="cap" style="margin-top:2.5mm">Ordered by the weakest capability supporting each exposure. The order indicates where to act first; it is not a risk rating, and closely ranked exposures may warrant similar attention.</div>
       <div class="sp"></div>
       ${pageFoot(model, n, total)}
     </section>`);
