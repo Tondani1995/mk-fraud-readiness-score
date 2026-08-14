@@ -312,3 +312,138 @@ export function scenarioPresentationForExposure(family: ExposureFamily | undefin
   const scenarioFamily = Object.keys(SCENARIO_TO_EXPOSURE).find((key) => SCENARIO_TO_EXPOSURE[key] === family);
   return scenarioFamily ? SCENARIO_PRESENTATION[scenarioFamily] : undefined;
 }
+
+/**
+ * Target-state composition.
+ *
+ * A family template alone produces advice any low-maturity organisation could
+ * receive. What makes it this organisation's answer is which process points are
+ * pulled in and which existing strength is leveraged -- both selected from the
+ * assessed weakness pattern rather than written in advance.
+ *
+ * So the vocabulary here is authored, but the selection is entirely data-driven:
+ * a monitoring recommendation names supplier-master changes only where the
+ * supplier family is actually weak, and cites operational controls as leverage
+ * only where they are actually materially stronger.
+ */
+export interface TargetStateTemplate {
+  /** Opening clause naming what extends or applies. */
+  lead: string;
+  /** Word joining the lead to the process points, if any. */
+  connector: string;
+  /**
+   * Whether an existing strength can be named as the thing being extended from.
+   * Only meaningful where the lead expresses reach; "verification applies at
+   * beyond X" is not a sentence.
+   */
+  allowsLeverage: boolean;
+  /** The operating discipline this family requires. */
+  mechanism: string;
+  /** Concrete points this family governs, drawn on when the family is weak. */
+  processPoints: string[];
+}
+
+const TARGET_STATE_TEMPLATES: Record<string, TargetStateTemplate> = {
+  FRAUD_GOVERNANCE: {
+    lead: 'Named ownership, decision authority and escalation cover',
+    connector: 'across',
+    allowsLeverage: false,
+    mechanism: 'a defined reporting rhythm and a recorded decision route',
+    processPoints: ['material fraud risks', 'key controls and their owners']
+  },
+  FRAUD_RISK_IDENTIFICATION: {
+    lead: 'Fraud risks are mapped and refreshed across',
+    connector: '',
+    allowsLeverage: false,
+    mechanism: 'named treatment owners and review on material change',
+    processPoints: ['core operating processes', 'new or changed process pathways']
+  },
+  SUPPLIER_ONBOARDING: {
+    lead: 'Independent challenge applies before activation or payment across',
+    connector: '',
+    allowsLeverage: false,
+    mechanism: 'a trusted-channel callback, second approval and a retained verification record',
+    processPoints: ['supplier-master changes', 'bank-detail amendments', 'new supplier activation']
+  },
+  IDENTITY_VERIFICATION: {
+    lead: 'Risk-based verification applies at',
+    connector: '',
+    allowsLeverage: false,
+    mechanism: 'proportionate checks completed before the change takes effect',
+    processPoints: ['sensitive identity and account changes', 'privileged access and profile amendments']
+  },
+  DETECTION_MONITORING: {
+    lead: 'Monitoring extends',
+    connector: 'into',
+    allowsLeverage: true,
+    mechanism: 'defined exception populations, named reviewers and overdue escalation',
+    processPoints: ['supplier-master changes', 'bank-detail amendments', 'sensitive identity and account changes']
+  },
+  EVIDENCE_INTEGRITY: {
+    lead: 'A defined intake, preservation and custody route applies from first report across',
+    connector: '',
+    allowsLeverage: false,
+    mechanism: 'controlled access and a retained custody trail',
+    processPoints: ['suspected fraud matters', 'records supporting an investigation']
+  },
+  CONTINUOUS_IMPROVEMENT: {
+    lead: 'Findings from incidents and reviews drive scheduled refresh across',
+    connector: '',
+    allowsLeverage: false,
+    mechanism: 'assigned actions and a re-tested control position',
+    processPoints: ['fraud risks and their treatments', 'controls affected by a closed matter']
+  }
+};
+
+export function targetStateTemplate(semanticFamily: string | undefined | null): TargetStateTemplate | undefined {
+  return TARGET_STATE_TEMPLATES[String(semanticFamily ?? '').toUpperCase()];
+}
+
+/**
+ * Capabilities that cannot be extended from operationally. Reporting culture may
+ * score highest, but "extend monitoring beyond reporting culture" is not advice;
+ * the leverage must be a control capability of the same kind.
+ */
+export const NON_LEVERAGEABLE_DOMAINS = /culture|awareness|whistleblow|reporting/i;
+
+export interface TargetStateIngredients {
+  priorityFamily: string;
+  exposureFamily?: ExposureFamily;
+  /** Assessed capabilities driving this priority, weakest first. */
+  weakSignals: Array<{ title: string; score: number }>;
+  /** An existing strength the organisation can build on, where one is material. */
+  leverage?: { title: string; score: number };
+  processPoints: string[];
+  accountableRole: string;
+  completionEvidence: string;
+}
+
+/**
+ * Composes the operating state for one management priority.
+ *
+ * Process points come from the families that are actually weak in this
+ * organisation, so the sentence names where this organisation must act. The
+ * leverage clause appears only where a genuinely stronger capability exists to
+ * extend from.
+ */
+export function composeTargetState(ingredients: TargetStateIngredients): string {
+  const template = targetStateTemplate(ingredients.priorityFamily);
+  if (!template) return '';
+  const points = ingredients.processPoints.length ? ingredients.processPoints : template.processPoints;
+  // A point may itself contain "and" ("sensitive identity and account changes").
+  // Joining those with a final "and" produces a doubled conjunction, so a list
+  // containing one switches to semicolons.
+  const hasInternalConjunction = points.some((point) => / and /.test(point));
+  const listed = points.length > 1
+    ? hasInternalConjunction
+      ? points.join('; ')
+      : `${points.slice(0, -1).join(', ')} and ${points[points.length - 1]}`
+    : points[0] ?? '';
+  const leverageClause = template.allowsLeverage && ingredients.leverage
+    ? ` beyond ${ingredients.leverage.title.toLowerCase()}`
+    : '';
+  const connector = template.connector ? ` ${template.connector}` : '';
+  return `${template.lead}${leverageClause}${connector} ${listed}, with ${template.mechanism}.`
+    .replace(/\s{2,}/g, ' ')
+    .replace(/ ,/g, ',');
+}

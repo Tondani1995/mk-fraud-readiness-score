@@ -24,6 +24,9 @@ import {
   familyPresentation,
   isStabilisationFamily,
   scenarioPresentation,
+  composeTargetState,
+  targetStateTemplate,
+  NON_LEVERAGEABLE_DOMAINS,
   EXPOSURE_CONSEQUENCE,
   type ExposureFamily
 } from './content-families';
@@ -129,7 +132,17 @@ export interface ScenarioPathwayExhibit extends ExhibitBase {
 
 export interface ManagementPriorityExhibit extends ExhibitBase {
   /** betterLooksLike is a target operating state; the proving artefact stays in the workbook. */
-  rows: Array<{ rank: number; outcome: string; whyNow: string; accountableRole: string; betterLooksLike: string; evidenceArtefact?: string }>;
+  rows: Array<{
+    rank: number;
+    outcome: string;
+    whyNow: string;
+    accountableRole: string;
+    /** Organisation-specific operating state, composed from this assessment. */
+    betterLooksLike: string;
+    /** The ingredients the state was composed from, retained for the register. */
+    targetStateBasis?: { weakSignals: Array<{ title: string; score: number }>; leverage?: { title: string; score: number }; processPoints: string[] };
+    evidenceArtefact?: string;
+  }>;
 }
 
 export interface RoadmapExhibit extends ExhibitBase {
@@ -193,6 +206,10 @@ function customerText(value: string | undefined | null): string {
     .replace(/\bself-assessed and not independently verified\b/gi, 'assessed from management responses')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
 }
 
 function sentence(value: string): string {
@@ -432,6 +449,32 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     return state ? customerText(state) : 'Not assessed';
   }
 
+  /**
+   * Families that are materially weak in this organisation. Their process points
+   * are what a recommendation should name, because that is where this
+   * organisation is exposed.
+   */
+  const WEAK_BAND = 35;
+  const weakFamilies = controls
+    .map((c) => String(c.primarySemanticFamily ?? ''))
+    .filter((family) => {
+      const exposure = exposureFamilyForSemantic(family);
+      const signals = sortedDomains.filter((d) => exposure && exposureFamilyForLabel(String(d.name ?? '')) === exposure);
+      return signals.length > 0 && Math.min(...signals.map((d) => d.score ?? 0)) < WEAK_BAND;
+    });
+
+  /** The strongest capability that is materially ahead of the weak pattern. */
+  const LEVERAGE_GAP = 15;
+  function leverageFor(weakSignals: Array<{ title: string; score: number }>): { title: string; score: number } | undefined {
+    if (!weakSignals.length) return undefined;
+    const weakest = Math.min(...weakSignals.map((s) => s.score));
+    return [...sortedDomains].reverse()
+      .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }))
+      .find((d) => d.score - weakest >= LEVERAGE_GAP
+        && !weakSignals.some((s) => s.title === d.title)
+        && !NON_LEVERAGEABLE_DOMAINS.test(d.title));
+  }
+
   const seenOutcome = new Set<string>();
   const priorityRows = roadmapItems
     .filter((item) => {
@@ -452,11 +495,49 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         // it -- a RACI, a callback record, a coverage report -- is evidence, and
         // belongs in the supporting register rather than the executive report.
         semanticFamily: String(item.primarySemanticFamily ?? ''),
-        betterLooksLike: presentation?.targetState ?? '',
+        betterLooksLike: organisationTargetState(String(item.primarySemanticFamily ?? '')),
+        targetStateBasis: targetStateBasisFor(String(item.primarySemanticFamily ?? '')),
         evidenceArtefact: customerText(item.proofOfCompletion ?? '')
       };
     })
     .filter((row) => row.outcome && row.betterLooksLike);
+
+  /**
+   * Selects the ingredients for one priority: the signals driving it, an existing
+   * strength worth extending from, and the process points that are actually weak
+   * here. A family template supplies the discipline; this supplies the specifics.
+   */
+  function targetStateBasisFor(semanticFamily: string) {
+    const exposure = exposureFamilyForSemantic(semanticFamily);
+    const weakSignals = sortedDomains
+      .filter((d) => exposure && exposureFamilyForLabel(String(d.name ?? '')) === exposure)
+      .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+    // A monitoring or governance priority reaches across every weak area; a
+    // process-specific priority stays with its own points.
+    const reachesAcross = ['DETECTION_MONITORING', 'FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'CONTINUOUS_IMPROVEMENT'].includes(semanticFamily.toUpperCase());
+    const pointFamilies = reachesAcross ? unique(weakFamilies) : [semanticFamily];
+    // Take one point from each weak family first so a cross-cutting priority
+    // names the breadth of the problem rather than three points from one area.
+    const perFamily = pointFamilies.map((family) => targetStateTemplate(family)?.processPoints ?? []);
+    const breadth = perFamily.map((points) => points[0]).filter((point): point is string => Boolean(point));
+    const remainder = perFamily.flatMap((points) => points.slice(1));
+    const processPoints = unique([...breadth, ...remainder]).slice(0, 3);
+    return { weakSignals, leverage: leverageFor(weakSignals), processPoints };
+  }
+
+  function organisationTargetState(semanticFamily: string): string {
+    const basis = targetStateBasisFor(semanticFamily);
+    const composed = composeTargetState({
+      priorityFamily: semanticFamily,
+      exposureFamily: exposureFamilyForSemantic(semanticFamily),
+      weakSignals: basis.weakSignals,
+      leverage: basis.leverage,
+      processPoints: basis.processPoints,
+      accountableRole: '',
+      completionEvidence: ''
+    });
+    return composed || familyPresentation(semanticFamily)?.targetState || '';
+  }
 
   const priorities: ManagementPriorityExhibit = {
     exhibitId: 'EX-MANAGEMENT-PRIORITIES',
