@@ -172,14 +172,14 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
   const repairInstructions = repair ? [
     '',
     `THIS IS BOUNDED REPAIR ${repair.repairNumber} OF 2 FOR THE SAME SLOT. Do not rewrite any other slot.`,
-    'Preserve every authorised fact and the contract meaning. Correct only the deterministic rejection reasons below.',
+    'Preserve every authorised fact and the contract meaning. Correct only the rejection reasons listed below.',
     `REJECTED RESULT: ${JSON.stringify(repair.previous)}`,
     `REJECTION REPORT: ${JSON.stringify(repair.validation)}`
   ] : [];
   return [
     repair ? 'Repair one bounded MK Fraud Readiness v1.1 narrative slot.' : 'Write one bounded MK Fraud Readiness v1.1 narrative slot.',
     '',
-    'DETERMINISTIC ENGINE DECIDES. AI EXPLAINS.',
+    'THE ANALYSIS IS ALREADY SETTLED. YOUR JOB IS TO EXPLAIN IT.',
     'The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
     'Use only the authorised facts and permitted claim references in the Section Contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness.',
     'For every required insight, include one supportingExcerpt copied verbatim from your own narrative. Each requirement ID must occur exactly once in requirementCoverage.',

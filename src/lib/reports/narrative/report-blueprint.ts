@@ -360,7 +360,8 @@ function scoreSummary(pack: NarrativeFactPack): string {
 }
 
 function commonAssuranceBoundary(): string {
-  return "The assessment is based on management's own assessment responses and deterministic scoring inputs. It is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.";
+  // Wording the model is expected to echo, so it carries no engine vocabulary.
+  return "The assessment is based on management's own responses and the MK scoring method. It is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.";
 }
 
 function section(
