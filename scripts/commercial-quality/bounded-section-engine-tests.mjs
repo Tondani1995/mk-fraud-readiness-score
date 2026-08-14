@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   BOUNDED_SECTION_ENGINE_ARCHITECTURE,
   BOUNDED_SECTION_ENGINE_SCHEMA_VERSION,
+  BoundedGenerationFailure,
+  BoundedTechnicalFailure,
   buildNarrativeSectionContract,
   buildNarrativeSlotPlan,
   buildReportThesis,
@@ -11,6 +13,7 @@ import {
   validateNarrativeSlotResult
 } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 import { BOUNDED_SECTION_ARCHITECTURE, selectNarrativeArchitecture } from '../../src/lib/reports/narrative/architecture.ts';
+import { parseBoundedNarrativeSlotText } from '../../src/lib/reports/narrative/bounded-section-writer.ts';
 
 const fact = (id, kind, value) => ({ id, kind, value, sourceRefs: [`SOURCE-${id}`] });
 const facts = [
@@ -209,6 +212,43 @@ assert.equal(failure({ ...goodResult(firstContract), narrative: `${goodResult(fi
 assert.equal(failure({ ...goodResult(firstContract), requirementCoverage: [] }).issues.some((item) => item.code === 'MISSING_REQUIRED_INSIGHT'), true);
 assert.equal(failure({ ...goodResult(firstContract), narrative: 'too short' }).issues.some((item) => item.code === 'FIT_UNDERFLOW'), true);
 assert.equal(failure({ ...goodResult(firstContract), narrative: `${goodResult(firstContract).narrative} `.repeat(20) }).issues.some((item) => item.code === 'FIT_OVERFLOW'), true);
+const validSlotResult = goodResult(firstContract);
+assert.deepEqual(parseBoundedNarrativeSlotText(JSON.stringify(validSlotResult)), validSlotResult, 'raw JSON text must parse');
+assert.deepEqual(parseBoundedNarrativeSlotText(`\`\`\`json\n${JSON.stringify(validSlotResult)}\n\`\`\``), validSlotResult, 'one outer JSON fence must parse');
+for (const invalidText of [
+  `leading prose ${JSON.stringify(validSlotResult)}`,
+  `${JSON.stringify(validSlotResult)} trailing prose`,
+  `${JSON.stringify(validSlotResult)}\n${JSON.stringify(validSlotResult)}`,
+  '{ malformed',
+  JSON.stringify({ ...validSlotResult, narrative: undefined })
+]) {
+  assert.throws(() => parseBoundedNarrativeSlotText(invalidText), (error) => error?.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE', 'invalid provider text must fail as technical parse');
+}
+assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, usedClaimRefs: ['UNKNOWN-CLAIM'] }))).issues.some((item) => item.code === 'PROVENANCE_VIOLATION'), true, 'unknown refs remain a downstream provenance failure');
+assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, slotId: 'SLOT-WRONG' }))).issues.some((item) => item.code === 'STRUCTURE_FAILURE'), true, 'wrong slot identity remains a downstream validation failure');
+assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, centralJudgement: 'The recorded position is 99 / 100 with Stable maturity.' }))).issues.some((item) => item.code === 'HARD_TRUTH_FAILURE'), true, 'wrong score or maturity remains a downstream hard-truth failure');
+const technicalFailureProvider = {
+  provider: 'test',
+  model: 'test/bounded',
+  async generate() {
+    throw new BoundedTechnicalFailure({ kind: 'TECHNICAL_OUTPUT_PARSE_FAILURE', diagnostics: { errorName: 'SyntaxError', errorMessage: 'invalid JSON', rawText: '{ malformed' } });
+  },
+  async repair() {
+    throw new Error('technical parse failure must not consume semantic repair');
+  }
+};
+await assert.rejects(
+  () => generateBoundedNarrativeReport({ reportGenerationId: 'technical-parse-run', pack, blueprint, thesis, plan, provider: technicalFailureProvider }),
+  (error) => {
+    assert.equal(error instanceof BoundedGenerationFailure, true);
+    assert.equal(error.accounting.initialCalls, 1);
+    assert.equal(error.accounting.repairCalls, 0);
+    assert.equal(error.accounting.technicalOutputParseFailureCount, 1);
+    assert.equal(error.accounting.technicalProviderFailureCount, 0);
+    assert.deepEqual(error.accounting.technicalFailures[0].slotId, plan.slots[0].slotId);
+    return true;
+  }
+);
 
 let repairedSlot = null;
 const fakeProvider = {
@@ -246,6 +286,28 @@ const normalProvider = {
 };
 const normalRun = await generateBoundedNarrativeReport({ reportGenerationId: 'normal-run', pack, blueprint, thesis, plan, provider: normalProvider });
 assert.equal(normalRun.accounting.repairCalls, 0);
+let carriedGenerateCount = 0;
+const carriedProvider = {
+  provider: 'test',
+  model: 'test/bounded',
+  async generate(contract) {
+    carriedGenerateCount += 1;
+    return { result: goodResult(contract, plan.slots.find((slot) => slot.slotId === contract.slotId)?.order ?? 0), metadata: metadata(contract) };
+  },
+  async repair() { throw new Error('carried provider must not repair'); }
+};
+const carriedRun = await generateBoundedNarrativeReport({
+  reportGenerationId: 'carried-run',
+  pack,
+  blueprint,
+  thesis,
+  plan,
+  provider: carriedProvider,
+  preApprovedSlots: [compiled.approvedSlots[0]]
+});
+assert.equal(carriedGenerateCount, plan.slots.length - 1, 'the smoke-approved slot must not be regenerated');
+assert.equal(carriedRun.accounting.initialCalls, plan.slots.length, 'carried smoke call remains in total accounting');
+assert.equal(carriedRun.approvedSlots[0].result.narrative, compiled.approvedSlots[0].result.narrative, 'carried approved slot remains immutable');
 
 const exhaustedProvider = {
   provider: 'test',

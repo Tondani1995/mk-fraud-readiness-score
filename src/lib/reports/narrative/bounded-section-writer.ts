@@ -6,6 +6,8 @@ import { NarrativeWriterUnavailableError } from './manuscript';
 import { selectNarrativeModel } from '../ai-model-policy';
 import {
   BOUNDED_SECTION_PROMPT_VERSION,
+  BoundedTechnicalFailure,
+  type BoundedTechnicalFailureDiagnostics,
   type BoundedProviderCall,
   type BoundedProviderMetadata,
   type BoundedSectionProvider,
@@ -39,7 +41,7 @@ function sha(value: unknown): string {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-const resultSchema = z.object({
+export const boundedNarrativeSlotResultSchema = z.object({
   contractVersion: z.string().min(1),
   slotId: z.string().min(1),
   centralJudgement: z.string().min(1),
@@ -49,6 +51,80 @@ const resultSchema = z.object({
   requirementCoverage: z.array(z.object({ requirementId: z.string().min(1), supportingExcerpt: z.string().min(1) }).strict()),
   transitionCue: z.string()
 }).strict();
+
+function technicalParseFailure(message: string, rawText: string, cause?: unknown, schemaIssuePaths?: string[], schemaIssueCodes?: string[]): never {
+  throw new BoundedTechnicalFailure({
+    kind: 'TECHNICAL_OUTPUT_PARSE_FAILURE',
+    diagnostics: {
+      errorName: cause instanceof Error && cause.name ? cause.name : 'BoundedNarrativeSlotParseError',
+      errorMessage: message,
+      cause: cause instanceof Error ? cause.message : undefined,
+      rawText,
+      schemaIssuePaths,
+      schemaIssueCodes
+    }
+  });
+}
+
+export function parseBoundedNarrativeSlotText(providerText: string): NarrativeSlotResult {
+  const rawText = typeof providerText === 'string' ? providerText : String(providerText ?? '');
+  const trimmed = rawText.trim();
+  const fenced = trimmed.match(/^\`\`\`json[ \t]*\r?\n([\s\S]*?)\r?\n\`\`\`$/i);
+  const remaining = fenced ? fenced[1]!.trim() : trimmed;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(remaining);
+  } catch (error) {
+    return technicalParseFailure('Provider text was not exactly one complete JSON object.', rawText, error);
+  }
+  const result = boundedNarrativeSlotResultSchema.safeParse(parsed);
+  if (!result.success) {
+    return technicalParseFailure(
+      'Provider JSON failed the bounded NarrativeSlotResult schema.',
+      rawText,
+      undefined,
+      result.error.issues.map((issue) => issue.path.join('.')),
+      result.error.issues.map((issue) => issue.code)
+    );
+  }
+  return result.data as NarrativeSlotResult;
+}
+
+function safeDiagnosticValue(value: unknown): string | undefined {
+  if (value instanceof Error) return String(value.name) + ': ' + String(value.message);
+  if (typeof value === 'string') return value.slice(0, 4_000);
+  return undefined;
+}
+
+function providerFailure(error: unknown, response?: any, rawText?: string): BoundedTechnicalFailure {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const diagnostics: BoundedTechnicalFailureDiagnostics = {
+    errorName: error instanceof Error && error.name ? error.name : 'UnknownError',
+    errorMessage: error instanceof Error ? error.message : String(error),
+    cause: safeDiagnosticValue(cause),
+    responseMetadata: response?.providerMetadata,
+    finishReason: typeof response?.finishReason === 'string' ? response.finishReason : undefined,
+    usage: response?.usage,
+    rawText: rawText ?? (typeof (error as any)?.text === 'string' ? (error as any).text : undefined)
+  };
+  return new BoundedTechnicalFailure({ kind: 'TECHNICAL_PROVIDER_FAILURE', diagnostics });
+}
+
+function attachResponseDiagnostics(error: unknown, response: any, rawText: string): BoundedTechnicalFailure {
+  if (error instanceof BoundedTechnicalFailure) {
+    return new BoundedTechnicalFailure({
+      kind: error.kind,
+      diagnostics: {
+        ...error.diagnostics,
+        responseMetadata: response?.providerMetadata,
+        finishReason: typeof response?.finishReason === 'string' ? response.finishReason : undefined,
+        usage: response?.usage,
+        rawText: error.diagnostics.rawText ?? rawText
+      }
+    });
+  }
+  return providerFailure(error, response, rawText);
+}
 
 function contractPrompt(contract: NarrativeSectionContract, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }): string {
   const repairInstructions = repair ? [
@@ -62,7 +138,7 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
     repair ? 'Repair one bounded MK Fraud Readiness v1.1 narrative slot.' : 'Write one bounded MK Fraud Readiness v1.1 narrative slot.',
     '',
     'DETERMINISTIC ENGINE DECIDES. AI EXPLAINS.',
-    'Return exactly one JSON object matching the structured output contract. The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
+    'RETURN EXACTLY ONE JSON OBJECT matching the structured output contract. No commentary, explanation, Markdown prose outside the object or multiple objects. The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
     'Use only the authorised facts and permitted claim references in this contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness.',
     'For every required insight, include one supportingExcerpt copied verbatim from the narrative. Each requirement ID must occur exactly once in requirementCoverage.',
     ...repairInstructions,
@@ -106,17 +182,34 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
 
   private async call(contract: NarrativeSectionContract, callType: BoundedProviderMetadata['callType'], repairNumber: number, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }): Promise<BoundedProviderCall> {
     const prompt = contractPrompt(contract, repair);
-    const response = await generateText({
-      model: this.model,
-      system: 'You are the bounded MK Fraud Readiness v1.1 section writer. Deterministic contract facts are the only authority. Return structured JSON only.',
-      prompt,
-      output: Output.object({ schema: resultSchema, name: 'mk_fraud_readiness_bounded_section' }),
-      maxOutputTokens: Math.min(4_000, Math.max(1_200, Math.ceil(contract.fit.maximumWords * 1.9))),
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [this.provider] } },
-      abortSignal: AbortSignal.timeout(BOUNDED_SECTION_TIMEOUT_MS)
-    });
-    const result = response.output as NarrativeSlotResult;
+    let response: any;
+    try {
+      response = await generateText({
+        model: this.model,
+        system: 'You are the bounded MK Fraud Readiness v1.1 section writer. Deterministic contract facts are the only authority. RETURN EXACTLY ONE JSON OBJECT as plain text. No commentary, explanation, Markdown prose outside the object or multiple objects.',
+        prompt,
+        output: Output.text(),
+        maxOutputTokens: Math.min(4_000, Math.max(1_200, Math.ceil(contract.fit.maximumWords * 1.9))),
+        maxRetries: 0,
+        providerOptions: { gateway: { only: [this.provider] } },
+        abortSignal: AbortSignal.timeout(BOUNDED_SECTION_TIMEOUT_MS)
+      });
+    } catch (error) {
+      throw providerFailure(error);
+    }
+    let rawText: string;
+    try {
+      const output = response.output;
+      rawText = typeof output === 'string' ? output : typeof response.text === 'string' ? response.text : '';
+    } catch (error) {
+      throw providerFailure(error, response);
+    }
+    let result: NarrativeSlotResult;
+    try {
+      result = parseBoundedNarrativeSlotText(rawText);
+    } catch (error) {
+      throw attachResponseDiagnostics(error, response, rawText);
+    }
     return { result, metadata: metadata(contract, this.model, this.provider, response, prompt, callType, repairNumber), prompt };
   }
 

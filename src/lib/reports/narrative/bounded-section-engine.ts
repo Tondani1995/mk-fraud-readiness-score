@@ -163,6 +163,41 @@ export interface BoundedProviderCall {
   prompt?: string;
 }
 
+export type BoundedTechnicalFailureKind = 'TECHNICAL_PROVIDER_FAILURE' | 'TECHNICAL_OUTPUT_PARSE_FAILURE';
+
+export interface BoundedTechnicalFailureDiagnostics {
+  errorName: string;
+  errorMessage?: string;
+  cause?: string;
+  responseMetadata?: unknown;
+  finishReason?: string;
+  usage?: unknown;
+  rawText?: string;
+  schemaIssuePaths?: string[];
+  schemaIssueCodes?: string[];
+}
+
+export class BoundedTechnicalFailure extends Error {
+  readonly kind: BoundedTechnicalFailureKind;
+  readonly diagnostics: BoundedTechnicalFailureDiagnostics;
+
+  constructor(input: { kind: BoundedTechnicalFailureKind; diagnostics: BoundedTechnicalFailureDiagnostics }) {
+    super(input.kind);
+    this.name = input.kind;
+    this.kind = input.kind;
+    this.diagnostics = input.diagnostics;
+  }
+}
+
+export interface BoundedTechnicalFailureRecord extends BoundedTechnicalFailureDiagnostics {
+  kind: BoundedTechnicalFailureKind;
+  slotId: string;
+  provider: string;
+  model: string;
+  callType: BoundedProviderMetadata['callType'];
+  repairNumber: number;
+}
+
 export interface BoundedSectionProvider {
   readonly model: string;
   readonly provider: string;
@@ -216,9 +251,26 @@ export interface BoundedGenerationAccounting {
   initialCalls: number;
   repairCalls: number;
   qualityEscalations: number;
+  technicalProviderFailureCount: number;
+  technicalOutputParseFailureCount: number;
+  technicalFailures: BoundedTechnicalFailureRecord[];
   failedSlots: string[];
   totalTokens: number;
   totalProviderCostMicros: number;
+}
+
+export class BoundedGenerationFailure extends Error {
+  readonly slotId: string;
+  readonly accounting: BoundedGenerationAccounting;
+  readonly technicalFailure?: BoundedTechnicalFailureRecord;
+
+  constructor(input: { slotId: string; accounting: BoundedGenerationAccounting; message: string; technicalFailure?: BoundedTechnicalFailureRecord }) {
+    super(input.message);
+    this.name = 'BoundedGenerationFailure';
+    this.slotId = input.slotId;
+    this.accounting = input.accounting;
+    this.technicalFailure = input.technicalFailure;
+  }
 }
 
 export interface BoundedCompiledManuscript {
@@ -737,7 +789,48 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
 }
 
 export function createEmptyBoundedAccounting(reportGenerationId: string): BoundedGenerationAccounting {
-  return { reportGenerationId, architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE, modelBySlot: {}, calls: [], initialCalls: 0, repairCalls: 0, qualityEscalations: 0, failedSlots: [], totalTokens: 0, totalProviderCostMicros: 0 };
+  return {
+    reportGenerationId,
+    architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE,
+    modelBySlot: {},
+    calls: [],
+    initialCalls: 0,
+    repairCalls: 0,
+    qualityEscalations: 0,
+    technicalProviderFailureCount: 0,
+    technicalOutputParseFailureCount: 0,
+    technicalFailures: [],
+    failedSlots: [],
+    totalTokens: 0,
+    totalProviderCostMicros: 0
+  };
+}
+
+function technicalFailureRecord(slotId: string, provider: BoundedSectionProvider, callType: BoundedProviderMetadata['callType'], repairNumber: number, error: unknown): BoundedTechnicalFailureRecord {
+  const failure = error instanceof BoundedTechnicalFailure
+    ? error
+    : new BoundedTechnicalFailure({
+      kind: 'TECHNICAL_PROVIDER_FAILURE',
+      diagnostics: {
+        errorName: error instanceof Error && error.name ? error.name : 'UnknownError',
+        errorMessage: error instanceof Error ? error.message : String(error)
+      }
+    });
+  return {
+    ...failure.diagnostics,
+    kind: failure.kind,
+    slotId,
+    provider: provider.provider,
+    model: provider.model,
+    callType,
+    repairNumber
+  };
+}
+
+function recordTechnicalFailure(accounting: BoundedGenerationAccounting, record: BoundedTechnicalFailureRecord): void {
+  accounting.technicalFailures.push(record);
+  if (record.kind === 'TECHNICAL_PROVIDER_FAILURE') accounting.technicalProviderFailureCount += 1;
+  if (record.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE') accounting.technicalOutputParseFailureCount += 1;
 }
 
 export async function generateBoundedNarrativeReport(input: {
@@ -747,6 +840,7 @@ export async function generateBoundedNarrativeReport(input: {
   thesis?: ReportThesis;
   plan?: NarrativeSlotPlan;
   provider: BoundedSectionProvider;
+  preApprovedSlots?: ApprovedNarrativeSlot[];
   onCandidate?: (event: { slot: NarrativeSlot; contract: NarrativeSectionContract; call: BoundedProviderCall; validation: NarrativeSlotValidationReport; callNumber: number }) => Promise<void> | void;
 }): Promise<BoundedCompiledManuscript> {
   const thesis = input.thesis ?? buildReportThesis(input.pack, input.blueprint);
@@ -754,12 +848,43 @@ export async function generateBoundedNarrativeReport(input: {
   assertNarrativeSlotPlan(plan, input.pack, input.blueprint);
   const accounting = createEmptyBoundedAccounting(input.reportGenerationId);
   const approved: ApprovedNarrativeSlot[] = [];
+  const preApprovedById = new Map((input.preApprovedSlots ?? []).map((slot) => [slot.contract.slotId, slot]));
   for (const slot of plan.slots) {
     const contract = buildNarrativeSectionContract(slot, input.pack, thesis);
+    const preApproved = preApprovedById.get(slot.slotId);
+    if (preApproved) {
+      const validation = validateNarrativeSlotResult(preApproved.result, contract);
+      if (!validation.ok || preApproved.validation.ok !== true) {
+        const issues = validation.issues.map((issue) => issue.message);
+        accounting.failedSlots.push(slot.slotId);
+        throw new BoundedGenerationFailure({ slotId: slot.slotId, accounting, message: `Pre-approved bounded section ${slot.slotId} failed revalidation: ${issues.join(' | ')}` });
+      }
+      const calls = preApproved.calls.length ? preApproved.calls : [{ result: preApproved.result, metadata: preApproved.metadata }];
+      for (const priorCall of calls) {
+        accounting.calls.push(priorCall.metadata);
+        accounting.totalTokens += priorCall.metadata.totalTokens ?? 0;
+        accounting.totalProviderCostMicros += priorCall.metadata.providerCostMicros ?? 0;
+        if (priorCall.metadata.callType === 'INITIAL') accounting.initialCalls += 1;
+        if (priorCall.metadata.callType === 'REPAIR') accounting.repairCalls += 1;
+        if (priorCall.metadata.callType === 'QUALITY_ESCALATION') accounting.qualityEscalations += 1;
+      }
+      accounting.modelBySlot[slot.slotId] = preApproved.metadata.model;
+      approved.push({ ...preApproved, contract, validation });
+      continue;
+    }
     const calls: BoundedProviderCall[] = [];
-    let call = await input.provider.generate(contract);
-    calls.push(call);
     accounting.initialCalls += 1;
+    accounting.modelBySlot[slot.slotId] = input.provider.model;
+    let call: BoundedProviderCall;
+    try {
+      call = await input.provider.generate(contract);
+    } catch (error) {
+      const failure = technicalFailureRecord(slot.slotId, input.provider, 'INITIAL', 0, error);
+      recordTechnicalFailure(accounting, failure);
+      accounting.failedSlots.push(slot.slotId);
+      throw new BoundedGenerationFailure({ slotId: slot.slotId, accounting, message: `Bounded section ${slot.slotId} failed closed: ${failure.kind}.`, technicalFailure: failure });
+    }
+    calls.push(call);
     accounting.modelBySlot[slot.slotId] = call.metadata.model;
     accounting.calls.push(call.metadata);
     accounting.totalTokens += call.metadata.totalTokens ?? 0;
@@ -769,9 +894,16 @@ export async function generateBoundedNarrativeReport(input: {
     let repairNumber = 0;
     while (!validation.ok && repairNumber < MAX_SECTION_REPAIR_CALLS) {
       repairNumber += 1;
-      call = await input.provider.repair(contract, { result: call.result, validation }, repairNumber);
-      calls.push(call);
       accounting.repairCalls += 1;
+      try {
+        call = await input.provider.repair(contract, { result: call.result, validation }, repairNumber);
+      } catch (error) {
+        const failure = technicalFailureRecord(slot.slotId, input.provider, 'REPAIR', repairNumber, error);
+        recordTechnicalFailure(accounting, failure);
+        accounting.failedSlots.push(slot.slotId);
+        throw new BoundedGenerationFailure({ slotId: slot.slotId, accounting, message: `Bounded section ${slot.slotId} failed closed: ${failure.kind}.`, technicalFailure: failure });
+      }
+      calls.push(call);
       accounting.calls.push(call.metadata);
       accounting.totalTokens += call.metadata.totalTokens ?? 0;
       accounting.totalProviderCostMicros += call.metadata.providerCostMicros ?? 0;
@@ -779,9 +911,16 @@ export async function generateBoundedNarrativeReport(input: {
       await input.onCandidate?.({ slot, contract, call, validation, callNumber: calls.length });
     }
     if (!validation.ok && input.provider.qualityEscalate && validation.issues.every((issue) => issue.code === 'FIT_OVERFLOW' || issue.code === 'FIT_UNDERFLOW' || issue.code === 'MECHANICAL_LANGUAGE' || issue.code === 'STYLE_FAILURE')) {
-      call = await input.provider.qualityEscalate(contract, { result: call.result, validation });
-      calls.push(call);
       accounting.qualityEscalations += 1;
+      try {
+        call = await input.provider.qualityEscalate(contract, { result: call.result, validation });
+      } catch (error) {
+        const failure = technicalFailureRecord(slot.slotId, input.provider, 'QUALITY_ESCALATION', 0, error);
+        recordTechnicalFailure(accounting, failure);
+        accounting.failedSlots.push(slot.slotId);
+        throw new BoundedGenerationFailure({ slotId: slot.slotId, accounting, message: `Bounded section ${slot.slotId} failed closed: ${failure.kind}.`, technicalFailure: failure });
+      }
+      calls.push(call);
       accounting.calls.push(call.metadata);
       accounting.totalTokens += call.metadata.totalTokens ?? 0;
       accounting.totalProviderCostMicros += call.metadata.providerCostMicros ?? 0;
@@ -790,11 +929,11 @@ export async function generateBoundedNarrativeReport(input: {
     }
     if (!validation.ok) {
       accounting.failedSlots.push(slot.slotId);
-      throw new Error(`Bounded section ${slot.slotId} failed closed: ${validation.issues.map((issue) => issue.message).join(' | ')}`);
+      throw new BoundedGenerationFailure({ slotId: slot.slotId, accounting, message: `Bounded section ${slot.slotId} failed closed: ${validation.issues.map((issue) => issue.message).join(' | ')}` });
     }
     approved.push({ contract, result: call.result, validation, metadata: call.metadata, calls });
   }
   const compiled = compileApprovedNarrativeSlots(plan, input.blueprint, approved, accounting);
-  if (!compiled.validation.ok) throw new Error(`Bounded manuscript failed closed: ${compiled.validation.issues.join(' | ')}`);
+  if (!compiled.validation.ok) throw new BoundedGenerationFailure({ slotId: 'REPORT', accounting, message: `Bounded manuscript failed closed: ${compiled.validation.issues.join(' | ')}` });
   return compiled;
 }

@@ -61,6 +61,13 @@ for (const slot of slotPlan.slots) {
 }
 
 const writer = createV11BoundedSectionWriter('openai/gpt-5.6-luna');
+const smokeApprovalPath = process.env.BOUNDED_RIVONIA_SMOKE_APPROVAL ?? path.join(outputDir, 'smoke', 'approved-slot.json');
+let preApprovedSlots = [];
+try {
+  preApprovedSlots = [JSON.parse(await fs.readFile(smokeApprovalPath, 'utf8'))];
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
 const candidatePaths = new Map();
 const candidateEvent = async (event) => {
   const candidateDir = path.join(outputDir, 'candidates', event.slot.slotId);
@@ -79,6 +86,7 @@ const compiled = await generateBoundedNarrativeReport({
   thesis,
   plan: slotPlan,
   provider: writer,
+  preApprovedSlots,
   onCandidate: candidateEvent
 });
 
