@@ -22,6 +22,33 @@ assert.equal(rivoniaBlueprint.chapters.length, 6);
 assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /executive/i.test(chapter.title)).length, 1);
 assert.equal(rivoniaBlueprint.chapters.filter((chapter) => /90 days|roadmap/i.test(chapter.title)).length, 1);
 assert.equal(rivoniaBlueprint.findingClusters.length > 0, true);
+assert.deepEqual(rivoniaBlueprint.findingClusters.map((cluster) => cluster.title), [
+  'Value diversion through supplier and payment processes',
+  'Weak challenge at identity, transaction and sensitive-change points',
+  'Limited containment and learning after suspected fraud'
+]);
+const rivoniaDiagnosis = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'WHAT-HOLDS-READINESS-BACK');
+assert.equal(rivoniaDiagnosis?.title, "What is shaping Rivonia's readiness position");
+assert.equal(rivoniaDiagnosis?.narrativeRole, 'DIAGNOSIS');
+assert.equal(rivoniaDiagnosis?.sections.length, 1);
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D6'), true);
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D4'), true);
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D3'), true);
+const rivoniaExposure = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'PRIORITY-FRAUD-EXPOSURES');
+assert.equal(rivoniaExposure?.title, 'Where the greatest fraud exposure sits');
+assert.equal(rivoniaExposure?.narrativeRole, 'EXPOSURE');
+assert.deepEqual(rivoniaExposure?.sections.map((section) => section.requiredFacts), [
+  ['FINDING-002', 'FINDING-003'],
+  ['FINDING-006', 'FINDING-005'],
+  ['FINDING-004', 'FINDING-007', 'FINDING-008']
+]);
+assert.equal(rivoniaExposure?.sections.every((section) => section.optionalSubsections.length === 0), true);
+assert.equal(rivoniaBlueprint.contentAssignments.find((item) => item.contentType === 'finding' && item.contentRef === 'FINDING-001')?.chapterId, 'WHAT-HOLDS-READINESS-BACK');
+const rivoniaThirtyDays = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION')?.sections[0];
+assert.equal(rivoniaThirtyDays?.title, 'By 30 days — Stabilise');
+assert.equal(rivoniaThirtyDays?.requiredFacts.includes('CONTROL-005'), true);
+assert.match(rivoniaThirtyDays?.purpose ?? '', /evidence-preservation/i);
+assert.equal(rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'EXPOSURE-COULD-MATERIALISE')?.narrativeRole, 'EXPOSURE_ILLUSTRATION');
 assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.length > 1), true);
 assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.some((section) => section.optionalSubsections.length > 1)), true);
 assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.some((section) => section.optionalSubsections.length === 0)), true);

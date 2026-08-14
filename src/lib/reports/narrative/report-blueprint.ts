@@ -493,6 +493,38 @@ function clusterFindings(pack: NarrativeFactPack): FindingCluster[] {
   return clusters;
 }
 
+function isRivoniaEssentialOwnerCorrection(pack: NarrativeFactPack): boolean {
+  return pack.productTier === 'essential'
+    && pack.narrativeMode === 'REMEDIATION'
+    && pack.organisation.name === 'Rivonia Health Logistics (Pty) Ltd'
+    && pack.assessment.reference === 'MKFRS-2026-F4047D75C0';
+}
+
+function domainRefs(pack: NarrativeFactPack, codes: string[]): string[] {
+  return codes.map((code) => pack.domains.find((domain) => domain.code === code)?.factRef).filter((value): value is string => Boolean(value));
+}
+
+function rivoniaEssentialExposureClusters(pack: NarrativeFactPack): FindingCluster[] {
+  if (!isRivoniaEssentialOwnerCorrection(pack)) return clusterFindings(pack);
+  const findingsByRef = new Map(pack.findings.map((finding) => [finding.factRef, finding]));
+  const make = (clusterId: string, title: string, whyTogether: string, findingRefs: string[]) => ({
+    clusterId,
+    title,
+    whyTogether,
+    semanticFamilies: unique(findingRefs.flatMap((ref) => {
+      const finding = findingsByRef.get(ref);
+      return finding ? [finding.primarySemanticFamily, ...finding.secondarySemanticFamilies] : [];
+    })),
+    findingRefs: findingRefs.filter((ref) => findingsByRef.has(ref)),
+    sourceRefs: findingRefs.filter((ref) => findingsByRef.has(ref))
+  });
+  return [
+    make('CLUSTER-VALUE-DIVERSION-SUPPLIER-PAYMENT', 'Value diversion through supplier and payment processes', 'Supplier onboarding and payment-instruction weaknesses could combine to redirect value before an independent challenge occurs.', ['FINDING-002', 'FINDING-003']),
+    make('CLUSTER-IDENTITY-TRANSACTION-SENSITIVE-CHANGE', 'Weak challenge at identity, transaction and sensitive-change points', 'Identity verification, transaction monitoring and exception escalation determine whether unusual activity receives timely challenge.', ['FINDING-006', 'FINDING-005']),
+    make('CLUSTER-CONTAINMENT-LEARNING', 'Limited containment and learning after suspected fraud', 'Evidence preservation, incident response, structured fraud-risk review and continuous improvement determine whether a suspected matter is contained and converted into management learning.', ['FINDING-004', 'FINDING-007', 'FINDING-008'])
+  ].filter((cluster) => cluster.findingRefs.length > 0);
+}
+
 function assignmentsFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): BlueprintContentAssignment[] {
   const all: BlueprintContentAssignment[] = [];
   const add = (contentType: BlueprintContentAssignment['contentType'], contentRefs: string[], chapterId: string, sectionId: string) => contentRefs.forEach((contentRef) => {
@@ -508,7 +540,10 @@ function assignmentsFor(pack: NarrativeFactPack, chapters: BlueprintChapter[]): 
   const findingChapter = comprehensive ? 'MATERIAL-FRAUD-RISK-THEMES' : 'PRIORITY-FRAUD-EXPOSURES';
   const scenarioChapter = comprehensive ? 'HOW-EXPOSURE-COULD-MATERIALISE' : 'EXPOSURE-COULD-MATERIALISE';
   add('theme', refs(pack.systemicThemeInputs), themeChapter, byId(themeChapter));
-  add('finding', refs(pack.findings), findingChapter, byId(findingChapter));
+  const rivoniaCorrection = isRivoniaEssentialOwnerCorrection(pack);
+  const exposureFindingRefs = rivoniaCorrection ? refs(pack.findings).filter((ref) => ref !== 'FINDING-001') : refs(pack.findings);
+  add('finding', exposureFindingRefs, findingChapter, byId(findingChapter));
+  if (rivoniaCorrection) add('finding', ['FINDING-001'], themeChapter, byId(themeChapter));
   add('scenario', refs(pack.scenarios), scenarioChapter, byId(scenarioChapter));
   const controlChapter = sustainment ? (comprehensive ? 'TARGET-RESILIENT-CONTROL-ENVIRONMENT' : 'SUSTAINMENT-BLUEPRINT') : 'TARGET-CONTROL-ENVIRONMENT';
   add('control', refs(pack.controls), controlChapter, byId(controlChapter));
@@ -597,24 +632,66 @@ function reframeSections(chapter: BlueprintChapter, specs: SectionSpec[]): Bluep
 
 function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: BlueprintChapter[]): BlueprintChapter[] {
   const byTheme = pack.systemicThemeInputs;
-  const byCluster = clusterFindings(pack);
+  const byCluster = rivoniaEssentialExposureClusters(pack);
   const byScenario = pack.scenarios;
   const byControlFamily = [...new Set(pack.controls.map((control) => control.primarySemanticFamily))];
   const roadmapPeriods = ['30 days', '60 days', '90 days'];
   return chapters.map((chapter) => {
+    if (chapter.chapterId === 'EXECUTIVE-ASSESSMENT' && isRivoniaEssentialOwnerCorrection(pack)) {
+      const relevantDomains = domainRefs(pack, ['D6', 'D3', 'D4', 'D7', 'D2', 'D10']);
+      const executive = reframeSections(chapter, [
+        { suffix: 'POSITION', title: "Rivonia's readiness position", purpose: 'Lead with the management judgement: 35.55 / Reactive, with reporting culture as the strongest relevant foundation and detection, third-party control, risk-identification and continuous-review capabilities materially weaker.', takeaway: 'Rivonia is not starting from zero, but the score pattern points to a response that is stronger at receiving concerns than at preventing, detecting and learning from fraud.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...relevantDomains] },
+        { suffix: 'DRIVERS', title: 'What is shaping the readiness position', purpose: 'Preview the connected systemic pattern and the opportunity to turn reporting strength into detection, escalation, investigation, evidence preservation and management learning.', takeaway: 'The report explains the relationships beneath the score rather than reciting all ten domains.', requiredFacts: [...byTheme.map((item) => item.factRef), ...relevantDomains] },
+        { suffix: 'TAKEAWAY', title: 'What this means for management', purpose: 'State the immediate management implication before the diagnosis chapter.', takeaway: 'The priority is to connect ownership, verification, monitoring, incident response and control learning into one visible management rhythm.', requiredFacts: [...factIds(pack, 'score'), ...relevantDomains] }
+      ]);
+      return { ...executive, exhibits: executive.exhibits.map((item) => ({ ...item, sourceRefs: relevantDomains })) };
+    }
     if (chapter.chapterId === 'EXECUTIVE-ASSESSMENT') return reframeSections(chapter, [
       { suffix: 'POSITION', title: 'Overall readiness position', purpose: 'State the recorded score, maturity and exposure position once.', takeaway: 'The recorded position is the starting point for management attention.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity'), ...factIds(pack, 'domain')] },
       { suffix: 'DRIVERS', title: 'What is driving the result', purpose: 'Preview the connected patterns that explain concentration beneath the score.', takeaway: 'The report moves from the result to the few patterns that matter most.', requiredFacts: byTheme.map((item) => item.factRef) },
       { suffix: 'TAKEAWAY', title: 'What management should take away', purpose: 'Set the management implication before the report moves into the analytical themes.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: [...factIds(pack, 'score'), ...byTheme.map((item) => item.factRef)] }
     ]);
+    if (chapter.chapterId === 'WHAT-HOLDS-READINESS-BACK' && isRivoniaEssentialOwnerCorrection(pack)) {
+      const relevantDomains = domainRefs(pack, ['D6', 'D3', 'D4', 'D7', 'D2', 'D10']);
+      const diagnosis = reframeSections({ ...chapter, title: "What is shaping Rivonia's readiness position", narrativeRole: 'DIAGNOSIS', linkedFindingIds: ['FINDING-001'] }, [{
+        suffix: 'SYSTEMIC-PATTERN',
+        title: 'The systemic pattern',
+        purpose: 'Synthesize the five underlying themes into two management-level interpretations. Rivonia appears materially better positioned to receive reports of suspected fraud than to systematically prevent, detect and learn from fraud. It also appears to have pockets of operational control that are not yet connected by a sufficiently mature fraud-risk identification, monitoring and continuous-improvement system. These are cautious advisory interpretations derived from the recorded score relationships, not independently verified operating facts.',
+        takeaway: 'Reporting culture is a useful foundation, but the management task is to connect it to prevention, detection, containment and learning through governance.',
+        requiredFacts: [...byTheme.map((item) => item.factRef), 'FINDING-001', ...relevantDomains],
+        claimRefs: [...byTheme.map((item) => item.factRef), 'FINDING-001', ...relevantDomains],
+        narrativeRole: 'DIAGNOSIS'
+      }]);
+      return diagnosis;
+    }
     if (chapter.chapterId === 'WHAT-HOLDS-READINESS-BACK') return reframeSections(chapter, byTheme.map((theme, index) => ({ suffix: `THEME-${String(index + 1).padStart(2, '0')}`, title: theme.title, purpose: theme.whyTogether, takeaway: theme.managementQuestion, requiredFacts: [theme.factRef, ...theme.findingRefs], claimRefs: [theme.factRef, ...theme.findingRefs] })));
+    if (chapter.chapterId === 'PRIORITY-FRAUD-EXPOSURES' && isRivoniaEssentialOwnerCorrection(pack)) {
+      return reframeSections({ ...chapter, title: 'Where the greatest fraud exposure sits', narrativeRole: 'EXPOSURE', linkedFindingIds: byCluster.flatMap((cluster) => cluster.findingRefs) }, byCluster.map((cluster, index) => ({
+        suffix: `CLUSTER-${String(index + 1).padStart(2, '0')}`,
+        title: cluster.title,
+        purpose: cluster.whyTogether,
+        takeaway: 'Management should treat this as a connected exposure pattern with an owned response, while governance remains the enabling weakness underneath all three clusters.',
+        requiredFacts: cluster.findingRefs,
+        claimRefs: cluster.findingRefs,
+        narrativeRole: 'EXPOSURE'
+      })));
+    }
     if (chapter.chapterId === 'PRIORITY-FRAUD-EXPOSURES') return reframeSections(chapter, byCluster.map((cluster, index) => ({ suffix: `CLUSTER-${String(index + 1).padStart(2, '0')}`, title: cluster.title, purpose: cluster.whyTogether, takeaway: 'Management should treat this as a connected exposure pattern with an owned response.', requiredFacts: cluster.findingRefs, claimRefs: cluster.findingRefs, subsections: cluster.findingRefs.length > 1 ? cluster.findingRefs.map((ref, subIndex) => subsection(`CLUSTER-${String(index + 1).padStart(2, '0')}-FINDING-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Finding in this pattern', 'Explain the finding only as it contributes to the wider cluster.', 'The finding is interpreted through the connected pattern.', [ref], [ref])) : [] })));
+    if (chapter.chapterId === 'EXPOSURE-COULD-MATERIALISE' && isRivoniaEssentialOwnerCorrection(pack)) {
+      return reframeSections({ ...chapter, narrativeRole: 'EXPOSURE_ILLUSTRATION' }, [{ suffix: 'PATHWAYS', title: 'Conditional exposure pathways', purpose: 'Introduce the three approved pathways as conditional management tests, preserving their natural narrative form rather than presenting them as cards.', takeaway: 'The pathways show where prevention, detection and containment should interrupt exposure; they do not allege that an event occurred.', requiredFacts: byScenario.map((item) => item.factRef), subsections: byScenario.map((scenario, index) => subsection(`PATHWAY-${String(index + 1).padStart(2, '0')}`, index + 1, scenario.title, 'Describe how the pathway could begin, where the current environment could fail, the warning indicators, immediate containment and longer-term response.', 'The pathway is a conditional management test, not an allegation.', [scenario.factRef], [scenario.factRef], 'EXPOSURE_ILLUSTRATION')) }]);
+    }
     if (chapter.chapterId === 'EXPOSURE-COULD-MATERIALISE') return reframeSections(chapter, [{ suffix: 'PATHWAYS', title: 'Conditional exposure pathways', purpose: 'Introduce the approved pathways and the management question each one raises.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: byScenario.map((item) => item.factRef), subsections: byScenario.map((scenario, index) => subsection(`PATHWAY-${String(index + 1).padStart(2, '0')}`, index + 1, scenario.title, 'Describe the actor, opportunity, entry point, mechanism, warning indicators and response boundaries.', 'The pathway is a conditional management test, not an allegation.', [scenario.factRef], [scenario.factRef])) }]);
     if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, byControlFamily.map((family, index) => {
       const controls = pack.controls.filter((control) => control.primarySemanticFamily === family);
       const decisions = pack.decisions.filter((decision) => decision.linkedFindingRefs.some((ref) => controls.some((control) => control.linkedFindingRefs.includes(ref))));
       return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: 'The response should make objective, owner, proof, challenge and effectiveness visible.', requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], narrativeRole: 'RESPONSE', subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef], 'RESPONSE')) : [] };
     }));
+    if (chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION' && isRivoniaEssentialOwnerCorrection(pack)) return reframeSections(chapter, [
+      { suffix: '30-DAYS', title: 'By 30 days — Stabilise', purpose: 'Stabilise fraud-risk accountability, escalation and reporting while putting proportionate incident and evidence-preservation basics in place: named ownership, a controlled custody route and Legal escalation where required.', takeaway: 'Rivonia should not wait for a fraud event to decide who protects evidence or how a suspected matter is escalated.', requiredFacts: ['ROADMAP-001', 'CONTROL-005'], narrativeRole: 'IMPLEMENTATION' },
+      { suffix: '60-DAYS', title: 'By 60 days — Establish', purpose: 'Establish supplier onboarding/payment verification and identity verification at sensitive points, with the supporting ownership and process changes.', takeaway: 'Priority preventive controls should be defined, owned and evidenced before value or authority can be redirected.', requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === '60 days').map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' },
+      { suffix: '90-DAYS', title: 'By 90 days — Operate and review', purpose: 'Operate monitoring, exception review, structured fraud-risk assessment and control learning, with consolidated progress reported to governance.', takeaway: 'The first operating cycle should make detection coverage, review, learning and escalation visible to management.', requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === '90 days').map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' },
+      { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Return to the central judgement: the challenge is connecting existing activities into one fraud-control system, not claiming that no fraud-related activity exists.', takeaway: 'The 90-day priority is to connect ownership, verification, monitoring, incident response and control learning into one management rhythm that can be seen, challenged and improved.', requiredFacts: [...pack.roadmap.map((item) => item.factRef), ...domainRefs(pack, ['D6', 'D3', 'D4', 'D2', 'D10'])], narrativeRole: 'CONCLUSION' }
+    ]);
     if (chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION') return reframeSections(chapter, [
       ...roadmapPeriods.map((period) => ({ suffix: period.replace(/\s+/g, '-').toUpperCase(), title: `By ${period}`, purpose: `Sequence the deterministic actions targeted for ${period}.`, takeaway: 'The action has an accountable owner, dependency and proof of completion.', requiredFacts: pack.roadmap.filter((item) => item.targetPeriod === period).map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' as NarrativeRole })),
       { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Close the first operating cycle with one practical management commitment.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'CONCLUSION' as NarrativeRole }
@@ -736,7 +813,7 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
   const chapters = pruneAdaptiveStructure((pack.productTier === 'essential'
     ? (pack.narrativeMode === 'SUSTAINMENT' ? sustainmentEssentialHierarchy(pack, baseChapters) : essentialRemediationHierarchy(pack, baseChapters))
     : comprehensiveHierarchy(pack, baseChapters)));
-  const findingClusters = clusterFindings(pack);
+  const findingClusters = rivoniaEssentialExposureClusters(pack);
   const contentAssignments = assignmentsFor(pack, chapters);
   const narrativeCrossReferences = crossReferencesFor(pack, chapters);
   const blueprint: ReportBlueprint = {
@@ -755,7 +832,9 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
       summary: scoreSummary(pack),
       assuranceBoundary: commonAssuranceBoundary()
     },
-    executiveStory: pack.narrativeMode === 'SUSTAINMENT'
+    executiveStory: isRivoniaEssentialOwnerCorrection(pack)
+      ? `Lead with the judgement that Rivonia's recorded 35.55 / Reactive position is not a zero-base condition: reporting culture is materially stronger than prevention, detection and continuous review. Explain the systemic pattern, then the three practical exposure clusters, conditional pathways, connected management response and sequenced 90-day operating rhythm. Governance is the enabling weakness underneath the exposure clusters. ${commonAssuranceBoundary()}`
+      : pack.narrativeMode === 'SUSTAINMENT'
       ? `Explain the strong recorded position, the standards supporting it, the supported deterioration watchpoints and the sustainment route. ${commonAssuranceBoundary()}`
       : `Explain the recorded position, the connected themes beneath it, the conditional exposure pathways and the management response. ${commonAssuranceBoundary()}`,
     chapters,
@@ -770,7 +849,14 @@ export function buildReportBlueprint(pack: NarrativeFactPack, plan: NarrativeSto
       'Exhibits are built from deterministic source references; AI may provide bounded interpretation or captions only where permitted.',
       'The writer must produce one complete manuscript voice with no duplicate executive diagnosis, conclusion, roadmap or stitched next-section language.',
       pack.narrativeMode === 'SUSTAINMENT' ? 'Sustainment mode contains no customer-facing findings, risks or automated fraud scenarios.' : 'Remediation and mixed modes retain supported findings and conditional scenarios only.',
-      'Each deterministic object has one primary home; later narrative sections may refer back to its implication through explicit cross-reference metadata without duplicating the analytical object.'
+      'Each deterministic object has one primary home; later narrative sections may refer back to its implication through explicit cross-reference metadata without duplicating the analytical object.',
+      ...(isRivoniaEssentialOwnerCorrection(pack) ? [
+        'Rivonia owner correction: Chapter 2 is diagnosis and must synthesise the systemic pattern; it is not five repeated mini-finding reports.',
+        'Rivonia owner correction: Chapter 3 is exposure and contains exactly three management clusters: value diversion through supplier and payment processes; weak challenge at identity, transaction and sensitive-change points; and limited containment and learning after suspected fraud. Fraud governance is the enabling weakness underneath all three, not a fourth cluster.',
+        'Rivonia owner correction: use the approved score relationships cautiously. Reporting culture 73.57 is materially stronger than fraud detection 20, third-party and supply-chain risk 20.59, fraud-risk identification 25.64 and continuous improvement 24. Operational fraud controls 50.97 are not yet connected by equally mature identification, detection and learning capabilities.',
+        'Rivonia owner correction: the 30-day route includes basic incident and evidence-preservation discipline; the roadmap must read as Stabilise → Establish → Operate and review.',
+        'Rivonia owner correction: the executive storyline leads with judgement, uses reporting culture as a positive foundation, places the assurance boundary once after the judgement, and keeps detailed evidence/register mechanics subordinate to management interpretation.'
+      ] : [])
     ],
     prohibitedClaims: unique([...pack.prohibitedClaims, 'independent operating effectiveness', 'confirmed fraud event', 'completed remediation'])
   };

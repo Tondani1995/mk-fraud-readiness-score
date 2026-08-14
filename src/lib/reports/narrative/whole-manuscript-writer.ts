@@ -287,6 +287,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       '',
       'Return the complete Markdown manuscript with every existing Blueprint heading in the exact same order. Preserve every heading and every deterministic fact. Smooth transitions, remove only genuine repetition and improve connected professional rhythm. Do not add analytical content, identifiers, tables, bullets, metadata or assurance claims.',
       'Do not claim that MK, the assessment, the report or any reviewer independently verified evidence or operating effectiveness.',
+      ...(input.editorialBrief ? ['', 'OWNER-DIRECTED EDITORIAL BRIEF', input.editorialBrief] : []),
       '',
       'BLUEPRINT',
       JSON.stringify(input.blueprint),

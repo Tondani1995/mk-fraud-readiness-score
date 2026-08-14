@@ -166,6 +166,7 @@ export interface WholeManuscriptCoherenceInput {
   context: WholeManuscriptWriterContext;
   blueprint: ReportBlueprint;
   previousMarkdown: string;
+  editorialBrief?: string;
 }
 
 export interface WholeManuscriptCoherenceResult {

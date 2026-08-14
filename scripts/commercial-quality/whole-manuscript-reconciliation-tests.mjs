@@ -17,7 +17,32 @@ const factPack = buildEssentialNarrativeFactPack(data, evidence, buildEssentialP
 assertNarrativeFactPack(factPack);
 const plan = buildNarrativeStoryPlan(factPack);
 assertNarrativeStoryPlan(plan, factPack);
-const blueprint = buildReportBlueprint(factPack, plan);
+const productionBlueprint = buildReportBlueprint(factPack, plan);
+const productionSkeleton = buildBlueprintMarkdownSkeleton(productionBlueprint);
+assert.equal(productionSkeleton.headings.length, 27, 'the corrected Rivonia Blueprint is intentionally concise');
+
+// Keep the historical transport regression independent from the current commercial Blueprint.
+// Attempt 1 stopped at a complete 38-heading fixture; changing the live Rivonia editorial shape
+// must not erase that exact 37-to-38 reconciliation contract.
+const sectionTemplate = productionBlueprint.chapters[0].sections[0];
+const blueprint = {
+  ...productionBlueprint,
+  chapters: [{
+    ...productionBlueprint.chapters[0],
+    chapterId: 'ATTEMPT-1-FIXTURE',
+    title: 'Attempt 1 fixture',
+    order: 1,
+    sections: Array.from({ length: 37 }, (_, index) => ({
+      ...sectionTemplate,
+      sectionId: index === 36 ? 'MANAGEMENT-CONCLUSION-SECTION' : index === 35 ? 'BY-90-DAYS-SECTION' : `FIXTURE-SECTION-${String(index + 1).padStart(2, '0')}`,
+      order: index + 1,
+      title: index === 36 ? 'Management conclusion' : index === 35 ? 'By 90 days' : `Fixture section ${String(index + 1).padStart(2, '0')}`,
+      requiredFacts: ['SCORE-001'],
+      claimRefs: ['SCORE-001'],
+      optionalSubsections: []
+    }))
+  }]
+};
 const skeleton = buildBlueprintMarkdownSkeleton(blueprint);
 assert.equal(skeleton.headings.length, 38, 'the exact Attempt-1 fixture requires a complete 38-heading Blueprint');
 
