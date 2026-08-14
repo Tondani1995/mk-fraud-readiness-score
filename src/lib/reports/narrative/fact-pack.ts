@@ -447,7 +447,7 @@ function buildFindingFacts(findings: MaterialFinding[]): NarrativeFindingFact[] 
     recordedPosition: cleanFactLanguage(finding.responseOperationalMeaning, finding.responseLabel),
     deterministicCondition: `${text(finding.responseLabel, 'Recorded response')}: ${cleanFactLanguage(finding.responseOperationalMeaning, finding.responseMeaning)}`,
     interpretation: cleanFactLanguage(finding.diagnosis, finding.fraudMechanism),
-    advisoryMeaningBasis: `The recorded ${materialityLabels[finding.materialityClass] ?? 'priority condition'} concerns ${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} and connects to the linked fraud pathway and control response.`,
+    advisoryMeaningBasis: `The assessed ${materialityLabels[finding.materialityClass] ?? 'priority condition'} concerns ${text(finding.questionPrompt, finding.title).replace(/\.$/, '')} and connects to the linked fraud pathway and control response.`,
     whyItMatters: `The condition matters because ${cleanFactLanguage(finding.fraudMechanism, finding.whyItMatters).replace(/^[A-Z]/, (letter) => letter.toLowerCase())}`,
     materialityReason: `${text(finding.materialityClass)} selected at deterministic priority ${finding.materialityScore}.`,
     assuranceBoundary: 'This is a interpretation of the assessment responses; it does not establish operating effectiveness.',
@@ -774,7 +774,7 @@ function buildSustainmentPriorityFacts(priorities: SustainmentPriority[]): Narra
     domain: priority.domainName,
     semanticFamily: priority.primarySemanticFamily,
     recordedPosition: `${priority.responseLabel}: ${cleanSustainmentLanguage(priority.responseOperationalMeaning)}`,
-    currentStrongStandard: cleanSustainmentLanguage(priority.currentStrongStandard, 'The recorded control standard is in place.').replace(/[.;]+$/, ''),
+    currentStrongStandard: cleanSustainmentLanguage(priority.currentStrongStandard, 'The control standard is in place.').replace(/[.;]+$/, ''),
     managementFocus: cleanSustainmentLanguage(priority.managementFocus),
     accountableExecutive: text(priority.accountableExecutive, 'Chief Executive / Managing Director'),
     processOwner: text(priority.processOwner, 'Head of Risk'),
@@ -1021,7 +1021,7 @@ function buildPack(input: {
       ? `Only ${findings.length} material findings met the deterministic selection threshold for this high-readiness profile; the narrative remains sparse to preserve the assessed result and does not invent additional weaknesses.`
     : undefined;
   const maturationSteps = input.tier === 'comprehensive' ? buildNarrativeMaturationSteps(controls, findings, sustainmentPriorityFacts) : [];
-  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the assessed profile`, basis: `The recorded domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
+  const relativeStrengths = domains.filter((domain) => domain.score !== null && domain.score >= 60).slice(0, 3).map((domain, index) => ({ factRef: `STRENGTH-${String(index + 1).padStart(3, '0')}`, title: `${domain.name} is a relative strength in the assessed profile`, basis: `The assessed domain position is ${domain.score} out of 100.`, domainCode: domain.code }));
   const facts: NarrativeFact[] = [
     makeFact('SCORE-001', 'score', { overall: input.score.score, exposure: input.score.exposureScore, exposureBand: input.score.exposureBand }, ['score_run']),
     makeFact('MATURITY-001', 'maturity', { maturity: input.score.maturity, calculatedMaturity: input.score.calculatedMaturity }, ['score_run']),

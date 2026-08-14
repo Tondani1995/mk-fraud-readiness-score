@@ -840,6 +840,20 @@ export function globalRepairTargets(plan: NarrativeSlotPlan, approvedSlots: Appr
       for (const target of mechanical.repairTargets) targets.push(target);
       continue;
     }
+    if (issue.includes('does not preserve the 30/60/90 implementation sequence')) {
+      // The implementation slot owns the sequence, and a mechanical-language
+      // rewrite of that slot can drop it. Without a target this threw instead of
+      // repairing, so the run ended on a defect the engine could have corrected.
+      const owner = approvedSlots.find((slot) => slot.contract.narrativeRole === 'IMPLEMENTATION');
+      if (owner) targets.push({ slotId: owner.contract.slotId, reason: 'This section must state the 30-day, 60-day and 90-day sequence explicitly, using those day markers, because the compiled report is checked for that progression. Keep every fact, owner and action unchanged and restore the missing markers.' });
+      continue;
+    }
+    if (issue.includes('does not contain incident/evidence-preservation meaning')) {
+      const owner = approvedSlots.find((slot) => slot.contract.narrativeRole === 'IMPLEMENTATION')
+        ?? approvedSlots.find((slot) => slot.contract.narrativeRole === 'RESPONSE');
+      if (owner) targets.push({ slotId: owner.contract.slotId, reason: 'This section must refer to preserving evidence or handling a suspected incident, because the compiled report is checked for that meaning. Keep every fact and action unchanged and restore the reference.' });
+      continue;
+    }
     if (issue.startsWith('Repeated sentence overlap detected:')) {
       const repeated = issue.slice('Repeated sentence overlap detected:'.length).split(' | ').map((entry) => entry.trim()).filter(Boolean);
       for (const sentence of repeated) {
