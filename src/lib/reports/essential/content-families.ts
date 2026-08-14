@@ -1,79 +1,100 @@
 /**
  * Content family taxonomy for the Essential report.
  *
- * Every analytical object -- finding, control, scenario, roadmap action -- carries
- * a semantic family in the Fact Pack. This module maps those families onto the
- * three exposure families the report presents, so an exhibit row draws only on
- * content that genuinely belongs to it.
+ * Exposure identity is the deterministic cluster identifier carried on
+ * blueprint.findingClusters. It is never inferred from a customer-facing label
+ * and never taken from array position.
  *
- * The defect this exists to prevent: exposures and scenarios were paired by array
- * index. Rivonia's scenarios are ordered supplier / incident / detection while its
- * exposures are ordered supplier / identity-transaction / containment, so the
- * identity exposure was explained with evidence-custody content and the
- * containment exposure with monitoring content. Both read plausibly and both were
- * wrong.
+ * Two earlier defects came from inferring it. Pairing exposures to scenarios by
+ * index explained the identity exposure with evidence-custody content. Matching
+ * on label keywords then produced duplicate families on seven of eleven real
+ * assessments, and no family at all on three, because a label such as "weak
+ * challenge at identity, transaction and sensitive-change points" matches
+ * hints for several families at once.
+ *
+ * The upstream engine already resolves this. Each cluster carries a stable
+ * clusterId and the semanticFamilies it groups, so the presentation layer reads
+ * that identity rather than reconstructing it.
  */
 
-export const CONTENT_FAMILY_VERSION = 'mk-essential-content-families-v1';
+export const CONTENT_FAMILY_VERSION = 'mk-essential-content-families-v2';
 
-export type ExposureFamily =
-  | 'SUPPLIER_PAYMENT_VALUE_DIVERSION'
-  | 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE'
-  | 'INCIDENT_CONTAINMENT_LEARNING';
+/** Stable exposure identity: the deterministic cluster identifier. */
+export type ExposureFamily = string;
+
+/** One deterministic exposure cluster as the blueprint defines it. */
+export interface ExposureCluster {
+  clusterId: string;
+  title: string;
+  whyTogether?: string;
+  semanticFamilies: string[];
+  findingRefs?: string[];
+  sourceRefs?: string[];
+}
+
+/**
+ * Reads clusters from the blueprint. A cluster without an identifier or without
+ * families cannot own content, so it is dropped here and reported by validation
+ * rather than being guessed at.
+ */
+export function exposureClusters(blueprint: any): ExposureCluster[] {
+  const clusters = Array.isArray(blueprint?.findingClusters) ? blueprint.findingClusters : [];
+  return clusters
+    .filter((cluster: any) => typeof cluster?.clusterId === 'string' && Array.isArray(cluster?.semanticFamilies) && cluster.semanticFamilies.length > 0)
+    .map((cluster: any) => ({
+      clusterId: String(cluster.clusterId),
+      title: String(cluster.title ?? ''),
+      whyTogether: cluster.whyTogether ? String(cluster.whyTogether) : undefined,
+      semanticFamilies: cluster.semanticFamilies.map((family: string) => String(family).toUpperCase()),
+      findingRefs: Array.isArray(cluster.findingRefs) ? cluster.findingRefs : [],
+      sourceRefs: Array.isArray(cluster.sourceRefs) ? cluster.sourceRefs : []
+    }));
+}
+
+/** Clusters the blueprint offered but which cannot own content. */
+export function unresolvedClusters(blueprint: any): string[] {
+  const clusters = Array.isArray(blueprint?.findingClusters) ? blueprint.findingClusters : [];
+  return clusters
+    .filter((cluster: any) => !cluster?.clusterId || !Array.isArray(cluster?.semanticFamilies) || cluster.semanticFamilies.length === 0)
+    .map((cluster: any) => String(cluster?.title ?? cluster?.clusterId ?? 'unnamed cluster'));
+}
+
+/**
+ * Scenario family -> the semantic family it exercises. The cluster owning that
+ * semantic family owns the scenario, so a scenario reaches its exposure through
+ * shared analytical content rather than through position.
+ */
+const SCENARIO_TO_SEMANTIC: Record<string, string[]> = {
+  SUPPLIER_PAYMENT_DIVERSION: ['SUPPLIER_ONBOARDING', 'SUPPLIER_PAYMENT_CHANGE'],
+  PAYMENT_DIVERSION: ['SUPPLIER_PAYMENT_CHANGE', 'SUPPLIER_ONBOARDING'],
+  DETECTION_EVASION: ['DETECTION_MONITORING'],
+  IDENTITY_COMPROMISE: ['IDENTITY_VERIFICATION'],
+  INCIDENT_CONCEALMENT: ['EVIDENCE_INTEGRITY'],
+  EVIDENCE_DEGRADATION: ['EVIDENCE_INTEGRITY']
+};
+
+export function semanticFamiliesForScenario(scenarioFamily: string | undefined | null): string[] {
+  return SCENARIO_TO_SEMANTIC[String(scenarioFamily ?? '').toUpperCase()] ?? [];
+}
+
+/** The cluster that owns a semantic family, if any. */
+export function clusterForSemanticFamily(clusters: ExposureCluster[], semanticFamily: string | undefined | null): ExposureCluster | undefined {
+  const family = String(semanticFamily ?? '').toUpperCase();
+  if (!family) return undefined;
+  return clusters.find((cluster) => cluster.semanticFamilies.includes(family));
+}
+
+/** The cluster that owns a scenario, resolved through its semantic families. */
+export function clusterForScenario(clusters: ExposureCluster[], scenarioFamily: string | undefined | null): ExposureCluster | undefined {
+  for (const family of semanticFamiliesForScenario(scenarioFamily)) {
+    const cluster = clusterForSemanticFamily(clusters, family);
+    if (cluster) return cluster;
+  }
+  return undefined;
+}
 
 /** Cross-cutting families belong to no single exposure and may support any. */
 export const CROSS_CUTTING_FAMILIES = ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'FRAUD_CULTURE'] as const;
-
-/**
- * Semantic family -> owning exposure family.
- * A family absent here is cross-cutting and never claims primary ownership.
- */
-const SEMANTIC_TO_EXPOSURE: Record<string, ExposureFamily> = {
-  SUPPLIER_ONBOARDING: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  PAYMENT_INTEGRITY: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  THIRD_PARTY: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  IDENTITY_VERIFICATION: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  DETECTION_MONITORING: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  TRANSACTION_MONITORING: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  SENSITIVE_CHANGE: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  ACCESS_CONTROL: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  EVIDENCE_INTEGRITY: 'INCIDENT_CONTAINMENT_LEARNING',
-  INCIDENT_RESPONSE: 'INCIDENT_CONTAINMENT_LEARNING',
-  INVESTIGATION: 'INCIDENT_CONTAINMENT_LEARNING',
-  CONTINUOUS_IMPROVEMENT: 'INCIDENT_CONTAINMENT_LEARNING'
-};
-
-/** Scenario family -> owning exposure family. Never positional. */
-const SCENARIO_TO_EXPOSURE: Record<string, ExposureFamily> = {
-  SUPPLIER_PAYMENT_DIVERSION: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  PAYMENT_DIVERSION: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
-  DETECTION_EVASION: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  IDENTITY_COMPROMISE: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  INCIDENT_CONCEALMENT: 'INCIDENT_CONTAINMENT_LEARNING',
-  EVIDENCE_DEGRADATION: 'INCIDENT_CONTAINMENT_LEARNING'
-};
-
-/** Keywords used to place an exposure cluster label onto a family. */
-const EXPOSURE_LABEL_HINTS: Array<{ family: ExposureFamily; hints: RegExp }> = [
-  { family: 'SUPPLIER_PAYMENT_VALUE_DIVERSION', hints: /supplier|payment|vendor|value diversion|third[- ]party|bank/i },
-  { family: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE', hints: /identity|transaction|sensitive[- ]change|challenge|monitoring|detection|unusual/i },
-  { family: 'INCIDENT_CONTAINMENT_LEARNING', hints: /containment|learning|incident|evidence|after suspected|investigat/i }
-];
-
-export function exposureFamilyForLabel(label: string): ExposureFamily | undefined {
-  return EXPOSURE_LABEL_HINTS.find((entry) => entry.hints.test(label))?.family;
-}
-
-export function exposureFamilyForSemantic(semanticFamily: string | undefined | null): ExposureFamily | undefined {
-  if (!semanticFamily) return undefined;
-  return SEMANTIC_TO_EXPOSURE[String(semanticFamily).toUpperCase()];
-}
-
-export function exposureFamilyForScenario(scenarioFamily: string | undefined | null): ExposureFamily | undefined {
-  if (!scenarioFamily) return undefined;
-  return SCENARIO_TO_EXPOSURE[String(scenarioFamily).toUpperCase()];
-}
 
 export function isCrossCutting(semanticFamily: string | undefined | null): boolean {
   return (CROSS_CUTTING_FAMILIES as readonly string[]).includes(String(semanticFamily ?? '').toUpperCase());
@@ -293,25 +314,21 @@ export function scenarioPresentation(scenarioFamily: string | undefined | null):
   return SCENARIO_PRESENTATION[String(scenarioFamily ?? '').toUpperCase()];
 }
 
-/**
- * Consequence framing per exposure family, used where the analytical model does
- * not supply a short consequence of its own.
- */
-export const EXPOSURE_CONSEQUENCE: Record<ExposureFamily, string> = {
-  SUPPLIER_PAYMENT_VALUE_DIVERSION: 'Direct cash loss on a genuine obligation, recoverable only if challenged before release.',
-  IDENTITY_TRANSACTION_SENSITIVE_CHANGE: 'Unauthorised change or activity persists undetected, widening the period of exposure.',
-  INCIDENT_CONTAINMENT_LEARNING: 'Containment, recovery and disciplinary options narrow as evidence degrades.'
-};
-
-/**
- * Resolve scenario presentation from an exposure family. Used by validation,
- * where only the resolved family is available on the model.
- */
-export function scenarioPresentationForExposure(family: ExposureFamily | undefined): ScenarioPresentation | undefined {
-  if (!family) return undefined;
-  const scenarioFamily = Object.keys(SCENARIO_TO_EXPOSURE).find((key) => SCENARIO_TO_EXPOSURE[key] === family);
-  return scenarioFamily ? SCENARIO_PRESENTATION[scenarioFamily] : undefined;
+/** Scenario presentation resolved from the scenario's own family. */
+export function scenarioPresentationForExposure(scenarioFamily: string | undefined | null): ScenarioPresentation | undefined {
+  return scenarioPresentation(scenarioFamily);
 }
+
+/** Consequence framing per semantic family, where the model supplies none. */
+export const SEMANTIC_CONSEQUENCE: Record<string, string> = {
+  SUPPLIER_ONBOARDING: 'Direct cash loss on a genuine obligation, recoverable only if challenged before release.',
+  SUPPLIER_PAYMENT_CHANGE: 'Direct cash loss on a genuine obligation, recoverable only if challenged before release.',
+  IDENTITY_VERIFICATION: 'An unauthorised change persists undetected, widening the period of exposure.',
+  DETECTION_MONITORING: 'Unusual activity accumulates below review, widening the period of exposure.',
+  EVIDENCE_INTEGRITY: 'Containment, recovery and disciplinary options narrow as evidence degrades.',
+  CONTINUOUS_IMPROVEMENT: 'The same exposure recurs because findings do not reach the control set.',
+  FRAUD_RISK_IDENTIFICATION: 'New exposure enters the business unassessed.'
+};
 
 /**
  * Target-state composition.

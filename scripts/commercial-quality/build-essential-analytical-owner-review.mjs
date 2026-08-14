@@ -27,6 +27,7 @@ const write = async (file, value) => {
 
 const factPack = await readJson(path.join(sourceDir, '01-fact-pack.json'));
 const thesis = await readJson(path.join(sourceDir, '03-report-thesis.json'));
+const blueprint = await readJson(path.join(sourceDir, '02-report-blueprint.json'));
 
 /**
  * Harvest approved bounded commentary and map it onto exhibit interpretation
@@ -62,7 +63,7 @@ if (conclusion) commentary['CONCLUSION'] = firstSentences(conclusion.narrative, 
 const roadmapSlot = bySlot('FIRST-90-DAYS');
 if (roadmapSlot) commentary['ROADMAP-LOGIC'] = firstSentences(roadmapSlot.narrative, 2);
 
-const model = buildEssentialPresentationModel({ factPack, thesis, commentary });
+const model = buildEssentialPresentationModel({ factPack, thesis, blueprint, commentary });
 const validation = validateEssentialPresentation(model);
 const html = renderEssentialReportHtml(model);
 

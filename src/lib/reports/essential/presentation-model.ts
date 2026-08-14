@@ -18,17 +18,19 @@
 
 import {
   DIAGNOSTIC_PATTERNS,
-  exposureFamilyForLabel,
-  exposureFamilyForScenario,
-  exposureFamilyForSemantic,
+  exposureClusters,
+  unresolvedClusters,
+  clusterForScenario,
+  clusterForSemanticFamily,
   familyPresentation,
   isStabilisationFamily,
   scenarioPresentation,
   composeTargetState,
   targetStateTemplate,
-  NON_LEVERAGEABLE_DOMAINS,
   specificityScope,
-  EXPOSURE_CONSEQUENCE,
+  NON_LEVERAGEABLE_DOMAINS,
+  SEMANTIC_CONSEQUENCE,
+  type ExposureCluster,
   type ExposureFamily
 } from './content-families';
 
@@ -262,6 +264,8 @@ function nodeLabel(value: string, maxChars = 120): string {
 export interface PresentationInputs {
   factPack: any;
   thesis: any;
+  /** Carries the deterministic exposure clusters and their stable identity. */
+  blueprint?: any;
   /** Approved bounded commentary keyed by the exhibit it interprets. */
   commentary?: Record<string, string>;
 }
@@ -270,6 +274,8 @@ export interface PresentationInputs {
 
 export function buildEssentialPresentationModel(input: PresentationInputs): EssentialReportPresentationModel {
   const { factPack, thesis } = input;
+  const clusters: ExposureCluster[] = exposureClusters(input.blueprint);
+  const unresolved = unresolvedClusters(input.blueprint);
   const commentary = input.commentary ?? {};
   const mode: NarrativeMode = factPack.narrativeMode === 'SUSTAINMENT' ? 'SUSTAINMENT' : 'REMEDIATION';
   const sustainment = mode === 'SUSTAINMENT';
@@ -347,8 +353,11 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     ? { exhibitId: 'EX-MATERIAL-CONTRASTS', sourceRefs: rawContrasts.flatMap((c) => [...(c.stronger?.claimRefs ?? []), ...(c.weaker?.claimRefs ?? [])]), title: 'Material capability relationships', contrasts: contrastRows }
     : undefined;
 
-  // ---- Diagnosis: pattern families, each evidenced by several related signals ----
   const findings: any[] = Array.isArray(factPack.findings) ? factPack.findings : [];
+  const scenarios: any[] = Array.isArray(factPack.scenarios) ? factPack.scenarios : [];
+  const controls: any[] = Array.isArray(factPack.controls) ? factPack.controls : [];
+
+  // ---- Diagnosis: pattern families, each evidenced by several related signals ----
   const diagnosisRows = DIAGNOSTIC_PATTERNS.map((pattern) => {
     const signals = sortedDomains
       .filter((d) => pattern.domainMatchers.some((matcher) => matcher.test(String(d.name ?? ''))))
@@ -377,35 +386,37 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     interpretation: commentary['DIAGNOSIS-SYNTHESIS']
   };
 
-  // ---- Priority exposures, owned by family ----
-  const clusters: string[] = Array.isArray(thesis.priorityExposureClusters) ? thesis.priorityExposureClusters : [];
-  const scenarios: any[] = Array.isArray(factPack.scenarios) ? factPack.scenarios : [];
-  const controls: any[] = Array.isArray(factPack.controls) ? factPack.controls : [];
-
-  // Priority is derived from the assessed signals that drive each family, not
-  // asserted by row order. The weakest supporting domain sets the ranking, so a
-  // reader can see why one exposure outranks another.
-  const familySignals = (family: ExposureFamily | undefined) => sortedDomains
-    .filter((d) => family && exposureFamilyForLabel(String(d.name ?? '')) === family)
-    .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+  // ---- Priority exposures, identified by deterministic cluster ----
+  // Priority is derived from the assessed signals that drive each cluster, not
+  // asserted by row order, and identity comes from the cluster itself.
+  /** Domains evidencing a cluster, via the findings its semantic families own. */
+  const clusterSignals = (cluster: ExposureCluster) => {
+    const domainNames = new Set(
+      findings
+        .filter((f) => cluster.findingRefs?.includes(f.factRef) || cluster.semanticFamilies.includes(String(f.primarySemanticFamily ?? '').toUpperCase()))
+        .map((f) => String(f.domain ?? ''))
+        .filter(Boolean)
+    );
+    const matched = sortedDomains.filter((d) => domainNames.has(String(d.name ?? '')));
+    return (matched.length ? matched : sortedDomains.slice(0, 2))
+      .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+  };
 
   const exposureDraft = clusters.map((cluster) => {
-    const family = exposureFamilyForLabel(cluster);
-    const linkedScenario = scenarios.find((s) => exposureFamilyForScenario(s.scenarioFamily) === family);
-    const linkedControls = controls.filter((c) => exposureFamilyForSemantic(c.primarySemanticFamily) === family);
-    const presentation = familyPresentation(linkedControls[0]?.primarySemanticFamily);
-    const signals = familySignals(family);
-    const basis = signals.length ? signals : sortedDomains.slice(0, 2).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
-    const weakestSignal = Math.min(...basis.map((b) => b.score));
+    const linkedScenario = scenarios.find((s) => clusterForScenario(clusters, s.scenarioFamily)?.clusterId === cluster.clusterId);
+    const owningFamily = cluster.semanticFamilies.find((family) => familyPresentation(family)) ?? cluster.semanticFamilies[0]!;
+    const presentation = familyPresentation(owningFamily);
+    const basis = clusterSignals(cluster);
     return {
-      family,
-      exposure: customerText(cluster),
-      whyItMatters: sentence(commentary[`EXPOSURE-${family}`] ?? firstSentence(linkedScenario?.opportunity ?? '')),
+      family: cluster.clusterId as ExposureFamily,
+      semanticFamilies: cluster.semanticFamilies,
+      exposure: customerText(cluster.title),
+      whyItMatters: sentence(commentary[`EXPOSURE-${cluster.clusterId}`] ?? firstSentence(linkedScenario?.opportunity ?? '') ?? cluster.whyTogether ?? ''),
       assessmentBasis: basis,
-      potentialConsequence: firstSentence(linkedScenario?.consequence ?? '') || (family ? EXPOSURE_CONSEQUENCE[family] : ''),
+      potentialConsequence: firstSentence(linkedScenario?.consequence ?? '') || SEMANTIC_CONSEQUENCE[owningFamily] || '',
       drivers: basis,
       interruptionPoint: presentation?.interruptionPoint ?? '',
-      weakestSignal
+      weakestSignal: Math.min(...basis.map((b) => b.score))
     };
   }).filter((row) => row.exposure && row.whyItMatters && row.interruptionPoint);
 
@@ -427,7 +438,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   });
 
   const exposures: PriorityExposureExhibit | undefined = exposureRows.length
-    ? { exhibitId: 'EX-PRIORITY-EXPOSURE', sourceRefs: scenarios.map((s) => s.factRef).filter(Boolean), title: sustainment ? 'Residual exposure and watchpoints' : 'Priority fraud exposure', rows: exposureRows }
+    ? { exhibitId: 'EX-PRIORITY-EXPOSURE', sourceRefs: clusters.map((c) => c.clusterId), title: sustainment ? 'Residual exposure and watchpoints' : 'Priority fraud exposure', rows: exposureRows }
     : undefined;
 
   // ---- Scenario pathways: short authored nodes, never clipped specifications ----
@@ -438,7 +449,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         title: 'How exposure could materialise',
         assuranceNote: 'These are plausible fraud pathways derived from the assessment. They are not allegations that these events have occurred.',
         scenarios: scenarios.map((s, index) => {
-          const family = exposureFamilyForScenario(s.scenarioFamily);
+          const family = clusterForScenario(clusters, s.scenarioFamily)?.clusterId as ExposureFamily | undefined;
           // Keyed on the scenario's own family. Resolving through a control that
           // merely shares the exposure gave a detection-evasion scenario
           // identity-change nodes while its narrative described structuring.
@@ -479,9 +490,10 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   const weakFamilies = controls
     .map((c) => String(c.primarySemanticFamily ?? ''))
     .filter((family) => {
-      const exposure = exposureFamilyForSemantic(family);
-      const signals = sortedDomains.filter((d) => exposure && exposureFamilyForLabel(String(d.name ?? '')) === exposure);
-      return signals.length > 0 && Math.min(...signals.map((d) => d.score ?? 0)) < WEAK_BAND;
+      const cluster = clusterForSemanticFamily(clusters, family);
+      if (!cluster) return false;
+      const signals = clusterSignals(cluster);
+      return signals.length > 0 && Math.min(...signals.map((entry) => entry.score)) < WEAK_BAND;
     });
 
   /** The strongest capability that is materially ahead of the weak pattern. */
@@ -529,10 +541,8 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
    * here. A family template supplies the discipline; this supplies the specifics.
    */
   function targetStateBasisFor(semanticFamily: string) {
-    const exposure = exposureFamilyForSemantic(semanticFamily);
-    const weakSignals = sortedDomains
-      .filter((d) => exposure && exposureFamilyForLabel(String(d.name ?? '')) === exposure)
-      .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
+    const cluster = clusterForSemanticFamily(clusters, semanticFamily);
+    const weakSignals = cluster ? clusterSignals(cluster) : sortedDomains.slice(0, 2).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
     // Only a cross-process priority enumerates the weak process families. A
     // governance or learning priority is broader than any process list and keeps
     // its own framing.
@@ -551,7 +561,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     const basis = targetStateBasisFor(semanticFamily);
     const composed = composeTargetState({
       priorityFamily: semanticFamily,
-      exposureFamily: exposureFamilyForSemantic(semanticFamily),
+      exposureFamily: clusterForSemanticFamily(clusters, semanticFamily)?.clusterId,
       weakSignals: basis.weakSignals,
       leverage: basis.leverage,
       processPoints: basis.processPoints,
