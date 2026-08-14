@@ -153,7 +153,7 @@ export function analyseMechanicalLanguage(slots: Array<{ slotId: string; prose: 
       if (remaining <= 0) break;
       repairTargets.push({
         slotId: entry.slotId,
-        reason: `This section uses "${family.family}" language ${entry.count} time(s); the report as a whole uses it ${count} times against an allowance of ${family.perReportAllowance}. ${family.guidance} Remove or rephrase these occurrences here without changing any fact, number, claim reference or required insight.`
+        reason: `This section uses "${family.family}" language ${entry.count} time(s); the report as a whole uses it ${count} times against an allowance of ${family.perReportAllowance}. ${family.guidance} Remove or rephrase these occurrences here without changing any fact, number, claim reference or required insight. Preserve the section's existing structure, including any 30/60/90 day sequencing, owner names and ordering.`
       });
       remaining -= entry.count;
     }
@@ -163,7 +163,7 @@ export function analyseMechanicalLanguage(slots: Array<{ slotId: string; prose: 
   for (const finding of slotFindings) {
     repairTargets.push({
       slotId: finding.slotId,
-      reason: `This section uses "${finding.family}" language ${finding.count} time(s) against a per-section allowance of ${finding.allowance}. ${finding.guidance} Rephrase without changing any fact, number, claim reference or required insight.`
+      reason: `This section uses "${finding.family}" language ${finding.count} time(s) against a per-section allowance of ${finding.allowance}. ${finding.guidance} Rephrase without changing any fact, number, claim reference or required insight. Preserve the section's existing structure, including any 30/60/90 day sequencing, owner names and ordering.`
     });
   }
 

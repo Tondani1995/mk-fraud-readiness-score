@@ -15,7 +15,11 @@ import { analyseMechanicalLanguage, analyseSlotMechanicalLanguage, type Mechanic
 
 export const MAX_SECTION_REPAIR_CALLS = 2;
 export const MAX_TECHNICAL_FORMAT_RETRIES_PER_SLOT = 1;
-export const MAX_GLOBAL_REPAIR_PASSES = 1;
+// Two passes, not one. A mechanical-language pass rewrites prose, which can
+// disturb a different global check (the 30/60/90 sequence was lost this way),
+// so the compiler needs one further bounded opportunity to settle. Still
+// strictly bounded, and every pass repairs only the slots that own the defect.
+export const MAX_GLOBAL_REPAIR_PASSES = 2;
 
 export interface ReportThesisContrast {
   contrastId: string;
