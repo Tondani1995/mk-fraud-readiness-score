@@ -11,6 +11,8 @@ import type { NarrativeFact, NarrativeFactPack } from './fact-pack';
 export const BOUNDED_SECTION_ENGINE_SCHEMA_VERSION = 'mk-reporting-bible-1.1-bounded-section-engine-v1';
 export const BOUNDED_SECTION_PROMPT_VERSION = 'mk-reporting-bible-1.1-bounded-section-prompt-v1';
 export const BOUNDED_SECTION_ENGINE_ARCHITECTURE = 'bounded-section-v1' as const;
+import { analyseMechanicalLanguage, analyseSlotMechanicalLanguage, type MechanicalLanguageReport } from './mechanical-language';
+
 export const MAX_SECTION_REPAIR_CALLS = 2;
 export const MAX_TECHNICAL_FORMAT_RETRIES_PER_SLOT = 1;
 export const MAX_GLOBAL_REPAIR_PASSES = 1;
@@ -221,6 +223,7 @@ export type NarrativeSlotIssueCode =
   | 'FIT_OVERFLOW'
   | 'FIT_UNDERFLOW'
   | 'MECHANICAL_LANGUAGE'
+  | 'MECHANICAL_LANGUAGE_SATURATION'
   | 'STYLE_FAILURE';
 
 export interface NarrativeSlotValidationIssue {
@@ -768,9 +771,9 @@ export function validateNarrativeSlotResult(result: NarrativeSlotResult, contrac
   if (rawIds.length) issues.push({ code: 'STYLE_FAILURE', message: `Customer prose contains machine artefact(s): ${unique(rawIds).join(', ')}.` });
   if (/^\s*[-*]\s+/m.test(text(result.narrative))) issues.push({ code: 'STYLE_FAILURE', message: 'Customer prose contains bullets where the bounded contract requires prose.' });
   if (/(?:did you|which option should|select one|questionnaire)/i.test(combined)) issues.push({ code: 'STYLE_FAILURE', message: 'Questionnaire language is not permitted in customer prose.' });
-  const mechanicalPhrases = ['recorded condition', 'recorded weakness', 'recorded position', 'the approved response', 'self-assessed as', 'management should'];
-  const mechanicalCount = mechanicalPhrases.reduce((sum, phrase) => sum + countOccurrences(combined.toLowerCase(), phrase), 0);
-  if (mechanicalCount > 4) issues.push({ code: 'MECHANICAL_LANGUAGE', message: `Mechanical management/questionnaire language exceeds the bounded threshold (${mechanicalCount}).` });
+  for (const finding of analyseSlotMechanicalLanguage(contract.slotId, combined)) {
+    issues.push({ code: 'MECHANICAL_LANGUAGE', message: `"${finding.family}" language used ${finding.count} time(s) against a per-section allowance of ${finding.allowance}. ${finding.guidance}` });
+  }
   const wordCount = words(`${result.narrative} ${result.managementImplication}`);
   const characterCount = characters(`${result.narrative}\n${result.managementImplication}`);
   if (wordCount > contract.fit.maximumWords) issues.push({ code: 'FIT_OVERFLOW', message: `Maximum ${contract.fit.maximumWords} words; received ${wordCount}. Reduce by at least ${wordCount - contract.fit.maximumWords} words.` });
@@ -788,6 +791,10 @@ function sentences(value: string): string[] {
  * approved slot. The first occurrence keeps it, because the earlier slot is the
  * primary home under the content-ownership model; the later slot repeats it.
  */
+function normaliseHeading(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 function laterOwnerOfSentence(approvedSlots: ApprovedNarrativeSlot[], sentence: string): string | undefined {
   const owners = approvedSlots.filter((slot) => sentences([slot.result.narrative, slot.result.managementImplication].join('\n')).includes(sentence));
   return owners.length > 1 ? owners[owners.length - 1]!.contract.slotId : undefined;
@@ -811,6 +818,11 @@ export function globalRepairTargets(plan: NarrativeSlotPlan, approvedSlots: Appr
         const longest = [...approvedSlots].sort((a, b) => words(b.result.narrative) - words(a.result.narrative))[0];
         if (longest) targets.push({ slotId: longest.contract.slotId, reason: `The compiled report is ${received - maximum} words over its ${maximum}-word envelope. Reduce this section by at least ${received - maximum + 20} words without dropping any required insight.` });
       }
+      continue;
+    }
+    if (issue.startsWith('MECHANICAL_LANGUAGE_SATURATION:')) {
+      const mechanical = analyseMechanicalLanguage(approvedSlots.map((slot) => ({ slotId: slot.contract.slotId, prose: [slot.result.narrative, slot.result.managementImplication].join('\n') })));
+      for (const target of mechanical.repairTargets) targets.push(target);
       continue;
     }
     if (issue.startsWith('Repeated sentence overlap detected:')) {
@@ -841,6 +853,7 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
   const headings: string[] = [];
   const blocks: string[] = [];
   let currentChapter = '';
+  let openedChapterTitle = '';
   for (const approved of approvedSlots) {
     const slot = plan.slots.find((item) => item.slotId === approved.contract.slotId);
     if (!slot) { issues.push(`Approved slot ${approved.contract.slotId} is not in the plan.`); continue; }
@@ -849,9 +862,16 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
       if (!chapter) { issues.push(`Slot ${slot.slotId} references an unknown chapter.`); continue; }
       blocks.push(`# ${chapter.title}`);
       currentChapter = slot.chapterId;
+      openedChapterTitle = chapter.title;
     }
     headings.push(slot.title);
-    blocks.push(`## ${slot.title}\n\n${approved.result.narrative.trim()}\n\n${approved.result.managementImplication.trim()}`);
+    // A chapter that opens with a slot of the same display text would otherwise
+    // render "# Executive assessment" immediately above "## Executive
+    // assessment". The chapter heading already carries it, so suppress the
+    // duplicate rather than losing the hierarchy elsewhere.
+    const duplicatesChapterHeading = normaliseHeading(slot.title) === normaliseHeading(openedChapterTitle);
+    openedChapterTitle = '';
+    blocks.push(`${duplicatesChapterHeading ? '' : `## ${slot.title}\n\n`}${approved.result.narrative.trim()}\n\n${approved.result.managementImplication.trim()}`);
   }
   const markdown = `# ${blueprint.reportTitle}\n\n${blocks.join('\n\n')}`.trim() + '\n';
   const totalWordCount = words(markdown.replace(/^#+\s.*$/gm, ''));
@@ -859,6 +879,10 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
   if (totalWordCount < plan.reportWordEnvelope.minimumWords || totalWordCount > plan.reportWordEnvelope.maximumWords) issues.push(`Report-level narrative envelope is ${plan.reportWordEnvelope.minimumWords}-${plan.reportWordEnvelope.maximumWords} words; received ${totalWordCount}.`);
   if (approvedSlots.length === 0 || approvedSlots[approvedSlots.length - 1]!.contract.narrativeRole !== 'CONCLUSION') issues.push('Compiled manuscript must end with an approved conclusion slot.');
   const allText = approvedSlots.map((slot) => [slot.result.narrative, slot.result.managementImplication].join('\n')).join('\n');
+  const mechanical = analyseMechanicalLanguage(approvedSlots.map((slot) => ({ slotId: slot.contract.slotId, prose: [slot.result.narrative, slot.result.managementImplication].join('\n') })));
+  if (!mechanical.ok) {
+    for (const finding of mechanical.reportFindings) issues.push(`MECHANICAL_LANGUAGE_SATURATION: "${finding.family}" used ${finding.count} times across the report (allowance ${finding.allowance}, density ${finding.density} per 1,000 words).`);
+  }
   const duplicateSentences = sentences(allText).filter((sentence, index, all) => all.indexOf(sentence) !== index);
   if (duplicateSentences.length) issues.push(`Repeated sentence overlap detected: ${unique(duplicateSentences).slice(0, 3).join(' | ')}`);
   const duplicateOwners = unique(duplicateSentences).map((sentence) => laterOwnerOfSentence(approvedSlots, sentence)).filter((slotId): slotId is string => Boolean(slotId));
