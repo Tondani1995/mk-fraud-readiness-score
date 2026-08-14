@@ -1,0 +1,800 @@
+import type {
+  BlueprintContentAssignment,
+  BlueprintChapter,
+  NarrativeRole,
+  ReportBlueprint,
+  ReportBlueprintSection,
+  ReportBlueprintSubsection
+} from './report-blueprint';
+import type { NarrativeFact, NarrativeFactPack } from './fact-pack';
+
+export const BOUNDED_SECTION_ENGINE_SCHEMA_VERSION = 'mk-reporting-bible-1.1-bounded-section-engine-v1';
+export const BOUNDED_SECTION_PROMPT_VERSION = 'mk-reporting-bible-1.1-bounded-section-prompt-v1';
+export const BOUNDED_SECTION_ENGINE_ARCHITECTURE = 'bounded-section-v1' as const;
+export const MAX_SECTION_REPAIR_CALLS = 2;
+
+export interface ReportThesisContrast {
+  contrastId: string;
+  stronger: { title: string; score: number; claimRefs: string[] };
+  weaker: { title: string; score: number; claimRefs: string[] };
+  interpretation: string;
+}
+
+export interface ReportThesis {
+  schemaVersion: typeof BOUNDED_SECTION_ENGINE_SCHEMA_VERSION;
+  organisationName: string;
+  assessmentReference: string;
+  tier: NarrativeFactPack['productTier'];
+  overallPosition: {
+    score: number | null;
+    maturity: string | null;
+    exposureBand: string | null;
+  };
+  centralJudgement: string;
+  strongestFoundations: Array<{ title: string; score: number; claimRefs: string[] }>;
+  weakestCapabilities: Array<{ title: string; score: number; claimRefs: string[] }>;
+  materialContrasts: ReportThesisContrast[];
+  systemicDiagnosis: string[];
+  priorityExposureClusters: string[];
+  managementPriority: string;
+  transformationLogic: string[];
+  assuranceBoundary: string;
+}
+
+export interface NarrativeRequiredInsight {
+  requirementId: string;
+  instruction: string;
+  supportingClaimRefs: string[];
+}
+
+export interface NarrativeAuthorisedFact {
+  id: string;
+  kind: string;
+  value: unknown;
+  sourceRefs: string[];
+}
+
+export interface NarrativeSlot {
+  slotId: string;
+  chapterId: string;
+  sectionIds: string[];
+  subsectionIds: string[];
+  narrativeRole: NarrativeRole;
+  title: string;
+  order: number;
+  purpose: string;
+  readerQuestion: string;
+  requiredManagementTakeaway: string;
+  primaryContentRefs: string[];
+  permittedCrossReferenceRefs: string[];
+  permittedClaimRefs: string[];
+  requiredInsights: NarrativeRequiredInsight[];
+  forbiddenTopics: string[];
+  contentOwnedElsewhere: string[];
+  precedingContext: string;
+  followingPurpose: string;
+  wordBudget: { targetWords: number; minimumWords: number; maximumWords: number };
+  characterBudget: { targetCharacters: number; maximumCharacters: number };
+  authorisedFacts: NarrativeAuthorisedFact[];
+  outputContract: string;
+}
+
+export interface NarrativeSlotPlan {
+  schemaVersion: typeof BOUNDED_SECTION_ENGINE_SCHEMA_VERSION;
+  architecture: typeof BOUNDED_SECTION_ENGINE_ARCHITECTURE;
+  reportThesis: ReportThesis;
+  slots: NarrativeSlot[];
+  reportWordEnvelope: { minimumWords: number; maximumWords: number };
+}
+
+export interface NarrativeSectionContract {
+  contractVersion: typeof BOUNDED_SECTION_ENGINE_SCHEMA_VERSION;
+  slotId: string;
+  tier: NarrativeFactPack['productTier'];
+  organisationName: string;
+  assessmentReference: string;
+  reportThesis: ReportThesis;
+  narrativeRole: NarrativeRole;
+  title: string;
+  purpose: string;
+  readerQuestion: string;
+  requiredManagementTakeaway: string;
+  requiredInsights: NarrativeRequiredInsight[];
+  primaryContentRefs: string[];
+  permittedCrossReferenceRefs: string[];
+  permittedClaimRefs: string[];
+  contentOwnedElsewhere: string[];
+  forbiddenTopics: string[];
+  prohibitedClaims: string[];
+  style: {
+    audience: string;
+    tone: string;
+    expectedDepth: string;
+    continuityInstruction: string;
+    antiMechanicalRules: string[];
+  };
+  fit: {
+    targetWords: number;
+    minimumWords: number;
+    maximumWords: number;
+    targetCharacters: number;
+    maximumCharacters: number;
+  };
+  context: {
+    previousApprovedTakeaway: string;
+    nextSlotPurpose: string;
+  };
+  authorisedFacts: NarrativeAuthorisedFact[];
+  outputContract: string;
+}
+
+export interface NarrativeSlotResult {
+  contractVersion: typeof BOUNDED_SECTION_ENGINE_SCHEMA_VERSION;
+  slotId: string;
+  centralJudgement: string;
+  narrative: string;
+  managementImplication: string;
+  usedClaimRefs: string[];
+  requirementCoverage: Array<{ requirementId: string; supportingExcerpt: string }>;
+  transitionCue: string;
+}
+
+export interface BoundedProviderMetadata {
+  provider: string;
+  model: string;
+  promptVersion: string;
+  generationMode: 'ai' | 'test-injected';
+  generatedAt: string;
+  generationId?: string;
+  responseId?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  providerCostMicros?: number;
+  providerCostRaw?: string | number;
+  finishReason?: string;
+  callType: 'INITIAL' | 'REPAIR' | 'QUALITY_ESCALATION';
+  repairNumber: number;
+}
+
+export interface BoundedProviderCall {
+  result: NarrativeSlotResult;
+  metadata: BoundedProviderMetadata;
+  prompt?: string;
+}
+
+export interface BoundedSectionProvider {
+  readonly model: string;
+  readonly provider: string;
+  generate(contract: NarrativeSectionContract): Promise<BoundedProviderCall>;
+  repair(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }, repairNumber: number): Promise<BoundedProviderCall>;
+  qualityEscalate?(contract: NarrativeSectionContract, rejected: { result: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport }): Promise<BoundedProviderCall>;
+}
+
+export type NarrativeSlotIssueCode =
+  | 'STRUCTURE_FAILURE'
+  | 'PROVENANCE_VIOLATION'
+  | 'HARD_TRUTH_FAILURE'
+  | 'ASSURANCE_LANGUAGE'
+  | 'CONTENT_OWNERSHIP_VIOLATION'
+  | 'MISSING_REQUIRED_INSIGHT'
+  | 'DUPLICATE_REQUIRED_INSIGHT'
+  | 'FIT_OVERFLOW'
+  | 'FIT_UNDERFLOW'
+  | 'MECHANICAL_LANGUAGE'
+  | 'STYLE_FAILURE';
+
+export interface NarrativeSlotValidationIssue {
+  code: NarrativeSlotIssueCode;
+  message: string;
+  path?: string;
+}
+
+export interface NarrativeSlotValidationReport {
+  ok: boolean;
+  slotId: string;
+  wordCount: number;
+  characterCount: number;
+  issues: NarrativeSlotValidationIssue[];
+  usedClaimRefs: string[];
+  requirementIds: string[];
+}
+
+export interface ApprovedNarrativeSlot {
+  contract: NarrativeSectionContract;
+  result: NarrativeSlotResult;
+  validation: NarrativeSlotValidationReport;
+  metadata: BoundedProviderMetadata;
+  calls: BoundedProviderCall[];
+}
+
+export interface BoundedGenerationAccounting {
+  reportGenerationId: string;
+  architecture: typeof BOUNDED_SECTION_ENGINE_ARCHITECTURE;
+  modelBySlot: Record<string, string>;
+  calls: BoundedProviderMetadata[];
+  initialCalls: number;
+  repairCalls: number;
+  qualityEscalations: number;
+  failedSlots: string[];
+  totalTokens: number;
+  totalProviderCostMicros: number;
+}
+
+export interface BoundedCompiledManuscript {
+  markdown: string;
+  approvedSlots: ApprovedNarrativeSlot[];
+  validation: BoundedManuscriptValidationReport;
+  accounting: BoundedGenerationAccounting;
+}
+
+export interface BoundedManuscriptValidationReport {
+  ok: boolean;
+  totalWordCount: number;
+  totalCharacterCount: number;
+  expectedSlotIds: string[];
+  compiledSlotIds: string[];
+  missingPrimaryContentRefs: string[];
+  duplicatePrimaryContentRefs: string[];
+  issues: string[];
+}
+
+interface SlotUnit {
+  chapter: BlueprintChapter;
+  sections: ReportBlueprintSection[];
+  subsection?: ReportBlueprintSubsection;
+  narrativeRole: NarrativeRole;
+  title: string;
+  groupingKey: string;
+}
+
+const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const words = (value: string): number => value.trim() ? value.trim().split(/\s+/).length : 0;
+const characters = (value: string): number => value.trim().length;
+const text = (value: unknown): string => String(value ?? '').trim();
+
+function slug(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'SLOT';
+}
+
+function numericTokens(value: unknown): string[] {
+  return JSON.stringify(value).match(/\b\d+(?:\.\d+)?\b/g) ?? [];
+}
+
+function factRefForDomain(pack: NarrativeFactPack, code: string): string | undefined {
+  return pack.domains.find((domain) => domain.code === code)?.factRef;
+}
+
+function domainScore(pack: NarrativeFactPack, matcher: RegExp): { title: string; score: number; claimRefs: string[] } | undefined {
+  const domain = pack.domains.find((item) => matcher.test(`${item.name} ${item.code}`) && finite(item.score));
+  if (!domain || domain.score === null) return undefined;
+  return { title: domain.name, score: domain.score, claimRefs: [domain.factRef] };
+}
+
+function buildContrasts(pack: NarrativeFactPack): ReportThesisContrast[] {
+  const contrasts: ReportThesisContrast[] = [];
+  const reporting = domainScore(pack, /whistleblowing|reporting culture/i);
+  const detection = domainScore(pack, /fraud detection capability/i);
+  const thirdParty = domainScore(pack, /third-party|supply chain/i);
+  const identification = domainScore(pack, /fraud risk identification/i);
+  const improvement = domainScore(pack, /continuous improvement|fraud risk monitoring/i);
+  const operational = domainScore(pack, /operational fraud controls/i);
+  const add = (id: string, stronger: typeof reporting, weaker: typeof reporting, interpretation: string) => {
+    if (!stronger || !weaker || stronger.score <= weaker.score) return;
+    contrasts.push({ contrastId: id, stronger, weaker, interpretation });
+  };
+  add('REPORTING-VS-DETECTION', reporting, detection, 'The pattern suggests that receiving concerns is currently stronger than systematic detection.');
+  add('REPORTING-VS-IDENTIFICATION', reporting, identification, 'The pattern suggests that reporting strength is not yet matched by equally mature fraud-risk identification.');
+  add('REPORTING-VS-CONTINUOUS-IMPROVEMENT', reporting, improvement, 'The pattern suggests that concerns are not yet consistently converted into repeatable learning.');
+  add('OPERATIONAL-VS-IDENTIFICATION', operational, identification, 'The pattern suggests pockets of operational control are not yet connected by equally mature risk identification.');
+  add('OPERATIONAL-VS-DETECTION', operational, detection, 'The pattern suggests operational controls are not yet connected by an equally mature detection system.');
+  add('OPERATIONAL-VS-THIRD-PARTY', operational, thirdParty, 'The pattern suggests operational control does not yet extend consistently into third-party and supply-chain exposure.');
+  return contrasts;
+}
+
+function buildThesisCentralJudgement(pack: NarrativeFactPack, contrasts: ReportThesisContrast[]): string {
+  const score = pack.assessment.score === null ? 'not scored' : `${pack.assessment.score} / 100`;
+  const maturity = pack.assessment.maturity ?? 'not assigned';
+  const lead = contrasts[0]
+    ? `${contrasts[0].stronger.title} is recorded at ${contrasts[0].stronger.score}, compared with ${contrasts[0].weaker.title} at ${contrasts[0].weaker.score}.`
+    : 'The domain pattern should be read through the strongest and weakest supported capabilities rather than through isolated question scores.';
+  return `The recorded position is ${score} with ${maturity} maturity. ${lead} The management task is to connect the supported foundations to prevention, detection, containment and learning through owned action. This is an interpretation of deterministic assessment relationships, not an independently verified operating fact.`;
+}
+
+export function buildReportThesis(pack: NarrativeFactPack, blueprint: ReportBlueprint): ReportThesis {
+  const ranked = pack.domains.filter((domain) => finite(domain.score)).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+  const strongestFoundations = ranked.slice(0, 3).map((domain) => ({ title: domain.name, score: domain.score as number, claimRefs: [domain.factRef] }));
+  const weakestCapabilities = ranked.slice(-3).reverse().map((domain) => ({ title: domain.name, score: domain.score as number, claimRefs: [domain.factRef] }));
+  const materialContrasts = buildContrasts(pack);
+  const diagnosis = pack.systemicThemeInputs.map((theme) => theme.title);
+  const clusters = blueprint.findingClusters.map((cluster) => cluster.title);
+  const managementPriority = blueprint.chapters.find((chapter) => chapter.narrativeRole === 'JUDGEMENT')?.requiredManagementTakeaway
+    ?? blueprint.executiveStory;
+  return {
+    schemaVersion: BOUNDED_SECTION_ENGINE_SCHEMA_VERSION,
+    organisationName: pack.organisation.name,
+    assessmentReference: pack.assessment.reference,
+    tier: pack.productTier,
+    overallPosition: { score: pack.assessment.score, maturity: pack.assessment.maturity, exposureBand: pack.assessment.exposureBand },
+    centralJudgement: buildThesisCentralJudgement(pack, materialContrasts),
+    strongestFoundations,
+    weakestCapabilities,
+    materialContrasts,
+    systemicDiagnosis: diagnosis,
+    priorityExposureClusters: clusters,
+    managementPriority,
+    transformationLogic: blueprint.transformationSequence.filter((stage) => stage.supported).map((stage) => `${stage.stage}: ${stage.purpose}`),
+    assuranceBoundary: blueprint.assessmentPosition.assuranceBoundary
+  };
+}
+
+function chapterSections(blueprint: ReportBlueprint): SlotUnit[] {
+  const units: SlotUnit[] = [];
+  for (const chapter of [...blueprint.chapters].sort((a, b) => a.order - b.order)) {
+    for (const section of [...chapter.sections].sort((a, b) => a.order - b.order)) {
+      const subsections = section.optionalSubsections;
+      if (section.narrativeRole === 'EXPOSURE_ILLUSTRATION' && subsections.length > 0) {
+        for (const subsection of [...subsections].sort((a, b) => a.order - b.order)) {
+          units.push({ chapter, sections: [section], subsection, narrativeRole: subsection.narrativeRole, title: subsection.title, groupingKey: `${chapter.chapterId}:SCENARIO:${subsection.subsectionId}` });
+        }
+        continue;
+      }
+      units.push({ chapter, sections: [section], narrativeRole: section.narrativeRole, title: section.title, groupingKey: `${chapter.chapterId}:${section.narrativeRole}` });
+    }
+  }
+  return units;
+}
+
+function groupUnits(units: SlotUnit[]): SlotUnit[] {
+  const grouped: SlotUnit[] = [];
+  const groupedByKey = new Map<string, SlotUnit>();
+  for (const unit of units) {
+    const shouldGroup = unit.narrativeRole === 'JUDGEMENT'
+      || unit.narrativeRole === 'DIAGNOSIS'
+      || unit.narrativeRole === 'RESPONSE'
+      || unit.narrativeRole === 'IMPLEMENTATION';
+    if (!shouldGroup || unit.subsection) {
+      grouped.push(unit);
+      continue;
+    }
+    const key = unit.groupingKey;
+    const existing = groupedByKey.get(key);
+    if (existing) {
+      existing.sections.push(...unit.sections);
+      existing.title = existing.title === existing.chapter.title ? existing.title : existing.chapter.title;
+    } else {
+      const copy = { ...unit, sections: [...unit.sections], title: unit.narrativeRole === 'JUDGEMENT' || unit.narrativeRole === 'DIAGNOSIS' || unit.narrativeRole === 'RESPONSE' || unit.narrativeRole === 'IMPLEMENTATION' ? unit.chapter.title : unit.title };
+      groupedByKey.set(key, copy);
+      grouped.push(copy);
+    }
+  }
+  return grouped;
+}
+
+function assignmentsForUnit(blueprint: ReportBlueprint, unit: SlotUnit): BlueprintContentAssignment[] {
+  const sectionIds = new Set(unit.sections.map((section) => section.sectionId));
+  const subsectionRefs = unit.subsection ? new Set([...unit.subsection.claimRefs, ...unit.subsection.requiredFacts]) : null;
+  return blueprint.contentAssignments.filter((assignment) => sectionIds.has(assignment.sectionId) && (!subsectionRefs || subsectionRefs.has(assignment.contentRef)));
+}
+
+function crossRefsForUnit(blueprint: ReportBlueprint, unit: SlotUnit): string[] {
+  const sectionIds = new Set(unit.sections.map((section) => section.sectionId));
+  return blueprint.narrativeCrossReferences.filter((item) => sectionIds.has(item.fromSectionId)).map((item) => item.contentRef);
+}
+
+function insight(id: string, instruction: string, refs: string[]): NarrativeRequiredInsight {
+  return { requirementId: id, instruction, supportingClaimRefs: unique(refs) };
+}
+
+function roleInsights(unit: SlotUnit, slotId: string, pack: NarrativeFactPack, blueprint: ReportBlueprint, primaryRefs: string[], permittedRefs: string[]): NarrativeRequiredInsight[] {
+  const facts = unique(unit.sections.flatMap((section) => [...section.requiredFacts, ...section.claimRefs, ...section.optionalSubsections.flatMap((subsection) => [...subsection.requiredFacts, ...subsection.claimRefs])]).filter((ref) => permittedRefs.includes(ref)));
+  const scoreRefs = pack.facts.filter((fact) => fact.kind === 'score' || fact.kind === 'maturity').map((fact) => fact.id).filter((ref) => permittedRefs.includes(ref));
+  const refs = unique([...primaryRefs, ...facts]);
+  const base = `${slotId}-INSIGHT`;
+  switch (unit.narrativeRole) {
+    case 'JUDGEMENT': return [
+      insight(`${base}-POSITION`, 'State the recorded score and maturity and explain why the position matters to management.', scoreRefs.length ? scoreRefs : refs),
+      insight(`${base}-INTERPRETATION`, 'Interpret one material relationship in the deterministic pattern rather than listing domain scores.', refs),
+      insight(`${base}-IMPLICATION`, 'State the immediate management implication before the report moves into detail.', refs)
+    ];
+    case 'DIAGNOSIS': return [
+      insight(`${base}-SYSTEMIC`, 'Connect the underlying themes into a systemic management pattern.', refs),
+      insight(`${base}-STRENGTH`, 'Use a supported strength where it helps explain the diagnosis.', refs),
+      insight(`${base}-BOUNDARY`, 'Distinguish interpretation of recorded assessment relationships from independent operating verification.', refs)
+    ];
+    case 'EXPOSURE': return [
+      insight(`${base}-VALUE`, 'Explain the value, capability or management outcome at risk.', refs),
+      insight(`${base}-WEAKNESS`, 'Explain the relevant deterministic control or capability weakness without inventing an event.', refs),
+      insight(`${base}-PRIORITY`, 'Explain the management consequence and why this cluster is a priority.', refs)
+    ];
+    case 'EXPOSURE_ILLUSTRATION': return [
+      insight(`${base}-ENTRY`, 'Describe the conditional entry point and control break.', refs),
+      insight(`${base}-CONSEQUENCE`, 'Describe the potential consequence and warning indicators conditionally.', refs),
+      insight(`${base}-RESPONSE`, 'Include immediate containment and longer-term response without alleging that the event occurred.', refs)
+    ];
+    case 'RESPONSE': return [
+      insight(`${base}-OBJECTIVE`, 'State the management objective and broad target state.', refs),
+      insight(`${base}-OWNER`, 'Name the accountable executive from the authorised deterministic material.', refs),
+      insight(`${base}-DEPENDENCY`, 'Name the critical dependency or proof discipline without dumping the register.', refs)
+    ];
+    case 'IMPLEMENTATION': return [
+      insight(`${base}-SEQUENCE`, 'Sequence the approved implementation route for 30 days, 60 days and 90 days.', refs),
+      insight(`${base}-STABILISE`, 'Include basic incident intake and evidence-preservation discipline in the first 30 days where the Blueprint requires it.', refs),
+      insight(`${base}-REVIEW`, 'Explain how management will operate and review the first cycle.', refs)
+    ];
+    case 'CONCLUSION': return [
+      insight(`${base}-JUDGEMENT`, 'Return to the central management judgement after considering the report.', refs),
+      insight(`${base}-CHECKPOINT`, 'State the next management checkpoint without recapping every recommendation.', refs)
+    ];
+    case 'DECISION': return [
+      insight(`${base}-CHOICE`, 'State the management question and the available decision route.', refs),
+      insight(`${base}-TRADEOFF`, 'Explain the relevant benefits, trade-offs and consequence of delay.', refs)
+    ];
+    case 'EVIDENCE': return [
+      insight(`${base}-MEANING`, 'Explain what the deterministic evidence or finding pattern means for management.', refs),
+      insight(`${base}-BOUNDARY`, 'Keep supporting evidence distinct from independent assurance.', refs)
+    ];
+    default: return [insight(`${base}-MEANING`, 'Explain the deterministic management meaning of this bounded slot.', refs)];
+  }
+}
+
+function budgetFor(role: NarrativeRole, tier: NarrativeFactPack['productTier']): NarrativeSlot['wordBudget'] {
+  const base: Record<NarrativeRole, [number, number, number]> = {
+    JUDGEMENT: [340, 300, 430],
+    DIAGNOSIS: [390, 340, 500],
+    EVIDENCE: [220, 170, 280],
+    EXPOSURE: [210, 170, 260],
+    EXPOSURE_ILLUSTRATION: [210, 170, 260],
+    TARGET_STATE: [260, 200, 340],
+    RESPONSE: [360, 280, 520],
+    DECISION: [240, 180, 320],
+    IMPLEMENTATION: [390, 320, 500],
+    MATURATION: [260, 200, 340],
+    SUSTAINMENT: [240, 180, 320],
+    CONCLUSION: [220, 180, 280]
+  };
+  const [target, minimum, maximum] = base[role];
+  const scale = tier === 'comprehensive' ? 1.12 : 1;
+  return { targetWords: Math.round(target * scale), minimumWords: Math.round(minimum * scale), maximumWords: Math.round(maximum * scale) };
+}
+
+function readerQuestion(role: NarrativeRole): string {
+  const values: Record<NarrativeRole, string> = {
+    JUDGEMENT: "What is management's central fraud-readiness position and why does it matter?",
+    DIAGNOSIS: 'Why does the organisation have this readiness position?',
+    EVIDENCE: 'What does the deterministic evidence pattern mean for management?',
+    EXPOSURE: 'Where could the diagnosed weakness translate into material practical exposure?',
+    EXPOSURE_ILLUSTRATION: 'How could this exposure plausibly materialise?',
+    TARGET_STATE: 'What target state would interrupt the supported exposure?',
+    RESPONSE: 'What materially needs to change?',
+    DECISION: 'What management choice is required?',
+    IMPLEMENTATION: 'What happens first and in what sequence?',
+    MATURATION: 'How should the target state mature over time?',
+    SUSTAINMENT: 'What must remain true to preserve readiness?',
+    CONCLUSION: 'What is the central management judgement after considering the whole report?'
+  };
+  return values[role];
+}
+
+function sectionPurpose(unit: SlotUnit): string {
+  return unit.sections.map((section) => section.purpose).concat(unit.subsection ? [unit.subsection.purpose] : []).filter(Boolean).join(' ');
+}
+
+function sectionTakeaway(unit: SlotUnit): string {
+  return unit.sections.map((section) => section.requiredManagementTakeaway).concat(unit.subsection ? [unit.subsection.requiredManagementTakeaway] : []).filter(Boolean).join(' ');
+}
+
+function buildSlot(unit: SlotUnit, order: number, pack: NarrativeFactPack, blueprint: ReportBlueprint, thesis: ReportThesis, allAssignments: BlueprintContentAssignment[]): NarrativeSlot {
+  const rawSlotId = `SLOT-${String(order).padStart(2, '0')}-${slug(unit.title)}`;
+  const assignments = assignmentsForUnit(blueprint, unit);
+  const primaryContentRefs = unique(assignments.map((assignment) => assignment.contentRef));
+  const sectionRefs = unique(unit.sections.flatMap((section) => [...section.requiredFacts, ...section.claimRefs, ...section.optionalSubsections.flatMap((subsection) => [...subsection.requiredFacts, ...subsection.claimRefs])]).concat(unit.subsection ? [...unit.subsection.requiredFacts, ...unit.subsection.claimRefs] : []));
+  const materialAssignmentRefs = new Set(allAssignments.map((assignment) => assignment.contentRef));
+  const permittedCrossReferenceRefs = unique([
+    ...crossRefsForUnit(blueprint, unit),
+    ...sectionRefs.filter((ref) => materialAssignmentRefs.has(ref) && !primaryContentRefs.includes(ref))
+  ].filter((ref) => !primaryContentRefs.includes(ref)));
+  const permittedClaimRefs = unique([...sectionRefs, ...primaryContentRefs, ...permittedCrossReferenceRefs]);
+  const ownedElsewhere = unique(allAssignments.map((assignment) => assignment.contentRef).filter((ref) => !primaryContentRefs.includes(ref)));
+  const budget = budgetFor(unit.narrativeRole, pack.productTier);
+  const requiredInsights = roleInsights(unit, rawSlotId, pack, blueprint, primaryContentRefs, permittedClaimRefs);
+  const authorisedFacts = pack.facts.filter((fact) => permittedClaimRefs.includes(fact.id)).map((fact) => ({ id: fact.id, kind: fact.kind, value: fact.value, sourceRefs: fact.sourceRefs }));
+  return {
+    slotId: rawSlotId,
+    chapterId: unit.chapter.chapterId,
+    sectionIds: unique(unit.sections.map((section) => section.sectionId)),
+    subsectionIds: unit.subsection ? [unit.subsection.subsectionId] : [],
+    narrativeRole: unit.narrativeRole,
+    title: unit.title,
+    order,
+    purpose: sectionPurpose(unit),
+    readerQuestion: readerQuestion(unit.narrativeRole),
+    requiredManagementTakeaway: sectionTakeaway(unit),
+    primaryContentRefs,
+    permittedCrossReferenceRefs,
+    permittedClaimRefs,
+    requiredInsights,
+    forbiddenTopics: ownedElsewhere.length ? [`Do not re-explain material owned by another slot: ${ownedElsewhere.join(', ')}.`] : [],
+    contentOwnedElsewhere: ownedElsewhere,
+    precedingContext: '',
+    followingPurpose: '',
+    wordBudget: budget,
+    characterBudget: { targetCharacters: Math.round(budget.targetWords * 6.5), maximumCharacters: Math.round(budget.maximumWords * 7.2) },
+    authorisedFacts,
+    outputContract: 'Return NarrativeSlotResult JSON only. The application owns headings, order, provenance authority and compilation.'
+  };
+}
+
+export function buildNarrativeSlotPlan(pack: NarrativeFactPack, blueprint: ReportBlueprint, thesis = buildReportThesis(pack, blueprint)): NarrativeSlotPlan {
+  const units = groupUnits(chapterSections(blueprint));
+  const allAssignments = blueprint.contentAssignments;
+  const slots = units.map((unit, index) => buildSlot(unit, index + 1, pack, blueprint, thesis, allAssignments));
+  for (let index = 0; index < slots.length; index += 1) {
+    slots[index]!.precedingContext = index === 0 ? 'This is the opening bounded narrative slot.' : slots[index - 1]!.requiredManagementTakeaway;
+    slots[index]!.followingPurpose = index === slots.length - 1 ? 'Close the report with the central management judgement.' : slots[index + 1]!.purpose;
+  }
+  return {
+    schemaVersion: BOUNDED_SECTION_ENGINE_SCHEMA_VERSION,
+    architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE,
+    reportThesis: thesis,
+    slots,
+    reportWordEnvelope: pack.productTier === 'essential' ? { minimumWords: 2700, maximumWords: 3200 } : { minimumWords: 4200, maximumWords: 7600 }
+  };
+}
+
+export function assertNarrativeSlotPlan(plan: NarrativeSlotPlan, pack: NarrativeFactPack, blueprint: ReportBlueprint): void {
+  if (plan.architecture !== BOUNDED_SECTION_ENGINE_ARCHITECTURE) throw new Error('Narrative Slot Plan has the wrong architecture.');
+  if (!plan.slots.length) throw new Error('Narrative Slot Plan requires at least one slot.');
+  const ids = plan.slots.map((slot) => slot.slotId);
+  if (new Set(ids).size !== ids.length) throw new Error('Narrative Slot Plan slot IDs must be unique.');
+  if (plan.slots.some((slot, index) => slot.order !== index + 1)) throw new Error('Narrative Slot Plan ordering must be contiguous.');
+  const factRefs = new Set(pack.facts.map((fact) => fact.id));
+  for (const slot of plan.slots) {
+    if (slot.permittedClaimRefs.some((ref) => !factRefs.has(ref))) throw new Error(`Slot ${slot.slotId} contains an unauthorised claim reference.`);
+    if (slot.primaryContentRefs.some((ref) => !slot.permittedClaimRefs.includes(ref))) throw new Error(`Slot ${slot.slotId} primary content is outside its permitted claim set.`);
+    if (slot.requiredInsights.some((item) => item.supportingClaimRefs.some((ref) => !slot.permittedClaimRefs.includes(ref)))) throw new Error(`Slot ${slot.slotId} has an insight outside its permitted claim set.`);
+  }
+  const assignmentRefs = blueprint.contentAssignments.map((assignment) => assignment.contentRef);
+  const slotPrimaryRefs = plan.slots.flatMap((slot) => slot.primaryContentRefs);
+  if (new Set(slotPrimaryRefs).size !== slotPrimaryRefs.length) throw new Error('Narrative Slot Plan assigns primary content to more than one slot.');
+  const missing = assignmentRefs.filter((ref) => !slotPrimaryRefs.includes(ref));
+  if (missing.length) throw new Error(`Narrative Slot Plan has unowned primary content: ${missing.join(', ')}`);
+  if (pack.organisation.name === 'Rivonia Health Logistics (Pty) Ltd' && pack.productTier === 'essential' && blueprint.findingClusters.length !== 3) {
+    throw new Error(`Rivonia Essential requires exactly three priority exposure clusters; received ${blueprint.findingClusters.length}.`);
+  }
+}
+
+export function buildNarrativeSectionContract(slot: NarrativeSlot, pack: NarrativeFactPack, thesis: ReportThesis): NarrativeSectionContract {
+  return {
+    contractVersion: BOUNDED_SECTION_ENGINE_SCHEMA_VERSION,
+    slotId: slot.slotId,
+    tier: pack.productTier,
+    organisationName: pack.organisation.name,
+    assessmentReference: pack.assessment.reference,
+    reportThesis: thesis,
+    narrativeRole: slot.narrativeRole,
+    title: slot.title,
+    purpose: slot.purpose,
+    readerQuestion: slot.readerQuestion,
+    requiredManagementTakeaway: slot.requiredManagementTakeaway,
+    requiredInsights: slot.requiredInsights,
+    primaryContentRefs: slot.primaryContentRefs,
+    permittedCrossReferenceRefs: slot.permittedCrossReferenceRefs,
+    permittedClaimRefs: slot.permittedClaimRefs,
+    contentOwnedElsewhere: slot.contentOwnedElsewhere,
+    forbiddenTopics: slot.forbiddenTopics,
+    prohibitedClaims: blueprintProhibitedClaims(pack),
+    style: {
+      audience: 'Senior management and the board',
+      tone: 'clear, calm, specific, commercially useful and conditional where scenario-based',
+      expectedDepth: `${slot.wordBudget.targetWords} words of advisory narrative; explain meaning rather than reciting register fields`,
+      continuityInstruction: `Advance one connected report. Previous approved takeaway: ${slot.precedingContext}. Next slot purpose: ${slot.followingPurpose}`,
+      antiMechanicalRules: ['No raw database IDs or machine enums in customer prose.', 'No questionnaire language.', 'No report/register independent-assurance claims.', 'Do not repeat content owned elsewhere.', 'Do not use bullets unless the slot contract explicitly requires them.']
+    },
+    fit: { ...slot.wordBudget, targetCharacters: slot.characterBudget.targetCharacters, maximumCharacters: slot.characterBudget.maximumCharacters },
+    context: { previousApprovedTakeaway: slot.precedingContext, nextSlotPurpose: slot.followingPurpose },
+    authorisedFacts: slot.authorisedFacts,
+    outputContract: slot.outputContract
+  };
+}
+
+function blueprintProhibitedClaims(pack: NarrativeFactPack): string[] {
+  return unique([...pack.prohibitedClaims, 'independent verification by MK', 'confirmed fraud event', 'completed remediation', 'assured operating effectiveness']);
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let count = 0;
+  let from = 0;
+  while (true) {
+    const index = haystack.indexOf(needle, from);
+    if (index < 0) return count;
+    count += 1;
+    from = index + needle.length;
+  }
+}
+
+function customerText(result: NarrativeSlotResult): string {
+  return [result.narrative, result.managementImplication, result.centralJudgement, result.transitionCue].map(text).join('\n');
+}
+
+function rawIdTokens(value: string): string[] {
+  return value.match(/\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)+\b/g) ?? [];
+}
+
+function validateHardTruth(value: string, contract: NarrativeSectionContract): string[] {
+  const issues: string[] = [];
+  const allowed = new Set(numericTokens({ facts: contract.authorisedFacts, thesis: contract.reportThesis, fit: contract.fit, requiredInsights: contract.requiredInsights }));
+  const numbers = numericTokens(value);
+  const unexpected = numbers.filter((token) => !allowed.has(token));
+  if (unexpected.length) issues.push(`Unsupported numeric claims: ${unique(unexpected).join(', ')}.`);
+  const maturity = contract.reportThesis.overallPosition.maturity;
+  const maturityTerms = ['Reactive', 'Developing', 'Structured', 'Strategic'];
+  if (maturity && maturityTerms.some((term) => term !== maturity && new RegExp(`\\b${term}\\b`, 'i').test(value))) issues.push(`Narrative introduces maturity term other than ${maturity}.`);
+  return issues;
+}
+
+function validateAssurance(value: string): string[] {
+  const patterns = [
+    /(?:MK|the assessment|this report|the report|the review(?:er)?)\s+(?:has\s+)?(?:independently\s+)?(?:verified|validated|tested|confirmed|assured)/i,
+    /evidence\s+(?:has\s+been\s+)?(?:independently\s+)?(?:verified|validated|confirmed)/i,
+    /operating effectiveness\s+(?:has\s+been\s+)?(?:verified|validated|confirmed|assured)/i,
+    /no fraud occurred|fraud did not occur/i
+  ];
+  return patterns.filter((pattern) => pattern.test(value)).map((pattern) => `Assurance boundary violation: ${pattern}.`);
+}
+
+export function validateNarrativeSlotResult(result: NarrativeSlotResult, contract: NarrativeSectionContract): NarrativeSlotValidationReport {
+  const issues: NarrativeSlotValidationIssue[] = [];
+  const combined = customerText(result);
+  const resultRecord = result as unknown as Record<string, unknown>;
+  if (result.contractVersion !== BOUNDED_SECTION_ENGINE_SCHEMA_VERSION || result.slotId !== contract.slotId) issues.push({ code: 'STRUCTURE_FAILURE', message: 'Result contract version or slot identity does not match the deterministic contract.' });
+  if (!text(result.narrative) || !text(result.managementImplication) || !text(result.centralJudgement)) issues.push({ code: 'STRUCTURE_FAILURE', message: 'Narrative, centralJudgement and managementImplication are required.' });
+  if (!Array.isArray(result.usedClaimRefs) || !Array.isArray(result.requirementCoverage)) issues.push({ code: 'STRUCTURE_FAILURE', message: 'usedClaimRefs and requirementCoverage are required arrays.' });
+  const permitted = new Set(contract.permittedClaimRefs);
+  const unknownRefs = (result.usedClaimRefs ?? []).filter((ref) => !permitted.has(ref));
+  if (unknownRefs.length) issues.push({ code: 'PROVENANCE_VIOLATION', message: `Claim reference(s) are not authorised for this slot: ${unique(unknownRefs).join(', ')}.` });
+  const ownedElsewhere = new Set(contract.contentOwnedElsewhere);
+  const crossRefs = new Set(contract.permittedCrossReferenceRefs);
+  const ownedViolations = (result.usedClaimRefs ?? []).filter((ref) => ownedElsewhere.has(ref) && !crossRefs.has(ref));
+  if (ownedViolations.length) issues.push({ code: 'CONTENT_OWNERSHIP_VIOLATION', message: `Primary content owned by another slot was re-explained: ${unique(ownedViolations).join(', ')}.` });
+  const requiredIds = contract.requiredInsights.map((item) => item.requirementId);
+  const coverage = result.requirementCoverage ?? [];
+  const coverageIds = coverage.map((item) => item.requirementId);
+  const missingIds = requiredIds.filter((id) => !coverageIds.includes(id));
+  const duplicateIds = coverageIds.filter((id, index) => coverageIds.indexOf(id) !== index);
+  const unknownIds = coverageIds.filter((id) => !requiredIds.includes(id));
+  if (missingIds.length) issues.push({ code: 'MISSING_REQUIRED_INSIGHT', message: `Required insight coverage is missing: ${missingIds.join(', ')}.` });
+  if (duplicateIds.length || unknownIds.length) issues.push({ code: 'DUPLICATE_REQUIRED_INSIGHT', message: `Requirement coverage must contain each contract requirement exactly once; duplicate/unknown IDs: ${unique([...duplicateIds, ...unknownIds]).join(', ')}.` });
+  for (const item of coverage) {
+    const excerpt = text(item.supportingExcerpt);
+    if (!requiredIds.includes(item.requirementId)) continue;
+    if (!excerpt || countOccurrences(text(result.narrative), excerpt) !== 1) issues.push({ code: 'MISSING_REQUIRED_INSIGHT', message: `Supporting excerpt for ${item.requirementId} must occur exactly once in narrative.` });
+  }
+  const hardTruthIssues = validateHardTruth(combined, contract);
+  if (hardTruthIssues.length) issues.push({ code: 'HARD_TRUTH_FAILURE', message: hardTruthIssues.join(' ') });
+  const assuranceIssues = validateAssurance(combined);
+  if (assuranceIssues.length) issues.push({ code: 'ASSURANCE_LANGUAGE', message: assuranceIssues.join(' ') });
+  const rawIds = rawIdTokens(combined);
+  if (rawIds.length) issues.push({ code: 'STYLE_FAILURE', message: `Customer prose contains machine artefact(s): ${unique(rawIds).join(', ')}.` });
+  if (/^\s*[-*]\s+/m.test(text(result.narrative))) issues.push({ code: 'STYLE_FAILURE', message: 'Customer prose contains bullets where the bounded contract requires prose.' });
+  if (/(?:did you|which option should|select one|questionnaire)/i.test(combined)) issues.push({ code: 'STYLE_FAILURE', message: 'Questionnaire language is not permitted in customer prose.' });
+  const mechanicalPhrases = ['recorded condition', 'recorded weakness', 'recorded position', 'the approved response', 'self-assessed as', 'management should'];
+  const mechanicalCount = mechanicalPhrases.reduce((sum, phrase) => sum + countOccurrences(combined.toLowerCase(), phrase), 0);
+  if (mechanicalCount > 4) issues.push({ code: 'MECHANICAL_LANGUAGE', message: `Mechanical management/questionnaire language exceeds the bounded threshold (${mechanicalCount}).` });
+  const wordCount = words(`${result.narrative} ${result.managementImplication}`);
+  const characterCount = characters(`${result.narrative}\n${result.managementImplication}`);
+  if (wordCount > contract.fit.maximumWords) issues.push({ code: 'FIT_OVERFLOW', message: `Maximum ${contract.fit.maximumWords} words; received ${wordCount}. Reduce by at least ${wordCount - contract.fit.maximumWords} words.` });
+  if (wordCount < contract.fit.minimumWords) issues.push({ code: 'FIT_UNDERFLOW', message: `Minimum ${contract.fit.minimumWords} words; received ${wordCount}. Add at least ${contract.fit.minimumWords - wordCount} words while preserving required insights.` });
+  if (characterCount > contract.fit.maximumCharacters) issues.push({ code: 'FIT_OVERFLOW', message: `Maximum ${contract.fit.maximumCharacters} characters; received ${characterCount}.` });
+  if (typeof resultRecord.transitionCue !== 'string') issues.push({ code: 'STRUCTURE_FAILURE', message: 'transitionCue is required, even when it is an empty string.' });
+  return { ok: issues.length === 0, slotId: contract.slotId, wordCount, characterCount, issues, usedClaimRefs: [...(result.usedClaimRefs ?? [])], requirementIds: coverageIds };
+}
+
+function sentences(value: string): string[] {
+  return value.split(/(?<=[.!?])\s+/).map((item) => item.trim().toLowerCase()).filter((item) => words(item) >= 8);
+}
+
+export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint: ReportBlueprint, approvedSlots: ApprovedNarrativeSlot[], accounting: BoundedGenerationAccounting): BoundedCompiledManuscript {
+  const expected = plan.slots.map((slot) => slot.slotId);
+  const compiled = approvedSlots.map((approved) => approved.contract.slotId);
+  const issues: string[] = [];
+  if (compiled.join('|') !== expected.join('|')) issues.push('Approved slots are not compiled in deterministic plan order.');
+  if (new Set(compiled).size !== compiled.length) issues.push('Compiled manuscript contains a duplicate slot.');
+  const primaryRefs = blueprint.contentAssignments.map((assignment) => assignment.contentRef);
+  const usedPrimary = approvedSlots.flatMap((slot) => slot.contract.primaryContentRefs);
+  const missingPrimaryContentRefs = primaryRefs.filter((ref) => !usedPrimary.includes(ref));
+  const duplicatePrimaryContentRefs = unique(usedPrimary.filter((ref, index) => usedPrimary.indexOf(ref) !== index));
+  if (missingPrimaryContentRefs.length) issues.push(`Primary content is missing from compilation: ${missingPrimaryContentRefs.join(', ')}.`);
+  if (duplicatePrimaryContentRefs.length) issues.push(`Primary content appears in more than one compiled slot: ${duplicatePrimaryContentRefs.join(', ')}.`);
+  const headings: string[] = [];
+  const blocks: string[] = [];
+  let currentChapter = '';
+  for (const approved of approvedSlots) {
+    const slot = plan.slots.find((item) => item.slotId === approved.contract.slotId);
+    if (!slot) { issues.push(`Approved slot ${approved.contract.slotId} is not in the plan.`); continue; }
+    if (slot.chapterId !== currentChapter) {
+      const chapter = blueprint.chapters.find((item) => item.chapterId === slot.chapterId);
+      if (!chapter) { issues.push(`Slot ${slot.slotId} references an unknown chapter.`); continue; }
+      blocks.push(`# ${chapter.title}`);
+      currentChapter = slot.chapterId;
+    }
+    headings.push(slot.title);
+    blocks.push(`## ${slot.title}\n\n${approved.result.narrative.trim()}\n\n${approved.result.managementImplication.trim()}`);
+  }
+  const markdown = `# ${blueprint.reportTitle}\n\n${blocks.join('\n\n')}`.trim() + '\n';
+  const totalWordCount = words(markdown.replace(/^#+\s.*$/gm, ''));
+  const totalCharacterCount = characters(markdown);
+  if (totalWordCount < plan.reportWordEnvelope.minimumWords || totalWordCount > plan.reportWordEnvelope.maximumWords) issues.push(`Report-level narrative envelope is ${plan.reportWordEnvelope.minimumWords}-${plan.reportWordEnvelope.maximumWords} words; received ${totalWordCount}.`);
+  if (approvedSlots.length === 0 || approvedSlots[approvedSlots.length - 1]!.contract.narrativeRole !== 'CONCLUSION') issues.push('Compiled manuscript must end with an approved conclusion slot.');
+  const allText = approvedSlots.map((slot) => [slot.result.narrative, slot.result.managementImplication].join('\n')).join('\n');
+  const duplicateSentences = sentences(allText).filter((sentence, index, all) => all.indexOf(sentence) !== index);
+  if (duplicateSentences.length) issues.push(`Repeated sentence overlap detected: ${unique(duplicateSentences).slice(0, 3).join(' | ')}`);
+  if (!/30\s+days[\s\S]{0,800}60\s+days[\s\S]{0,800}90\s+days/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not preserve the 30/60/90 implementation sequence.');
+  if (!/evidence|custody|incident/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not contain incident/evidence-preservation meaning.');
+  return { markdown, approvedSlots, validation: { ok: issues.length === 0, totalWordCount, totalCharacterCount, expectedSlotIds: expected, compiledSlotIds: compiled, missingPrimaryContentRefs, duplicatePrimaryContentRefs, issues }, accounting };
+}
+
+export function createEmptyBoundedAccounting(reportGenerationId: string): BoundedGenerationAccounting {
+  return { reportGenerationId, architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE, modelBySlot: {}, calls: [], initialCalls: 0, repairCalls: 0, qualityEscalations: 0, failedSlots: [], totalTokens: 0, totalProviderCostMicros: 0 };
+}
+
+export async function generateBoundedNarrativeReport(input: {
+  reportGenerationId: string;
+  pack: NarrativeFactPack;
+  blueprint: ReportBlueprint;
+  thesis?: ReportThesis;
+  plan?: NarrativeSlotPlan;
+  provider: BoundedSectionProvider;
+  onCandidate?: (event: { slot: NarrativeSlot; contract: NarrativeSectionContract; call: BoundedProviderCall; validation: NarrativeSlotValidationReport; callNumber: number }) => Promise<void> | void;
+}): Promise<BoundedCompiledManuscript> {
+  const thesis = input.thesis ?? buildReportThesis(input.pack, input.blueprint);
+  const plan = input.plan ?? buildNarrativeSlotPlan(input.pack, input.blueprint, thesis);
+  assertNarrativeSlotPlan(plan, input.pack, input.blueprint);
+  const accounting = createEmptyBoundedAccounting(input.reportGenerationId);
+  const approved: ApprovedNarrativeSlot[] = [];
+  for (const slot of plan.slots) {
+    const contract = buildNarrativeSectionContract(slot, input.pack, thesis);
+    const calls: BoundedProviderCall[] = [];
+    let call = await input.provider.generate(contract);
+    calls.push(call);
+    accounting.initialCalls += 1;
+    accounting.modelBySlot[slot.slotId] = call.metadata.model;
+    accounting.calls.push(call.metadata);
+    accounting.totalTokens += call.metadata.totalTokens ?? 0;
+    accounting.totalProviderCostMicros += call.metadata.providerCostMicros ?? 0;
+    let validation = validateNarrativeSlotResult(call.result, contract);
+    await input.onCandidate?.({ slot, contract, call, validation, callNumber: calls.length });
+    let repairNumber = 0;
+    while (!validation.ok && repairNumber < MAX_SECTION_REPAIR_CALLS) {
+      repairNumber += 1;
+      call = await input.provider.repair(contract, { result: call.result, validation }, repairNumber);
+      calls.push(call);
+      accounting.repairCalls += 1;
+      accounting.calls.push(call.metadata);
+      accounting.totalTokens += call.metadata.totalTokens ?? 0;
+      accounting.totalProviderCostMicros += call.metadata.providerCostMicros ?? 0;
+      validation = validateNarrativeSlotResult(call.result, contract);
+      await input.onCandidate?.({ slot, contract, call, validation, callNumber: calls.length });
+    }
+    if (!validation.ok && input.provider.qualityEscalate && validation.issues.every((issue) => issue.code === 'FIT_OVERFLOW' || issue.code === 'FIT_UNDERFLOW' || issue.code === 'MECHANICAL_LANGUAGE' || issue.code === 'STYLE_FAILURE')) {
+      call = await input.provider.qualityEscalate(contract, { result: call.result, validation });
+      calls.push(call);
+      accounting.qualityEscalations += 1;
+      accounting.calls.push(call.metadata);
+      accounting.totalTokens += call.metadata.totalTokens ?? 0;
+      accounting.totalProviderCostMicros += call.metadata.providerCostMicros ?? 0;
+      validation = validateNarrativeSlotResult(call.result, contract);
+      await input.onCandidate?.({ slot, contract, call, validation, callNumber: calls.length });
+    }
+    if (!validation.ok) {
+      accounting.failedSlots.push(slot.slotId);
+      throw new Error(`Bounded section ${slot.slotId} failed closed: ${validation.issues.map((issue) => issue.message).join(' | ')}`);
+    }
+    approved.push({ contract, result: call.result, validation, metadata: call.metadata, calls });
+  }
+  const compiled = compileApprovedNarrativeSlots(plan, input.blueprint, approved, accounting);
+  if (!compiled.validation.ok) throw new Error(`Bounded manuscript failed closed: ${compiled.validation.issues.join(' | ')}`);
+  return compiled;
+}

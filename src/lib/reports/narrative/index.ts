@@ -18,5 +18,8 @@ export * from './recovery-policy';
 export * from './whole-manuscript-writer';
 export * from './whole-manuscript-reconciliation';
 export * from './whole-manuscript-recovery';
+export * from './architecture';
+export * from './bounded-section-engine';
+export * from './bounded-section-writer';
 export * from './blueprint-text';
 export * from '../ai-model-policy';
