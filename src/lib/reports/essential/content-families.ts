@@ -1,0 +1,225 @@
+/**
+ * Content family taxonomy for the Essential report.
+ *
+ * Every analytical object -- finding, control, scenario, roadmap action -- carries
+ * a semantic family in the Fact Pack. This module maps those families onto the
+ * three exposure families the report presents, so an exhibit row draws only on
+ * content that genuinely belongs to it.
+ *
+ * The defect this exists to prevent: exposures and scenarios were paired by array
+ * index. Rivonia's scenarios are ordered supplier / incident / detection while its
+ * exposures are ordered supplier / identity-transaction / containment, so the
+ * identity exposure was explained with evidence-custody content and the
+ * containment exposure with monitoring content. Both read plausibly and both were
+ * wrong.
+ */
+
+export const CONTENT_FAMILY_VERSION = 'mk-essential-content-families-v1';
+
+export type ExposureFamily =
+  | 'SUPPLIER_PAYMENT_VALUE_DIVERSION'
+  | 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE'
+  | 'INCIDENT_CONTAINMENT_LEARNING';
+
+/** Cross-cutting families belong to no single exposure and may support any. */
+export const CROSS_CUTTING_FAMILIES = ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION', 'FRAUD_CULTURE'] as const;
+
+/**
+ * Semantic family -> owning exposure family.
+ * A family absent here is cross-cutting and never claims primary ownership.
+ */
+const SEMANTIC_TO_EXPOSURE: Record<string, ExposureFamily> = {
+  SUPPLIER_ONBOARDING: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  PAYMENT_INTEGRITY: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  THIRD_PARTY: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  IDENTITY_VERIFICATION: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  DETECTION_MONITORING: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  TRANSACTION_MONITORING: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  SENSITIVE_CHANGE: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  ACCESS_CONTROL: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  EVIDENCE_INTEGRITY: 'INCIDENT_CONTAINMENT_LEARNING',
+  INCIDENT_RESPONSE: 'INCIDENT_CONTAINMENT_LEARNING',
+  INVESTIGATION: 'INCIDENT_CONTAINMENT_LEARNING',
+  CONTINUOUS_IMPROVEMENT: 'INCIDENT_CONTAINMENT_LEARNING'
+};
+
+/** Scenario family -> owning exposure family. Never positional. */
+const SCENARIO_TO_EXPOSURE: Record<string, ExposureFamily> = {
+  SUPPLIER_PAYMENT_DIVERSION: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  PAYMENT_DIVERSION: 'SUPPLIER_PAYMENT_VALUE_DIVERSION',
+  DETECTION_EVASION: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  IDENTITY_COMPROMISE: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
+  INCIDENT_CONCEALMENT: 'INCIDENT_CONTAINMENT_LEARNING',
+  EVIDENCE_DEGRADATION: 'INCIDENT_CONTAINMENT_LEARNING'
+};
+
+/** Keywords used to place an exposure cluster label onto a family. */
+const EXPOSURE_LABEL_HINTS: Array<{ family: ExposureFamily; hints: RegExp }> = [
+  { family: 'SUPPLIER_PAYMENT_VALUE_DIVERSION', hints: /supplier|payment|vendor|value diversion|third[- ]party|bank/i },
+  { family: 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE', hints: /identity|transaction|sensitive[- ]change|challenge|monitoring|detection|unusual/i },
+  { family: 'INCIDENT_CONTAINMENT_LEARNING', hints: /containment|learning|incident|evidence|after suspected|investigat/i }
+];
+
+export function exposureFamilyForLabel(label: string): ExposureFamily | undefined {
+  return EXPOSURE_LABEL_HINTS.find((entry) => entry.hints.test(label))?.family;
+}
+
+export function exposureFamilyForSemantic(semanticFamily: string | undefined | null): ExposureFamily | undefined {
+  if (!semanticFamily) return undefined;
+  return SEMANTIC_TO_EXPOSURE[String(semanticFamily).toUpperCase()];
+}
+
+export function exposureFamilyForScenario(scenarioFamily: string | undefined | null): ExposureFamily | undefined {
+  if (!scenarioFamily) return undefined;
+  return SCENARIO_TO_EXPOSURE[String(scenarioFamily).toUpperCase()];
+}
+
+export function isCrossCutting(semanticFamily: string | undefined | null): boolean {
+  return (CROSS_CUTTING_FAMILIES as readonly string[]).includes(String(semanticFamily ?? '').toUpperCase());
+}
+
+/**
+ * Deliberate short labels per semantic family.
+ *
+ * The analytical model stores full control specifications. Those are correct and
+ * must be retained, but they are not presentation text: clipping one to fit a
+ * diagram node produced an ellipsis mid-clause, which exposed the defect rather
+ * than solving it. Each family therefore carries an authored short form.
+ */
+export interface FamilyPresentation {
+  shortLabel: string;
+  /** The operating state management is aiming at, not the artefact proving it. */
+  targetState: string;
+  /** Where a pathway is interrupted. */
+  interruptionPoint: string;
+  scenarioEntry: string;
+  scenarioControlBreak: string;
+  scenarioExposure: string;
+}
+
+const FAMILY_PRESENTATION: Record<string, FamilyPresentation> = {
+  FRAUD_GOVERNANCE: {
+    shortLabel: 'Fraud-risk ownership and escalation',
+    targetState: 'Every material fraud risk and key control has a named owner, decision authority, escalation route and reporting rhythm.',
+    interruptionPoint: 'Named ownership and a defined escalation route.',
+    scenarioEntry: 'A fraud concern arises with no clear owner',
+    scenarioControlBreak: 'No defined decision or escalation authority',
+    scenarioExposure: 'The matter stalls before anyone can act'
+  },
+  FRAUD_RISK_IDENTIFICATION: {
+    shortLabel: 'Fraud risk mapping and treatment ownership',
+    targetState: 'Fraud risks are mapped to processes, refreshed on change and assigned to named treatment owners.',
+    interruptionPoint: 'A current fraud-risk map with assigned treatment owners.',
+    scenarioEntry: 'A process changes without fraud-risk review',
+    scenarioControlBreak: 'No refresh of the fraud-risk map',
+    scenarioExposure: 'New exposure enters unassessed'
+  },
+  SUPPLIER_ONBOARDING: {
+    shortLabel: 'Independent supplier verification before activation',
+    targetState: 'New suppliers and bank-detail changes are independently challenged before activation or payment.',
+    interruptionPoint: 'Independent verification before a supplier or bank change takes effect.',
+    scenarioEntry: 'Bank-detail or supplier change submitted',
+    scenarioControlBreak: 'Independent verification absent or bypassed',
+    scenarioExposure: 'Legitimate payment redirected before challenge'
+  },
+  IDENTITY_VERIFICATION: {
+    shortLabel: 'Verification at identity and sensitive-change points',
+    targetState: 'Identity and sensitive profile or account changes are verified proportionately to their risk before they take effect.',
+    interruptionPoint: 'Risk-based verification at the point of change.',
+    scenarioEntry: 'A sensitive profile or account change is requested',
+    scenarioControlBreak: 'Change accepted without proportionate verification',
+    scenarioExposure: 'Control is bypassed at the point of change'
+  },
+  DETECTION_MONITORING: {
+    shortLabel: 'Repeatable monitoring and named exception review',
+    targetState: 'Material processes are monitored on a defined cycle and exceptions are reviewed by a named owner within an agreed period.',
+    interruptionPoint: 'A defined monitoring cycle with named exception review.',
+    scenarioEntry: 'Unusual transaction or activity occurs',
+    scenarioControlBreak: 'No repeatable monitoring or timely exception review',
+    scenarioExposure: 'Activity remains below timely challenge'
+  },
+  EVIDENCE_INTEGRITY: {
+    shortLabel: 'Controlled incident and evidence handling',
+    targetState: 'Suspected matters follow a defined intake, preservation and custody route from the moment they are raised.',
+    interruptionPoint: 'A defined intake and preservation route at first report.',
+    scenarioEntry: 'A suspected fraud matter arises',
+    scenarioControlBreak: 'Preservation and custody route is informal',
+    scenarioExposure: 'Evidence fragmented, delayed or weakened'
+  },
+  CONTINUOUS_IMPROVEMENT: {
+    shortLabel: 'Learning and control refresh after events',
+    targetState: 'Findings from incidents and reviews are captured and drive a scheduled refresh of fraud risks and controls.',
+    interruptionPoint: 'A scheduled review that converts findings into control change.',
+    scenarioEntry: 'A matter closes without structured review',
+    scenarioControlBreak: 'No route from lesson to control change',
+    scenarioExposure: 'The same exposure recurs'
+  }
+};
+
+export function familyPresentation(semanticFamily: string | undefined | null): FamilyPresentation | undefined {
+  return FAMILY_PRESENTATION[String(semanticFamily ?? '').toUpperCase()];
+}
+
+/**
+ * Diagnostic pattern families.
+ *
+ * Each pattern names the domains that genuinely evidence it, so a row is
+ * supported by several related signals rather than whichever score happened to
+ * match a keyword. A pattern with fewer than two present signals is dropped
+ * rather than padded.
+ */
+export interface DiagnosticPatternDefinition {
+  patternId: string;
+  displayTitle: string;
+  /** Matched against domain names. */
+  domainMatchers: RegExp[];
+  whyItMatters: string;
+  semanticFamilies: string[];
+}
+
+export const DIAGNOSTIC_PATTERNS: DiagnosticPatternDefinition[] = [
+  {
+    patternId: 'GOVERNANCE_AND_RISK_DISCIPLINE',
+    displayTitle: 'Fraud governance and risk discipline',
+    domainMatchers: [/leadership|governance/i, /risk identification/i, /continuous improvement|monitoring/i],
+    whyItMatters: 'Fraud risk is not yet managed through a repeatable cycle of ownership, assessment and review.',
+    semanticFamilies: ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION']
+  },
+  {
+    patternId: 'SUPPLIER_AND_PAYMENT_INTEGRITY',
+    displayTitle: 'Supplier and payment integrity',
+    domainMatchers: [/third[- ]party|supply chain/i, /operational fraud controls/i],
+    whyItMatters: 'Operational controls do not extend consistently to supplier onboarding and payment-change challenge, leaving direct value-diversion exposure.',
+    semanticFamilies: ['SUPPLIER_ONBOARDING']
+  },
+  {
+    patternId: 'MONITORING_AND_DETECTION',
+    displayTitle: 'Monitoring and detection coverage',
+    domainMatchers: [/detection/i, /continuous improvement|monitoring/i, /digital|identity/i],
+    whyItMatters: 'Unusual activity may not be challenged early enough, allowing exposure to remain below management attention.',
+    semanticFamilies: ['DETECTION_MONITORING', 'IDENTITY_VERIFICATION']
+  },
+  {
+    patternId: 'INCIDENT_RESPONSE_AND_EVIDENCE',
+    displayTitle: 'Incident response and evidence integrity',
+    domainMatchers: [/incident response/i, /culture|awareness/i, /whistleblow|reporting culture/i],
+    whyItMatters: 'A suspected matter may be reported, but weak preservation and response discipline can undermine containment, investigation and learning.',
+    semanticFamilies: ['EVIDENCE_INTEGRITY', 'CONTINUOUS_IMPROVEMENT']
+  }
+];
+
+/**
+ * Roadmap staging.
+ *
+ * targetPeriod alone put a single governance action in the 30-day stage while the
+ * report itself identified several immediate stabilisation needs. Stabilisation
+ * is about establishing control over the problem -- ownership, escalation,
+ * evidence handling and treatment ownership -- so those families stage early
+ * regardless of their nominal period, provided their dependencies are met.
+ */
+export const STABILISATION_FAMILIES = ['FRAUD_GOVERNANCE', 'EVIDENCE_INTEGRITY', 'INCIDENT_RESPONSE', 'FRAUD_RISK_IDENTIFICATION'] as const;
+
+export function isStabilisationFamily(semanticFamily: string | undefined | null): boolean {
+  return (STABILISATION_FAMILIES as readonly string[]).includes(String(semanticFamily ?? '').toUpperCase());
+}

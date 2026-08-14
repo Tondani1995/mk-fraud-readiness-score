@@ -255,11 +255,12 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
         <div class="scn">
           <h3>${esc(s.title)}</h3>
           <div class="flow">
-            <div class="node">${esc(s.entryPoint)}</div><div class="arw">›</div>
-            <div class="node break">${esc(s.controlBreak)}</div><div class="arw">›</div>
-            <div class="node stop">${esc(s.immediateInterruption)}</div>
+            <div class="node">${esc(s.entryPointShort)}</div><div class="arw">›</div>
+            <div class="node break">${esc(s.controlBreakShort)}</div><div class="arw">›</div>
+            <div class="node stop">${esc(s.exposureShort)}</div>
           </div>
           <p class="small">${esc(s.howItUnfolds)}</p>
+          <p class="cap" style="margin-top:1.5mm"><strong style="color:var(--navy-700)">Interrupted by:</strong> ${esc(s.immediateInterruption)}</p>
         </div>`).join('')}
       <div class="sp"></div>
       <p class="note" style="margin-bottom:5mm">${esc(model.scenarios.assuranceNote)}</p>
@@ -274,7 +275,7 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
     <h1>${esc(model.priorities.title)}</h1>
     <div class="gap"></div>
     <table>
-      <thead><tr><th style="width:5%">#</th><th style="width:32%">Management outcome</th><th style="width:27%">Why now</th><th style="width:18%">Accountable</th><th style="width:18%">What better looks like</th></tr></thead>
+      <thead><tr><th style="width:4%">#</th><th style="width:23%">Management outcome</th><th style="width:24%">Why now</th><th style="width:13%">Accountable</th><th style="width:36%">What good looks like</th></tr></thead>
       <tbody>${model.priorities.rows.map((r) => `<tr>
         <td class="rank">${r.rank}</td>
         <td><strong>${esc(r.outcome)}</strong></td>

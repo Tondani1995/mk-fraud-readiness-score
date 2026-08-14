@@ -16,7 +16,17 @@
  * instead of manufactured weakness.
  */
 
-export const ESSENTIAL_PRESENTATION_MODEL_VERSION = 'mk-essential-presentation-v1';
+import {
+  DIAGNOSTIC_PATTERNS,
+  exposureFamilyForLabel,
+  exposureFamilyForScenario,
+  exposureFamilyForSemantic,
+  familyPresentation,
+  isStabilisationFamily,
+  type ExposureFamily
+} from './content-families';
+
+export const ESSENTIAL_PRESENTATION_MODEL_VERSION = 'mk-essential-presentation-v2';
 
 export type NarrativeMode = 'REMEDIATION' | 'SUSTAINMENT';
 
@@ -81,6 +91,8 @@ export interface DiagnosisMatrixExhibit extends ExhibitBase {
 export interface PriorityExposureExhibit extends ExhibitBase {
   rows: Array<{
     rank: number;
+    /** The family this row owns. Content from another family may not appear here. */
+    family?: ExposureFamily;
     exposure: string;
     whyItMatters: string;
     drivers: Array<{ title: string; score: number }>;
@@ -92,9 +104,13 @@ export interface PriorityExposureExhibit extends ExhibitBase {
 export interface ScenarioPathwayExhibit extends ExhibitBase {
   scenarios: Array<{
     scenarioId: string;
-    family: string;
+    /** Owning exposure family, resolved by scenario family and never by position. */
+    family?: ExposureFamily;
     title: string;
     entryPoint: string;
+    entryPointShort: string;
+    controlBreakShort: string;
+    exposureShort: string;
     controlBreak: string;
     howItUnfolds: string;
     warningIndicators: string[];
@@ -105,7 +121,8 @@ export interface ScenarioPathwayExhibit extends ExhibitBase {
 }
 
 export interface ManagementPriorityExhibit extends ExhibitBase {
-  rows: Array<{ rank: number; outcome: string; whyNow: string; accountableRole: string; betterLooksLike: string }>;
+  /** betterLooksLike is a target operating state; the proving artefact stays in the workbook. */
+  rows: Array<{ rank: number; outcome: string; whyNow: string; accountableRole: string; betterLooksLike: string; evidenceArtefact?: string }>;
 }
 
 export interface RoadmapExhibit extends ExhibitBase {
@@ -283,26 +300,27 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     ? { exhibitId: 'EX-MATERIAL-CONTRASTS', sourceRefs: rawContrasts.flatMap((c) => [...(c.stronger?.claimRefs ?? []), ...(c.weaker?.claimRefs ?? [])]), title: 'Material capability relationships', contrasts: contrastRows }
     : undefined;
 
-  // ---- Diagnosis: systemic themes with their supporting signals ----
-  const themes: string[] = Array.isArray(thesis.systemicDiagnosis) ? thesis.systemicDiagnosis : [];
-  const domainByKeyword = (theme: string) => {
-    const words = theme.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 4);
-    return sortedDomains
-      .filter((d) => words.some((w) => String(d.name ?? '').toLowerCase().includes(w)))
-      .slice(0, 3)
+  // ---- Diagnosis: pattern families, each evidenced by several related signals ----
+  const findings: any[] = Array.isArray(factPack.findings) ? factPack.findings : [];
+  const diagnosisRows = DIAGNOSTIC_PATTERNS.map((pattern) => {
+    const signals = sortedDomains
+      .filter((d) => pattern.domainMatchers.some((matcher) => matcher.test(String(d.name ?? ''))))
       .map((d) => ({ title: customerText(d.name), score: d.score ?? 0 }));
-  };
-  const diagnosisRows = themes
-    .map((theme) => {
-      const signals = domainByKeyword(theme);
-      return {
-        pattern: customerText(theme),
-        signals: signals.length ? signals : [{ title: customerText(weakestDomain?.name), score: weakestDomain?.score ?? 0 }],
-        whyItMatters: sentence(commentary[`DIAGNOSIS-${theme}`] ?? '')
-      };
-    })
-    .filter((row) => row.pattern)
-    .slice(0, 4);
+    const supportingFindings = findings
+      .filter((f) => pattern.domainMatchers.some((matcher) => matcher.test(String(f.domain ?? ''))))
+      .map((f) => f.factRef).filter(Boolean);
+    return {
+      patternId: pattern.patternId,
+      pattern: pattern.displayTitle,
+      signals,
+      supportingFindings,
+      whyItMatters: sentence(commentary[`DIAGNOSIS-${pattern.patternId}`] ?? pattern.whyItMatters)
+    };
+  })
+    // A pattern needs more than one present signal to be a pattern. Padding a row
+    // with an unrelated score to reach a count is what made the first version thin.
+    .filter((row) => row.signals.length >= 2 && row.whyItMatters)
+    .map(({ patternId, supportingFindings, ...row }) => row);
 
   const diagnosis: DiagnosisMatrixExhibit = {
     exhibitId: 'EX-DIAGNOSIS-MATRIX',
@@ -312,42 +330,63 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     interpretation: commentary['DIAGNOSIS-SYNTHESIS']
   };
 
-  // ---- Priority exposures ----
+  // ---- Priority exposures, owned by family ----
   const clusters: string[] = Array.isArray(thesis.priorityExposureClusters) ? thesis.priorityExposureClusters : [];
   const scenarios: any[] = Array.isArray(factPack.scenarios) ? factPack.scenarios : [];
+  const controls: any[] = Array.isArray(factPack.controls) ? factPack.controls : [];
+
   const exposureRows = clusters.map((cluster, index) => {
-    const linked = scenarios[index];
+    const family = exposureFamilyForLabel(cluster);
+    // Resolve supporting content by family. Pairing by array position previously
+    // explained the identity exposure with evidence-custody content, because the
+    // scenario order and the cluster order do not correspond.
+    const linkedScenario = scenarios.find((s) => exposureFamilyForScenario(s.scenarioFamily) === family);
+    const linkedControls = controls.filter((c) => exposureFamilyForSemantic(c.primarySemanticFamily) === family);
+    const presentation = familyPresentation(linkedControls[0]?.primarySemanticFamily);
+    const driverDomains = sortedDomains
+      .filter((d) => family === exposureFamilyForLabel(String(d.name ?? '')))
+      .slice(0, 3);
     return {
       rank: index + 1,
+      family,
       exposure: customerText(cluster),
-      whyItMatters: sentence(commentary[`EXPOSURE-${index + 1}`] ?? firstSentence(linked?.opportunity ?? '')),
-      drivers: sortedDomains.slice(0, 3).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 })),
-      interruptionPoint: nodeLabel(linked?.requiredControlResponse ?? linked?.currentControlWeakness ?? '', 150),
+      whyItMatters: sentence(commentary[`EXPOSURE-${family}`] ?? firstSentence(linkedScenario?.opportunity ?? '')),
+      drivers: (driverDomains.length ? driverDomains : sortedDomains.slice(0, 2)).map((d) => ({ title: customerText(d.name), score: d.score ?? 0 })),
+      interruptionPoint: presentation?.interruptionPoint ?? '',
       priority: PRIORITY_LABELS[Math.min(index, PRIORITY_LABELS.length - 1)]!
     };
-  });
+  }).filter((row) => row.exposure && row.whyItMatters && row.interruptionPoint);
+
   const exposures: PriorityExposureExhibit | undefined = exposureRows.length
     ? { exhibitId: 'EX-PRIORITY-EXPOSURE', sourceRefs: scenarios.map((s) => s.factRef).filter(Boolean), title: sustainment ? 'Residual exposure and watchpoints' : 'Priority fraud exposure', rows: exposureRows }
     : undefined;
 
-  // ---- Scenario pathways ----
+  // ---- Scenario pathways: short authored nodes, never clipped specifications ----
   const scenarioExhibit: ScenarioPathwayExhibit | undefined = scenarios.length
     ? {
         exhibitId: 'EX-SCENARIO-PATHWAYS',
         sourceRefs: scenarios.map((s) => s.factRef).filter(Boolean),
         title: 'How exposure could materialise',
         assuranceNote: 'These are plausible fraud pathways derived from the assessment. They are not allegations that these events have occurred.',
-        scenarios: scenarios.map((s, index) => ({
-          scenarioId: s.factRef ?? `SCENARIO-${index + 1}`,
-          family: s.scenarioFamily ?? '',
-          title: customerText(s.title),
-          entryPoint: nodeLabel(s.entryPoint ?? ''),
-          controlBreak: nodeLabel(s.currentControlWeakness ?? ''),
-          howItUnfolds: sentence(commentary[`SCENARIO-${s.factRef}`] ?? s.mechanism ?? ''),
-          warningIndicators: (Array.isArray(s.warningIndicators) ? s.warningIndicators : [])
-            .map((w: string) => customerText(w)).filter(Boolean).slice(0, 3),
-          immediateInterruption: nodeLabel(s.requiredControlResponse ?? '')
-        }))
+        scenarios: scenarios.map((s, index) => {
+          const family = exposureFamilyForScenario(s.scenarioFamily);
+          const owningControl = controls.find((c) => exposureFamilyForSemantic(c.primarySemanticFamily) === family);
+          const presentation = familyPresentation(owningControl?.primarySemanticFamily);
+          return {
+            scenarioId: s.factRef ?? `SCENARIO-${index + 1}`,
+            family,
+            title: customerText(s.title),
+            entryPointShort: presentation?.scenarioEntry ?? '',
+            controlBreakShort: presentation?.scenarioControlBreak ?? '',
+            exposureShort: presentation?.scenarioExposure ?? '',
+            entryPoint: presentation?.scenarioEntry ?? '',
+            controlBreak: presentation?.scenarioControlBreak ?? '',
+            howItUnfolds: sentence(commentary[`SCENARIO-${s.factRef}`] ?? s.mechanism ?? ''),
+            warningIndicators: (Array.isArray(s.warningIndicators) ? s.warningIndicators : [])
+              .map((w: string) => customerText(w)).filter(Boolean).slice(0, 3),
+            immediateInterruption: presentation?.interruptionPoint ?? ''
+          };
+        }).filter((s) => s.entryPointShort && s.controlBreakShort && s.exposureShort)
       }
     : undefined;
 
@@ -362,13 +401,21 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       return true;
     })
     .slice(0, 5)
-    .map((item, index) => ({
-      rank: index + 1,
-      outcome: customerText(item.managementOutcome),
-      whyNow: sentence(commentary[`PRIORITY-${index + 1}`] ?? firstSentence(item.priorityWork ?? '')),
-      accountableRole: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
-      betterLooksLike: nodeLabel(item.proofOfCompletion ?? '', 130)
-    }));
+    .map((item, index) => {
+      const presentation = familyPresentation(item.primarySemanticFamily);
+      return {
+        rank: index + 1,
+        outcome: presentation?.shortLabel ?? customerText(item.managementOutcome),
+        whyNow: sentence(commentary[`PRIORITY-${item.primarySemanticFamily}`] ?? firstSentence(item.managementOutcome ?? '')),
+        accountableRole: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
+        // The operating state management is aiming at. The artefact that proves
+        // it -- a RACI, a callback record, a coverage report -- is evidence, and
+        // belongs in the supporting register rather than the executive report.
+        betterLooksLike: presentation?.targetState ?? '',
+        evidenceArtefact: customerText(item.proofOfCompletion ?? '')
+      };
+    })
+    .filter((row) => row.outcome && row.betterLooksLike);
 
   const priorities: ManagementPriorityExhibit = {
     exhibitId: 'EX-MANAGEMENT-PRIORITIES',
@@ -377,7 +424,6 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     rows: priorityRows
   };
 
-  // ---- Roadmap ----
   // Stage by targetPeriod, which carries the real 30/60/90 split. The `phase`
   // field only distinguishes STABILISE from ESTABLISH, so matching on it put
   // the same actions in both the 60-day and 90-day stages.
@@ -392,11 +438,17 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     sourceRefs: roadmapItems.map((r) => r.factRef).filter(Boolean),
     title: 'The first 90 days',
     interpretation: commentary['ROADMAP-LOGIC'],
-    stages: STAGES.map(({ stage, window, match }) => {
+    stages: STAGES.map(({ stage, window, match }, stageIndex) => {
       // Each action belongs to exactly one stage; a stage never repeats work
       // already sequenced earlier.
       const items = roadmapItems.filter((item) => {
         if (claimedRefs.has(item.factRef)) return false;
+        // Stabilisation is about establishing control over the problem, so
+        // ownership, escalation, evidence handling and treatment ownership stage
+        // in the first window even where their nominal period is later. Nothing
+        // is invented; existing actions are reclassified by what they achieve.
+        if (stageIndex === 0 && isStabilisationFamily(item.primarySemanticFamily)) return true;
+        if (stageIndex > 0 && isStabilisationFamily(item.primarySemanticFamily)) return false;
         return match.test(String(item.targetPeriod ?? '').trim());
       });
       for (const item of items) claimedRefs.add(item.factRef);
@@ -405,7 +457,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         window,
         primaryOutcome: customerText(items[0]?.managementOutcome ?? ''),
         actions: items.slice(0, 5).map((item) => ({
-          action: nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
+          action: familyPresentation(item.primarySemanticFamily)?.shortLabel ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
           owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
           dependsOn: (Array.isArray(item.dependencies) ? item.dependencies : []).map((d: string) => customerText(d)).filter(Boolean)
         }))
@@ -421,7 +473,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     rows: priorityRows.slice(0, 4).map((row) => ({
       measure: row.outcome,
       current: sustainment ? 'Operating' : 'Not consistently established',
-      expectation: row.betterLooksLike || 'Defined, owned and evidenced in operation.'
+      expectation: row.betterLooksLike
     }))
   };
 
@@ -442,6 +494,32 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
       ? `${weak.toLowerCase()} and ${customerText(second.name).toLowerCase()}`
       : weak.toLowerCase();
     return sentence(`${org} has useful foundations in ${strong.toLowerCase()}, but weak ${weakPair} leave fraud readiness largely ${String(maturity).toLowerCase()}`);
+  }
+
+  /**
+   * The conclusion closes the management argument. Replaying "in the first 30
+   * days... by 60 days..." is the roadmap's job, and the approved commentary
+   * opened that way, so roadmap replay is stripped and the thesis restored.
+   */
+  function managementConclusion(): string {
+    const supplied = customerText(commentary['CONCLUSION'] ?? '');
+    const withoutRoadmap = supplied
+      .split(/(?<=[.!?])\s+/)
+      .filter((line) => !/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(line))
+      .join(' ')
+      .trim();
+    const strong = readinessScore.strongest.title.toLowerCase();
+    const org = customerText(factPack.organisation?.name ?? thesis.organisationName ?? 'The organisation');
+    const closing = sustainment
+      ? `The next management checkpoint should test whether that strength has been preserved as the business changes.`
+      : `The next 90-day checkpoint should test whether that connection has been established.`;
+    const opening = sustainment
+      ? `${org} is operating from a strong position, with ${strong} the most developed capability.`
+      : `${org} is not starting from zero. Its ${strong} and pockets of operational control provide a useful foundation.`;
+    const middle = withoutRoadmap.length > 40
+      ? withoutRoadmap
+      : `The immediate weakness is that those capabilities are not yet connected through a repeatable fraud-risk cycle spanning identification, challenge, detection, response and learning.`;
+    return sentence(`${opening} ${middle} ${closing}`.replace(/\s{2,}/g, ' ').trim());
   }
 
   // ---- Pages ----
@@ -485,7 +563,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     priorities,
     roadmap,
     dashboard,
-    conclusion: sentence(commentary['CONCLUSION'] ?? ''),
+    conclusion: managementConclusion(),
     reportBasis: "This report is based on management's responses to the MK Fraud Readiness assessment and MK's analytical methodology. It provides fraud-risk analysis and control-design guidance. MK has not independently tested whether controls operate in practice.",
     pages
   };

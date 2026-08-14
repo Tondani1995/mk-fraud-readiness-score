@@ -22,7 +22,12 @@ export type PresentationIssueCode =
   | 'ROADMAP_STAGE_COMPLETENESS'
   | 'REPORT_BASIS_ONCE'
   | 'CUSTOMER_WORD_ENVELOPE'
-  | 'PAGE_DENSITY';
+  | 'PAGE_DENSITY'
+  | 'NO_CUSTOMER_TRUNCATION_ELLIPSIS'
+  | 'PRESENTATION_LABEL_TOO_LONG'
+  | 'EXPOSURE_FAMILY_OWNERSHIP'
+  | 'SCENARIO_FAMILY_OWNERSHIP'
+  | 'TARGET_STATE_NOT_EVIDENCE';
 
 export interface PresentationIssue { code: PresentationIssueCode; message: string }
 
@@ -136,6 +141,60 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
 
   if (customerWordCount < 900 || customerWordCount > 2600) {
     issues.push({ code: 'CUSTOMER_WORD_ENVELOPE', message: `Customer word count ${customerWordCount} is outside the 900-2,600 envelope for Essential.` });
+  }
+
+  // Truncation: an ellipsis in customer content means a field was clipped to fit,
+  // which loses meaning silently. A dedicated short label is required instead.
+  for (const text of surfaces) {
+    if (/…|\.\.\./.test(text)) {
+      issues.push({ code: 'NO_CUSTOMER_TRUNCATION_ELLIPSIS', message: `Customer surface contains truncated content: "${text.slice(0, 90)}"` });
+      break;
+    }
+  }
+
+  // Exhibit labels are labels. A value this long is a specification that has been
+  // routed to the wrong place.
+  const labelSurfaces: Array<{ label: string; value: string; max: number }> = [
+    ...(model.scenarios?.scenarios ?? []).flatMap((s) => [
+      { label: `scenario ${s.scenarioId} entry`, value: s.entryPointShort, max: 90 },
+      { label: `scenario ${s.scenarioId} control break`, value: s.controlBreakShort, max: 90 },
+      { label: `scenario ${s.scenarioId} exposure`, value: s.exposureShort, max: 90 }
+    ]),
+    ...(model.exposures?.rows ?? []).map((r) => ({ label: `exposure ${r.rank} interruption`, value: r.interruptionPoint, max: 160 })),
+    ...model.priorities.rows.map((r) => ({ label: `priority ${r.rank} outcome`, value: r.outcome, max: 90 }))
+  ];
+  for (const entry of labelSurfaces) {
+    if (entry.value.length > entry.max) {
+      issues.push({ code: 'PRESENTATION_LABEL_TOO_LONG', message: `${entry.label} is ${entry.value.length} characters against a ${entry.max} limit; it needs a dedicated short label.` });
+    }
+  }
+
+  // Family ownership: every exposure and scenario must resolve to a family, and no
+  // two rows may claim the same one. Positional pairing previously explained the
+  // identity exposure with evidence content and the containment exposure with
+  // monitoring content -- both plausible, both wrong.
+  const exposureFamilies = (model.exposures?.rows ?? []).map((r) => r.family);
+  if (exposureFamilies.some((f) => !f)) {
+    issues.push({ code: 'EXPOSURE_FAMILY_OWNERSHIP', message: 'An exposure row does not resolve to a content family.' });
+  }
+  if (new Set(exposureFamilies).size !== exposureFamilies.length) {
+    issues.push({ code: 'EXPOSURE_FAMILY_OWNERSHIP', message: 'Two exposure rows claim the same content family.' });
+  }
+  const scenarioFamilies = (model.scenarios?.scenarios ?? []).map((s) => s.family);
+  if (scenarioFamilies.some((f) => !f)) {
+    issues.push({ code: 'SCENARIO_FAMILY_OWNERSHIP', message: 'A scenario does not resolve to a content family.' });
+  }
+  if (new Set(scenarioFamilies).size !== scenarioFamilies.length) {
+    issues.push({ code: 'SCENARIO_FAMILY_OWNERSHIP', message: 'Two scenarios claim the same content family.' });
+  }
+
+  // "What good looks like" describes an operating state. An artefact name is
+  // evidence, and belongs in the supporting register.
+  const ARTEFACT_LANGUAGE = /\bRACI\b|\bregister\b|\bchecklist\b|\bcoverage report\b|\bevidence pack\b|\bcallback record\b|\bapproval record\b|\bscreening\b/i;
+  for (const row of model.priorities.rows) {
+    if (ARTEFACT_LANGUAGE.test(row.betterLooksLike)) {
+      issues.push({ code: 'TARGET_STATE_NOT_EVIDENCE', message: `Priority ${row.rank} states an evidence artefact rather than a target operating state: "${row.betterLooksLike.slice(0, 80)}"` });
+    }
   }
 
   // Density: a page whose only content is continuous prose is a wall of text.
