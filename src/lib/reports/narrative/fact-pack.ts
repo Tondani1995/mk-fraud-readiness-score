@@ -433,7 +433,7 @@ function buildFindingFacts(findings: MaterialFinding[]): NarrativeFindingFact[] 
     maturity_constraint: 'maturity-limiting condition',
     exposure_mismatch: 'exposure and control mismatch',
     cross_domain_dependency: 'cross-domain dependency',
-    assurance_priority: 'recorded assurance priority'
+    assurance_priority: 'assurance priority'
   };
   return findings.map((finding, index) => ({
     factRef: `FINDING-${String(index + 1).padStart(3, '0')}`,

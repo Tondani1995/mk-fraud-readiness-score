@@ -138,6 +138,9 @@ async function resolveChromiumExecutablePath(chromium: ChromiumRuntime): Promise
   return executablePath;
 }
 
+export const BROWSER_LAUNCH_TIMEOUT_MS = 60_000;
+export const BROWSER_PROTOCOL_TIMEOUT_MS = 120_000;
+
 async function launchBrowser() {
   const [{ default: puppeteer }, chromiumModule] = await Promise.all([
     import('puppeteer-core'),
@@ -151,12 +154,35 @@ async function launchBrowser() {
     ? puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
     : puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
 
-  return puppeteer.launch({
-    args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath,
-    headless: localOverride ? true : 'shell'
-  });
+  // A launch with no timeout is unbounded: if the browser process starts but
+  // never completes the DevTools handshake, the render hangs until the caller
+  // gives up. Observed locally as a >600s stall with no diagnostic. Both the
+  // launch handshake and subsequent CDP calls are now bounded.
+  const launchStartedAt = Date.now();
+  try {
+    const browser = await puppeteer.launch({
+      args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: localOverride ? true : 'shell',
+      timeout: BROWSER_LAUNCH_TIMEOUT_MS,
+      protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS
+    });
+    console.info('Chromium launch diagnostics', { stage: 'launch', outcome: 'ok', durationMs: Date.now() - launchStartedAt, headless: localOverride ? true : 'shell' });
+    return browser;
+  } catch (error) {
+    console.error('Chromium launch diagnostics', {
+      stage: 'launch',
+      outcome: 'failed',
+      durationMs: Date.now() - launchStartedAt,
+      timeoutMs: BROWSER_LAUNCH_TIMEOUT_MS,
+      executablePath,
+      platform: process.platform,
+      arch: process.arch,
+      message: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
 }
 
 /** Best-effort close that never lets a failure while tearing down a dead resource mask the real error. */

@@ -358,9 +358,9 @@ function buildThesisCentralJudgement(pack: NarrativeFactPack, contrasts: ReportT
   const score = pack.assessment.score === null ? 'not scored' : `${pack.assessment.score} / 100`;
   const maturity = pack.assessment.maturity ?? 'not assigned';
   const lead = contrasts[0]
-    ? `${contrasts[0].stronger.title} is recorded at ${contrasts[0].stronger.score}, compared with ${contrasts[0].weaker.title} at ${contrasts[0].weaker.score}.`
+    ? `${contrasts[0].stronger.title} scores ${contrasts[0].stronger.score}, against ${contrasts[0].weaker.title} at ${contrasts[0].weaker.score}.`
     : 'The domain pattern should be read through the strongest and weakest supported capabilities rather than through isolated question scores.';
-  return `The recorded position is ${score} with ${maturity} maturity. ${lead} The management task is to connect the supported foundations to prevention, detection, containment and learning through owned action. This is an interpretation of deterministic assessment relationships, not an independently verified operating fact.`;
+  return `The assessment places the organisation at ${score} with ${maturity} maturity. ${lead} The management task is to connect the supported foundations to prevention, detection, containment and learning through owned action. This interprets the relationships in the assessment; it is not an independently verified operating fact.`;
 }
 
 export function buildReportThesis(pack: NarrativeFactPack, blueprint: ReportBlueprint): ReportThesis {
@@ -455,14 +455,14 @@ function roleInsights(unit: SlotUnit, slotId: string, pack: NarrativeFactPack, b
   const base = `${slotId}-INSIGHT`;
   switch (unit.narrativeRole) {
     case 'JUDGEMENT': return [
-      insight(`${base}-POSITION`, 'State the recorded score and maturity and explain why the position matters to management.', scoreRefs.length ? scoreRefs : refs),
+      insight(`${base}-POSITION`, 'State the score and maturity and explain why the position matters to management.', scoreRefs.length ? scoreRefs : refs),
       insight(`${base}-INTERPRETATION`, 'Interpret one material relationship in the deterministic pattern rather than listing domain scores.', refs),
       insight(`${base}-IMPLICATION`, 'State the immediate management implication before the report moves into detail.', refs)
     ];
     case 'DIAGNOSIS': return [
       insight(`${base}-SYSTEMIC`, 'Connect the underlying themes into a systemic management pattern.', refs),
       insight(`${base}-STRENGTH`, 'Use a supported strength where it helps explain the diagnosis.', refs),
-      insight(`${base}-BOUNDARY`, 'Distinguish interpretation of recorded assessment relationships from independent operating verification.', refs)
+      insight(`${base}-BOUNDARY`, 'Distinguish interpretation of assessment relationships from independent operating verification.', refs)
     ];
     case 'EXPOSURE': return [
       insight(`${base}-VALUE`, 'Explain the value, capability or management outcome at risk.', refs),
