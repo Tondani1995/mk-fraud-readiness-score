@@ -69,9 +69,37 @@ const SCENARIO_TO_SEMANTIC: Record<string, string[]> = {
   PAYMENT_DIVERSION: ['SUPPLIER_PAYMENT_CHANGE', 'SUPPLIER_ONBOARDING'],
   DETECTION_EVASION: ['DETECTION_MONITORING'],
   IDENTITY_COMPROMISE: ['IDENTITY_VERIFICATION'],
+  IDENTITY_IMPERSONATION: ['IDENTITY_VERIFICATION'],
+  PRIVILEGED_ACCESS_MISUSE: ['ACCESS_CONTROL', 'IDENTITY_VERIFICATION'],
   INCIDENT_CONCEALMENT: ['EVIDENCE_INTEGRITY'],
   EVIDENCE_DEGRADATION: ['EVIDENCE_INTEGRITY']
 };
+
+/**
+ * A scenario whose family maps to no cluster present in this assessment.
+ *
+ * The scenario taxonomy is broader than any one organisation's exposure
+ * clusters, so an unowned scenario is an ordinary outcome rather than a defect:
+ * the assessment simply did not raise that exposure as material. It is omitted
+ * from the report and recorded, never attached to the nearest-looking cluster.
+ */
+export interface UnownedScenario {
+  scenarioId: string;
+  scenarioFamily: string;
+  candidateSemanticFamilies: string[];
+  availableClusterIds: string[];
+}
+
+export function unownedScenarios(clusters: ExposureCluster[], scenarios: any[]): UnownedScenario[] {
+  return (Array.isArray(scenarios) ? scenarios : [])
+    .filter((scenario) => !clusterForScenario(clusters, scenario?.scenarioFamily))
+    .map((scenario) => ({
+      scenarioId: String(scenario?.factRef ?? ''),
+      scenarioFamily: String(scenario?.scenarioFamily ?? ''),
+      candidateSemanticFamilies: semanticFamiliesForScenario(scenario?.scenarioFamily),
+      availableClusterIds: clusters.map((cluster) => cluster.clusterId)
+    }));
+}
 
 export function semanticFamiliesForScenario(scenarioFamily: string | undefined | null): string[] {
   return SCENARIO_TO_SEMANTIC[String(scenarioFamily ?? '').toUpperCase()] ?? [];

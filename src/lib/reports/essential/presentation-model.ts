@@ -22,6 +22,7 @@ import {
   unresolvedClusters,
   clusterForScenario,
   clusterForSemanticFamily,
+  unownedScenarios,
   familyPresentation,
   isStabilisationFamily,
   scenarioPresentation,
@@ -36,7 +37,12 @@ import {
 
 export const ESSENTIAL_PRESENTATION_MODEL_VERSION = 'mk-essential-presentation-v2';
 
-export type NarrativeMode = 'REMEDIATION' | 'SUSTAINMENT';
+/**
+ * Analytical modes the engine already distinguishes. MIXED appears on real
+ * assessments that carry both material exposures and relative strengths, so it
+ * is read rather than collapsed into one of the others.
+ */
+export type NarrativeMode = 'REMEDIATION' | 'SUSTAINMENT' | 'MIXED';
 
 export interface ExhibitBase {
   exhibitId: string;
@@ -165,6 +171,35 @@ export interface RoadmapExhibit extends ExhibitBase {
   }>;
 }
 
+/** A capability the assessment shows is working, and what it enables. */
+export interface StrengthExhibit extends ExhibitBase {
+  rows: Array<{
+    strengthId: string;
+    capability: string;
+    score?: number;
+    currentStandard: string;
+    managementValue: string;
+  }>;
+}
+
+/**
+ * Something worth protecting, not something broken.
+ *
+ * A watchpoint states a dependency the current strength rests on and what would
+ * indicate it slipping. It never asserts a control failure the assessment does
+ * not support.
+ */
+export interface WatchpointExhibit extends ExhibitBase {
+  rows: Array<{
+    watchpointId: string;
+    family: string;
+    currentStrength: string;
+    dependency: string;
+    deteriorationTrigger: string;
+    managementResponse: string;
+  }>;
+}
+
 export interface ManagementMetricExhibit extends ExhibitBase {
   rows: Array<{ measure: string; current: string; expectation: string }>;
   /** Baselines are the assessed condition, not a uniform placeholder. */
@@ -176,7 +211,7 @@ export interface EssentialPage {
   /** The single management question this page answers. */
   question: string;
   heading: string;
-  kind: 'cover' | 'overview' | 'diagnosis' | 'exposure' | 'scenarios' | 'priorities' | 'roadmap' | 'dashboard';
+  kind: 'cover' | 'overview' | 'diagnosis' | 'strengths' | 'exposure' | 'watchpoints' | 'scenarios' | 'priorities' | 'roadmap' | 'dashboard';
   exhibitIds: string[];
   commentary?: string;
 }
@@ -197,6 +232,11 @@ export interface EssentialReportPresentationModel {
   domainProfile: DomainProfileExhibit;
   materialContrasts?: MaterialContrastExhibit;
   diagnosis: DiagnosisMatrixExhibit;
+  /** Present where the assessment supports sustainment analysis. */
+  strengths?: StrengthExhibit;
+  watchpoints?: WatchpointExhibit;
+  /** Scenarios omitted because no exposure cluster owns their family. */
+  unownedScenarios?: Array<{ scenarioId: string; scenarioFamily: string }>;
   exposures?: PriorityExposureExhibit;
   scenarios?: ScenarioPathwayExhibit;
   priorities: ManagementPriorityExhibit;
@@ -279,8 +319,14 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
   const clusters: ExposureCluster[] = exposureClusters(input.blueprint);
   const unresolved = unresolvedClusters(input.blueprint);
   const commentary = input.commentary ?? {};
-  const mode: NarrativeMode = factPack.narrativeMode === 'SUSTAINMENT' ? 'SUSTAINMENT' : 'REMEDIATION';
+  // The mode is the engine's, read rather than re-derived. MIXED is a real state
+  // on assessments carrying both material exposures and relative strengths.
+  const declaredMode = String(factPack.narrativeMode ?? '').toUpperCase();
+  const mode: NarrativeMode = declaredMode === 'SUSTAINMENT' ? 'SUSTAINMENT'
+    : declaredMode === 'MIXED' ? 'MIXED'
+    : 'REMEDIATION';
   const sustainment = mode === 'SUSTAINMENT';
+  const hasSustainmentMaterial = Array.isArray(factPack.sustainmentPriorities) && factPack.sustainmentPriorities.length > 0;
 
   const domains: any[] = Array.isArray(factPack.domains) ? factPack.domains : [];
   const score: number = thesis.overallPosition?.score ?? factPack.assessment?.score ?? 0;
@@ -388,6 +434,46 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     interpretation: commentary['DIAGNOSIS-SYNTHESIS']
   };
 
+  // ---- Strengths and watchpoints, from the assessment's own sustainment objects ----
+  const sustainmentPriorities: any[] = Array.isArray(factPack.sustainmentPriorities) ? factPack.sustainmentPriorities : [];
+  const relativeStrengths: any[] = Array.isArray(factPack.relativeStrengths) ? factPack.relativeStrengths : [];
+  const proofOfProgress: any[] = Array.isArray(factPack.proofOfProgress) ? factPack.proofOfProgress : [];
+
+  const domainByCode = new Map(domains.map((d) => [String(d.code ?? ''), d]));
+  const strengthRows = sustainmentPriorities.map((item, index) => {
+    const related = relativeStrengths.find((strength) => String(strength.title ?? '').toLowerCase().includes(String(item.domain ?? '').toLowerCase()));
+    const domain = domains.find((d) => String(d.name ?? '') === String(item.domain ?? ''))
+      ?? (related?.domainCode ? domainByCode.get(String(related.domainCode)) : undefined);
+    return {
+      strengthId: String(item.factRef ?? `STRENGTH-${index + 1}`),
+      capability: customerText(item.domain ?? related?.title ?? ''),
+      score: domain?.score,
+      currentStandard: sentence(item.currentStrongStandard ?? ''),
+      managementValue: sentence(item.managementFocus ?? '')
+    };
+  }).filter((row) => row.capability && row.currentStandard);
+
+  const strengths: StrengthExhibit | undefined = strengthRows.length
+    ? { exhibitId: 'EX-STRENGTHS', sourceRefs: sustainmentPriorities.map((p) => p.factRef).filter(Boolean), title: 'Strengths supporting readiness', rows: strengthRows }
+    : undefined;
+
+  // A watchpoint is a dependency the current strength rests on. The operating
+  // frequency is what would slip first, so it is the deterioration trigger.
+  const watchpointRows = sustainmentPriorities.map((item, index) => ({
+    watchpointId: String(item.factRef ?? `WATCHPOINT-${index + 1}`).replace('SUSTAINMENT', 'WATCHPOINT'),
+    family: String(item.semanticFamily ?? ''),
+    currentStrength: customerText(item.domain ?? ''),
+    dependency: sentence(`This position depends on ${customerText(item.processOwner ?? item.accountableExecutive ?? 'a named owner')} maintaining it`),
+    deteriorationTrigger: item.operatingFrequency
+      ? sentence(`The cycle slips: ${customerText(item.operatingFrequency)}`)
+      : 'Ownership changes without handover of the review cycle.',
+    managementResponse: sentence(item.managementFocus ?? '')
+  })).filter((row) => row.currentStrength && row.managementResponse);
+
+  const watchpoints: WatchpointExhibit | undefined = watchpointRows.length
+    ? { exhibitId: 'EX-WATCHPOINTS', sourceRefs: sustainmentPriorities.map((p) => p.factRef).filter(Boolean), title: 'Where readiness could drift', rows: watchpointRows }
+    : undefined;
+
   // ---- Priority exposures, identified by deterministic cluster ----
   // Priority is derived from the assessed signals that drive each cluster, not
   // asserted by row order, and identity comes from the cluster itself.
@@ -471,7 +557,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
               .map((w: string) => customerText(w)).filter(Boolean).slice(0, 3),
             immediateInterruption: presentation?.interruption ?? ''
           };
-        }).filter((s) => s.entryPointShort && s.controlBreakShort && s.exposureShort)
+        }).filter((s) => s.family && s.entryPointShort && s.controlBreakShort && s.exposureShort)
       }
     : undefined;
 
@@ -574,21 +660,40 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     return composed || familyPresentation(semanticFamily)?.targetState || '';
   }
 
+  const sustainmentPriorityRows = sustainmentPriorities.map((item, index) => ({
+    rank: index + 1,
+    outcome: customerText(item.title ?? ''),
+    // A strong capability is preserved, embedded or measured. It is not fixed.
+    whyNow: sentence(item.currentStrongStandard ?? ''),
+    accountableRole: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
+    betterLooksLike: sentence(item.managementFocus ?? ''),
+    semanticFamily: String(item.semanticFamily ?? ''),
+    evidenceArtefact: Array.isArray(item.proofRetained) ? item.proofRetained.map((entry: string) => customerText(entry)).join('; ') : ''
+  })).filter((row) => row.outcome && row.betterLooksLike);
+
   const priorities: ManagementPriorityExhibit = {
     exhibitId: 'EX-MANAGEMENT-PRIORITIES',
     sourceRefs: roadmapItems.map((r) => r.factRef).filter(Boolean),
-    title: sustainment ? 'Sustainment priorities' : 'What management should change',
-    rows: priorityRows
+    title: sustainment ? 'What management should preserve' : 'What management should change',
+    rows: sustainment && sustainmentPriorityRows.length ? sustainmentPriorityRows : priorityRows
   };
 
   // Stage by targetPeriod, which carries the real 30/60/90 split. The `phase`
   // field only distinguishes STABILISE from ESTABLISH, so matching on it put
   // the same actions in both the 60-day and 90-day stages.
-  const STAGES = [
-    { stage: '30 days — Stabilise', window: '0–30 days', match: /^30\b/ },
-    { stage: '60 days — Establish', window: '31–60 days', match: /^60\b/ },
-    { stage: '90 days — Operate and review', window: '61–90 days', match: /^90\b/ }
-  ];
+  // Preserve/Embed/Measure for a strong organisation. Stabilise/Establish/Operate
+  // implies remediation the assessment does not support.
+  const STAGES = sustainment
+    ? [
+        { stage: '30 days — Preserve', window: '0–30 days', match: /^30\b/ },
+        { stage: '60 days — Embed', window: '31–60 days', match: /^60\b/ },
+        { stage: '90 days — Measure and optimise', window: '61–90 days', match: /^90\b/ }
+      ]
+    : [
+        { stage: '30 days — Stabilise', window: '0–30 days', match: /^30\b/ },
+        { stage: '60 days — Establish', window: '31–60 days', match: /^60\b/ },
+        { stage: '90 days — Operate and review', window: '61–90 days', match: /^90\b/ }
+      ];
   const claimedRefs = new Set<string>();
   const roadmap: RoadmapExhibit = {
     exhibitId: 'EX-ROADMAP',
@@ -634,6 +739,26 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
           });
         }
       }
+      if (sustainment && sustainmentPriorities.length) {
+        // One preserve action per priority, spread across the three windows in
+        // the order the engine ranked them.
+        const perStage = Math.ceil(sustainmentPriorities.length / 3);
+        const slice = sustainmentPriorities.slice(stageIndex * perStage, (stageIndex + 1) * perStage);
+        return {
+          stage,
+          window,
+          primaryOutcome: customerText(slice[0]?.managementFocus ?? ''),
+          actions: slice.map((item) => ({
+            action: customerText(item.title ?? ''),
+            owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
+            deliverable: sentence(item.managementFocus ?? ''),
+            completionTest: Array.isArray(item.proofRetained) && item.proofRetained.length
+              ? customerText(item.proofRetained[0])
+              : customerText(item.operatingFrequency ?? ''),
+            dependsOn: [] as string[]
+          }))
+        };
+      }
       return {
         stage,
         window,
@@ -657,13 +782,19 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     sourceRefs: roadmapItems.map((r) => r.factRef).filter(Boolean),
     title: 'What to check at the 90-day point',
     baselineSource: 'assessed-condition',
-    rows: priorityRows.slice(0, 4).map((row) => ({
+    rows: (sustainment && sustainmentPriorityRows.length
+      ? sustainmentPriorityRows.slice(0, 4).map((row) => ({
+          measure: row.outcome,
+          current: 'Operating',
+          expectation: row.betterLooksLike
+        }))
+      : priorityRows.slice(0, 4).map((row) => ({
       measure: row.outcome,
       // The assessed condition for the owning control family. A single repeated
       // phrase told management nothing and hid four different baselines.
       current: assessedCondition(row.semanticFamily),
       expectation: row.betterLooksLike
-    }))
+    })))
   };
 
   /**
@@ -736,7 +867,11 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     commentary: commentary['EXECUTIVE-JUDGEMENT']
   });
   addPage({ question: 'Why does the position look like this?', heading: diagnosis.title, kind: 'diagnosis', exhibitIds: [diagnosis.exhibitId], commentary: commentary['DIAGNOSIS-SYNTHESIS'] });
+  // Page purpose adapts to the mode. A strong organisation gets strengths and
+  // watchpoints; it does not get an empty exposure table or invented scenarios.
+  if (strengths) addPage({ question: 'What is supporting readiness?', heading: strengths.title, kind: 'strengths', exhibitIds: [strengths.exhibitId] });
   if (exposures) addPage({ question: 'Where does fraud exposure matter most?', heading: exposures.title, kind: 'exposure', exhibitIds: [exposures.exhibitId] });
+  if (watchpoints) addPage({ question: 'Where could readiness drift?', heading: watchpoints.title, kind: 'watchpoints', exhibitIds: [watchpoints.exhibitId] });
   if (scenarioExhibit) addPage({ question: 'How could that exposure materialise?', heading: scenarioExhibit.title, kind: 'scenarios', exhibitIds: [scenarioExhibit.exhibitId] });
   addPage({ question: 'What does management need to change?', heading: priorities.title, kind: 'priorities', exhibitIds: [priorities.exhibitId] });
   if (roadmap.stages.length) addPage({ question: 'What should happen in the first 90 days?', heading: roadmap.title, kind: 'roadmap', exhibitIds: [roadmap.exhibitId], commentary: commentary['ROADMAP-LOGIC'] });
@@ -758,6 +893,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     domainProfile,
     materialContrasts,
     diagnosis,
+    strengths,
+    watchpoints,
+    unownedScenarios: unownedScenarios(clusters, scenarios).map((entry) => ({ scenarioId: entry.scenarioId, scenarioFamily: entry.scenarioFamily })),
     exposures,
     scenarios: scenarioExhibit,
     priorities,

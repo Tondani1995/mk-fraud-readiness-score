@@ -29,6 +29,7 @@ export type PresentationIssueCode =
   | 'EXPOSURE_FAMILY_OWNERSHIP'
   | 'SCENARIO_FAMILY_OWNERSHIP'
   | 'TARGET_STATE_NOT_EVIDENCE'
+  | 'NO_MANUFACTURED_WEAKNESS'
   | 'SCENARIO_MECHANIC_CONTAMINATION';
 
 export interface PresentationIssue { code: PresentationIssueCode; message: string }
@@ -55,6 +56,24 @@ const INTERNAL_IDS = [
   /\bD\d+-Q\d+/i, /\bSYNTH-[A-Z_]+/, /\bEX-[A-Z-]+/
 ];
 
+/**
+ * Text the customer supplied, which the engine must reproduce faithfully.
+ *
+ * Two real organisations are named "PRE-G30 COST-BUDGET-CORRECTED FINAL AI
+ * CERTIFICATION - JOURNEY 5" and "PRE-G30-AI-CERT-20260805 Organisation". The
+ * internal-language scan matched "AI" inside them and failed both reports. The
+ * validator guards engine vocabulary reaching customer prose; it has no business
+ * policing what an organisation calls itself.
+ */
+function customerProvidedText(model: EssentialReportPresentationModel): string[] {
+  return [model.reportIdentity.organisationName].filter(Boolean);
+}
+
+/** Strips customer-provided substrings so only engine-authored text is scanned. */
+function withoutCustomerText(surface: string, provided: string[]): string {
+  return provided.reduce((text, value) => text.split(value).join(' '), surface);
+}
+
 function customerSurfaces(model: EssentialReportPresentationModel): string[] {
   const out: string[] = [model.cover.centralJudgement, model.conclusion, model.reportBasis];
   out.push(...model.domainProfile.rows.map((r) => `${r.title} ${r.band}`));
@@ -63,6 +82,8 @@ function customerSurfaces(model: EssentialReportPresentationModel): string[] {
   for (const r of model.diagnosis.rows) out.push(r.pattern, r.whyItMatters, ...r.signals.map((s) => s.title));
   if (model.diagnosis.interpretation) out.push(model.diagnosis.interpretation);
   for (const r of model.exposures?.rows ?? []) out.push(r.exposure, r.whyItMatters, r.interruptionPoint);
+  for (const r of model.strengths?.rows ?? []) out.push(r.capability, r.currentStandard, r.managementValue);
+  for (const r of model.watchpoints?.rows ?? []) out.push(r.currentStrength, r.dependency, r.deteriorationTrigger, r.managementResponse);
   for (const s of model.scenarios?.scenarios ?? []) out.push(s.title, s.entryPoint, s.controlBreak, s.howItUnfolds, s.immediateInterruption, ...s.warningIndicators);
   if (model.scenarios) out.push(model.scenarios.assuranceNote);
   for (const r of model.priorities.rows) out.push(r.outcome, r.whyNow, r.accountableRole, r.betterLooksLike);
@@ -83,8 +104,10 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
   const allText = surfaces.join('\n');
   const customerWordCount = surfaces.reduce((sum, text) => sum + words(text), 0);
 
+  const provided = customerProvidedText(model);
+  const engineAuthored = surfaces.map((text) => withoutCustomerText(text, provided));
   for (const pattern of INTERNAL_LANGUAGE) {
-    const hit = surfaces.find((text) => pattern.test(text));
+    const hit = engineAuthored.find((text) => pattern.test(text));
     if (hit) issues.push({ code: 'NO_INTERNAL_LANGUAGE', message: `Customer surface contains engineering language matching ${pattern}: "${hit.slice(0, 90)}"` });
   }
   for (const pattern of INTERNAL_IDS) {
@@ -141,8 +164,26 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
     issues.push({ code: 'REPORT_BASIS_ONCE', message: `The assurance boundary appears ${basisOccurrences} times; it must appear exactly once.` });
   }
 
-  if (customerWordCount < 900 || customerWordCount > 2600) {
+  // One envelope, not one per mode.
+  //
+  // The four real high-readiness assessments produced 711-727 words before the
+  // sustainment grammar existed, and 921-925 after it. That sits inside the
+  // range remediation reports occupy (903-1,285 across the seven real cases), so
+  // the evidence does not support a separate sustainment floor. The original
+  // shortfall was missing analysis, not an unreachable threshold, and lowering
+  // the floor would have hidden that.
+  if (customerWordCount < 900 || customerWordCount > 2_600) {
     issues.push({ code: 'CUSTOMER_WORD_ENVELOPE', message: `Customer word count ${customerWordCount} is outside the 900-2,600 envelope for Essential.` });
+  }
+
+  // A strong organisation must not be given a problem it does not have.
+  if (model.narrativeMode === 'SUSTAINMENT') {
+    if ((model.exposures?.rows.length ?? 0) > 0) {
+      issues.push({ code: 'NO_MANUFACTURED_WEAKNESS', message: 'A sustainment report carries a priority fraud exposure register.' });
+    }
+    const crisis = /\bcritical\b|\bsevere\b|\burgent\b|\bcrisis\b|\bmaterial weakness\b|\bfailure\b/i;
+    const hit = surfaces.find((text) => crisis.test(text));
+    if (hit) issues.push({ code: 'NO_MANUFACTURED_WEAKNESS', message: `Sustainment prose asserts a weakness the assessment does not support: "${hit.slice(0, 90)}"` });
   }
 
   // Truncation: an ellipsis in customer content means a field was clipped to fit,
