@@ -18,6 +18,16 @@ import {
 
 export const BOUNDED_SECTION_TIMEOUT_MS = 240_000;
 
+/**
+ * Output budget for one bounded slot. Covers the narrative, the management
+ * implication, the verbatim requirement excerpts that repeat narrative spans,
+ * JSON structure, and the reasoning tokens a reasoning model consumes before
+ * emitting text.
+ */
+export function boundedMaxOutputTokens(maximumWords: number): number {
+  return Math.min(8_000, Math.max(3_000, Math.ceil(maximumWords * 6)));
+}
+
 function providerFromModel(model: string): string {
   return model.split('/')[0]?.trim() || 'vercel-ai-gateway';
 }
@@ -175,6 +185,12 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
     'For every required insight, include one supportingExcerpt copied verbatim from your own narrative. Each requirement ID must occur exactly once in requirementCoverage.',
     ...repairInstructions,
     '',
+    '================ LENGTH BUDGET — BOTH LIMITS ARE ENFORCED ================',
+    `narrative + managementImplication together: ${contract.fit.minimumWords}-${contract.fit.maximumWords} words AND at most ${contract.fit.maximumCharacters} characters.`,
+    `Aim for about ${contract.fit.targetWords} words and about ${contract.fit.targetCharacters} characters.`,
+    `Both are checked. At ${contract.fit.maximumWords} words you have roughly ${Math.floor(contract.fit.maximumCharacters / contract.fit.maximumWords)} characters per word including spaces, so write in plain advisory English.`,
+    'Prefer short concrete words over long Latinate ones: "use" not "utilisation", "check" not "verification process", "pay" not "disbursement". Name the thing rather than describing the category of thing.',
+    '',
     '================ SECTION CONTRACT — INPUT ONLY ================',
     'This object is your brief. It is NOT the shape you return.',
     JSON.stringify(contract),
@@ -240,7 +256,11 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
         system: 'You are the bounded MK Fraud Readiness v1.1 section writer. Deterministic contract facts are the only authority. RETURN EXACTLY ONE JSON OBJECT as plain text. No commentary, explanation, Markdown prose outside the object or multiple objects.',
         prompt,
         output: Output.text(),
-        maxOutputTokens: Math.min(4_000, Math.max(1_200, Math.ceil(contract.fit.maximumWords * 1.9))),
+        // Reasoning models spend part of the output budget on reasoning tokens
+        // before emitting any text, and requirementCoverage repeats verbatim
+        // spans of the narrative, so the visible payload is roughly double the
+        // slot word budget. Sizing this on words alone truncated the JSON.
+        maxOutputTokens: boundedMaxOutputTokens(contract.fit.maximumWords),
         maxRetries: 0,
         providerOptions: { gateway: { only: [this.provider] } },
         abortSignal: AbortSignal.timeout(BOUNDED_SECTION_TIMEOUT_MS)
@@ -254,6 +274,20 @@ export class V11BoundedSectionWriter implements BoundedSectionProvider {
       rawText = typeof output === 'string' ? output : typeof response.text === 'string' ? response.text : '';
     } catch (error) {
       throw providerFailure(error, response);
+    }
+    const finish = typeof response.finishReason === 'string' ? response.finishReason : undefined;
+    if (finish === 'length') {
+      // A truncated envelope is not recoverable by re-serialising the same
+      // truncated text, so surface it distinctly rather than spending the
+      // technical format retry on it.
+      throw attachResponseDiagnostics(new BoundedTechnicalFailure({
+        kind: 'TECHNICAL_PROVIDER_FAILURE',
+        diagnostics: {
+          errorName: 'BoundedNarrativeSlotTruncated',
+          errorMessage: `Provider stopped on output-token limit before completing the JSON object (maxOutputTokens ${boundedMaxOutputTokens(contract.fit.maximumWords)}).`,
+          rawText
+        }
+      }), response, rawText);
     }
     let result: NarrativeSlotResult;
     try {

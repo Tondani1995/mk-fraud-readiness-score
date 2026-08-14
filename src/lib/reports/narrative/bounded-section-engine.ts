@@ -13,6 +13,7 @@ export const BOUNDED_SECTION_PROMPT_VERSION = 'mk-reporting-bible-1.1-bounded-se
 export const BOUNDED_SECTION_ENGINE_ARCHITECTURE = 'bounded-section-v1' as const;
 export const MAX_SECTION_REPAIR_CALLS = 2;
 export const MAX_TECHNICAL_FORMAT_RETRIES_PER_SLOT = 1;
+export const MAX_GLOBAL_REPAIR_PASSES = 1;
 
 export interface ReportThesisContrast {
   contrastId: string;
@@ -680,6 +681,37 @@ function rawIdTokens(value: string): string[] {
   return value.match(/\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)+\b/g) ?? [];
 }
 
+const MATURITY_TERMS = ['Reactive', 'Developing', 'Structured', 'Strategic'];
+const MATURITY_CONTEXT = /\b(maturity|maturities|band|banding|rated|rating|assessed as|positioned at|level)\b/i;
+
+/**
+ * Hard truth: the narrative may not assert a maturity band other than the
+ * authoritative one.
+ *
+ * Every maturity term is also ordinary advisory English — "a developing
+ * exposure", "a structured approach", "a strategic priority". Matching them
+ * case-insensitively made the control unwinnable, so it fires only where the
+ * term is genuinely used as a label: capitalised mid-sentence, or in any case
+ * within a short window of explicit maturity framing.
+ */
+export function usesForeignMaturityLabel(value: string, authoritativeMaturity: string): boolean {
+  return MATURITY_TERMS.filter((term) => term !== authoritativeMaturity).some((term) => {
+    // Capitalised mid-sentence reads as a proper-noun band label.
+    const capitalised = new RegExp(`(?<![.!?]\\s)(?<!^)\\b${term}\\b`, 'g');
+    for (const match of value.matchAll(capitalised)) {
+      if (match[0] === term) return true;
+    }
+    // Any casing, but sitting beside explicit maturity framing.
+    const anyCase = new RegExp(`\\b${term}\\b`, 'gi');
+    for (const match of value.matchAll(anyCase)) {
+      const from = Math.max(0, match.index - 60);
+      const window = value.slice(from, match.index + term.length + 60);
+      if (MATURITY_CONTEXT.test(window)) return true;
+    }
+    return false;
+  });
+}
+
 function validateHardTruth(value: string, contract: NarrativeSectionContract): string[] {
   const issues: string[] = [];
   const allowed = new Set(numericTokens({ facts: contract.authorisedFacts, thesis: contract.reportThesis, fit: contract.fit, requiredInsights: contract.requiredInsights }));
@@ -687,8 +719,7 @@ function validateHardTruth(value: string, contract: NarrativeSectionContract): s
   const unexpected = numbers.filter((token) => !allowed.has(token));
   if (unexpected.length) issues.push(`Unsupported numeric claims: ${unique(unexpected).join(', ')}.`);
   const maturity = contract.reportThesis.overallPosition.maturity;
-  const maturityTerms = ['Reactive', 'Developing', 'Structured', 'Strategic'];
-  if (maturity && maturityTerms.some((term) => term !== maturity && new RegExp(`\\b${term}\\b`, 'i').test(value))) issues.push(`Narrative introduces maturity term other than ${maturity}.`);
+  if (maturity && usesForeignMaturityLabel(value, maturity)) issues.push(`Narrative introduces maturity term other than ${maturity}.`);
   return issues;
 }
 
@@ -752,6 +783,49 @@ function sentences(value: string): string[] {
   return value.split(/(?<=[.!?])\s+/).map((item) => item.trim().toLowerCase()).filter((item) => words(item) >= 8);
 }
 
+/**
+ * The slot that should give ground when a sentence appears in more than one
+ * approved slot. The first occurrence keeps it, because the earlier slot is the
+ * primary home under the content-ownership model; the later slot repeats it.
+ */
+function laterOwnerOfSentence(approvedSlots: ApprovedNarrativeSlot[], sentence: string): string | undefined {
+  const owners = approvedSlots.filter((slot) => sentences([slot.result.narrative, slot.result.managementImplication].join('\n')).includes(sentence));
+  return owners.length > 1 ? owners[owners.length - 1]!.contract.slotId : undefined;
+}
+
+/**
+ * Maps a failed global manuscript check back to the single slot that should be
+ * repaired for it. Returns nothing where the defect is structural and no slot
+ * rewrite can fix it.
+ */
+export function globalRepairTargets(plan: NarrativeSlotPlan, approvedSlots: ApprovedNarrativeSlot[], compiled: BoundedCompiledManuscript): Array<{ slotId: string; reason: string }> {
+  const targets: Array<{ slotId: string; reason: string }> = [];
+  for (const issue of compiled.validation.issues) {
+    const envelope = issue.match(/Report-level narrative envelope is (\d+)-(\d+) words; received (\d+)\./);
+    if (envelope) {
+      const maximum = Number(envelope[2]);
+      const received = Number(envelope[3]);
+      if (received > maximum) {
+        // Take the reduction from the longest approved slot, which has the most
+        // room to give without losing a required insight.
+        const longest = [...approvedSlots].sort((a, b) => words(b.result.narrative) - words(a.result.narrative))[0];
+        if (longest) targets.push({ slotId: longest.contract.slotId, reason: `The compiled report is ${received - maximum} words over its ${maximum}-word envelope. Reduce this section by at least ${received - maximum + 20} words without dropping any required insight.` });
+      }
+      continue;
+    }
+    if (issue.startsWith('Repeated sentence overlap detected:')) {
+      const repeated = issue.slice('Repeated sentence overlap detected:'.length).split(' | ').map((entry) => entry.trim()).filter(Boolean);
+      for (const sentence of repeated) {
+        const owner = laterOwnerOfSentence(approvedSlots, sentence);
+        if (owner) targets.push({ slotId: owner, reason: `This sentence already appears in an earlier approved section and must not be repeated here: "${sentence}" Express the point differently or omit it; the earlier section owns it.` });
+      }
+      continue;
+    }
+  }
+  const seen = new Set<string>();
+  return targets.filter((target) => (seen.has(target.slotId) ? false : (seen.add(target.slotId), true)));
+}
+
 export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint: ReportBlueprint, approvedSlots: ApprovedNarrativeSlot[], accounting: BoundedGenerationAccounting): BoundedCompiledManuscript {
   const expected = plan.slots.map((slot) => slot.slotId);
   const compiled = approvedSlots.map((approved) => approved.contract.slotId);
@@ -787,6 +861,7 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
   const allText = approvedSlots.map((slot) => [slot.result.narrative, slot.result.managementImplication].join('\n')).join('\n');
   const duplicateSentences = sentences(allText).filter((sentence, index, all) => all.indexOf(sentence) !== index);
   if (duplicateSentences.length) issues.push(`Repeated sentence overlap detected: ${unique(duplicateSentences).slice(0, 3).join(' | ')}`);
+  const duplicateOwners = unique(duplicateSentences).map((sentence) => laterOwnerOfSentence(approvedSlots, sentence)).filter((slotId): slotId is string => Boolean(slotId));
   if (!/30\s+days[\s\S]{0,800}60\s+days[\s\S]{0,800}90\s+days/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not preserve the 30/60/90 implementation sequence.');
   if (!/evidence|custody|incident/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not contain incident/evidence-preservation meaning.');
   return { markdown, approvedSlots, validation: { ok: issues.length === 0, totalWordCount, totalCharacterCount, expectedSlotIds: expected, compiledSlotIds: compiled, missingPrimaryContentRefs, duplicatePrimaryContentRefs, issues }, accounting };
@@ -989,7 +1064,37 @@ export async function generateBoundedNarrativeReport(input: {
     }
     approved.push({ contract, result: call.result, validation, metadata: call.metadata, calls });
   }
-  const compiled = compileApprovedNarrativeSlots(plan, input.blueprint, approved, accounting);
+  let compiled = compileApprovedNarrativeSlots(plan, input.blueprint, approved, accounting);
+  // A global defect that maps to exactly one slot is repaired in that slot only.
+  // Every other approved slot stays immutable and is never regenerated.
+  for (let pass = 0; !compiled.validation.ok && pass < MAX_GLOBAL_REPAIR_PASSES; pass += 1) {
+    const targets = globalRepairTargets(plan, approved, compiled);
+    if (!targets.length) break;
+    for (const target of targets) {
+      const index = approved.findIndex((slot) => slot.contract.slotId === target.slotId);
+      if (index < 0) continue;
+      const existing = approved[index]!;
+      const globalValidation: NarrativeSlotValidationReport = { ok: false, slotId: target.slotId, issues: [{ code: 'CONTENT_OWNERSHIP_VIOLATION', message: target.reason }], wordCount: existing.validation.wordCount, characterCount: existing.validation.characterCount, usedClaimRefs: existing.validation.usedClaimRefs, requirementIds: existing.validation.requirementIds };
+      accounting.repairCalls += 1;
+      let repaired: BoundedProviderCall;
+      try {
+        repaired = await input.provider.repair(existing.contract, { result: existing.result, validation: globalValidation }, MAX_SECTION_REPAIR_CALLS);
+      } catch (error) {
+        const failure = technicalFailureRecord(target.slotId, input.provider, 'REPAIR', MAX_SECTION_REPAIR_CALLS, error);
+        recordTechnicalFailure(accounting, failure);
+        accounting.failedSlots.push(target.slotId);
+        throw new BoundedGenerationFailure({ slotId: target.slotId, accounting, message: `Bounded global repair for ${target.slotId} failed closed: ${failure.kind}.`, technicalFailure: failure });
+      }
+      accounting.calls.push(repaired.metadata);
+      accounting.totalTokens += repaired.metadata.totalTokens ?? 0;
+      accounting.totalProviderCostMicros += repaired.metadata.providerCostMicros ?? 0;
+      const revalidated = validateNarrativeSlotResult(repaired.result, existing.contract);
+      await input.onCandidate?.({ slot: plan.slots[index]!, contract: existing.contract, call: repaired, validation: revalidated, callNumber: existing.calls.length + 1 });
+      if (!revalidated.ok) continue;
+      approved[index] = { ...existing, result: repaired.result, validation: revalidated, metadata: repaired.metadata, calls: [...existing.calls, repaired] };
+    }
+    compiled = compileApprovedNarrativeSlots(plan, input.blueprint, approved, accounting);
+  }
   if (!compiled.validation.ok) throw new BoundedGenerationFailure({ slotId: 'REPORT', accounting, message: `Bounded manuscript failed closed: ${compiled.validation.issues.join(' | ')}` });
   return compiled;
 }
