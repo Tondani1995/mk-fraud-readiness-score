@@ -16,6 +16,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { assembleReportData } from '../../src/lib/reports/assemble-report-data.ts';
 import { buildAdvisoryEvidenceModel } from '../../src/lib/reports/evidence-model/index.ts';
 import { buildEssentialProjection } from '../../src/lib/reports/essential-projection.ts';
@@ -42,7 +43,27 @@ const CASE_IDS = {
 };
 
 const outRoot = process.env.LIVE_OUTPUT_DIR
-  ?? '/Users/tondani/Documents/Codex/outputs/essential-11-case-live-certification';
+  ?? '/Users/tondani/Documents/Codex/outputs/essential-11-case-clean-live-certification/final-pass';
+
+/**
+ * Every artefact records the source version that produced it. A portfolio
+ * assembled across changing code is not certification evidence, so the SHA is
+ * stamped per case rather than inferred from run order.
+ */
+const CERTIFICATION = {
+  sha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  branch: execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim(),
+  treeClean: execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' }).trim() === '',
+  startedAt: new Date().toISOString()
+};
+
+/** Bounds a single case so one stuck provider call cannot hold the portfolio. */
+const CASE_TIMEOUT_MS = Number(process.env.CASE_TIMEOUT_MS ?? 900_000);
+const withTimeout = async (label, promise, ms) => {
+  let timer;
+  const guard = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms); });
+  try { return await Promise.race([promise, guard]); } finally { clearTimeout(timer); }
+};
 const orders = (process.env.ORDERS ?? Object.keys(CASE_IDS).join(',')).split(',').map((v) => v.trim()).filter(Boolean);
 
 const write = async (file, value) => {
@@ -78,7 +99,7 @@ for (const order of orders) {
   const caseId = CASE_IDS[order] ?? order;
   const caseDir = path.join(outRoot, 'reports', caseId);
   const startedAt = Date.now();
-  const record = { caseId, order, startedAt: new Date(startedAt).toISOString() };
+  const record = { caseId, order, certificationSha: CERTIFICATION.sha, startedAt: new Date(startedAt).toISOString() };
   try {
     const data = await assembleReportData(order);
     const evidence = buildAdvisoryEvidenceModel(data);
@@ -90,11 +111,11 @@ for (const order of orders) {
     record.score = pack.assessment?.score;
     record.slots = plan.slots.length;
 
-    const compiled = await generateBoundedNarrativeReport({
+    const compiled = await withTimeout(`${caseId} generation`, generateBoundedNarrativeReport({
       reportGenerationId: `${caseId}-live`,
       pack, blueprint, thesis, plan,
       provider: createV11BoundedSectionWriter()
-    });
+    }), CASE_TIMEOUT_MS);
     const accounting = compiled.accounting;
     record.generation = {
       initialCalls: accounting.initialCalls,
@@ -119,6 +140,9 @@ for (const order of orders) {
     record.strengths = model.strengths?.rows.length ?? 0;
     record.watchpoints = model.watchpoints?.rows.length ?? 0;
 
+    await write(path.join(caseDir, 'fact-pack.json'), pack);
+    await write(path.join(caseDir, 'report-thesis.json'), thesis);
+    await write(path.join(caseDir, 'certification-sha.json'), { ...CERTIFICATION, caseId, order });
     await write(path.join(caseDir, 'presentation-model.json'), model);
     await write(path.join(caseDir, 'approved-commentary', 'commentary.json'), commentary);
     await write(path.join(caseDir, 'validation.json'), validation);
@@ -142,6 +166,12 @@ for (const order of orders) {
     // A failed case still spent provider calls. Reading the accounting off the
     // failure keeps portfolio economics honest -- reporting $0.00 for a case that
     // ran for six minutes understates real production cost.
+    record.accountingAvailable = error instanceof BoundedGenerationFailure;
+    if (!record.accountingAvailable) {
+      // A guard-path failure (timeout, transport) carries no accounting object.
+      // Reporting zero would understate spend, so the absence is stated.
+      record.generation = { note: 'COST NOT EXPOSED - failure occurred outside bounded accounting' };
+    }
     if (error instanceof BoundedGenerationFailure) {
       const accounting = error.accounting;
       record.failedAtSlot = error.slotId;
@@ -166,7 +196,9 @@ for (const order of orders) {
   }
   record.durationMs = Date.now() - startedAt;
   portfolio.push(record);
-  await write(path.join(outRoot, 'portfolio', 'portfolio-summary.json'), portfolio);
+  // Flushed after every case so progress is readable from the file rather than
+  // inferred from whether a process still exists.
+  await write(path.join(outRoot, 'portfolio-summary.json'), { certification: CERTIFICATION, cases: portfolio });
   console.log(`${record.caseId} ${record.ok ? 'PASS' : 'FAIL'} ${String(record.mode ?? '?').padEnd(11)} ${String(record.score ?? '?').padStart(6)} calls:${record.generation?.initialCalls ?? '-'} rep:${record.generation?.repairCalls ?? '-'} esc:${record.generation?.qualityEscalations ?? '-'} tok:${record.generation?.totalTokens ?? '-'} $${((record.generation?.providerCostMicros ?? 0) / 1e6).toFixed(4)} ${record.validation?.words ?? '-'}w ${Math.round(record.durationMs / 1000)}s ${record.error ?? (record.validation?.issues ?? []).map((i) => i.code).join(',')}`);
 }
 await closeRenderBrowser().catch(() => {});
