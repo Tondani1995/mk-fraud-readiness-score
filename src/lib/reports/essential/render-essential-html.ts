@@ -66,7 +66,8 @@ hr.rule{border:0;height:1px;background:var(--rule);margin:5mm 0}
 .stats{display:flex;gap:10mm;border-top:2px solid var(--navy-900);border-bottom:1px solid var(--rule);padding:5mm 0}
 .stats .s{flex:1}
 .stats .n{font-size:24pt;font-weight:700;color:var(--navy-900);line-height:1;letter-spacing:-.02em}
-.stats .l{font-size:7pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.8mm;line-height:1.4}
+.stats .l{font-size:7pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:1.6mm;line-height:1.4}
+.stats .dn{font-size:7.8pt;font-weight:600;color:var(--navy-900);line-height:1.3;margin-top:1.2mm}
 
 /* tables */
 table{width:100%;border-collapse:collapse;font-size:8.5pt}
@@ -193,8 +194,8 @@ export function renderEssentialReportHtml(model: EssentialReportPresentationMode
       <div class="s"><div class="n">${rs.score}</div><div class="l">Readiness score<br>out of 100</div></div>
       <div class="s"><div class="n">${esc(rs.maturity)}</div><div class="l">Maturity band</div></div>
       <div class="s"><div class="n">${rs.domainsAssessed}</div><div class="l">Domains<br>assessed</div></div>
-      <div class="s"><div class="n">${rs.strongest.score}</div><div class="l">Strongest domain</div></div>
-      <div class="s"><div class="n">${rs.weakest.score}</div><div class="l">Weakest domain</div></div>
+      <div class="s"><div class="n">${rs.strongest.score.toFixed(2)}</div><div class="l">Strongest domain</div><div class="dn">${esc(rs.strongest.compactTitle)}</div></div>
+      <div class="s"><div class="n">${rs.weakest.score.toFixed(2)}</div><div class="l">Weakest domain</div><div class="dn">${esc(rs.weakest.compactTitle)}</div></div>
     </div>
     ${model.pages[1]?.commentary ? `<div class="gap"></div><p class="lede">${esc(model.pages[1].commentary)}</p>` : ''}
     <div class="gap"></div>

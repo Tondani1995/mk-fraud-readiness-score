@@ -68,8 +68,9 @@ export interface ReadinessScoreExhibit extends ExhibitBase {
   outOf: 100;
   maturity: string;
   domainsAssessed: number;
-  strongest: { title: string; score: number };
-  weakest: { title: string; score: number };
+  /** compactTitle is for narrow tiles; title remains the full domain name. */
+  strongest: { title: string; compactTitle: string; score: number };
+  weakest: { title: string; compactTitle: string; score: number };
 }
 
 export interface DomainProfileExhibit extends ExhibitBase {
@@ -213,6 +214,20 @@ function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
+/**
+ * A domain name short enough for a narrow tile without losing what it names.
+ * Trims the connective and the generic tail rather than truncating, so the
+ * label still reads as the domain rather than as a clipped string.
+ */
+export function compactDomainLabel(name: string): string {
+  const compact = String(name ?? '')
+    .replace(/\s+and\s+/gi, ' & ')
+    .replace(/\s+Fraud Risk$/i, '')
+    .replace(/\s+Capability$/i, '')
+    .trim();
+  return compact || String(name ?? '');
+}
+
 function sentence(value: string): string {
   const text = customerText(value);
   if (!text) return '';
@@ -271,8 +286,8 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     outOf: 100,
     maturity,
     domainsAssessed: domains.length,
-    strongest: { title: customerText(strongestDomain?.name), score: strongestDomain?.score ?? 0 },
-    weakest: { title: customerText(weakestDomain?.name), score: weakestDomain?.score ?? 0 }
+    strongest: { title: customerText(strongestDomain?.name), compactTitle: compactDomainLabel(customerText(strongestDomain?.name)), score: strongestDomain?.score ?? 0 },
+    weakest: { title: customerText(weakestDomain?.name), compactTitle: compactDomainLabel(customerText(weakestDomain?.name)), score: weakestDomain?.score ?? 0 }
   };
 
   // ---- Domain profile, weakest first ----
