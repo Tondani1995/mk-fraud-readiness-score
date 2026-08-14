@@ -44,12 +44,10 @@ function sha(value: unknown): string {
 export const boundedNarrativeSlotResultSchema = z.object({
   contractVersion: z.string().min(1),
   slotId: z.string().min(1),
-  centralJudgement: z.string().min(1),
   narrative: z.string().min(1),
   managementImplication: z.string().min(1),
   usedClaimRefs: z.array(z.string()),
-  requirementCoverage: z.array(z.object({ requirementId: z.string().min(1), supportingExcerpt: z.string().min(1) }).strict()),
-  transitionCue: z.string()
+  requirementCoverage: z.array(z.object({ requirementId: z.string().min(1), supportingExcerpt: z.string().min(1) }).strict())
 }).strict();
 
 function technicalParseFailure(message: string, rawText: string, cause?: unknown, schemaIssuePaths?: string[], schemaIssueCodes?: string[]): never {
@@ -138,13 +136,32 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
     repair ? 'Repair one bounded MK Fraud Readiness v1.1 narrative slot.' : 'Write one bounded MK Fraud Readiness v1.1 narrative slot.',
     '',
     'DETERMINISTIC ENGINE DECIDES. AI EXPLAINS.',
-    'RETURN EXACTLY ONE JSON OBJECT matching the structured output contract. No commentary, explanation, Markdown prose outside the object or multiple objects. The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
-    'Use only the authorised facts and permitted claim references in this contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness.',
-    'For every required insight, include one supportingExcerpt copied verbatim from the narrative. Each requirement ID must occur exactly once in requirementCoverage.',
+    'The application owns headings, order, scoring, maturity, findings, scenarios, controls, decisions, roadmap, ownership and report compilation.',
+    'Use only the authorised facts and permitted claim references in the Section Contract. Do not ask for or infer missing facts. The customer prose must not contain IDs, database keys, machine enums, bullet lists, questionnaire language or claims that MK, the assessment or this report independently verified operating effectiveness.',
+    'For every required insight, include one supportingExcerpt copied verbatim from your own narrative. Each requirement ID must occur exactly once in requirementCoverage.',
     ...repairInstructions,
     '',
-    'SECTION CONTRACT',
-    JSON.stringify(contract)
+    '================ SECTION CONTRACT — INPUT ONLY ================',
+    'This object is your brief. It is NOT the shape you return.',
+    JSON.stringify(contract),
+    '',
+    '================ OUTPUT — RETURN THIS OBJECT ONLY ================',
+    'Return exactly one JSON object with exactly these six keys and no others:',
+    JSON.stringify({
+      contractVersion: contract.contractVersion,
+      slotId: contract.slotId,
+      narrative: '<your customer-facing prose for this slot>',
+      managementImplication: '<what management should take from it>',
+      usedClaimRefs: ['<claim refs you actually relied on, each drawn from permittedClaimRefs>'],
+      requirementCoverage: [{ requirementId: '<id from requiredInsights>', supportingExcerpt: '<verbatim span copied from your narrative>' }]
+    }, null, 2),
+    '',
+    `contractVersion MUST be exactly "${contract.contractVersion}". slotId MUST be exactly "${contract.slotId}".`,
+    '',
+    'DO NOT RETURN any Section Contract field. In particular DO NOT RETURN:',
+    'title, purpose, readerQuestion, requiredManagementTakeaway, requiredInsights, reportThesis, authorisedFacts, primaryContentRefs, permittedCrossReferenceRefs, permittedClaimRefs, contentOwnedElsewhere, forbiddenTopics, prohibitedClaims, style, fit, tier, organisationName, assessmentReference, narrativeRole, context.',
+    'DO NOT RETURN centralJudgement or transitionCue. They are not part of this contract.',
+    'No Markdown. No code fences. No commentary. No additional keys. One JSON object only.'
   ].join('\n');
 }
 

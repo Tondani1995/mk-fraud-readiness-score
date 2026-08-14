@@ -190,7 +190,7 @@ function goodResult(contract, seed = 0) {
   const implementationRoute = contract.narrativeRole === 'IMPLEMENTATION'
     ? 'The route is 30 days — STABILISE, 60 days — ESTABLISH, and 90 days — OPERATE AND REVIEW, with incident and evidence-preservation discipline in the first horizon.'
     : '';
-  return { contractVersion: BOUNDED_SECTION_ENGINE_SCHEMA_VERSION, slotId: contract.slotId, centralJudgement: 'The recorded pattern requires a connected management response.', narrative: `${narrative} ${implementationRoute}`.trim(), managementImplication: implication, usedClaimRefs: contract.primaryContentRefs.length ? contract.primaryContentRefs : contract.permittedClaimRefs.slice(0, 1), requirementCoverage: contract.requiredInsights.map((item, index) => ({ requirementId: item.requirementId, supportingExcerpt: excerpts[index] })), transitionCue: '' };
+  return { contractVersion: BOUNDED_SECTION_ENGINE_SCHEMA_VERSION, slotId: contract.slotId, narrative: `${narrative} ${implementationRoute}`.trim(), managementImplication: implication, usedClaimRefs: contract.primaryContentRefs.length ? contract.primaryContentRefs : contract.permittedClaimRefs.slice(0, 1), requirementCoverage: contract.requiredInsights.map((item, index) => ({ requirementId: item.requirementId, supportingExcerpt: excerpts[index] })) };
 }
 
 function metadata(contract, callType = 'INITIAL', repairNumber = 0) {
@@ -226,7 +226,9 @@ for (const invalidText of [
 }
 assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, usedClaimRefs: ['UNKNOWN-CLAIM'] }))).issues.some((item) => item.code === 'PROVENANCE_VIOLATION'), true, 'unknown refs remain a downstream provenance failure');
 assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, slotId: 'SLOT-WRONG' }))).issues.some((item) => item.code === 'STRUCTURE_FAILURE'), true, 'wrong slot identity remains a downstream validation failure');
-assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, centralJudgement: 'The recorded position is 99 / 100 with Stable maturity.' }))).issues.some((item) => item.code === 'HARD_TRUTH_FAILURE'), true, 'wrong score or maturity remains a downstream hard-truth failure');
+assert.equal(failure(parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, managementImplication: 'The recorded position is 99 / 100 with Stable maturity.' }))).issues.some((item) => item.code === 'HARD_TRUTH_FAILURE'), true, 'wrong score or maturity remains a downstream hard-truth failure');
+assert.throws(() => parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, centralJudgement: 'x' })), (error) => error.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE', 'a removed contract field is rejected as a technical serialization failure');
+assert.throws(() => parseBoundedNarrativeSlotText(JSON.stringify({ ...validSlotResult, title: 'Executive assessment' })), (error) => error.kind === 'TECHNICAL_OUTPUT_PARSE_FAILURE', 'an echoed Section Contract field is rejected as a technical serialization failure');
 const technicalFailureProvider = {
   provider: 'test',
   model: 'test/bounded',

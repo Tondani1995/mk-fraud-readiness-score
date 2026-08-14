@@ -131,12 +131,10 @@ export interface NarrativeSectionContract {
 export interface NarrativeSlotResult {
   contractVersion: typeof BOUNDED_SECTION_ENGINE_SCHEMA_VERSION;
   slotId: string;
-  centralJudgement: string;
   narrative: string;
   managementImplication: string;
   usedClaimRefs: string[];
   requirementCoverage: Array<{ requirementId: string; supportingExcerpt: string }>;
-  transitionCue: string;
 }
 
 export interface BoundedProviderMetadata {
@@ -668,7 +666,7 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 function customerText(result: NarrativeSlotResult): string {
-  return [result.narrative, result.managementImplication, result.centralJudgement, result.transitionCue].map(text).join('\n');
+  return [result.narrative, result.managementImplication].map(text).join('\n');
 }
 
 function rawIdTokens(value: string): string[] {
@@ -702,7 +700,7 @@ export function validateNarrativeSlotResult(result: NarrativeSlotResult, contrac
   const combined = customerText(result);
   const resultRecord = result as unknown as Record<string, unknown>;
   if (result.contractVersion !== BOUNDED_SECTION_ENGINE_SCHEMA_VERSION || result.slotId !== contract.slotId) issues.push({ code: 'STRUCTURE_FAILURE', message: 'Result contract version or slot identity does not match the deterministic contract.' });
-  if (!text(result.narrative) || !text(result.managementImplication) || !text(result.centralJudgement)) issues.push({ code: 'STRUCTURE_FAILURE', message: 'Narrative, centralJudgement and managementImplication are required.' });
+  if (!text(result.narrative) || !text(result.managementImplication)) issues.push({ code: 'STRUCTURE_FAILURE', message: 'Narrative and managementImplication are required.' });
   if (!Array.isArray(result.usedClaimRefs) || !Array.isArray(result.requirementCoverage)) issues.push({ code: 'STRUCTURE_FAILURE', message: 'usedClaimRefs and requirementCoverage are required arrays.' });
   const permitted = new Set(contract.permittedClaimRefs);
   const unknownRefs = (result.usedClaimRefs ?? []).filter((ref) => !permitted.has(ref));
@@ -740,7 +738,6 @@ export function validateNarrativeSlotResult(result: NarrativeSlotResult, contrac
   if (wordCount > contract.fit.maximumWords) issues.push({ code: 'FIT_OVERFLOW', message: `Maximum ${contract.fit.maximumWords} words; received ${wordCount}. Reduce by at least ${wordCount - contract.fit.maximumWords} words.` });
   if (wordCount < contract.fit.minimumWords) issues.push({ code: 'FIT_UNDERFLOW', message: `Minimum ${contract.fit.minimumWords} words; received ${wordCount}. Add at least ${contract.fit.minimumWords - wordCount} words while preserving required insights.` });
   if (characterCount > contract.fit.maximumCharacters) issues.push({ code: 'FIT_OVERFLOW', message: `Maximum ${contract.fit.maximumCharacters} characters; received ${characterCount}.` });
-  if (typeof resultRecord.transitionCue !== 'string') issues.push({ code: 'STRUCTURE_FAILURE', message: 'transitionCue is required, even when it is an empty string.' });
   return { ok: issues.length === 0, slotId: contract.slotId, wordCount, characterCount, issues, usedClaimRefs: [...(result.usedClaimRefs ?? [])], requirementIds: coverageIds };
 }
 
