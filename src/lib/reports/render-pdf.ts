@@ -196,6 +196,29 @@ async function closeSafely(closeable: { close: () => Promise<void> } | null | un
   }
 }
 
+/**
+ * Releases the cached browser.
+ *
+ * The singleton is correct for a long-lived server, where reusing one browser
+ * across requests is the point. It is wrong for a one-shot CLI: the browser
+ * process keeps libuv handles open, so the script finishes its work and then
+ * never exits. That presented as a "render hang" when the render itself had
+ * already completed in about three seconds.
+ *
+ * Any entry point that renders and then expects to terminate must await this.
+ */
+export async function closeRenderBrowser(): Promise<void> {
+  const pending = browserPromise;
+  browserPromise = null;
+  if (!pending) return;
+  try {
+    const browser = await pending;
+    await browser.close();
+  } catch {
+    // A browser that never launched, or already died, needs no disposal.
+  }
+}
+
 async function getBrowser() {
   if (browserPromise) {
     try {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { renderHtmlToPdfBuffer } from '../../src/lib/reports/render-pdf.ts';
+import { renderHtmlToPdfBuffer, closeRenderBrowser } from '../../src/lib/reports/render-pdf.ts';
 
 const outputDir = path.resolve(process.env.BOUNDED_RIVONIA_OUTPUT_DIR ?? '/Users/tondani/Documents/Codex/2026-08-11/p1-no-paid-order-can-be/outputs/v1.1-bounded-section-engine-rivonia');
 const manuscriptPath = path.join(outputDir, 'assembled', 'essential-manuscript.md');
@@ -84,3 +84,6 @@ await fs.writeFile(pdfPath, pdf);
 const nextManifest = { ...manifest, output: { ...manifest.output, pdf: 'pdf/essential-owner-preview.pdf', pdfCreated: true, pdfBytes: pdf.length } };
 await fs.writeFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
 console.log(JSON.stringify({ passed: true, pdfPath, bytes: pdf.length, pages: 'validated by pdfinfo/render inspection step', customerDelivery: 'NONE' }, null, 2));
+
+// One-shot CLI: release the cached browser so the process can exit.
+await closeRenderBrowser();
