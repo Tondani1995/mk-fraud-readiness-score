@@ -123,8 +123,10 @@ export interface PriorityExposureExhibit extends ExhibitBase {
 export interface ScenarioPathwayExhibit extends ExhibitBase {
   scenarios: Array<{
     scenarioId: string;
-    /** Owning exposure family, resolved by scenario family and never by position. */
+    /** Owning exposure cluster, resolved by shared semantic family. */
     family?: ExposureFamily;
+    /** The scenario's own family, used to check mechanic consistency. */
+    scenarioFamily?: string;
     title: string;
     entryPoint: string;
     entryPointShort: string;
@@ -456,6 +458,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
           const presentation = scenarioPresentation(s.scenarioFamily);
           return {
             scenarioId: s.factRef ?? `SCENARIO-${index + 1}`,
+            scenarioFamily: String(s.scenarioFamily ?? ''),
             family,
             title: customerText(s.title),
             entryPointShort: presentation?.entry ?? '',

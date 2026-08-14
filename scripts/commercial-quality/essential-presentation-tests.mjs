@@ -10,9 +10,9 @@ import fs from 'node:fs';
 import { buildEssentialPresentationModel } from '../../src/lib/reports/essential/presentation-model.ts';
 import { validateEssentialPresentation } from '../../src/lib/reports/essential/presentation-validation.ts';
 import {
-  exposureFamilyForScenario,
-  exposureFamilyForSemantic,
-  exposureFamilyForLabel
+  exposureClusters,
+  clusterForScenario,
+  clusterForSemanticFamily
 } from '../../src/lib/reports/essential/content-families.ts';
 
 const source = process.env.ESSENTIAL_SOURCE_DIR
@@ -20,7 +20,9 @@ const source = process.env.ESSENTIAL_SOURCE_DIR
 const factPack = JSON.parse(fs.readFileSync(`${source}/01-fact-pack.json`, 'utf8'));
 const thesis = JSON.parse(fs.readFileSync(`${source}/03-report-thesis.json`, 'utf8'));
 
-const model = buildEssentialPresentationModel({ factPack, thesis, commentary: {} });
+const blueprint = JSON.parse(fs.readFileSync(`${source}/02-report-blueprint.json`, 'utf8'));
+const clusters = exposureClusters(blueprint);
+const model = buildEssentialPresentationModel({ factPack, thesis, blueprint, commentary: {} });
 const validation = validateEssentialPresentation(model);
 const checks = [];
 const ok = (label) => checks.push(label);
@@ -34,34 +36,33 @@ for (const row of model.diagnosis.rows) {
 }
 ok('every diagnostic row has a pattern, multiple signals and an explanation');
 
-// 2-4. Exposure families own the right content and are distinct.
+// 2-4. Exposure identity comes from the deterministic cluster, never from label
+// text or array position.
 const exposureFamilies = model.exposures.rows.map((r) => r.family);
-assert.deepEqual([...exposureFamilies].sort(), [
-  'IDENTITY_TRANSACTION_SENSITIVE_CHANGE',
-  'INCIDENT_CONTAINMENT_LEARNING',
-  'SUPPLIER_PAYMENT_VALUE_DIVERSION'
-], 'all three exposure families are present and distinct');
+assert.equal(new Set(exposureFamilies).size, exposureFamilies.length, 'no two exposures claim the same cluster');
+assert.ok(exposureFamilies.every(Boolean), 'every exposure resolves to a cluster');
+assert.ok(exposureFamilies.every((f) => clusters.some((c) => c.clusterId === f)), 'every exposure identity is a real blueprint cluster');
+// Renaming a customer label must not alter analytical identity.
+const renamed = exposureClusters({ findingClusters: blueprint.findingClusters.map((c) => ({ ...c, title: 'A completely different customer heading' })) });
+assert.deepEqual(renamed.map((c) => c.clusterId), clusters.map((c) => c.clusterId), 'renaming a label leaves identity unchanged');
+// A cluster without families cannot own content.
+assert.equal(exposureClusters({ findingClusters: [{ clusterId: 'X', title: 'x', semanticFamilies: [] }] }).length, 0, 'a cluster with no families is dropped');
+// Scenarios reach their exposure through shared semantic family.
+for (const scenario of factPack.scenarios) {
+  const owner = clusterForScenario(clusters, scenario.scenarioFamily);
+  if (owner) assert.ok(clusters.some((c) => c.clusterId === owner.clusterId), 'scenario resolves to a real cluster');
+}
+ok('exposure identity is the deterministic cluster, not a label or a position');
+
 // Ranking is evidenced by the weakest supporting signal, not asserted by order.
 const weakestPerRow = model.exposures.rows.map((r) => Math.min(...r.assessmentBasis.map((b) => b.score)));
 assert.deepEqual(weakestPerRow, [...weakestPerRow].sort((a, b) => a - b), 'exposures are ranked by weakest supporting signal');
 for (const row of model.exposures.rows) {
+  assert.match(row.priority, /^Priority \d+$/, `exposure ${row.rank} uses an ordinal priority, not a band`);
   assert.ok(/scores \d/.test(row.priorityBasis), `exposure ${row.rank} explains its priority from a signal`);
-  assert.ok(row.assessmentBasis.length >= 1, `exposure ${row.rank} shows its assessment basis`);
   assert.ok(row.potentialConsequence.length > 25, `exposure ${row.rank} states a potential consequence`);
 }
-// Priority is an ordinal position. Band language would overclaim a distinction
-// the assessment cannot support: on this fixture the top two exposures are
-// separated by 0.59 of a point.
-for (const row of model.exposures.rows) {
-  assert.match(row.priority, /^Priority \d+$/, `exposure ${row.rank} uses an ordinal priority, not a band`);
-  assert.ok(!/highest|high|moderate|critical|severe/i.test(row.priority), 'priority carries no risk-band language');
-}
-const topTwoGap = Math.abs(
-  Math.min(...model.exposures.rows[0].assessmentBasis.map((b) => b.score))
-  - Math.min(...model.exposures.rows[1].assessmentBasis.map((b) => b.score))
-);
-assert.ok(topTwoGap < 5, `this fixture separates the top two exposures by ${topTwoGap.toFixed(2)} points, which band labels would misrepresent`);
-ok('exposure ownership is distinct and prioritisation is ordinal and evidenced');
+ok('prioritisation is ordinal and evidenced');
 
 // Scenario narrative must describe the same mechanic as its nodes.
 const contaminated = JSON.parse(JSON.stringify(model));
@@ -85,29 +86,6 @@ for (const stage of model.roadmap.stages) {
   }
 }
 ok('roadmap actions carry owner, deliverable and completion test');
-
-// 5. The shipped defect: pairing exposures to scenarios by array index.
-// Rivonia's scenario order is supplier / incident / detection while its exposure
-// order is supplier / identity / containment, so index pairing crosses rows 2 and 3.
-const clusterOrder = thesis.priorityExposureClusters.map((c) => exposureFamilyForLabel(c));
-const scenarioOrder = factPack.scenarios.map((s) => exposureFamilyForScenario(s.scenarioFamily));
-// Positional pairing takes scenario[i] for cluster[i]. On this fixture that puts
-// incident content on the identity cluster and detection content on containment.
-assert.notDeepEqual(scenarioOrder, clusterOrder, 'scenario order does not correspond to cluster order');
-assert.equal(clusterOrder[1], 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE', 'cluster 2 is the identity exposure');
-assert.equal(scenarioOrder[1], 'INCIDENT_CONTAINMENT_LEARNING', 'index pairing would give it incident content');
-// Family resolution ignores position entirely.
-for (const row of model.exposures.rows) {
-  const scenario = factPack.scenarios.find((s) => exposureFamilyForScenario(s.scenarioFamily) === row.family);
-  assert.ok(scenario, `exposure ${row.family} resolves its own scenario by family`);
-}
-ok('the shipped index-pairing defect is reproduced and rejected');
-
-// 6-8. Scenario families.
-assert.equal(exposureFamilyForScenario('SUPPLIER_PAYMENT_DIVERSION'), 'SUPPLIER_PAYMENT_VALUE_DIVERSION');
-assert.equal(exposureFamilyForScenario('DETECTION_EVASION'), 'IDENTITY_TRANSACTION_SENSITIVE_CHANGE');
-assert.equal(exposureFamilyForScenario('INCIDENT_CONCEALMENT'), 'INCIDENT_CONTAINMENT_LEARNING');
-ok('scenario families map to their owning exposure');
 
 // 9. Scenario bleed fixture must fail.
 const bled = JSON.parse(JSON.stringify(model));

@@ -195,7 +195,7 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
   // the families matched, so every family check passed, while the page described
   // two different frauds.
   for (const scenario of model.scenarios?.scenarios ?? []) {
-    const terms = scenarioPresentationForExposure(scenario.family)?.mechanicTerms;
+    const terms = scenarioPresentationForExposure(scenario.scenarioFamily)?.mechanicTerms;
     if (!terms || !scenario.howItUnfolds) continue;
     if (!terms.test(scenario.howItUnfolds)) {
       issues.push({ code: 'SCENARIO_MECHANIC_CONTAMINATION', message: `Scenario ${scenario.scenarioId} describes a different mechanic from its pathway nodes: "${scenario.howItUnfolds.slice(0, 90)}"` });
