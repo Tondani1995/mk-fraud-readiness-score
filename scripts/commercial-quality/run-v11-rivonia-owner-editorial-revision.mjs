@@ -179,8 +179,10 @@ async function main() {
   const writer = createV11WholeManuscriptWriter(model);
   const editorial = await writer.coherencePass({ context, blueprint, previousMarkdown: oldMarkdown, editorialBrief });
   const historical = historicalRecovery(oldRecovery);
-  const editorialRecovery = { ...historical, totalCalls: historical.totalCalls + 1, totalTokens: historical.totalTokens + (editorial.writerMetadata.totalTokens ?? 0), totalProviderCostMicros: historical.totalProviderCostMicros + (editorial.writerMetadata.providerCostMicros ?? 0) };
-  const initialCandidate = { ...editorial, architecture: 'whole-manuscript', writerMetadata: { ...editorial.writerMetadata, recovery: editorialRecovery } };
+  const ownerTokens = editorial.writerMetadata.totalTokens ?? 0;
+  const ownerCostMicros = editorial.writerMetadata.providerCostMicros ?? 0;
+  const editorialRecovery = { ...historical, totalCalls: historical.totalCalls + 1, totalTokens: historical.totalTokens + ownerTokens, totalProviderCostMicros: historical.totalProviderCostMicros + ownerCostMicros };
+  const initialCandidate = { ...editorial, architecture: 'whole-manuscript', writerMetadata: { ...editorial.writerMetadata, totalTokens: editorialRecovery.totalTokens, providerCostMicros: editorialRecovery.totalProviderCostMicros, recovery: editorialRecovery } };
   let final = validateCandidate(initialCandidate.markdown, blueprint, factPack);
   let finalMarkdown = initialCandidate.markdown;
   let finalMetadata = initialCandidate.writerMetadata;
