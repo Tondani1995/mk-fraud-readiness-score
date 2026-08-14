@@ -28,7 +28,7 @@ export const MECHANICAL_TERM_FAMILIES: MechanicalTermFamily[] = [
     patterns: [/\brecorded\b/gi, /\bis recorded at\b/gi, /\bthe assessment recorded\b/gi],
     perSlotAllowance: 2,
     perReportAllowance: 5,
-    guidance: 'Say what the position is rather than that it was recorded. "Rivonia\'s monitoring capability remains reactive." rather than "the recorded monitoring position is reactive."'
+    guidance: 'Say what the position is rather than that it was recorded. "Monitoring capability remains reactive." rather than "the recorded monitoring position is reactive."'
   },
   {
     family: 'self-assessed',

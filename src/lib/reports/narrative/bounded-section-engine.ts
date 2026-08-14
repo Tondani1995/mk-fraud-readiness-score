@@ -636,8 +636,15 @@ export function assertNarrativeSlotPlan(plan: NarrativeSlotPlan, pack: Narrative
   if (new Set(slotPrimaryRefs).size !== slotPrimaryRefs.length) throw new Error('Narrative Slot Plan assigns primary content to more than one slot.');
   const missing = assignmentRefs.filter((ref) => !slotPrimaryRefs.includes(ref));
   if (missing.length) throw new Error(`Narrative Slot Plan has unowned primary content: ${missing.join(', ')}`);
-  if (pack.organisation.name === 'Rivonia Health Logistics (Pty) Ltd' && pack.productTier === 'essential' && blueprint.findingClusters.length !== 3) {
-    throw new Error(`Rivonia Essential requires exactly three priority exposure clusters; received ${blueprint.findingClusters.length}.`);
+  // An Essential remediation report presents exposure as owned clusters. The
+  // structural requirement is ownership, not a fixed count: every cluster owns
+  // at least one finding and no finding is owned twice.
+  if (pack.productTier === 'essential' && pack.narrativeMode !== 'SUSTAINMENT' && pack.findings.length) {
+    if (!blueprint.findingClusters.length) throw new Error('Essential remediation reporting requires at least one priority exposure cluster.');
+    const empty = blueprint.findingClusters.filter((cluster) => !cluster.findingRefs.length).map((cluster) => cluster.clusterId);
+    if (empty.length) throw new Error(`Priority exposure clusters own no finding: ${empty.join(', ')}`);
+    const owned = blueprint.findingClusters.flatMap((cluster) => cluster.findingRefs);
+    if (new Set(owned).size !== owned.length) throw new Error('A finding is owned by more than one priority exposure cluster.');
   }
 }
 
@@ -840,12 +847,13 @@ export function globalRepairTargets(plan: NarrativeSlotPlan, approvedSlots: Appr
       for (const target of mechanical.repairTargets) targets.push(target);
       continue;
     }
-    if (issue.includes('does not preserve the 30/60/90 implementation sequence')) {
-      // The implementation slot owns the sequence, and a mechanical-language
-      // rewrite of that slot can drop it. Without a target this threw instead of
-      // repairing, so the run ended on a defect the engine could have corrected.
-      const owner = approvedSlots.find((slot) => slot.contract.narrativeRole === 'IMPLEMENTATION');
-      if (owner) targets.push({ slotId: owner.contract.slotId, reason: 'This section must state the 30-day, 60-day and 90-day sequence explicitly, using those day markers, because the compiled report is checked for that progression. Keep every fact, owner and action unchanged and restore the missing markers.' });
+    if (issue.includes('carries no implementation sequence for the roadmap to present')) {
+      // The roadmap exhibit is built from the implementation argument. Losing
+      // the whole slot leaves nothing to present, so the repair restores the
+      // section rather than chasing day markers in the prose.
+      const owner = approvedSlots.find((slot) => slot.contract.narrativeRole === 'IMPLEMENTATION')
+        ?? approvedSlots.find((slot) => slot.contract.narrativeRole === 'RESPONSE');
+      if (owner) targets.push({ slotId: owner.contract.slotId, reason: 'This section must set out the sequenced actions, their owners and how completion is proved, because the first-90-days exhibit is built from it. Keep every fact and owner unchanged and restore the missing sequence.' });
       continue;
     }
     if (issue.includes('does not contain incident/evidence-preservation meaning')) {
@@ -915,7 +923,15 @@ export function compileApprovedNarrativeSlots(plan: NarrativeSlotPlan, blueprint
   const duplicateSentences = sentences(allText).filter((sentence, index, all) => all.indexOf(sentence) !== index);
   if (duplicateSentences.length) issues.push(`Repeated sentence overlap detected: ${unique(duplicateSentences).slice(0, 3).join(' | ')}`);
   const duplicateOwners = unique(duplicateSentences).map((sentence) => laterOwnerOfSentence(approvedSlots, sentence)).filter((slotId): slotId is string => Boolean(slotId));
-  if (!/30\s+days[\s\S]{0,800}60\s+days[\s\S]{0,800}90\s+days/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not preserve the 30/60/90 implementation sequence.');
+  // Roadmap completeness is proved in the presentation model, against the
+  // structure that becomes the exhibit, not against literal day markers in
+  // manuscript prose. See ROADMAP_SEQUENCE_COMPLETENESS in
+  // essential/presentation-validation.ts. What the compilation still owes the
+  // roadmap is content to build it from: an implementation argument must exist.
+  if (blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') {
+    const implementationSlots = approvedSlots.filter((approved) => plan.slots.find((slot) => slot.slotId === approved.contract.slotId)?.narrativeRole === 'IMPLEMENTATION');
+    if (!implementationSlots.length) issues.push('Essential compilation carries no implementation sequence for the roadmap to present.');
+  }
   if (!/evidence|custody|incident/i.test(allText) && blueprint.reportTier === 'essential' && blueprint.narrativeMode !== 'SUSTAINMENT') issues.push('Essential compilation does not contain incident/evidence-preservation meaning.');
   return { markdown, approvedSlots, validation: { ok: issues.length === 0, totalWordCount, totalCharacterCount, expectedSlotIds: expected, compiledSlotIds: compiled, missingPrimaryContentRefs, duplicatePrimaryContentRefs, issues }, accounting };
 }

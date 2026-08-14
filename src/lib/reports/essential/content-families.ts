@@ -196,6 +196,38 @@ const FAMILY_PRESENTATION: Record<string, FamilyPresentation> = {
     scenarioControlBreak: 'Preservation and custody route is informal',
     scenarioExposure: 'Evidence fragmented, delayed or weakened'
   },
+  INCIDENT_RESPONSE: {
+    shortLabel: 'Defined intake and containment for suspected fraud',
+    targetState: 'Suspected fraud follows a severity-based intake route with named containment ownership, investigation decision rights and closure criteria.',
+    interruptionPoint: 'A severity-based intake route with named containment ownership.',
+    scenarioEntry: 'A suspected fraud matter is reported',
+    scenarioControlBreak: 'No severity-based intake or containment ownership',
+    scenarioExposure: 'The matter escalates while ownership is decided'
+  },
+  PRIVILEGED_ACCESS: {
+    shortLabel: 'Restricted and recertified privileged access',
+    targetState: 'Privileged accounts are named, restricted to justified need, logged, recertified on a defined cycle and removed when the justification ends.',
+    interruptionPoint: 'Named privileged accounts with periodic recertification.',
+    scenarioEntry: 'A privileged account is used outside its justified purpose',
+    scenarioControlBreak: 'Privileged use is not logged or recertified',
+    scenarioExposure: 'Elevated rights persist beyond the need for them'
+  },
+  ORDINARY_ACCESS: {
+    shortLabel: 'Role-based access and segregation of duties',
+    targetState: 'Access follows current role responsibilities, with segregation-of-duties conflicts identified, justified or removed on a defined cycle.',
+    interruptionPoint: 'A current reconciliation of access against role responsibilities.',
+    scenarioEntry: 'A role changes without an access review',
+    scenarioControlBreak: 'Access and segregation are not reconciled to current duties',
+    scenarioExposure: 'One person can both initiate and approve'
+  },
+  FRAUD_AWARENESS: {
+    shortLabel: 'Role-specific fraud awareness and reporting',
+    targetState: 'People in exposed roles recognise the fraud indicators relevant to their work and use a known reporting route when they see one.',
+    interruptionPoint: 'Role-specific awareness with a known reporting route.',
+    scenarioEntry: 'An employee receives an unusual request',
+    scenarioControlBreak: 'The indicator is not recognised or the reporting route is unclear',
+    scenarioExposure: 'The warning is never raised'
+  },
   CONTINUOUS_IMPROVEMENT: {
     shortLabel: 'Learning and control refresh after events',
     targetState: 'Findings from incidents and reviews are captured and drive a scheduled refresh of fraud risks and controls.',

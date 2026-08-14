@@ -21,6 +21,7 @@ export type PresentationIssueCode =
   | 'SCENARIO_PRIMARY_OWNERSHIP'
   | 'NO_SCENARIO_BLEED'
   | 'ROADMAP_STAGE_COMPLETENESS'
+  | 'ROADMAP_SEQUENCE_COMPLETENESS'
   | 'REPORT_BASIS_ONCE'
   | 'CUSTOMER_WORD_ENVELOPE'
   | 'PAGE_DENSITY'
@@ -98,6 +99,111 @@ function words(value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
+/**
+ * What a sentence in a sustainment report is actually claiming.
+ *
+ * A high-readiness report may legitimately say that a strength depends on
+ * something, that it could deteriorate, or that one capability is less developed
+ * than another. What it may not do is assert that a control is currently absent,
+ * failing or in crisis, because a sustainment assessment carries no evidence for
+ * that: there is no exposure register behind it.
+ *
+ * The previous check was a flat keyword scan, so "no critical gap identified in
+ * this domain" — a statement that the organisation is *sound* — was rejected as
+ * a manufactured weakness. Severity vocabulary alone does not make a claim; what
+ * the sentence does with it does.
+ */
+export type SustainmentClaimClassification =
+  | 'NEGATED_ABSENCE'
+  | 'DETERIORATION_RISK'
+  | 'RELATIVE_LIMITATION'
+  | 'SUPPORTED_WATCHPOINT'
+  | 'MATERIAL_WEAKNESS_CLAIM'
+  | 'NEUTRAL';
+
+export interface SustainmentClaim {
+  sentence: string;
+  classification: SustainmentClaimClassification;
+  trigger: string;
+}
+
+/**
+ * Assertions that are their own evidence of a manufactured weakness. Negation is
+ * part of the claim here ("there is no ownership"), so it cannot excuse it.
+ */
+const ABSENCE_ASSERTIONS: Array<{ label: string; pattern: RegExp; negatable: boolean }> = [
+  // The negator is part of the claim in these two, so it cannot excuse them.
+  { label: 'asserts controls are absent', pattern: /\b(?:there\s+(?:is|are)\s+)?no\s+(?:effective\s+|formal\s+|defined\s+)?(?:controls?|control\s+environment|oversight|ownership|accountability|monitoring|escalation\s+route|governance)\b/i, negatable: false },
+  { label: 'asserts a capability does not exist', pattern: /\b(?:does|do)\s+not\s+(?:have|maintain|operate|perform)\s+(?:any\s+)?(?:controls?|monitoring|oversight|governance|process)\b/i, negatable: false },
+  // These name a condition, so "no material weakness was identified" denies it.
+  { label: 'asserts a control failure', pattern: /\b(?:control|governance|oversight)\s+(?:failure|breakdown|collapse)\b/i, negatable: true },
+  { label: 'asserts a material weakness', pattern: /\bmaterial\s+weakness(?:es)?\b/i, negatable: true }
+];
+
+/**
+ * Severity vocabulary whose meaning depends entirely on how the sentence uses
+ * it. Each one is a manufactured weakness only when it survives every mitigator.
+ */
+const SEVERITY_TERMS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'critical deficiency', pattern: /\bcritical\s+(?:gap|gaps|weakness(?:es)?|deficienc\w+|failure|issue|gap\s+count)\b/i },
+  { label: 'severe', pattern: /\bsevere(?:ly)?\b/i },
+  { label: 'crisis', pattern: /\bcrisis\b/i },
+  { label: 'urgent', pattern: /\burgent(?:ly)?\b/i },
+  { label: 'state of failure', pattern: /\b(?:is|are|remains?|stays?)\s+(?:currently\s+)?(?:inadequate|deficient|ineffective|absent|missing|non-existent|nonexistent|failing|broken|unreliable)\b/i },
+  { label: 'fails to operate', pattern: /\b(?:fails?|failing)\s+to\s+(?:operate|prevent|detect|identify|control|escalate)\b/i }
+];
+
+/** The weakness term is denied rather than asserted: "no critical gap identified". */
+const NEGATORS = /\b(?:no|not|never|none|nor|without|free\s+of|absence\s+of|nothing|neither)\b/i;
+
+/** The sentence describes what could happen, not what is happening. */
+// Deliberately excludes a bare "should": "management should" opens most advisory
+// sentences and would excuse any assertion that followed it.
+const CONDITIONAL = /\b(?:if|unless|could|would|may|might|risks?|at\s+risk\s+of|over\s+time|in\s+the\s+event|becomes?|drift\w*|erode\w*|deteriorat\w*|slip\w*|lapse\w*|going\s+forward)\b|\bwere\s+\w+\s+to\b|\bshould\s+(?:it|they|this|that|the\s+\w+)\s+(?:drift|lapse|slip|weaken|decline|deteriorate)\b/i;
+
+/** The sentence ranks capabilities against each other rather than condemning one. */
+const RELATIVE = /\b(?:relative(?:ly)?|compared\s+(?:with|to)|less\s+(?:mature|developed|advanced)|lower\s+than|weakest|lowest|least\s+developed|stronger\s+than|more\s+mature\s+than|behind\s+the\s+others?)\b/i;
+
+/** The sentence frames the point as something to keep watching, not something broken. */
+// Framing phrases only. The bare word "monitoring" is a capability name, not a
+// framing device: "monitoring fails to detect unusual activity" is an assertion.
+const WATCHPOINT = /\b(?:watchpoint|keep\s+under\s+review|keep\s+monitoring|depends?\s+on|dependent\s+on|sustain\w*|preserv\w*|maintain\w*|early\s+warning|ongoing\s+attention|continued\s+\w+)\b|\b(?:should|must)\s+(?:continue\s+to\s+)?monitor\b/i;
+
+function sentencesOf(text: string): string[] {
+  return String(text ?? '')
+    .split(/(?<=[.!?])\s+/)
+    .flatMap((sentence) => sentence.split(/\s+[—–-]\s+/))
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+export function sustainmentClaims(text: string): SustainmentClaim[] {
+  return sentencesOf(text).map((sentence) => {
+    const absence = ABSENCE_ASSERTIONS.find((entry) => entry.pattern.test(sentence));
+    if (absence) {
+      const at = sentence.search(absence.pattern);
+      const denied = absence.negatable && NEGATORS.test(sentence.slice(0, at >= 0 ? at : sentence.length));
+      if (denied) return { sentence, classification: 'NEGATED_ABSENCE' as const, trigger: absence.label };
+      return { sentence, classification: 'MATERIAL_WEAKNESS_CLAIM' as const, trigger: absence.label };
+    }
+
+    const severity = SEVERITY_TERMS.find((entry) => entry.pattern.test(sentence));
+    if (!severity) return { sentence, classification: 'NEUTRAL' as const, trigger: '' };
+
+    // The mitigators are checked against the text leading up to the term, and
+    // against the sentence as a whole, because "no critical gap" negates ahead
+    // of the term while "unless review lapses, the critical dependency..."
+    // qualifies the whole clause.
+    const index = sentence.search(severity.pattern);
+    const lead = sentence.slice(0, index >= 0 ? index : sentence.length);
+    if (NEGATORS.test(lead)) return { sentence, classification: 'NEGATED_ABSENCE' as const, trigger: severity.label };
+    if (CONDITIONAL.test(sentence)) return { sentence, classification: 'DETERIORATION_RISK' as const, trigger: severity.label };
+    if (RELATIVE.test(sentence)) return { sentence, classification: 'RELATIVE_LIMITATION' as const, trigger: severity.label };
+    if (WATCHPOINT.test(sentence)) return { sentence, classification: 'SUPPORTED_WATCHPOINT' as const, trigger: severity.label };
+    return { sentence, classification: 'MATERIAL_WEAKNESS_CLAIM' as const, trigger: severity.label };
+  });
+}
+
 export function validateEssentialPresentation(model: EssentialReportPresentationModel): EssentialPresentationValidation {
   const issues: PresentationIssue[] = [];
   const surfaces = customerSurfaces(model);
@@ -153,10 +259,57 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
     issues.push({ code: 'NO_SCENARIO_BLEED', message: 'Two scenarios describe the same control break.' });
   }
 
-  for (const stage of model.roadmap.stages) {
+  // Authoritative roadmap assurance.
+  //
+  // This is the layer that owns it. The roadmap exhibit is what the customer
+  // reads and what the PDF renders, so completeness is proved against the
+  // structure that becomes the page — not against literal "30 days" markers in
+  // intermediate manuscript prose that never reaches the exhibit. Prose that
+  // happens to contain the markers is not evidence the roadmap is complete, and
+  // prose that omits them is not evidence it is broken.
+  const EXPECTED_WINDOWS = [
+    { marker: '30', window: '0–30 days' },
+    { marker: '60', window: '31–60 days' },
+    { marker: '90', window: '61–90 days' }
+  ];
+  const stages = model.roadmap.stages;
+  if (stages.length !== EXPECTED_WINDOWS.length) {
+    issues.push({ code: 'ROADMAP_SEQUENCE_COMPLETENESS', message: `The roadmap carries ${stages.length} stages; the first 90 days requires exactly ${EXPECTED_WINDOWS.length}.` });
+  }
+  EXPECTED_WINDOWS.forEach((expected, index) => {
+    const stage = stages[index];
+    if (!stage) {
+      issues.push({ code: 'ROADMAP_SEQUENCE_COMPLETENESS', message: `The roadmap has no ${expected.marker}-day stage.` });
+      return;
+    }
+    // Sequencing is positional and explicit: stage n must be the nth window.
+    if (!new RegExp(`^${expected.marker}\\b`).test(stage.stage.trim())) {
+      issues.push({ code: 'ROADMAP_SEQUENCE_COMPLETENESS', message: `Roadmap stage ${index + 1} is "${stage.stage}"; the ${expected.marker}-day stage belongs in that position.` });
+    }
+    if (stage.window.trim() !== expected.window) {
+      issues.push({ code: 'ROADMAP_SEQUENCE_COMPLETENESS', message: `Roadmap stage "${stage.stage}" covers "${stage.window}" rather than ${expected.window}.` });
+    }
+  });
+  for (const stage of stages) {
     if (!stage.primaryOutcome || stage.actions.length === 0) {
       issues.push({ code: 'ROADMAP_STAGE_COMPLETENESS', message: `Roadmap stage "${stage.stage}" has no outcome or no actions.` });
+      continue;
     }
+    // An action management cannot act on is not an action. Each needs the work,
+    // someone accountable, what it produces and how completion is proved.
+    for (const action of stage.actions) {
+      const missing = ([['action', action.action], ['owner', action.owner], ['deliverable', action.deliverable], ['completion criterion', action.completionTest]] as Array<[string, string]>)
+        .filter(([, value]) => !String(value ?? '').trim())
+        .map(([field]) => field);
+      if (missing.length) {
+        issues.push({ code: 'ROADMAP_STAGE_COMPLETENESS', message: `Roadmap action "${String(action.action ?? '(unnamed)').slice(0, 60)}" in "${stage.stage}" is missing: ${missing.join(', ')}.` });
+      }
+    }
+  }
+  // The same work sequenced twice tells management to do it twice.
+  const roadmapActions = stages.flatMap((stage) => stage.actions.map((action) => String(action.action ?? '').toLowerCase().trim())).filter(Boolean);
+  if (new Set(roadmapActions).size !== roadmapActions.length) {
+    issues.push({ code: 'ROADMAP_SEQUENCE_COMPLETENESS', message: 'The roadmap sequences the same action in more than one window.' });
   }
 
   const basisOccurrences = (allText.match(/has not independently tested/gi) ?? []).length;
@@ -181,9 +334,13 @@ export function validateEssentialPresentation(model: EssentialReportPresentation
     if ((model.exposures?.rows.length ?? 0) > 0) {
       issues.push({ code: 'NO_MANUFACTURED_WEAKNESS', message: 'A sustainment report carries a priority fraud exposure register.' });
     }
-    const crisis = /\bcritical\b|\bsevere\b|\burgent\b|\bcrisis\b|\bmaterial weakness\b|\bfailure\b/i;
-    const hit = surfaces.find((text) => crisis.test(text));
-    if (hit) issues.push({ code: 'NO_MANUFACTURED_WEAKNESS', message: `Sustainment prose asserts a weakness the assessment does not support: "${hit.slice(0, 90)}"` });
+    for (const text of surfaces) {
+      const manufactured = sustainmentClaims(text).find((claim) => claim.classification === 'MATERIAL_WEAKNESS_CLAIM');
+      if (manufactured) {
+        issues.push({ code: 'NO_MANUFACTURED_WEAKNESS', message: `Sustainment prose asserts a present material weakness the assessment does not support (${manufactured.trigger}): "${manufactured.sentence.slice(0, 120)}"` });
+        break;
+      }
+    }
   }
 
   // Truncation: an ellipsis in customer content means a field was clipped to fit,

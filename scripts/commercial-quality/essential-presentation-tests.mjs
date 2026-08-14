@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildEssentialPresentationModel } from '../../src/lib/reports/essential/presentation-model.ts';
-import { validateEssentialPresentation } from '../../src/lib/reports/essential/presentation-validation.ts';
+import { validateEssentialPresentation, sustainmentClaims } from '../../src/lib/reports/essential/presentation-validation.ts';
 import {
   exposureClusters,
   clusterForScenario,
@@ -135,6 +135,78 @@ if (hasIncidentExposure) {
     'stabilisation includes an interim incident and evidence route where that exposure is material');
 }
 ok('roadmap stages are distinct, 30 days stabilises, and incident intake is staged where material');
+
+// 15b. Roadmap completeness is proved here, against the exhibit the customer
+// reads, because this is the layer that builds it. The manuscript layer no
+// longer polices day markers in prose it does not turn into the roadmap.
+assert.ok(!validation.issues.some((i) => i.code === 'ROADMAP_SEQUENCE_COMPLETENESS'),
+  `a complete roadmap passes sequence validation: ${JSON.stringify(validation.issues)}`);
+
+const missingStage = JSON.parse(JSON.stringify(model));
+missingStage.roadmap.stages = missingStage.roadmap.stages.filter((s) => !/^60\b/.test(s.stage));
+assert.ok(validateEssentialPresentation(missingStage).issues.some((i) => i.code === 'ROADMAP_SEQUENCE_COMPLETENESS'),
+  'a roadmap missing the 60-day stage is rejected');
+
+const outOfOrder = JSON.parse(JSON.stringify(model));
+outOfOrder.roadmap.stages = [outOfOrder.roadmap.stages[2], outOfOrder.roadmap.stages[1], outOfOrder.roadmap.stages[0]];
+assert.ok(validateEssentialPresentation(outOfOrder).issues.some((i) => i.code === 'ROADMAP_SEQUENCE_COMPLETENESS'),
+  'a roadmap whose stages run backwards is rejected');
+
+const duplicatedAction = JSON.parse(JSON.stringify(model));
+duplicatedAction.roadmap.stages[1].actions.push(JSON.parse(JSON.stringify(duplicatedAction.roadmap.stages[0].actions[0])));
+assert.ok(validateEssentialPresentation(duplicatedAction).issues.some((i) => i.code === 'ROADMAP_SEQUENCE_COMPLETENESS'),
+  'the same action sequenced in two windows is rejected');
+
+for (const field of ['action', 'owner', 'deliverable', 'completionTest']) {
+  const incomplete = JSON.parse(JSON.stringify(model));
+  incomplete.roadmap.stages[0].actions[0][field] = '';
+  assert.ok(validateEssentialPresentation(incomplete).issues.some((i) => i.code === 'ROADMAP_STAGE_COMPLETENESS'),
+    `a roadmap action with no ${field} is rejected`);
+}
+ok('roadmap completeness, sequencing and per-action fields are validated in the presentation model');
+
+// 15c. Sustainment prose: a supported observation is not a manufactured weakness.
+//
+// The live portfolio rejected a high-readiness report for the sentence "no
+// critical gap identified in this domain" — a statement that the organisation is
+// sound. A keyword scan cannot tell a denial, a conditional or a comparison from
+// an assertion, so the classifier reads what the sentence does with the term.
+const SUSTAINMENT_ALLOWED = [
+  ['a strength with a denied gap', 'Fraud Leadership and Governance is a relative strength in the assessed profile. The assessed domain position is 100 out of 100, with full assessed coverage and no critical gap identified in this domain.'],
+  ['an explicit denial', 'No material weakness was identified in the assessed profile.'],
+  ['a deterioration risk', 'If the review rhythm lapses, detection coverage could deteriorate and become inadequate within a single cycle.'],
+  ['a relative limitation', 'Fraud awareness is less mature than governance and is the weakest of the assessed capabilities.'],
+  ['a supported watchpoint', 'This strength depends on continued senior ownership; management should monitor it as an early warning of drift.']
+];
+const SUSTAINMENT_REJECTED = [
+  ['a present inadequacy', 'Fraud detection is currently inadequate and leaves the organisation exposed.'],
+  ['an absence of oversight', 'There is no effective oversight of supplier payment changes.'],
+  ['a material weakness', 'This is a material weakness in the control environment.'],
+  ['a critical gap', 'The organisation faces a critical gap in fraud governance.'],
+  ['a control failure', 'A control failure in evidence handling has been identified.'],
+  ['a control that fails to operate', 'Monitoring fails to detect unusual supplier activity.'],
+  ['a crisis claim', 'The position is severe and demands immediate attention.']
+];
+for (const [label, text] of SUSTAINMENT_ALLOWED) {
+  assert.ok(!sustainmentClaims(text).some((c) => c.classification === 'MATERIAL_WEAKNESS_CLAIM'),
+    `${label} is not a manufactured weakness: ${JSON.stringify(sustainmentClaims(text))}`);
+}
+for (const [label, text] of SUSTAINMENT_REJECTED) {
+  assert.ok(sustainmentClaims(text).some((c) => c.classification === 'MATERIAL_WEAKNESS_CLAIM'),
+    `${label} is rejected as a manufactured weakness: ${JSON.stringify(sustainmentClaims(text))}`);
+}
+// End to end through the validator, on a sustainment model.
+const sustainmentModel = JSON.parse(JSON.stringify(model));
+sustainmentModel.narrativeMode = 'SUSTAINMENT';
+sustainmentModel.exposures = undefined;
+sustainmentModel.scenarios = undefined;
+sustainmentModel.diagnosis.interpretation = SUSTAINMENT_ALLOWED[0][1];
+assert.ok(!validateEssentialPresentation(sustainmentModel).issues.some((i) => i.code === 'NO_MANUFACTURED_WEAKNESS'),
+  'a sustainment report stating a strength with no critical gap passes');
+sustainmentModel.diagnosis.interpretation = SUSTAINMENT_REJECTED[0][1];
+assert.ok(validateEssentialPresentation(sustainmentModel).issues.some((i) => i.code === 'NO_MANUFACTURED_WEAKNESS'),
+  'a sustainment report asserting a present inadequacy is rejected');
+ok('sustainment watchpoints and deterioration risks are separated from manufactured weakness');
 
 // 16. Conclusion does not replay the roadmap.
 assert.ok(!/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(model.conclusion.replace(/next 90-day checkpoint/i, '')),

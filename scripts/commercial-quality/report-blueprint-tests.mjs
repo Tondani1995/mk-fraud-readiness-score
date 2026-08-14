@@ -28,25 +28,34 @@ assert.deepEqual(rivoniaBlueprint.findingClusters.map((cluster) => cluster.title
   'Limited containment and learning after suspected fraud'
 ]);
 const rivoniaDiagnosis = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'WHAT-HOLDS-READINESS-BACK');
-assert.equal(rivoniaDiagnosis?.title, "What is shaping Rivonia's readiness position");
+// The diagnosis chapter title is generic. The engine no longer names a customer.
+assert.equal(rivoniaDiagnosis?.title, 'What is holding readiness back');
 assert.equal(rivoniaDiagnosis?.narrativeRole, 'DIAGNOSIS');
 assert.equal(rivoniaDiagnosis?.sections.length, 1);
-assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D6'), true);
+// Diagnosis claims the domains the assessment makes material, weakest first,
+// rather than a hand-picked list. D4 (20.00) and D7 (20.59) are the weakest two.
 assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D4'), true);
-assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D3'), true);
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('DOMAIN-D7'), true);
+// Cross-cutting findings are diagnosed, not listed as exposures.
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('FINDING-001'), true);
+assert.equal(rivoniaDiagnosis?.sections[0]?.requiredFacts.includes('FINDING-007'), true);
 const rivoniaExposure = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'PRIORITY-FRAUD-EXPOSURES');
-assert.equal(rivoniaExposure?.title, 'Where the greatest fraud exposure sits');
+assert.equal(rivoniaExposure?.title, 'Priority fraud exposures');
 assert.equal(rivoniaExposure?.narrativeRole, 'EXPOSURE');
+// FINDING-001 (fraud governance) and FINDING-007 (fraud risk identification) are
+// cross-cutting: they enable every exposure rather than being one, so both are
+// diagnosed above and neither appears in the exposure register.
 assert.deepEqual(rivoniaExposure?.sections.map((section) => section.requiredFacts), [
   ['FINDING-002', 'FINDING-003'],
-  ['FINDING-006', 'FINDING-005'],
-  ['FINDING-004', 'FINDING-007', 'FINDING-008']
+  ['FINDING-005', 'FINDING-006'],
+  ['FINDING-004', 'FINDING-008']
 ]);
 assert.equal(rivoniaExposure?.sections.every((section) => section.optionalSubsections.length === 0), true);
 assert.equal(rivoniaBlueprint.contentAssignments.find((item) => item.contentType === 'finding' && item.contentRef === 'FINDING-001')?.chapterId, 'WHAT-HOLDS-READINESS-BACK');
 const rivoniaThirtyDays = rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION')?.sections[0];
 assert.equal(rivoniaThirtyDays?.title, 'By 30 days — Stabilise');
-assert.equal(rivoniaThirtyDays?.requiredFacts.includes('CONTROL-005'), true);
+// The stage claims the roadmap actions targeted at it, not a hand-picked control.
+assert.deepEqual(rivoniaThirtyDays?.requiredFacts, rivoniaPack.roadmap.filter((item) => item.targetPeriod === '30 days').map((item) => item.factRef));
 assert.match(rivoniaThirtyDays?.purpose ?? '', /evidence-preservation/i);
 assert.equal(rivoniaBlueprint.chapters.find((chapter) => chapter.chapterId === 'EXPOSURE-COULD-MATERIALISE')?.narrativeRole, 'EXPOSURE_ILLUSTRATION');
 assert.equal(rivoniaBlueprint.chapters.some((chapter) => chapter.sections.length > 1), true);

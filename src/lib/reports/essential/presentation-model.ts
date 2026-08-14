@@ -694,6 +694,36 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         { stage: '60 days — Establish', window: '31–60 days', match: /^60\b/ },
         { stage: '90 days — Operate and review', window: '61–90 days', match: /^90\b/ }
       ];
+  // Two roadmap facts can describe the same management work. The Fact Pack keeps
+  // them apart because they answer different findings, but the customer is told
+  // to do one thing, not the same thing twice in two windows. Merge identical
+  // work into the earliest window that asked for it and keep every source
+  // reference, so nothing is lost from the evidence trail.
+  const periodRank = (value: unknown) => {
+    const parsed = Number.parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+  const mergedRoadmapItems = (() => {
+    const byWork = new Map<string, any>();
+    for (const item of roadmapItems) {
+      const key = [item.primarySemanticFamily, item.managementOutcome, item.priorityWork]
+        .map((value) => String(value ?? '').trim().toLowerCase()).join('|');
+      const existing = byWork.get(key);
+      if (!existing) { byWork.set(key, { ...item, mergedFactRefs: [item.factRef].filter(Boolean) }); continue; }
+      const refs = [...existing.mergedFactRefs, item.factRef].filter(Boolean);
+      byWork.set(key, periodRank(item.targetPeriod) < periodRank(existing.targetPeriod)
+        ? { ...item, mergedFactRefs: refs }
+        : { ...existing, mergedFactRefs: refs });
+    }
+    return [...byWork.values()];
+  })();
+  // Where one control family carries more than one distinct action, the family
+  // label no longer identifies which is which, so the specific work does.
+  const actionsPerFamily = mergedRoadmapItems.reduce<Record<string, number>>((acc, item) => {
+    const family = String(item.primarySemanticFamily ?? '').toUpperCase();
+    acc[family] = (acc[family] ?? 0) + 1;
+    return acc;
+  }, {});
   const claimedRefs = new Set<string>();
   const roadmap: RoadmapExhibit = {
     exhibitId: 'EX-ROADMAP',
@@ -703,7 +733,7 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     stages: STAGES.map(({ stage, window, match }, stageIndex) => {
       // Each action belongs to exactly one stage; a stage never repeats work
       // already sequenced earlier.
-      const items = roadmapItems.filter((item) => {
+      const items = mergedRoadmapItems.filter((item) => {
         if (claimedRefs.has(item.factRef)) return false;
         // Stabilisation is about establishing control over the problem, so
         // ownership, escalation, evidence handling and treatment ownership stage
@@ -764,7 +794,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
         window,
         primaryOutcome: customerText(staged[0]?.managementOutcome ?? ''),
         actions: staged.slice(0, 5).map((item) => ({
-          action: familyPresentation(item.primarySemanticFamily)?.shortLabel ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
+          action: ((actionsPerFamily[String(item.primarySemanticFamily ?? '').toUpperCase()] ?? 0) > 1
+            ? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150)
+            : familyPresentation(item.primarySemanticFamily)?.shortLabel) ?? nodeLabel(item.priorityWork ?? item.managementOutcome ?? '', 150),
           owner: customerText(item.accountableExecutive ?? item.processOwner ?? ''),
           // What is handed over, and the test that closes it. Themes alone do
           // not make an implementation plan.

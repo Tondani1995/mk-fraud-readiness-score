@@ -168,6 +168,15 @@ function formatRetryPrompt(contract: NarrativeSectionContract, rejected: { rawTe
   ].join('\n');
 }
 
+/**
+ * Exported so the engine-vocabulary gate can scan what every slot is actually
+ * asked to do. The gate exists because the engine once seeded the very phrase
+ * the mechanical-language check then penalised the writer for using.
+ */
+export function buildBoundedSectionPrompt(contract: NarrativeSectionContract): string {
+  return contractPrompt(contract);
+}
+
 function contractPrompt(contract: NarrativeSectionContract, repair?: { previous: NarrativeSlotResult | null; validation: NarrativeSlotValidationReport; repairNumber: number }): string {
   const repairInstructions = repair ? [
     '',
@@ -201,7 +210,7 @@ function contractPrompt(contract: NarrativeSectionContract, repair?: { previous:
       contractVersion: contract.contractVersion,
       slotId: contract.slotId,
       narrative: '<your customer-facing prose for this slot>',
-      managementImplication: '<what management should take from it>',
+      managementImplication: '<the decision or consequence this section creates for the executive>',
       usedClaimRefs: ['<claim refs you actually relied on, each drawn from permittedClaimRefs>'],
       requirementCoverage: [{ requirementId: '<id from requiredInsights>', supportingExcerpt: '<verbatim span copied from your narrative>' }]
     }, null, 2),

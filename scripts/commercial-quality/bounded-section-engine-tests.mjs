@@ -409,6 +409,36 @@ await assert.rejects(
   /failed closed/, 'an unauthorised ref introduced by a format retry is blocked by semantic validation'
 );
 
+// 9. Roadmap completeness lives in the presentation model, not in manuscript prose.
+//
+// The compiler used to require the literal strings "30 days", "60 days" and
+// "90 days" in the intermediate manuscript. That prose is not what builds the
+// roadmap exhibit, so the requirement policed the wrong layer: a clean report
+// could fail because a mechanical-language rewrite changed the wording, while a
+// structurally broken roadmap could pass because the markers happened to
+// survive. Manuscript prose without day markers must now compile.
+const noMarkerProvider = {
+  model: 'test/no-markers', provider: 'test',
+  async generate(contract) {
+    const base = goodResult(contract, plan.slots.find((slot) => slot.slotId === contract.slotId)?.order ?? 0);
+    // Strip every literal day marker the writer would otherwise echo from its
+    // instructions, leaving prose that still carries the same sequence in words.
+    const stripMarkers = (text) => text
+      .replace(/The route is 30 days.*$/, 'The route stabilises ownership first, then establishes the priority controls, then operates and reviews them, with incident and evidence-preservation discipline in the first horizon.')
+      .replace(/\b30\s+days\b/gi, 'the opening window')
+      .replace(/\b60\s+days\b/gi, 'the second window')
+      .replace(/\b90\s+days\b/gi, 'the third window');
+    return { result: { ...base, narrative: stripMarkers(base.narrative), managementImplication: stripMarkers(base.managementImplication), requirementCoverage: base.requirementCoverage.map((item) => ({ ...item, supportingExcerpt: stripMarkers(item.supportingExcerpt) })) }, metadata: metadata(contract) };
+  },
+  async repair() { throw new Error('no-marker provider must not repair'); }
+};
+const noMarkerRun = await generateBoundedNarrativeReport({ reportGenerationId: 'no-marker-run', pack, blueprint, thesis, plan, provider: noMarkerProvider });
+const noMarkerProse = noMarkerRun.approvedSlots.map((slot) => [slot.result.narrative, slot.result.managementImplication].join('\n')).join('\n');
+assert.ok(!/\b(?:30|60|90)\s+days\b/i.test(noMarkerProse), 'the fixture prose genuinely carries no literal day marker');
+assert.ok(!noMarkerRun.validation.issues.some((issue) => /30\/60\/90|implementation sequence/i.test(issue)),
+  `a manuscript without literal day markers compiles clean: ${JSON.stringify(noMarkerRun.validation.issues)}`);
+assert.ok(noMarkerRun.validation.ok, `no-marker manuscript passes compilation: ${JSON.stringify(noMarkerRun.validation.issues)}`);
+
 console.log(JSON.stringify({
   passed: true,
   architecture: BOUNDED_SECTION_ENGINE_ARCHITECTURE,
@@ -417,5 +447,5 @@ console.log(JSON.stringify({
   scenarioSlots: plan.slots.filter((slot) => slot.narrativeRole === 'EXPOSURE_ILLUSTRATION').length,
   reportWords: compiled.validation.totalWordCount,
   repairs: compiled.accounting.repairCalls,
-  checks: ['one contract per slot', 'primary-home ownership', 'strict permitted refs', 'required insight excerpts', 'unknown ref rejection', 'hard-truth rejection', 'assurance rejection', 'fit overflow/underflow', 'approved-slot immutability', 'deterministic compilation', 'no whole-manuscript coherence call', 'technical format retry recovers once', 'second format retry blocked', 'format retry cannot change slot identity', 'format retry ref smuggling blocked', 'format retry consumes no semantic repair']
+  checks: ['one contract per slot', 'primary-home ownership', 'strict permitted refs', 'required insight excerpts', 'unknown ref rejection', 'hard-truth rejection', 'assurance rejection', 'fit overflow/underflow', 'approved-slot immutability', 'deterministic compilation', 'no whole-manuscript coherence call', 'technical format retry recovers once', 'second format retry blocked', 'format retry cannot change slot identity', 'format retry ref smuggling blocked', 'format retry consumes no semantic repair', 'manuscript without literal 30/60/90 markers compiles clean']
 }, null, 2));
