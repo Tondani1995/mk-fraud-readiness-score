@@ -366,6 +366,52 @@ export function renderComprehensiveManagementReportHtml(input: {
   const registerHead = (letter: string, title: string, note: string) =>
     `<div class="reg-head"><div class="n">Appendix ${letter}</div><h1>${esc(title)}</h1><div class="reg-note">${esc(note)}</div></div>`;
 
+  // Scenario portfolio — Essential's pathways, carried into Comprehensive.
+  //
+  // Comprehensive previously summarised exposure families and dropped the
+  // pathway detail, so a customer paying R35,000 saw less scenario insight than
+  // one paying R7,500. Sustainment cases render the same structure as a
+  // resilience stress test rather than a predicted event.
+  if (reg.scenarios.length) {
+    const stress = model.narrativeMode === 'SUSTAINMENT';
+    pages.push(`<section class="reg">
+    ${registerHead('S', stress ? 'Scenario stress tests' : 'Fraud scenario portfolio', stress
+      ? 'Each recorded capability is strong. These are the conditions under which it could still fail, and what management should inspect to confirm it holds. No incident is alleged or predicted.'
+      : 'Conditional pathways derived from the recorded control position. Each shows where it could begin, what would interrupt it, and what management would see first. No allegation that any event has occurred.')}
+    <table>
+      <thead><tr><th style="width:20%">${stress ? 'Stress condition' : 'Pathway'}</th><th style="width:22%">${stress ? 'Capability expected to hold' : 'How it could begin'}</th><th style="width:22%">${stress ? 'Evidence to inspect' : 'Interruption point'}</th><th style="width:22%">${stress ? 'Early signal' : 'Warning indicators'}</th><th style="width:14%">Links</th></tr></thead>
+      <tbody>${reg.scenarios.map((scenario) => `<tr>
+        <td>${cell(scenario.title)}<div class="cap" style="margin-top:.8mm">${esc(scenario.family.replace(/_/g, ' '))}</div></td>
+        <td>${cell(scenario.entryPoint)}${scenario.mechanism ? `<div class="cap" style="margin-top:.8mm">${cell(scenario.mechanism, '')}</div>` : ''}</td>
+        <td>${cell(scenario.interruptionPoint)}</td>
+        <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : cell(scenario.immediateContainment)}</td>
+        <td class="id">${esc([...scenario.linkedRiskIds, ...scenario.linkedControlIds].join(', ')) || '—'}</td></tr>`).join('')}</tbody>
+    </table>
+  </section>`);
+  }
+
+  // Assurance priorities — the high-readiness value track.
+  //
+  // A Structured assessment yields few findings because little is wrong. These
+  // rows are capabilities the position rests on, with the evidence management
+  // should hold and what would signal deterioration. They are never findings and
+  // are never labelled weaknesses.
+  if (reg.assurancePriorities.length) {
+    pages.push(`<section class="reg">
+    ${registerHead('P', 'Assurance and resilience priorities', 'These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.')}
+    <table>
+      <thead><tr><th style="width:9%">ID</th><th style="width:19%">Capability</th><th style="width:22%">Evidence management should hold</th><th style="width:18%">Depends on</th><th style="width:18%">Deterioration trigger</th><th style="width:14%">Owner / cadence</th></tr></thead>
+      <tbody>${reg.assurancePriorities.map((priority) => `<tr>
+        <td class="id">${esc(priority.priorityId)}<div>${esc(priority.priorityClass.replace(/_/g, ' ').toLowerCase())}</div></td>
+        <td>${cell(priority.capability)}<div class="cap" style="margin-top:.8mm">${cell(priority.whyItMatters, '')}</div></td>
+        <td>${cell(priority.evidenceManagementShouldHold)}${priority.suggestedSamplingApproach ? `<div class="cap" style="margin-top:.8mm">${cell(priority.suggestedSamplingApproach, '')}</div>` : ''}</td>
+        <td>${priority.dependencies.length ? `<ul>${priority.dependencies.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : '—'}</td>
+        <td>${cell(priority.deteriorationTrigger)}<div class="cap" style="margin-top:.8mm">${cell(priority.effectivenessIndicator, '')}</div></td>
+        <td>${cell(priority.accountableExecutive)}<div class="cap" style="margin-top:.8mm">${cell(priority.reviewFrequency, '')}</div></td></tr>`).join('')}</tbody>
+    </table>
+  </section>`);
+  }
+
   pages.push(`<section class="reg">
     ${registerHead('A', 'Finding register', `Every material finding the assessment produced. "Assessment indication" is what the responses record; it is self-reported and has not been verified.`)}
     <table>

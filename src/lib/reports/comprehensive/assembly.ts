@@ -146,6 +146,60 @@ export interface ProgrammeHorizon {
   actions: ProgrammeActionRow[];
 }
 
+export interface ScenarioPortfolioRow {
+  provenance: 'DERIVED_ANALYSIS';
+  scenarioId: string;
+  title: string;
+  family: string;
+  /** Who could act, and the opening the assessment leaves them. */
+  actorClass: string;
+  opportunity: string;
+  entryPoint: string;
+  mechanism: string;
+  concealment: string;
+  consequence: string;
+  /** What management would see before loss is confirmed. */
+  warningIndicators: string[];
+  /** The control break the pathway needs, and the response that closes it. */
+  controlWeakness: string;
+  interruptionPoint: string;
+  immediateContainment: string;
+  longTermResponse: string;
+  linkedFindingIds: string[];
+  linkedRiskIds: string[];
+  linkedControlIds: string[];
+}
+
+export type AssurancePriorityClass =
+  | 'ASSURANCE_PRIORITY'
+  | 'RESILIENCE_DEPENDENCY'
+  | 'DETERIORATION_WATCHPOINT';
+
+export interface AssurancePriorityRow {
+  provenance: 'DERIVED_ANALYSIS';
+  priorityId: string;
+  /** Never "finding" and never "weakness": these capabilities are operating. */
+  priorityClass: AssurancePriorityClass;
+  capability: string;
+  domain: string;
+  semanticFamily: string;
+  recordedPosition: string;
+  currentStandard: string;
+  whyItMatters: string;
+  /** The management verification plan. MK performs none of this. */
+  evidenceManagementShouldHold: string;
+  coverageExpectation: string;
+  suggestedSamplingApproach: string;
+  reviewFrequency: string;
+  accountableExecutive: string;
+  oversightFunction: string;
+  /** Resilience: what the capability rests on, and what erodes it. */
+  dependencies: string[];
+  deteriorationTrigger: string;
+  earlyWarningSignal: string;
+  effectivenessIndicator: string;
+}
+
 export interface ComprehensiveAssembly {
   version: typeof COMPREHENSIVE_ASSEMBLY_VERSION;
   narrativeMode: string;
@@ -155,6 +209,25 @@ export interface ComprehensiveAssembly {
   evidenceRequirements: EvidenceRequirementGroup[];
   governance: { roles: GovernanceRoleRow[]; decisions: DecisionRow[] };
   programme: { horizons: ProgrammeHorizon[] };
+  /**
+   * Essential's fraud pathways, carried forward.
+   *
+   * Comprehensive summarised exposure families and dropped the pathway detail —
+   * sequence, warning indicators, interruption point — so a customer paying
+   * R35,000 received less scenario insight than one paying R7,500. The objects
+   * are the same deterministic scenarios Essential renders; nothing is invented.
+   */
+  scenarioPortfolio: ScenarioPortfolioRow[];
+  /**
+   * What a strong organisation should confirm.
+   *
+   * A Structured assessment produces few findings, because there is little
+   * wrong. Value at that end of the scale is not more weaknesses but knowing
+   * which operating capabilities the position rests on, what evidence should
+   * exist for each, what they depend on, and what would signal deterioration.
+   * Every field here is deterministic; none is a finding.
+   */
+  assurancePriorities: AssurancePriorityRow[];
   counts: {
     findings: number;
     risks: number;
@@ -165,6 +238,8 @@ export interface ComprehensiveAssembly {
     decisions: number;
     programmeActions: number;
     measures: number;
+    scenarios: number;
+    assurancePriorities: number;
   };
 }
 
@@ -429,12 +504,145 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
     .sort((a, b) => horizonRank(a[0]) - horizonRank(b[0]))
     .map(([horizon, rows]) => ({ horizon, actions: rows }));
 
+  /**
+   * The programme beyond 90 days.
+   *
+   * Essential owns the first 90 days, and the deterministic roadmap stops there:
+   * no source action carries a 3-6 or 6-12 month target period. Comprehensive
+   * promises a twelve-month programme, so the choice is to build one from real
+   * data or to stop claiming it.
+   *
+   * The data exists. Every control blueprint states the cadence at which it is
+   * expected to operate ("Quarterly governance reporting; monthly overdue-action
+   * review", "Annual mandate review"), the test that shows it is effective, the
+   * threshold that should escalate, and what it depends on. A control with a
+   * cadence longer than a month cannot have completed a meaningful cycle inside
+   * 90 days, so its first full evidence cycle and its first effectiveness review
+   * genuinely fall into the later horizons.
+   *
+   * These stages mature controls already selected. They introduce no finding, no
+   * new control and no invented date, and every activity is management's to
+   * perform — the report never claims MK performs any of it.
+   */
+  const CONTINUING = /quarter|annual|month|ongoing|continuous|every two years|biennial|per cycle|each cycle/i;
+  const laterHorizonActions = (horizon: string, kind: 'EMBED' | 'MATURE'): ProgrammeActionRow[] =>
+    controlBlueprints
+      .filter((control) => CONTINUING.test(control.operatingFrequency))
+      .map((control) => ({
+        provenance: 'CONTROL_LIBRARY' as ComprehensiveProvenance,
+        sourceRefs: [control.controlId, control.questionCode].filter(Boolean),
+        actionId: `${control.controlId}-${kind}`,
+        // The control objective is itself an imperative sentence ("Close the
+        // material control weakness recorded for X"), so it cannot be spliced
+        // into a longer clause. Reference the control instead.
+        action: kind === 'EMBED'
+          ? `Accumulate a complete evidence cycle for ${control.controlId} and have management sample it.`
+          : `Review whether ${control.controlId} is still operating effectively, and refresh it for any change in the operating model.`,
+        deliverable: kind === 'EMBED'
+          // operatingFrequency is a sentence, not a noun, so it is quoted rather
+          // than inflected into "one full <frequency> cycle".
+          ? `Retained evidence covering one full operating cycle (${control.operatingFrequency}), with a management sample and any exceptions recorded.`
+          // A fixed sentence here made every 6-12 month action identical work,
+          // which the assembly duplicate check correctly rejected. Anchor the
+          // deliverable on the control and its own effectiveness test.
+          : `A management or assurance review of ${control.controlId} covering effectiveness, exception trend and dependency, evidenced against: ${control.effectivenessTest || control.controlObjective}`,
+        ownerRole: control.accountableExecutiveRole,
+        completionCriterion: kind === 'EMBED'
+          ? `The retained evidence covers the required population for the full cycle and exceptions are resolved or escalated.`
+          : control.effectivenessTest || 'Management can demonstrate the control operated as designed across the review period.',
+        dependencies: kind === 'EMBED' ? [control.controlId] : [`${control.controlId}-EMBED`, ...control.dependencies],
+        targetPeriod: horizon,
+        effectivenessMeasure: control.effectivenessTest,
+        escalationThreshold: control.escalationThreshold,
+        linkedFindingIds: [control.linkedFindingId].filter(Boolean),
+        linkedRiskIds: control.linkedRiskIds,
+        mergedFrom: []
+      }));
+
+  const embed = laterHorizonActions('3-6 months', 'EMBED');
+  const mature = laterHorizonActions('6-12 months', 'MATURE');
+  if (embed.length) horizons.push({ horizon: '3-6 months', actions: embed });
+  if (mature.length) horizons.push({ horizon: '6-12 months', actions: mature });
+  horizons.sort((a, b) => horizonRank(a.horizon) - horizonRank(b.horizon));
+
   const programmeActions = horizons.flatMap((horizon) => horizon.actions);
   const measures = unique([
     ...programmeActions.map((action) => action.effectivenessMeasure),
     ...controlBlueprints.map((control) => control.effectivenessTest),
     ...riskRegister.map((risk) => risk.effectivenessMeasure)
   ].filter(Boolean));
+
+  // ---- Scenario portfolio ---------------------------------------------------
+  // Essential's pathways, carried through with their control links resolved so a
+  // reader can move from the pathway to the blueprint that interrupts it.
+  const controlsByRisk = new Map<string, string[]>();
+  for (const control of controlBlueprints) {
+    for (const riskId of control.linkedRiskIds ?? []) {
+      controlsByRisk.set(riskId, [...(controlsByRisk.get(riskId) ?? []), control.controlId]);
+    }
+  }
+  const scenarioPortfolio: ScenarioPortfolioRow[] = scenarios.map((scenario: any) => {
+    const linkedRiskIds = unique([...list(scenario.linkedRiskIds), text(scenario.linkedRiskId), ...list(scenario.linkedRiskRefs)].filter(Boolean));
+    const linkedFindingIds = unique([...list(scenario.linkedFindingIds), ...list(scenario.linkedFindingRefs)].filter(Boolean));
+    return {
+      provenance: 'DERIVED_ANALYSIS' as const,
+      scenarioId: text(scenario.id ?? scenario.sourceId ?? scenario.factRef),
+      title: text(scenario.title),
+      family: text(scenario.scenarioType),
+      // Field names follow the evidence model, which is the source. An earlier
+      // pass mapped the fact-pack names and silently produced empty warning
+      // indicators and interruption points.
+      actorClass: text(scenario.scenarioBasis),
+      opportunity: list(scenario.confirmedOperatingContext).join(' '),
+      entryPoint: text(scenario.entryPoint),
+      mechanism: text(scenario.fraudSequence),
+      concealment: text(scenario.concealmentMechanism),
+      consequence: [text(scenario.likelyImpact), text(scenario.financialImpact), text(scenario.operationalImpact)].filter(Boolean).join(' '),
+      warningIndicators: unique([...list(scenario.whyControlsMayNotCatchIt), ...list(scenario.linkedControlWeaknesses)]),
+      controlWeakness: list(scenario.linkedControlWeaknesses).join(' '),
+      interruptionPoint: list(scenario.controlsExpected).join(' '),
+      immediateContainment: text(scenario.immediateContainment),
+      longTermResponse: text(scenario.longerTermResponse),
+      linkedFindingIds,
+      linkedRiskIds,
+      linkedControlIds: unique(linkedRiskIds.flatMap((riskId) => controlsByRisk.get(riskId) ?? []))
+    };
+  });
+
+  // ---- Assurance priorities -------------------------------------------------
+  // Only produced where the deterministic model records operating capability.
+  // These are not findings and must never be labelled weaknesses.
+  const assurancePriorities: AssurancePriorityRow[] = (evidence.sustainmentPriorities ?? []).map((priority: any, index: number) => {
+    const dependencies = list(priority.dependencies);
+    return {
+      provenance: 'DERIVED_ANALYSIS' as const,
+      priorityId: `AP-${String(index + 1).padStart(2, '0')}`,
+      // A capability with dependencies can be undermined indirectly; one with a
+      // recorded deterioration trigger is watched. Both are stronger claims than
+      // a bare assurance priority, so they take the more specific label.
+      priorityClass: dependencies.length
+        ? 'RESILIENCE_DEPENDENCY' as const
+        : (text(priority.deteriorationTrigger) ? 'DETERIORATION_WATCHPOINT' as const : 'ASSURANCE_PRIORITY' as const),
+      capability: text(priority.title),
+      domain: text(priority.domain),
+      semanticFamily: text(priority.semanticFamily),
+      recordedPosition: text(priority.recordedPosition),
+      currentStandard: text(priority.currentStrongStandard),
+      whyItMatters: text(priority.managementFocus),
+      evidenceManagementShouldHold: text(priority.proofRetained),
+      coverageExpectation: text(priority.operatingFrequency) ? `Complete population across the ${text(priority.operatingFrequency).toLowerCase()} cycle.` : '',
+      suggestedSamplingApproach: text(priority.proofRetained)
+        ? 'Management or an independent function selects a sample across the review period and confirms the retained proof supports the recorded position.'
+        : '',
+      reviewFrequency: text(priority.operatingFrequency),
+      accountableExecutive: text(priority.accountableExecutive),
+      oversightFunction: text(priority.processOwner),
+      dependencies,
+      deteriorationTrigger: text(priority.deteriorationTrigger),
+      earlyWarningSignal: text(priority.effectivenessIndicator),
+      effectivenessIndicator: text(priority.effectivenessIndicator)
+    };
+  });
 
   return {
     version: COMPREHENSIVE_ASSEMBLY_VERSION,
@@ -445,6 +653,8 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
     evidenceRequirements,
     governance: { roles, decisions: decisionRows },
     programme: { horizons },
+    scenarioPortfolio,
+    assurancePriorities,
     counts: {
       findings: findingRegister.length,
       risks: riskRegister.length,
@@ -453,6 +663,8 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
       evidenceItems: evidenceRequirements.reduce((sum, group) => sum + group.items.length, 0),
       governanceRoles: roles.length,
       decisions: decisionRows.length,
+      scenarios: scenarioPortfolio.length,
+      assurancePriorities: assurancePriorities.length,
       programmeActions: programmeActions.length,
       measures: measures.length
     }

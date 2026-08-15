@@ -260,7 +260,7 @@ export function FreeSnapshotCard({
                   features: [...COMMERCIAL_CATALOGUE.essential.includes], action: <Button type="button" className="w-full" onClick={() => void selectPaidTier('essential')}>Choose Essential</Button>
                 }}
                 comprehensive={{
-                  id: 'comprehensive', label: COMMERCIAL_CATALOGUE.comprehensive.label, tagline: 'Validate and mobilise', featured: true,
+                  id: 'comprehensive', label: COMMERCIAL_CATALOGUE.comprehensive.label, tagline: 'Design and mobilise', featured: true,
                   priceLabel: `${formatCataloguePrice(COMMERCIAL_CATALOGUE.comprehensive.priceCents)} incl. VAT`,
                   description: COMMERCIAL_CATALOGUE.comprehensive.summary,
                   features: [...COMMERCIAL_CATALOGUE.comprehensive.includes], action: <Button type="button" className="w-full" variant="secondary" onClick={() => void selectPaidTier('comprehensive')}>Choose Comprehensive</Button>

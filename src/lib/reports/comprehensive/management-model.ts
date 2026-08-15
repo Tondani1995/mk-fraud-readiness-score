@@ -1,4 +1,6 @@
-import type { ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
+import type {
+  ScenarioPortfolioRow,
+  AssurancePriorityRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
 import type { ComprehensiveProvenance } from './product-contract';
 
 /**
@@ -208,6 +210,17 @@ export interface ComprehensiveManagementModel {
     evidence: EvidenceRequirementGroup[];
     actions: ProgrammeActionRow[];
     /**
+     * Essential's fraud pathways, carried into Comprehensive so the higher tier
+     * never gives the customer less scenario insight than the lower one.
+     */
+    scenarios: ScenarioPortfolioRow[];
+    /**
+     * Capabilities worth confirming rather than fixing. Empty wherever the
+     * assessment records no operating capability, which is the honest result
+     * for a low-readiness profile.
+     */
+    assurancePriorities: AssurancePriorityRow[];
+    /**
      * One measure per control, so this scales with the register rather than the
      * core. The core answers "how will we know" at programme level; this is the
      * detail behind it.
@@ -389,7 +402,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
     version: COMPREHENSIVE_MANAGEMENT_MODEL_VERSION,
     narrativeMode: assembly.narrativeMode,
     core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases },
-    registers: { ...registers, measures: measurementFramework },
+    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities },
     counts: {
       managementThemes: managementThemes.length,
       exposureThemes: exposureThemes.length,
@@ -398,6 +411,8 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
       decisions: assembly.governance.decisions.length,
       implementationPhases: implementationPhases.length,
       registerMeasures: measurementFramework.length,
+      registerScenarios: assembly.scenarioPortfolio.length,
+      registerAssurancePriorities: assembly.assurancePriorities.length,
       registerFindings: registers.findings.length,
       registerRisks: registers.risks.length,
       registerControls: registers.controls.length,
