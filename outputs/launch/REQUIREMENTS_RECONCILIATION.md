@@ -1,69 +1,73 @@
-# Customer-experience requirements reconciliation — SHA eb7fef4
+# A01–A21 reconciliation — SHA d0385406402a87bae9b5f3fbe4babe7a95eb54e2
 
-## First, a correction the owner needs
+## Source inventory (corrected)
+The A01–A21 set lives in the project's **external requirements artefacts**, not this repository.
+My previous search of `docs/`, `outputs/`, markdown and git history correctly found nothing here;
+the conclusion that the set did not exist was wrong. The authoritative list was supplied by the
+owner and is used verbatim below. No reconstruction or inference was applied.
 
-**There is no A01–A21 requirement set in this repository, in git history, or anywhere in this
-engagement's instructions.** I searched `docs/`, `outputs/`, all markdown, and every commit message.
-The only requirements-titled artefact is `docs/safe-launch/31-rc1-go-evidence-requirements.md`, which
-is RC1 go-evidence and unrelated.
+Carry-forward rule: prior PASS evidence stands where the implementing source has not materially
+changed, verified by diff. Since `47ad61b` only three files changed, all customer-journey copy
+covered by the green storefront gate. `src/lib/snapshot/commercial-insights.ts` is unchanged since
+its c470f28 verification.
 
-I have not reconstructed a 21-item list from inference. A fabricated mapping of requirement IDs to
-evidence is exactly the kind of artefact that gets trusted for a launch decision and should not exist.
-If the A01–A21 set exists outside this repository, provide it and the reconciliation below can be
-re-expressed against those IDs in minutes.
+## Dispositions
 
-What follows reconciles the acceptance criteria actually stated across this engagement's mandates
-against the evidence actually produced.
+| ID | Requirement | Disposition | Evidence |
+|---|---|---|---|
+| A01 | Native flow, no iframe | **PROVEN ON CURRENT SHA** | 0 iframes on the live assessment |
+| A02 | No nested-scroll failure | **PROVEN ON CURRENT SHA** | 0 nested scroll containers |
+| A03 | Responsive progression | **PROVEN ON CURRENT SHA** | 320×700, 390×844, 768×1024, 1440×1000 — 0 horizontal overflow at every width |
+| A04 | Save before advance | **PROVEN ON CURRENT SHA** | 3 gateway answers persisted, `save_sequence` 7; answers survive reload |
+| A05 | Mobile product presentation | **PRESERVED + PREVIOUSLY PROVEN** | Tier cards verified live at c470f28; only the Comprehensive tagline changed since, gate-covered |
+| A06 | Mobile product selection | **STILL NEEDS ONE LAUNCH CHECK** | Order creation proven by API; the mobile "Choose Comprehensive" tap not exercised |
+| A07 | Payment hand-off | **PROVEN ON CURRENT SHA** | Order → full EFT instructions, payment reference = order reference |
+| A08 | No silent skip of required answers | **PROVEN ON CURRENT SHA** | `visited_question_ids` = [G01,G02,G03] contiguous; 3 rapid taps advanced exactly one question |
+| A09 | Save failure retry | **STILL NEEDS ONE LAUNCH CHECK** | No save failure induced; "Save now" control present |
+| A10 | Reload and resume cursor | **PROVEN ON CURRENT SHA** | Cursor = last saved position (G03), answers retained across reload |
+| A11 | Free score snapshot | **PRESERVED + PREVIOUSLY PROVEN** | c470f28 live render; implementing analytics file unchanged |
+| A12 | Paid report request | **PROVEN ON CURRENT SHA** | `MKORD-2026-30828BF2`, Comprehensive, R35 000,00 |
+| A13 | Secure customer report access | **PROVEN ON CURRENT SHA** | Token required; cross-customer token refused; bare reference redirected |
+| A14 | Paid/free message correctness | **PROVEN ON CURRENT SHA** | Storefront gate green, 8 surfaces, 12/12 negative, 5/5 positive |
+| A15 | Report readiness state | **PROVEN ON CURRENT SHA** | "Report: Being prepared" / "Ready — download below" |
+| A16 | Download and error states | **STILL NEEDS ONE LAUNCH CHECK** | Operator download — owner-authenticated session required |
+| A17 | Keyboard and screen-reader semantics | **P1 DEFECT — see below** | Radios named+labelled 6/6, fieldset+legend, aria-live present; **focus lost after advance** |
+| A18 | Touch and rapid-tap safety | **PROVEN ON CURRENT SHA** | 3 rapid taps → 1 advance, Continue disabled during transition, no error |
+| A19 | Canonical customer URL | **PROVEN ON CURRENT SHA** | `/score/adaptive/{ref}`; no vercel/supabase/localhost exposure |
+| A20 | Adaptive and legacy coexistence | **PRESERVED + PREVIOUSLY PROVEN** | Portfolio census: both modes scored across the 11-case set |
+| A21 | Customer launch acceptance sign-off | **OWNER GATE** | Owner decision, not an engineering check |
 
-## Carry-forward rule applied
+## Preserved mobile requirements
+No iframe/nested scrolling **PROVEN**; autosave **PROVEN**; advance only after persistence
+**PROVEN**; rapid-tap protection **PROVEN**; resume **PROVEN**; no horizontal overflow **PROVEN at
+all four historical viewports**; minimum 44px effective targets **PROVEN** (options 56px, buttons
+44–46px); visible selected state **PROVEN**; clear primary CTA **PROVEN**.
+Offline retention/retry, mobile section selector, product-card stacking, EFT copyability and
+error/offline/retry states: **not exercised** — folded into the remaining checks below.
+**No focus loss after auto-advance: FAILS — see P1.**
 
-Prior PASS evidence is carried forward where the implementing source has not changed. Verified by
-diff, not by assertion.
+## Superseded by current owner decision
+- Named reviewer / evidence review / sign-off in Comprehensive — **removed from the customer
+  workspace**; Advisory carries independent validation.
+- Stitch / card payment — manual EFT for launch.
+- Automated report emailing / automated generation — manual fulfilment for launch.
+- Any historical pricing other than R7,500 / R35,000 / from R150,000.
 
-**Changed since `47ad61b` (accepted final PDF SHA) — 3 files only:**
-`score/order/[assessmentRef]/page.tsx`, `score/start/page.tsx`,
-`components/comprehensive/CustomerOrderStatusWorkspace.tsx` — all customer-journey copy, all covered
-by the green storefront gate.
+## P1 DEFECT — focus lost after auto-advance
+After advancing, `document.activeElement` is `BODY`. A keyboard or screen-reader user is dropped to
+the top of the document on every question and must re-traverse to reach the next one. An `aria-live`
+region announces the change, so the transition is not silent, but focus is not placed on the new
+question. This fails the explicitly approved "no focus loss after auto-advance" requirement and
+weakens A17.
 
-**`src/lib/snapshot/commercial-insights.ts` is unchanged since its c470f28 verification**, so the
-Snapshot's score, maturity, exposure implication and contract evidence carries forward intact.
+Not fixed in this run: focus management needs verification with a real assistive-technology pass,
+not a one-line patch at the end of a session.
 
-## PROVEN on current implementation
-
-| Requirement | Evidence |
-|---|---|
-| Report products frozen, no analytical drift | Essential 11/11; Comprehensive gates green; 0 `src/lib/reports` changes since 47ad61b |
-| Snapshot analytics: score, maturity, exposure implication, no false claims | c470f28 live render; implementing file unchanged since |
-| Storefront contract: no review/validation/assurance/costed promises | Gate green, 8 surfaces, 12/12 negative, 5/5 positive |
-| Retired reviewer/evidence/sign-off model absent | Browser-verified on live Comprehensive order `MKORD-2026-30828BF2` |
-| Order creation, correct tier and price | Real API: Comprehensive, R35 000,00 ZAR, `awaiting_payment` |
-| EFT instructions complete | Bank, holder, account, branch, currency, type, reference, instruction all render |
-| Payment reference visible to customer | Fixed at eb7fef4; shows `MKORD-2026-30828BF2` then guidance |
-| Duplicate-order protection | 3 identical POSTs → `created:false`, same reference |
-| Post-order state in plain English | "Awaiting manual payment verification"; no raw DB status |
-| Admin protected | `/score/admin`, `/orders`, `/orders/[ref]` → 307 to login |
-| Cross-customer access denied | P08 token against P06 assessment refused |
-| Bare order reference denied | Redirected without token |
-| 390px commercial path | Order/payment: 0 horizontal overflow, readable prices and bank details |
-| **390px assessment (new this run)** | 0 overflow; progress "0 of 42 applicable controls"; domain context; 56×292px option targets; selection state visible; Back correctly disabled on Q1; Continue/Save 44px |
-
-## GENUINELY UNPROVEN — the complete list
-
-1. **Operator/admin fulfilment journey** — confirm payment → generate → feedback → download → open
-   PDF → recipient → delivery email → mark delivered. Requires an owner-authenticated admin session.
-   *Known live gap.*
-2. **Generation failure preserves order and permits retry** — requires the same admin session.
-3. **Full questionnaire completion through all 42 controls, and the completion → Snapshot
-   transition.** Entry, progress, navigation and selection are proven this run; the remaining 41
-   answers and the hand-off were not walked.
-4. **Snapshot page live render at eb7fef4** — `FreeSnapshot.tsx` changed once since its last browser
-   render (the "Validate and mobilise" → "Design and mobilise" tagline). Covered by the green gate;
-   not re-rendered because doing so spends a provider narrative call for a one-word copy change.
-
-Items 1 and 2 are one owner-authenticated sitting. Items 3 and 4 are minutes of work but 3 needs ~41
-more answers and 4 needs authorisation for one narrative call.
-
-## Not a code defect
-Production EFT-profile activation is a launch switch: the real FNB profile exists at
-`eft_settings.is_active = false` behind an active staging test profile. Treated as such, per owner
-direction.
+## Minimum remaining pre-launch checks
+1. **Operator fulfilment journey** (A16, and the delivery half) — owner-authenticated session.
+   Order `MKORD-2026-30828BF2` is waiting in Staging.
+2. **Save-failure retry** (A09) — induce one save failure and confirm retry preserves answers.
+3. **Mobile product selection tap** (A06) — one Snapshot render at 390px, tapping "Choose
+   Comprehensive". Costs one provider narrative call.
+4. **Focus-after-advance fix and re-check** (A17 / P1).
+5. **Production EFT profile activation** — launch switch, not a defect.
