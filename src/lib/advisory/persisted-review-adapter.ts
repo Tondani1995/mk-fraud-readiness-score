@@ -1,3 +1,11 @@
+/**
+ * Advisory reviewer adapter.
+ *
+ * Relocated out of src/lib/reports/comprehensive/ when Comprehensive became an
+ * automated analytical product. Reviewer input, evidence validation and sign-off
+ * are Advisory work; this module is retained because that work is real, but it
+ * must not sit in the Comprehensive fulfilment path.
+ */
 import {
   adaptBackendEvidenceStatus,
   type BackendEvidenceStatus,
@@ -5,12 +13,12 @@ import {
   type EvidenceItemConclusion,
   type FindingReviewerConclusion,
   type ManagementActionStatus
-} from './types';
+} from '../reports/comprehensive/types';
 import {
   validateComprehensiveSubject,
   type ComprehensiveRecordType,
   type ComprehensiveSubjectAuthority
-} from './subject-authority';
+} from '../reports/comprehensive/subject-authority';
 
 export type PersistedComprehensiveEvidenceRow = {
   id: string;

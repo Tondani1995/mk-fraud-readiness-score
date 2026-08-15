@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { registerComprehensivePackageAtomically } from '../src/lib/comprehensive/package-registration.ts';
-import { buildComprehensiveReviewerInputFromPersisted } from '../src/lib/reports/comprehensive/persisted-review-adapter.ts';
+import { buildComprehensiveReviewerInputFromPersisted } from '../src/lib/advisory/persisted-review-adapter.ts';
 import { comprehensiveFixtures } from '../src/lib/reports/comprehensive/fixtures.ts';
 import { buildComprehensiveDeliveryModel } from '../src/lib/reports/comprehensive/contract.ts';
 

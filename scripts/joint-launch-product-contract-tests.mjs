@@ -63,10 +63,29 @@ check('Comprehensive current price is 3500000 cents ZAR incl VAT', () => {
   assert.equal(COMMERCIAL_CATALOGUE.comprehensive.label, 'Comprehensive');
 });
 
-check('Comprehensive is a human-reviewed engagement, not an automated diagnostic', () => {
-  assert.equal(COMMERCIAL_CATALOGUE.comprehensive.fulfilmentModel, 'reviewed_engagement');
+check('Comprehensive is an automated analytical product with no human review', () => {
+  // The retired definition promised evidence intake, named reviewer validation
+  // and sign-off before delivery. It was never sold; the catalogue migration
+  // records zero orders against the product code in Production and Staging.
+  // Independent validation is Advisory work and is priced there.
+  assert.equal(COMMERCIAL_CATALOGUE.comprehensive.fulfilmentModel, 'automated_analytical');
   assert.equal(COMMERCIAL_CATALOGUE.essential.fulfilmentModel, 'automated_diagnostic');
   assert.notEqual(COMPREHENSIVE_PRODUCT_CODE, ESSENTIAL_PRODUCT_CODE);
+
+  // No customer-facing Comprehensive copy may promise review, validation or
+  // sign-off. This is the assurance boundary, not a wording preference.
+  // Stating the boundary is required; promising the service is forbidden. "No
+  // evidence is independently validated" is a denial and must pass, so clauses
+  // are tested individually and negated ones are exempt.
+  const clauses = [COMMERCIAL_CATALOGUE.comprehensive.summary, ...COMMERCIAL_CATALOGUE.comprehensive.includes]
+    .flatMap((entry) => String(entry).split(/(?<=[.;])\s+/))
+    .filter((clause) => !/\b(no|not|never|without)\b/i.test(clause));
+  for (const promise of [/reviewer/i, /reviewed/i, /sign-?off/i, /validat/i, /assurance/i, /\baudit\b/i, /independently/i]) {
+    const offending = clauses.find((clause) => promise.test(clause));
+    assert.ok(!offending, `Comprehensive copy must not promise ${promise}: "${String(offending).slice(0, 120)}"`);
+  }
+  // Both paid tiers deliver the same way: an MK-controlled PDF, no engagement.
+  assert.equal(COMMERCIAL_CATALOGUE.comprehensive.deliveryMode, 'mk_controlled_pdf');
 });
 
 check('Advisory is not self-service orderable and carries no fixed platform entitlement', () => {

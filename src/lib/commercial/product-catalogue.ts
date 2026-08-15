@@ -29,8 +29,12 @@ export type CommercialFulfilmentModel =
   | 'instant_snapshot'
   /** Automated/self-service diagnostic: MK-controlled PDF plus supporting register. */
   | 'automated_diagnostic'
-  /** Human reviewed, evidence-validated, named-reviewer engagement. */
-  | 'reviewed_engagement'
+  /**
+   * Automated in-depth analysis: MK-controlled PDF plus supporting registers.
+   * Deeper than the diagnostic, and equally unreviewed — no evidence is
+   * validated and no assurance opinion is given.
+   */
+  | 'automated_analytical'
   /** Manually scoped consulting; no platform fulfilment path at all. */
   | 'manually_scoped';
 
@@ -146,6 +150,20 @@ const ESSENTIAL: OrderableProduct = {
   ]
 };
 
+/**
+ * Comprehensive is an automated analytical product.
+ *
+ * It was previously defined as a reviewed engagement — evidence intake, named
+ * reviewer validation and reviewer sign-off before delivery. That definition was
+ * pre-launch implementation and was never sold: the joint-launch catalogue
+ * migration records zero orders against this product code in both Production and
+ * Staging. The definition is migrated in place to the approved product rather
+ * than superseded by a second SKU.
+ *
+ * Everything the old definition promised — independent validation of evidence,
+ * reviewer observations, sign-off — is Advisory work and is priced there.
+ * Comprehensive analyses the assessment; it does not verify anything.
+ */
 const COMPREHENSIVE: OrderableProduct = {
   tier: 'comprehensive',
   productCode: COMPREHENSIVE_PRODUCT_CODE,
@@ -156,15 +174,18 @@ const COMPREHENSIVE: OrderableProduct = {
   paid: true,
   selfServiceOrderable: true,
   requiresPaymentVerification: true,
-  fulfilmentModel: 'reviewed_engagement',
-  deliveryMode: 'mk_led_validated_engagement',
-  summary: 'Evidence-validated fraud readiness engagement reviewed and signed off by a named MK reviewer.',
+  fulfilmentModel: 'automated_analytical',
+  deliveryMode: 'mk_controlled_pdf',
+  summary: 'Automated in-depth fraud readiness analysis, delivered as a PDF report with its supporting registers. No evidence is independently validated and no assurance opinion is provided.',
   includes: [
     'Everything in Essential',
-    'Structured client evidence intake',
-    'Named reviewer validation of the submitted evidence',
-    'Reviewer observations recorded against each evidence item',
-    'Reviewer sign-off before delivery'
+    'Full material finding register with fraud mechanism and management implication',
+    'Fraud exposure and risk register with treatment direction and ownership',
+    'Target-state control blueprint per priority control: objective, population, frequency, proof and failure response',
+    'Evidence requirements: what management should hold for each control, and what an acceptable example looks like',
+    'Leadership decision library with costed options and trade-offs',
+    'Implementation programme through 12 months, with dependencies and proof of completion',
+    'Target operating model, governance rhythm and management scorecard'
   ]
 };
 

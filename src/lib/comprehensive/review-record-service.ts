@@ -1,8 +1,8 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import type { AdminRole } from '@/lib/types/domain';
-import type { PersistedComprehensiveReviewRecordRow } from '@/lib/reports/comprehensive/persisted-review-adapter';
+import type { PersistedComprehensiveReviewRecordRow } from '@/lib/advisory/persisted-review-adapter';
 import { REVIEWER_ELIGIBLE_ROLES } from './engagement-service';
-import { buildComprehensiveReviewerInputFromPersisted } from '@/lib/reports/comprehensive/persisted-review-adapter';
+import { buildComprehensiveReviewerInputFromPersisted } from '@/lib/advisory/persisted-review-adapter';
 import {
   loadComprehensiveSubjectAuthority,
   validateComprehensiveSubject,
