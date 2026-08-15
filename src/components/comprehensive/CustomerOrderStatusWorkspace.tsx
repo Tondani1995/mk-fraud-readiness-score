@@ -54,7 +54,14 @@ export function CustomerOrderStatusWorkspace({
             <p><strong className="text-mk-ink">Currency:</strong> {eft.currency}</p>
             {eft.accountType ? <p><strong className="text-mk-ink">Account type:</strong> {eft.accountType}</p> : null}
           </div> : <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-mk-danger">EFT instructions are not available for this order. Do not make payment; contact MK Fraud Insights.</p>}
-          <p><strong className="text-mk-ink">Payment reference:</strong> {eft?.paymentReferenceInstruction ?? order.paymentReference}</p>
+          {/*
+            The reference the customer must type, always. This previously rendered
+            the profile's instruction text *instead of* the reference, so a
+            customer following the page had no reference to quote and MK had
+            nothing to reconcile against. Show the reference, then the guidance.
+          */}
+          <p><strong className="text-mk-ink">Payment reference:</strong> {order.paymentReference}</p>
+          {eft?.paymentReferenceInstruction ? <p className="text-mk-muted">{eft.paymentReferenceInstruction}</p> : null}
           <p>{eft?.customerInstruction ?? 'MK confirms payment manually before any deliverable is released.'}</p>
         </CardContent>
       </Card>
