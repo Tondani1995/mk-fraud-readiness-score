@@ -29,8 +29,6 @@ export function CustomerOrderStatusWorkspace({
   initialOrder: CustomerPaidOrderStatus;
 }) {
   const [order, setOrder] = useState(initialOrder);
-  const [file, setFile] = useState<File | null>(null);
-  const [label, setLabel] = useState('');
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,31 +37,6 @@ export function CustomerOrderStatusWorkspace({
     const response = await fetch(`/score/api/assessments/${encodeURIComponent(assessmentReference)}/paid-order/status?token=${encodeURIComponent(snapshotToken)}&orderReference=${encodeURIComponent(order.orderReference)}`, { cache: 'no-store' });
     const body = await response.json().catch(() => ({}));
     if (response.ok && body.ok && body.order) setOrder(body.order);
-  }
-
-  async function uploadEvidence() {
-    if (!file) {
-      setError('Choose one evidence file before uploading.');
-      return;
-    }
-    setUploading(true);
-    setMessage(null);
-    setError(null);
-    const form = new FormData();
-    form.set('snapshotToken', snapshotToken);
-    form.set('file', file);
-    if (label.trim()) form.set('evidenceLabel', label.trim());
-    const response = await fetch(`/score/api/assessments/${encodeURIComponent(assessmentReference)}/comprehensive-evidence`, { method: 'POST', body: form });
-    const body = await response.json().catch(() => ({}));
-    setUploading(false);
-    if (!response.ok || !body.ok) {
-      setError(body.errors?.[0] ?? 'The evidence file could not be uploaded.');
-      return;
-    }
-    setMessage('Evidence uploaded securely. The named reviewer will record its validation state.');
-    setFile(null);
-    setLabel('');
-    await refresh();
   }
 
   const eft = order.eftInstructions;
@@ -87,38 +60,28 @@ export function CustomerOrderStatusWorkspace({
       </Card>
 
       {comprehensive ? <>
+        {/*
+          The reviewer, evidence-review and sign-off cards described the retired
+          reviewed-engagement Comprehensive, which was migrated to an automated
+          analytical product. Those cards promised human work — an assigned
+          person, an evidence review and a sign-off — that the product does not
+          include.
+          The released-package card below is the real deliverable and is gated on
+          the access token, not on any review state, so it is unaffected.
+        */}
         <Card>
-          <CardHeader><CardTitle>Comprehensive engagement status</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Your report</CardTitle></CardHeader>
           <CardContent className="grid gap-4 text-sm leading-6 text-mk-muted sm:grid-cols-2">
-            <p><strong className="text-mk-ink">Stage:</strong> {comprehensive.state.replaceAll('_', ' ')}</p>
-            <p><strong className="text-mk-ink">Reviewer:</strong> {comprehensive.reviewerAssigned ? 'Named reviewer assigned' : 'Awaiting reviewer assignment'}</p>
-            <p><strong className="text-mk-ink">Evidence reviewed:</strong> {comprehensive.reviewedEvidenceCount} of {comprehensive.evidenceCount}</p>
-            <p><strong className="text-mk-ink">Sign-off:</strong> {comprehensive.signedOff ? 'Complete' : 'Pending'} </p>
+            <p><strong className="text-mk-ink">Report:</strong> {comprehensive.releasedArtifacts.length ? 'Ready — download below' : 'Being prepared'}</p>
+            <p><strong className="text-mk-ink">Delivery:</strong> Sent to the delivery email held for this order</p>
           </CardContent>
         </Card>
 
-        {comprehensive.evidenceAccepting ? <Card>
-          <CardHeader><CardTitle>Submit requested evidence</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-mk-muted">{comprehensive.evidenceGuidance.map((item) => <li key={item}>{item}</li>)}</ul>
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <label className="text-sm font-semibold text-mk-ink">Evidence file<input className="mt-2 block w-full rounded-xl border border-mk-line bg-white px-3 py-3 text-sm font-normal" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} accept="application/pdf,image/png,image/jpeg,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" /></label>
-              <label className="text-sm font-semibold text-mk-ink">Optional label<input className="mt-2 block w-full rounded-xl border border-mk-line bg-white px-3 py-3 text-sm font-normal" value={label} onChange={(event) => setLabel(event.target.value)} maxLength={200} placeholder="e.g. Detection tuning log" /></label>
-              <Button type="button" onClick={() => void uploadEvidence()} disabled={uploading}>{uploading ? 'Uploading…' : 'Upload evidence'}</Button>
-            </div>
-            {error ? <p role="alert" className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">{error}</p> : null}
-            {message ? <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</p> : null}
-          </CardContent>
-        </Card> : null}
-
         <Card>
-          <CardHeader><CardTitle>Evidence submitted</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {comprehensive.evidence.length ? comprehensive.evidence.map((item) => <div key={item.id} className="rounded-xl border border-mk-line p-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-mk-ink">{item.evidenceLabel || item.originalFilename}</strong><Badge>{item.validationStatus.replaceAll('_', ' ')}</Badge></div>
-              <p className="mt-2 text-mk-muted">{item.originalFilename} · {item.contentType} · {formatBytes(item.sizeBytes)}</p>
-              {item.reviewerObservation ? <p className="mt-2 text-mk-muted">Reviewer note: {item.reviewerObservation}</p> : null}
-            </div>) : <p className="text-sm text-mk-muted">No evidence has been uploaded yet.</p>}
+          <CardHeader><CardTitle>Independent validation</CardTitle></CardHeader>
+          <CardContent className="text-sm leading-6 text-mk-muted">
+            <p>This Comprehensive report is an automated analysis of the assessment your organisation completed. It does not independently validate evidence, test whether controls operate, or provide an assurance opinion.</p>
+            <p className="mt-3">Independent evidence validation and specialist review are available separately through MK Advisory.</p>
           </CardContent>
         </Card>
 
