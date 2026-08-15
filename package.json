@@ -188,7 +188,9 @@
     "v11:content-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/content-ownership-gate.mjs",
     "v11:renderer-consumption-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/renderer-consumption-gate.mjs",
     "v11:evidence-assertion-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/evidence-assertion-gate.mjs",
-    "v11:maturity-consistency-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/maturity-consistency-gate.mjs"
+    "v11:maturity-consistency-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/maturity-consistency-gate.mjs",
+    "v11:maturity-vocabulary-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/maturity-vocabulary-gate.mjs",
+    "v11:cross-chapter-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/cross-chapter-ownership-gate.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",

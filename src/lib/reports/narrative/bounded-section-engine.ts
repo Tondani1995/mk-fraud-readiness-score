@@ -7,6 +7,7 @@ import type {
   ReportBlueprintSubsection
 } from './report-blueprint';
 import type { NarrativeFact, NarrativeFactPack } from './fact-pack';
+import { getMaturityBand } from '../../scoring/maturity-band';
 
 export const BOUNDED_SECTION_ENGINE_SCHEMA_VERSION = 'mk-reporting-bible-1.1-bounded-section-engine-v1';
 export const BOUNDED_SECTION_PROMPT_VERSION = 'mk-reporting-bible-1.1-bounded-section-prompt-v1';
@@ -107,6 +108,12 @@ export interface NarrativeSectionContract {
   purpose: string;
   readerQuestion: string;
   requiredManagementTakeaway: string;
+  /**
+   * Maturity bands the assessment evidences: the overall band and every domain
+   * band. A report may be Developing overall and contain Structured domains,
+   * and the narrative may say so.
+   */
+  supportedMaturityBands: string[];
   requiredInsights: NarrativeRequiredInsight[];
   primaryContentRefs: string[];
   permittedCrossReferenceRefs: string[];
@@ -661,6 +668,7 @@ export function buildNarrativeSectionContract(slot: NarrativeSlot, pack: Narrati
     purpose: slot.purpose,
     readerQuestion: slot.readerQuestion,
     requiredManagementTakeaway: slot.requiredManagementTakeaway,
+    supportedMaturityBands: supportedMaturityBands(pack, thesis),
     requiredInsights: slot.requiredInsights,
     primaryContentRefs: slot.primaryContentRefs,
     permittedCrossReferenceRefs: slot.permittedCrossReferenceRefs,
@@ -710,8 +718,15 @@ const MATURITY_TERMS = ['Reactive', 'Developing', 'Structured', 'Strategic'];
 const MATURITY_CONTEXT = /\b(maturity|maturities|band|banding|rated|rating|assessed as|positioned at|level)\b/i;
 
 /**
- * Hard truth: the narrative may not assert a maturity band other than the
- * authoritative one.
+ * Hard truth: the narrative may not assert a maturity band the assessment does
+ * not evidence.
+ *
+ * This previously rejected any band other than the overall one, which is wrong:
+ * a domain profile legitimately spans bands, and the report prints exactly that
+ * on page 2. CASE-06 is Developing overall with five Structured domains, and
+ * the narrative was failed for saying "Structured". The rule was masked until
+ * Pass 4 unified the maturity scale, because the presentation layer previously
+ * emitted band names outside this vocabulary.
  *
  * Every maturity term is also ordinary advisory English — "a developing
  * exposure", "a structured approach", "a strategic priority". Matching them
@@ -719,8 +734,9 @@ const MATURITY_CONTEXT = /\b(maturity|maturities|band|banding|rated|rating|asses
  * term is genuinely used as a label: capitalised mid-sentence, or in any case
  * within a short window of explicit maturity framing.
  */
-export function usesForeignMaturityLabel(value: string, authoritativeMaturity: string): boolean {
-  return MATURITY_TERMS.filter((term) => term !== authoritativeMaturity).some((term) => {
+export function usesUnsupportedMaturityLabel(value: string, supportedBands: readonly string[]): boolean {
+  const supported = new Set(supportedBands.filter(Boolean));
+  return MATURITY_TERMS.filter((term) => !supported.has(term)).some((term) => {
     // Capitalised mid-sentence reads as a proper-noun band label.
     const capitalised = new RegExp(`(?<![.!?]\\s)(?<!^)\\b${term}\\b`, 'g');
     for (const match of value.matchAll(capitalised)) {
@@ -737,14 +753,28 @@ export function usesForeignMaturityLabel(value: string, authoritativeMaturity: s
   });
 }
 
+/**
+ * The maturity vocabulary this assessment supports: the overall band plus every
+ * assessed domain's band, derived from the single central scale.
+ */
+function supportedMaturityBands(pack: NarrativeFactPack, thesis: ReportThesis): string[] {
+  const overall = thesis.overallPosition?.maturity ?? pack.assessment?.maturity;
+  const domains = pack.domains
+    .filter((domain) => typeof domain.score === 'number')
+    .map((domain) => getMaturityBand(domain.score as number));
+  return unique([overall, ...domains].filter((band): band is string => Boolean(band)));
+}
+
 function validateHardTruth(value: string, contract: NarrativeSectionContract): string[] {
   const issues: string[] = [];
   const allowed = new Set(numericTokens({ facts: contract.authorisedFacts, thesis: contract.reportThesis, fit: contract.fit, requiredInsights: contract.requiredInsights }));
   const numbers = numericTokens(value);
   const unexpected = numbers.filter((token) => !allowed.has(token));
   if (unexpected.length) issues.push(`Unsupported numeric claims: ${unique(unexpected).join(', ')}.`);
-  const maturity = contract.reportThesis.overallPosition.maturity;
-  if (maturity && usesForeignMaturityLabel(value, maturity)) issues.push(`Narrative introduces maturity term other than ${maturity}.`);
+  const supported = contract.supportedMaturityBands ?? [contract.reportThesis.overallPosition.maturity].filter(Boolean);
+  if (supported.length && usesUnsupportedMaturityLabel(value, supported)) {
+    issues.push(`UNSUPPORTED_MATURITY_LABEL: narrative uses a maturity band the assessment does not evidence. Supported: ${supported.join(', ')}.`);
+  }
   return issues;
 }
 

@@ -924,7 +924,11 @@ function sustainmentEssentialHierarchy(pack: NarrativeFactPack, chapters: Bluepr
       // The roadmap belongs to the closing section. Holding it here as well made
       // both sections argue the same actions.
       { suffix: 'INFORMATION', title: 'Management information and proof', purpose: 'Set the records and indicators that show the strong standard remains current.', takeaway: 'Management information should reveal early deterioration.', requiredFacts: pack.decisions.map((item) => item.factRef), narrativeRole: 'EVIDENCE' },
-      { suffix: 'NINETY-DAY', title: 'First 90 days', purpose: 'Close the initial sustainment sequence.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' }
+      // A roadmap action derives from a sustainment priority. The priority owns
+      // why the capability matters and who is accountable for it; this slot owns
+      // execution. Restating the ownership here made two slots write the same
+      // sentence about the same executive.
+      { suffix: 'NINETY-DAY', title: 'First 90 days', purpose: 'Sequence the sustainment actions. Give each one its window, what it produces and how completion is proved.', takeaway: 'Each action has a window, a deliverable and a test that shows it is complete.', requiredFacts: pack.roadmap.map((item) => item.factRef), narrativeRole: 'IMPLEMENTATION' }
     ]);
     return chapter;
   });
