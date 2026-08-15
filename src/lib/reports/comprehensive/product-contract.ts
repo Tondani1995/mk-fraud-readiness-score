@@ -212,6 +212,20 @@ export const COMPREHENSIVE_PRODUCT_CONTRACT: ComprehensiveProductContract = {
  */
 export function claimsVerification(text: string): { violation: boolean; matched?: string } {
   const value = String(text ?? '');
+
+  // What makes a sentence an assurance claim is the subject, not the verb.
+  // "bank-detail changes are independently verified by callback" is a control
+  // design and must pass; "MK independently validated the controls" must not.
+  // Matching subject-then-verb also survives adverbs and auxiliaries, which a
+  // list of literal phrases cannot: "MK validated" was caught while "MK
+  // independently validated" and "MK has verified" walked straight through.
+  const SUBJECT = '(?:MK(?:\\s+Fraud\\s+Insights)?|we|our\\s+(?:review|testing|fieldwork|assessment|inspection)|the\\s+reviewer|reviewer)';
+  const MODIFIER = '(?:\\s+(?:has|have|had|was|were|is|are|also|already|independently|separately|subsequently|\\w+ly))*';
+  const VERB = '(?:verified|reviewed|inspected|tested|validated|confirmed|examined|audited|vouched|substantiated)';
+  const subjectVerb = new RegExp(`\\b${SUBJECT}${MODIFIER}\\s+${VERB}\\b`, 'i');
+  const match = value.match(subjectVerb);
+  if (match) return { violation: true, matched: match[0] };
+
   for (const phrase of COMPREHENSIVE_PROHIBITED_EVIDENCE_VOICE) {
     const pattern = new RegExp(`(?<!\\bmanagement should\\s)(?<!\\bshould be\\s)\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
     if (pattern.test(value)) return { violation: true, matched: phrase };

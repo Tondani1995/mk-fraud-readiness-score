@@ -72,6 +72,18 @@ for (const [caseId, order] of Object.entries(orders)) {
     if (/\b(mr|mrs|ms|dr)\b\.?\s+[A-Z]/i.test(role.displayRole)) add('ROLE_NORMALISATION', `${role.displayRole} looks like a named individual`);
   }
 
+  // Every role label a core module shows a reader must be one of the canonical
+  // labels. Checking only that decisions reach a role missed the case where the
+  // decision agenda printed "CEO / Managing Director" while the governance table
+  // printed "Chief Executive / Managing Director" for the same office: the link
+  // was correct, the two labels on the page were not.
+  const canonicalLabels = new Set(roles.map((role) => role.displayRole));
+  for (const decision of model.core.decisionAgenda) {
+    if (decision.ownerRole && !canonicalLabels.has(decision.ownerRole)) {
+      add('ROLE_NORMALISATION', `decision agenda owner "${decision.ownerRole}" is not a canonical governance role`);
+    }
+  }
+
   // ---- CORE_TO_REGISTER_TRACEABILITY --------------------------------------
   const checkIds = (ids, pool, where, kind) => {
     const missing = ids.filter((id) => !pool.has(id));

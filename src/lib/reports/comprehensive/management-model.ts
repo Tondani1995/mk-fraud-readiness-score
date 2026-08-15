@@ -324,6 +324,16 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
   for (const decision of assembly.governance.decisions) {
     if (decision.ownerRole) roleFor(decision.ownerRole, 'EXECUTIVE_ACCOUNTABILITY').decisions.push(decision.decisionId);
   }
+  /**
+   * The decision agenda must name its owners in the same vocabulary as the
+   * governance table. Passing the assembly rows through unchanged put "CEO /
+   * Managing Director" on one page and "Chief Executive / Managing Director" on
+   * another for the same office — the split-vocabulary problem role
+   * normalisation exists to remove, reintroduced at the last step.
+   */
+  const decisionAgenda = assembly.governance.decisions.map((decision) => (decision.ownerRole
+    ? { ...decision, ownerRole: canonicalRoleFor(decision.ownerRole, 'EXECUTIVE_ACCOUNTABILITY').display }
+    : decision));
   const ROLE_TYPE_ORDER: CanonicalRoleType[] = ['EXECUTIVE_ACCOUNTABILITY', 'PROCESS_OWNERSHIP', 'OVERSIGHT'];
   const governanceRoles = [...roleIndex.values()]
     .map((role) => ({
@@ -378,7 +388,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
   return {
     version: COMPREHENSIVE_MANAGEMENT_MODEL_VERSION,
     narrativeMode: assembly.narrativeMode,
-    core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda: assembly.governance.decisions, implementationPhases },
+    core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases },
     registers: { ...registers, measures: measurementFramework },
     counts: {
       managementThemes: managementThemes.length,
