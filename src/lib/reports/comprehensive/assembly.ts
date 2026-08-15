@@ -125,7 +125,26 @@ export interface DecisionRow extends AssembledRow {
   linkedRiskIds: string[];
 }
 
+/**
+ * What a programme object actually is.
+ *
+ * The report described all 83 P06 objects as "implementation actions" when only
+ * 31 were initial control establishment; the rest were operating-cycle and
+ * effectiveness work. The type is assigned where the object is created, from the
+ * generation path and the report mode, never inferred later from prose and never
+ * from the organisation.
+ */
+export type ProgrammeWorkType = 'IMPLEMENT' | 'CONFIRM' | 'EMBED_AND_EVIDENCE' | 'ASSURE_AND_REVIEW';
+
+export const PROGRAMME_WORK_TYPE_LABEL: Readonly<Record<ProgrammeWorkType, string>> = {
+  IMPLEMENT: 'Implement',
+  CONFIRM: 'Confirm',
+  EMBED_AND_EVIDENCE: 'Embed & evidence',
+  ASSURE_AND_REVIEW: 'Assure & review'
+};
+
 export interface ProgrammeActionRow extends AssembledRow {
+  workType: ProgrammeWorkType;
   actionId: string;
   action: string;
   deliverable: string;
@@ -168,6 +187,25 @@ export interface ScenarioPortfolioRow {
   linkedFindingIds: string[];
   linkedRiskIds: string[];
   linkedControlIds: string[];
+}
+
+export interface ResilienceTestRow {
+  provenance: 'DERIVED_ANALYSIS';
+  testId: string;
+  /** The operating capability management reports. Never described as weak. */
+  capability: string;
+  domain: string;
+  /** What the capability rests on. Authoritative: sustainmentPriorities.dependencies. */
+  dependencyToTest: string[];
+  /** Authoritative: sustainmentPriorities.deteriorationTrigger. */
+  deteriorationCondition: string;
+  /** Authoritative: sustainmentPriorities.proofRetained. */
+  evidenceToInspect: string;
+  /** Authoritative: sustainmentPriorities.effectivenessIndicator. */
+  effectivenessSignal: string;
+  /** Authoritative: sustainmentPriorities.operatingFrequency. */
+  reviewRhythm: string;
+  linkedAssurancePriorityId: string;
 }
 
 export type AssurancePriorityClass =
@@ -228,6 +266,17 @@ export interface ComprehensiveAssembly {
    * Every field here is deterministic; none is a finding.
    */
   assurancePriorities: AssurancePriorityRow[];
+  /**
+   * The high-readiness resilience view.
+   *
+   * Built from sustainmentPriorities, not from the evidence-model scenarios:
+   * those carry scenarioBasis "assurance_validation" and a fraud sequence that
+   * opens "Test whether the self-reported controls would prevent...", so they are
+   * verification procedures by construction and cannot honestly be presented as
+   * fraud stress scenarios. Every field below traces to an authoritative
+   * sustainment-priority field, and no exogenous event is invented.
+   */
+  resilienceTests: ResilienceTestRow[];
   counts: {
     findings: number;
     risks: number;
@@ -240,6 +289,7 @@ export interface ComprehensiveAssembly {
     measures: number;
     scenarios: number;
     assurancePriorities: number;
+    resilienceTests: number;
   };
 }
 
@@ -260,7 +310,23 @@ function horizonRank(period: string): number {
   return index === -1 ? HORIZON_ORDER.length : index;
 }
 
-export function assembleComprehensive(evidence: AdvisoryEvidenceModel): ComprehensiveAssembly {
+export function assembleComprehensive(
+  evidence: AdvisoryEvidenceModel,
+  /**
+   * The authoritative scenario presentation, produced once by the Fact Pack and
+   * shared with Essential.
+   *
+   * The evidence-model scenario objects carry no early-warning field at all, so
+   * Comprehensive could not render honest warning indicators from them — an
+   * earlier pass filled that column with expected-control text. The Fact Pack
+   * owns the presentation projection (including its warning-indicator fallback),
+   * so both tiers now read the same source and cannot diverge in meaning.
+   *
+   * Omitted, no scenario portfolio is produced. There is deliberately no
+   * fallback to the evidence-model objects: a wrong scenario is worse than none.
+   */
+  source: { scenarioFacts?: readonly any[] } = {}
+) {
   const findings = evidence.materialFindings ?? [];
   const risks = evidence.riskRegister ?? [];
   const controls = evidence.controlImprovements ?? [];
@@ -472,6 +538,10 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
     const row: ProgrammeActionRow = {
       provenance: 'CONTROL_LIBRARY',
       sourceRefs: unique([...list(action.linkedFindingIds), ...list(action.linkedRiskIds)]),
+      // Mode decides what the first horizons are doing. A sustainment programme
+      // is not remediating: the capability is already reported as operating, so
+      // the initial work confirms it rather than building it.
+      workType: text(evidence.narrativeMode, 'REMEDIATION') === 'SUSTAINMENT' ? 'CONFIRM' : 'IMPLEMENT',
       actionId: text(action.id),
       action: deliverable,
       deliverable,
@@ -531,6 +601,7 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
       .map((control) => ({
         provenance: 'CONTROL_LIBRARY' as ComprehensiveProvenance,
         sourceRefs: [control.controlId, control.questionCode].filter(Boolean),
+        workType: kind === 'EMBED' ? 'EMBED_AND_EVIDENCE' as const : 'ASSURE_AND_REVIEW' as const,
         actionId: `${control.controlId}-${kind}`,
         // The control objective is itself an imperative sentence ("Close the
         // material control weakness recorded for X"), so it cannot be spliced
@@ -581,28 +652,33 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
       controlsByRisk.set(riskId, [...(controlsByRisk.get(riskId) ?? []), control.controlId]);
     }
   }
-  const scenarioPortfolio: ScenarioPortfolioRow[] = scenarios.map((scenario: any) => {
-    const linkedRiskIds = unique([...list(scenario.linkedRiskIds), text(scenario.linkedRiskId), ...list(scenario.linkedRiskRefs)].filter(Boolean));
-    const linkedFindingIds = unique([...list(scenario.linkedFindingIds), ...list(scenario.linkedFindingRefs)].filter(Boolean));
+  const humanFamily = (value: string): string => String(value ?? '')
+    .replace(/_/g, ' ')
+    .replace(/\b(d\d+)\s*(q\d+)\b/gi, '')
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+  const scenarioPortfolio: ScenarioPortfolioRow[] = (source.scenarioFacts ?? []).map((scenario: any) => {
+    const linkedRiskIds = unique(list(scenario.linkedRiskRefs).filter(Boolean));
+    const linkedFindingIds = unique(list(scenario.linkedFindingRefs).filter(Boolean));
     return {
       provenance: 'DERIVED_ANALYSIS' as const,
-      scenarioId: text(scenario.id ?? scenario.sourceId ?? scenario.factRef),
+      scenarioId: text(scenario.factRef),
       title: text(scenario.title),
-      family: text(scenario.scenarioType),
-      // Field names follow the evidence model, which is the source. An earlier
-      // pass mapped the fact-pack names and silently produced empty warning
-      // indicators and interruption points.
-      actorClass: text(scenario.scenarioBasis),
-      opportunity: list(scenario.confirmedOperatingContext).join(' '),
+      // The raw family code (control_d10_q01) is an engineering label and never
+      // reaches customer prose; only the humanised form does.
+      family: humanFamily(scenario.scenarioFamily),
+      actorClass: text(scenario.actorClass),
+      opportunity: text(scenario.opportunity),
       entryPoint: text(scenario.entryPoint),
-      mechanism: text(scenario.fraudSequence),
-      concealment: text(scenario.concealmentMechanism),
-      consequence: [text(scenario.likelyImpact), text(scenario.financialImpact), text(scenario.operationalImpact)].filter(Boolean).join(' '),
-      warningIndicators: unique([...list(scenario.whyControlsMayNotCatchIt), ...list(scenario.linkedControlWeaknesses)]),
-      controlWeakness: list(scenario.linkedControlWeaknesses).join(' '),
-      interruptionPoint: list(scenario.controlsExpected).join(' '),
+      mechanism: text(scenario.mechanism),
+      concealment: text(scenario.concealment),
+      consequence: text(scenario.consequence),
+      warningIndicators: list(scenario.warningIndicators),
+      controlWeakness: text(scenario.currentControlWeakness),
+      interruptionPoint: text(scenario.requiredControlResponse),
       immediateContainment: text(scenario.immediateContainment),
-      longTermResponse: text(scenario.longerTermResponse),
+      longTermResponse: text(scenario.longTermResponse),
       linkedFindingIds,
       linkedRiskIds,
       linkedControlIds: unique(linkedRiskIds.flatMap((riskId) => controlsByRisk.get(riskId) ?? []))
@@ -644,6 +720,25 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
     };
   });
 
+  // Resilience tests. One per assurance priority, each grounded field-for-field.
+  // No system migration, staff turnover or volume spike is invented: the model
+  // supports dependency failure and a recorded deterioration trigger, so that is
+  // exactly what is tested.
+  const resilienceTests: ResilienceTestRow[] = assurancePriorities
+    .filter((priority) => priority.dependencies.length || priority.deteriorationTrigger)
+    .map((priority, index) => ({
+      provenance: 'DERIVED_ANALYSIS' as const,
+      testId: `RT-${String(index + 1).padStart(2, '0')}`,
+      capability: priority.capability,
+      domain: priority.domain,
+      dependencyToTest: priority.dependencies,
+      deteriorationCondition: priority.deteriorationTrigger,
+      evidenceToInspect: priority.evidenceManagementShouldHold,
+      effectivenessSignal: priority.effectivenessIndicator,
+      reviewRhythm: priority.reviewFrequency,
+      linkedAssurancePriorityId: priority.priorityId
+    }));
+
   return {
     version: COMPREHENSIVE_ASSEMBLY_VERSION,
     narrativeMode: text(evidence.narrativeMode, 'REMEDIATION'),
@@ -655,6 +750,7 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
     programme: { horizons },
     scenarioPortfolio,
     assurancePriorities,
+    resilienceTests,
     counts: {
       findings: findingRegister.length,
       risks: riskRegister.length,
@@ -665,6 +761,7 @@ export function assembleComprehensive(evidence: AdvisoryEvidenceModel): Comprehe
       decisions: decisionRows.length,
       scenarios: scenarioPortfolio.length,
       assurancePriorities: assurancePriorities.length,
+      resilienceTests: resilienceTests.length,
       programmeActions: programmeActions.length,
       measures: measures.length
     }

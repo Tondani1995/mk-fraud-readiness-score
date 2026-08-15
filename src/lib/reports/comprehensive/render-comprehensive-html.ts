@@ -1,3 +1,4 @@
+import { PROGRAMME_WORK_TYPE_LABEL } from './assembly';
 import type { ComprehensiveManagementModel } from './management-model';
 
 /**
@@ -173,7 +174,7 @@ export function renderComprehensiveManagementReportHtml(input: {
     ['B', 'Fraud risk register', reg.risks.length],
     ['C', 'Control blueprint register', reg.controls.length],
     ['D', 'Evidence requirement register', reg.evidence.reduce((sum, group) => sum + group.items.length, 0)],
-    ['E', 'Implementation action register', reg.actions.length],
+    ['E', '12-month action and assurance register', reg.actions.length],
     ['F', 'Measurement register', reg.measures.length]
   ];
   pages.push(`<section class="page">
@@ -366,26 +367,48 @@ export function renderComprehensiveManagementReportHtml(input: {
   const registerHead = (letter: string, title: string, note: string) =>
     `<div class="reg-head"><div class="n">Appendix ${letter}</div><h1>${esc(title)}</h1><div class="reg-note">${esc(note)}</div></div>`;
 
-  // Scenario portfolio — Essential's pathways, carried into Comprehensive.
+  // Scenario portfolio — the same pathways Essential presents.
   //
-  // Comprehensive previously summarised exposure families and dropped the
-  // pathway detail, so a customer paying R35,000 saw less scenario insight than
-  // one paying R7,500. Sustainment cases render the same structure as a
-  // resilience stress test rather than a predicted event.
+  // Columns are fed from the Fact Pack projection, so each says what it means:
+  // the beginning is a real initiating condition, the progression is the fraud
+  // sequence, the interruption point is the control response that breaks it, and
+  // the warning indicators are observable signals rather than expected-control
+  // text. An earlier pass fed the last column from "why controls may not catch
+  // it", which read as a restatement of the control standard.
   if (reg.scenarios.length) {
-    const stress = model.narrativeMode === 'SUSTAINMENT';
     pages.push(`<section class="reg">
-    ${registerHead('S', stress ? 'Scenario stress tests' : 'Fraud scenario portfolio', stress
-      ? 'Each recorded capability is strong. These are the conditions under which it could still fail, and what management should inspect to confirm it holds. No incident is alleged or predicted.'
-      : 'Conditional pathways derived from the recorded control position. Each shows where it could begin, what would interrupt it, and what management would see first. No allegation that any event has occurred.')}
+    ${registerHead('S', 'Fraud scenario portfolio', 'Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.')}
     <table>
-      <thead><tr><th style="width:20%">${stress ? 'Stress condition' : 'Pathway'}</th><th style="width:22%">${stress ? 'Capability expected to hold' : 'How it could begin'}</th><th style="width:22%">${stress ? 'Evidence to inspect' : 'Interruption point'}</th><th style="width:22%">${stress ? 'Early signal' : 'Warning indicators'}</th><th style="width:14%">Links</th></tr></thead>
+      <thead><tr><th style="width:17%">Pathway</th><th style="width:19%">How it could begin</th><th style="width:20%">How it could progress</th><th style="width:20%">Interruption point</th><th style="width:16%">Warning indicators</th><th style="width:8%">Links</th></tr></thead>
       <tbody>${reg.scenarios.map((scenario) => `<tr>
-        <td>${cell(scenario.title)}<div class="cap" style="margin-top:.8mm">${esc(scenario.family.replace(/_/g, ' '))}</div></td>
-        <td>${cell(scenario.entryPoint)}${scenario.mechanism ? `<div class="cap" style="margin-top:.8mm">${cell(scenario.mechanism, '')}</div>` : ''}</td>
+        <td>${cell(scenario.title)}<div class="cap" style="margin-top:.8mm">${esc(scenario.family)}</div></td>
+        <td>${cell(scenario.entryPoint)}</td>
+        <td>${cell(scenario.mechanism)}</td>
         <td>${cell(scenario.interruptionPoint)}</td>
-        <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : cell(scenario.immediateContainment)}</td>
+        <td>${scenario.warningIndicators.length ? `<ul>${scenario.warningIndicators.map((indicator) => `<li>${cell(indicator)}</li>`).join('')}</ul>` : '—'}</td>
         <td class="id">${esc([...scenario.linkedRiskIds, ...scenario.linkedControlIds].join(', ')) || '—'}</td></tr>`).join('')}</tbody>
+    </table>
+  </section>`);
+  }
+
+  // Control resilience tests — high readiness.
+  //
+  // Deliberately not called "stress tests". The methodology supports dependency
+  // failure and a recorded deterioration trigger; it does not model system
+  // migrations, turnover or volume spikes, and the section must not promise an
+  // analytical object the model does not contain.
+  if (reg.resilienceTests.length) {
+    pages.push(`<section class="reg">
+    ${registerHead('R', 'Control resilience tests', 'Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.')}
+    <table>
+      <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
+      <tbody>${reg.resilienceTests.map((test) => `<tr>
+        <td>${cell(test.capability)}<div class="cap" style="margin-top:.8mm">${esc(test.domain)}</div></td>
+        <td>${test.dependencyToTest.length ? `<ul>${test.dependencyToTest.map((dependency) => `<li>${cell(dependency)}</li>`).join('')}</ul>` : '—'}</td>
+        <td>${cell(test.deteriorationCondition)}</td>
+        <td>${cell(test.evidenceToInspect)}</td>
+        <td>${cell(test.effectivenessSignal)}</td>
+        <td class="cap">${cell(test.reviewRhythm)}<div class="id" style="margin-top:.8mm">${esc(test.linkedAssurancePriorityId)}</div></td></tr>`).join('')}</tbody>
     </table>
   </section>`);
   }
@@ -484,11 +507,12 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   pages.push(`<section class="reg">
-    ${registerHead('E', 'Implementation action register', 'Every action, in the horizon its control design calls for. Actions specifying the same work have been merged so management is not asked to do it twice.')}
+    ${registerHead('E', '12-month action and assurance register', 'The full twelve-month programme. Not every row is initial implementation: later horizons operate each control through its required cycle and then review whether it is still effective. The work type on each row says which it is.')}
     <table>
-      <thead><tr><th style="width:10%">Horizon</th><th style="width:26%">Action</th><th style="width:16%">Owner</th><th style="width:24%">Completion criterion</th><th style="width:24%">Effectiveness measure</th></tr></thead>
+      <thead><tr><th style="width:9%">Horizon</th><th style="width:11%">Work type</th><th style="width:24%">Action</th><th style="width:14%">Owner</th><th style="width:21%">Completion criterion</th><th style="width:21%">Effectiveness measure</th></tr></thead>
       <tbody>${core.implementationPhases.flatMap((phase) => phase.actions.map((action) => `<tr>
         <td class="tight"><strong>${esc(phase.phase)}</strong></td>
+        <td class="cap">${esc(PROGRAMME_WORK_TYPE_LABEL[action.workType] ?? action.workType)}</td>
         <td>${cell(action.deliverable)}${action.mergedFrom.length > 1 ? `<div class="cap">Covers ${action.mergedFrom.length} findings</div>` : ''}</td>
         <td>${cell(action.ownerRole)}</td>
         <td>${cell(action.completionCriterion)}</td>

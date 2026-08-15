@@ -39,7 +39,7 @@ fs.mkdirSync(outDir, { recursive: true });
 const data = await assembleReportData(order);
 const evidence = buildAdvisoryEvidenceModel(data);
 const pack = buildEssentialNarrativeFactPack(data, evidence, buildEssentialProjection(data, evidence));
-const model = buildComprehensiveManagementModel(assembleComprehensive(evidence));
+const model = buildComprehensiveManagementModel(assembleComprehensive(evidence, { scenarioFacts: pack.scenarios }));
 const domains = pack.domains.filter((domain) => typeof domain.score === 'number')
   .map((domain) => ({ name: domain.name, score: domain.score, band: getMaturityBand(domain.score) }));
 

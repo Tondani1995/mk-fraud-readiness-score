@@ -1,6 +1,7 @@
 import type {
   ScenarioPortfolioRow,
-  AssurancePriorityRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
+  AssurancePriorityRow,
+  ResilienceTestRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
 import type { ComprehensiveProvenance } from './product-contract';
 
 /**
@@ -221,6 +222,11 @@ export interface ComprehensiveManagementModel {
      */
     assurancePriorities: AssurancePriorityRow[];
     /**
+     * High-readiness resilience tests, grounded in sustainment-priority fields.
+     * Empty outside sustainment, where the model records no operating capability.
+     */
+    resilienceTests: ResilienceTestRow[];
+    /**
      * One measure per control, so this scales with the register rather than the
      * core. The core answers "how will we know" at programme level; this is the
      * detail behind it.
@@ -402,7 +408,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
     version: COMPREHENSIVE_MANAGEMENT_MODEL_VERSION,
     narrativeMode: assembly.narrativeMode,
     core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases },
-    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities },
+    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities, resilienceTests: assembly.resilienceTests },
     counts: {
       managementThemes: managementThemes.length,
       exposureThemes: exposureThemes.length,
@@ -413,6 +419,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
       registerMeasures: measurementFramework.length,
       registerScenarios: assembly.scenarioPortfolio.length,
       registerAssurancePriorities: assembly.assurancePriorities.length,
+      registerResilienceTests: assembly.resilienceTests.length,
       registerFindings: registers.findings.length,
       registerRisks: registers.risks.length,
       registerControls: registers.controls.length,

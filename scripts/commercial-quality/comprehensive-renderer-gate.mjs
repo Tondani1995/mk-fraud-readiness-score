@@ -44,7 +44,7 @@ for (const [caseId, order] of Object.entries(orders)) {
   const data = await assembleReportData(order);
   const evidence = buildAdvisoryEvidenceModel(data);
   const pack = buildEssentialNarrativeFactPack(data, evidence, buildEssentialProjection(data, evidence));
-  const model = buildComprehensiveManagementModel(assembleComprehensive(evidence));
+  const model = buildComprehensiveManagementModel(assembleComprehensive(evidence, { scenarioFacts: pack.scenarios }));
   const domains = pack.domains.filter((domain) => typeof domain.score === 'number')
     .map((domain) => ({ title: domain.name, score: domain.score, band: getMaturityBand(domain.score) }));
   const html = renderComprehensiveManagementReportHtml({
@@ -70,7 +70,7 @@ for (const [caseId, order] of Object.entries(orders)) {
   checkIn('Finding register', model.registers.findings, (row) => row.findingId, 'finding register');
   checkIn('Fraud risk register', model.registers.risks, (row) => row.riskId, 'risk register');
   checkIn('Control blueprint register', model.registers.controls, (row) => row.controlId, 'control register');
-  checkIn('Implementation action register', model.registers.actions, (row) => row.deliverable, 'action register');
+  checkIn('12-month action and assurance register', model.registers.actions, (row) => row.deliverable, 'action register');
   const evidenceItems = model.registers.evidence.flatMap((group) => group.items);
   checkIn('Evidence requirement register', evidenceItems, (row) => row.artefact, 'evidence register');
   checkIn('Measurement register', model.registers.measures, (row) => row.measure, 'measure register');

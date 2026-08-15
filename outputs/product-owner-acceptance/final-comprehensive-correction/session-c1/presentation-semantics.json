@@ -1,0 +1,100 @@
+{
+  "cases": 13,
+  "violations": 0,
+  "negativeControl": "PASS (3/3)",
+  "positiveControl": "PASS (3/3)",
+  "byCase": [
+    {
+      "order": "MKORD-2026-B1DN82OG",
+      "mode": "REMEDIATION",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-D1U0CTO8",
+      "mode": "REMEDIATION",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-RHFC6DYH",
+      "mode": "REMEDIATION",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-HB0OT81P",
+      "mode": "REMEDIATION",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-22FF6B69",
+      "mode": "REMEDIATION",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-7FBBEE23",
+      "mode": "MIXED",
+      "scenarios": 3,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-O8E19UPV",
+      "mode": "REMEDIATION",
+      "scenarios": 2,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-RXXUNVD9",
+      "mode": "SUSTAINMENT",
+      "scenarios": 0,
+      "resilienceTests": 3,
+      "assurancePriorities": 3
+    },
+    {
+      "order": "MKORD-2026-1EOLBY7Y",
+      "mode": "SUSTAINMENT",
+      "scenarios": 0,
+      "resilienceTests": 3,
+      "assurancePriorities": 3
+    },
+    {
+      "order": "MKORD-2026-72BCEIDN",
+      "mode": "SUSTAINMENT",
+      "scenarios": 0,
+      "resilienceTests": 3,
+      "assurancePriorities": 3
+    },
+    {
+      "order": "MKORD-2026-O9DT0QTT",
+      "mode": "SUSTAINMENT",
+      "scenarios": 0,
+      "resilienceTests": 3,
+      "assurancePriorities": 3
+    },
+    {
+      "order": "MKORD-2026-OAP06NIM",
+      "mode": "REMEDIATION",
+      "scenarios": 2,
+      "resilienceTests": 0,
+      "assurancePriorities": 0
+    },
+    {
+      "order": "MKORD-2026-OAP08AUR",
+      "mode": "SUSTAINMENT",
+      "scenarios": 0,
+      "resilienceTests": 3,
+      "assurancePriorities": 3
+    }
+  ],
+  "violationDetail": []
+}
