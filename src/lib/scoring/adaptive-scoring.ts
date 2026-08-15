@@ -13,6 +13,7 @@ import {
 } from '@/lib/adaptive/engine';
 import { assertAdaptivePreviewEnvironment } from '@/lib/adaptive/server';
 import type { MaturityBand } from '@/lib/types/domain';
+import { getMaturityBand, MATURITY_RANK } from './maturity-band';
 
 export type AdaptiveResultStatus = 'NORMAL' | 'PROVISIONAL' | 'INSUFFICIENT_VISIBILITY';
 
@@ -135,14 +136,9 @@ function round(value: number, decimals = 2) {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
-function maturityForScore(score: number): MaturityBand {
-  if (score < 40) return 'Reactive';
-  if (score < 60) return 'Developing';
-  if (score < 80) return 'Structured';
-  return 'Strategic';
-}
+const maturityForScore = getMaturityBand;
 
-const MATURITY_RANK: Record<MaturityBand, number> = { Reactive: 0, Developing: 1, Structured: 2, Strategic: 3 };
+
 
 function applyCap(current: MaturityBand, capTo: MaturityBand) {
   return MATURITY_RANK[capTo] < MATURITY_RANK[current] ? capTo : current;

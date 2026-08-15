@@ -1,4 +1,5 @@
 import type { EssentialProjection } from './essential-projection';
+import { getMaturityBand } from '../scoring/maturity-band';
 import { detectSystemicCondition } from './essential-projection';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
@@ -151,11 +152,10 @@ export function selectContent(
 }
 
 export function bandForScore(score: number | null): MaturityBand {
+  // Was 40/65/80 here and 40/60/80 in the scoring engine, so a domain at 60-64
+  // carried a different band depending on which module asked.
   if (score === null) return 'Reactive';
-  if (score < 40) return 'Reactive';
-  if (score < 65) return 'Developing';
-  if (score < 80) return 'Structured';
-  return 'Strategic';
+  return getMaturityBand(score);
 }
 
 export function gapKey(domainCode: string, questionCode: string) {

@@ -24,6 +24,7 @@ import { buildEssentialProjection } from '../../src/lib/reports/essential-projec
 import { buildEssentialNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
 import { buildReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
+import { buildReportThesis, buildNarrativeSlotPlan } from '../../src/lib/reports/narrative/bounded-section-engine.ts';
 
 const DEFAULT_ORDERS = {
   'CASE-01': 'MKORD-2026-B1DN82OG', 'CASE-02': 'MKORD-2026-D1U0CTO8', 'CASE-03': 'MKORD-2026-RHFC6DYH',
@@ -54,6 +55,38 @@ function sharedContextRefs(pack) {
  */
 const MAX_OWNED_OVERLAP = Number(process.env.MAX_OWNED_OVERLAP ?? 0.5);
 
+/**
+ * The second convergence axis.
+ *
+ * Fixing fact overlap did not fix CASE-03: sibling slots still received a
+ * byte-identical `requiredManagementTakeaway`, so two writers with different
+ * evidence were still told to reach the same conclusion. Distinct facts plus an
+ * identical required conclusion still produces the same sentence.
+ *
+ * Similarity is measured on content words. Two takeaways may legitimately share
+ * the report's vocabulary — "management", "fraud", "control" — without sharing a
+ * responsibility, so the ceiling is validated against measurement rather than
+ * left as a guess: with the defect present every remediation and sustainment
+ * chapter contained byte-identical pairs at similarity 1.00 (79 violations
+ * across the eleven cases); with takeaways derived from each slot's own content
+ * the portfolio maximum is 0.40 and there are no exact duplicates. A ceiling of
+ * 0.60 sits between the two with margin on both sides.
+ */
+const MAX_TAKEAWAY_SIMILARITY = Number(process.env.MAX_TAKEAWAY_SIMILARITY ?? 0.6);
+
+const TAKEAWAY_STOPWORDS = new Set('the a an and or of to in for on with is are as that this it its by be should must can will not from at their which where what how one any each every management fraud risk organisation'.split(' '));
+
+function takeawayTokens(text) {
+  return new Set(String(text ?? '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((word) => word.length > 2 && !TAKEAWAY_STOPWORDS.has(word)));
+}
+
+function similarity(a, b) {
+  if (!a.size || !b.size) return 0;
+  const inter = [...a].filter((token) => b.has(token)).length;
+  const union = new Set([...a, ...b]).size;
+  return union ? Number((inter / union).toFixed(4)) : 0;
+}
+
 function overlapOf(a, b) {
   const inter = [...a].filter((ref) => b.has(ref));
   const union = new Set([...a, ...b]);
@@ -75,6 +108,7 @@ const orders = process.env.ORDERS
 
 const cases = [];
 const violations = [];
+const takeawayViolations = [];
 
 for (const [caseId, order] of Object.entries(orders)) {
   const data = await assembleReportData(order);
@@ -116,13 +150,58 @@ for (const [caseId, order] of Object.entries(orders)) {
       pairs
     });
   }
-  cases.push({ caseId, order, mode: pack.narrativeMode, sharedContextRefs: [...shared], chapters });
+  // ---- Takeaway ownership, measured on the slots the writer actually receives ----
+  const thesis = buildReportThesis(pack, blueprint);
+  const plan = buildNarrativeSlotPlan(pack, blueprint, thesis);
+  const byChapter = new Map();
+  for (const slot of plan.slots) {
+    byChapter.set(slot.chapterId, [...(byChapter.get(slot.chapterId) ?? []), slot]);
+  }
+  const takeawayChapters = [];
+  for (const [chapterId, slots] of byChapter) {
+    const entries = slots.map((slot) => ({
+      slotId: slot.slotId,
+      role: slot.narrativeRole,
+      takeaway: String(slot.requiredManagementTakeaway ?? '').trim(),
+      tokens: takeawayTokens(slot.requiredManagementTakeaway)
+    }));
+    const pairs = [];
+    for (let i = 0; i < entries.length; i += 1) {
+      for (let j = i + 1; j < entries.length; j += 1) {
+        const exact = entries[i].takeaway && entries[i].takeaway.toLowerCase() === entries[j].takeaway.toLowerCase();
+        const score = similarity(entries[i].tokens, entries[j].tokens);
+        const pair = { a: entries[i].slotId, b: entries[j].slotId, roleA: entries[i].role, roleB: entries[j].role, exactDuplicate: Boolean(exact), similarity: score };
+        pairs.push(pair);
+        if (exact || score > MAX_TAKEAWAY_SIMILARITY) {
+          takeawayViolations.push({ caseId, order, chapterId, ...pair, limit: MAX_TAKEAWAY_SIMILARITY, takeaway: entries[i].takeaway.slice(0, 120) });
+        }
+      }
+    }
+    takeawayChapters.push({
+      chapterId,
+      slots: entries.map((entry) => ({ slotId: entry.slotId, role: entry.role, takeaway: entry.takeaway })),
+      exactDuplicatePairs: pairs.filter((pair) => pair.exactDuplicate).length,
+      worstSimilarity: pairs.reduce((worst, pair) => Math.max(worst, pair.similarity), 0)
+    });
+  }
+
+  cases.push({ caseId, order, mode: pack.narrativeMode, sharedContextRefs: [...shared], chapters, takeawayChapters });
 }
 
 const summary = {
-  limit: MAX_OWNED_OVERLAP,
+  factOverlapLimit: MAX_OWNED_OVERLAP,
+  takeawaySimilarityLimit: MAX_TAKEAWAY_SIMILARITY,
   cases: cases.length,
-  violations: violations.length,
+  factViolations: violations.length,
+  takeawayViolations: takeawayViolations.length,
+  violations: violations.length + takeawayViolations.length,
+  takeawayByCase: cases.map((entry) => ({
+    caseId: entry.caseId,
+    mode: entry.mode,
+    exactDuplicatePairs: entry.takeawayChapters.reduce((sum, chapter) => sum + chapter.exactDuplicatePairs, 0),
+    worstSimilarity: entry.takeawayChapters.reduce((worst, chapter) => Math.max(worst, chapter.worstSimilarity), 0)
+  })),
+  takeawayViolationDetail: takeawayViolations,
   worstByCase: cases.map((entry) => ({
     caseId: entry.caseId,
     mode: entry.mode,
@@ -138,12 +217,14 @@ const summary = {
 const outDir = process.env.CERT_OUTPUT_DIR ?? '/Users/tondani/Documents/Codex/outputs/essential-pass3-final-certification/preflight';
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'fact-overlap-matrix.json'), `${JSON.stringify({ summary, cases }, null, 2)}\n`);
+fs.writeFileSync(path.join(outDir, 'takeaway-overlap-matrix.json'), `${JSON.stringify({ summary: { limit: MAX_TAKEAWAY_SIMILARITY, violations: takeawayViolations.length, byCase: summary.takeawayByCase, detail: takeawayViolations }, cases: cases.map((entry) => ({ caseId: entry.caseId, mode: entry.mode, chapters: entry.takeawayChapters })) }, null, 2)}\n`);
 console.log(JSON.stringify(summary, null, 2));
 
 if (process.env.OVERLAP_REPORT_ONLY) process.exit(0);
-if (violations.length) {
-  console.error(`\nFAIL: ${violations.length} sibling section pair(s) are authorised to interpret the same evidence.`);
-  console.error('Two sections briefed on the same facts write the same sentence. Give each section distinct analytical ownership.');
+if (violations.length || takeawayViolations.length) {
+  if (violations.length) console.error(`\nFAIL: ${violations.length} sibling pair(s) authorised to interpret the same evidence.`);
+  if (takeawayViolations.length) console.error(`FAIL: ${takeawayViolations.length} sibling slot pair(s) required to reach the same management conclusion.`);
+  console.error('Two slots given the same facts, or the same required conclusion, write the same sentence.');
   process.exit(1);
 }
-console.log('\nPASS: sibling sections own distinct analytical evidence.');
+console.log('\nPASS: sibling slots own distinct analytical evidence and distinct management conclusions.');

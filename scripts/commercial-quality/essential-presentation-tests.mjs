@@ -10,6 +10,9 @@ import fs from 'node:fs';
 import { buildEssentialPresentationModel } from '../../src/lib/reports/essential/presentation-model.ts';
 import { validateEssentialPresentation, sustainmentClaims } from '../../src/lib/reports/essential/presentation-validation.ts';
 import { evidenceSupport, positionAssertion, FOUNDATION_SCORE_FLOOR } from '../../src/lib/reports/essential/evidence-support.ts';
+import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
+import { bandFor } from '../../src/lib/reports/essential/presentation-model.ts';
+import { bandForScore } from '../../src/lib/reports/select-content-blocks.ts';
 import {
   exposureClusters,
   clusterForScenario,
@@ -286,6 +289,34 @@ for (const level of [60, 100]) {
 }
 assert.equal(FOUNDATION_SCORE_FLOOR, 40, 'the foundation floor is the product\u2019s own Reactive/Developing boundary');
 ok('positive capability language is conditioned on deterministic evidence');
+
+// 15f. One maturity scale for the whole product.
+//
+// Pass 3 found three incompatible definitions, so a report printed maturity
+// "Structured" for 60 while labelling every 60.00 domain "Developing".
+const MATURITY_BOUNDARIES = [
+  [0, 'Reactive'], [20, 'Reactive'], [35.55, 'Reactive'], [39.99, 'Reactive'],
+  [40, 'Developing'], [45, 'Developing'], [59.99, 'Developing'],
+  [60, 'Structured'], [65, 'Structured'], [73.57, 'Structured'], [79.99, 'Structured'],
+  [80, 'Strategic'], [85, 'Strategic'], [100, 'Strategic']
+];
+for (const [score, expected] of MATURITY_BOUNDARIES) {
+  assert.equal(getMaturityBand(score), expected, `central scale: ${score} is ${expected}`);
+  assert.equal(bandFor(score), expected, `presentation layer agrees at ${score}`);
+  assert.equal(bandForScore(score), expected, `content-block selection agrees at ${score}`);
+}
+// The retired presentation-only labels must not be reachable.
+for (const score of [0, 10, 25, 50, 70, 90, 100]) {
+  assert.ok(!['Initial', 'Defined', 'Managed'].includes(bandFor(score)),
+    `retired band label is not produced at ${score}`);
+}
+// Every domain row in the reference model agrees with its own score.
+for (const row of model.domainProfile.rows) {
+  assert.equal(row.band, getMaturityBand(row.score), `domain "${row.title}" at ${row.score} carries the right band`);
+}
+assert.equal(model.readinessScore.maturity, getMaturityBand(model.readinessScore.score),
+  'overall maturity agrees with the overall score');
+ok('one maturity scale across scoring, presentation and content selection');
 
 // 16. Conclusion does not replay the roadmap.
 assert.ok(!/\b(?:first\s+)?(?:30|60|90)\s*(?:days|-day)\b/i.test(model.conclusion.replace(/next 90-day checkpoint/i, '')),

@@ -1,6 +1,7 @@
 import type { NarrativeFactPack, NarrativeProductTier } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
 import { positionAssertion } from '../essential/evidence-support';
+import { familyPresentation } from '../essential/content-families';
 
 export const REPORT_BLUEPRINT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-report-blueprint-v3';
 export const WHOLE_MANUSCRIPT_CONTEXT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-whole-manuscript-context-v3';
@@ -559,6 +560,71 @@ function conclusionDomainRefs(pack: NarrativeFactPack): string[] {
 }
 
 /**
+ * The management consequence of one exposure cluster's own content.
+ *
+ * Every cluster used to receive the same required takeaway, so three or four
+ * writers with different findings were told to reach the same conclusion and
+ * two of them wrote the same sentence. The consequence is now derived from the
+ * cluster's own owning family: what interrupting *this* pattern turns on.
+ */
+function clusterTakeaway(cluster: FindingCluster): string {
+  const owning = cluster.semanticFamilies.find((family) => familyPresentation(family)) ?? cluster.semanticFamilies[0];
+  const presentation = owning ? familyPresentation(owning) : undefined;
+  const interruption = presentation?.interruptionPoint?.replace(/\.$/, '');
+  // Keep the shared frame minimal: the derived interruption point must dominate,
+  // or three clusters end up with three paraphrases of one sentence.
+  return interruption
+    ? `${interruption}. Without that, this pattern continues unchallenged.`
+    : `${cluster.title} requires one accountable owner rather than separate fixes.`;
+}
+
+/**
+ * Lowercase a sentence-cased fragment so it can follow a clause.
+ *
+ * Only a capital followed by a lowercase letter is decapitalised, so acronyms
+ * and figures ("100% of material fraud actions") survive intact.
+ */
+function asClause(value: string): string {
+  const text = String(value ?? '').trim().replace(/\.$/, '');
+  const firstWord = text.split(/\s+/)[0] ?? '';
+  // An acronym or a figure keeps its case; an ordinary word, including a
+  // one-letter article, does not.
+  const isAcronym = firstWord.length > 1 && firstWord === firstWord.toUpperCase();
+  if (!/^[A-Za-z]/.test(text) || isAcronym) return text;
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+/**
+ * The management consequence of preserving one supporting standard.
+ *
+ * `strength.title` is already a complete sentence, so appending to it produced
+ * ungrammatical prose. The distinguishing content is what that capability
+ * actually has in place, which the matching sustainment priority carries.
+ */
+function standardTakeaway(pack: NarrativeFactPack, strength: { title: string; domainCode?: string }): string {
+  const domainName = pack.domains.find((domain) => domain.code === strength.domainCode)?.name;
+  const priority = (pack.sustainmentPriorities ?? []).find((item: any) => item.domain === domainName);
+  const standard = String(priority?.currentStrongStandard ?? '').trim().replace(/\.$/, '');
+  if (standard) return `${standard}. That is what preserving this capability protects.`;
+  return `${domainName ?? strength.title} holds only while its owner, rhythm and evidence stay current.`;
+}
+
+/**
+ * The management consequence of one conditional pathway.
+ *
+ * Answers where management has the best interruption opportunity in this
+ * particular pathway, rather than repeating the same statement about pathways
+ * in general for every scenario.
+ */
+function scenarioTakeaway(scenario: { immediateContainment?: string; requiredControlResponse?: string; entryPoint?: string; warningIndicators?: string[] }): string {
+  const containment = String(scenario.immediateContainment ?? '').trim().replace(/\.$/, '');
+  const response = String(scenario.requiredControlResponse ?? '').trim().replace(/\.$/, '');
+  if (containment) return `The interruption point for this pathway: ${containment}.`;
+  if (response) return `The interruption point for this pathway: ${response}.`;
+  return 'This pathway is a conditional management test, not an allegation that an event occurred.';
+}
+
+/**
  * The opening takeaway, conditioned on what the assessment actually shows.
  *
  * The previous wording asserted "not a zero-base condition" for every
@@ -803,19 +869,19 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
         suffix: `CLUSTER-${String(index + 1).padStart(2, '0')}`,
         title: cluster.title,
         purpose: cluster.whyTogether,
-        takeaway,
+        takeaway: clusterTakeaway(cluster),
         requiredFacts: cluster.findingRefs,
         claimRefs: cluster.findingRefs,
         narrativeRole: 'EXPOSURE'
       })));
     }
     if (chapter.chapterId === 'EXPOSURE-COULD-MATERIALISE') {
-      return reframeSections({ ...chapter, narrativeRole: 'EXPOSURE_ILLUSTRATION' }, [{ suffix: 'PATHWAYS', title: 'Conditional exposure pathways', purpose: 'Introduce the approved pathways as conditional management tests in natural narrative form rather than as cards.', takeaway: 'The pathways show where prevention, detection and containment should interrupt exposure; they do not allege that an event occurred.', requiredFacts: byScenario.map((item) => item.factRef), subsections: byScenario.map((scenario, index) => subsection(`PATHWAY-${String(index + 1).padStart(2, '0')}`, index + 1, scenario.title, 'Describe how the pathway could begin, where the current environment could fail, the warning indicators, immediate containment and longer-term response.', 'The pathway is a conditional management test, not an allegation.', [scenario.factRef], [scenario.factRef], 'EXPOSURE_ILLUSTRATION')) }]);
+      return reframeSections({ ...chapter, narrativeRole: 'EXPOSURE_ILLUSTRATION' }, [{ suffix: 'PATHWAYS', title: 'Conditional exposure pathways', purpose: 'Introduce the approved pathways as conditional management tests in natural narrative form rather than as cards.', takeaway: 'These pathways are conditional management tests, not allegations.', requiredFacts: byScenario.map((item) => item.factRef), subsections: byScenario.map((scenario, index) => subsection(`PATHWAY-${String(index + 1).padStart(2, '0')}`, index + 1, scenario.title, 'Describe how the pathway could begin, where the current environment could fail, the warning indicators, immediate containment and longer-term response.', scenarioTakeaway(scenario), [scenario.factRef], [scenario.factRef], 'EXPOSURE_ILLUSTRATION')) }]);
     }
     if (chapter.chapterId === 'TARGET-CONTROL-ENVIRONMENT') return reframeSections(chapter, byControlFamily.map((family, index) => {
       const controls = pack.controls.filter((control) => control.primarySemanticFamily === family);
       const decisions = pack.decisions.filter((decision) => decisionOwnerFamily(pack, byControlFamily, decision) === family);
-      return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: 'The response should make objective, owner, proof, challenge and effectiveness visible.', requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], narrativeRole: 'RESPONSE', subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef], 'RESPONSE')) : [] };
+      return { suffix: `RESPONSE-${String(index + 1).padStart(2, '0')}`, title: customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode), purpose: 'Group target control responses around a coherent fraud-risk problem rather than individual register rows.', takeaway: (() => { const presentation = familyPresentation(family); const target = presentation?.targetState?.replace(/\.$/, ''); return target ? `${target}. That is the completion test for this response.` : `${customerTitleForFamily(family, 'RESPONSE', pack.narrativeMode)} needs a defined objective and evidence of effectiveness.`; })(), requiredFacts: [...controls.map((item) => item.factRef), ...decisions.map((item) => item.factRef)], narrativeRole: 'RESPONSE', subsections: controls.length > 1 ? controls.slice(0, 3).map((control, subIndex) => subsection(`CONTROL-${String(index + 1).padStart(2, '0')}-${String(subIndex + 1).padStart(2, '0')}`, subIndex + 1, 'Target control response', 'Explain how the grouped control response interrupts the relevant exposure.', 'The control design is connected to the exposure and its owner.', [control.factRef], [control.factRef], 'RESPONSE')) : [] };
     }));
     if (chapter.chapterId === 'FIRST-90-DAYS-CONCLUSION') {
       // Stage intent, not bare periods. "By 30 days" told management when but not
@@ -850,9 +916,9 @@ function sustainmentEssentialHierarchy(pack: NarrativeFactPack, chapters: Bluepr
       { suffix: 'POSITION', title: 'Overall readiness position', purpose: 'State the strong assessed position and its boundary.', takeaway: 'The assessed position is strong and should be preserved.', requiredFacts: [...factIds(pack, 'score'), ...factIds(pack, 'maturity')] },
       { suffix: 'TAKEAWAY', title: 'What management should protect', purpose: 'Set the sustainment question before the supporting standards.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: factIds(pack, 'relative_strength') }
     ]);
-    if (chapter.chapterId === 'READINESS-SUPPORTING-STANDARDS') return reframeSections(chapter, pack.relativeStrengths.map((strength, index) => ({ suffix: `STANDARD-${String(index + 1).padStart(2, '0')}`, title: strength.title, purpose: strength.basis, takeaway: 'Retain ownership, review rhythm and proof for this supporting standard.', requiredFacts: [strength.factRef, domainFactRef(pack, strength.domainCode)].filter(Boolean) as string[] })));
-    if (chapter.chapterId === 'SUSTAINMENT-PRIORITIES') return reframeSections(chapter, pack.sustainmentPriorities.map((priority, index) => ({ suffix: `PRIORITY-${String(index + 1).padStart(2, '0')}`, title: priority.title, purpose: priority.managementFocus, takeaway: 'Keep this healthy discipline current and visible.', requiredFacts: [priority.factRef] })));
-    if (chapter.chapterId === 'DETERIORATION-WATCHPOINTS') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `WATCH-${String(index + 1).padStart(2, '0')}`, title: `${customerTitleForFamily(family, 'SUSTAINMENT', pack.narrativeMode)} watchpoint`, purpose: 'Describe supported deterioration triggers without manufacturing a weakness.', takeaway: 'Change-triggered review should make drift visible early.', requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), narrativeRole: 'EXPOSURE' })));
+    if (chapter.chapterId === 'READINESS-SUPPORTING-STANDARDS') return reframeSections(chapter, pack.relativeStrengths.map((strength, index) => ({ suffix: `STANDARD-${String(index + 1).padStart(2, '0')}`, title: strength.title, purpose: strength.basis, takeaway: standardTakeaway(pack, strength), requiredFacts: [strength.factRef, domainFactRef(pack, strength.domainCode)].filter(Boolean) as string[] })));
+    if (chapter.chapterId === 'SUSTAINMENT-PRIORITIES') return reframeSections(chapter, pack.sustainmentPriorities.map((priority, index) => ({ suffix: `PRIORITY-${String(index + 1).padStart(2, '0')}`, title: priority.title, purpose: priority.managementFocus, takeaway: `This is still operating when ${asClause(String(priority.effectivenessIndicator ?? priority.managementFocus ?? priority.title))}.`, requiredFacts: [priority.factRef] })));
+    if (chapter.chapterId === 'DETERIORATION-WATCHPOINTS') return reframeSections(chapter, [...new Set(pack.controls.map((control) => control.primarySemanticFamily))].map((family, index) => ({ suffix: `WATCH-${String(index + 1).padStart(2, '0')}`, title: `${customerTitleForFamily(family, 'SUSTAINMENT', pack.narrativeMode)} watchpoint`, purpose: 'Describe supported deterioration triggers without manufacturing a weakness.', takeaway: (() => { const presentation = familyPresentation(family); const interruption = presentation?.interruptionPoint?.replace(/\.$/, ''); return interruption ? `${interruption} is the evidence to watch; its absence is the first sign of drift.` : `${customerTitleForFamily(family, 'SUSTAINMENT', pack.narrativeMode)} depends on a rhythm that would show deterioration early.`; })(), requiredFacts: pack.controls.filter((control) => control.primarySemanticFamily === family).map((control) => control.factRef), narrativeRole: 'EXPOSURE' })));
     if (chapter.chapterId === 'SUSTAINMENT-BLUEPRINT') return reframeSections(chapter, [
       { suffix: 'OWNERSHIP', title: 'Ownership and review rhythm', purpose: 'Set the first sustainment actions that keep accountability current.', takeaway: 'Ownership and cadence remain visible.', requiredFacts: pack.controls.map((item) => item.factRef), narrativeRole: 'SUSTAINMENT' },
       // The roadmap belongs to the closing section. Holding it here as well made

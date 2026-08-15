@@ -1,4 +1,5 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
+import { getMaturityBand } from '../../scoring/maturity-band';
 import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
@@ -104,10 +105,7 @@ function pct(value: number | null | undefined): string {
 
 function bandFor(value: number | null): string {
   if (value === null) return 'Not scored';
-  if (value < 40) return 'Reactive';
-  if (value < 65) return 'Developing';
-  if (value < 80) return 'Structured';
-  return 'Strategic';
+  return getMaturityBand(value);
 }
 
 function list(items: string[]): string {

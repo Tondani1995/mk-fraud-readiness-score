@@ -17,6 +17,7 @@
  */
 
 import { evidenceSupport } from './evidence-support';
+import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturity-band';
 import {
   DIAGNOSTIC_PATTERNS,
   exposureClusters,
@@ -60,16 +61,22 @@ export interface DomainBand {
   max: number;
 }
 
-export const MATURITY_BANDS: DomainBand[] = [
-  { label: 'Initial', min: 0, max: 20 },
-  { label: 'Reactive', min: 20, max: 45 },
-  { label: 'Developing', min: 45, max: 65 },
-  { label: 'Defined', min: 65, max: 85 },
-  { label: 'Managed', min: 85, max: 100 }
-];
+/**
+ * The customer-facing band for a domain score.
+ *
+ * This layer used to carry its own five-band scale (Initial / Reactive /
+ * Developing / Defined / Managed at 20/45/65/85), which contradicted the overall
+ * maturity printed on the same page. There is now one scale for the whole
+ * product; see `src/lib/scoring/maturity-band.ts`.
+ */
+export const MATURITY_BANDS: DomainBand[] = MATURITY_BAND_THRESHOLDS.map((band) => ({
+  label: band.label,
+  min: band.min,
+  max: Number.isFinite(band.max) ? band.max : 100
+}));
 
 export function bandFor(score: number): string {
-  return MATURITY_BANDS.find((band) => score >= band.min && score < band.max)?.label ?? 'Managed';
+  return getMaturityBand(score);
 }
 
 export interface ReadinessScoreExhibit extends ExhibitBase {
@@ -473,7 +480,9 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     watchpointId: String(item.factRef ?? `WATCHPOINT-${index + 1}`).replace('SUSTAINMENT', 'WATCHPOINT'),
     family: String(item.semanticFamily ?? ''),
     currentStrength: customerText(item.domain ?? ''),
-    dependency: sentence(`This position depends on ${customerText(item.processOwner ?? item.accountableExecutive ?? 'a named owner')} maintaining it`),
+    // Rendered under a "Depends on:" label, so repeating "This position depends
+    // on" said it twice and left the owner reading as a role token.
+    dependency: sentence(`${customerText(item.processOwner ?? item.accountableExecutive ?? 'A named owner')} continuing to own and operate it`),
     deteriorationTrigger: item.operatingFrequency
       ? sentence(`The cycle slips: ${customerText(item.operatingFrequency)}`)
       : 'Ownership changes without handover of the review cycle.',
