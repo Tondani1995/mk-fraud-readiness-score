@@ -44,6 +44,7 @@ for (const order of orders) {
   const html = renderComprehensiveManagementReportHtml({ model, organisationName: pack.organisation.name, assessmentReference: pack.assessment.reference, score: pack.assessment.score, maturity: pack.assessment.maturity, domains: domains.map((d) => ({ title: d.name, score: d.score, band: d.band })) });
   const add = (code, detail) => violations.push({ order, code, detail });
   const coverage = model.registers.assuranceCoverage;
+  const reg = model.registers;
 
   // ---- Coverage map (Sustainment) -----------------------------------------
   if (model.narrativeMode === 'SUSTAINMENT') {
@@ -88,6 +89,30 @@ for (const order of orders) {
     if (!entry) add('ORPHAN_SECTION', `Section ${section.n} "${section.title}" renders but is not in Contents`);
     else if (entry.title !== section.title) add('CONTENTS_TITLE_MISMATCH', `Section ${section.n}: "${entry.title}" vs "${section.title}"`);
   }
+  // ---- Physical order must equal Contents order ---------------------------
+  // Contents was already plan-driven, but pages were emitted in the old fixed
+  // sequence: the scenario portfolio was listed as Section 4 and printed after
+  // the conclusion, and a sustainment report carried remediation headings its
+  // own contents page had replaced.
+  const physical = [];
+  for (const match of html.matchAll(/<div class="q">(\d+) · ([^<]+)<\/div>|<div class="n">Section (\d+)<\/div><h1>([^<]+)<\/h1>/g)) {
+    const entry = match[1] ? `${match[1]} · ${match[2]}` : `${match[3]} · ${match[4]}`;
+    if (!physical.includes(entry)) physical.push(entry);
+  }
+  const contentsOrder = listed.map((row) => `${row.n} · ${row.title}`);
+  if (JSON.stringify(physical) !== JSON.stringify(contentsOrder)) {
+    add('ORDER_DIVERGENCE', `physical [${physical.join(' | ')}] vs contents [${contentsOrder.join(' | ')}]`);
+  }
+  // Remediation question headings must not survive into a sustainment document.
+  if (model.narrativeMode === 'SUSTAINMENT') {
+    for (const stale of ['Where is the material fraud exposure?', 'What control environment should we build?', 'Who must own the response?', 'What should happen, and in what order?', 'How will management know it is working?']) {
+      if (html.includes(stale)) add('REMEDIATION_HEADING_RENDERED', stale);
+    }
+  }
+  // The management programme page must consume the work-type taxonomy.
+  if (/\d+ actions across \d+ horizons/.test(html)) add('PROGRAMME_UNTYPED_SUMMARY', 'management page still counts every object as an action');
+  if (reg.actions.length && !/checkpoints? across the 12-month/.test(html)) add('PROGRAMME_UNTYPED_SUMMARY', 'no work-type breakdown in the management summary');
+
   if (/Appendix S\b/.test(html)) add('ORPHAN_APPENDIX', 'Appendix S still rendered');
   if (/Appendix P\b/.test(html)) add('ORPHAN_APPENDIX', 'Appendix P still rendered');
   for (const letter of ['A', 'B', 'C', 'D', 'E', 'F']) {

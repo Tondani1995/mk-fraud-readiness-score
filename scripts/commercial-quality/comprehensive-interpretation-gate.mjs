@@ -171,7 +171,20 @@ for (const [caseId, order] of Object.entries(orders)) {
   const marker = 'ZZQX-INTERPRETATION-MARKER';
   const withA = renderComprehensiveManagementReportHtml({ ...base, commentary: interpretationToCommentary(legitimate) });
   const withB = renderComprehensiveManagementReportHtml({ ...base, commentary: interpretationToCommentary(Object.fromEntries(INTERPRETATION_CONTRACTS.map((contract) => [contract.id, `${marker} ${contract.id} replacement body text entirely unlike the other version.`]))) });
-  const registersOf = (html) => html.split('<section class="reg">').slice(1).join('<section class="reg">');
+  /**
+   * The analytical registers, scoped by their appendix heads.
+   *
+   * This used to split on `<section class="reg">`, which was the appendix
+   * boundary until the scenario, coverage, deep-dive and resilience sections
+   * became numbered management sections. Those use the same flowing-table class,
+   * so the old split treated every management section after the first of them —
+   * interpretation slots included — as a register, and reported a leak that was
+   * not there. Anchor on the Appendix A head instead.
+   */
+  const registersOf = (html) => {
+    const start = html.search(/<div class="n">Appendix A<\/div>/);
+    return start === -1 ? '' : html.slice(start);
+  };
   if (registersOf(withA) !== registersOf(withB)) add(caseId, 'REGISTER_ISOLATION', 'register appendices changed when only the interpretation changed');
   if (registersOf(withB).includes(marker)) add(caseId, 'REGISTER_ISOLATION', 'interpretation text reached a register appendix');
   const withNone = renderComprehensiveManagementReportHtml(base);

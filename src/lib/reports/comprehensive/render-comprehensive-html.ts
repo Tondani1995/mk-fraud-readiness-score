@@ -196,6 +196,34 @@ export function renderComprehensiveManagementReportHtml(input: {
   const activeSections = sectionPlan.filter((entry) => entry.rendered);
   const sectionNumber = (key: string): number => activeSections.findIndex((entry) => entry.key === key) + 1;
   const coreEntries: Array<[string, string]> = activeSections.map((entry, index) => [String(index + 1), entry.title]);
+
+  /**
+   * One ordered model drives Contents, numbering, headings, visibility and the
+   * physical page order.
+   *
+   * The contents page was already built from the plan, but the pages themselves
+   * were still emitted in the old fixed sequence, so the scenario portfolio was
+   * listed as Section 4 and printed after the conclusion, and a sustainment
+   * report carried remediation headings its own contents page had replaced.
+   * Sections are now collected against their plan key and emitted in plan order,
+   * which makes divergence structurally impossible rather than merely unlikely.
+   */
+  const sectionPages = new Map<string, string[]>();
+  const emit = (key: string, html: string) => sectionPages.set(key, [...(sectionPages.get(key) ?? []), html]);
+  /** The question line above each heading, taken from the plan. */
+  const heading = (key: string): string => {
+    const entry = activeSections.find((row) => row.key === key);
+    const index = activeSections.findIndex((row) => row.key === key);
+    return entry ? `${index + 1} · ${entry.title}` : '';
+  };
+  /** Where a render block belongs when the mode renames or merges its section. */
+  const slot = (remediation: string): string => {
+    if (!sustainment) return remediation;
+    // Sustainment has no "build the control environment" section: exposure and
+    // the control programmes are both what management should confirm.
+    if (remediation === 'EXPOSURE' || remediation === 'CONTROLS') return 'CONFIRM';
+    return remediation;
+  };
   const registerEntries: Array<[string, string, number]> = [
     ['A', 'Finding register', reg.findings.length],
     ['B', 'Fraud risk register', reg.risks.length],
@@ -221,8 +249,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 3. Section 1 — position ---------------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">Where do we stand?</div>
+  emit(slot('POSITION'), `<section class="page">
+    <div class="q">${heading(slot('POSITION'))}</div>
     <h1>The assessed readiness position</h1>
     <div class="stats">
       <div class="s"><div class="n">${input.score.toFixed(2)}</div><div class="l">Readiness score out of 100</div></div>
@@ -242,8 +270,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 4. Section 2 — management themes -------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">What is driving that position?</div>
+  emit(slot('DRIVERS'), `<section class="page">
+    <div class="q">${heading(slot('DRIVERS'))}</div>
     <h1>The patterns beneath the score</h1>
     <p class="lede">The assessment produced ${reg.findings.length} material findings. They resolve into ${core.managementThemes.length} connected patterns, ordered by how much of the organisation's critical control population each one affects.</p>
     <table>
@@ -261,8 +289,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 5. Section 3 — exposure ----------------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">Where is the material fraud exposure?</div>
+  emit(slot('EXPOSURE'), `<section class="page">
+    <div class="q">${heading(slot('EXPOSURE'))}</div>
     <h1>Exposure by control family</h1>
     <p class="lede">${reg.risks.length} fraud risks arise from the assessed position. They concentrate in ${core.exposureThemes.length} exposure families.</p>
     <table>
@@ -279,8 +307,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 6. Section 4 — control programmes (2 per page) ------------------------
-  pages.push(`<section class="page">
-    <div class="q">What control environment should we build?</div>
+  emit(slot('CONTROLS'), `<section class="page">
+    <div class="q">${heading(slot('CONTROLS'))}</div>
     <h1>The control programmes</h1>
     <p class="lede">The ${reg.controls.length} recommended control designs group into ${core.controlProgrammes.length} programmes. Each is one coherent piece of work with one accountable executive.</p>
     <table>
@@ -301,8 +329,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   const programmeChunks: typeof core.controlProgrammes[] = [];
   for (let index = 0; index < core.controlProgrammes.length; index += 3) programmeChunks.push(core.controlProgrammes.slice(index, index + 3));
   for (const chunk of programmeChunks) {
-    pages.push(`<section class="page">
-      <div class="q">What control environment should we build?</div>
+    emit(slot('CONTROLS'), `<section class="page">
+      <div class="q">${heading(slot('CONTROLS'))}</div>
       <h1>Programme detail</h1>
       ${chunk.map((programme) => `<div class="prog">
         <div class="hd"><h3>${esc(programme.title)}</h3><span class="meta">${programme.controlIds.length} controls</span></div>
@@ -321,8 +349,8 @@ export function renderComprehensiveManagementReportHtml(input: {
 
   // ---- 7. Section 5 — governance --------------------------------------------
   const byType = (type: string) => core.governanceRoles.filter((role) => role.roleType === type);
-  pages.push(`<section class="page">
-    <div class="q">Who must own the response?</div>
+  emit(slot('GOVERNANCE'), `<section class="page">
+    <div class="q">${heading(slot('GOVERNANCE'))}</div>
     <h1>The governance model</h1>
     <p class="lede">Accountability is expressed as roles, not individuals. The assessment does not identify people, and this report does not infer them.</p>
     <table>
@@ -339,8 +367,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 8. Section 6 — decisions ---------------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">What decisions must leadership make?</div>
+  emit(slot('DECISIONS'), `<section class="page">
+    <div class="q">${heading(slot('DECISIONS'))}</div>
     <h1>The decision agenda</h1>
     <table>
       <thead><tr><th style="width:22%">Decision</th><th style="width:22%">Why now</th><th style="width:22%">Recommended direction</th><th style="width:16%">Owner</th><th style="width:18%">Consequence of delay</th></tr></thead>
@@ -355,15 +383,39 @@ export function renderComprehensiveManagementReportHtml(input: {
     <div class="sp"></div>
   </section>`);
 
+  /**
+   * The management page counted every programme object as an "action", so P06
+   * read as 83 implementation actions when 31 were initial establishment and 52
+   * were operating-cycle and effectiveness work. Both the summary and the table
+   * now consume the same work-type taxonomy Appendix E already carries.
+   */
+  const workTypeCounts = reg.actions.reduce<Record<string, number>>((acc, action) => ({ ...acc, [action.workType]: (acc[action.workType] ?? 0) + 1 }), {});
+  const countOf = (type: string) => workTypeCounts[type] ?? 0;
+  const clause = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
+  const initialType = sustainment ? 'CONFIRM' : 'IMPLEMENT';
+  const programmeSummary = [
+    clause(countOf(initialType), sustainment ? 'confirmation action' : 'implementation action', sustainment ? 'confirmation actions' : 'implementation actions'),
+    `followed by ${clause(countOf('EMBED_AND_EVIDENCE'), 'embed-and-evidence checkpoint', 'embed-and-evidence checkpoints')}`,
+    `and ${clause(countOf('ASSURE_AND_REVIEW'), 'assure-and-review checkpoint', 'assure-and-review checkpoints')} across the 12-month ${sustainment ? 'sustainment ' : ''}programme.`
+  ].join(', ').replace(', followed by', ', followed by') + ` ${reg.actions.length} programme objects in total, each with an owner, a deliverable and a test that shows it is complete.`;
+  /** The dominant work type in a horizon, read from its own actions. */
+  const horizonWorkType = (phase: string): string => {
+    const actions = reg.actions.filter((action) => action.targetPeriod === phase);
+    const dominant = Object.entries(actions.reduce<Record<string, number>>((acc, action) => ({ ...acc, [action.workType]: (acc[action.workType] ?? 0) + 1 }), {}))
+      .sort((left, right) => right[1] - left[1])[0]?.[0];
+    return dominant ? (PROGRAMME_WORK_TYPE_LABEL[dominant as keyof typeof PROGRAMME_WORK_TYPE_LABEL] ?? dominant) : '';
+  };
+
   // ---- 9. Section 7 — implementation ----------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">What should happen, and in what order?</div>
-    <h1>The implementation programme</h1>
-    <p class="lede">${reg.actions.length} actions across ${core.implementationPhases.length} horizons. Each carries an owner, a deliverable and a test that shows it is complete.</p>
+  emit(slot('PROGRAMME'), `<section class="page">
+    <div class="q">${heading(slot('PROGRAMME'))}</div>
+    <h1>${sustainment ? 'The 12-month sustainment programme' : 'The 12-month implementation programme'}</h1>
+    <p class="lede">${programmeSummary}</p>
     <table>
-      <thead><tr><th style="width:14%">Horizon</th><th style="width:10%">Actions</th><th style="width:76%">Programmes advanced in this horizon</th></tr></thead>
+      <thead><tr><th style="width:13%">Horizon</th><th style="width:16%">Work type</th><th style="width:8%">Count</th><th style="width:63%">Programmes advanced in this horizon</th></tr></thead>
       <tbody>${core.implementationPhases.map((phase) => `<tr>
         <td><strong>${esc(phase.phase)}</strong></td>
+        <td class="cap">${esc(horizonWorkType(phase.phase))}</td>
         <td class="tight">${phase.actionIds.length}</td>
         <td>${esc(phase.programmeIds.map((id) => core.controlProgrammes.find((programme) => programme.programmeId === id)?.title ?? id).join(' · '))}</td></tr>`).join('')}</tbody>
     </table>
@@ -373,8 +425,8 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 10. Section 8 — measurement ------------------------------------------
-  pages.push(`<section class="page">
-    <div class="q">How will management know it is working?</div>
+  emit(slot('MEASUREMENT'), `<section class="page">
+    <div class="q">${heading(slot('MEASUREMENT'))}</div>
     <h1>The measurement framework</h1>
     <p class="lede">Each programme carries effectiveness measures drawn from the control designs behind it. These are the signals management should expect to see, not a claim that they exist today.</p>
     <table>
@@ -412,7 +464,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // text. An earlier pass fed the last column from "why controls may not catch
   // it", which read as a restatement of the control standard.
   if (reg.scenarios.length) {
-    pages.push(`<section class="reg">
+    emit('SCENARIOS', `<section class="reg">
     ${sectionHead(sectionNumber('SCENARIOS'), 'Fraud scenario portfolio', 'Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.')}
     <table>
       <thead><tr><th style="width:17%">Pathway</th><th style="width:19%">How it could begin</th><th style="width:20%">How it could progress</th><th style="width:20%">Interruption point</th><th style="width:16%">Warning indicators</th><th style="width:8%">Links</th></tr></thead>
@@ -435,7 +487,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // position and posture, never an invented dependency or evidence claim.
   if (reg.assuranceCoverage.length) {
     const postureLabel: Record<string, string> = { DEEP_DIVE_PRIORITY: 'Deep-dive priority', CONFIRM: 'Confirm', MAINTAIN: 'Maintain' };
-    pages.push(`<section class="reg">
+    emit('COVERAGE', `<section class="reg">
     ${sectionHead(sectionNumber('COVERAGE'), 'Assurance coverage across the control environment', 'Every assessed domain, with the posture it warrants. This is not a list of weaknesses: most domains here are working, and the map exists so management can see the whole environment rather than only the areas receiving deeper attention.')}
     <table>
       <thead><tr><th style="width:20%">Domain</th><th style="width:9%">Position</th><th style="width:12%">Posture</th><th style="width:21%">Capability to preserve or confirm</th><th style="width:20%">Management proof</th><th style="width:18%">Deterioration signal / rhythm</th></tr></thead>
@@ -457,7 +509,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // migrations, turnover or volume spikes, and the section must not promise an
   // analytical object the model does not contain.
   if (reg.resilienceTests.length) {
-    pages.push(`<section class="reg">
+    emit('RESILIENCE', `<section class="reg">
     ${sectionHead(sectionNumber('RESILIENCE'), 'Control resilience tests', 'Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.')}
     <table>
       <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
@@ -479,7 +531,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // should hold and what would signal deterioration. They are never findings and
   // are never labelled weaknesses.
   if (reg.assurancePriorities.length) {
-    pages.push(`<section class="reg">
+    emit('DEEP_DIVE', `<section class="reg">
     ${sectionHead(sectionNumber('DEEP_DIVE'), 'Deep-dive assurance priorities', 'These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.')}
     <table>
       <thead><tr><th style="width:9%">ID</th><th style="width:19%">Capability</th><th style="width:22%">Evidence management should hold</th><th style="width:18%">Depends on</th><th style="width:18%">Deterioration trigger</th><th style="width:14%">Owner / cadence</th></tr></thead>
@@ -493,6 +545,10 @@ export function renderComprehensiveManagementReportHtml(input: {
     </table>
   </section>`);
   }
+
+  // Emit every numbered management section in plan order. This is the only place
+  // page order is decided, so Contents and the document cannot disagree.
+  for (const entry of activeSections) pages.push(...(sectionPages.get(entry.key) ?? []));
 
   pages.push(`<section class="reg">
     ${registerHead('A', 'Finding register', `Every material finding the assessment produced. "Assessment indication" is what the responses record; it is self-reported and has not been verified.`)}
