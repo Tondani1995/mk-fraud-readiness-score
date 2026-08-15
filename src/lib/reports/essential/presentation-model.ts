@@ -430,12 +430,24 @@ export function buildEssentialPresentationModel(input: PresentationInputs): Esse
     const supportingFindings = findings
       .filter((f) => pattern.domainMatchers.some((matcher) => matcher.test(String(f.domain ?? ''))))
       .map((f) => f.factRef).filter(Boolean);
+    /**
+     * Absence claims must follow the assessed state, not the pattern template.
+     *
+     * The static text asserts the capability is missing. Where every domain
+     * feeding the pattern is already at or above the operating threshold, that
+     * is contradicted by the report's own drift exhibit, which states these are
+     * "not weaknesses" and names each one as working. Use the operating-state
+     * wording whenever the evidence does not support an absence.
+     */
+    const operating = signals.length > 0 && signals.every((signal) => getMaturityBand(signal.score) !== 'Reactive' && getMaturityBand(signal.score) !== 'Developing');
+    const patternText = operating ? pattern.whyItMattersWhenOperating : pattern.whyItMatters;
     return {
       patternId: pattern.patternId,
       pattern: pattern.displayTitle,
       signals,
       supportingFindings,
-      whyItMatters: sentence(commentary[`DIAGNOSIS-${pattern.patternId}`] ?? pattern.whyItMatters)
+      assessedState: operating ? 'OPERATING' : 'DEVELOPING_OR_ABSENT',
+      whyItMatters: sentence(commentary[`DIAGNOSIS-${pattern.patternId}`] ?? patternText)
     };
   })
     // A pattern needs more than one present signal to be a pattern. Padding a row

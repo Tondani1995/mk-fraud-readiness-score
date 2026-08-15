@@ -903,7 +903,21 @@ function essentialRemediationHierarchy(pack: NarrativeFactPack, chapters: Bluepr
             narrativeRole: 'IMPLEMENTATION' as NarrativeRole
           };
         }),
-        { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Return to the central judgement rather than restating the sequence.', takeaway: chapter.requiredManagementTakeaway, requiredFacts: [...pack.roadmap.map((item) => item.factRef), ...conclusionDomainRefs(pack)], narrativeRole: 'CONCLUSION' as NarrativeRole }
+        /**
+         * The conclusion judges; it does not sequence.
+         *
+         * This slot used to receive every roadmap fact and to inherit the
+         * chapter's takeaway, which is itself a 30/60/90 sequencing statement —
+         * while its own purpose told it not to restate the sequence. The grant
+         * contradicted the instruction, so two slots were contracted to write
+         * the same closing roadmap content from the same facts. The writer
+         * complied in both, and the exact-sentence duplicate check fired
+         * whenever the two independently landed on the same phrasing. That is
+         * why one assessment could pass and fail on identical input.
+         *
+         * The conclusion now owns the judgement facts only.
+         */
+        { suffix: 'CONCLUSION', title: 'Management conclusion', purpose: 'Return to the central judgement. Do not sequence, restate windows or repeat the roadmap.', takeaway: positionTakeaway(pack), requiredFacts: conclusionDomainRefs(pack), narrativeRole: 'CONCLUSION' as NarrativeRole }
       ]);
     }
     return chapter;
@@ -980,7 +994,10 @@ function remediationEssential(pack: NarrativeFactPack): BlueprintChapter[] {
     chapter('PRIORITY-FRAUD-EXPOSURES', 3, 'Priority fraud exposures', 'Explain the selected material findings and their practical meaning.', 'Each priority exposure needs an owned treatment, not only a description.', { requiredFacts: findings, claimRefs: findings, linkedFindingIds: findings, section: section('PRIORITY-FRAUD-EXPOSURES-SECTION', 'Priority fraud exposures', 'Interpret clustered findings as advisory observations.', 'The priority set identifies where preventive, detective or response discipline needs attention.', findings, findings), exhibits: [exhibit('EXH-FINDING-SUMMARY', 'finding_summary', 'PRIORITY-FRAUD-EXPOSURES', 'PRIORITY-FRAUD-EXPOSURES-SECTION', 'Summarise the selected findings and their linked meaning.', findings, 'Keep the table subordinate to the connected explanation.')] }),
     chapter('EXPOSURE-COULD-MATERIALISE', 4, 'How the exposure could materialise', 'Narrate deterministic conditional scenarios without alleging an event.', 'Scenarios are conditional pathways that help management test prevention, detection and containment.', { requiredFacts: scenarios, claimRefs: scenarios, linkedScenarioIds: scenarios, section: section('EXPOSURE-COULD-MATERIALISE-SECTION', 'How the exposure could materialise', 'Translate linked findings into supported conditional pathways.', 'The pathways are plausible conditions for management testing, not allegations of fraud.', scenarios, scenarios), exhibits: [exhibit('EXH-SCENARIO-PATHWAYS', 'scenario_pathway', 'EXPOSURE-COULD-MATERIALISE', 'EXPOSURE-COULD-MATERIALISE-SECTION', 'Show actor, opportunity, entry point, mechanism, warning and response links.', scenarios, 'Help management see where the control response must interrupt the pathway.')] }),
     chapter('TARGET-CONTROL-ENVIRONMENT', 5, 'What management should change', 'Describe the target control responses, ownership and decisions needed for the priority set.', 'Controls become useful when objective, ownership, proof, challenge and effectiveness are explicit.', { requiredFacts: [...controls, ...decisions], claimRefs: [...controls, ...decisions], linkedControlIds: controls, linkedDecisionIds: decisions, section: section('TARGET-CONTROL-ENVIRONMENT-SECTION', 'What management should change', 'Connect target controls to the exposure they address and the management choice required.', 'Each priority response needs a route, a named owner, proof of completion and an effectiveness measure.', [...controls, ...decisions], [...controls, ...decisions]), exhibits: [exhibit('EXH-CONTROL-RESPONSE', 'control_response', 'TARGET-CONTROL-ENVIRONMENT', 'TARGET-CONTROL-ENVIRONMENT-SECTION', 'Summarise target-state controls without dumping the register.', controls, 'Make ownership and operating expectations visible.')] }),
-    chapter('FIRST-90-DAYS-CONCLUSION', 6, 'First 90 days and management conclusion', 'Sequence the first response and close with one useful management conclusion.', 'Within 90 days the organisation should have accountable ownership, priority controls and a repeatable first operating cycle.', { requiredFacts: roadmap, claimRefs: roadmap, linkedRoadmapIds: roadmap, section: section('FIRST-90-DAYS-CONCLUSION-SECTION', 'First 90 days and management conclusion', 'Present one 30/60/90 route and a clear close; do not create a duplicate roadmap chapter.', 'The first operating cycle should make ownership, evidence of completion and management review visible.', roadmap, roadmap), exhibits: [exhibit('EXH-ROADMAP-30-60-90', 'roadmap_30_60_90', 'FIRST-90-DAYS-CONCLUSION', 'FIRST-90-DAYS-CONCLUSION-SECTION', 'Show the deterministic 30/60/90 sequence.', roadmap, 'Translate the response into a manageable first operating cycle.')] })
+    // Sequencing only. The management conclusion is a separate slot with its own
+    // facts; a chapter that claimed both put the same closing content in two
+    // places and made delivery a coin flip.
+    chapter('FIRST-90-DAYS-CONCLUSION', 6, 'First 90 days', 'Sequence the first response: what happens in each window, what it depends on and how completion is proved.', 'Each action has a window, an accountable owner, a dependency and proof of completion.', { requiredFacts: roadmap, claimRefs: roadmap, linkedRoadmapIds: roadmap, section: section('FIRST-90-DAYS-CONCLUSION-SECTION', 'First 90 days', 'Present one 30/60/90 route. Do not close the report here and do not create a duplicate roadmap chapter.', 'The first operating cycle should make ownership, evidence of completion and management review visible.', roadmap, roadmap), exhibits: [exhibit('EXH-ROADMAP-30-60-90', 'roadmap_30_60_90', 'FIRST-90-DAYS-CONCLUSION', 'FIRST-90-DAYS-CONCLUSION-SECTION', 'Show the deterministic 30/60/90 sequence.', roadmap, 'Translate the response into a manageable first operating cycle.')] })
   ];
 }
 

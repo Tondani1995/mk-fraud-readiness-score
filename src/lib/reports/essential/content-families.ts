@@ -259,6 +259,16 @@ export interface DiagnosticPatternDefinition {
   /** Matched against domain names. */
   domainMatchers: RegExp[];
   whyItMatters: string;
+  /**
+   * The same pattern, stated for an organisation whose contributing domains are
+   * already operating.
+   *
+   * `whyItMatters` asserts an absence ("not yet managed through a repeatable
+   * cycle"). In a sustainment report that contradicts the report's own exhibit,
+   * which says the capability is working and names what would signal drift. The
+   * assessed state decides which of the two is true; neither is a default.
+   */
+  whyItMattersWhenOperating: string;
   semanticFamilies: string[];
 }
 
@@ -268,6 +278,7 @@ export const DIAGNOSTIC_PATTERNS: DiagnosticPatternDefinition[] = [
     displayTitle: 'Fraud governance and risk discipline',
     domainMatchers: [/leadership|governance/i, /risk identification/i, /continuous improvement|monitoring/i],
     whyItMatters: 'Fraud risk is not yet managed through a repeatable cycle of ownership, assessment and review.',
+    whyItMattersWhenOperating: 'The reported cycle of ownership, assessment and review holds only while it stays current, evidenced and connected to management decisions.',
     semanticFamilies: ['FRAUD_GOVERNANCE', 'FRAUD_RISK_IDENTIFICATION']
   },
   {
@@ -275,6 +286,7 @@ export const DIAGNOSTIC_PATTERNS: DiagnosticPatternDefinition[] = [
     displayTitle: 'Supplier and payment integrity',
     domainMatchers: [/third[- ]party|supply chain/i, /operational fraud controls/i],
     whyItMatters: 'Operational controls do not extend consistently to supplier onboarding and payment-change challenge, leaving direct value-diversion exposure.',
+    whyItMattersWhenOperating: 'Supplier onboarding and payment-change challenge are reported as operating; the management question is whether that discipline holds across the full population and through supplier or process change.',
     semanticFamilies: ['SUPPLIER_ONBOARDING']
   },
   {
@@ -282,6 +294,7 @@ export const DIAGNOSTIC_PATTERNS: DiagnosticPatternDefinition[] = [
     displayTitle: 'Monitoring and detection coverage',
     domainMatchers: [/detection/i, /continuous improvement|monitoring/i, /digital|identity/i],
     whyItMatters: 'Unusual activity may not be challenged early enough, allowing exposure to remain below management attention.',
+    whyItMattersWhenOperating: 'Monitoring is reported as operating; the management question is whether coverage, alert ownership and escalation keep pace as volumes and fraud methods change.',
     semanticFamilies: ['DETECTION_MONITORING', 'IDENTITY_VERIFICATION']
   },
   {
@@ -289,6 +302,7 @@ export const DIAGNOSTIC_PATTERNS: DiagnosticPatternDefinition[] = [
     displayTitle: 'Incident response and evidence integrity',
     domainMatchers: [/incident response/i, /culture|awareness/i, /whistleblow|reporting culture/i],
     whyItMatters: 'A suspected matter may be reported, but weak preservation and response discipline can undermine containment, investigation and learning.',
+    whyItMattersWhenOperating: 'Reporting, preservation and response are reported as operating; the management question is whether they would hold under a live incident and produce defensible evidence.',
     semanticFamilies: ['EVIDENCE_INTEGRITY', 'CONTINUOUS_IMPROVEMENT']
   }
 ];
