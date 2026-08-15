@@ -208,6 +208,34 @@ export interface ResilienceTestRow {
   linkedAssurancePriorityId: string;
 }
 
+/**
+ * One row per assessed domain, for high-readiness reports.
+ *
+ * A Structured organisation produces few findings, so a register-only report
+ * says nothing about the seven-tenths of its environment that is working. This
+ * is the whole-environment view: where each domain stands, what posture it
+ * warrants, and — only where the model actually supports it — what to preserve
+ * and what would signal drift. It is not a finding register and carries no
+ * weakness language.
+ */
+export type AssurancePosture = 'DEEP_DIVE_PRIORITY' | 'CONFIRM' | 'MAINTAIN';
+
+export interface AssuranceCoverageRow {
+  provenance: 'DERIVED_ANALYSIS';
+  domain: string;
+  score: number;
+  maturity: string;
+  posture: AssurancePosture;
+  /** Empty where the model supports no representative control for the domain. */
+  capabilityToPreserve: string;
+  managementProof: string;
+  deteriorationSignal: string;
+  reviewRhythm: string;
+  traceability: string[];
+  /** Why this row carries only a position, when it does. */
+  coverageNote: string;
+}
+
 export type AssurancePriorityClass =
   | 'ASSURANCE_PRIORITY'
   | 'RESILIENCE_DEPENDENCY'
@@ -277,6 +305,8 @@ export interface ComprehensiveAssembly {
    * sustainment-priority field, and no exogenous event is invented.
    */
   resilienceTests: ResilienceTestRow[];
+  /** Whole-environment view. Populated for sustainment only. */
+  assuranceCoverage: AssuranceCoverageRow[];
   counts: {
     findings: number;
     risks: number;
@@ -290,6 +320,7 @@ export interface ComprehensiveAssembly {
     scenarios: number;
     assurancePriorities: number;
     resilienceTests: number;
+    assuranceCoverage: number;
   };
 }
 
@@ -325,7 +356,7 @@ export function assembleComprehensive(
    * Omitted, no scenario portfolio is produced. There is deliberately no
    * fallback to the evidence-model objects: a wrong scenario is worse than none.
    */
-  source: { scenarioFacts?: readonly any[] } = {}
+  source: { scenarioFacts?: readonly any[]; domains?: readonly { name: string; score: number; band: string }[] } = {}
 ) {
   const findings = evidence.materialFindings ?? [];
   const risks = evidence.riskRegister ?? [];
@@ -700,9 +731,13 @@ export function assembleComprehensive(
         ? 'RESILIENCE_DEPENDENCY' as const
         : (text(priority.deteriorationTrigger) ? 'DETERIORATION_WATCHPOINT' as const : 'ASSURANCE_PRIORITY' as const),
       capability: text(priority.title),
-      domain: text(priority.domain),
-      semanticFamily: text(priority.semanticFamily),
-      recordedPosition: text(priority.recordedPosition),
+      // The source field is domainName / primarySemanticFamily. Reading `domain`
+      // and `semanticFamily` silently produced empty strings, which cost the
+      // coverage map its deep-dive posture: every priority row fell through to
+      // the control fallback because its domain never matched.
+      domain: text(priority.domainName),
+      semanticFamily: text(priority.primarySemanticFamily),
+      recordedPosition: text(priority.responseLabel),
       currentStandard: text(priority.currentStrongStandard),
       whyItMatters: text(priority.managementFocus),
       evidenceManagementShouldHold: text(priority.proofRetained),
@@ -739,6 +774,55 @@ export function assembleComprehensive(
       linkedAssurancePriorityId: priority.priorityId
     }));
 
+  /**
+   * Assurance coverage map.
+   *
+   * Representative capability selection, in strict precedence so the row is
+   * reproducible and never chosen by array position:
+   *   1. an assurance priority for the domain  (deep-dive treatment exists)
+   *   2. a hard-gate control                    (methodology significance)
+   *   3. a critical control
+   *   4. the highest-materiality remaining control
+   *   5. stable control-ID lexical tie-break
+   * Where a domain has none of these — normal for a strong profile, where most
+   * domains produce no finding at all — the row carries position and posture
+   * only. Nothing is invented to fill it.
+   */
+  const assuranceCoverage: AssuranceCoverageRow[] = text(evidence.narrativeMode, 'REMEDIATION') !== 'SUSTAINMENT' ? [] :
+    (source.domains ?? []).map((domain) => {
+      const inDomain = (value: string) => text(value).trim().toLowerCase() === domain.name.trim().toLowerCase();
+      const priority = assurancePriorities.find((row) => inDomain(row.domain));
+      const domainFindings = findingRegister.filter((row) => inDomain(row.domainName));
+      const domainControls = controlBlueprints.filter((control) => domainFindings.some((finding) => finding.findingId === control.linkedFindingId));
+      const ranked = [...domainControls].sort((left, right) => {
+        const findingFor = (id: string) => findingRegister.find((row) => row.findingId === id);
+        const rank = (control: ControlBlueprintRow) => {
+          const finding = findingFor(control.linkedFindingId);
+          if (finding?.isHardGate) return 0;
+          if (finding?.isCriticalControl) return 1;
+          return 2;
+        };
+        return rank(left) - rank(right)
+          || (findingFor(right.linkedFindingId)?.materialityScore ?? 0) - (findingFor(left.linkedFindingId)?.materialityScore ?? 0)
+          || left.controlId.localeCompare(right.controlId);
+      });
+      const control = ranked[0];
+      const posture: AssurancePosture = priority ? 'DEEP_DIVE_PRIORITY' : control ? 'CONFIRM' : 'MAINTAIN';
+      return {
+        provenance: 'DERIVED_ANALYSIS' as const,
+        domain: domain.name,
+        score: domain.score,
+        maturity: domain.band,
+        posture,
+        capabilityToPreserve: priority?.capability ?? control?.controlObjective ?? '',
+        managementProof: priority?.evidenceManagementShouldHold ?? control?.effectivenessTest ?? '',
+        deteriorationSignal: priority?.deteriorationTrigger ?? control?.escalationThreshold ?? '',
+        reviewRhythm: priority?.reviewFrequency ?? control?.operatingFrequency ?? '',
+        traceability: [priority?.priorityId, control?.controlId].filter(Boolean) as string[],
+        coverageNote: priority || control ? '' : 'Maintain through normal management review. The assessment records no control requiring separate confirmation in this domain.'
+      };
+    });
+
   return {
     version: COMPREHENSIVE_ASSEMBLY_VERSION,
     narrativeMode: text(evidence.narrativeMode, 'REMEDIATION'),
@@ -751,6 +835,7 @@ export function assembleComprehensive(
     scenarioPortfolio,
     assurancePriorities,
     resilienceTests,
+    assuranceCoverage,
     counts: {
       findings: findingRegister.length,
       risks: riskRegister.length,
@@ -762,6 +847,7 @@ export function assembleComprehensive(
       scenarios: scenarioPortfolio.length,
       assurancePriorities: assurancePriorities.length,
       resilienceTests: resilienceTests.length,
+      assuranceCoverage: assuranceCoverage.length,
       programmeActions: programmeActions.length,
       measures: measures.length
     }

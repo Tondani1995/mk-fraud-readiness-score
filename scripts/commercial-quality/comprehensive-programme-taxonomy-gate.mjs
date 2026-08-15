@@ -18,6 +18,7 @@ import { buildAdvisoryEvidenceModel } from '../../src/lib/reports/evidence-model
 import { buildEssentialProjection } from '../../src/lib/reports/essential-projection.ts';
 import { buildEssentialNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { assembleComprehensive } from '../../src/lib/reports/comprehensive/assembly.ts';
+import { getMaturityBand } from '../../src/lib/scoring/maturity-band.ts';
 
 const DEFAULT_ORDERS = [
   'MKORD-2026-B1DN82OG', 'MKORD-2026-D1U0CTO8', 'MKORD-2026-RHFC6DYH', 'MKORD-2026-HB0OT81P',
@@ -37,7 +38,7 @@ for (const order of orders) {
   const data = await assembleReportData(order);
   const evidence = buildAdvisoryEvidenceModel(data);
   const pack = buildEssentialNarrativeFactPack(data, evidence, buildEssentialProjection(data, evidence));
-  const assembly = assembleComprehensive(evidence, { scenarioFacts: pack.scenarios });
+  const assembly = assembleComprehensive(evidence, { scenarioFacts: pack.scenarios, domains: pack.domains.filter((d) => typeof d.score === 'number').map((d) => ({ name: d.name, score: d.score, band: getMaturityBand(d.score) })) });
   const add = (code, detail) => violations.push({ order, code, detail });
 
   const actions = assembly.programme.horizons.flatMap((horizon) => horizon.actions.map((action) => ({ ...action, horizon: horizon.horizon })));

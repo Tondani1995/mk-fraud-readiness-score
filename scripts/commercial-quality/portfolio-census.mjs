@@ -66,7 +66,7 @@ for (const [order, expectedOrg] of ORDERS) {
     const data = await assembleReportData(order);
     const evidence = buildAdvisoryEvidenceModel(data);
     const pack = buildEssentialNarrativeFactPack(data, evidence, buildEssentialProjection(data, evidence));
-    const assembly = assembleComprehensive(evidence, { scenarioFacts: pack.scenarios });
+    const assembly = assembleComprehensive(evidence, { scenarioFacts: pack.scenarios, domains: pack.domains.filter((d) => typeof d.score === 'number').map((d) => ({ name: d.name, score: d.score, band: getMaturityBand(d.score) })) });
     const model = buildComprehensiveManagementModel(assembly);
 
     const domains = pack.domains.filter((d) => typeof d.score === 'number');

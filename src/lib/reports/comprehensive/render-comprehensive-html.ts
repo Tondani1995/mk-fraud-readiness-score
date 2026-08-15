@@ -159,16 +159,43 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
 
   // ---- 2. Contents and basis ------------------------------------------------
-  const coreEntries: Array<[string, string]> = [
-    ['1', 'Where the organisation stands'],
-    ['2', 'What is driving the position'],
-    ['3', 'Where the material fraud exposure sits'],
-    ['4', 'The control environment management should build'],
-    ['5', 'Who must own the response'],
-    ['6', 'Decisions leadership must make'],
-    ['7', 'What should happen, and in what order'],
-    ['8', 'How management will know it is working']
-  ];
+  /**
+   * The management report, built for the mode rather than fixed.
+   *
+   * Remediation asks what to build; sustainment asks what to confirm, and
+   * heading a strong organisation's report "the control environment management
+   * should build" contradicts its own findings. The scenario, resilience and
+   * assurance sections are numbered members of this list, so they appear in the
+   * contents and are no longer orphan appendices.
+   */
+  const sustainment = model.narrativeMode === 'SUSTAINMENT';
+  const sectionPlan: Array<{ key: string; title: string; rendered: boolean }> = sustainment
+    ? [
+      { key: 'POSITION', title: 'Where the organisation stands', rendered: true },
+      { key: 'DRIVERS', title: 'What is driving the position', rendered: true },
+      { key: 'CONFIRM', title: 'What management should confirm', rendered: true },
+      { key: 'COVERAGE', title: 'Assurance coverage across the control environment', rendered: reg.assuranceCoverage.length > 0 },
+      { key: 'DEEP_DIVE', title: 'Deep-dive assurance priorities', rendered: reg.assurancePriorities.length > 0 },
+      { key: 'RESILIENCE', title: 'Control resilience tests', rendered: reg.resilienceTests.length > 0 },
+      { key: 'GOVERNANCE', title: 'Who owns sustainment', rendered: true },
+      { key: 'DECISIONS', title: 'Decisions leadership must make', rendered: true },
+      { key: 'PROGRAMME', title: 'What should happen over 12 months', rendered: true },
+      { key: 'MEASUREMENT', title: 'How management will know the position remains dependable', rendered: true }
+    ]
+    : [
+      { key: 'POSITION', title: 'Where the organisation stands', rendered: true },
+      { key: 'DRIVERS', title: 'What is driving the position', rendered: true },
+      { key: 'EXPOSURE', title: 'Where the material fraud exposure sits', rendered: true },
+      { key: 'SCENARIOS', title: 'Fraud scenario portfolio', rendered: reg.scenarios.length > 0 },
+      { key: 'CONTROLS', title: 'The control environment management should build', rendered: true },
+      { key: 'GOVERNANCE', title: 'Who must own the response', rendered: true },
+      { key: 'DECISIONS', title: 'Decisions leadership must make', rendered: true },
+      { key: 'PROGRAMME', title: 'What should happen, and in what order', rendered: true },
+      { key: 'MEASUREMENT', title: 'How management will know it is working', rendered: true }
+    ];
+  const activeSections = sectionPlan.filter((entry) => entry.rendered);
+  const sectionNumber = (key: string): number => activeSections.findIndex((entry) => entry.key === key) + 1;
+  const coreEntries: Array<[string, string]> = activeSections.map((entry, index) => [String(index + 1), entry.title]);
   const registerEntries: Array<[string, string, number]> = [
     ['A', 'Finding register', reg.findings.length],
     ['B', 'Fraud risk register', reg.risks.length],
@@ -181,13 +208,13 @@ export function renderComprehensiveManagementReportHtml(input: {
     <div class="q">How to read this report</div>
     <h1>Contents</h1>
     <div class="toc">
-      <div class="row head"><span>Management report</span><span class="sec">Sections 1–8</span></div>
+      <div class="row head"><span>Management report</span><span class="sec">Sections 1–${activeSections.length}</span></div>
       ${coreEntries.map(([n, title]) => `<div class="row"><span>${n} · ${esc(title)}</span></div>`).join('')}
       <div class="row head"><span>Analytical registers</span><span class="sec">Appendices A–F</span></div>
       ${registerEntries.map(([n, title, count]) => `<div class="row"><span>${n} · ${esc(title)}</span><span class="muted">${count} entries</span></div>`).join('')}
     </div>
     <div class="panel"><div class="l">The two halves of this report</div>
-      <p class="note">Sections 1–8 are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections — every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
+      <p class="note">Sections 1–${activeSections.length} are the management report: what the assessment shows, what it means, and what to do about it. Appendices A–F are the analytical registers behind those sections — every finding, risk, control design, evidence requirement, action and measure, with the identifiers that connect them. The management sections state nothing the registers do not hold.</p>
     </div>
     <div class="panel"><div class="l">Basis of this report</div><p class="note">${esc(BASIS)}</p></div>
     <div class="sp"></div>
@@ -367,6 +394,15 @@ export function renderComprehensiveManagementReportHtml(input: {
   const registerHead = (letter: string, title: string, note: string) =>
     `<div class="reg-head"><div class="n">Appendix ${letter}</div><h1>${esc(title)}</h1><div class="reg-note">${esc(note)}</div></div>`;
 
+  /**
+   * Scenario, resilience and assurance content is management analysis, not a
+   * working register, so it carries a section number rather than an appendix
+   * letter. Rendered as "Appendix S" and "Appendix P" it read as bolted on, and
+   * the contents page did not mention it at all.
+   */
+  const sectionHead = (number: number, title: string, note: string) =>
+    `<div class="reg-head"><div class="n">Section ${number}</div><h1>${esc(title)}</h1><div class="reg-note">${esc(note)}</div></div>`;
+
   // Scenario portfolio — the same pathways Essential presents.
   //
   // Columns are fed from the Fact Pack projection, so each says what it means:
@@ -377,7 +413,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // it", which read as a restatement of the control standard.
   if (reg.scenarios.length) {
     pages.push(`<section class="reg">
-    ${registerHead('S', 'Fraud scenario portfolio', 'Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.')}
+    ${sectionHead(sectionNumber('SCENARIOS'), 'Fraud scenario portfolio', 'Conditional pathways derived from the recorded control position. Each shows how it could begin, how it could progress, the control response that would interrupt it, and what management could observe first. No allegation that any event has occurred.')}
     <table>
       <thead><tr><th style="width:17%">Pathway</th><th style="width:19%">How it could begin</th><th style="width:20%">How it could progress</th><th style="width:20%">Interruption point</th><th style="width:16%">Warning indicators</th><th style="width:8%">Links</th></tr></thead>
       <tbody>${reg.scenarios.map((scenario) => `<tr>
@@ -391,6 +427,29 @@ export function renderComprehensiveManagementReportHtml(input: {
   </section>`);
   }
 
+  // Assurance coverage map — the whole environment, one row per assessed domain.
+  //
+  // A register-only report says nothing about the majority of a strong
+  // organisation's environment, because most domains produce no finding at all.
+  // Rows carry only what the model supports: where support is absent the row is
+  // position and posture, never an invented dependency or evidence claim.
+  if (reg.assuranceCoverage.length) {
+    const postureLabel: Record<string, string> = { DEEP_DIVE_PRIORITY: 'Deep-dive priority', CONFIRM: 'Confirm', MAINTAIN: 'Maintain' };
+    pages.push(`<section class="reg">
+    ${sectionHead(sectionNumber('COVERAGE'), 'Assurance coverage across the control environment', 'Every assessed domain, with the posture it warrants. This is not a list of weaknesses: most domains here are working, and the map exists so management can see the whole environment rather than only the areas receiving deeper attention.')}
+    <table>
+      <thead><tr><th style="width:20%">Domain</th><th style="width:9%">Position</th><th style="width:12%">Posture</th><th style="width:21%">Capability to preserve or confirm</th><th style="width:20%">Management proof</th><th style="width:18%">Deterioration signal / rhythm</th></tr></thead>
+      <tbody>${reg.assuranceCoverage.map((row) => `<tr>
+        <td>${cell(row.domain)}</td>
+        <td class="tight"><strong>${esc(String(row.score))}</strong><div class="cap">${esc(row.maturity)}</div></td>
+        <td class="cap">${esc(postureLabel[row.posture] ?? row.posture)}</td>
+        <td>${row.capabilityToPreserve ? cell(row.capabilityToPreserve) : `<span class="cap">${esc(row.coverageNote)}</span>`}</td>
+        <td>${cell(row.managementProof, '—')}</td>
+        <td>${cell(row.deteriorationSignal, '—')}${row.reviewRhythm ? `<div class="cap" style="margin-top:.8mm">${cell(row.reviewRhythm, '')}</div>` : ''}${row.traceability.length ? `<div class="id" style="margin-top:.8mm">${esc(row.traceability.join(', '))}</div>` : ''}</td></tr>`).join('')}</tbody>
+    </table>
+  </section>`);
+  }
+
   // Control resilience tests — high readiness.
   //
   // Deliberately not called "stress tests". The methodology supports dependency
@@ -399,7 +458,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // analytical object the model does not contain.
   if (reg.resilienceTests.length) {
     pages.push(`<section class="reg">
-    ${registerHead('R', 'Control resilience tests', 'Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.')}
+    ${sectionHead(sectionNumber('RESILIENCE'), 'Control resilience tests', 'Each capability below is recorded as operating. These are the dependencies it rests on, what would signal deterioration, and the evidence management should inspect to confirm it still holds. No failure is alleged, and MK has performed none of this testing.')}
     <table>
       <thead><tr><th style="width:19%">Capability to sustain</th><th style="width:17%">Dependency to test</th><th style="width:19%">What would signal deterioration</th><th style="width:21%">Evidence to inspect</th><th style="width:16%">Effectiveness signal</th><th style="width:8%">Rhythm</th></tr></thead>
       <tbody>${reg.resilienceTests.map((test) => `<tr>
@@ -421,7 +480,7 @@ export function renderComprehensiveManagementReportHtml(input: {
   // are never labelled weaknesses.
   if (reg.assurancePriorities.length) {
     pages.push(`<section class="reg">
-    ${registerHead('P', 'Assurance and resilience priorities', 'These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.')}
+    ${sectionHead(sectionNumber('DEEP_DIVE'), 'Deep-dive assurance priorities', 'These are not weaknesses. Each is a capability the assessment records as operating, listed with what management should hold to confirm it, what it depends on, and what would signal deterioration. MK has performed none of this verification.')}
     <table>
       <thead><tr><th style="width:9%">ID</th><th style="width:19%">Capability</th><th style="width:22%">Evidence management should hold</th><th style="width:18%">Depends on</th><th style="width:18%">Deterioration trigger</th><th style="width:14%">Owner / cadence</th></tr></thead>
       <tbody>${reg.assurancePriorities.map((priority) => `<tr>

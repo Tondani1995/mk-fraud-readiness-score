@@ -201,6 +201,7 @@
     "v11:storefront-contract-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/storefront-contract-gate.mjs",
     "v11:comprehensive-presentation-semantics-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-presentation-semantics-gate.mjs",
     "v11:comprehensive-programme-taxonomy-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-programme-taxonomy-gate.mjs",
+    "v11:comprehensive-coverage-contents-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-coverage-contents-gate.mjs",
     "v11:portfolio-census": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/portfolio-census.mjs",
     "v11:comprehensive-live": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-live-report.mjs"
   },

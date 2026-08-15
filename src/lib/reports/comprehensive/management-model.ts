@@ -1,7 +1,8 @@
 import type {
   ScenarioPortfolioRow,
   AssurancePriorityRow,
-  ResilienceTestRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
+  ResilienceTestRow,
+  AssuranceCoverageRow, ComprehensiveAssembly, ControlBlueprintRow, DecisionRow, EvidenceRequirementGroup, FindingRow, ProgrammeActionRow, RiskRow } from './assembly';
 import type { ComprehensiveProvenance } from './product-contract';
 
 /**
@@ -226,6 +227,8 @@ export interface ComprehensiveManagementModel {
      * Empty outside sustainment, where the model records no operating capability.
      */
     resilienceTests: ResilienceTestRow[];
+    /** Whole-environment assurance view, one row per assessed domain. */
+    assuranceCoverage: AssuranceCoverageRow[];
     /**
      * One measure per control, so this scales with the register rather than the
      * core. The core answers "how will we know" at programme level; this is the
@@ -408,7 +411,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
     version: COMPREHENSIVE_MANAGEMENT_MODEL_VERSION,
     narrativeMode: assembly.narrativeMode,
     core: { managementThemes, exposureThemes, controlProgrammes: withMeasureCounts, governanceRoles, decisionAgenda, implementationPhases },
-    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities, resilienceTests: assembly.resilienceTests },
+    registers: { ...registers, measures: measurementFramework, scenarios: assembly.scenarioPortfolio, assurancePriorities: assembly.assurancePriorities, resilienceTests: assembly.resilienceTests, assuranceCoverage: assembly.assuranceCoverage },
     counts: {
       managementThemes: managementThemes.length,
       exposureThemes: exposureThemes.length,
@@ -420,6 +423,7 @@ export function buildComprehensiveManagementModel(assembly: ComprehensiveAssembl
       registerScenarios: assembly.scenarioPortfolio.length,
       registerAssurancePriorities: assembly.assurancePriorities.length,
       registerResilienceTests: assembly.resilienceTests.length,
+      registerAssuranceCoverage: assembly.assuranceCoverage.length,
       registerFindings: registers.findings.length,
       registerRisks: registers.risks.length,
       registerControls: registers.controls.length,
