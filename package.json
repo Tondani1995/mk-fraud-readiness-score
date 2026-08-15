@@ -193,7 +193,8 @@
     "v11:cross-chapter-ownership-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/cross-chapter-ownership-gate.mjs",
     "v11:comprehensive-contract-gate": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-contract-gate.mjs",
     "v11:comprehensive-assembly-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-assembly-gate.mjs",
-    "v11:comprehensive-management-model-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-management-model-gate.mjs"
+    "v11:comprehensive-management-model-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-management-model-gate.mjs",
+    "v11:comprehensive-renderer-gate": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/comprehensive-renderer-gate.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
