@@ -54,7 +54,7 @@ body{font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;color
 @page{size:A4;margin:16mm 14mm 18mm 14mm}
 
 /* fixed core page */
-.page{width:182mm;height:263mm;position:relative;overflow:hidden;page-break-after:always;display:flex;flex-direction:column}
+.page{width:182mm;height:263mm;position:relative;overflow:hidden;page-break-before:always;display:flex;flex-direction:column}
 .page--navy{background:var(--navy-900);color:#fff;margin:-16mm -14mm;padding:26mm 20mm 20mm;width:210mm;height:297mm}
 .q{font-size:6.8pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass)}
 h1{font-size:18pt;line-height:1.18;font-weight:700;color:var(--navy-900);letter-spacing:-.01em;margin-top:2.5mm}
@@ -69,6 +69,11 @@ ul{margin:1mm 0 0 4mm}li{margin:.8mm 0}
 
 /* flowing register section */
 .reg{page-break-before:always}
+/* Breaks are declared on the leading edge only. A page that also broke after
+   itself produced two breaks against any section that breaks before itself, and
+   the browser emitted an empty page between them. The first section must not
+   break, or the document opens on a blank sheet. */
+.page:first-of-type,section:first-of-type{page-break-before:avoid}
 .reg-head{border-top:2.5px solid var(--navy-900);padding-top:3mm;margin-bottom:4mm}
 .reg-head .n{font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);font-weight:700}
 .reg-head h1{margin-top:1.5mm;font-size:15pt}
@@ -419,7 +424,7 @@ export function renderComprehensiveManagementReportHtml(input: {
         <td class="tight">${phase.actionIds.length}</td>
         <td>${esc(phase.programmeIds.map((id) => core.controlProgrammes.find((programme) => programme.programmeId === id)?.title ?? id).join(' · '))}</td></tr>`).join('')}</tbody>
     </table>
-    <div class="cap" style="margin-top:2mm">Every action, with its dependency and completion criterion, is in Appendix E.</div>
+    <div class="cap" style="margin-top:2mm">Every programme item, with its dependency and completion criterion, is in Appendix E.</div>
     ${interpretationSlot('Implementation synthesis', commentary['IMPLEMENTATION'])}
     <div class="sp"></div>
   </section>`);
