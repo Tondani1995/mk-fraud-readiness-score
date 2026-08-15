@@ -40,3 +40,6 @@ next-env.d.ts
 /tmp/pdfs/
 /tmp/phase1-migration-replay/
 /tmp/phase1-sb-isolated/
+
+# Owner-review generated PDFs are private artefacts, not repository content.
+outputs/**/*.pdf

@@ -22,7 +22,7 @@ export interface TierComparisonProps {
  * Presentation-only comparison. Product codes and prices are intentionally supplied by props so
  * this component cannot become a second authoritative catalogue or entitlement contract.
  */
-export function TierComparison({ essential, comprehensive, heading = 'Choose the level of assurance you need', intro = 'Essential diagnoses. Comprehensive verifies, interprets and makes it board-ready.' }: TierComparisonProps) {
+export function TierComparison({ essential, comprehensive, heading = 'Choose the level of depth your organisation needs', intro = 'Essential diagnoses the position. Comprehensive adds the control, governance, evidence and implementation depth to act on it. Neither includes independent validation.' }: TierComparisonProps) {
   const renderProduct = (product: TierComparisonProduct, emphasis: 'essential' | 'comprehensive') => (
     <article
       key={product.id}

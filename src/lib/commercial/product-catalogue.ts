@@ -183,7 +183,7 @@ const COMPREHENSIVE: OrderableProduct = {
     'Fraud exposure and risk register with treatment direction and ownership',
     'Target-state control blueprint per priority control: objective, population, frequency, proof and failure response',
     'Evidence requirements: what management should hold for each control, and what an acceptable example looks like',
-    'Leadership decision library with costed options and trade-offs',
+    'Leadership decision library with options, trade-offs and accountable owners',
     'Implementation programme through 12 months, with dependencies and proof of completion',
     'Target operating model, governance rhythm and management scorecard'
   ]

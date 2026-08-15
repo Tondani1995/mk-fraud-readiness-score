@@ -356,11 +356,43 @@ function leadershipPriority(snapshot: FreeSnapshot, band: CommercialScoreBand) {
   return 'Leadership should focus on control consistency, independent assurance and the areas where stronger overall maturity could conceal concentrated weaknesses.';
 }
 
+/**
+ * The high-level risk implication shown on the free snapshot.
+ *
+ * The guard used to read `|| snapshot.resultStatus`, and every adaptive
+ * assessment carries a result status — PROVISIONAL or NORMAL as much as
+ * INSUFFICIENT_VISIBILITY. So the "exposure was not assessed" fallback fired on
+ * the whole adaptive path, and the customer met a blank at the exact moment they
+ * were deciding whether to pay. Only genuine absence of visibility should
+ * suppress the implication.
+ *
+ * Where the exposure band is absent but the assessment is scored, a legitimate
+ * implication is still available from the control position itself. It stays
+ * deliberately high level: a pattern and its consequence, never the exposure
+ * diagnosis, scenarios or priorities that the paid tiers carry.
+ */
 function riskImplication(snapshot: FreeSnapshot) {
-  if (snapshot.adaptiveMetrics?.exposureAssessed === false || snapshot.resultStatus) {
-    return 'Adaptive exposure was not assessed. No exposure-based risk implication is issued; leadership should focus on the visibility gaps and evidence needed to verify the control position.';
+  // Only genuine lack of visibility suppresses the implication. `exposureAssessed
+  // === false` is not that: the adaptive path never runs the exposure module, so
+  // it is false for every adaptive assessment including fully covered ones. It
+  // means "no exposure band", which the fall-through below already handles.
+  if (snapshot.resultStatus === 'INSUFFICIENT_VISIBILITY') {
+    return 'Too much of the assessment is unconfirmed to issue a risk implication. Leadership should first close the visibility gaps, because an unknown response is not evidence that a control is absent — or that it works.';
   }
-  return snapshot.exposureBand ? RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand] : RISK_IMPLICATION_BY_EXPOSURE.Low;
+  if (snapshot.exposureBand) return RISK_IMPLICATION_BY_EXPOSURE[snapshot.exposureBand];
+
+  // Derived from the recorded control position, not from an exposure model.
+  if (snapshot.capApplied) {
+    return 'One recorded control weakness is significant enough to cap the readiness result. Until it is closed, the wider score should not be read as evidence of a dependable control environment.';
+  }
+  if (snapshot.criticalGapCount > 0) {
+    return `The assessment records ${snapshot.criticalGapCount} critical-control weakness${snapshot.criticalGapCount === 1 ? '' : 'es'}. Critical controls are the ones expected to hold on their own, so a gap in any of them matters more than the overall score suggests.`;
+  }
+  const band = commercialScoreBand(snapshot.overallScore);
+  if (band === 'Reactive' || band === 'Developing') {
+    return 'The recorded position is uneven rather than uniformly weak: capability exists in parts of the profile but is not yet connected into a consistent response. Fraud tends to find the join between a strong control and a weak one.';
+  }
+  return 'No critical-control weakness is recorded. At this level the material question changes from whether controls exist to whether they still operate consistently, are evidenced, and would hold as the business changes.';
 }
 
 function coverageMessage(snapshot: FreeSnapshot) {
@@ -449,7 +481,7 @@ export function buildCommercialSnapshotInsights(snapshot: FreeSnapshot): Commerc
       'Prioritised management actions',
       '30/60/90-day fraud-readiness roadmap',
       'Leadership agenda',
-      'Expert quality review',
+      'Supporting evidence register',
       'Professionally prepared PDF report'
     ]
   };

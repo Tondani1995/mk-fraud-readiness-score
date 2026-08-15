@@ -248,7 +248,7 @@ export function FreeSnapshotCard({
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mk-brassDark">Report options</p>
                 <h2 id="report-options-heading" className="mt-2 text-xl font-semibold text-mk-ink">Choose the level of support your organisation needs</h2>
               </div>
-              <Badge>MK quality review</Badge>
+              <Badge>Automated analysis</Badge>
             </div>
 
             <div className="mt-5">
@@ -285,14 +285,14 @@ export function FreeSnapshotCard({
           <section className="rounded-2xl border border-mk-line bg-white p-5 text-sm leading-6 text-mk-muted" aria-labelledby="integrity-heading">
             <h2 id="integrity-heading" className="font-semibold text-mk-ink">How MK protects the integrity of your result</h2>
             <p className="mt-2">
-              Your readiness score is calculated using a controlled, deterministic methodology. Paid reports are prepared from persisted assessment results and are subject to MK quality review before release.
+              Your readiness score is calculated using a controlled, deterministic methodology. Paid reports are generated automatically from your persisted assessment result. They analyse what you reported; they do not independently validate evidence, test whether controls operate, or provide an assurance opinion. Independent review is available separately through MK Advisory.
             </p>
             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
               {[
                 'Selecting a paid service does not change the assessment score',
                 'Paid reports do not alter the underlying assessment result',
                 'Customer information is used only for the stated assessment and service purpose',
-                'Reports are reviewed before release'
+                'Reports are generated from the persisted result, not re-scored'
               ].map((item) => <li key={item} className="rounded-xl border border-mk-line bg-mk-cream/40 p-3">{item}</li>)}
             </ul>
           </section>
@@ -356,8 +356,8 @@ function ReportOrderSummary({ snapshot, tier, requestState, message, onConfirm }
         <Detail label="Organisation" value={snapshot.organisationName} />
         <Detail label="Assessment reference" value={snapshot.assessmentReference} copyable />
         <Detail label="Price" value={`${formatCataloguePrice(product.priceCents)} incl. VAT`} />
-        <Detail label="Delivery" value={tier === 'comprehensive' ? 'Payment → evidence request → reviewer validation → deliverable package' : 'Payment → report preparation → secure delivery'} />
-        <Detail label="Quality review" value={product.summary} />
+        <Detail label="Delivery" value="Payment → automated report generation → secure delivery" />
+        <Detail label="What this includes" value={product.summary} />
       </div>
       <p className="rounded-xl border border-mk-line bg-mk-cream/50 p-4 text-sm leading-6 text-mk-muted">Payment is made by EFT. MK confirms payment manually before the completed report is released.</p>
       {message ? <p className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm text-mk-danger">{message}</p> : null}
@@ -399,13 +399,8 @@ function OrderConfirmationPanel({ order }: { order: OrderConfirmation }) {
       <ol className="space-y-2 rounded-xl border border-mk-line bg-white p-4 text-sm leading-6 text-mk-muted">
         <li>1. Make the EFT using the displayed order reference.</li>
         <li>2. MK confirms payment manually.</li>
-        {order.tier === 'comprehensive' ? <>
-          <li>3. MK requests and reviews the evidence for your engagement.</li>
-          <li>4. The named reviewer signs off the Comprehensive deliverable package.</li>
-        </> : <>
-          <li>3. MK prepares and quality-reviews the report.</li>
-          <li>4. The secure report is released to you.</li>
-        </>}
+        <li>3. Your report is generated automatically from the persisted assessment result.</li>
+        <li>4. The secure report is released to you.</li>
       </ol>
       <p className="text-sm leading-6 text-mk-muted">{eft?.paymentReferenceInstruction ?? 'Please use your order reference as the payment reference.'}</p>
       <p className="text-sm leading-6 text-mk-muted">{eft?.customerInstruction ?? order.manualConfirmationNote ?? MANUAL_EFT_CONFIRMATION}</p>
