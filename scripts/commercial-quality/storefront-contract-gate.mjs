@@ -31,7 +31,10 @@ const SURFACES = [
   'src/components/products/TierComparison.tsx',
   'src/lib/snapshot/commercial-insights.ts',
   'src/lib/commercial/product-catalogue.ts',
-  'src/app/score/snapshot/[assessmentRef]/page.tsx'
+  'src/app/score/snapshot/[assessmentRef]/page.tsx',
+  'src/app/score/start/page.tsx',
+  'src/app/score/order/[assessmentRef]/page.tsx',
+  'src/components/comprehensive/CustomerOrderStatusWorkspace.tsx'
 ];
 
 /** Promises the automated tiers cannot keep. */
@@ -45,7 +48,13 @@ const PROHIBITED = [
   { code: 'VERIFICATION', pattern: /\bindependently\s+validat(?:es|ed|ion)\b/i },
   { code: 'ASSURANCE', pattern: /\bassurance\s+opinion\b/i },
   { code: 'ASSURANCE', pattern: /\blevel\s+of\s+assurance\s+you\s+need\b/i },
-  { code: 'COSTED', pattern: /\bcosted\s+(?:options|estimates?|implementation)\b/i }
+  { code: 'COSTED', pattern: /\bcosted\s+(?:options|estimates?|implementation)\b/i },
+  { code: 'HUMAN_REVIEW', pattern: /\bdeeper\s+MK\s+review\b/i },
+  { code: 'UNAPPROVED_PRODUCT', pattern: /\bFraud\s+Health\s+Check\b/i },
+  { code: 'INTERNAL_LANGUAGE', pattern: /\bprivate\s+access\s+authority\b/i },
+  { code: 'INTERNAL_LANGUAGE', pattern: /\bno\s+customer\s+portal\s+is\s+created\b/i },
+  { code: 'HUMAN_REVIEW', pattern: /\bafter\s+quality\s+review\b/i },
+  { code: 'VERIFICATION', pattern: /\bevidence-review\s+progress\b/i }
 ];
 
 /**
@@ -61,6 +70,14 @@ const EXEMPTIONS = [
   { name: 'code-comment', pattern: /^\s*(?:\*|\/\/|\/\*)/ }
 ];
 
+/**
+ * Exemptions answer "is this promise being denied or attributed to Advisory?",
+ * which only makes sense for a promise. Internal-language and unapproved-product
+ * findings are not promises, so they are never exempt — "No customer portal is
+ * created here" was escaping purely because the denial rule matched its "No".
+ */
+const EXEMPTIBLE = new Set(['HUMAN_REVIEW', 'VERIFICATION', 'ASSURANCE', 'COSTED']);
+
 const violations = [];
 const scanned = [];
 
@@ -72,8 +89,8 @@ for (const surface of SURFACES) {
     for (const rule of PROHIBITED) {
       const match = line.match(rule.pattern);
       if (!match) continue;
-      const exemption = EXEMPTIONS.find((entry) => entry.pattern.test(line));
-      if (exemption) continue;
+      if (EXEMPTIBLE.has(rule.code) && EXEMPTIONS.some((entry) => entry.pattern.test(line))) continue;
+      if (!EXEMPTIBLE.has(rule.code) && /^\s*(?:\*|\/\/|\/\*)/.test(line)) continue;
       hits += 1;
       violations.push({ surface, line: index + 1, code: rule.code, text: line.trim().slice(0, 150), matched: match[0] });
     }
@@ -93,7 +110,11 @@ const NEGATIVE = [
   "'Reports are reviewed before release'",
   'Leadership decision library with costed options and trade-offs',
   'Payment → evidence request → reviewer validation → deliverable package',
-  'The named reviewer signs off the Comprehensive deliverable package.'
+  'The named reviewer signs off the Comprehensive deliverable package.',
+  'the areas that deserve deeper MK review',
+  'request the detailed MK report or a fuller Fraud Health Check',
+  'MK will make the report available through the private access authority after quality review.',
+  'A focused view of payment and, for Comprehensive, evidence-review progress. No customer portal is created here.'
 ];
 const POSITIVE = [
   'No evidence is independently validated and no assurance opinion is provided.',
@@ -102,7 +123,8 @@ const POSITIVE = [
   'They do not independently validate evidence, test whether controls operate, or provide an assurance opinion.',
   'Management should obtain independent assurance over the strongest self-reported claims.'
 ];
-const fires = (text) => PROHIBITED.some((rule) => rule.pattern.test(text)) && !EXEMPTIONS.some((entry) => entry.pattern.test(text));
+const fires = (text) => PROHIBITED.some((rule) => rule.pattern.test(text)
+  && (!EXEMPTIBLE.has(rule.code) || !EXEMPTIONS.some((entry) => entry.pattern.test(text))));
 const missedDefects = NEGATIVE.filter((text) => !fires(text));
 const falsePositives = POSITIVE.filter((text) => fires(text));
 for (const text of missedDefects) violations.push({ surface: 'NEGATIVE-CONTROL', code: 'CONTROL_DID_NOT_FIRE', text });

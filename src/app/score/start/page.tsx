@@ -13,7 +13,7 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
         <PageHeader
           eyebrow="Fraud Strategy • Threat Intelligence • Readiness Score"
           title="Assess your organisation's fraud readiness"
-          description="A structured self-assessment for organisations that need clearer visibility of fraud exposure, control maturity and the areas that deserve deeper MK review."
+          description="A structured self-assessment for organisations that need clearer visibility of fraud exposure, control maturity and the areas that deserve management attention."
         />
       </div>
 
@@ -21,12 +21,12 @@ export default async function StartAssessmentPage(props: { searchParams?: Promis
         <Card className="bg-mk-charcoal text-white">
           <CardHeader className="border-white/10">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/60">Assessment journey</p>
-            <CardTitle className="mt-2 text-white">Start with the fraud readiness health check.</CardTitle>
+            <CardTitle className="mt-2 text-white">Start with the free readiness snapshot.</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-6 text-white/80">
             <p>Capture the respondent and organisation details once.</p>
             <p>Move directly into the fraud readiness questions without asking the respondent to create an account.</p>
-            <p>Use the adaptive customer assessment to decide whether to request the detailed MK report or a fuller Fraud Health Check.</p>
+            <p>Your free snapshot shows where the organisation stands. From there you can choose the Essential or Comprehensive report, or discuss a specialist Advisory engagement.</p>
           </CardContent>
         </Card>
 

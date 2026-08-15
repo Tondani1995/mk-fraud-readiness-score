@@ -132,7 +132,7 @@ export function CustomerOrderStatusWorkspace({
             })}
           </CardContent>
         </Card> : null}
-      </> : <Card><CardHeader><CardTitle>Next step</CardTitle></CardHeader><CardContent className="text-sm leading-6 text-mk-muted">Your Essential order moves from payment verification to report preparation and secure delivery. MK will make the report available through the private access authority after quality review.</CardContent></Card>}
+      </> : <Card><CardHeader><CardTitle>Next step</CardTitle></CardHeader><CardContent className="text-sm leading-6 text-mk-muted">Once payment is confirmed, MK Fraud Insights prepares your report and sends it to the delivery email held for this order. We will be in touch if anything is needed from you.</CardContent></Card>}
     </div>
   );
 }
