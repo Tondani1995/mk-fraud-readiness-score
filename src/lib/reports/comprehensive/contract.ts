@@ -78,28 +78,6 @@ function buildNarrativeBriefs(model: Omit<ComprehensiveDeliveryModel, 'narrative
 export function buildComprehensiveDeliveryModel(analytical: ComprehensiveAnalyticalUniverse): ComprehensiveDeliveryModel {
   const findings = analytical.evidenceModel.materialFindings.map(buildFindingView);
   const proofRequirements = buildProofRequirements(analytical);
-  const evidenceRequestPack = proofRequirements.map((item) => ({
-    evidenceRef: item.proofRef,
-    evidenceItem: item.requirement,
-    linkedDomain: item.linkedDomain,
-    linkedFindingIds: item.linkedFindingIds,
-    linkedFinding: item.linkedFindingIds[0] ?? '',
-    linkedControlIds: item.linkedControlIds,
-    whatMKWantsToInspect: item.requirement,
-    whyItMatters: item.whyItMatters,
-    acceptableExamples: item.acceptableExamples,
-    priority: item.priority,
-    requestedStatus: 'NOT_APPLICABLE',
-    backendStatus: 'not_applicable',
-    validationStatus: 'NOT_APPLICABLE',
-    reviewerNote: '',
-    actualArtefactsExamined: [],
-    whatEvidenceDemonstrated: null,
-    whatEvidenceDidNotDemonstrate: null,
-    reviewerConclusion: null,
-    reviewerConfidence: null,
-    privacyBoundary: item.privacyBoundary
-  }));
   const base = {
     analytical,
     findings,
@@ -107,7 +85,6 @@ export function buildComprehensiveDeliveryModel(analytical: ComprehensiveAnalyti
     riskRegister: analytical.evidenceModel.riskRegister,
     controlImprovements: analytical.evidenceModel.controlImprovements,
     proofRequirements,
-    evidenceRequestPack,
     evidenceChecklist: analytical.evidenceModel.evidenceChecklist,
     scenarios: analytical.evidenceModel.scenarios,
     contradictions: analytical.evidenceModel.contradictions,

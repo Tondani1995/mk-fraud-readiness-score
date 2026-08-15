@@ -79,6 +79,15 @@ export const COMPREHENSIVE_PERMITTED_EVIDENCE_VOICE = [
   'management should verify'
 ] as const;
 
+/**
+ * Every entry names a subject, because that is what makes a claim prohibited.
+ *
+ * "Bank-detail changes are independently verified via callback" is control
+ * design — the organisation's own process — and is required output. "No evidence
+ * has been independently verified" is a denial and is also required output.
+ * Neither says MK did anything. Listing the bare adverbial phrase rejected both,
+ * which is the keyword-without-sense mistake this contract exists to prevent.
+ */
 export const COMPREHENSIVE_PROHIBITED_EVIDENCE_VOICE = [
   'MK verified',
   'MK reviewed',
@@ -86,15 +95,14 @@ export const COMPREHENSIVE_PROHIBITED_EVIDENCE_VOICE = [
   'MK tested',
   'MK validated',
   'MK confirmed',
+  'MK independently verified',
   'we verified',
   'we reviewed',
   'we tested',
-  'independently verified',
-  'independently validated',
-  'evidence was reviewed',
+  'our review confirmed',
   'reviewer concluded',
   'reviewer confirmed',
-  'signed off by'
+  'signed off by MK'
 ] as const;
 
 /**

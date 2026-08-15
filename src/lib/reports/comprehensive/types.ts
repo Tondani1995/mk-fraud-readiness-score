@@ -55,7 +55,11 @@ export interface ProofRequirement {
   privacyBoundary: string;
 }
 
-/** Compatibility view used by the separately-scoped Essential/commercial projection. */
+/**
+ * Advisory-only view. Carries reviewer fields (validation status, reviewer
+ * conclusion, artefacts examined) and is therefore not part of the automated
+ * Comprehensive delivery model. Retained for future manual Advisory work.
+ */
 export interface EvidenceRequestPackItem {
   evidenceRef: string;
   evidenceItem: string;
@@ -128,8 +132,6 @@ export interface ComprehensiveDeliveryModel {
   riskRegister: RiskRegisterEntry[];
   controlImprovements: ControlImprovementEntry[];
   proofRequirements: ProofRequirement[];
-  /** Compatibility projection for the Essential/commercial projection only; no review state. */
-  evidenceRequestPack: EvidenceRequestPackItem[];
   evidenceChecklist: EvidenceChecklistItem[];
   scenarios: PlausibleScenario[];
   contradictions: Contradiction[];

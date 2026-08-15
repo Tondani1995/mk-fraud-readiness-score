@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { registerComprehensivePackageAtomically } from '../src/lib/comprehensive/package-registration.ts';
 import { buildComprehensiveReviewerInputFromPersisted } from '../src/lib/advisory/persisted-review-adapter.ts';
 import { comprehensiveFixtures } from '../src/lib/reports/comprehensive/fixtures.ts';
-import { buildComprehensiveDeliveryModel } from '../src/lib/reports/comprehensive/contract.ts';
+import { assertComprehensiveBlueprintContract, buildComprehensiveDeliveryModel } from '../src/lib/reports/comprehensive/contract.ts';
 
 let checks = 0;
 const check = async (label, fn) => { await fn(); checks += 1; console.log(`  ok - ${label}`); };
@@ -124,15 +124,37 @@ await check('real subject accepted and fabricated or cross-assessment subjects f
   assert.throws(() => buildComprehensiveReviewerInputFromPersisted({ engagement: persistedBase, evidence: persistedEvidence, records: [{ ...persistedRecords[0], subjectKey: 'F-OTHER-ASSESSMENT' }, ...persistedRecords.slice(1)], subjectAuthority: authority }), /not part of the current assessment/);
 });
 
-await check('evidence status alone never becomes a finding conclusion', () => {
+await check('automated Comprehensive is built from the assessment alone, with no reviewer state', () => {
+  // Replaces the retired assertion that reviewer evidence status drove a finding
+  // conclusion. Comprehensive is an automated analytical product: it takes the
+  // deterministic analytical universe and nothing else. Reviewer input is
+  // Advisory and lives outside this path.
   const fixture = comprehensiveFixtures.weakOrganisationMeaningfulEvidence;
-  const ref = 'evidence:EVID-ACCESS';
-  for (const validationStatus of ['VALIDATED_SUPPORTED', 'NOT_SUPPORTED', 'NOT_VALIDATED_INSUFFICIENT', 'NOT_APPLICABLE', 'EVIDENCE_REVIEWED']) {
-    const model = buildComprehensiveDeliveryModel(fixture.analytical, { ...fixture.reviewer, findingReviews: [], evidenceReviews: [{ evidenceRef: ref, evidenceExamined: ['reviewed.pdf'], validationStatus, reviewerObservation: 'Observed.', reviewerConfidence: 'MEDIUM' }] });
-    assert.equal(model.findings.find((finding) => finding.id === 'F-ACCESS')?.validationStatus, 'EVIDENCE_REVIEWED', validationStatus);
+  assert.equal(buildComprehensiveDeliveryModel.length, 1, 'the delivery model takes the analytical universe only');
+
+  const model = buildComprehensiveDeliveryModel(fixture.analytical);
+  assert.ok(model.findings.length > 0, 'findings are produced from the analytical universe');
+
+  // Reviewer state must not appear on any customer-facing object, and no object
+  // may carry a validation verdict, because nothing was validated.
+  const serialised = JSON.stringify(model);
+  for (const forbidden of [/"validationStatus"/, /"reviewerConclusion"/, /"reviewerConfidence"/, /VALIDATED_SUPPORTED/, /EVIDENCE_REVIEWED/, /signOffStatement/]) {
+    assert.ok(!forbidden.test(serialised), `automated delivery model must not carry reviewer state: ${forbidden}`);
   }
-  const selfReported = buildComprehensiveDeliveryModel(fixture.analytical, { ...fixture.reviewer, findingReviews: [], evidenceReviews: [] });
-  assert.equal(selfReported.findings.find((finding) => finding.id === 'F-ACCESS')?.validationStatus, 'SELF_REPORTED');
+
+  // The narrative briefs must forbid the assurance claims explicitly.
+  assert.ok(model.narrativeBriefs.length > 0, 'narrative briefs exist');
+  for (const brief of model.narrativeBriefs) {
+    assert.ok(brief.mustNotClaim.length > 0, `${brief.section} declares prohibited claims`);
+  }
+  assert.doesNotThrow(() => assertComprehensiveBlueprintContract(model), 'the blueprint contract holds without any reviewer input');
+});
+
+await check('Advisory reviewer infrastructure remains available and separate', () => {
+  // Preserved for future manual Advisory work, and still fail-closed on
+  // fabricated subjects — but not on the Comprehensive fulfilment path.
+  assert.equal(typeof buildComprehensiveReviewerInputFromPersisted, 'function');
+  assert.doesNotThrow(() => buildComprehensiveReviewerInputFromPersisted({ engagement: persistedBase, evidence: persistedEvidence, records: persistedRecords, subjectAuthority: authority }));
 });
 
 console.log(JSON.stringify({ ok: true, checks, provider: 'none', suite: 'final-pre-staging-defect-regressions' }, null, 2));
