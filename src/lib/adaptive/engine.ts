@@ -318,9 +318,21 @@ export function deriveAdaptiveIntegritySignals(input: { graph: AdaptiveGraph; pa
   const unknownCount = input.path.activeNodes.filter((node) => node.kind !== 'gateway' && node.response?.responseState === 'unknown').length;
   if (input.path.activePathCount > 0 && unknownCount / input.path.activePathCount >= 0.3) signals.push({ signalId: 'high_unknown_share', detail: { unknownCount, activePathCount: input.path.activePathCount }, blocking: false });
   if (input.path.redirectedCount > 0) signals.push({ signalId: 'material_redirected_scope', detail: { count: input.path.redirectedCount, weight: input.path.redirectedWeight }, blocking: false });
-  for (const domain of input.path.domainBoundaries) if (domain.activeCount === 0) signals.push({ signalId: 'whole_domain_exclusion', detail: { domainCode: domain.domainCode }, blocking: false });
-  for (const node of input.path.nodes) if (node.state === 'excluded' && node.isCritical) signals.push({ signalId: 'excluded_critical_control', detail: { questionId: node.nodeId }, blocking: false });
-  for (const node of input.path.nodes) if (node.state === 'excluded' && node.isHardGate) signals.push({ signalId: 'excluded_hard_gate_control', detail: { questionId: node.nodeId }, blocking: false });
+  // One signal per kind, listing everything it covers.
+  //
+  // These three used to push a separate signal per domain or per control while reusing
+  // the same signalId. Integrity signals are stored unique on
+  // (assessment_id, graph_version_id, signal_id), so any organisation that excluded two
+  // or more critical or hard-gate controls -- or emptied two domains -- could not submit
+  // at all: the customer answered every question and the submission failed on a database
+  // constraint. Collapsing to one signal per kind keeps every excluded identifier in the
+  // detail, so nothing is lost from the record.
+  const excludedDomains = input.path.domainBoundaries.filter((domain) => domain.activeCount === 0).map((domain) => domain.domainCode);
+  if (excludedDomains.length) signals.push({ signalId: 'whole_domain_exclusion', detail: { domainCodes: excludedDomains, count: excludedDomains.length }, blocking: false });
+  const excludedCritical = input.path.nodes.filter((node) => node.state === 'excluded' && node.isCritical).map((node) => node.nodeId);
+  if (excludedCritical.length) signals.push({ signalId: 'excluded_critical_control', detail: { questionIds: excludedCritical, count: excludedCritical.length }, blocking: false });
+  const excludedHardGate = input.path.nodes.filter((node) => node.state === 'excluded' && node.isHardGate).map((node) => node.nodeId);
+  if (excludedHardGate.length) signals.push({ signalId: 'excluded_hard_gate_control', detail: { questionIds: excludedHardGate, count: excludedHardGate.length }, blocking: false });
   return signals;
 }
 
