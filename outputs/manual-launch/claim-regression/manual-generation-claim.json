@@ -1,0 +1,54 @@
+{
+  "gate": "manual-generation-claim",
+  "executedAgainst": "Staging penhenkzfrtmcxklodtu",
+  "executedAt": "2026-08-16T12:05:00Z",
+  "providerCalls": 0,
+  "invariant": "REPORT_QUEUED means generation is pending and ready to be started. It does not mean generation is actively executing. 'already_active' may only be returned when an attempt is genuinely REPORT_GENERATING.",
+  "method": "Every condition runs against the real claim_manual_report_generation RPC using disposable fixtures inside a plpgsql exception block, which rolls the fixtures back while the collected results survive. Verified afterwards: 0 surviving MKORD-GATE-% orders.",
+  "conditions": 6,
+  "violations": 0,
+  "results": [
+    {
+      "id": "C1",
+      "description": "QUEUED with nothing executing allows manual Generate",
+      "result": "PASS",
+      "detail": "claimed=true reason=adopted_queued",
+      "defectThisCatches": "The reported defect: payment confirmation queued an attempt, nothing drained it, and manual Generate was rejected as generation_already_active forever."
+    },
+    {
+      "id": "C2",
+      "description": "Adoption reuses the queued attempt, no duplicate",
+      "result": "PASS",
+      "detail": "attempts=1 status=REPORT_GENERATING",
+      "defectThisCatches": "A fix that sidestepped the queued row by creating a second attempt would leave two attempts and two report versions for one paid order."
+    },
+    {
+      "id": "C3",
+      "description": "REPORT_GENERATING is still rejected as already active",
+      "result": "PASS",
+      "detail": "claimed=false reason=already_active",
+      "defectThisCatches": "Concurrency protection removed rather than corrected."
+    },
+    {
+      "id": "C4",
+      "description": "Second claim after adoption is rejected, not double-adopted",
+      "result": "PASS",
+      "detail": "second claimed=false reason=already_active",
+      "defectThisCatches": "Two concurrent Generate requests adopting the same row, where the loser would mark the winner's in-flight attempt as failed."
+    },
+    {
+      "id": "C5",
+      "description": "Adoption completes the start transition and reports it",
+      "result": "PASS",
+      "detail": "generation_started=true started_at=set redundantStartRejected=t",
+      "defectThisCatches": "The first corrected build: the claim moved the row to REPORT_GENERATING, then start_manual_report_generation -- which only moves a REPORT_QUEUED row -- rejected it and failed the generation at stage start_generation."
+    },
+    {
+      "id": "C6",
+      "description": "Normal path still creates a QUEUED attempt for the start RPC",
+      "result": "PASS",
+      "detail": "reason=created generation_started=false status=REPORT_QUEUED",
+      "defectThisCatches": "Regression in the ordinary generate path, which must still create a QUEUED attempt and let the start RPC own the transition."
+    }
+  ]
+}

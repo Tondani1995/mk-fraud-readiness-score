@@ -420,8 +420,15 @@ export async function generateManualPhase1Report(
   let pdfChecksumForReconciliation: string | null = null;
   let generationStage = 'start_generation';
   try {
-    const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
-    if (startError) throw mapRpcFailure(startError, technicalReference);
+    // Payment confirmation queues an attempt, and under manual fulfilment nothing drains
+    // that queue. The claim adopts the pending attempt rather than reporting it as active
+    // work, and because adoption has to be exclusive it makes the QUEUED -> GENERATING
+    // transition itself. It says so, and the start RPC -- which only moves a QUEUED row --
+    // is skipped rather than being called against a state it would reject.
+    if (!claim.generation_started) {
+      const { error: startError } = await db.rpc('start_manual_report_generation', { p_attempt_id: attemptId });
+      if (startError) throw mapRpcFailure(startError, technicalReference);
+    }
 
     generationStage = 'assemble_report';
     let reportType;
