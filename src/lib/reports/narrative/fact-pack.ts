@@ -368,7 +368,7 @@ const SCENARIO_CONTEXT_VARIANTS: Partial<Record<string, ScenarioContextVariant[]
       mechanism: 'An actor uses an impersonated or insufficiently verified identity to obtain payment, credit or account authority through the organisation\'s digital channel.' },
     { requires: 'TEMPORARY_OR_SUBCONTRACTED_WORKFORCE',
       entryPoint: 'A worker, contractor or engaged party is onboarded or materially changed without an independent verification step.',
-      mechanism: 'An actor relies on temporary or subcontracted engagement processes to establish an identity that carries access or payment entitlement without independent verification.' }
+      mechanism: 'An actor relies on the engagement of a temporary, seasonal or subcontracted worker to establish an identity that carries access or payment entitlement without independent verification.' }
   ]
 };
 

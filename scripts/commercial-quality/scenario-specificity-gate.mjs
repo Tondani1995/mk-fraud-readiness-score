@@ -78,10 +78,19 @@ record('F1', 'Outsourcing is distinguished from internal management',
 // Concepts the assessment never captures must have no derivation path at all.
 const source = fs.readFileSync('src/lib/reports/narrative/fact-pack.ts', 'utf8');
 const scenarioBlock = source.slice(source.indexOf('SCENARIO_CONTEXT_VARIANTS'), source.indexOf('interface FraudPathwayRule'));
-const FORBIDDEN = /\b(patient|fleet|fuel card|subcontractor|hotel booking|courier|hospital billing|tenant|bursary|beneficiary)\b/i;
+// G12 asks verbatim about "temporary, seasonal or subcontracted workers", so worker
+// subcontracting is evidenced. Subcontracted WORK PACKAGES are not, so the noun forms
+// stay forbidden while the worker phrasing is allowed only alongside its gateway.
+const FORBIDDEN = /\b(patient|fleet|fuel card|subcontractor|subcontractors|subcontracting|hotel booking|courier|hospital billing|tenant|bursary|beneficiary)\b/i;
 const leak = scenarioBlock.match(FORBIDDEN);
 record('G1', 'Scenario context never uses concepts the assessment does not capture',
   !leak, leak ? `found "${leak[0]}"` : 'no unsupported vocabulary');
+
+// Worker subcontracting may be named only where G12 gates it.
+const workerPhrase = /subcontracted worker/i.test(scenarioBlock);
+const workerGated = !workerPhrase || /TEMPORARY_OR_SUBCONTRACTED_WORKFORCE/.test(scenarioBlock);
+record('G2', 'Subcontracted-worker wording appears only under its G12 exposure',
+  workerGated, workerPhrase ? 'phrase present and G12-gated' : 'phrase absent');
 
 const failures = results.filter((entry) => entry.result === 'FAIL');
 const summary = { gate: 'scenario-specificity', providerCalls: 0, conditions: results.length, violations: failures.length, results };
