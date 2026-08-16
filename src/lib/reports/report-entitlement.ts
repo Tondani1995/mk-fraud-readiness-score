@@ -9,6 +9,13 @@ import {
 
 export const ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE = ESSENTIAL_PRODUCT_CODE;
 export const ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE = 'essential_self_assessment';
+/**
+ * The Comprehensive report type is the pre-existing `mk_validated`, not a new one.
+ * It is the authoritative identifier already carried by report_templates, the reports
+ * register, customer report access and the customer order status surfaces, and it is
+ * internal only -- it is never shown to a customer, so it makes no assurance claim.
+ */
+export const COMPREHENSIVE_REPORT_TYPE = 'mk_validated';
 export const ESSENTIAL_SELF_ASSESSMENT_CURRENCY = 'ZAR';
 export const ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE = 'mk_controlled_pdf';
 export const PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS = 'payment_received';
@@ -41,18 +48,48 @@ function reject(reason: ReportEntitlementReason, message: string): never {
 }
 
 function productMessage(productCode: string | null) {
-  if (productCode === COMPREHENSIVE_PRODUCT_CODE) {
-    return 'A Comprehensive order is fulfilled through the reviewer-led engagement workflow, not through automatic Essential report generation.';
-  }
   if (!productCode || /free|snapshot/i.test(productCode)) {
     return 'Free products are not eligible for premium report generation.';
   }
   return `Product ${productCode} is not eligible for premium report generation.`;
 }
 
+/**
+ * The paid tiers and the report each one is entitled to.
+ *
+ * Comprehensive used to be rejected here outright, on the basis that it was fulfilled
+ * through a reviewer-led engagement. That model is retired: Comprehensive is an
+ * automated analytical report with no reviewer, no evidence review, no sign-off and no
+ * independent assurance. Rejecting it left a paid R35,000 order with no operator
+ * fulfilment path at all.
+ *
+ * The entitlements never cross. The same assessment may carry both an Essential and a
+ * Comprehensive order, and each is entitled only to its own report: a Comprehensive
+ * purchase can never receive an Essential PDF, and an Essential purchase can never
+ * invoke the Comprehensive pipeline.
+ */
+const TIER_ENTITLEMENTS = {
+  essential: {
+    productCode: ESSENTIAL_PRODUCT_CODE,
+    reportType: ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE,
+    deliveryMode: ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE,
+    priceLabel: 'Essential'
+  },
+  comprehensive: {
+    productCode: COMPREHENSIVE_PRODUCT_CODE,
+    reportType: COMPREHENSIVE_REPORT_TYPE,
+    deliveryMode: ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE,
+    priceLabel: 'Comprehensive'
+  }
+} as const;
+
+export type PremiumReportType =
+  | typeof ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE
+  | typeof COMPREHENSIVE_REPORT_TYPE;
+
 export function validatePremiumReportGenerationEntitlement(
   assembled: AssembledReportData
-): typeof ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE {
+): PremiumReportType {
   if (!assembled?.scoreRun?.id || !assembled.scoreRun.assessmentId) {
     reject('assessment_not_scored', 'Premium report generation requires a completed assessment score run.');
   }
@@ -96,13 +133,12 @@ export function validatePremiumReportGenerationEntitlement(
     reject('score_run_incomplete', 'Premium report generation requires complete domain results and question traces.');
   }
 
-  // Product entitlements never cross. The same assessment may carry both an Essential and a
-  // Comprehensive order; only the Essential one reaches automatic premium generation.
-  if (assembled.productCode !== ESSENTIAL_SELF_ASSESSMENT_PRODUCT_CODE) {
-    reject('order_not_eligible', productMessage(assembled.productCode));
-  }
-
-  if (tierForProductCode(assembled.productCode) !== 'essential') {
+  // Resolve the tier from the product the customer actually paid for. Both the product
+  // code and the catalogue tier must agree, so a mislabelled product cannot select a
+  // pipeline it was not sold under.
+  const tier = tierForProductCode(assembled.productCode);
+  const entitlement = tier === 'essential' || tier === 'comprehensive' ? TIER_ENTITLEMENTS[tier] : null;
+  if (!entitlement || assembled.productCode !== entitlement.productCode) {
     reject('order_not_eligible', productMessage(assembled.productCode));
   }
 
@@ -127,6 +163,18 @@ export function validatePremiumReportGenerationEntitlement(
     );
   }
 
+  // The tier is resolved from the product code, but the price is proven against the
+  // product id's price history. If those two ever disagree -- a mislabelled order, a
+  // partially migrated row -- the order could be priced as one tier and fulfilled as
+  // the other. Require the price history to belong to the order's own product before
+  // trusting either.
+  if (assembled.productPriceVersions.some((version) => version.productId !== assembled.productId)) {
+    reject(
+      'order_price_not_entitled',
+      'The order product identity does not match its price history, so the entitled tier cannot be proven.'
+    );
+  }
+
   const priceEntitlement = validateOrderPriceEntitlement(
     {
       orderId: assembled.orderId,
@@ -142,19 +190,19 @@ export function validatePremiumReportGenerationEntitlement(
   if (!priceEntitlement.valid) {
     reject(
       'order_price_not_entitled',
-      `The order amount is not the Essential price that applied when the order was created (${priceEntitlement.reason}).`
+      `The order amount is not the ${entitlement.priceLabel} price that applied when the order was created (${priceEntitlement.reason}).`
     );
   }
 
   if (assembled.currency !== ESSENTIAL_SELF_ASSESSMENT_CURRENCY || assembled.productCurrency !== ESSENTIAL_SELF_ASSESSMENT_CURRENCY) {
-    reject('order_not_eligible', 'Premium report generation only supports the ZAR Essential entitlement.');
+    reject('order_not_eligible', 'Premium report generation only supports ZAR entitlements.');
   }
 
   if (assembled.requiresPaymentVerification !== true) {
     reject('order_not_eligible', 'Premium report generation requires manual payment verification before fulfilment.');
   }
 
-  if (assembled.deliveryMode !== ESSENTIAL_SELF_ASSESSMENT_DELIVERY_MODE) {
+  if (assembled.deliveryMode !== entitlement.deliveryMode) {
     reject('order_not_eligible', 'The selected product delivery mode is not supported by premium report generation.');
   }
 
@@ -162,5 +210,5 @@ export function validatePremiumReportGenerationEntitlement(
     reject('order_not_eligible', 'The selected product entitlement is not active.');
   }
 
-  return ESSENTIAL_SELF_ASSESSMENT_REPORT_TYPE;
+  return entitlement.reportType;
 }

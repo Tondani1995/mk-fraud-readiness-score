@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { assembleReportData, ReportAssemblyError } from './assemble-report-data';
-import { ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
+import { COMPREHENSIVE_REPORT_TYPE, ReportEntitlementError, validatePremiumReportGenerationEntitlement } from './report-entitlement';
 import { selectContent } from './select-content-blocks';
 import { adaptAdvisoryRoadmapToLegacyAgenda } from './roadmap';
 import { buildAdvisoryEvidenceModel } from './evidence-model';
@@ -474,6 +474,11 @@ export async function generateManualPhase1Report(
     }));
     generationStage = 'build_deterministic_advisory';
     const advisoryModel = buildAdvisoryEvidenceModel(assembled);
+    // Comprehensive is a different product with its own certified pipeline, not a variant
+    // of the Essential one. It has its own bounded interpretation contracts and its own
+    // renderer, so it branches here and rejoins at storage, where both tiers share the
+    // same checksum, upload, verification, register and finalisation path.
+    const isComprehensive = reportType === COMPREHENSIVE_REPORT_TYPE;
     // ONE bounded projection instance for this generation: the deterministic fallback content,
     // the narrative brief, the renderer and the commercial-quality validator all consume it.
     const essentialProjection = buildEssentialProjection(assembled, advisoryModel);
@@ -513,7 +518,30 @@ export async function generateManualPhase1Report(
       ? dependencies.attemptStore ?? doCreateAttemptStore({ db, manualGenerationAttemptId: attemptId })
       : undefined;
     generationStage = 'prepare_narrative';
-    let prepared: PreparedPremiumReportNarrative;
+    let prepared: PreparedPremiumReportNarrative | undefined;
+    let comprehensivePdf: Buffer | undefined;
+    if (isComprehensive) {
+      // One bounded interpretation call against the certified Comprehensive pipeline.
+      // Repairs are additional paid calls and are not authorised here, so a slot that
+      // fails surfaces as a visible generation failure rather than more spend.
+      try {
+        const { renderComprehensiveReportPdf } = await import('./comprehensive/manual-generation');
+        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId });
+        const comprehensive = await renderComprehensiveReportPdf({ assembled, evidenceModel: advisoryModel });
+        comprehensivePdf = comprehensive.pdf;
+        logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: comprehensive.interpretationRun.accounting.model.split('/')[0] ?? null, model: comprehensive.interpretationRun.accounting.model });
+        console.info('comprehensive_manual_generation', {
+          technicalReference,
+          orderReference: input.orderReference,
+          providerCalls: comprehensive.interpretationRun.accounting.calls,
+          repairs: comprehensive.interpretationRun.accounting.repairs,
+          model: comprehensive.interpretationRun.accounting.model
+        });
+      } catch (error) {
+        console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'comprehensive_interpretation', error: messageOf(error) });
+        throw new Phase1GenerationError('generation_failed', 'The Comprehensive report could not be produced. Retry generation or inspect the technical reference.', 500, technicalReference);
+      }
+    } else {
     try {
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
       const doPrepareNarrative = dependencies.preparePremiumReportNarrative
@@ -559,6 +587,7 @@ export async function generateManualPhase1Report(
       prepared,
       flags
     });
+    }
 
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
       throw new Phase1GenerationError('pdf_render_failed', 'The local PDF failure double was activated.', 500, technicalReference);
@@ -575,9 +604,12 @@ export async function generateManualPhase1Report(
     logPremiumReportPhase({ phase: 'pdf_rendering_started', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     let pdf: Buffer;
     try {
-      pdf = await doRenderValidatedCommercialPdf({
+      // The Comprehensive PDF is already rendered by its own certified pipeline, which
+      // runs its own contracts. The Essential commercial-quality seam validates Essential
+      // content and must not be applied to it.
+      pdf = comprehensivePdf ?? await doRenderValidatedCommercialPdf({
         data: assembled,
-        content: prepared.selectedContent,
+        content: prepared!.selectedContent,
         roadmap,
         evidenceModel: advisoryModel
       });
@@ -707,8 +739,8 @@ export async function generateManualPhase1Report(
       reportReference: completed.report.report_reference,
       versionNumber: Number(completed.report.version_number),
       supersededReportId: completed.superseded_report_id ?? null,
-      generationMode: prepared.mode,
-      evidenceChecksum: prepared.evidenceChecksum,
+      generationMode: prepared?.mode,
+      evidenceChecksum: prepared?.evidenceChecksum,
       message: `Report version ${completed.report.version_number} generated and verified successfully.`
     };
   } catch (error) {
