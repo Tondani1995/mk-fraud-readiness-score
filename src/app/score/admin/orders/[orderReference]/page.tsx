@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { FulfilmentActions } from '@/components/admin/FulfilmentActions';
 import { FulfilmentReviewPanel } from '@/components/admin/FulfilmentReviewPanel';
 import { DeliveryAccessPanel } from '@/components/admin/DeliveryAccessPanel';
+import { ManualDeliveryPanel } from '@/components/admin/ManualDeliveryPanel';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -101,6 +102,19 @@ export default async function AdminOrderDetailPage(
     ...(reportResult.failedQuery ? [reportResult.failedQuery] : [])
   ];
   const latestReport = reportVersions[0] ?? null;
+  // Manual delivery record: MK emailed the report and recorded it. Separate from the
+  // provider delivery authorisations shown in the Release C panel.
+  const { data: manualDelivery } = latestReport
+    ? await db.from('manual_report_deliveries')
+        .select('delivered_at,recipient_email,delivered_by')
+        .eq('report_id', latestReport.id).maybeSingle()
+    : { data: null };
+  // Resolved separately rather than as an embedded join: the delivery row is the
+  // authoritative record, and a failure to resolve the actor's display name must not
+  // make a recorded delivery look as though it never happened.
+  const { data: manualDeliveryActor } = manualDelivery?.delivered_by
+    ? await db.from('admin_profiles').select('full_name,email').eq('id', manualDelivery.delivered_by).maybeSingle()
+    : { data: null };
   const storageCandidate = Boolean(latestReport?.storage_bucket && latestReport?.storage_path && latestReport?.checksum);
   const storageReady = Boolean(latestReport?.storage_status === 'VERIFIED' && latestReport.storage_bucket && latestReport.storage_path);
   const generationState = operations.latestGeneration?.status ?? (storageReady ? 'REPORT_READY' : 'NOT_REQUESTED');
@@ -241,6 +255,18 @@ export default async function AdminOrderDetailPage(
             />
           </CardContent>
         </Card></div>
+
+        <ManualDeliveryPanel
+          orderReference={order.order_reference}
+          organisationName={order.organisation_name ?? assessment?.organisations?.legal_name ?? assessment?.organisations?.trading_name ?? 'your organisation'}
+          reportReference={latestReport?.report_reference ?? null}
+          reportFileName={latestReport?.file_name ?? null}
+          recipientEmail={order.customer_email ?? assessment?.respondents?.email ?? null}
+          storageReady={storageReady}
+          paymentConfirmed={order.status === 'payment_received'}
+          deliveredAt={manualDelivery?.delivered_at ?? null}
+          deliveredBy={manualDeliveryActor?.full_name ?? manualDeliveryActor?.email ?? null}
+        />
 
         <Card>
           <CardHeader><CardTitle>Payment automation</CardTitle></CardHeader>
