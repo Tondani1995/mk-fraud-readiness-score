@@ -23,6 +23,29 @@ function requestOriginFor(requestHeaders: Pick<Headers, 'get'>) {
   return `${proto}://${host}`;
 }
 
+/**
+ * Customer-facing explanation for a snapshot that cannot be opened.
+ *
+ * The raw reason was previously printed as "Reason: missing_token", which tells a
+ * customer nothing and exposes an internal code. The codes still flow through the
+ * component so the branch that produced the failure is unchanged; only what the
+ * customer reads is different. Unrecognised reasons fall back to the general message
+ * rather than printing whatever string arrived -- validation.reason comes from the
+ * token validator and is not a vetted customer string.
+ */
+function accessMessage(reason: string) {
+  switch (reason) {
+    case 'missing_token':
+      return 'Open your snapshot using the private link we sent you after you submitted the assessment.';
+    case 'rate_limited':
+      return 'Too many attempts have been made to open this snapshot. Please wait a few minutes and try your private link again.';
+    case 'snapshot_not_available':
+      return 'Your snapshot is not available yet. If you have just submitted the assessment, please try your private link again shortly.';
+    default:
+      return 'This snapshot link is no longer valid. Please use the most recent private link we sent you, or request a new one.';
+  }
+}
+
 function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason: string }) {
   return (
     <SectionShell className="py-12">
@@ -41,7 +64,7 @@ function AccessError({ assessmentRef, reason }: { assessmentRef: string; reason:
         <CardContent>
           <div className="rounded-xl border border-mk-danger/30 bg-mk-danger/10 p-4 text-sm leading-6 text-mk-danger">
             <p className="font-semibold">Snapshot cannot be opened.</p>
-            <p className="mt-2">Reason: {reason}. Use the private snapshot link created after the assessment was submitted.</p>
+            <p className="mt-2">{accessMessage(reason)}</p>
           </div>
         </CardContent>
       </Card>
