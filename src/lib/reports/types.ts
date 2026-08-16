@@ -202,6 +202,12 @@ export interface AssembledReportData {
   expectedQuestionTraceCount: number;
   actualQuestionTraceCount: number;
   adaptiveScope?: AdaptiveResultMetrics | null;
+  /**
+   * Operating-model answers captured at the adaptive gateways, keyed by gateway question
+   * id. Read-only narrative evidence: no scoring, maturity or applicability decision may
+   * depend on it. Empty for assessments taken before the adaptive graph existed.
+   */
+  adaptiveGatewayAnswers?: Readonly<Record<string, string>>;
 }
 
 export interface ContentBlock {

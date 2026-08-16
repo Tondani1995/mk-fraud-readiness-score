@@ -292,6 +292,26 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
 
   if (traceError) throw new ReportAssemblyError('score_run_missing_question_traces', `Failed to load question traces for score run ${scoreRunRow.id}.`);
 
+  // Operating-model evidence the customer already gave at the adaptive gateways.
+  //
+  // Read-only and additive. Scoring never sees it: question traces flatten applicability
+  // to a single boolean, which by scoring time is true for almost every control, so the
+  // assembled data carried no way to tell a cash-handling multi-site operator from a
+  // single-site online one. Report narrative needs that distinction; nothing analytical
+  // does. Absent rows are normal for pre-adaptive assessments and yield an empty map.
+  const { data: gatewayRows } = await supabase
+    .from('adaptive_gateway_answers')
+    .select('question_id, response_value')
+    .eq('assessment_id', scoreRunRow.assessment_id);
+
+  const adaptiveGatewayAnswers: Readonly<Record<string, string>> = Object.freeze(
+    Object.fromEntries(
+      (gatewayRows ?? [])
+        .filter((row: any) => typeof row?.question_id === 'string' && typeof row?.response_value === 'string')
+        .map((row: any) => [row.question_id, row.response_value])
+    )
+  );
+
   const questionTraces: QuestionTraceRecord[] = (traceRows ?? []).map((row: any) => ({
     questionCode: row.questions.question_code,
     domainCode: row.questions.domains.domain_code,
@@ -474,6 +494,7 @@ export async function assembleReportData(orderReference: string): Promise<Assemb
     actualDomainResultCount: Number(actualDomainCount ?? 0),
     expectedQuestionTraceCount: Number(expectedTraceCount ?? 0),
     actualQuestionTraceCount: Number(actualTraceCount ?? 0),
-    adaptiveScope: scoreRunRow.adaptive_metrics_json && Object.keys(scoreRunRow.adaptive_metrics_json).length ? scoreRunRow.adaptive_metrics_json : null
+    adaptiveScope: scoreRunRow.adaptive_metrics_json && Object.keys(scoreRunRow.adaptive_metrics_json).length ? scoreRunRow.adaptive_metrics_json : null,
+    adaptiveGatewayAnswers
   };
 }

@@ -6,6 +6,7 @@ import type { FraudPathwayFamily, PrimarySemanticFamily } from '../evidence-mode
 import { buildDecisionOptionSets } from '../comprehensive/decision-options';
 import { REPORTING_BIBLE_VERSION } from '../reporting-bible';
 import { buildNarrativeMaturationSteps, type NarrativeMaturationStep } from './maturation';
+import { deriveSupportedOperatingExposures, hasExposure, type OperatingExposureId, type SupportedExposure } from './operating-exposures';
 
 export const NARRATIVE_FACT_PACK_SCHEMA_VERSION = 'mk-reporting-bible-1.1-fact-pack-v1';
 
@@ -92,6 +93,11 @@ export interface NarrativeScenarioFact {
   sourceId: string;
   scenarioFamily: FraudPathwayFamily;
   title: string;
+  /**
+   * The operating exposure that contextualised this scenario, or null when the assessment
+   * established none and the neutral wording was kept. Traceability only -- never rendered.
+   */
+  contextualExposure?: OperatingExposureId | null;
   actorClass: string;
   opportunity: string;
   entryPoint: string;
@@ -303,6 +309,67 @@ const SCENARIO_FAMILY_LANGUAGE: Record<string, ScenarioFamilyLanguage> = {
   incident_response_breakdown: { actorClass: 'An internal or external actor benefiting from delayed incident escalation', opportunity: 'Incident intake, severity decisions and response ownership are not yet sufficiently clear to contain a suspected matter quickly.', entryPoint: 'A suspected-fraud report enters intake without a timely severity decision or named incident owner.', mechanism: 'An actor benefits while a suspected matter moves between teams without a clear containment, investigation or escalation decision.' },
   suppressed_reporting: { actorClass: 'An insider benefiting from a reporting channel that lacks independent protection', opportunity: 'Reporting channels and escalation routes are not yet sufficiently independent to protect concerns from influence or closure by an implicated manager.', entryPoint: 'A concern is raised through a channel visible to, controlled by or dependent on the person implicated in the concern.', mechanism: 'An insider discourages, filters or delays a concern before it reaches an independent decision-maker who can protect the reporter and initiate review.' },
   access_abuse: { actorClass: 'An internal actor using access beyond approved role requirements', opportunity: 'Access rights and exception review are not yet sufficiently aligned to current role requirements.', entryPoint: 'A user entitlement is exercised outside the approved role matrix without independent review.', mechanism: 'An actor uses excess access to initiate, change or approve a value-bearing activity beyond the role’s intended authority.' }
+};
+
+/**
+ * Operating-model framing for a pathway, used only when the assessment establishes it.
+ *
+ * Each variant names the exposure it requires. Where no required exposure is supported,
+ * the pathway keeps its neutral language, which is why every field here is optional and
+ * additive: specificity is an improvement on the default, never a replacement for
+ * evidence. The wording stays inside what the gateways actually capture -- cash, stock,
+ * customer digital activity, refunds, sites, workforce, outsourcing -- and deliberately
+ * avoids concepts the assessment never asks about.
+ */
+interface ScenarioContextVariant {
+  requires: OperatingExposureId;
+  entryPoint?: string;
+  mechanism?: string;
+  actorClass?: string;
+}
+
+/** Ordered most specific first: the first supported variant wins. */
+const SCENARIO_CONTEXT_VARIANTS: Partial<Record<string, ScenarioContextVariant[]>> = {
+  DETECTION_EVASION: [
+    { requires: 'SIGNIFICANT_CASH_HANDLING',
+      entryPoint: 'Cash takings, banking or reconciliation activity across the operation falls outside the expected pattern without a timely review route.',
+      mechanism: 'An actor times or splits cash handling and banking activity so that shortfalls stay inside normal variance and outside the available reconciliation and exception review.' },
+    { requires: 'REFUNDS_AND_ADJUSTMENTS',
+      entryPoint: 'A refund, credit note or manual adjustment falls outside the expected pattern without a timely review route.',
+      mechanism: 'An actor keeps refunds, credits or adjustments individually small and routine so they remain below or outside the available monitoring and exception thresholds.' },
+    { requires: 'DISTRIBUTED_OPERATIONS',
+      entryPoint: 'Activity at one site or operating location falls outside the expected pattern without a timely central review route.',
+      mechanism: 'An actor relies on activity being reviewed locally rather than compared across sites, so an unusual pattern at one location is never challenged centrally.' }
+  ],
+  PRIVILEGED_ACCESS_MISUSE: [
+    { requires: 'DIGITAL_CUSTOMER_ACTIVITY',
+      entryPoint: 'A privileged or administrative account with authority over customer accounts, payments or order records remains usable without independent periodic review.',
+      mechanism: 'An actor uses privileged access to alter a customer account, payment instruction or transaction record and relies on weak recertification to avoid timely challenge.' },
+    { requires: 'DISTRIBUTED_OPERATIONS',
+      entryPoint: 'A privileged or administrative account used across multiple operating locations remains usable without independent periodic review.',
+      mechanism: 'An actor uses access granted for one location to alter records or entitlements affecting others, where no single owner reviews entitlements across the whole operation.' }
+  ],
+  SUPPLIER_PAYMENT_DIVERSION: [
+    { requires: 'OUTSOURCED_SUPPLIER_MANAGEMENT',
+      entryPoint: 'A supplier or bank-detail amendment is processed by the external provider shortly before a scheduled payment.',
+      mechanism: 'An actor submits a credible-looking bank-detail change into an outsourced process the organisation does not itself verify, and value is released before the change is independently challenged.' },
+    { requires: 'INTERNAL_SUPPLIER_MANAGEMENT',
+      entryPoint: 'A supplier or bank-detail amendment is submitted internally shortly before a scheduled payment.',
+      mechanism: 'An actor submits a credible-looking bank-detail change and relies on the same team both accepting and approving it to divert a genuine payment.' }
+  ],
+  INCIDENT_CONCEALMENT: [
+    { requires: 'DISTRIBUTED_OPERATIONS',
+      entryPoint: 'A suspected matter arises at one operating location and generates records there before a retention, legal-hold or custody decision is made centrally.',
+      mechanism: 'An actor relies on records staying with the location where the matter arose, so the scope and timing become harder to establish once the matter is escalated.' }
+  ],
+  IDENTITY_IMPERSONATION: [
+    { requires: 'DIGITAL_CUSTOMER_ACTIVITY',
+      entryPoint: 'A customer account, payment instruction or profile is created or materially changed through a digital channel without an independent verification step.',
+      mechanism: 'An actor uses an impersonated or insufficiently verified identity to obtain payment, credit or account authority through the organisation\'s digital channel.' },
+    { requires: 'TEMPORARY_OR_SUBCONTRACTED_WORKFORCE',
+      entryPoint: 'A worker, contractor or engaged party is onboarded or materially changed without an independent verification step.',
+      mechanism: 'An actor relies on temporary or subcontracted engagement processes to establish an identity that carries access or payment entitlement without independent verification.' }
+  ]
 };
 
 interface FraudPathwayRule {
@@ -535,7 +602,10 @@ function fallbackWarnings(family: FraudPathwayFamily): string[] {
   } as Record<string, string[]>)[family.toLowerCase()];
 }
 
-function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | undefined, members: MaterialFinding[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, risks: RiskRegisterEntry[], index: number): NarrativeScenarioFact {
+function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | undefined, members: MaterialFinding[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, risks: RiskRegisterEntry[], index: number, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact {
+  // First variant whose required exposure the assessment establishes; otherwise neutral.
+  const contextVariant = (SCENARIO_CONTEXT_VARIANTS[rule.family] ?? []).find((variant) => hasExposure(exposures, variant.requires));
+  const contextEvidence: OperatingExposureId | null = contextVariant?.requires ?? null;
   const linkedFindingIds = members.map((finding) => finding.id);
   const linkedRisks = risks.filter((risk) => risk.linkedFindingIds.some((id) => linkedFindingIds.includes(id)));
   const title: Record<string, string> = {
@@ -577,10 +647,11 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
     sourceId: source?.id ?? `SYNTH-${rule.family.toUpperCase()}`,
     scenarioFamily: rule.family,
     title: title[rule.family.toLowerCase()],
-    actorClass: rule.language.actorClass,
+    actorClass: contextVariant?.actorClass ?? rule.language.actorClass,
     opportunity: rule.language.opportunity,
-    entryPoint: rule.language.entryPoint,
-    mechanism: rule.language.mechanism,
+    entryPoint: contextVariant?.entryPoint ?? rule.language.entryPoint,
+    mechanism: contextVariant?.mechanism ?? rule.language.mechanism,
+    contextualExposure: contextEvidence,
     currentControlWeakness: currentWeakness,
     requiredControlResponse: unique(members.map((finding) => finding.recommendedControl)).join('; '),
     concealment: text(source?.concealmentMechanism, rule.family === 'INCIDENT_CONCEALMENT' ? 'A delayed report, incomplete record or unclear custody trail makes the matter harder to reconstruct and contain.' : 'An actor relies on ordinary-looking activity, weak exception review or incomplete audit records to avoid timely challenge.'),
@@ -593,7 +664,7 @@ function synthesizeScenario(rule: FraudPathwayRule, source: PlausibleScenario | 
   };
 }
 
-function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFinding[], risks: RiskRegisterEntry[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, tier: NarrativeProductTier): NarrativeScenarioFact[] {
+function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFinding[], risks: RiskRegisterEntry[], findingRefs: Map<string, string>, riskRefs: Map<string, string>, tier: NarrativeProductTier, exposures: readonly SupportedExposure[] = []): NarrativeScenarioFact[] {
   const candidates = FRAUD_PATHWAY_RULES.map((rule) => ({ rule, members: pathwayMembers(rule, findings) }))
     .filter((item) => item.members.length > 0)
     .filter((item) => risks.some((risk) => risk.linkedFindingIds.some((id) => item.members.some((finding) => finding.id === id))))
@@ -602,7 +673,7 @@ function buildScenarioFacts(scenarios: PlausibleScenario[], findings: MaterialFi
   const selected = candidates.slice(0, limit);
   const result = selected.map(({ rule, members }, index) => {
     const source = scenarios.find((scenario) => ruleForScenario(scenario, findings)?.family === rule.family && scenario.linkedFindingIds.some((id) => members.some((finding) => finding.id === id)));
-    return synthesizeScenario(rule, source, members, findingRefs, riskRefs, risks, index);
+    return synthesizeScenario(rule, source, members, findingRefs, riskRefs, risks, index, exposures);
   });
   result.forEach(assertScenario);
   return result;
@@ -1006,7 +1077,7 @@ function buildPack(input: {
   const findingRefs = new Map(findings.map((finding) => [finding.sourceId, finding.factRef]));
   const risks = buildRiskFacts(narrativeRisks, narrativeFindings, findingRefs);
   const riskRefs = new Map(risks.map((risk) => [risk.sourceId, risk.factRef]));
-  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier);
+  const scenarios = buildScenarioFacts(narrativeScenarios, narrativeFindings, narrativeRisks, findingRefs, riskRefs, input.tier, deriveSupportedOperatingExposures(input.data?.adaptiveGatewayAnswers));
   const controls = sustainment ? buildSustainmentControls(sustainmentPriorityFacts) : buildControlFacts(input.selectedControls, input.selectedFindings, findingRefs);
   const decisions = sustainment ? buildSustainmentDecisions(sustainmentPriorityFacts) : buildDecisionFacts(input.selectedDecisions, input.selectedFindings, findingRefs, input.decisionSemanticFamilyOverrides)
     .filter((decision, index, all) => all.findIndex((candidate) => JSON.stringify(candidate.options.map((option) => option.option)) === JSON.stringify(decision.options.map((option) => option.option))) === index);
