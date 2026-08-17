@@ -129,3 +129,27 @@ if (failures.length) {
 }
 assert.equal(failures.length, 0);
 console.log('\nPASS: every identity-changing structural difference is fatal; only emphasis is representational.');
+
+// ---- Structural diagnostics (call-18 readiness) ----------------------------
+const { buildManuscriptStructuralDiagnostics } = await import('../../src/lib/reports/narrative/manuscript-diagnostics.ts');
+const diagOf = (markdown) => buildManuscriptStructuralDiagnostics({
+  markdown, blueprint, parsed: parseBlueprintMarkdown(markdown, blueprint)
+});
+
+const dRenamed = diagOf(renamed);
+const mRenamed = dRenamed.mismatches[0];
+console.log(`${mRenamed && mRenamed.expectedTitle && mRenamed.receivedTitle ? 'PASS' : 'FAIL'}  D1  renamed heading yields received-vs-expected  (expected="${mRenamed?.expectedTitle}" received="${mRenamed?.receivedTitle}")`);
+
+const dHier = diagOf(wrongHierarchy);
+const mHier = dHier.mismatches[0];
+console.log(`${mHier && mHier.expectedLevel !== mHier.receivedLevel ? 'PASS' : 'FAIL'}  D2  wrong hierarchy yields level diagnostic  (expected h${mHier?.expectedLevel} received h${mHier?.receivedLevel})`);
+
+const dMissing = diagOf(missingHeading);
+console.log(`${dMissing.receivedHeadingCount < dMissing.expectedHeadingCount ? 'PASS' : 'FAIL'}  D3  missing heading yields count diagnostic  (${dMissing.receivedHeadingCount}/${dMissing.expectedHeadingCount})`);
+
+const dNoProse = diagOf(noNarrative);
+const absent = dNoProse.parseErrors.filter((e) => e.code.startsWith('missing')).map((e) => e.path);
+console.log(`${absent.length > 0 ? 'PASS' : 'FAIL'}  D4  missing narrative yields exact blueprint path  (${absent.slice(0, 3).join(',')})`);
+
+const dExact = diagOf(exact);
+console.log(`${dExact.mismatches.length === 0 ? 'PASS' : 'FAIL'}  D5  exact manuscript yields no mismatch  (${dExact.mismatches.length})`);

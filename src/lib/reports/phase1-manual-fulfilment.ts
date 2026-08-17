@@ -561,7 +561,9 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, advisoryModel, essentialProjection),
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model)
+        // One provider request per Generate. Tail, repair and coherence remain available
+        // globally; they simply cannot be spent silently inside an acceptance generation.
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
       });
       essentialNarrative = composed.narrative;
       console.info('essential_manuscript_generation', {

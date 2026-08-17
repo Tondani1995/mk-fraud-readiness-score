@@ -127,15 +127,38 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   readonly model: string;
   readonly promptVersion = WHOLE_MANUSCRIPT_PROMPT_VERSION;
 
-  constructor(model = selectNarrativeModel().requestedModel) {
+  /**
+   * Optional ceiling on provider requests for one writeManuscript call.
+   *
+   * Recovery is unchanged by default. Acceptance runs set this to 1 so a single Generate
+   * cannot silently spend a second call on tail completion, semantic repair or a
+   * coherence pass -- which is how two calls were consumed and billed while the system
+   * recorded none. Exceeding it fails closed rather than dispatching.
+   */
+  private readonly providerCallBudget: number;
+  private providerCallsUsed = 0;
+
+  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}) {
     const resolved = requireProvider(model);
     this.provider = resolved.provider;
     this.model = resolved.model;
+    this.providerCallBudget = options.providerCallBudget ?? Number.POSITIVE_INFINITY;
+  }
+
+  /** Charged immediately before every provider request. */
+  private chargeProviderCall(kind: string): void {
+    if (this.providerCallsUsed >= this.providerCallBudget) {
+      const error = new Error(`provider_call_budget_exhausted: ${kind} would exceed the ${this.providerCallBudget}-call ceiling for this generation.`);
+      (error as { code?: string }).code = 'provider_call_budget_exhausted';
+      throw error;
+    }
+    this.providerCallsUsed += 1;
   }
 
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
     const prompt = generationPrompt(input);
+    this.chargeProviderCall('initial');
     const response = await generateText({
       model: this.model,
       system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
@@ -218,6 +241,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     if (!tail.ok || !tail.missingHeadings.length) throw new Error(`Tail completion requires a deterministic missing suffix: ${tail.errors.join(' | ')}`);
     const prompt = tailPrompt(input, tail);
     const maxOutputTokens = deriveTailOutputTokenLimit(input.context.outputBudget, tail.missingHeadings.length);
+    this.chargeProviderCall('tail');
     const response = await generateText({
       model: this.model,
       system: 'You are the constrained MK Fraud Readiness v1.1 tail-completion writer. The deterministic Blueprint decides the report. Return only the missing Markdown tail; never rewrite existing content.',
@@ -261,6 +285,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       `REQUIRED MANAGEMENT TAKEAWAY: ${input.requiredManagementTakeaway}`,
       `ASSURANCE BOUNDARY: ${input.assuranceBoundary}`
     ].join('\n');
+    this.chargeProviderCall('repair');
     const response = await generateText({
       model: this.model,
       system: 'You are the constrained MK Fraud Readiness v1.1 targeted semantic repair writer. Return only safe replacement prose for the bounded block.',
@@ -295,6 +320,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       'CURRENT MANUSCRIPT',
       input.previousMarkdown
     ].join('\n');
+    this.chargeProviderCall('coherence');
     const response = await generateText({
       model: this.model,
       system: 'You are the constrained MK Fraud Readiness v1.1 coherence editor. Return only the complete Markdown manuscript.',
@@ -335,6 +361,6 @@ function parseCostMicros(response: any): number {
   return Number.isFinite(numericCost) ? Math.round(numericCost * 1_000_000) : 0;
 }
 
-export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel): WholeManuscriptWriter {
-  return new V11WholeManuscriptWriter(model);
+export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}): WholeManuscriptWriter {
+  return new V11WholeManuscriptWriter(model, options);
 }

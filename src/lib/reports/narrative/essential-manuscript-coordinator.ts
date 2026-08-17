@@ -2,6 +2,7 @@ import type { NarrativeFactPack } from './fact-pack';
 import type { WholeManuscriptWriter, WholeManuscriptTextResult } from './manuscript';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from './story-plan';
 import { buildReportBlueprint, buildWholeManuscriptContext, type ReportBlueprint } from './report-blueprint';
+import { buildManuscriptStructuralDiagnostics, type ManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import {
   parseBlueprintMarkdown,
   validateBlueprintTextManuscript,
@@ -55,6 +56,8 @@ export interface EssentialManuscriptDiagnostics {
   parseOk?: boolean;
   parseErrors?: Array<{ code: string; path: string }>;
   validationCode?: string;
+  /** Heading-level evidence for a manuscript that would not bind. */
+  structural?: ManuscriptStructuralDiagnostics;
 }
 
 export class EssentialManuscriptError extends Error {
@@ -126,7 +129,10 @@ export async function composeEssentialManuscript(input: {
       {
         ...diagnosticsFrom('parse_manuscript', writerIdentity, manuscript),
         parseOk: false,
-        parseErrors: narrative.errors.map((issue) => ({ code: issue.code, path: issue.path }))
+        parseErrors: narrative.errors.map((issue) => ({ code: issue.code, path: issue.path })),
+        structural: buildManuscriptStructuralDiagnostics({
+          markdown: manuscript.markdown, blueprint: authoritativeBlueprint, parsed: narrative
+        })
       }
     );
   }
