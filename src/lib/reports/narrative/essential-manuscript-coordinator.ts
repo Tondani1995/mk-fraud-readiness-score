@@ -66,6 +66,8 @@ export interface EssentialManuscriptDiagnostics {
   parseOk?: boolean;
   parseErrors?: Array<{ code: string; path: string }>;
   validationCode?: string;
+  /** Every hard-truth rule that fired, so a rejection names itself. */
+  validationIssues?: Array<{ code: string; path: string; message: string }>;
   /** Heading-level evidence for a manuscript that would not bind. */
   structural?: ManuscriptStructuralDiagnostics;
   /** Outcome of classifyWholeManuscriptGeneration, when the writer rejected the response. */
@@ -180,7 +182,19 @@ export async function composeEssentialManuscript(input: {
     throw new EssentialManuscriptError(
       'validate_manuscript',
       error instanceof Error ? error.message : 'The manuscript failed validation.',
-      { ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript), parseOk: true, validationCode: (report as any)?.issues?.[0]?.code }
+      {
+        ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
+        parseOk: true,
+        // report.issues does not exist: the report groups issues by severity, and
+        // assertBlueprintTextValidation fails on hardTruth. Reading the wrong field meant
+        // a validation rejection recorded no rule at all.
+        validationCode: report.hardTruth.issues[0]?.code,
+        validationIssues: report.hardTruth.issues.map((issue) => ({
+          code: issue.code,
+          path: issue.path,
+          message: String(issue.message ?? '').slice(0, 200)
+        }))
+      }
     );
   }
 
