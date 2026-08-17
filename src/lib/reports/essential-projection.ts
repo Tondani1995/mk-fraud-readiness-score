@@ -402,7 +402,27 @@ export function buildEssentialProjection(
   // operating routes and formal titles the customer never evidenced are neutralised here
   // rather than in the authoritative playbooks, which Comprehensive also consumes.
   const adaptation = buildEssentialAdaptationContext(data.adaptiveGatewayAnswers);
-  void adaptEssentialText; void adaptation; // wiring completed in follow-up; helper proven by tests
+  const adapt = (value: unknown): string => adaptEssentialText(String(value ?? ''), adaptation);
+  /**
+   * Adapt the customer-facing strings of an Essential-only copy of an object.
+   *
+   * The shared AdvisoryEvidenceModel is never mutated -- Comprehensive consumes it -- so
+   * every projected record is copied before its text is adapted. Identifiers, references
+   * and numeric values are left exactly as they are; only prose the customer reads is
+   * touched, and only where the assessment does not license its specificity.
+   */
+  /** Keys carrying identity or references, which must never be rewritten. */
+  const IDENTIFIER_KEY = /(^id$|Id$|Ids$|Ref$|Refs$|Code$|code$|^phase$|^targetPeriod$|^severity$|^materialityClass$|^status$|Class$|Family$)/;
+  const adaptRecord = <T>(record: T): T => {
+    if (typeof record === 'string') return adapt(record) as unknown as T;
+    if (Array.isArray(record)) return record.map((item) => adaptRecord(item)) as unknown as T;
+    if (!record || typeof record !== 'object') return record;
+    const copy: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(record as Record<string, unknown>)) {
+      copy[key] = IDENTIFIER_KEY.test(key) ? value : adaptRecord(value as unknown);
+    }
+    return copy as unknown as T;
+  };
   const systemic = detectSystemicCondition(data);
   const findings = selectEssentialFindings(model, systemic.systemic);
   const selectedFindingIds = new Set(findings.map((finding) => finding.id));
@@ -477,13 +497,13 @@ export function buildEssentialProjection(
 
   return {
     systemic,
-    findings,
-    risks,
-    controlActionRecords,
-    appendixControlActionRecords,
-    roadmapActions,
+    findings: adaptRecord(findings),
+    risks: adaptRecord(risks),
+    controlActionRecords: adaptRecord(controlActionRecords),
+    appendixControlActionRecords: adaptRecord(appendixControlActionRecords),
+    roadmapActions: adaptRecord(roadmapActions),
     evidenceToObtain,
-    scenarios,
+    scenarios: adaptRecord(scenarios),
     contradictions,
     leadershipDecisions,
     universe: {

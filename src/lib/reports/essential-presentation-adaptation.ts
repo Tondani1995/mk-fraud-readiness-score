@@ -6,9 +6,9 @@ import { deriveSupportedOperatingExposures, hasExposure, type SupportedExposure 
  * The question playbooks are authoritative and shared with Comprehensive, so they are not
  * rewritten here. They do, however, carry two things that reached a customer who had no
  * evidence for either: illustrative operating routes such as refund abuse and stock
- * write-offs, and formal enterprise titles such as Chief Technology Officer. A 28-person
- * professional-services firm with no stock and no recorded structure was told to route
- * work through both.
+ * write-offs, and formal enterprise titles such as Chief Technology Officer. A
+ * professional-services organisation with no recorded workforce-size or formal-structure
+ * evidence was told to route work through both.
  *
  * This adapts presentation only. What a control must do, the evidence it requires, its
  * cadence and its escalation threshold are untouched -- only the illustrative route and
@@ -71,8 +71,11 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
   }
 
   for (const [pattern, replacement] of ROLE_ADAPTATIONS) {
-    // A title the assessment actually records is real and may stand.
-    if (context.evidencedTitles.some((title) => pattern.test(title))) continue;
+    // A title the assessment actually records is real and may stand. Matching uses a
+    // non-global copy: a global regex carries lastIndex between calls, so reusing it for
+    // test() would make the same input adapt differently on a second pass.
+    const probe = new RegExp(pattern.source, pattern.flags.replace('g', ''));
+    if (context.evidencedTitles.some((title) => probe.test(title))) continue;
     text = text.replace(pattern, replacement);
   }
 
