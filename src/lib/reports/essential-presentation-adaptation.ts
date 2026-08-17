@@ -88,11 +88,25 @@ function applyEssentialCustomerBoundary(value: string): string {
     .replace(/A threat actor exploits the recorded control condition so that /gi, 'If the assessed weakness is exploited, ')
     .replace(/Misuse can occur when an actor exploits the recorded control condition and /gi, 'The assessed weakness creates a pathway in which ')
     .replace(/An unauthorised actor uses the recorded control condition to create a pathway where /gi, 'If the assessed weakness is exploited, ')
-    // The generic impact fallback must explain the uncertainty rather than expose a placeholder.
-    .replace(/\bImpact requires case-specific validation\./gi, 'The financial consequence depends on the value and transactions affected.')
-    .replace(/\bOperating impact requires case-specific validation\./gi, 'The operational consequence depends on the process, system or records affected.')
-    // Internal authoring punctuation is not customer copy.
-    .replace(/\s+--\s+/g, ' — ');
+    // Handle the more-specific operating fallback before the generic impact fallback; the old
+    // order matched the "Impact" substring inside "Operating impact" and produced malformed copy.
+    .replace(/\bOperating impact requires case-specific validation\.?/gi,
+      'The operational consequence depends on the affected process, system or service.')
+    .replace(/\bImpact requires case-specific validation\.?/gi,
+      'The financial consequence depends on the value and transactions affected.')
+    // Defensive cleanup for text produced by the previous faulty replacement order.
+    .replace(/\bOperating\s+The financial consequence depends on the value and transactions affected\.?/gi,
+      'The operational consequence depends on the affected process, system or service.')
+    // Internal authoring labels/punctuation are not customer copy. Cover ASCII and typographic dashes.
+    .replace(/\bDirect\s*(?:--|—|–|-)\s*/gi, '')
+    .replace(/\s+--\s+/g, ' — ')
+    // Remove a deterministic duplicate introduced when generic location labels are adapted twice.
+    .replace(/\boperating locations\s+and\s+operating locations\b/gi, 'operating locations')
+    // Keep the supporting appendix usable on a printed page without dropping the control intent.
+    .replace(
+      /make the reporting channel reachable externally through a public web route and published contact detail, reference it in supplier onboarding packs, contracts and purchase orders and in customer-facing material where relevant, accept anonymous external reports, and triage them under the same independence and conflict rules as internal reports with feedback provided where the reporter is contactable/gi,
+      'publish an external web/contact route, reference it in relevant supplier and customer materials, permit anonymous reports, apply the same conflict-free triage rules as internal reports, and provide feedback where the reporter is contactable'
+    );
 }
 
 /** Adapt one customer-facing string. Returns it unchanged when everything is licensed. */
@@ -174,19 +188,18 @@ function foundationCandidateScore(
 }
 
 /**
- * A report labelled 30/60/90 must contain real work in all three windows. If the authoritative
- * Essential roadmap has no 30-day item, bring forward a small number of existing dependency-free
- * foundation actions associated with the most material findings. Nothing is invented or
- * duplicated: the same action ids, deliverables, owners, linkages and evidence refs remain; only
- * timing changes. Dependency-free actions are required so the move cannot violate the roadmap
- * graph. Limiting the move to three preserves substantive 60- and 90-day work.
+ * A report labelled 30/60/90 must contain real work in all three windows. Keep several genuine
+ * 30-day foundation actions in the Essential-only model even when an existing 30-day action sits
+ * outside the bounded customer projection. We therefore top the model up to three 30-day actions,
+ * choosing only high-priority dependency-free 60-day foundation work and always leaving at least
+ * one 60-day action untouched. Nothing is invented or duplicated: ids, deliverables, owners,
+ * linkages and evidence refs remain the same; only Essential timing is brought forward.
  */
 function ensureEssentialThirtyDayFoundation<T>(model: T): T {
   if (!model || typeof model !== 'object') return model;
   const record = model as Record<string, unknown>;
   const actions = record.roadmapActions;
   if (!Array.isArray(actions) || actions.length === 0) return model;
-  if (actions.some((item) => item && typeof item === 'object' && (item as EssentialRoadmapCandidate).period === '30 days')) return model;
 
   const materialityByFindingId = new Map<string, number>();
   if (Array.isArray(record.materialFindings)) {
@@ -198,16 +211,28 @@ function ensureEssentialThirtyDayFoundation<T>(model: T): T {
     }
   }
 
+  const existingThirtyDayCount = actions.filter(
+    (item) => item && typeof item === 'object' && (item as EssentialRoadmapCandidate).period === '30 days'
+  ).length;
   const candidates = actions
     .filter((item): item is EssentialRoadmapCandidate => Boolean(item && typeof item === 'object'))
-    .filter((item) => (item.period === '60 days' || item.period === '90 days') && (item.dependencyIds?.length ?? 0) === 0)
+    .filter((item) => item.period === '60 days' && (item.dependencyIds?.length ?? 0) === 0)
     .sort((left, right) =>
       foundationCandidateScore(right, materialityByFindingId) - foundationCandidateScore(left, materialityByFindingId)
       || String(left.id ?? '').localeCompare(String(right.id ?? '')));
-  if (candidates.length === 0) return model;
 
-  const chosen = new Set(candidates.slice(0, Math.min(3, candidates.length)));
-  record.roadmapActions = actions.map((item) => chosen.has(item as EssentialRoadmapCandidate) ? { ...item, period: '30 days' } : item);
+  // Preserve a real 60-day layer. With one or fewer dependency-free 60-day actions there is
+  // nothing safe to bring forward without emptying that window.
+  const convertibleCount = Math.min(
+    Math.max(0, 3 - existingThirtyDayCount),
+    Math.max(0, candidates.length - 1)
+  );
+  if (convertibleCount === 0) return model;
+
+  const chosen = new Set(candidates.slice(0, convertibleCount));
+  record.roadmapActions = actions.map((item) =>
+    chosen.has(item as EssentialRoadmapCandidate) ? { ...item, period: '30 days' } : item
+  );
   return model;
 }
 
