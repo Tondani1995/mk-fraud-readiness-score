@@ -58,6 +58,13 @@ const CONTROL_ACTIVITY_SUBJECT = /\b(?:supplier|bank[- ]detail|payment|profile|i
 const CONTROL_ACTIVITY_ACTION = /\b(?:should|must|require(?:s|d)?|need(?:s)?\s+to|include(?:s)?|involve(?:s)?|subject to|through|before|after|during|retain\s+(?:proof|evidence)|record|complete(?:d)?|is|are)\b/i;
 const DIRECT_CONTROL_ACTIVITY = /\bindependent(?:ly)?\s+(?:verif(?:y|ied)|review(?:ed)?)\s+(?:supplier|bank[- ]detail|payment|profile|identity|privileged(?:[- ]access)?|access|recertification|changes?)\b/i;
 const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
+// A recommendation for the customer to perform an independent review is a control-design action,
+// not a claim that MK, the assessment or the report has provided assurance. Keep the exception
+// deliberately normative: past-tense assertions remain fail-closed unless another existing control
+// activity rule proves them safe.
+const CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW = /(?:^|[.!?]\s+)\s*independently\s+(?:review|verify)\b|\b(?:should|must|need(?:s)?\s+to|is required to|are required to)\s+independently\s+(?:review|verify)\b/i;
+// Even normative wording remains prohibited when the proposed reviewer is MK or the report itself.
+const PROHIBITED_ASSURANCE_SUBJECT = /\b(?:MK|the assessment|this assessment|the findings?|the report|this report)\b.{0,120}\b(?:should|must|need(?:s)?\s+to|is required to|are required to)?\s*independently\s+(?:review|verify)\b/i;
 // Narrow, deterministic exception for the supplied management-versus-assurance role-separation
 // control. Generic independent-review wording remains fail-closed.
 const CUSTOMER_GOVERNANCE_ROLE_SEPARATION = /\b(?:management|internal audit|equivalent assurance function|assurance function)\b.{0,180}\bindependent review(?: responsibilities)?\b|\bindependent review(?: responsibilities)?\b.{0,180}\b(?:management|internal audit|equivalent assurance function|assurance function)\b/i;
@@ -77,12 +84,15 @@ export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassi
 
   const ambiguous = assuranceText.match(AMBIGUOUS_CONTROL_VERIFICATION);
   if (!ambiguous) return null;
-  if (MK_ASSURANCE_ACTOR.test(assuranceText)) return { category: 'prohibited_assurance', matched: ambiguous[0] };
+  if (MK_ASSURANCE_ACTOR.test(assuranceText) || PROHIBITED_ASSURANCE_SUBJECT.test(assuranceText)) {
+    return { category: 'prohibited_assurance', matched: ambiguous[0] };
+  }
 
   const hasControlSubject = CONTROL_ACTIVITY_SUBJECT.test(assuranceText);
   const hasControlAction = CONTROL_ACTIVITY_ACTION.test(assuranceText);
   if ((hasControlSubject && hasControlAction)
     || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
+    || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
     || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
     return { category: 'customer_control_activity', matched: ambiguous[0] };
   }
