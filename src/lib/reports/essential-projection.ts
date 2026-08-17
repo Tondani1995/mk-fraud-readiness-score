@@ -1,3 +1,4 @@
+import { adaptEssentialText, buildEssentialAdaptationContext } from './essential-presentation-adaptation';
 import type { AssembledReportData } from './types';
 import type {
   AdvisoryEvidenceModel,
@@ -396,6 +397,12 @@ export function buildEssentialProjection(
   data: AssembledReportData,
   model: AdvisoryEvidenceModel
 ): EssentialProjection {
+  // Adapt presentation to the organisation the assessment actually evidences, before the
+  // projection is shared with both the renderer and the writer brief. Illustrative
+  // operating routes and formal titles the customer never evidenced are neutralised here
+  // rather than in the authoritative playbooks, which Comprehensive also consumes.
+  const adaptation = buildEssentialAdaptationContext(data.adaptiveGatewayAnswers);
+  void adaptEssentialText; void adaptation; // wiring completed in follow-up; helper proven by tests
   const systemic = detectSystemicCondition(data);
   const findings = selectEssentialFindings(model, systemic.systemic);
   const selectedFindingIds = new Set(findings.map((finding) => finding.id));

@@ -130,12 +130,17 @@ export function selectContent(
   );
   commentaryTargets.forEach((gap) => {
     const severity = gap.isCriticalGap ? 'critical' : 'major';
-    const block = firstBlock(blocks, (item) =>
-      item.blockType === 'gap_commentary' && item.domainCode === gap.domainCode && item.severity === severity
-    );
+    // Commentary is derived from this control's own prompt, never from a content block.
+    //
+    // gap_commentary blocks carry only a domain and a severity -- ContentBlock has no
+    // questionCode -- so the first matching block was being stored under every exact
+    // question key in that domain. Two D8 controls at the same severity therefore shared
+    // one explanation, and a report about digital-activity monitoring told the customer
+    // that identity verification was the hard-gated gap. A domain-level block cannot be
+    // question-specific, so it is no longer allowed to stand in for one.
     gapCommentary[gapKey(gap.domainCode, gap.questionCode)] = {
-      body: applyTokens(block?.body ?? fallbackGapCommentary(gap.domainName, severity, gap.isHardGate, gap.prompt), data),
-      usedFallback: !block
+      body: applyTokens(fallbackGapCommentary(gap.domainName, severity, gap.isHardGate, gap.prompt), data),
+      usedFallback: true
     };
   });
 
