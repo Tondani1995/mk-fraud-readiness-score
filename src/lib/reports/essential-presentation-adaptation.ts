@@ -4,15 +4,14 @@ import { deriveSupportedOperatingExposures, hasExposure, type SupportedExposure 
  * Essential-only presentation adaptation.
  *
  * The question playbooks are authoritative and shared with Comprehensive, so they are not
- * rewritten here. They do, however, carry two things that reached a customer who had no
- * evidence for either: illustrative operating routes such as refund abuse and stock
- * write-offs, and formal enterprise titles such as Chief Technology Officer. A
- * professional-services organisation with no recorded workforce-size or formal-structure
- * evidence was told to route work through both.
+ * rewritten here. They do, however, carry things that can reach a customer without evidence:
+ * illustrative operating routes such as refund abuse and stock write-offs, and formal enterprise
+ * titles or structures such as Chief Technology Officer or an Audit Committee. A smaller
+ * organisation with no recorded workforce-size or formal-structure evidence must not be told it
+ * has those structures.
  *
- * This adapts presentation only. What a control must do, the evidence it requires, its
- * cadence and its escalation threshold are untouched -- only the illustrative route and
- * the owner label change, and only where the assessment does not license them.
+ * This adapts presentation only. What a control must do, the evidence it requires, its cadence and
+ * its escalation threshold are untouched. The shared Comprehensive model is never mutated.
  */
 
 /** Formal titles replaced by function-first ownership when structure is not evidenced. */
@@ -22,8 +21,8 @@ const ROLE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
   [/\bChief People Officer\b|\bChief Human Resources Officer\b/gi, 'People / workforce accountable owner'],
   [/\bHead of (?:People|HR)\b/gi, 'People / workforce accountable owner'],
   [/\bGeneral Counsel\b/gi, 'Legal / investigations accountable owner'],
-  [/\bChair of (?:the )?Audit Committee\b|\bAudit Committee Chair\b/gi, 'Governing body / independent oversight'],
-  [/\bAudit Committee\b/gi, 'Governing body / independent oversight'],
+  [/\bChair of (?:the )?Audit[- ]Committee\b|\bAudit[- ]Committee Chair\b/gi, 'Governing body / independent oversight'],
+  [/\bAudit[- ]Committee\b/gi, 'Governing body / independent oversight'],
   [/\bChief Financial Officer\b|\bCFO\b/gi, 'Finance / operations accountable owner'],
   [/\bChief Operating Officer\b|\bCOO\b/gi, 'Finance / operations accountable owner'],
   [/\bHead of Risk\b|\bChief Risk Officer\b/gi, 'Risk / compliance accountable owner'],
@@ -34,17 +33,18 @@ const ROLE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
 /** Structural assumptions with no gateway evidence behind them. */
 const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
   [/\bpayslip inserts?\b/gi, 'the workforce communication channels used by the organisation'],
-  [/\b(?:depots|branches|sites)\b/gi, 'operating locations']
+  [/\b(?:depots|branches|sites)\b/gi, 'operating locations'],
+  [/\baudit, compliance, operations and risk functions\b/gi, 'relevant operational, control and oversight responsibilities']
 ];
 
 /**
- * Illustrative operating routes, each with the exposure that licenses it. Where the
- * exposure is absent the example is replaced by bounded neutral wording rather than
- * deleted, so the underlying control weakness still reads as a weakness.
+ * Illustrative operating routes, each with the exposure that licenses it. Where the exposure is
+ * absent the example is replaced by bounded neutral wording rather than deleted, so the underlying
+ * control weakness still reads as a weakness.
  */
 const EXPOSURE_GATED_PHRASES: ReadonlyArray<{ pattern: RegExp; requires: string; neutral: string }> = [
-  // The combined phrase names two routes with different evidence, so each half is gated
-  // on its own exposure; only when neither is evidenced does the example become neutral.
+  // The combined phrase names two routes with different evidence, so each half is gated on its own
+  // exposure; only when neither is evidenced does the example become neutral.
   { pattern: /such as refund abuse or stock write-off manipulation/gi, requires: 'BOTH_REFUND_AND_STOCK', neutral: '@@SPLIT@@' },
   { pattern: /\bstock write-off manipulation\b/gi, requires: 'PHYSICAL_STOCK_OR_ASSETS', neutral: 'manipulation of a value-bearing adjustment' },
   { pattern: /\brefund abuse\b/gi, requires: 'REFUNDS_AND_ADJUSTMENTS', neutral: 'misuse of a manual adjustment' },
@@ -58,8 +58,41 @@ export interface EssentialAdaptationContext {
   evidencedTitles: readonly string[];
 }
 
-export function buildEssentialAdaptationContext(gatewayAnswers: Readonly<Record<string, string>> | undefined, evidencedTitles: readonly string[] = []): EssentialAdaptationContext {
+export function buildEssentialAdaptationContext(
+  gatewayAnswers: Readonly<Record<string, string>> | undefined,
+  evidencedTitles: readonly string[] = []
+): EssentialAdaptationContext {
   return { exposures: deriveSupportedOperatingExposures(gatewayAnswers), evidencedTitles };
+}
+
+/**
+ * Customer-visible cleanup that removes presentation artefacts and known unsupported organisational
+ * assertions without changing any score, finding, risk, control or evidence requirement.
+ */
+function applyEssentialCustomerBoundary(value: string): string {
+  return value
+    // The assessment does not contain peer-benchmark or organisation-size evidence.
+    .replace(/\bmeaningfully ahead of many of similar size\b/gi, 'stronger in some assessed areas than in others')
+    .replace(/\bahead of most comparable operating environments\b/gi, 'at a mature reported level across the assessment')
+    // The assessment does not establish workforce count, key-person concentration or succession.
+    .replace(/If the one or two people who currently hold this knowledge left tomorrow,[^.]*\./gi,
+      'If current control knowledge is not documented and transferable, continuity could weaken during staff or role changes.')
+    .replace(/\bfraud defences depend on people(?: right now)?, not systems\b/gi, 'fraud controls are not yet consistently embedded')
+    .replace(/\bconcentration risk in people, not process\b/gi, 'uneven process embedding and control consistency')
+    .replace(/\bdependency on specific people rather than embedded process\b/gi, 'uneven process embedding and control consistency')
+    .replace(/\bprotection still relies on specific people being present, informed and paying attention, rather than being built into the way the organisation works every day\b/gi,
+      'controls are present but are not yet consistently embedded, documented and evidenced across the assessed environment')
+    .replace(/\ba basic response process that does not depend on one person being available when pressure hits\b/gi,
+      'a basic response process with clear ownership and continuity when pressure hits')
+    // Deterministic scenario prose should read as advisory analysis, not a generation template.
+    .replace(/A threat actor exploits the recorded control condition so that /gi, 'If the assessed weakness is exploited, ')
+    .replace(/Misuse can occur when an actor exploits the recorded control condition and /gi, 'The assessed weakness creates a pathway in which ')
+    .replace(/An unauthorised actor uses the recorded control condition to create a pathway where /gi, 'If the assessed weakness is exploited, ')
+    // The generic impact fallback must explain the uncertainty rather than expose a placeholder.
+    .replace(/\bImpact requires case-specific validation\./gi, 'The financial consequence depends on the value and transactions affected.')
+    .replace(/\bOperating impact requires case-specific validation\./gi, 'The operational consequence depends on the process, system or records affected.')
+    // Internal authoring punctuation is not customer copy.
+    .replace(/\s+--\s+/g, ' — ');
 }
 
 /** Adapt one customer-facing string. Returns it unchanged when everything is licensed. */
@@ -83,9 +116,9 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
   }
 
   for (const [pattern, replacement] of ROLE_ADAPTATIONS) {
-    // A title the assessment actually records is real and may stand. Matching uses a
-    // non-global copy: a global regex carries lastIndex between calls, so reusing it for
-    // test() would make the same input adapt differently on a second pass.
+    // A title the assessment actually records is real and may stand. Matching uses a non-global
+    // copy: a global regex carries lastIndex between calls, so reusing it for test() would make the
+    // same input adapt differently on a second pass.
     const probe = new RegExp(pattern.source, pattern.flags.replace('g', ''));
     if (context.evidencedTitles.some((title) => probe.test(title))) continue;
     text = text.replace(pattern, replacement);
@@ -95,23 +128,102 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
     text = text.replace(pattern, replacement);
   }
 
+  text = applyEssentialCustomerBoundary(text);
+
   // Collapse any duplicate owner label produced by two titles mapping to one function.
   return text.replace(/\b([A-Z][a-z]+ \/ [a-z]+ accountable owner)(\s*\/\s*\1)+/g, '$1');
 }
 
-
 /** Keys carrying identity or references, which must never be rewritten. */
 const IDENTIFIER_KEY = /(^id$|Id$|Ids$|Ref$|Refs$|Code$|code$|^phase$|^targetPeriod$|^severity$|^materialityClass$|^status$|Class$|Family$)/;
+
+interface EssentialRoadmapCandidate {
+  id?: string;
+  period?: string;
+  domainCode?: string;
+  deliverable?: string;
+  processOwner?: string;
+  accountableExecutive?: string;
+  dependencyIds?: unknown[];
+  linkedFindingIds?: unknown[];
+}
+
+const FOUNDATION_DOMAIN_PRIORITY: Readonly<Record<string, number>> = {
+  D1: 60,
+  D2: 55,
+  D5: 50,
+  D6: 45,
+  D4: 40,
+  D10: 35
+};
+
+function foundationCandidateScore(
+  action: EssentialRoadmapCandidate,
+  materialityByFindingId: ReadonlyMap<string, number>
+): number {
+  const text = `${action.deliverable ?? ''} ${action.processOwner ?? ''} ${action.accountableExecutive ?? ''}`;
+  const keywordScore = /owner|govern|escalat|risk register|monitor|report|evidence|intake|preserv/i.test(text) ? 200 : 0;
+  const periodScore = action.period === '60 days' ? 100 : 0;
+  const linkedMateriality = (action.linkedFindingIds ?? [])
+    .map((id) => materialityByFindingId.get(String(id)) ?? 0)
+    .reduce((highest, score) => Math.max(highest, score), 0);
+  return linkedMateriality * 10
+    + (FOUNDATION_DOMAIN_PRIORITY[action.domainCode ?? ''] ?? 0)
+    + keywordScore
+    + periodScore;
+}
+
+/**
+ * A report labelled 30/60/90 must contain real work in all three windows. If the authoritative
+ * Essential roadmap has no 30-day item, bring forward a small number of existing dependency-free
+ * foundation actions associated with the most material findings. Nothing is invented or
+ * duplicated: the same action ids, deliverables, owners, linkages and evidence refs remain; only
+ * timing changes. Dependency-free actions are required so the move cannot violate the roadmap
+ * graph. Limiting the move to three preserves substantive 60- and 90-day work.
+ */
+function ensureEssentialThirtyDayFoundation<T>(model: T): T {
+  if (!model || typeof model !== 'object') return model;
+  const record = model as Record<string, unknown>;
+  const actions = record.roadmapActions;
+  if (!Array.isArray(actions) || actions.length === 0) return model;
+  if (actions.some((item) => item && typeof item === 'object' && (item as EssentialRoadmapCandidate).period === '30 days')) return model;
+
+  const materialityByFindingId = new Map<string, number>();
+  if (Array.isArray(record.materialFindings)) {
+    for (const item of record.materialFindings) {
+      if (!item || typeof item !== 'object') continue;
+      const finding = item as { id?: unknown; materialityScore?: unknown };
+      if (!finding.id) continue;
+      materialityByFindingId.set(String(finding.id), Number(finding.materialityScore) || 0);
+    }
+  }
+
+  const candidates = actions
+    .filter((item): item is EssentialRoadmapCandidate => Boolean(item && typeof item === 'object'))
+    .filter((item) => (item.period === '60 days' || item.period === '90 days') && (item.dependencyIds?.length ?? 0) === 0)
+    .sort((left, right) =>
+      foundationCandidateScore(right, materialityByFindingId) - foundationCandidateScore(left, materialityByFindingId)
+      || String(left.id ?? '').localeCompare(String(right.id ?? '')));
+  if (candidates.length === 0) return model;
+
+  const chosen = new Set(candidates.slice(0, Math.min(3, candidates.length)));
+  record.roadmapActions = actions.map((item) => chosen.has(item as EssentialRoadmapCandidate) ? { ...item, period: '30 days' } : item);
+  return model;
+}
 
 /**
  * An Essential-only adapted copy of the advisory evidence model.
  *
- * Every Essential consumer -- projection, Fact Pack, renderer and supporting register --
- * must read the same adapted text, or the PDF suppresses a claim the writer still sees.
- * The shared model is deep-copied rather than mutated, because Comprehensive consumes the
- * original and its accepted output must not change.
+ * Every Essential consumer -- projection, Fact Pack, renderer and supporting register -- must read
+ * the same adapted text, or the PDF suppresses a claim the writer still sees. The shared model is
+ * deep-copied rather than mutated, because Comprehensive consumes the original and its accepted
+ * output must not change.
  */
-export function adaptEssentialEvidenceModel<T>(model: T, gatewayAnswers: Readonly<Record<string, string>> | undefined, evidencedTitles: readonly string[] = []): T {
+export function adaptEssentialEvidenceModel<T>(
+  model: T,
+  gatewayAnswers: Readonly<Record<string, string>> | undefined,
+  evidencedTitles: readonly string[] = []
+): T {
   const context = buildEssentialAdaptationContext(gatewayAnswers, evidencedTitles);
   const walk = (value: unknown): unknown => {
     if (typeof value === 'string') return adaptEssentialText(value, context);
@@ -123,5 +235,5 @@ export function adaptEssentialEvidenceModel<T>(model: T, gatewayAnswers: Readonl
     }
     return copy;
   };
-  return walk(model) as T;
+  return ensureEssentialThirtyDayFoundation(walk(model) as T);
 }

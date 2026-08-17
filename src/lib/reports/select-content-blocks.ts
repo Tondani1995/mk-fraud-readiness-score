@@ -1,6 +1,7 @@
 import type { EssentialProjection } from './essential-projection';
 import { getMaturityBand } from '../scoring/maturity-band';
 import { detectSystemicCondition } from './essential-projection';
+import { adaptEssentialText, buildEssentialAdaptationContext } from './essential-presentation-adaptation';
 import type { AssembledReportData, ContentBlock, MaturityBand, SelectedContent } from './types';
 import {
   FALLBACK_CAPPED_DIAGNOSIS,
@@ -13,12 +14,17 @@ import {
 } from './fallback-content';
 
 function applyTokens(text: string, data: AssembledReportData) {
-  return text
+  const tokenised = text
     .replaceAll('{{organisationName}}', data.organisationName)
     .replaceAll('{{overallScore}}', data.scoreRun.overallScore === null ? 'not issued' : String(Math.round(data.scoreRun.overallScore)))
     .replaceAll('{{calculatedMaturity}}', data.scoreRun.calculatedMaturity ?? 'not issued')
     .replaceAll('{{finalMaturity}}', data.scoreRun.finalMaturity ?? 'not issued')
     .replaceAll('{{exposureBand}}', data.scoreRun.exposureBand ?? 'not assessed');
+  // SelectedContent is rendered directly in the executive summary, leadership callout and domain
+  // pages. It does not pass through the v1.1 manuscript validator, which is how unsupported peer,
+  // headcount and formal-structure claims survived a passing manuscript gate. Apply the same
+  // Essential customer boundary here so every visible deterministic narrative surface is bounded.
+  return adaptEssentialText(tokenised, buildEssentialAdaptationContext(data.adaptiveGatewayAnswers));
 }
 
 function activeBlocks(blocks: ContentBlock[]) {
@@ -40,6 +46,24 @@ function firstBlock(blocks: ContentBlock[], predicate: (block: ContentBlock) => 
   return [...matches].sort((a, b) => a.blockKey.localeCompare(b.blockKey))[0];
 }
 
+/**
+ * Content blocks are curated copy, not assessment evidence. Reject a block rather than publish it
+ * when it asserts a peer benchmark, workforce count or key-person concentration the assessment
+ * cannot establish. The deterministic evidence-bounded fallback is used instead.
+ */
+const UNSUPPORTED_CONTENT_BLOCK_FACTS: readonly RegExp[] = [
+  /\b(?:peers?|peer group|similar size|comparable operating environments?)\b/i,
+  /\b(?:ahead of|behind)\s+(?:many|most|other|comparable|similar)\b/i,
+  /\b(?:one|two|\d+)\s+or\s+(?:one|two|\d+)\s+people\b/i,
+  /\b(?:depends?|relies?)\s+on\s+(?:specific\s+|key\s+|named\s+)?people\b/i,
+  /\bconcentration risk in people\b/i
+];
+
+function factSafeBlock(block: ContentBlock | undefined): ContentBlock | undefined {
+  if (!block) return undefined;
+  const text = `${block.title ?? ''} ${block.body ?? ''}`;
+  return UNSUPPORTED_CONTENT_BLOCK_FACTS.some((pattern) => pattern.test(text)) ? undefined : block;
+}
 
 /**
  * Three distinct customer-facing conditions an adaptive assessment can be in. Presence of
@@ -71,7 +95,6 @@ function adaptiveNarrativeState(
   return systemic.systemic ? 'systemic' : 'adaptive_normal';
 }
 
-
 /**
  * Domain copy for a weak aggregate whose underlying responses are not all absent.
  *
@@ -85,6 +108,7 @@ function MIXED_REACTIVE_DOMAIN_FALLBACK(domainName: string) {
     body: 'The overall domain remains weak, but the underlying responses are mixed. Some elements have been reported as present or partly designed while others remain weak or absent. The priority is to make the control environment complete, repeatable and evidenced.'
   };
 }
+
 export function selectContent(
   data: AssembledReportData,
   blocks: ContentBlock[],
@@ -96,10 +120,12 @@ export function selectContent(
   const adaptiveState = adaptiveNarrativeState(data, projection);
   const adaptiveOverride = adaptiveState === 'visibility_limited' || adaptiveState === 'systemic';
 
-  const executive = adaptiveOverride ? undefined : firstBlock(blocks, (block) =>
+  const executive = adaptiveOverride ? undefined : factSafeBlock(firstBlock(blocks, (block) =>
     block.blockType === 'executive_summary' && (capped ? block.severity === 'capped' : block.maturityBand === data.scoreRun.finalMaturity)
-  );
-  const leadership = adaptiveOverride ? undefined : firstBlock(blocks, (block) => block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity);
+  ));
+  const leadership = adaptiveOverride ? undefined : factSafeBlock(firstBlock(blocks, (block) =>
+    block.blockType === 'leadership_attention' && block.maturityBand === data.scoreRun.finalMaturity
+  ));
 
   const domainNarratives: SelectedContent['domainNarratives'] = {};
   for (const domain of data.domainResults) {
@@ -112,9 +138,9 @@ export function selectContent(
       continue;
     }
     const band = bandForScore(domain.rawScore);
-    const block = firstBlock(blocks, (item) =>
+    const block = factSafeBlock(firstBlock(blocks, (item) =>
       item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
-    );
+    ));
     // A Reactive aggregate does not prove every control in the domain is absent. The
     // Reactive copy speaks in absolutes -- "Nothing is watching", "There is no safe route"
     // -- so a domain scoring 40 with partly designed controls told the customer those
@@ -190,7 +216,11 @@ export function gapKey(domainCode: string, questionCode: string) {
   return `${domainCode}::${questionCode}`;
 }
 
-function selectExecutiveSummary(data: AssembledReportData, block: ContentBlock | undefined, adaptiveState: AdaptiveNarrativeState | null): SelectedContent['executiveSummary'] {
+function selectExecutiveSummary(
+  data: AssembledReportData,
+  block: ContentBlock | undefined,
+  adaptiveState: AdaptiveNarrativeState | null
+): SelectedContent['executiveSummary'] {
   // Three distinct conditions, decided once in adaptiveNarrativeState(). An adaptive assessment
   // that is neither visibility-limited nor systemic falls through to the ordinary deterministic
   // diagnosis below -- it must never be labelled systemic merely because adaptiveScope exists.
@@ -245,7 +275,7 @@ function selectFalseComfort(
     };
   }
   const severity = capped ? 'capped' : hasPriorityGaps ? 'not_capped' : 'clean';
-  const block = firstBlock(blocks, (item) => item.blockType === 'false_comfort' && item.severity === severity);
+  const block = factSafeBlock(firstBlock(blocks, (item) => item.blockType === 'false_comfort' && item.severity === severity));
   const fallback = capped
     ? FALLBACK_FALSE_COMFORT_CAPPED
     : hasPriorityGaps
