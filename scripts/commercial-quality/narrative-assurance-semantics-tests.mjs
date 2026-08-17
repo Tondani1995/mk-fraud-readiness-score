@@ -12,7 +12,9 @@ const fail = [
   'MK\'s review confirmed operating effectiveness.',
   'The report provides independent assurance.',
   'This report provides evidence-based assurance.',
-  'The assessment contains evidence-linked validation.'
+  'The assessment contains evidence-linked validation.',
+  'MK should independently review the control and confirm effectiveness.',
+  'This report should independently verify whether the control is effective.'
 ];
 
 const pass = [
@@ -20,7 +22,9 @@ const pass = [
   'Sensitive profile changes require independent verification before approval.',
   'Privileged-access recertification should include independent review.',
   'Management should retain proof that the independent verification step was completed.',
-  'The control design is evidence-based and should be retained for implementation.'
+  'The control design is evidence-based and should be retained for implementation.',
+  'The accountable owner should independently review exception approvals before closure.',
+  'Independently review exception approvals every quarter and retain evidence of completion.'
 ];
 
 const negatedDisclaimer = 'This is a target control design, not a statement that existing evidence has been validated.';
