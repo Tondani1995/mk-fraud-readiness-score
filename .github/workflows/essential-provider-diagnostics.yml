@@ -1,4 +1,4 @@
-name: Essential Provider Diagnostics
+name: Report Provider-Free Regressions
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  provider-diagnostics:
+  report-regressions:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -30,3 +30,6 @@ jobs:
 
       - name: Run provider-free Essential diagnostics
         run: npm run v11:narrative-diagnostics
+
+      - name: Run provider-free Comprehensive customer-visible regressions
+        run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
