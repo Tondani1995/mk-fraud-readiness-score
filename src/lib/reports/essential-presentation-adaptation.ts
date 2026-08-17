@@ -17,18 +17,18 @@ import { deriveSupportedOperatingExposures, hasExposure, type SupportedExposure 
 
 /** Formal titles replaced by function-first ownership when structure is not evidenced. */
 const ROLE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
-  [/\bChief Technology Officer\b|\bCTO\b/g, 'Technology / security accountable owner'],
-  [/\bChief Information Security Officer\b|\bCISO\b/g, 'Technology / security accountable owner'],
-  [/\bChief People Officer\b|\bChief Human Resources Officer\b/g, 'People / workforce accountable owner'],
-  [/\bHead of (?:People|HR)\b/g, 'People / workforce accountable owner'],
-  [/\bGeneral Counsel\b/g, 'Legal / investigations accountable owner'],
-  [/\bChair of (?:the )?Audit Committee\b|\bAudit Committee Chair\b/g, 'Governing body / independent oversight'],
-  [/\bAudit Committee\b/g, 'Governing body / independent oversight'],
-  [/\bChief Financial Officer\b|\bCFO\b/g, 'Finance / operations accountable owner'],
-  [/\bChief Operating Officer\b|\bCOO\b/g, 'Finance / operations accountable owner'],
-  [/\bHead of Risk\b|\bChief Risk Officer\b/g, 'Risk / compliance accountable owner'],
-  [/\bSecurity Operations Centre\b|\bSecurity Operations Center\b|\bSOC\b/g, 'the security monitoring function'],
-  [/\bLearning and Development\b/g, 'the workforce training function']
+  [/\bChief Technology Officer\b|\bCTO\b/gi, 'Technology / security accountable owner'],
+  [/\bChief Information Security Officer\b|\bCISO\b/gi, 'Technology / security accountable owner'],
+  [/\bChief People Officer\b|\bChief Human Resources Officer\b/gi, 'People / workforce accountable owner'],
+  [/\bHead of (?:People|HR)\b/gi, 'People / workforce accountable owner'],
+  [/\bGeneral Counsel\b/gi, 'Legal / investigations accountable owner'],
+  [/\bChair of (?:the )?Audit Committee\b|\bAudit Committee Chair\b/gi, 'Governing body / independent oversight'],
+  [/\bAudit Committee\b/gi, 'Governing body / independent oversight'],
+  [/\bChief Financial Officer\b|\bCFO\b/gi, 'Finance / operations accountable owner'],
+  [/\bChief Operating Officer\b|\bCOO\b/gi, 'Finance / operations accountable owner'],
+  [/\bHead of Risk\b|\bChief Risk Officer\b/gi, 'Risk / compliance accountable owner'],
+  [/\bSecurity Operations Centre\b|\bSecurity Operations Center\b|\bSOC\b/gi, 'the security monitoring function'],
+  [/\bLearning and Development\b/gi, 'the workforce training function']
 ];
 
 /** Structural assumptions with no gateway evidence behind them. */
@@ -42,8 +42,10 @@ const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
  * exposure is absent the example is replaced by bounded neutral wording rather than
  * deleted, so the underlying control weakness still reads as a weakness.
  */
-const EXPOSURE_GATED_PHRASES: ReadonlyArray<{ pattern: RegExp; requires: Parameters<typeof hasExposure>[1]; neutral: string }> = [
-  { pattern: /such as refund abuse or stock write-off manipulation/gi, requires: 'PHYSICAL_STOCK_OR_ASSETS', neutral: 'in a material value-bearing process' },
+const EXPOSURE_GATED_PHRASES: ReadonlyArray<{ pattern: RegExp; requires: string; neutral: string }> = [
+  // The combined phrase names two routes with different evidence, so each half is gated
+  // on its own exposure; only when neither is evidenced does the example become neutral.
+  { pattern: /such as refund abuse or stock write-off manipulation/gi, requires: 'BOTH_REFUND_AND_STOCK', neutral: '@@SPLIT@@' },
   { pattern: /\bstock write-off manipulation\b/gi, requires: 'PHYSICAL_STOCK_OR_ASSETS', neutral: 'manipulation of a value-bearing adjustment' },
   { pattern: /\brefund abuse\b/gi, requires: 'REFUNDS_AND_ADJUSTMENTS', neutral: 'misuse of a manual adjustment' },
   { pattern: /\bstock\b/gi, requires: 'PHYSICAL_STOCK_OR_ASSETS', neutral: 'held assets' },
@@ -65,8 +67,18 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
   if (!value) return value;
   let text = value;
 
+  const stock = hasExposure(context.exposures, 'PHYSICAL_STOCK_OR_ASSETS');
+  const refunds = hasExposure(context.exposures, 'REFUNDS_AND_ADJUSTMENTS');
+  text = text.replace(/such as refund abuse or stock write-off manipulation/gi, () => {
+    if (stock && refunds) return 'such as refund abuse or stock write-off manipulation';
+    if (stock) return 'such as stock write-off manipulation';
+    if (refunds) return 'such as refund abuse';
+    return 'in a material value-bearing process';
+  });
+
   for (const { pattern, requires, neutral } of EXPOSURE_GATED_PHRASES) {
-    if (hasExposure(context.exposures, requires)) continue;
+    if (neutral === '@@SPLIT@@') continue;
+    if (hasExposure(context.exposures, requires as Parameters<typeof hasExposure>[1])) continue;
     text = text.replace(pattern, neutral);
   }
 
@@ -85,4 +97,31 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
 
   // Collapse any duplicate owner label produced by two titles mapping to one function.
   return text.replace(/\b([A-Z][a-z]+ \/ [a-z]+ accountable owner)(\s*\/\s*\1)+/g, '$1');
+}
+
+
+/** Keys carrying identity or references, which must never be rewritten. */
+const IDENTIFIER_KEY = /(^id$|Id$|Ids$|Ref$|Refs$|Code$|code$|^phase$|^targetPeriod$|^severity$|^materialityClass$|^status$|Class$|Family$)/;
+
+/**
+ * An Essential-only adapted copy of the advisory evidence model.
+ *
+ * Every Essential consumer -- projection, Fact Pack, renderer and supporting register --
+ * must read the same adapted text, or the PDF suppresses a claim the writer still sees.
+ * The shared model is deep-copied rather than mutated, because Comprehensive consumes the
+ * original and its accepted output must not change.
+ */
+export function adaptEssentialEvidenceModel<T>(model: T, gatewayAnswers: Readonly<Record<string, string>> | undefined, evidencedTitles: readonly string[] = []): T {
+  const context = buildEssentialAdaptationContext(gatewayAnswers, evidencedTitles);
+  const walk = (value: unknown): unknown => {
+    if (typeof value === 'string') return adaptEssentialText(value, context);
+    if (Array.isArray(value)) return value.map(walk);
+    if (!value || typeof value !== 'object') return value;
+    const copy: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      copy[key] = IDENTIFIER_KEY.test(key) ? item : walk(item);
+    }
+    return copy;
+  };
+  return walk(model) as T;
 }

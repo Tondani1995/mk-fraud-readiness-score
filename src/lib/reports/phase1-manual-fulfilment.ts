@@ -26,6 +26,7 @@ import { logPremiumReportPhase } from './automation/phase-timing';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
+import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -484,9 +485,16 @@ export async function generateManualPhase1Report(
     // renderer, so it branches here and rejoins at storage, where both tiers share the
     // same checksum, upload, verification, register and finalisation path.
     const isComprehensive = reportType === COMPREHENSIVE_REPORT_TYPE;
+    // One adapted model for every Essential consumer. Projection, Fact Pack, renderer and
+    // supporting register must all read the same text: adapting only one of them lets the
+    // PDF suppress a claim the writer still sees. Comprehensive keeps the original model,
+    // so its accepted output is unchanged.
+    const reportEvidenceModel = isComprehensive
+      ? advisoryModel
+      : adaptEssentialEvidenceModel(advisoryModel, assembled.adaptiveGatewayAnswers);
     // ONE bounded projection instance for this generation: the deterministic fallback content,
     // the narrative brief, the renderer and the commercial-quality validator all consume it.
-    const essentialProjection = buildEssentialProjection(assembled, advisoryModel);
+    const essentialProjection = buildEssentialProjection(assembled, reportEvidenceModel);
     // Fail closed before provider dispatch or any customer-visible output.
     assertEssentialProjectionPresent(reportType, essentialProjection, 'Essential narrative preparation');
     const deterministicContent = selectContent(assembled, contentBlocks, essentialProjection);
@@ -560,7 +568,7 @@ export async function generateManualPhase1Report(
       const { composeEssentialManuscript } = await import('./narrative/essential-manuscript-coordinator');
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
-        factPack: buildEssentialNarrativeFactPack(assembled, advisoryModel, essentialProjection),
+        factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
         // One provider request per Generate. Tail, repair and coherence remain available
         // globally; they simply cannot be spent silently inside an acceptance generation.
         writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
@@ -624,7 +632,7 @@ export async function generateManualPhase1Report(
         content: deterministicContent,
         narrative: essentialNarrative,
         roadmap,
-        evidenceModel: advisoryModel
+        evidenceModel: reportEvidenceModel
       });
       logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {
@@ -672,7 +680,7 @@ export async function generateManualPhase1Report(
     const storedRegister = await storeSupportingRegister({
       db,
       data: assembled,
-      model: advisoryModel,
+      model: reportEvidenceModel,
       projection: essentialProjection,
       storageBucket,
       organisationId: assembled.organisationId,

@@ -71,6 +71,20 @@ function adaptiveNarrativeState(
   return systemic.systemic ? 'systemic' : 'adaptive_normal';
 }
 
+
+/**
+ * Domain copy for a weak aggregate whose underlying responses are not all absent.
+ *
+ * The score and maturity band are unchanged; only the wording is, because claiming a
+ * capability does not exist when the customer recorded it as partly designed is a
+ * statement about their organisation that the evidence does not support.
+ */
+function MIXED_REACTIVE_DOMAIN_FALLBACK(domainName: string) {
+  return {
+    headline: `${domainName} is weak and applied unevenly`,
+    body: 'The overall domain remains weak, but the underlying responses are mixed. Some elements have been reported as present or partly designed while others remain weak or absent. The priority is to make the control environment complete, repeatable and evidenced.'
+  };
+}
 export function selectContent(
   data: AssembledReportData,
   blocks: ContentBlock[],
@@ -101,7 +115,16 @@ export function selectContent(
     const block = firstBlock(blocks, (item) =>
       item.blockType === 'domain_narrative' && item.domainCode === domain.domainCode && item.maturityBand === band
     );
-    const fallback = getDomainFallback(domain.domainName, band);
+    // A Reactive aggregate does not prove every control in the domain is absent. The
+    // Reactive copy speaks in absolutes -- "Nothing is watching", "There is no safe route"
+    // -- so a domain scoring 40 with partly designed controls told the customer those
+    // capabilities did not exist. Absolute wording is reserved for evidence of absence.
+    const applicable = (data.questionTraces ?? []).filter((trace) =>
+      trace.domainCode === domain.domainCode && trace.applicable && trace.responseValue !== null);
+    const allAbsent = applicable.length > 0 && applicable.every((trace) => Number(trace.responseValue) === 0);
+    const fallback = band === 'Reactive' && !allAbsent
+      ? MIXED_REACTIVE_DOMAIN_FALLBACK(domain.domainName)
+      : getDomainFallback(domain.domainName, band);
     domainNarratives[domain.domainName] = {
       title: applyTokens(block?.title ?? fallback.headline, data),
       body: applyTokens(block?.body ?? fallback.body, data),
