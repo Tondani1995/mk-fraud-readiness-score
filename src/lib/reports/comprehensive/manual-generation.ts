@@ -7,6 +7,10 @@ import { assembleComprehensive } from './assembly';
 import { buildComprehensiveManagementModel } from './management-model';
 import { renderComprehensiveManagementReportHtml } from './render-comprehensive-html';
 import {
+  adaptComprehensiveEvidenceModel,
+  adaptComprehensiveScenarioFacts
+} from './customer-visible-adaptation';
+import {
   buildInterpretationBrief,
   generateComprehensiveInterpretation,
   interpretationToCommentary,
@@ -37,10 +41,17 @@ export async function renderComprehensiveReportPdf(input: {
   maxRepairsPerSlot?: number;
 }): Promise<{ pdf: Buffer; interpretationRun: InterpretationRun }> {
   const { assembled, evidenceModel } = input;
+
+  // The standing playbooks deliberately carry formal roles, illustrative operating
+  // routes and case-validation placeholders. They remain authoritative analytical
+  // inputs, but Comprehensive must not present those labels as facts about a customer.
+  // Use one adapted copy for every customer-visible Comprehensive consumer so the
+  // interpretation brief, management model and PDF cannot disagree with each other.
+  const customerEvidenceModel = adaptComprehensiveEvidenceModel(evidenceModel);
   const pack = buildEssentialNarrativeFactPack(
     assembled,
-    evidenceModel,
-    buildEssentialProjection(assembled, evidenceModel)
+    customerEvidenceModel,
+    buildEssentialProjection(assembled, customerEvidenceModel)
   );
   // Fail closed before the provider call. A Comprehensive report is an interpretation of
   // a completed score; without one there is nothing to interpret and no report to sell.
@@ -54,7 +65,10 @@ export async function renderComprehensiveReportPdf(input: {
     .map((domain) => ({ name: domain.name, score: domain.score as number, band: getMaturityBand(domain.score as number) }));
 
   const model = buildComprehensiveManagementModel(
-    assembleComprehensive(evidenceModel, { scenarioFacts: pack.scenarios, domains })
+    assembleComprehensive(customerEvidenceModel, {
+      scenarioFacts: adaptComprehensiveScenarioFacts(pack.scenarios),
+      domains
+    })
   );
 
   const interpretationRun = await generateComprehensiveInterpretation(
