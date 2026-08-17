@@ -23,6 +23,9 @@ import type {
   PreparedPremiumReportNarrative
 } from './automation/types';
 import { logPremiumReportPhase } from './automation/phase-timing';
+import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
+import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
+import type { WholeManuscriptWriter } from './narrative/manuscript';
 
 /**
  * V7 Checkpoint B -- narrow, optional dependency-injection seam (default parameters, not a DI
@@ -37,6 +40,8 @@ export interface ManualPhase1Dependencies {
   db?: any;
   assembleReportData?: typeof assembleReportData;
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
+  /** Injected for provider-free proof; production uses the real v1.1 writer. */
+  wholeManuscriptWriter?: WholeManuscriptWriter;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
@@ -519,6 +524,11 @@ export async function generateManualPhase1Report(
       : undefined;
     generationStage = 'prepare_narrative';
     let prepared: PreparedPremiumReportNarrative | undefined;
+    // Essential narrative comes from the v1.1 whole-manuscript path. The legacy
+    // preparePremiumReportNarrative boundary stays closed and is never used as a
+    // fallback: if the manuscript cannot be produced or validated, generation fails
+    // rather than silently reopening a retired pipeline.
+    let essentialNarrative: ParsedBlueprintMarkdown | undefined;
     let comprehensivePdf: Buffer | undefined;
     if (isComprehensive) {
       // One bounded interpretation call against the certified Comprehensive pipeline.
@@ -544,27 +554,16 @@ export async function generateManualPhase1Report(
     } else {
     try {
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
-      const doPrepareNarrative = dependencies.preparePremiumReportNarrative
-        ?? (await import('./automation/narrative-pipeline')).preparePremiumReportNarrative;
-      prepared = await doPrepareNarrative({
-        assembled,
-        deterministicContent,
-        essentialProjection,
-        roadmap,
-        advisoryModel,
-        flags,
-        generator,
-        generationIdentity,
-        manualGenerationAttemptId: attemptId,
-        attemptStore,
-        authorizeAiRoute: generator
-          ? async () => (await import('./automation/ai-route-policy')).authorizePremiumReportAiRoute({
-              provider: generator!.provider,
-              model: generator!.model,
-              db
-            })
-          : undefined
+      // v1.1 whole-manuscript composition. The blueprint decides structure and order,
+      // the existing validator decides acceptability, and deterministic analytics remain
+      // the sole source of every number, finding, risk, control and action on the page.
+      const { composeEssentialManuscript } = await import('./narrative/essential-manuscript-coordinator');
+      const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
+      const composed = await composeEssentialManuscript({
+        factPack: buildEssentialNarrativeFactPack(assembled, advisoryModel, essentialProjection),
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model)
       });
+      essentialNarrative = composed.narrative;
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {
       if (isReportCommercialQualityError(error)) {
@@ -581,12 +580,9 @@ export async function generateManualPhase1Report(
       throw error;
     }
     generationStage = 'persist_narrative_provenance';
-    await doPersistNarrativeProvenance({
-      db,
-      manualGenerationAttemptId: attemptId,
-      prepared,
-      flags
-    });
+    if (prepared) {
+      await doPersistNarrativeProvenance({ db, manualGenerationAttemptId: attemptId, prepared, flags });
+    }
     }
 
     if (process.env.NODE_ENV !== 'production' && process.env.PHASE1_TEST_FORCE_PDF_FAILURE === '1') {
@@ -609,7 +605,8 @@ export async function generateManualPhase1Report(
       // content and must not be applied to it.
       pdf = comprehensivePdf ?? await doRenderValidatedCommercialPdf({
         data: assembled,
-        content: prepared!.selectedContent,
+        content: deterministicContent,
+        narrative: essentialNarrative,
         roadmap,
         evidenceModel: advisoryModel
       });

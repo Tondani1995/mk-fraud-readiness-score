@@ -7,6 +7,7 @@ import { gapKey } from '../select-content-blocks';
 import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { SeverityBudget } from '../design/severity-budget';
+import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -195,7 +196,14 @@ export function renderReportHtml(
   roadmap: { agenda: RoadmapItem[] },
   preparedEvidenceModel?: AdvisoryEvidenceModel,
   tocPageMap?: Record<string, number>,
-  preparedProjection?: EssentialProjection
+  preparedProjection?: EssentialProjection,
+  /**
+   * Validated v1.1 manuscript. Rendered in the blueprint's own chapter/section/subsection
+   * order, immediately after the deterministic exhibits it explains. It is presentation
+   * only: every number, finding, risk, control and roadmap action on the page still comes
+   * from the deterministic pipeline, and nothing here reads a value back out of prose.
+   */
+  narrative?: ParsedBlueprintMarkdown
 ): string {
   const sr = data.scoreRun;
   const evidenceModel = preparedEvidenceModel ?? buildAdvisoryEvidenceModel(data);
@@ -586,6 +594,20 @@ export function renderReportHtml(
     return `<tr class="${entry.appendix ? 'toc-appendix-row' : ''}"><td>${esc(entry.label)}</td><td class="toc-page">${pageNumber ?? '—'}</td></tr>`;
   }).join('');
 
+  // Blueprint narrative, in the blueprint's own order. Every chapter, section and
+  // subsection the validator accepted is emitted exactly once; nothing is reordered to
+  // suit the legacy layout and nothing is dropped for want of a legacy slot.
+  const narrativeSections = (narrative?.chapters ?? []).map((chapter) => {
+    const body = chapter.sections.map((chapterSection) => {
+      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('');
+      const subsections = chapterSection.subsections
+        .map((item) => subsection(item.title, item.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('')))
+        .join('');
+      return subsection(chapterSection.title, `${paragraphs}${subsections}`);
+    }).join('');
+    return section(chapter.title, chapter.title, body, 'long-section');
+  }).join('\n');
+
   const parts = [
     `<section class="cover">
       <div>
@@ -632,6 +654,7 @@ export function renderReportHtml(
       : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
     section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
     section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
+    narrativeSections,
     appendixSections
   ].join('\n');
 

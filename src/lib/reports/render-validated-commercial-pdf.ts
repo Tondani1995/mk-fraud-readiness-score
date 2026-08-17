@@ -3,6 +3,7 @@ import { renderReportHtml, REPORT_TOC_ENTRIES } from './templates/report-templat
 import { renderHtmlToPdfBuffer } from './render-pdf';
 import { addPdfBookmarks, extractHeadingPageMap, type BookmarkNode } from './pdf-navigation';
 import type { AdvisoryEvidenceModel } from './evidence-model';
+import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 
 /**
  * V7 Checkpoint B -- narrow PDF-render orchestration seam.
@@ -34,13 +35,21 @@ export async function renderValidatedCommercialPdf(
     content: SelectedContent;
     roadmap: { agenda: RoadmapItem[] };
     evidenceModel?: AdvisoryEvidenceModel;
+    /**
+     * Validated v1.1 manuscript, ordered by the blueprint. Deliberately a separate input
+     * from `content`: SelectedContent's five fixed buckets cannot hold an ordered
+     * chapter/section/subsection manuscript without dropping or duplicating it, so the
+     * two are kept as distinct kinds rather than merged into one ambiguous object.
+     * Absent for Comprehensive and for any caller still on the deterministic content path.
+     */
+    narrative?: ParsedBlueprintMarkdown;
   },
   dependencies: CommercialPdfRenderDependencies = {
     renderHtml: renderReportHtml,
     renderPdf: renderHtmlToPdfBuffer
   }
 ): Promise<Buffer> {
-  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel);
+  const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, undefined, undefined, input.narrative);
   return dependencies.renderPdf(html);
 }
 
