@@ -262,6 +262,7 @@ export default async function AdminOrderDetailPage(
           reportReference={latestReport?.report_reference ?? null}
           reportFileName={latestReport?.file_name ?? null}
           recipientEmail={order.customer_email ?? assessment?.respondents?.email ?? null}
+          productCode={order.products?.product_code ?? null}
           storageReady={storageReady}
           paymentConfirmed={order.status === 'payment_received'}
           deliveredAt={manualDelivery?.delivered_at ?? null}

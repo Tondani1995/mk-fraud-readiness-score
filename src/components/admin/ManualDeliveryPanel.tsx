@@ -9,6 +9,8 @@ type Props = {
   reportReference: string | null;
   reportFileName: string | null;
   recipientEmail: string | null;
+  /** Product code of the paid order, so the pack names the tier the customer bought. */
+  productCode?: string | null;
   storageReady: boolean;
   paymentConfirmed: boolean;
   deliveredAt: string | null;
@@ -32,11 +34,15 @@ export function ManualDeliveryPanel(props: Props) {
   const [running, setRunning] = useState(false);
   const [delivered, setDelivered] = useState<string | null>(props.deliveredAt);
 
-  const subject = `Your MK Fraud Readiness Comprehensive Report — ${props.organisationName}`;
+  // The pack named Comprehensive for every order, so an Essential customer was told they
+  // were receiving a product they had not bought. Tier comes from the order itself.
+  const isEssential = props.productCode === 'essential_self_assessment';
+  const productTitle = isEssential ? 'Essential Fraud Readiness Review' : 'Comprehensive Fraud Readiness Report';
+  const subject = `Your MK ${productTitle} — ${props.organisationName}`;
   const body = [
     'Good day,',
     '',
-    `Your Comprehensive Fraud Readiness Report for ${props.organisationName} is ready and attached to this email.`,
+    `Your ${productTitle} for ${props.organisationName} is ready and attached to this email.`,
     '',
     `Report reference: ${props.reportReference ?? '—'}`,
     `Attachment: ${props.reportFileName ?? '—'}`,

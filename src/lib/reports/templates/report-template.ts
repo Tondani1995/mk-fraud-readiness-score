@@ -249,7 +249,7 @@ export function renderReportHtml(
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
     <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
-    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? '' : 's'} was assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
     <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
@@ -374,6 +374,29 @@ export function renderReportHtml(
     ${labelled('Leadership verification', item.whatLeadershipShouldVerify)}
   </article>`;
 
+/**
+ * One consequence sentence per distinct claim.
+ *
+ * The three impact sources overlap, and where a domain has no specific impact the shared
+ * placeholder is returned for both financial and operational -- so a scenario could print
+ * "Impact requires case-specific validation" twice in the same sentence. Placeholders are
+ * dropped and identical clauses collapsed before the customer sees them.
+ */
+function consequenceClauses(values: Array<string | null | undefined>): string {
+  const seen = new Set<string>();
+  const clauses: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? '').trim().replace(/\s+/g, ' ');
+    if (!text) continue;
+    if (/requires case-specific validation/i.test(text)) continue;
+    const key = text.toLowerCase().replace(/[.;]+$/, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clauses.push(text.replace(/[.;]+$/, ''));
+  }
+  return clauses.join('; ');
+}
+
   const scenarioCard = (item: AdvisoryEvidenceModel['scenarios'][number], index: number) => `<article class="long-record scenario-record">
     <div class="record-heading"><div><span class="record-number">Scenario ${index + 1} · ${esc(item.scenarioBasis.replaceAll('_', ' '))}</span><h3>${esc(item.title)}</h3></div></div>
     <p class="disclaimer">${esc(item.disclaimer)}</p>
@@ -383,7 +406,7 @@ export function renderReportHtml(
       ${labelled('Mechanism', item.fraudSequence)}
       ${labelled('Control bypassed', item.controlsExpected.join('; '))}
       ${labelled('Concealment', item.concealmentMechanism)}
-      ${labelled('Consequence', [...item.likelyImpact, item.financialImpact, item.operationalImpact].join('; '))}
+      ${labelled('Consequence', consequenceClauses([...item.likelyImpact, item.financialImpact, item.operationalImpact]))}
       ${labelledList('Warning indicators', item.earlyWarningIndicators)}
       ${labelled('Containment', item.immediateContainment)}
       ${labelled('Long-term response', item.longerTermResponse)}
