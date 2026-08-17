@@ -153,3 +153,59 @@ console.log(`${absent.length > 0 ? 'PASS' : 'FAIL'}  D4  missing narrative yield
 
 const dExact = diagOf(exact);
 console.log(`${dExact.mismatches.length === 0 ? 'PASS' : 'FAIL'}  D5  exact manuscript yields no mismatch  (${dExact.mismatches.length})`);
+
+// ---- Exact Mahlori failure path -------------------------------------------
+// A complete, below-limit, non-conforming manuscript: the writer rejects it internally
+// and the caller never receives a result, so the evidence must survive on the throw.
+const { composeEssentialManuscript } = await import('../../src/lib/reports/narrative/essential-manuscript-coordinator.ts');
+const { WholeManuscriptReconciliationError } = await import('../../src/lib/reports/narrative/whole-manuscript-reconciliation.ts');
+const { buildManuscriptStructuralDiagnostics: bd } = await import('../../src/lib/reports/narrative/manuscript-diagnostics.ts');
+
+const throwingWriter = {
+  provider: 'openai',
+  model: 'openai/gpt-5.5',
+  async writeManuscript({ blueprint: bp }) {
+    // Rename one heading of the real skeleton: complete, below limit, non-conforming.
+    const realSkeleton = String(buildBlueprintMarkdownSkeleton(bp).markdown);
+    const firstHeading = realSkeleton.split('\n').find((l) => l.startsWith('# '));
+    const nonConforming = realSkeleton.split('\n')
+      .map((l) => (l.trim().startsWith('#') ? `${l}\n\n${prose}` : l)).join('\n')
+      .replace(firstHeading, '# Current fraud readiness position');
+    const parsed = parseBlueprintMarkdown(nonConforming, bp);
+    const err = new WholeManuscriptReconciliationError(
+      'initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a valid complete manuscript.',
+      { outcome: 'COMPLETE', parsed: parsed.errors, missing: [] });
+    err.writerDiagnostics = {
+      stage: 'initial_manuscript_not_recoverable',
+      writerMetadata: { model: 'openai/gpt-5.5', generationId: 'gen-fixture', inputTokens: 493, outputTokens: 4633, totalTokens: 5461, providerCostMicros: 186100, finishReason: 'stop', providerFinishReason: 'stop' },
+      classification: 'COMPLETE',
+      missingTail: { ok: false, missingHeadingCount: 0, errors: [] },
+      providerCalls: 1,
+      structural: bd({ markdown: nonConforming, blueprint: bp, parsed })
+    };
+    throw err;
+  }
+};
+
+// A real Fact Pack is required: the coordinator builds a story plan and blueprint before
+// the writer is ever called, so a stub would fail upstream of the path under test.
+const { assembleReportData } = await import('../../src/lib/reports/assemble-report-data.ts');
+const { buildAdvisoryEvidenceModel } = await import('../../src/lib/reports/evidence-model/index.ts');
+const { buildEssentialProjection } = await import('../../src/lib/reports/essential-projection.ts');
+const { buildEssentialNarrativeFactPack } = await import('../../src/lib/reports/narrative/fact-pack.ts');
+const realData = await assembleReportData('MKORD-2026-7046035F');
+const realEv = buildAdvisoryEvidenceModel(realData);
+const realPack = buildEssentialNarrativeFactPack(realData, realEv, buildEssentialProjection(realData, realEv));
+
+let caught = null;
+try {
+  await composeEssentialManuscript({ factPack: realPack, writer: throwingWriter });
+} catch (e) { caught = e; }
+
+const d = caught?.diagnostics ?? {};
+const mm = d.structural?.mismatches?.[0];
+const preserved = d.providerCalls === 1 && d.outputTokens === 4633 && d.generationId === 'gen-fixture'
+  && d.finishReason === 'stop' && d.classification === 'COMPLETE'
+  && Boolean(mm?.expectedTitle) && Boolean(mm?.receivedTitle) && d.dispatchOccurred === true;
+console.log(`${preserved ? 'PASS' : 'FAIL'}  W1  writer-throw diagnostics preserved through coordinator  (calls=${d.providerCalls} tokens=${d.outputTokens} gen=${d.generationId} class=${d.classification})`);
+console.log(`${mm ? 'PASS' : 'FAIL'}  W2  names received vs expected heading  (expected="${mm?.expectedTitle}" received="${mm?.receivedTitle}")`);

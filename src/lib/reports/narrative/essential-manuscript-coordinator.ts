@@ -40,6 +40,16 @@ export interface EssentialManuscriptResult {
  * were spent before gateway billing revealed them. These diagnostics travel on the error
  * as well as the result so the next failure is explicable without buying another one.
  */
+/** Evidence the writer attaches when it rejects its own initial response. */
+export interface WriterFailureDiagnostics {
+  stage: string;
+  writerMetadata?: Record<string, any>;
+  classification?: string;
+  missingTail?: { ok: boolean; missingHeadingCount: number; lastCompleteHeading?: string; errors: string[] };
+  providerCalls?: number;
+  structural?: ManuscriptStructuralDiagnostics;
+}
+
 export interface EssentialManuscriptDiagnostics {
   stage: string;
   requestedModel?: string;
@@ -58,6 +68,9 @@ export interface EssentialManuscriptDiagnostics {
   validationCode?: string;
   /** Heading-level evidence for a manuscript that would not bind. */
   structural?: ManuscriptStructuralDiagnostics;
+  /** Outcome of classifyWholeManuscriptGeneration, when the writer rejected the response. */
+  classification?: string;
+  missingTail?: { ok: boolean; missingHeadingCount: number; lastCompleteHeading?: string; errors: string[] };
 }
 
 export class EssentialManuscriptError extends Error {
@@ -107,12 +120,35 @@ export async function composeEssentialManuscript(input: {
   try {
     manuscript = await writer.writeManuscript({ context, factPack, blueprint });
   } catch (error) {
-    // The writer may already have dispatched -- and been billed -- before throwing, so the
-    // failure is recorded as a dispatch of unknown outcome rather than as no call at all.
+    // The writer already holds the evidence when it rejects a non-conforming manuscript:
+    // its own metadata, the classification, the missing-tail derivation and the heading
+    // comparison. Forward that verbatim instead of replacing it with a bare
+    // "something failed", which is what previously left a paid failure unexplained.
+    const forwarded = (error as { writerDiagnostics?: WriterFailureDiagnostics })?.writerDiagnostics;
+    const meta = forwarded?.writerMetadata ?? {};
     throw new EssentialManuscriptError(
       'write_manuscript',
       error instanceof Error ? error.message : 'The manuscript writer failed.',
-      { ...diagnosticsFrom('write_manuscript', writerIdentity), dispatchOccurred: true }
+      {
+        stage: forwarded?.stage ?? 'write_manuscript',
+        requestedProvider: writerIdentity.provider,
+        requestedModel: meta.model ?? writerIdentity.model,
+        // A throw from the writer means a request was issued; treat it as dispatched.
+        dispatchOccurred: true,
+        generationId: meta.generationId ?? meta.responseId,
+        inputTokens: meta.inputTokens,
+        outputTokens: meta.outputTokens,
+        totalTokens: meta.totalTokens,
+        providerCostMicros: meta.providerCostMicros,
+        finishReason: meta.finishReason,
+        providerFinishReason: meta.providerFinishReason,
+        providerCalls: forwarded?.providerCalls ?? meta.recovery?.totalCalls,
+        parseOk: forwarded ? false : undefined,
+        parseErrors: forwarded?.structural?.parseErrors?.map((issue) => ({ code: issue.code, path: issue.path })),
+        classification: forwarded?.classification,
+        missingTail: forwarded?.missingTail,
+        structural: forwarded?.structural
+      }
     );
   }
 

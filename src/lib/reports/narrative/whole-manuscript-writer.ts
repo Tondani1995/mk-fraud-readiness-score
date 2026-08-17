@@ -7,6 +7,7 @@ import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManus
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
+import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -193,7 +194,20 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       missingHeadingCount: missing.missingHeadings.length
     });
     if (initialOutcome !== 'TECHNICAL_TRUNCATION' || !missing.ok) {
-      throw new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a valid complete manuscript or a proven technical-truncation prefix.', { outcome: initialOutcome, parsed: initialParsed.errors, missing: missing.errors });
+      // This is the exact path a non-conforming but complete manuscript takes, and it is
+      // where the evidence has to be captured: the caller never receives initialResult,
+      // so anything not attached here is lost with the throw -- which is how a paid
+      // generation failed leaving no record of which heading disagreed.
+      const failure = new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a valid complete manuscript or a proven technical-truncation prefix.', { outcome: initialOutcome, parsed: initialParsed.errors, missing: missing.errors });
+      (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
+        stage: 'initial_manuscript_not_recoverable',
+        writerMetadata: initialResult.writerMetadata,
+        classification: initialOutcome,
+        missingTail: { ok: missing.ok, missingHeadingCount: missing.missingHeadings.length, lastCompleteHeading: missing.lastCompleteHeading, errors: missing.errors },
+        providerCalls: this.providerCallsUsed,
+        structural: buildManuscriptStructuralDiagnostics({ markdown: initialResult.markdown, blueprint: input.blueprint, parsed: initialParsed })
+      };
+      throw failure;
     }
     const tailResult = await this.completeTail({
       context: input.context,

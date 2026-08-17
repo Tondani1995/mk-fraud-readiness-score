@@ -8,6 +8,8 @@ import type { ReportBlueprint } from './report-blueprint';
  * because its headings did not bind -- and nothing recorded which heading, or how it
  * differed. The next failure has to be explicable from what is stored, without buying
  * another attempt and without keeping the customer's full manuscript merely to debug it.
+ * Two separate manual retries were each billed one provider call before gateway records
+ * revealed them.
  *
  * Only structure is captured: heading levels, titles and positions, and whether prose
  * exists under each required node. Narrative bodies are never retained here.
