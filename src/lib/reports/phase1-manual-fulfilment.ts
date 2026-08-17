@@ -564,8 +564,22 @@ export async function generateManualPhase1Report(
         writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model)
       });
       essentialNarrative = composed.narrative;
+      console.info('essential_manuscript_generation', {
+        technicalReference, orderReference: input.orderReference, stage: 'accepted',
+        model: composed.manuscript.writerMetadata?.model,
+        generationId: composed.manuscript.writerMetadata?.generationId,
+        totalTokens: composed.manuscript.writerMetadata?.totalTokens,
+        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1
+      });
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {
+      // Provider spend and the reason for failure must survive the throw. A Mahlori
+      // attempt was billed twice before gateway records revealed it, because the writer's
+      // accounting only existed on the returned result.
+      const diagnostics = (error as { diagnostics?: Record<string, unknown> })?.diagnostics;
+      if (diagnostics) {
+        console.error('essential_manuscript_generation', { technicalReference, orderReference: input.orderReference, ...diagnostics });
+      }
       if (isReportCommercialQualityError(error)) {
         console.error('commercial_report_quality_failure', {
           technicalReference,
