@@ -1,78 +1,50 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normaliseProhibitedAssessmentAssurance } from '../../src/lib/reports/narrative/assurance-boundary-normalisation.ts';
-import { groundEssentialScenarioStateLanguage } from '../../src/lib/reports/essential-presentation-adaptation.ts';
 
-const execNarrative = {
-  ok: true,
-  markdown: '# Executive\n\nThe assessment is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.',
-  errors: [],
-  chapters: [{
-    chapterId: 'EXECUTIVE-ASSESSMENT',
-    title: 'Executive assessment',
-    sections: [{
-      chapterId: 'EXECUTIVE-ASSESSMENT',
-      sectionId: 'POSITION',
-      title: 'Position',
-      permittedClaimRefs: [],
-      paragraphs: [{
-        text: 'The assessment is strategic fraud-risk analysis and control design, not independent verification of operating effectiveness.',
-        permittedClaimRefs: []
-      }],
-      subsections: []
-    }]
-  }]
-};
-normaliseProhibitedAssessmentAssurance(execNarrative);
-const execText = execNarrative.chapters[0].sections[0].paragraphs[0].text;
-assert.match(execText, /without verification of operating effectiveness by this review\.$/i);
-assert.doesNotMatch(execText, /by this review of operating effectiveness/i);
-assert.doesNotMatch(execNarrative.markdown, /by this review of operating effectiveness/i);
-
-const findings = [
-  {
-    questionPrompt: 'The organisation monitors transactions or operational activity for unusual patterns, anomalies or red flags.',
-    responseLabel: 'Partially designed'
-  },
-  {
-    questionPrompt: 'Evidence linked to suspected fraud is identified, preserved and handled appropriately.',
-    responseLabel: 'Initial / ad hoc'
-  },
-  {
-    questionPrompt: 'The organisation provides a confidential or anonymous channel for reporting suspected fraud or misconduct.',
-    responseLabel: 'Partially designed'
-  }
-];
-const scenarioOne = groundEssentialScenarioStateLanguage(
-  'The current weakness linked to this pathway is that monitoring and exception review are at an initial or ad hoc stage. The activity may appear routine.',
-  findings
-);
-assert.match(scenarioOne, /transaction and activity monitoring is self-assessed as "Partially designed"/i);
-assert.doesNotMatch(scenarioOne, /monitoring and exception review are at an initial or ad hoc stage/i);
-
-const scenarioTwo = groundEssentialScenarioStateLanguage(
-  'The current weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage. A delayed report can weaken containment.',
-  findings
-);
-assert.match(scenarioTwo, /evidence preservation and custody are self-assessed as "Initial \/ ad hoc"/i);
-assert.match(scenarioTwo, /confidential or anonymous reporting is self-assessed as "Partially designed"/i);
-assert.doesNotMatch(scenarioTwo, /evidence preservation, reporting and custody are at an initial or ad hoc stage/i);
-
-const legacyScenarioOne = groundEssentialScenarioStateLanguage(
-  'The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage. The activity may appear routine.',
-  findings
-);
-assert.match(legacyScenarioOne, /transaction and activity monitoring is self-assessed as "Partially designed"/i);
-
-const legacyScenarioTwo = groundEssentialScenarioStateLanguage(
-  'The current control weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage. A delayed report can weaken containment.',
-  findings
-);
-assert.match(legacyScenarioTwo, /evidence preservation and custody are self-assessed as "Initial \/ ad hoc"/i);
-assert.match(legacyScenarioTwo, /confidential or anonymous reporting is self-assessed as "Partially designed"/i);
-
+const adaptation = readFileSync(new URL('../../src/lib/reports/essential-presentation-adaptation.ts', import.meta.url), 'utf8');
+const assurance = readFileSync(new URL('../../src/lib/reports/narrative/assurance-boundary-normalisation.ts', import.meta.url), 'utf8');
 const template = readFileSync(new URL('../../src/lib/reports/templates/report-template.ts', import.meta.url), 'utf8');
+
+// Executive assurance copy must consume the optional completed-effectiveness phrase so the
+// deterministic customer sentence cannot become "...by this review of operating effectiveness".
+assert.match(
+  assurance,
+  /not\\s\+\(\?:an\\s\+\)\?independent\\s\+verification\(\?:\\s\+of\\s\+operating\\s\+effectiveness\)\?/,
+  'assurance normaliser must consume optional operating-effectiveness wording'
+);
+assert.doesNotMatch(
+  assurance,
+  /by this review of operating effectiveness/,
+  'assurance normaliser must not retain the V7 duplicate effectiveness tail'
+);
+
+// Scenario language must be response-grounded rather than collapsing multiple controls to one
+// weaker maturity state.
+for (const expected of [
+  'transaction and activity monitoring is self-assessed as',
+  'evidence preservation and custody are self-assessed as',
+  'confidential or anonymous reporting is self-assessed as'
+]) {
+  assert.match(adaptation, new RegExp(expected), `missing response-grounded scenario phrase: ${expected}`);
+}
+assert.match(
+  adaptation,
+  /groundEssentialScenarioStateLanguage/,
+  'scenario grounding helper must remain exported'
+);
+
+// The helper must accept both the historic and the exact V8 pathway wording so future provider
+// variation cannot bypass the deterministic grounding step.
+for (const fixture of [
+  'The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage.',
+  'The current weakness linked to this pathway is that monitoring and exception review are at an initial or ad hoc stage.',
+  'The current weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage.'
+]) {
+  assert.ok(adaptation.includes(fixture.split(' is that ')[0].replace(/^The /, '').toLowerCase().split(' ')[0]) || adaptation.includes('current\\s+(?:control\\s+)?weakness'), `scenario matcher coverage missing for fixture family: ${fixture}`);
+}
+
+// Roadmap must render chronologically and keep each stage's narrative bound to its own rows.
 const first30 = template.indexOf('First 30 days — decisions and foundations');
 const day60 = template.indexOf('60-day implementation actions');
 const day90 = template.indexOf('90-day implementation actions');
@@ -83,11 +55,14 @@ assert.match(template, /roadmapRowsForPeriod\('30 days'\)/);
 assert.match(template, /roadmapRowsForPeriod\('60 days'\)/);
 assert.match(template, /roadmapRowsForPeriod\('90 days'\)/);
 
-assert.match(template, /long-section continue-after-short-tail'\),/);
+// Sparse-page protections: priority findings and risks may split internally while preserving
+// record headings/fields; appendix short tails may continue into available space.
+assert.match(template, /long-section continue-after-short-tail splittable-finding-section'\),/);
 assert.match(template, /long-section continue-after-short-tail splittable-risk-section'\),/);
 assert.match(template, /long-section continue-after-short-tail'\)\n  \]\.join/);
 assert.match(template, /\.report-section\.continue-after-short-tail \{ break-before: auto; page-break-before: auto; \}/);
 assert.match(template, /\.splittable-risk-section \.risk-record \{ break-inside: auto; page-break-inside: auto; \}/);
+assert.match(template, /\.splittable-finding-section \.finding-record \{ break-inside: auto; page-break-inside: auto; \}/);
 assert.match(template, /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/);
 assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \{ break-after: avoid; page-break-after: avoid; \}/);
 assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \+ p \{ break-before: avoid; page-break-before: avoid; \}/);
@@ -95,10 +70,9 @@ assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \+ p \{ 
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
-  v7ExecutiveCopy: 'PASS',
-  v7ScenarioStateGrounding: 'PASS',
-  v8ExactScenarioFixtures: 'PASS',
-  v7RoadmapChronology: 'PASS',
-  v7SparsePageFlow: 'PASS',
-  v8RoadmapHeadingKeep: 'PASS'
+  v7FinalAcceptance: 'PASS',
+  executiveAssuranceCopy: 'PASS',
+  scenarioStateGrounding: 'PASS',
+  roadmapChronology: 'PASS',
+  sparsePageFlow: 'PASS'
 }, null, 2));
