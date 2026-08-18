@@ -4,13 +4,18 @@ on:
   push:
     branches:
       - commercial/mk-fraud-readiness-95-quality
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch-and-commit:
-    if: github.event.head_commit.message == 'Apply V9 navigation closure'
+    if: >-
+      (github.event_name == 'push' && github.event.head_commit.message == 'Apply V9 navigation closure') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'commercial/mk-fraud-readiness-95-quality')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -142,6 +147,10 @@ jobs:
             src/lib/reports/templates/report-template.ts \
             src/lib/reports/pdf-navigation.ts \
             scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+          if git diff --cached --quiet; then
+            echo "Focused navigation closure is already applied."
+            exit 0
+          fi
           git commit -m "Close V9 rendered navigation defect"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
