@@ -1,0 +1,86 @@
+name: Essential Structural Section Audit Patch
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-prove:
+    if: github.event.head_commit.message == 'Apply structural audit patch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Patch rendered section detection structurally
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/checkpoint-f-pdf-audit.py')
+          text = path.read_text()
+
+          normalise_anchor = '''def normalise_page(text: str) -> str:\n    text = re.sub(r"MK Essential Report\\s*·\\s*Confidential\\s*\\d+\\s*/\\s*\\d+", "", text, flags=re.I)\n    return re.sub(r"\\s+", " ", text).strip().lower()\n'''
+          helper_block = normalise_anchor + '''\n\ndef _normalise_section_heading(value: str) -> str:\n    return re.sub(r"\\s+", " ", value).strip().strip(".").casefold()\n\n\ndef page_has_section_heading(page_text: str, heading: str) -> bool:\n    """Return True only when the canonical heading is present as heading-shaped extracted text.\n\n    PyPDF can split a rendered heading across two or three text lines, including inside a word.\n    Joining a bounded window therefore recovers wrapped headings. Equality against the complete\n    canonical heading is deliberate: an ordinary prose sentence that merely mentions the section\n    name must never become the section's physical page for TOC/bookmark validation.\n    """\n    lines = [\n        re.sub(r"\\s+", " ", line).strip()\n        for line in page_text.splitlines()\n        if line.strip()\n    ]\n    target = _normalise_section_heading(heading)\n    target_stripped = re.sub(r"\\s+", "", target)\n    for start in range(len(lines)):\n        for width in (1, 2, 3):\n            if start + width > len(lines):\n                break\n            window = lines[start : start + width]\n            for candidate in (" ".join(window), "".join(window)):\n                normalised = _normalise_section_heading(candidate)\n                if normalised == target:\n                    return True\n                if re.sub(r"\\s+", "", normalised) == target_stripped:\n                    return True\n    return False\n\n\ndef self_test_section_heading_rule() -> None:\n    prose = (\n        "Leadership should use Proof requirements to sequence evidence validation before any "\n        "independent assurance work begins."\n    )\n    assert not page_has_section_heading(prose, "Proof requirements"), \\\n        "a prose mention must not be treated as the section heading"\n\n    exact = "PROOF REQUIREMENTS\\nThe following evidence should be tested first."\n    assert page_has_section_heading(exact, "Proof requirements"), \\\n        "an exact standalone heading must be recognised"\n\n    wrapped = "METHODOLOGY, LIMITATIONS\\nAND NEXT STEPS\\nThis assessment is management self-report."\n    assert page_has_section_heading(wrapped, "Methodology, limitations and next steps"), \\\n        "a heading wrapped across extracted lines must be recognised"\n\n    split_word = "Proof require\\nments\\nPriority evidence follows."\n    assert page_has_section_heading(split_word, "Proof requirements"), \\\n        "a heading split inside a word must be recognised"\n\n    body_sentence = (\n        "This page explains methodology, limitations and next steps for management after the review."\n    )\n    assert not page_has_section_heading(body_sentence, "Methodology, limitations and next steps"), \\\n        "a longer body sentence containing the heading words must not be treated as the heading"\n\n    print("self_test_section_heading_rule: all structural heading fixtures passed")\n'''
+          count = text.count(normalise_anchor)
+          if count != 1:
+              raise SystemExit(f'normalise-page anchor count={count}, expected 1')
+          text = text.replace(normalise_anchor, helper_block, 1)
+
+          old_section_map = '''        current_section_map: dict[str, list[int]] = {}\n        for heading in REQUIRED_SECTIONS:\n            # The bare word "Appendix" also appears in core cross-references ("...is in Appendix\n            # A1"), so it needs the same distinctive-marker search as REPORT_TOC_ENTRIES' "Appendix"\n            # key in report-template.ts, not a literal substring match.\n            search_text = "The complete, authoritative registers behind the executive summary" if heading == "Appendix" else heading.lower()\n            # Page 2 (Contents) legitimately lists every heading as a TOC row -- exclude it here\n            # (except for "Contents" itself, whose real body is page 2) so the map reflects where\n            # each section's real body actually is, matching the PDF outline.\n            pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]\n            current_section_map[heading] = pages\n            record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)\n'''
+          new_section_map = '''        current_section_map: dict[str, list[int]] = {}\n        for heading in REQUIRED_SECTIONS:\n            # Page 2 (Contents) legitimately lists every tracked heading as a TOC row. Exclude it\n            # for all real sections, then require heading-shaped extracted text rather than a raw\n            # substring anywhere in page prose. This keeps TOC/bookmark validation tied to the\n            # physical section heading, not to an earlier cross-reference sentence.\n            pages = [\n                index + 1\n                for index, page_text in enumerate(page_texts)\n                if (index != 1 or heading == "Contents")\n                and page_has_section_heading(page_text, heading)\n            ]\n            current_section_map[heading] = pages\n            record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)\n'''
+          count = text.count(old_section_map)
+          if count != 1:
+              raise SystemExit(f'section-map anchor count={count}, expected 1')
+          text = text.replace(old_section_map, new_section_map, 1)
+
+          cli_anchor = '''    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-customer-copy-grammar":\n        self_test_customer_copy_grammar_defect()\n        return 0\n'''
+          cli_replacement = cli_anchor + '''    # Isolated regression for structural section-page detection: prose mentions must not become\n    # TOC/bookmark destinations, while wrapped headings must still be recoverable.\n    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-section-heading-rule":\n        self_test_section_heading_rule()\n        return 0\n'''
+          count = text.count(cli_anchor)
+          if count != 1:
+              raise SystemExit(f'CLI anchor count={count}, expected 1')
+          text = text.replace(cli_anchor, cli_replacement, 1)
+
+          path.write_text(text)
+          print('structural section-page audit patched')
+          PY
+
+      - name: Prove structural heading rule
+        run: python scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
+
+      - name: Revert ineffective navigation experiment
+        shell: bash
+        run: |
+          git show ef9af7375a1aafd552cf129675bf5fdeb2caa31d:src/lib/reports/pdf-navigation.ts > src/lib/reports/pdf-navigation.ts
+          git diff --check
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Commit structural audit correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/checkpoint-f-pdf-audit.py src/lib/reports/pdf-navigation.ts
+          git commit -m "Fix rendered section-page audit"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
