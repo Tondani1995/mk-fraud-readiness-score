@@ -59,7 +59,7 @@ REQUIRED_SECTIONS = [
     "Priority findings, contradictions and scenarios",
     "Priority risks",
     "Leadership decisions and roadmap",
-    "Evidence validation priorities",
+    "Proof requirements",
     "Methodology, limitations and next steps",
     "Appendix: supporting material",
     "E1. Supporting control actions",
@@ -152,7 +152,7 @@ INTERNAL_RELEASE_WORKFLOW_COPY = re.compile(
 # bare, unconditional match on "Whether The organisation" / "Whether Management" / "operates to the
 # exact expected control standard" -- those three sub-phrases are also the tail of the raw
 # provesWhat sentence rendered legitimately, and outside this round's scope, in the pre-existing
-# Evidence validation priorities table and the A4 appendix's "What it proves" column (a checklist's
+# Proof requirements table and the A4 appendix's "What it proves" column (a checklist's
 # proof-statement column reads fine as "Whether X operates..."; it is only the callout's narrative
 # prose that reads as a database-field join once an artefact title is glued onto it with "--"). The
 # anchor makes this correctly fire on the exact malformed shape from the controller's report
@@ -421,7 +421,7 @@ def self_test_customer_copy_grammar_defect() -> None:
         # Ordinary, unrelated use of "whether" in advisory prose must never be flagged.
         "Confirm whether access to sensitive digital systems is restricted and reviewed as designed.",
         "Leadership should determine whether the control operates consistently across the full population.",
-        # The pre-existing, un-flagged, out-of-scope Evidence validation priorities table and A4
+        # The pre-existing, un-flagged, out-of-scope Proof requirements table and A4
         # appendix "What it proves" column render the same raw provesWhat sentence verbatim in a
         # table cell -- legitimate there (a proof-statement column), and outside this round's scope,
         # so it must not be flagged just because it lacks the "--" concatenation the actual defect
@@ -1026,7 +1026,7 @@ def main() -> int:
         ("A2. Complete risk register", "A3. Complete control improvement register"),
         ("A3. Complete control improvement register", "A4. Complete evidence checklist"),
         ("Leadership decisions required", "30/60/90-day roadmap"),
-        ("30/60/90-day roadmap", "Evidence validation priorities"),
+        ("30/60/90-day roadmap", "Proof requirements"),
     ]:
         record(
             checks,

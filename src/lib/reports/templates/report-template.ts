@@ -1,5 +1,5 @@
 import type { AssembledReportData, RoadmapItem, SelectedContent } from '../types';
-import { getMaturityBand } from '../../scoring/maturity-band';
+import { getMaturityBand, MATURITY_BAND_THRESHOLDS } from '../../scoring/maturity-band';
 import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
@@ -107,6 +107,29 @@ function pct(value: number | null | undefined): string {
 function bandFor(value: number | null): string {
   if (value === null) return 'Not scored';
   return getMaturityBand(value);
+}
+
+function customerSentence(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`;
+}
+
+function customerFindingWhyItMatters(value: string): string {
+  return value
+    .replace(
+      /This recorded weakness affects a methodology hard gate and must be remediated before relying on the aggregate maturity result\./gi,
+      'This is a maturity-limiting control condition. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved or relying on a higher maturity position.'
+    )
+    .replace(
+      /This recorded weakness affects a methodology critical control and warrants priority treatment\./gi,
+      'This is a priority control condition under the MK methodology. Management should implement the recommended control and obtain the specified operating proof before treating the condition as resolved.'
+    );
+}
+
+function customerRiskTitle(title: string, riskEvent: string): string {
+  return /control effectiveness risk$/i.test(title.trim()) ? customerSentence(riskEvent) : title;
 }
 
 function list(items: string[]): string {
@@ -228,6 +251,8 @@ export function renderReportHtml(
     day: 'numeric',
     timeZone: 'UTC'
   });
+  const supportingRegisterFileName = `${data.reportReference}-supporting-register.xlsx`;
+  const supportingRegisterReference = `Essential Supporting Register (${supportingRegisterFileName})`;
   const bandColor = BAND_COLOR[sr.finalMaturity ?? 'Not scored'] ?? 'var(--mk-navy-500)';
   const severityBudget = new SeverityBudget();
   const insufficientVisibility = sr.adaptiveResultStatus === 'INSUFFICIENT_VISIBILITY';
@@ -282,24 +307,26 @@ export function renderReportHtml(
         <div><p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p><div class="bar-row-list">${exposureRows}</div></div>
       </div>`) : '';
 
-  let criticalLabelEmitted = false;
-  const priorityGaps = data.criticalMajorGaps.map((gap, index) => {
-    const allocation = severityBudget.request({ page: 4 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: gap.questionCode });
-    const showCriticalLabel = allocation.allocated === 'critical' && !criticalLabelEmitted;
-    if (showCriticalLabel) criticalLabelEmitted = true;
-    const severityLabel = showCriticalLabel ? 'Critical control condition' : allocation.allocated === 'major' ? 'Priority control condition' : 'Recorded control condition';
+  const priorityGaps = data.criticalMajorGaps.map((gap) => {
+    const severityLabel = gap.isCriticalGap ? 'Critical control gap' : 'Major control gap';
     return `<div class="compact-card alert-card">
       <div class="card-eyebrow">${severityLabel} · ${esc(gap.domainName)}</div>
       <h3>${esc(gap.prompt)}</h3>
-      <p>This assessment records this as a ${gap.isCriticalGap ? 'critical' : 'major'} control gap. Its management significance is addressed in the connected diagnosis.</p>
+      <p>This recorded condition is considered in the diagnosis, priority findings, risks and roadmap that follow where it is material to the executive priority set.</p>
     </div>`;
   }).join('');
 
-  const capCards = data.maturityCapEvents.map((event) => `<div class="compact-card amber-card">
-    <div class="card-eyebrow">Maturity constraint · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>
-    <h3>${esc(event.relatedQuestionPrompt ?? customerDomainText(event.reason))}</h3>
-    <p>This recorded condition limits the final maturity reading to <strong>${esc(event.capTo)}</strong>. The constraint remains a recorded assessment result until management supplies the defined operating proof.</p>
-  </div>`).join('');
+  const capCards = data.maturityCapEvents.map((event) => {
+    const governanceCrossReference = event.relatedDomainName === 'Fraud Leadership and Governance'
+      ? '<p><strong>Management response:</strong> see Leadership decisions and roadmap for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
+      : '';
+    return `<div class="compact-card amber-card">
+      <div class="card-eyebrow">Maturity ceiling · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>
+      <h3>${esc(event.relatedQuestionPrompt ?? customerDomainText(event.reason))}</h3>
+      <p>This rule sets a maximum maturity of <strong>${esc(event.capTo)}</strong>. More than one ceiling may apply at the same time; the strictest applicable ceiling governs the final maturity. The recorded condition remains subject to the operating proof specified in this report.</p>
+      ${governanceCrossReference}
+    </div>`;
+  }).join('');
 
   const systemic = projection.systemic;
   // M3: at systemic weakness the report leads with the condition, not with an enumeration of
@@ -402,10 +429,11 @@ export function renderReportHtml(
     <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(customerMaterialityLabel(finding.materialityClass))}</span></div>
     <div class="record-grid two">
       ${labelled('Domain', finding.domainName)}
-      ${labelled('Recorded control condition', `${finding.questionPrompt} — ${finding.responseLabel}`)}
+      ${labelled('Assessed control state', `${finding.questionPrompt} — ${finding.responseLabel}`)}
       ${labelled('Diagnosis', finding.diagnosis)}
-      ${labelled('Why it matters', finding.whyItMatters)}
+      ${labelled('Why it matters', customerFindingWhyItMatters(finding.whyItMatters))}
       ${labelled('Recommended control', finding.recommendedControl)}
+      ${labelled('Control owner', finding.processOwner || finding.accountableOwner)}
       ${labelled('Accountable executive', finding.accountableOwner)}
       ${labelled('Implementation', `${finding.implementationDifficulty} difficulty · ${finding.targetPeriod}`)}
       ${labelled('Remaining limitation', finding.selfAssessmentLimitation)}
@@ -462,11 +490,9 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => {
     const affectedDomainLabels = risk.affectedDomains.map((code) => domainNameByCode.get(code) ?? code).join(', ');
     return `<article class="long-record risk-record">
-    <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(risk.title)}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
+    <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(customerRiskTitle(risk.title, risk.riskEvent))}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
     <div class="risk-statement">${esc(risk.riskStatement)}</div>
     <div class="record-grid two">
-      ${labelled('Cause', risk.cause)}
-      ${labelled('Risk event', risk.riskEvent)}
       ${labelled('Likelihood', `${risk.likelihood} — ${risk.likelihoodRationale}`)}
       ${labelled('Impact', `${risk.impact} — ${risk.impactRationale}`)}
       ${labelled('Current control position', risk.currentControlPosition)}
@@ -493,7 +519,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(decision.consequenceOfDelay)}</td>
   </tr>`);
   const decisionsBlock = subsection('Leadership decisions required', `
-    <p class="section-note">Every decision below carries a named accountable executive and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the supporting register issued with this report.</p>
+    <p class="section-note">Every decision below carries a defined accountable executive role and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the companion ${esc(supportingRegisterReference)}.</p>
     ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
 
   // Bounded L2, exactly as the evidence-priority block below already does. This read
@@ -562,16 +588,17 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
          contents-page scan locates each entry by its heading text, so a prose copy of that text on
          an earlier page is found first and the printed page number and bookmark then point at the
          mention rather than the section. -->
-    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the supporting register (see the closing section of this report).</p>
+    <p class="lede">The items below are the immediate proof requirements linked to the priority findings above. The complete evidence checklist is not reproduced in this report; it is provided in full in the companion ${esc(supportingRegisterReference)}.</p>
     <div class="evidence-priority-table">
     ${table(['No.', 'Evidence artefact', 'What it proves', 'Likely owner', 'Status'], priorityEvidenceRows)}
     <p class="section-note">Required population for every item: the complete in-scope population for the stated operating period, reconciled to the source system or register. Sampling expectation: review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items. Every item begins with the status "Not yet requested"; status changes require a separately scoped review process outside this report. This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
     </div>`;
 
-  const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity constraints and advisory model use only the recorded assessment inputs and the deterministic methodology.</p>
+  const methodology = `<p>This report is generated from a structured self-assessment across ten fraud-risk-management domains. The score, maturity ceilings and advisory model use only the recorded assessment inputs and the MK Fraud Readiness methodology.</p>
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain the specified operating proof before treating a control as effective or a finding as resolved.</p>
-    <p><strong>Control completeness.</strong> Every priority control should state the What, Who, Population, Frequency, Evidence retained, Independent check, Escalation trigger and recipient, SLA, Effectiveness measure and Failure response.</p>
-    <p class="section-note">Source: persisted assessment record, evidence model and supporting register.</p>
+    <p><strong>Control design standard.</strong> Priority controls are specified by responsibility, population or scope, operating frequency, retained evidence, independent challenge, escalation trigger, service level, effectiveness measure and response to failure.</p>
+    <p><strong>Companion register.</strong> The complete Essential delivery includes the ${esc(supportingRegisterReference)}. It carries the complete finding, risk, control-action, evidence, roadmap and question-trace registers that are intentionally bounded in this PDF.</p>
+    <p class="section-note">Assessment basis: submitted self-assessment responses and the MK Fraud Readiness methodology.</p>
     `;
 
   // Customer-facing replacement for the removed internal controller/release-status callout: a
@@ -583,7 +610,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // least one validation item), so this always has real, varying-per-report content to show.
   const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
   const recommendedNextStep = topEvidenceItem
-    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p>`
+    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the companion ${esc(supportingRegisterReference)}.</p>`
     : '';
 
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
@@ -642,8 +669,33 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(finding.questionPrompt)}</td>
     <td>${esc(finding.questionCode)}</td>
   </tr>`);
-  const definitionsBlock = `<table class="continuing-table compact-register score-basis-table"><thead><tr><th>Domain</th><th>Coverage</th><th>Reported score</th></tr></thead><tbody>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${pct(domain.coveragePct)}</td><td>${score(domain.rawScore)}/100</td></tr>`).join('')}</tbody></table>
-    <p class="section-note">Priority (risk register) and materiality (findings) are derived from the assessment evidence and the deterministic methodology; neither is an independent risk assessment. Likelihood/impact ratings are qualitative, not statistical probabilities.</p>`;
+  const maturityScaleRows = MATURITY_BAND_THRESHOLDS.map((band) => {
+    const upper = Number.isFinite(band.max) ? band.max : 100;
+    const range = band.label === 'Strategic' ? `${band.min}–100` : `${band.min}–<${upper}`;
+    return `<tr><td>${esc(band.label)}</td><td>${esc(range)}</td><td>${esc(
+      band.label === 'Reactive' ? 'Foundational controls are limited or mainly reactive.'
+        : band.label === 'Developing' ? 'Core control elements exist but are incomplete, inconsistent or not yet connected.'
+          : band.label === 'Structured' ? 'Controls are more consistently defined, owned and operated.'
+            : 'Fraud-risk management is embedded, monitored and continually improved.'
+    )}</td></tr>`;
+  }).join('');
+  const numericBand = sr.overallScore === null ? null : getMaturityBand(sr.overallScore);
+  const numericBandIndex = numericBand ? MATURITY_BAND_THRESHOLDS.findIndex((band) => band.label === numericBand) : -1;
+  const nextNumericBand = numericBandIndex >= 0 ? MATURITY_BAND_THRESHOLDS[numericBandIndex + 1] : undefined;
+  const scoreInterpretation = sr.overallScore === null
+    ? 'No overall readiness score was issued because the assessment did not meet the scoring conditions.'
+    : `The weighted overall score is ${Number(sr.overallScore).toFixed(2)}/100, which maps numerically to ${numericBand}. The final maturity shown in this report is ${sr.finalMaturity}. ${nextNumericBand ? `The next numerical band begins at ${nextNumericBand.min}/100; a higher numerical score alone does not override a stricter applicable maturity ceiling.` : 'This is the highest numerical maturity band.'}`;
+  const definitionsBlock = `
+    <h3>How the score is calculated</h3>
+    <p>Each applicable assessment response is normalised to a 0–100 control score and weighted within its domain. Domain scores are then combined using the methodology's domain weights to produce the overall readiness score. A control recorded as not applicable is excluded from its scoring denominator rather than treated as a weakness.</p>
+    <p>${esc(scoreInterpretation)}</p>
+    <h3>Maturity scale</h3>
+    <table class="continuing-table compact-register maturity-scale-table"><thead><tr><th>Maturity</th><th>Score range</th><th>Interpretation</th></tr></thead><tbody>${maturityScaleRows}</tbody></table>
+    <h3>Maturity ceilings</h3>
+    <p>Maturity ceilings protect against a strong average masking a material weakness. A hard-gate critical control scored 0 or 1 sets a maximum of Developing; a hard-gate control scored 2 sets a maximum of Structured; three or more critical controls scored 0, 1 or 2 set a maximum of Developing; any core domain below 40 sets a maximum of Developing; and any core domain below 60 sets a maximum of Structured. Where several ceilings apply, the strictest ceiling governs the final maturity.</p>
+    <h3>Reported domain scores</h3>
+    <table class="continuing-table compact-register score-basis-table"><thead><tr><th>Domain</th><th>Reported score</th><th>Maturity</th></tr></thead><tbody>${data.domainResults.map((domain) => `<tr><td>${esc(domain.domainName)}</td><td>${score(domain.rawScore)}/100</td><td>${esc(bandFor(domain.rawScore))}</td></tr>`).join('')}</tbody></table>
+    <p class="section-note">Risk priority uses the deterministic qualitative likelihood/impact matrix. Risks in the same priority class are not further ranked by their display sequence. Priority and materiality are derived from assessment evidence; neither is an independent risk assessment.</p>`;
 
   // Final controller review round: A1-A7 previously each forced their own fresh page
   // (section() = break-before:page), so whenever one register's own table ended with a short
@@ -674,7 +726,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // supporting register does not actually contain.
   const supportingReferenceBlock = `
     <p class="lede">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
-    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>`;
+    <p>Every item not shown in this report is retained in full in the ${esc(supportingRegisterReference)}. No identified weakness has been discarded.</p>`;
   // The appendix root opens the same physical page as E1. The former standalone
   // `.appendix-divider` section carried `min-height: 250mm`, which -- proportionate when the
   // appendix held ~60 pages of full L1 registers -- spent an entire page on ~240 characters once
@@ -711,7 +763,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     </section>`,
     section('Contents', 'Contents', `<table class="continuing-table toc-table"><tbody>${tocRows}</tbody></table>`),
     section('Executive summary', 'Executive summary', `
-      ${subsection(content.executiveSummary.title, `
+      ${subsection(customerSentence(content.executiveSummary.title), `
       <div class="diagnosis">
         <div class="score-tile"><span>Reported readiness</span><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
         <div class="manuscript-panel executive-manuscript">${executiveNarrativeBlock}</div>
@@ -728,19 +780,20 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
     section('Domain overview', 'Domain overview', `${diagnosisNarrative ? `<div class="manuscript-panel">${diagnosisNarrative}</div>` : ''}${systemic.systemic
       ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
-      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section'),
+      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section continue-after-short-tail'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
-      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the supporting register issued with this report.</p>
+      <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the ${esc(supportingRegisterReference)}.</p>
+      <p class="section-note"><strong>Role distinction:</strong> Control owner identifies the role responsible for implementing or operating the control. Accountable executive identifies the executive role responsible for sponsorship, decision rights and escalation. The two roles may legitimately differ.</p>
       ${exposureNarrative ? `<div class="manuscript-panel">${exposureNarrative}</div>` : ''}
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
-      ${priorityScenariosBlock}`, 'long-section continue-after-short-tail'),
+      ${priorityScenariosBlock}`, 'long-section continue-after-short-tail splittable-finding-section'),
     section('Priority risks', 'Priority risks', `
-      <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is provided in the supporting register issued with this report.</p>
+      <p class="section-note">Risk priority is produced by the deterministic qualitative likelihood/impact matrix. Risks sharing the same priority class are not more finely ranked by their display order. Likelihood and impact are qualitative descriptors, not statistical probabilities. The complete risk register (${sortedRisks.length} risks) is provided in the ${esc(supportingRegisterReference)}.</p>
       ${priorityRisksBlock}`, 'long-section continue-after-short-tail splittable-risk-section'),
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${targetControlNarrative ? subsection('Target control environment', `<div class="manuscript-panel">${targetControlNarrative}</div>`) : ''}${systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
-      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),
+      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section continue-after-short-tail'),
     section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
     section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`, 'continue-after-long-register'),
     appendixSections
@@ -782,6 +835,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .manuscript-panel { border-left: 1mm solid var(--mk-navy-500); background: var(--mk-cream); padding: 4mm 5mm; margin-bottom: 5mm; }
   .manuscript-section { margin-bottom: 4mm; }
   .manuscript-section:last-child { margin-bottom: 0; }
+  .manuscript-section > h3 { break-after: avoid; page-break-after: avoid; }
+  .manuscript-section > h3 + p { break-before: avoid; page-break-before: avoid; }
   .manuscript-subsection { margin-top: 3mm; }
   .keep-together { break-inside: avoid; page-break-inside: avoid; }
   /* Scoped to the bounded 15-item evidence-priority table only; global table rules are unchanged. */
@@ -820,6 +875,9 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .splittable-risk-section .record-heading,
   .splittable-risk-section .risk-statement,
   .splittable-risk-section .field { break-inside: avoid; page-break-inside: avoid; }
+  .splittable-finding-section .finding-record { break-inside: auto; page-break-inside: auto; }
+  .splittable-finding-section .record-heading,
+  .splittable-finding-section .field { break-inside: avoid; page-break-inside: avoid; }
   /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
      its first meaningful content wherever it starts on the page. */
   .continue-after-long-register .section-kicker,
@@ -870,7 +928,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
      individually break-inside:avoid, but nothing kept the *group* together). Bounded and short
      (one card per maturity-capping condition, typically one to a handful), so keeping the whole
      list together costs at most a partially-filled previous page, never a stranded near-empty one. */
-  .cap-card-list { break-inside: avoid; page-break-inside: avoid; }
+  .cap-card-list { break-inside: auto; page-break-inside: auto; }
   /* A7's domain-coverage table is the last content in the document, so nothing follows it to fill
      leftover space when only its final couple of rows spill onto a fresh page (the "page 33" /
      clean-fixture "page 20" defect). It is short and fixed-length (one row per assessed domain),
@@ -921,7 +979,12 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .compact-register th:first-child, .compact-register td:first-child { width:8mm; }
   .support-grid .compact-card { min-height:42mm; }
   .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }
-  .recommended-next-step { margin-top:4mm; padding:3mm 4mm; background:var(--mk-neutral-bg); border-left:1mm solid var(--mk-navy-500); break-before:avoid; page-break-before:avoid; }
+  .recommended-next-step { margin-top:4mm; padding:3mm 4mm; background:var(--mk-neutral-bg); border-left:1mm solid var(--mk-navy-500); break-before:avoid; page-break-before:avoid; break-inside:avoid; page-break-inside:avoid; }
+  .score-basis-table th:nth-child(1), .score-basis-table td:nth-child(1) { width:58%; }
+  .score-basis-table th:nth-child(2), .score-basis-table td:nth-child(2) { width:18%; white-space:nowrap; }
+  .score-basis-table th:nth-child(3), .score-basis-table td:nth-child(3) { width:24%; }
+  .maturity-scale-table th:nth-child(1), .maturity-scale-table td:nth-child(1) { width:20%; }
+  .maturity-scale-table th:nth-child(2), .maturity-scale-table td:nth-child(2) { width:18%; white-space:nowrap; }
 </style>
 </head>
 <body>${parts}</body>
