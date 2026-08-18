@@ -29,7 +29,11 @@ jobs:
         run: npm ci
 
       - name: Apply deterministic V7 final acceptance fixes
-        run: python scripts/commercial-quality/apply-v7-final-acceptance.py
+        shell: bash
+        run: |
+          sed -i 's/^                - name: Run provider-free Comprehensive customer-visible regressions$/    - name: Run provider-free Comprehensive customer-visible regressions/' .github/workflows/essential-provider-diagnostics.yml
+          sed -i 's#^                  run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs$#      run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs#' .github/workflows/essential-provider-diagnostics.yml
+          python scripts/commercial-quality/apply-v7-final-acceptance.py
 
       - name: Run complete provider-free report regressions
         run: |
