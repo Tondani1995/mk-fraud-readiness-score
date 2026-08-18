@@ -1,6 +1,6 @@
-run_id=32180226698
-source_sha=14f830642b44286031375df6e727b55c3434019d
+run_id=32182342445
+source_sha=a36c5b2980179e199854fe5caf258c29825c4cc9
 status=failure
 failure_count=2
-failure_1=PDF_TOC_PAGE_MISMATCH | mk-essential-v7-materially-weak-ai | mismatches=['Leadership decisions and roadmap: toc_printed=5 actual=17', 'Leadership decisions and roadmap: bookmark=5 actual=17', 'Proof requirements: toc_printed=20 actual=19', 'Proof requirements: bookmark=20 actual=19', 'Methodology, limitations and next steps: toc_printed=21 actual=20', 'Methodology, limitations and next steps: bookmark=21 actual=20']
-failure_2=PDF_TOC_PAGE_MISMATCH | mk-essential-v7-materially-weak-fallback | mismatches=['Leadership decisions and roadmap: toc_printed=5 actual=17', 'Leadership decisions and roadmap: bookmark=5 actual=17', 'Proof requirements: toc_printed=20 actual=19', 'Proof requirements: bookmark=20 actual=19', 'Methodology, limitations and next steps: toc_printed=21 actual=20', 'Methodology, limitations and next steps: bookmark=21 actual=20']
+failure_1=PDF_TOC_PAGE_MISMATCH | mk-essential-v7-materially-weak-ai | mismatches=['Proof requirements: toc_printed=20 actual=19', 'Proof requirements: bookmark=20 actual=19', 'Methodology, limitations and next steps: toc_printed=21 actual=20', 'Methodology, limitations and next steps: bookmark=21 actual=20']
+failure_2=PDF_TOC_PAGE_MISMATCH | mk-essential-v7-materially-weak-fallback | mismatches=['Proof requirements: toc_printed=20 actual=19', 'Proof requirements: bookmark=20 actual=19', 'Methodology, limitations and next steps: toc_printed=21 actual=20', 'Methodology, limitations and next steps: bookmark=21 actual=20']
