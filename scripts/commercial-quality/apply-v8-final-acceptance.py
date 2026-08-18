@@ -12,13 +12,14 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 
 # 1) Scenario-state grounding: broaden only the two known synthesis sentences so the exact
-# customer-visible wording produced in V8 is grounded to the recorded response labels.
+# customer-visible wording produced in V8 is grounded to the recorded response labels, while
+# preserving the earlier accepted wording variants.
 adaptation_path = Path("src/lib/reports/essential-presentation-adaptation.ts")
 adaptation = adaptation_path.read_text()
 adaptation = replace_once(
     adaptation,
     r'/The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage\./gi,',
-    r'/The current (?:control )?weakness(?: linked to this pathway)? is that monitoring and exception review are at an initial or ad hoc stage\./gi,',
+    r'/The current (?:control )?weakness(?: in the pathway| linked to this pathway)? is that monitoring and exception review are at an initial or ad hoc stage\./gi,',
     "V8 monitoring scenario wording",
 )
 adaptation = replace_once(
