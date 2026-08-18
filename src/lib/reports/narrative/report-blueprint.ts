@@ -232,6 +232,12 @@ export interface WholeManuscriptOutputBudget {
   basis: string;
 }
 
+// The commercial envelope is expressed in words, while provider maxOutputTokens is a token ceiling.
+// Treating one word as one token caused the 4,200-word Essential envelope to be capped at only
+// 6,204 tokens after reserves, which forced valid manuscripts into tail recovery. A conservative
+// 1.5 tokens/word conversion keeps the commercial word envelope unchanged while giving the
+// provider enough technical headroom to complete a normal Essential manuscript in one call.
+const OUTPUT_BUDGET_TOKENS_PER_WORD = 1.5;
 const OUTPUT_BUDGET_NARRATIVE_VARIANCE = 0.2;
 const OUTPUT_BUDGET_HEADING_VARIANCE = 0.2;
 const OUTPUT_BUDGET_CONCLUSION_HEADING_UNITS = 2;
@@ -250,7 +256,7 @@ function expectedManuscriptWordRange(reportTier: ReportBlueprint['reportTier']):
 
 export function deriveWholeManuscriptOutputBudget(blueprint: ReportBlueprint): WholeManuscriptOutputBudget {
   const expectedWordRange = expectedManuscriptWordRange(blueprint.reportTier);
-  const expectedOutputTokens = expectedWordRange.maximum;
+  const expectedOutputTokens = Math.ceil(expectedWordRange.maximum * OUTPUT_BUDGET_TOKENS_PER_WORD);
   const headingCount = manuscriptHeadingCount(blueprint);
   if (headingCount < 1) throw new Error('Whole-manuscript output budgeting requires at least one Blueprint heading.');
   const averageExpectedTokensPerHeading = Math.ceil(expectedOutputTokens / headingCount);
@@ -269,7 +275,7 @@ export function deriveWholeManuscriptOutputBudget(blueprint: ReportBlueprint): W
     conclusionReserveTokens,
     safetyMarginTokens,
     hardOutputTokenLimit: Math.min(WHOLE_MANUSCRIPT_MODEL_MAX_OUTPUT_TOKENS, expectedOutputTokens + safetyMarginTokens),
-    basis: 'Expected tier envelope is kept separate from the technical limit. Technical headroom is derived from 20% narrative variance, 20% heading/transition variance and two average heading units for the conclusion; the active model maximum remains the hard ceiling.'
+    basis: 'Expected tier envelope remains a commercial word range. The provider token budget converts the maximum word envelope at 1.5 tokens per word, then adds 20% narrative variance, 20% heading/transition variance and two average heading units for the conclusion; the active model maximum remains the hard ceiling.'
   };
 }
 
