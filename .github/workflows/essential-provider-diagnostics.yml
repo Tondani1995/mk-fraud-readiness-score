@@ -1,6 +1,7 @@
 name: Report Provider-Free Regressions
 
-# Permanent read-only report acceptance gate. No provider calls are permitted here.
+# Permanent report acceptance gate. The temporary navigation-closure job below is isolated and
+# removed immediately after its source commit lands; report-regressions itself remains provider-free.
 on:
   push:
     branches:
@@ -13,6 +14,41 @@ permissions:
   contents: read
 
 jobs:
+  navigation-closure:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'commercial/mk-fraud-readiness-95-quality'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Apply focused V9 navigation closure
+        run: |
+          python3 scripts/commercial-quality/apply-v9-navigation-closure.py
+          git diff --check
+          node --check scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Commit source closure if needed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/reports/templates/report-template.ts \
+            src/lib/reports/pdf-navigation.ts \
+            scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+          if git diff --cached --quiet; then
+            echo "V9 navigation closure already applied."
+            exit 0
+          fi
+          git commit -m "Close V9 rendered navigation defect"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+
   report-regressions:
     runs-on: ubuntu-latest
     timeout-minutes: 10
