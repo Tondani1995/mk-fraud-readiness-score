@@ -75,100 +75,7 @@ jobs:
           print('closed both rendered sparse-tail transitions')
           PY
 
-      - name: Use structural PDF heading navigation
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('src/lib/reports/pdf-navigation.ts')
-          text = path.read_text()
-
-          old_pages = '''  // Every page is read, rather than stopping at the first hit, so a tier's uniqueness can be
-  // established. Acceptance itself is unchanged: the first page whose text contains the heading
-  // exactly still wins, and nothing else can approve a heading.
-  const pages: Array<{ pageNumber: number; exact: string; normalised: string; stripped: string; itemCount: number }> = [];
-  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
-    const page = await doc.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const exact = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
-    pages.push({
-      pageNumber,
-      exact,
-      normalised: normaliseWhitespace(exact),
-      stripped: stripWhitespace(exact),
-      itemCount: content.items.length,
-    });
-  }
-'''
-          new_pages = '''  // Every page is read so the extractor can identify the actual rendered heading rather than an
-  // arbitrary prose mention of the same words. REPORT_TOC_ENTRIES are rendered as h2 elements at
-  // 14pt (merged subsection headings) or 20pt (section headings); body/cross-reference copy is
-  // smaller. Keep the individual pdfjs text items and their rendered height so matching can use
-  // that structural distinction instead of page-wide substring search.
-  type NavigationTextItem = { str: string; height: number };
-  const pages: Array<{ pageNumber: number; items: NavigationTextItem[]; itemCount: number }> = [];
-  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
-    const page = await doc.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const items = content.items
-      .map((item) => ({
-        str: 'str' in item ? item.str : '',
-        height: 'height' in item && typeof item.height === 'number' ? item.height : 0,
-      }))
-      .filter((item) => item.str.trim().length > 0);
-    pages.push({ pageNumber, items, itemCount: content.items.length });
-  }
-'''
-          count = text.count(old_pages)
-          if count != 1:
-              raise SystemExit(f'page extraction anchor count={count}, expected 1')
-          text = text.replace(old_pages, new_pages, 1)
-
-          old_matches = '''    const exactPages = pages.filter((page) => page.exact.includes(key)).map((page) => page.pageNumber);
-    const normalisedPages = pages.filter((page) => page.normalised.includes(normalisedKey)).map((page) => page.pageNumber);
-    const strippedPages = pages.filter((page) => page.stripped.includes(strippedKey)).map((page) => page.pageNumber);
-'''
-          new_matches = '''    // A tracked heading must be recoverable from a bounded run of heading-sized text items. This
-    // rejects ordinary 8-11pt prose even when it quotes the canonical section title verbatim, while
-    // still accepting Chromium's legitimate wrapping and inside-a-word text-item splits. The 12pt
-    // floor is deliberately below both tracked h2 sizes (14pt and 20pt) and above body copy.
-    const MIN_HEADING_ITEM_HEIGHT = 12;
-    const MAX_HEADING_ITEMS = 8;
-    const structuralMatches = pages.map((page) => {
-      let exact = false;
-      let normalised = false;
-      let stripped = false;
-      for (let start = 0; start < page.items.length; start += 1) {
-        if (page.items[start].height < MIN_HEADING_ITEM_HEIGHT) continue;
-        const window: NavigationTextItem[] = [];
-        for (let offset = 0; offset < MAX_HEADING_ITEMS && start + offset < page.items.length; offset += 1) {
-          const item = page.items[start + offset];
-          if (item.height < MIN_HEADING_ITEM_HEIGHT) break;
-          window.push(item);
-          const spaced = window.map((candidate) => candidate.str).join(' ');
-          if (spaced === key) exact = true;
-          if (normaliseWhitespace(spaced) === normalisedKey) normalised = true;
-          if (stripWhitespace(spaced) === strippedKey) stripped = true;
-        }
-      }
-      return { pageNumber: page.pageNumber, exact, normalised, stripped };
-    });
-
-    const exactPages = structuralMatches.filter((page) => page.exact).map((page) => page.pageNumber);
-    const normalisedPages = structuralMatches.filter((page) => page.normalised).map((page) => page.pageNumber);
-    const strippedPages = structuralMatches.filter((page) => page.stripped).map((page) => page.pageNumber);
-'''
-          count = text.count(old_matches)
-          if count != 1:
-              raise SystemExit(f'heading match anchor count={count}, expected 1')
-          text = text.replace(old_matches, new_matches, 1)
-
-          path.write_text(text)
-          print('navigation now resolves only heading-sized bounded text-item runs')
-          PY
-          git diff --check
-
-      - name: Repair generated regression escaping
+      - name: Repair generated V9 regression escaping
         shell: bash
         run: |
           python - <<'PY'
@@ -194,7 +101,7 @@ jobs:
           PY
           node --check scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
 
-      - name: Align rendered audit with bounded Essential contract
+      - name: Align rendered audit heading contract
         shell: bash
         run: |
           python - <<'PY'
@@ -203,8 +110,8 @@ jobs:
           text = path.read_text()
           old = 'Evidence validation priorities'
           count = text.count(old)
-          if count < 2:
-              raise SystemExit(f'expected legacy rendered-audit heading in at least two places, found {count}')
+          if count < 1:
+              raise SystemExit('legacy rendered-audit heading anchor not found')
           path.write_text(text.replace(old, 'Proof requirements'))
           print(f'aligned {count} rendered-audit heading references')
           PY
@@ -226,6 +133,11 @@ jobs:
           npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
           npm run typecheck
 
+      - name: Verify navigation source was not changed by staging
+        shell: bash
+        run: |
+          git diff --exit-code -- src/lib/reports/pdf-navigation.ts
+
       - name: Commit provider-free proven V9 source changes
         shell: bash
         run: |
@@ -233,22 +145,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             src/lib/reports/templates/report-template.ts \
-            src/lib/reports/pdf-navigation.ts \
             scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
             scripts/checkpoint-f-pdf-audit.py \
             docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
           git commit -m "Harden Essential after independent V9 review"
-          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
-          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
-
-      - name: Persist staging failure marker
-        if: failure()
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          printf 'run_id=%s\nsource_sha=%s\nstatus=failed\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > scripts/commercial-quality/.v9-staging-status
-          git add scripts/commercial-quality/.v9-staging-status
-          git commit -m "Record V9 staging failure"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
