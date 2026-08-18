@@ -56,6 +56,9 @@ jobs:
       - name: Prove Essential V7 final acceptance fixes provider-free
         run: npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
 
+      - name: Prove Essential V9 second-opinion closure provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
 
