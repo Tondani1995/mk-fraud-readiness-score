@@ -64,7 +64,6 @@ export const REPORT_TOC_ENTRIES: TocEntry[] = [
   // Rendered inside the core Methodology section, not the appendix: I3's supporting-reference
   // statement is a core commercial disclosure. Flagging it `appendix` would nest it under the
   // appendix bookmark root it no longer belongs to.
-  { key: 'Complete supporting detail', label: 'Complete supporting detail' },
   // key is deliberately not the bare word "Appendix" -- the core sections cross-reference the
   // appendix by name, so a plain "Appendix" search key would match that cross-reference text on an
   // earlier page instead of the actual appendix divider page.
@@ -72,6 +71,7 @@ export const REPORT_TOC_ENTRIES: TocEntry[] = [
   // heading are the SAME string. checkpoint-f-pdf-audit.py keys tocPrinted by the printed row text
   // and looks it up by REQUIRED_SECTIONS heading, so a divergent label silently breaks the contract.
   { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },
+  { key: 'Complete supporting detail', label: 'Complete supporting detail', appendix: true },
   { key: 'E1. Supporting control actions', label: 'E1. Supporting control actions', appendix: true },
   { key: 'E2. Definitions and score basis', label: 'E2. Definitions and score basis', appendix: true }
 ];
@@ -184,7 +184,9 @@ function buildEvidenceRecommendation(item: { artefact: string; provesWhat: strin
   const match = PROVES_WHAT_TEMPLATE.exec(item.provesWhat);
   const testSentence = match
     ? `Confirm across the complete in-scope population that ${lowercaseFirst(match[1])}.`
-    : 'Confirm that this control operates as designed across the complete in-scope population.';
+    : item.provesWhat.trim()
+      ? `Confirm ${lowercaseFirst(item.provesWhat.replace(/[.]$/, ''))}.`
+      : 'Confirm that this control operates as designed across the complete in-scope population.';
 
   return `${actionSentence} ${testSentence}`;
 }
@@ -231,6 +233,8 @@ export function renderReportHtml(
   const adaptiveScope = data.adaptiveScope;
   const adaptiveExposureAssessed = !adaptiveScope || adaptiveScope.exposureAssessed !== false;
   const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));
+  const domainNameByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain.domainName]));
+  const customerDomainText = (value: string): string => value.replace(/\bD\d+\b/g, (code) => domainNameByCode.get(code) ?? code);
   const exposurePct = Math.min(100, Math.max(0, Number(sr.exposureScore) || 0));
   const readinessPct = Math.min(100, Math.max(0, Number(sr.overallScore) || 0));
   const plotX = 5 + exposurePct * 0.62;
@@ -248,7 +252,7 @@ export function renderReportHtml(
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
     <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
-    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} answered through the assessment's oversight-response route rather than the standard response route. These areas remain in scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
     <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
@@ -292,7 +296,7 @@ export function renderReportHtml(
 
   const capCards = data.maturityCapEvents.map((event) => `<div class="compact-card amber-card">
     <div class="card-eyebrow">Maturity constraint · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>
-    <h3>${esc(event.relatedQuestionPrompt ?? event.reason)}</h3>
+    <h3>${esc(event.relatedQuestionPrompt ?? customerDomainText(event.reason))}</h3>
     <p>This recorded condition limits the final maturity reading to <strong>${esc(event.capTo)}</strong>. The constraint remains a recorded assessment result until management supplies the defined operating proof.</p>
   </div>`).join('');
 
@@ -433,8 +437,10 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     </div>
   </article>`;
 
-  const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => `<article class="long-record risk-record">
-    <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(risk.affectedDomains.join(', '))}</span><h3>${esc(risk.title)}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
+  const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => {
+    const affectedDomainLabels = risk.affectedDomains.map((code) => domainNameByCode.get(code) ?? code).join(', ');
+    return `<article class="long-record risk-record">
+    <div class="record-heading"><div><span class="record-number">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(risk.title)}</h3></div><span class="priority-badge priority-${risk.priority.toLowerCase()}">${esc(risk.priority)}</span></div>
     <div class="risk-statement">${esc(risk.riskStatement)}</div>
     <div class="record-grid two">
       ${labelled('Cause', risk.cause)}
@@ -447,6 +453,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${labelled('Target period', risk.targetPeriod)}
     </div>
   </article>`;
+  };
 
   const priorityFindingsBlock = topFindings.map(findingCard).join('');
   const priorityContradictionsBlock = topContradictions.length > 0
@@ -472,10 +479,16 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // actions against the accepted 12-target/15-ceiling the projection's dependency-closed roadmap
   // pages 19-30 on its own. The projection has already applied the cap, the dependency closure and
   // the accepted ordering; never render the full L1 roadmap here.
+  const roadmapDeliverableForDisplay = (action: { deliverable: string; domainName: string }): string => {
+    const match = action.deliverable.match(/^Apply immediate escalation at "([^"]+)" and deliver the exact control design:\s*/i);
+    if (!match) return action.deliverable;
+    const trigger = match[1].trim().replace(/[.;]+$/, '');
+    return `Implement the target control design for ${action.domainName}. Escalation trigger: ${trigger}.`;
+  };
   const roadmapRows = projection.roadmapActions.map((action) => `<tr>
     <td>${esc(action.period)}</td>
     <td>${esc(action.domainName)}</td>
-    <td>${esc(action.deliverable)}</td>
+    <td>${esc(roadmapDeliverableForDisplay(action))}</td>
     <td>${esc(action.accountableExecutive)}</td>
     <td>${esc(action.successMeasure)}</td>
   </tr>`);
@@ -490,8 +503,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const roadmapBlock = subsection('30/60/90-day roadmap', `
     <p class="section-note">The first 30 days establish decisions and ownership; the 60- and 90-day windows implement and evidence the linked controls.</p>
     ${firstNinetyDayNarrative ? `<div class="manuscript-panel">${firstNinetyDayNarrative}</div>` : ''}
-    ${firstThirtyDayRows.length ? `<h3>First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
-    <h3>60- and 90-day implementation actions</h3>
+    ${firstThirtyDayRows.length ? `<h3 class="roadmap-table-heading">First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
+    <h3 class="roadmap-table-heading">60- and 90-day implementation actions</h3>
     ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows, 'compact-register roadmap-table')}`);
 
   const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
@@ -624,10 +637,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // exactly where the omitted detail lives. It must never claim detail is available that the
   // supporting register does not actually contain.
   const supportingReferenceBlock = `
-    <div class="keep-together">
     <p class="lede">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
-    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>
-    </div>`;
+    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>`;
   // The appendix root opens the same physical page as E1. The former standalone
   // `.appendix-divider` section carried `min-height: 250mm`, which -- proportionate when the
   // appendix held ~60 pages of full L1 registers -- spent an entire page on ~240 characters once
@@ -637,6 +648,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const appendixSections = [
     section('Appendix', 'Appendix: supporting material', `
       <p class="lede">Bounded supporting material for the priority matters above. The complete authoritative registers are provided in the supporting register, not reproduced here.</p>
+      ${subsection('Complete supporting detail', supportingReferenceBlock)}
       ${subsection('E1. Supporting control actions', `
         <p class="section-note">Further control actions beyond the priority set above, in materiality order.</p>
         ${table(['No.', 'Domain', 'Control objective', 'Control design', 'Owner / Target'], carAppendixRows)}`)}
@@ -694,7 +706,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
       : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),
     section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
-    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
+    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`, 'continue-after-long-register'),
     appendixSections
   ].join('\n');
 
@@ -746,6 +758,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
      V7 page 19 was exactly that. Keep the note attached to whatever follows it too. */
   .subsection-heading + .section-note,
   .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }
+  .roadmap-table-heading { break-after: avoid; page-break-after: avoid; margin-top: 5mm; }
+  .roadmap-table-heading + table { break-before: avoid; page-break-before: avoid; }
   /* Layout-boundary exception, and the ONLY one. Every .report-section forces a page break before
      itself. Roadmap rows are large whole control designs and about two fit a page, so when the
      final row lands alone the compulsory break before the next section guarantees the rest of that

@@ -211,13 +211,15 @@ function rankScore(trace: QuestionTraceRecord, reasons: MaterialFindingSelection
 function impactCategories(domainCode: string): { financial: string; operational: string } {
   const impacts: Record<string, { financial: string; operational: string }> = {
     D1: { financial: 'Indirect -- unresolved control gaps can remain unfunded or unchallenged.', operational: 'Accountability and independent challenge may be unclear.' },
+    D2: { financial: 'Unmapped process-level fraud routes can leave value diversion or loss outside targeted controls.', operational: 'Material process exposures can remain without explicit control ownership or treatment.' },
     D3: { financial: 'Direct -- access or supplier-control weakness can enable unauthorised payments or manipulation.', operational: 'Preventive controls may not match current roles or approved suppliers.' },
     D4: { financial: 'Direct -- unreviewed exceptions can allow losses to compound.', operational: 'Alert backlogs can conceal important anomalies.' },
     D5: { financial: 'Indirect -- delayed response or compromised evidence increases investigation and recovery cost.', operational: 'Containment, investigation and legal action may be weakened.' },
     D6: { financial: 'Indirect -- suppressed reporting lets fraud continue longer.', operational: 'Early-warning information may never reach an independent reviewer.' },
     D7: { financial: 'Direct -- false suppliers, invoices or bank changes can redirect payments.', operational: 'Vendor and payment integrity can be bypassed.' },
     D8: { financial: 'Direct -- compromised or privileged access can alter records and transactions.', operational: 'Digital misuse can evade prevention and monitoring.' },
-    D9: { financial: 'Indirect -- staff may comply with fraudulent requests.', operational: 'Role-specific warning signs can be missed.' }
+    D9: { financial: 'Indirect -- staff may comply with fraudulent requests.', operational: 'Role-specific warning signs can be missed.' },
+    D10: { financial: 'Undetected control deterioration can allow loss exposure to persist or compound before management intervenes.', operational: 'Control ownership, evidence and remediation can lapse as processes, systems or responsibilities change.' }
   };
   return impacts[domainCode] ?? { financial: 'Impact requires case-specific validation.', operational: 'Operating impact requires case-specific validation.' };
 }

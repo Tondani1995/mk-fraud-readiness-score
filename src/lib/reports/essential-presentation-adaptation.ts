@@ -34,7 +34,11 @@ const ROLE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
 const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
   [/\bpayslip inserts?\b/gi, 'the workforce communication channels used by the organisation'],
   [/\b(?:depots|branches|sites)\b/gi, 'operating locations'],
-  [/\baudit, compliance, operations and risk functions\b/gi, 'relevant operational, control and oversight responsibilities']
+  [/\baudit, compliance, operations and risk functions\b/gi, 'relevant operational, control and oversight responsibilities'],
+  [/\binduction packs, the workforce communication channels used by the organisation, notice boards at operating locations, intranet and supervisor briefings\b/gi, 'induction and onboarding materials, the workforce communication channels used by the organisation, and supervisor briefings'],
+  [/\bnotice boards? at operating locations\b/gi, 'appropriate workforce communication channels'],
+  [/\bintranet\b/gi, 'internal workforce communication channel'],
+  [/\bfraud forum\b/gi, 'management fraud-risk review route']
 ];
 
 /**
@@ -100,6 +104,9 @@ function applyEssentialCustomerBoundary(value: string): string {
     // Internal authoring labels/punctuation are not customer copy. Cover ASCII and typographic dashes.
     .replace(/\bDirect\s*(?:--|—|–|-)\s*/gi, '')
     .replace(/\s+--\s+/g, ' — ')
+    // A replacement can consume the original full stop but leave the join semicolon behind.
+    // Never show the customer a malformed ".;" sequence.
+    .replace(/\.\s*;\s*/g, '; ')
     // Remove a deterministic duplicate introduced when generic location labels are adapted twice.
     .replace(/\boperating locations\s+and\s+operating locations\b/gi, 'operating locations')
     // Keep the supporting appendix usable on a printed page without dropping the control intent.
@@ -236,6 +243,25 @@ function ensureEssentialThirtyDayFoundation<T>(model: T): T {
   return model;
 }
 
+interface EssentialLeadershipDecisionCandidate {
+  decisionRequired?: string;
+  targetPeriod?: string;
+}
+
+function ensureEssentialThirtyDayOwnershipDecision<T>(model: T): T {
+  if (!model || typeof model !== 'object') return model;
+  const record = model as Record<string, unknown>;
+  if (!Array.isArray(record.leadershipDecisions)) return model;
+  record.leadershipDecisions = record.leadershipDecisions.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const decision = item as EssentialLeadershipDecisionCandidate;
+    if (decision.targetPeriod !== '60 days') return item;
+    if (!/accountable executive mandates and escalation authority/i.test(decision.decisionRequired ?? '')) return item;
+    return { ...item, targetPeriod: '30 days' };
+  });
+  return model;
+}
+
 /**
  * An Essential-only adapted copy of the advisory evidence model.
  *
@@ -260,5 +286,5 @@ export function adaptEssentialEvidenceModel<T>(
     }
     return copy;
   };
-  return ensureEssentialThirtyDayFoundation(walk(model) as T);
+  return ensureEssentialThirtyDayOwnershipDecision(ensureEssentialThirtyDayFoundation(walk(model) as T));
 }

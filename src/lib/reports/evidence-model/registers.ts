@@ -203,6 +203,38 @@ export function buildControlImprovementRegister(findings: MaterialFinding[], ris
   });
 }
 
+function lowerFirst(value: string): string {
+  return value.length > 0 ? value.charAt(0).toLowerCase() + value.slice(1) : value;
+}
+
+function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): string {
+  const name = artefact.normalize('NFKC').trim();
+  const rules: Array<[RegExp, string]> = [
+    [/control linkage.*preventive.*detective/i, 'Whether each mapped fraud scenario is linked to named preventive and detective controls, with residual gaps identifiable.'],
+    [/per-process fraud scenario map/i, 'Whether each material process has explicit fraud scenarios, relevant roles or permissions and residual exposure documented.'],
+    [/process inventory/i, 'Whether the complete population of material value-bearing processes has been identified before fraud-risk mapping is assessed.'],
+    [/process-owner sign-off/i, 'Whether process owners have reviewed and accepted the mapped fraud scenarios, control ownership and residual gaps.'],
+    [/coverage report.*fraud maps/i, 'Whether monitoring covers every material process identified in the fraud maps and exposes any unmonitored population.'],
+    [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
+    [/population reconciliation/i, 'Whether the monitoring input reconciles to the complete source-system population for the stated period.'],
+    [/red-flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
+    [/chain-of-custody/i, 'Whether each transfer of material evidence records custody, timing and handover without unexplained gaps.'],
+    [/evidence register/i, 'Whether all material evidence items are uniquely recorded, assigned and traceable through the case.'],
+    [/hash or seal/i, 'Whether collected evidence has integrity markers that can be matched at later custody points.'],
+    [/repository access log/i, 'Whether access to preserved evidence is restricted, attributable and reviewable.'],
+    [/retention.*legal-hold/i, 'Whether preservation instructions define the required retention or legal-hold treatment for relevant records.'],
+    [/alert case records/i, 'Whether suspicious digital-activity alerts are assigned, investigated, dispositioned and escalated to the required service level.'],
+    [/in-scope event inventory/i, 'Whether the complete population of priority login, access, profile and transaction events has been identified for monitoring.']
+  ];
+  const matched = rules.find(([pattern]) => pattern.test(name));
+  if (matched) return matched[1];
+  const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
+  const shown = prompts.slice(0, 2);
+  const remainder = prompts.length - shown.length;
+  const tail = remainder > 0 ? `, together with ${remainder} further linked control${remainder === 1 ? '' : 's'}` : '';
+  return `Whether the ${lowerFirst(name)} provides operating evidence that ${shown.join('; ')}${tail} is implemented across the complete in-scope population.`;
+}
+
 export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {
   const groups = new Map<string, { artefact: string; findings: MaterialFinding[] }>();
   for (const finding of [...findings].sort((a, b) => a.questionCode.localeCompare(b.questionCode))) {
@@ -228,13 +260,7 @@ export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskR
       linkedFindingId: linkedFindingIds[0] ?? '',
       linkedRiskId: linkedRiskIds[0] ?? '',
       likelyOwner: stableUnique(linked.map((finding) => finding.processOwner || finding.accountableOwner)).join(' / '),
-      provesWhat: (() => {
-        const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
-        const shown = prompts.slice(0, 2);
-        const remainder = prompts.length - shown.length;
-        const tail = remainder > 0 ? `, and ${remainder} further linked control${remainder === 1 ? '' : 's'},` : '';
-        return `Whether ${shown.join('; ')}${tail} operate${prompts.length === 1 ? 's' : ''} to the exact expected control standard across the complete in-scope population.`;
-      })(),
+      provesWhat: evidenceProofPurpose(artefact, linked),
       expectedRecency: stableUnique(linked.map((finding) => finding.operatingFrequency)).join('; '),
       requiredPopulation: 'Complete in-scope population for the stated operating period, reconciled to the source system or register.',
       samplingExpectation: 'Review the complete population where feasible; otherwise use a documented risk-based sample including exceptions, changes and overdue items.',
