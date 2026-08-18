@@ -63,6 +63,11 @@ const MK_ASSURANCE_ACTOR = /\b(?:by|from)\s+MK\b/i;
 // deliberately normative: past-tense assertions remain fail-closed unless another existing control
 // activity rule proves them safe.
 const CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW = /(?:^|[.!?]\s+)\s*independently\s+(?:review|verify)\b|\b(?:should|must|need(?:s)?\s+to|is required to|are required to)\s+independently\s+(?:review|verify)\b/i;
+// A customer-owned verification recommendation is also safe when written in passive form, for
+// example "operating effectiveness should be independently verified before closure". This is
+// future/normative control design, not a claim that MK or the assessment has already provided
+// assurance. Past-tense or present-perfect assertions remain blocked by the absolute rules above.
+const CUSTOMER_PASSIVE_CONTROL_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|control environment|control design|control operation|implementation|remediation|evidence(?: package)?|closure)\b.{0,180}\b(?:(?:should|must|can|could)\s+(?:then\s+)?be|(?:need(?:s)?\s+to|is required to|are required to)\s+be)\s+independently\s+(?:verified|reviewed)\b/i;
 // Even normative wording remains prohibited when the proposed reviewer is MK or the report itself.
 const PROHIBITED_ASSURANCE_SUBJECT = /\b(?:MK|the assessment|this assessment|the findings?|the report|this report)\b.{0,120}\b(?:should|must|need(?:s)?\s+to|is required to|are required to)?\s*independently\s+(?:review|verify)\b/i;
 // Narrow, deterministic exception for the supplied management-versus-assurance role-separation
@@ -93,6 +98,7 @@ export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassi
   if ((hasControlSubject && hasControlAction)
     || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
     || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
+    || CUSTOMER_PASSIVE_CONTROL_VERIFICATION.test(assuranceText)
     || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
     return { category: 'customer_control_activity', matched: ambiguous[0] };
   }
