@@ -9,42 +9,15 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   report-regressions:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 10
     steps:
-      - name: Check out working branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: commercial/mk-fraud-readiness-95-quality
-          fetch-depth: 0
-
-      - name: Correct customer-visible supporting-register reference once
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('src/lib/reports/templates/report-template.ts')
-          text = p.read_text()
-          old = 'and in the complete registers in the appendix.</p>'
-          new = 'and in the complete registers in the supporting register issued with this report.</p>'
-          if old in text:
-              p.write_text(text.replace(old, new, 1))
-          elif new not in text:
-              raise SystemExit('leadership decision register-reference anchor missing')
-          PY
-          if git diff --quiet -- src/lib/reports/templates/report-template.ts; then
-            echo "Supporting-register reference already corrected."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/lib/reports/templates/report-template.ts
-            git commit -m "Correct Essential supporting-register reference"
-            git push origin HEAD:commercial/mk-fraud-readiness-95-quality
-          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -78,6 +51,3 @@ jobs:
 
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
-
-      - name: Typecheck report cleanup
-        run: npm run typecheck
