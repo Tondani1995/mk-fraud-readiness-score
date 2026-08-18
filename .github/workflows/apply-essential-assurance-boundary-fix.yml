@@ -1,4 +1,4 @@
-name: Apply Essential assurance-boundary fix
+name: Apply Essential V5.1 commercial cleanup
 
 on:
   push:
@@ -13,165 +13,69 @@ permissions:
 jobs:
   patch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out working branch
+        uses: actions/checkout@v4
         with:
           ref: commercial/mk-fraud-readiness-95-quality
           fetch-depth: 0
 
-      - name: Apply deterministic assurance-boundary repair
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply staged deterministic V5.1 patch
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+          import subprocess
+          import tempfile
 
-          validation = Path('src/lib/reports/narrative/validation.ts')
-          text = validation.read_text()
-          old = "  const assuranceText = text.replace(NEGATED_ASSURANCE_DISCLAIMER, '');"
-          new = """  const assuranceText = text
-    .replace(NEGATED_ASSURANCE_DISCLAIMER, '')
-    // Explicit limitation language is not an assurance claim. The paid V4 manuscript used
-    // \"not independent verification\" correctly, but the broad MK+verification guard still
-    // treated the negated phrase as a positive assurance assertion.
-    .replace(/\\bnot\\s+(?:an?\\s+)?independent\\s+(?:verification|review|assurance)\\b/gi, '')
-    .replace(/\\bdoes\\s+not\\s+provide\\s+(?:independent\\s+)?assurance\\b/gi, '');"""
-          if old not in text:
-              raise SystemExit('validation assurance anchor not found')
-          validation.write_text(text.replace(old, new, 1))
-
-          normaliser = Path('src/lib/reports/narrative/assurance-boundary-normalisation.ts')
-          normaliser.write_text(r'''import type { ParsedBlueprintMarkdown } from './blueprint-text';
-
-/**
- * Deterministically removes only a closed set of positive assurance assertions that the
- * Essential writer is never permitted to make. This is not AI repair and does not alter
- * scores, findings, controls, owners, timing or analytical meaning. It changes the actor
- * from the assessment/report/MK to the self-assessment responses, preserving the underlying
- * management implication while removing an unsupported verification claim.
- */
-const PROHIBITED_POSITIVE_ASSURANCE_REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
-  { pattern: /\\b(?:this|the) assessment has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) assessment independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) report has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) report independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\bMK has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\bMK independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' }
-];
-
-function normaliseText(value: string): { text: string; replacements: number } {
-  let text = value;
-  let replacements = 0;
-  for (const rewrite of PROHIBITED_POSITIVE_ASSURANCE_REWRITES) {
-    text = text.replace(rewrite.pattern, () => {
-      replacements += 1;
-      return rewrite.replacement;
-    });
-  }
-  return { text, replacements };
-}
-
-export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprintMarkdown): number {
-  let replacements = 0;
-  const rewriteBlock = (block: { text: string }) => {
-    const result = normaliseText(block.text);
-    block.text = result.text;
-    replacements += result.replacements;
-  };
-
-  for (const chapter of narrative.chapters) {
-    for (const section of chapter.sections) {
-      section.paragraphs.forEach(rewriteBlock);
-      section.subsections.forEach((subsection) => subsection.paragraphs.forEach(rewriteBlock));
-    }
-  }
-  const markdown = normaliseText(narrative.markdown);
-  narrative.markdown = markdown.text;
-  replacements += markdown.replacements;
-  return replacements;
-}
-''')
-
-          coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
-          text = coordinator.read_text()
-          import_anchor = "} from './blueprint-text';\n"
-          import_line = "import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';\n"
-          if import_line not in text:
-              if import_anchor not in text:
-                  raise SystemExit('coordinator import anchor not found')
-              text = text.replace(import_anchor, import_anchor + import_line, 1)
-          validate_anchor = "  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"
-          replacement = """  const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
-  if (deterministicAssuranceNormalisations > 0) {
-    console.info('essential_assurance_boundary_normalisation', {
-      replacements: deterministicAssuranceNormalisations
-    });
-  }
-  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"""
-          if validate_anchor not in text:
-              raise SystemExit('coordinator validation anchor not found')
-          coordinator.write_text(text.replace(validate_anchor, replacement, 1))
-
-          tests = Path('scripts/commercial-quality/essential-assurance-boundary-tests.mjs')
-          tests.write_text(r'''#!/usr/bin/env node
-import assert from 'node:assert/strict';
-import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
-import { normaliseProhibitedAssessmentAssurance } from '../../src/lib/reports/narrative/assurance-boundary-normalisation.ts';
-
-assert.equal(
-  classifyAssuranceLanguage('The MK scoring method is strategic fraud-risk analysis and control design, not independent verification.'),
-  null,
-  'an explicit non-assurance disclaimer must not be misclassified as a positive assurance claim'
-);
-const unsafe = classifyAssuranceLanguage('This assessment has independently verified that the control operates as designed.');
-assert.equal(unsafe?.category, 'prohibited_assurance');
-
-const narrative = {
-  ok: true,
-  markdown: '# Executive assessment position\n\nThis assessment has independently verified that the control is operating.\n\n## Target control environment\n\nMK independently confirmed that evidence exists.',
-  errors: [],
-  chapters: [{
-    chapterId: 'EXEC',
-    title: 'Executive assessment position',
-    sections: [{
-      chapterId: 'EXEC',
-      sectionId: 'EXECUTIVE-ASSESSMENT-POSITION',
-      title: 'Executive assessment position',
-      permittedClaimRefs: [],
-      paragraphs: [{ text: 'This assessment has independently verified that the control is operating.', permittedClaimRefs: [] }],
-      subsections: [{
-        subsectionId: 'TARGET',
-        title: 'Target control environment',
-        paragraphs: [{ text: 'MK independently confirmed that evidence exists.', permittedClaimRefs: [] }]
-      }]
-    }]
-  }]
-};
-const count = normaliseProhibitedAssessmentAssurance(narrative);
-assert.equal(count, 4, 'both parsed blocks and their markdown representations should be normalised');
-assert.match(narrative.chapters[0].sections[0].paragraphs[0].text, /^the self-assessment responses indicate that the control is operating\.$/i);
-assert.match(narrative.chapters[0].sections[0].subsections[0].paragraphs[0].text, /^the self-assessment responses indicate that evidence exists\.$/i);
-assert.doesNotMatch(narrative.markdown, /independently (?:verified|reviewed|confirmed)/i);
-
-console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', deterministicAssuranceNormalisation: 'PASS', negatedDisclaimerClassification: 'PASS' }, null, 2));
-''')
-
-          workflow = Path('.github/workflows/essential-provider-diagnostics.yml')
-          text = workflow.read_text()
-          step = """\n      - name: Prove Essential assurance boundary provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs\n"""
-          anchor = "      - name: Run provider-free Comprehensive customer-visible regressions\n"
-          if 'Prove Essential assurance boundary provider-free' not in text:
-              if anchor not in text:
-                  raise SystemExit('provider-free workflow anchor not found')
-              text = text.replace(anchor, step + "\n" + anchor, 1)
-              workflow.write_text(text)
+          workflow = Path('.github/workflows/one-off-essential-v5-cleanup.yml').read_text()
+          match = re.search(r"          python - <<'PY'\n(.*?)\n          PY\n", workflow, re.S)
+          if not match:
+              raise SystemExit('staged V5.1 Python patch block not found')
+          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in match.group(1).splitlines())
+          with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as handle:
+              handle.write(code)
+              patch_file = handle.name
+          subprocess.run(['python', patch_file], check=True)
           PY
 
+      - name: Prove V5.1 cleanup provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+
+      - name: Prove existing Essential report regressions
+        run: |
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Commit deterministic cleanup
+        shell: bash
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/reports/narrative/validation.ts \
-                  src/lib/reports/narrative/assurance-boundary-normalisation.ts \
-                  src/lib/reports/narrative/essential-manuscript-coordinator.ts \
-                  scripts/commercial-quality/essential-assurance-boundary-tests.mjs \
-                  .github/workflows/essential-provider-diagnostics.yml
-          git commit -m "Fix Essential assurance boundary without provider repair"
+          git add \
+            src/lib/reports/evidence-model/material-findings.ts \
+            src/lib/reports/evidence-model/registers.ts \
+            src/lib/reports/essential-presentation-adaptation.ts \
+            src/lib/reports/templates/report-template.ts \
+            src/components/admin/FulfilmentActions.tsx \
+            scripts/commercial-quality/essential-v5-cleanup-regression.mjs \
+            .github/workflows/essential-provider-diagnostics.yml
+          git commit -m "Polish Essential V5 customer report and generation UX"
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
