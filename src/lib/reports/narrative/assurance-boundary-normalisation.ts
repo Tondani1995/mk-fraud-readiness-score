@@ -1,9 +1,13 @@
 import type { ParsedBlueprintMarkdown } from './blueprint-text';
 
 /**
- * Deterministically removes a closed set of assurance-boundary phrases that the Essential
- * writer is not permitted to assert. This is not a provider repair and does not change any
- * score, finding, risk, control, owner, timing or analytical conclusion.
+ * Deterministic pre-validation cleanup for the Essential manuscript. It removes a closed set
+ * of assurance-boundary phrases that the writer is not permitted to assert and canonicalises
+ * provider-only decimal formatting so numerically identical Fact Pack values do not fail
+ * grounding solely because the provider wrote, for example, 20.00 instead of 20.
+ *
+ * This is not a provider repair and does not change any score, finding, risk, control, owner,
+ * timing or analytical conclusion.
  */
 const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
   {
@@ -39,6 +43,26 @@ const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
   }
 ];
 
+/**
+ * JSON numbers in the deterministic Fact Pack are already canonical (20, 20.5, etc.).
+ * Provider prose may render the same value as 20.00 or 20.50. Canonicalise only decimal
+ * numeric tokens, preserving a trailing percent sign, so the existing fail-closed numeric
+ * validator can compare like with like. Genuinely different values remain untouched.
+ */
+function canonicaliseDecimalFormatting(value: string): { text: string; replacements: number } {
+  let replacements = 0;
+  const text = value.replace(/\b\d+\.\d+%?/g, (token) => {
+    const hasPercent = token.endsWith('%');
+    const raw = hasPercent ? token.slice(0, -1) : token;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return token;
+    const canonical = `${String(parsed)}${hasPercent ? '%' : ''}`;
+    if (canonical !== token) replacements += 1;
+    return canonical;
+  });
+  return { text, replacements };
+}
+
 function normaliseText(value: string): { text: string; replacements: number } {
   let text = value;
   let replacements = 0;
@@ -48,6 +72,9 @@ function normaliseText(value: string): { text: string; replacements: number } {
       return rewrite.replacement;
     });
   }
+  const numeric = canonicaliseDecimalFormatting(text);
+  text = numeric.text;
+  replacements += numeric.replacements;
   return { text, replacements };
 }
 
@@ -67,7 +94,7 @@ export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprin
   }
 
   // Keep the raw Markdown representation aligned with the parsed blocks so no downstream
-  // consumer can accidentally retain the pre-normalised assertion.
+  // consumer can accidentally retain the pre-normalised assertion or numeric formatting.
   const markdown = normaliseText(narrative.markdown);
   narrative.markdown = markdown.text;
   replacements += markdown.replacements;
