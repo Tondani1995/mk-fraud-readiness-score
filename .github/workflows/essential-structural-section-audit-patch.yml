@@ -1,19 +1,18 @@
-name: Essential V9 Final Deterministic Proof
+name: Essential V9 Deterministic Source Staging
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    paths:
-      - scripts/commercial-quality/.v9-structural-navigation-trigger
+      - commercial/mk-fraud-readiness-95-quality
 
 permissions:
   contents: write
 
 jobs:
-  harden-render-and-prove:
+  stage-and-commit:
+    if: github.event.head_commit.message == 'Stage V9 deterministic source'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
       - name: Check out commercial branch
         uses: actions/checkout@v4
@@ -195,23 +194,6 @@ jobs:
           PY
           node --check scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
 
-      - name: Run second-opinion closure regression
-        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
-
-      - name: Run complete provider-free report regressions
-        run: |
-          npm run v11:narrative-diagnostics
-          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
-          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
-          npm run typecheck
-
       - name: Align rendered audit with bounded Essential contract
         shell: bash
         run: |
@@ -227,74 +209,24 @@ jobs:
           print(f'aligned {count} rendered-audit heading references')
           PY
 
-      - name: Install PDF audit dependencies
-        shell: bash
+      - name: Run second-opinion closure regression
+        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Run complete provider-free report regressions and typecheck
         run: |
-          if ! command -v pdftoppm >/dev/null 2>&1; then
-            sudo timeout 120 apt-get install -y --no-install-recommends poppler-utils
-          fi
-          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
-          command -v pdftoppm
-          pdftoppm -v
-          python3 - <<'PY'
-          import PIL
-          import pypdf
-          print('PDF audit Python dependencies: OK')
-          PY
+          npm run v11:narrative-diagnostics
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
+          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+          npm run typecheck
 
-      - name: Run rendered PDF hardening gate
-        shell: bash
-        run: |
-          set +e
-          npm run v7:test-checkpoint-f
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            echo "=== RENDERED PDF AUDIT FAILURES ==="
-            python3 - <<'PY'
-          import ast
-          import json
-          from pathlib import Path
-          from PIL import Image
-          from pypdf import PdfReader
-
-          root = Path('tmp/pdfs/checkpoint-f-artifact')
-          path = root / 'inspection/pdf-audit.json'
-          if not path.exists():
-              raise SystemExit('pdf-audit.json was not produced')
-          data = json.loads(path.read_text())
-          failures = [item for item in data.get('checks', []) if not item.get('passed')]
-          print(f"failureCount={len(failures)}")
-          for index, item in enumerate(failures, 1):
-              print(f"{index}. {item.get('code')} | {item.get('candidate')} | {item.get('detail')}")
-              if item.get('code') != 'PDF_NEAR_EMPTY_PAGE':
-                  continue
-              candidate = item.get('candidate')
-              pages = ast.literal_eval(item.get('detail', '').split('pages=', 1)[1])
-              reader = PdfReader(str(root / 'pdf' / f'{candidate}.pdf'))
-              images = sorted((root / 'renders' / candidate).glob('page-*.png'))
-              for page_number in pages:
-                  text = (reader.pages[page_number - 1].extract_text() or '').strip()
-                  ratio = None
-                  if page_number <= len(images):
-                      with Image.open(images[page_number - 1]).convert('L') as image:
-                          width, height = image.size
-                          top = int(height * 0.05)
-                          bottom = int(height * 0.95)
-                          region = image.crop((0, top, width, bottom))
-                          mask = region.point(lambda p: 255 if p < 235 else 0)
-                          bbox = mask.getbbox()
-                          if bbox is None:
-                              ratio = 0.0
-                          else:
-                              _, content_top, _, content_bottom = bbox
-                              ratio = (content_bottom - content_top) / region.height if region.height else 0.0
-                  print(f'   PAGE {page_number}: chars={len(text)} occupiedRatio={ratio:.3f}' if ratio is not None else f'   PAGE {page_number}: chars={len(text)}')
-                  print('   TEXT:', ' '.join(text.split())[:1800])
-          PY
-            exit "$status"
-          fi
-
-      - name: Commit proven source and requirement changes only
+      - name: Commit provider-free proven V9 source changes
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -305,10 +237,18 @@ jobs:
             scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
             scripts/checkpoint-f-pdf-audit.py \
             docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
-          if git diff --cached --quiet; then
-            echo "No source changes to commit."
-          else
-            git commit -m "Harden Essential after independent V9 review"
-          fi
+          git commit -m "Harden Essential after independent V9 review"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+
+      - name: Persist staging failure marker
+        if: failure()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'run_id=%s\nsource_sha=%s\nstatus=failed\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > scripts/commercial-quality/.v9-staging-status
+          git add scripts/commercial-quality/.v9-staging-status
+          git commit -m "Record V9 staging failure"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
