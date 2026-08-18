@@ -21,77 +21,23 @@ jobs:
           ref: commercial/mk-fraud-readiness-95-quality
           fetch-depth: 0
 
-      - name: Apply deterministic Essential assurance-boundary fix once
+      - name: Wire deterministic Essential assurance normalisation once
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          normaliser = Path('src/lib/reports/narrative/assurance-boundary-normalisation.ts')
-          if not normaliser.exists():
-              validation = Path('src/lib/reports/narrative/validation.ts')
-              text = validation.read_text()
-              old = "  const assuranceText = text.replace(NEGATED_ASSURANCE_DISCLAIMER, '');"
-              new = """  const assuranceText = text
-    .replace(NEGATED_ASSURANCE_DISCLAIMER, '')
-    .replace(/\\bnot\\s+(?:an?\\s+)?independent\\s+(?:verification|review|assurance)\\b/gi, '')
-    .replace(/\\bdoes\\s+not\\s+provide\\s+(?:independent\\s+)?assurance\\b/gi, '');"""
-              if old not in text:
-                  raise SystemExit('validation assurance anchor not found')
-              validation.write_text(text.replace(old, new, 1))
+          coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
+          text = coordinator.read_text()
+          import_line = "import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';\n"
+          if import_line not in text:
+              anchor = "} from './blueprint-text';\n"
+              if anchor not in text:
+                  raise SystemExit('coordinator import anchor not found')
+              text = text.replace(anchor, anchor + import_line, 1)
 
-              normaliser.write_text(r'''import type { ParsedBlueprintMarkdown } from './blueprint-text';
-
-const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
-  { pattern: /\\b(?:this|the) assessment has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) assessment independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) report has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\b(?:this|the) report independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\bMK has independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' },
-  { pattern: /\\bMK independently (?:verified|reviewed|confirmed)\\b/gi, replacement: 'the self-assessment responses indicate' }
-];
-
-function normaliseText(value: string): { text: string; replacements: number } {
-  let text = value;
-  let replacements = 0;
-  for (const rewrite of REWRITES) {
-    text = text.replace(rewrite.pattern, () => {
-      replacements += 1;
-      return rewrite.replacement;
-    });
-  }
-  return { text, replacements };
-}
-
-export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprintMarkdown): number {
-  let replacements = 0;
-  const rewriteBlock = (block: { text: string }) => {
-    const result = normaliseText(block.text);
-    block.text = result.text;
-    replacements += result.replacements;
-  };
-  for (const chapter of narrative.chapters) {
-    for (const section of chapter.sections) {
-      section.paragraphs.forEach(rewriteBlock);
-      section.subsections.forEach((subsection) => subsection.paragraphs.forEach(rewriteBlock));
-    }
-  }
-  const markdown = normaliseText(narrative.markdown);
-  narrative.markdown = markdown.text;
-  replacements += markdown.replacements;
-  return replacements;
-}
-''')
-
-              coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
-              text = coordinator.read_text()
-              import_anchor = "} from './blueprint-text';\n"
-              import_line = "import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';\n"
-              if import_line not in text:
-                  if import_anchor not in text:
-                      raise SystemExit('coordinator import anchor not found')
-                  text = text.replace(import_anchor, import_anchor + import_line, 1)
-              validate_anchor = "  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"
+          validate_anchor = "  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"
+          if 'deterministicAssuranceNormalisations' not in text:
               replacement = """  const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
   if (deterministicAssuranceNormalisations > 0) {
     console.info('essential_assurance_boundary_normalisation', { replacements: deterministicAssuranceNormalisations });
@@ -99,43 +45,44 @@ export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprin
   const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"""
               if validate_anchor not in text:
                   raise SystemExit('coordinator validation anchor not found')
-              coordinator.write_text(text.replace(validate_anchor, replacement, 1))
+              text = text.replace(validate_anchor, replacement, 1)
+          coordinator.write_text(text)
 
-              tests = Path('scripts/commercial-quality/essential-assurance-boundary-tests.mjs')
+          tests = Path('scripts/commercial-quality/essential-assurance-boundary-tests.mjs')
+          if not tests.exists():
               tests.write_text(r'''#!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
 import { normaliseProhibitedAssessmentAssurance } from '../../src/lib/reports/narrative/assurance-boundary-normalisation.ts';
 
-assert.equal(classifyAssuranceLanguage('The MK scoring method is strategic fraud-risk analysis and control design, not independent verification.'), null);
 assert.equal(classifyAssuranceLanguage('This assessment has independently verified that the control operates as designed.')?.category, 'prohibited_assurance');
 
 const narrative = {
   ok: true,
-  markdown: '# Executive\n\nThis assessment has independently verified that the control is operating.\n\n## Target\n\nMK independently confirmed that evidence exists.',
+  markdown: '# Executive\n\nThe MK scoring method is strategic fraud-risk analysis and control design, not independent verification.\n\n## Target\n\nThis assessment has independently verified that evidence exists.',
   errors: [],
-  chapters: [{ chapterId: 'EXEC', title: 'Executive', sections: [{ chapterId: 'EXEC', sectionId: 'POSITION', title: 'Position', permittedClaimRefs: [], paragraphs: [{ text: 'This assessment has independently verified that the control is operating.', permittedClaimRefs: [] }], subsections: [{ subsectionId: 'TARGET', title: 'Target', paragraphs: [{ text: 'MK independently confirmed that evidence exists.', permittedClaimRefs: [] }] }] }] }]
+  chapters: [{ chapterId: 'EXEC', title: 'Executive', sections: [{ chapterId: 'EXEC', sectionId: 'POSITION', title: 'Position', permittedClaimRefs: [], paragraphs: [{ text: 'The MK scoring method is strategic fraud-risk analysis and control design, not independent verification.', permittedClaimRefs: [] }], subsections: [{ subsectionId: 'TARGET', title: 'Target', paragraphs: [{ text: 'This assessment has independently verified that evidence exists.', permittedClaimRefs: [] }] }] }] }]
 };
 const count = normaliseProhibitedAssessmentAssurance(narrative);
 assert.equal(count, 4);
-assert.match(narrative.chapters[0].sections[0].paragraphs[0].text, /^the self-assessment responses indicate that the control is operating\.$/i);
+assert.doesNotMatch(narrative.markdown, /not independent verification/i);
+assert.doesNotMatch(narrative.markdown, /assessment has independently verified/i);
+assert.match(narrative.chapters[0].sections[0].paragraphs[0].text, /without verification of operating effectiveness by this review/i);
 assert.match(narrative.chapters[0].sections[0].subsections[0].paragraphs[0].text, /^the self-assessment responses indicate that evidence exists\.$/i);
-assert.doesNotMatch(narrative.markdown, /independently (?:verified|reviewed|confirmed)/i);
-console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO' }, null, 2));
+assert.equal(classifyAssuranceLanguage(narrative.chapters[0].sections[0].paragraphs[0].text), null);
+assert.equal(classifyAssuranceLanguage(narrative.chapters[0].sections[0].subsections[0].paragraphs[0].text), null);
+console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', assuranceBoundary: 'PASS' }, null, 2));
 ''')
-
           PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/reports/narrative/validation.ts \
-                  src/lib/reports/narrative/assurance-boundary-normalisation.ts \
-                  src/lib/reports/narrative/essential-manuscript-coordinator.ts \
+          git add src/lib/reports/narrative/essential-manuscript-coordinator.ts \
                   scripts/commercial-quality/essential-assurance-boundary-tests.mjs
           if git diff --cached --quiet; then
-            echo "Assurance-boundary patch already present."
+            echo "Assurance normalisation already wired."
           else
-            git commit -m "Fix Essential assurance boundary without provider repair"
+            git commit -m "Wire Essential assurance normalisation before validation"
             git push origin HEAD:commercial/mk-fraud-readiness-95-quality
           fi
 
