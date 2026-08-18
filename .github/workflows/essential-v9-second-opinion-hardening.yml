@@ -80,54 +80,98 @@ jobs:
           print('closed both rendered sparse-tail transitions')
           PY
 
-      - name: Stabilize navigation heading precedence
+      - name: Use structural PDF heading navigation
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('src/lib/reports/pdf-navigation.ts')
           text = path.read_text()
-          old = '''    // Acceptance order, strictest first. Tier 1 keeps its original first-match-wins behaviour so
-    // nothing that resolved before can resolve differently now. Tiers 2 and 3 are fallbacks only:
-    // each requires the full canonical heading in exact character order AND exactly one page, so
-    // an ambiguous heading is never silently attributed to a page.
-    let acceptedTier: HeadingMatchTier | null = null;
-    let acceptedPage: number | null = null;
-    if (exactPages.length > 0) {
-      acceptedTier = 'exact';
-      acceptedPage = exactPages[0];
-    } else if (normalisedPages.length === 1) {
-      acceptedTier = 'whitespace_normalised';
-      acceptedPage = normalisedPages[0];
-    } else if (strippedPages.length === 1) {
-      acceptedTier = 'whitespace_stripped';
-      acceptedPage = strippedPages[0];
-    }
+
+          old_pages = '''  // Every page is read, rather than stopping at the first hit, so a tier's uniqueness can be
+  // established. Acceptance itself is unchanged: the first page whose text contains the heading
+  // exactly still wins, and nothing else can approve a heading.
+  const pages: Array<{ pageNumber: number; exact: string; normalised: string; stripped: string; itemCount: number }> = [];
+  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const exact = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    pages.push({
+      pageNumber,
+      exact,
+      normalised: normaliseWhitespace(exact),
+      stripped: stripWhitespace(exact),
+      itemCount: content.items.length,
+    });
+  }
 '''
-          new = '''    // Structural order wins before text-run neatness. Chromium can split a real heading inside
-    // a word on its actual section page while a later prose cross-reference contains the same
-    // canonical heading as one exact text run. Preferring "any exact match anywhere" therefore
-    // points navigation at the later prose instead of the section itself. The customer template
-    // contract already forbids tracked headings from being quoted before their real section, and
-    // the rendered audit uses the first post-Contents occurrence for the same reason. Select the
-    // earliest physical page on which the complete canonical heading is recoverable at any tier;
-    // when more than one tier matches that same page, use the strictest tier only as a tie-breaker.
-    const matchedPages = [...new Set([...exactPages, ...normalisedPages, ...strippedPages])]
-      .sort((left, right) => left - right);
-    const acceptedPage: number | null = matchedPages[0] ?? null;
-    let acceptedTier: HeadingMatchTier | null = null;
-    if (acceptedPage !== null) {
-      if (exactPages.includes(acceptedPage)) acceptedTier = 'exact';
-      else if (normalisedPages.includes(acceptedPage)) acceptedTier = 'whitespace_normalised';
-      else if (strippedPages.includes(acceptedPage)) acceptedTier = 'whitespace_stripped';
-    }
+          new_pages = '''  // Every page is read so the extractor can identify the actual rendered heading rather than an
+  // arbitrary prose mention of the same words. REPORT_TOC_ENTRIES are rendered as h2 elements at
+  // 14pt (merged subsection headings) or 20pt (section headings); body/cross-reference copy is
+  // smaller. Keep the individual pdfjs text items and their rendered height so matching can use
+  // that structural distinction instead of page-wide substring search.
+  type NavigationTextItem = { str: string; height: number };
+  const pages: Array<{ pageNumber: number; items: NavigationTextItem[]; itemCount: number }> = [];
+  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map((item) => ({
+        str: 'str' in item ? item.str : '',
+        height: 'height' in item && typeof item.height === 'number' ? item.height : 0,
+      }))
+      .filter((item) => item.str.trim().length > 0);
+    pages.push({ pageNumber, items, itemCount: content.items.length });
+  }
 '''
-          count = text.count(old)
+          count = text.count(old_pages)
           if count != 1:
-              raise SystemExit(f'expected exactly one navigation precedence anchor, found {count}')
-          path.write_text(text.replace(old, new, 1))
-          print('navigation heading precedence now follows earliest structural occurrence')
+              raise SystemExit(f'page extraction anchor count={count}, expected 1')
+          text = text.replace(old_pages, new_pages, 1)
+
+          old_matches = '''    const exactPages = pages.filter((page) => page.exact.includes(key)).map((page) => page.pageNumber);
+    const normalisedPages = pages.filter((page) => page.normalised.includes(normalisedKey)).map((page) => page.pageNumber);
+    const strippedPages = pages.filter((page) => page.stripped.includes(strippedKey)).map((page) => page.pageNumber);
+'''
+          new_matches = '''    // A tracked heading must be recoverable from a bounded run of heading-sized text items. This
+    // rejects ordinary 8-11pt prose even when it quotes the canonical section title verbatim, while
+    // still accepting Chromium's legitimate wrapping and inside-a-word text-item splits. The 12pt
+    // floor is deliberately below both tracked h2 sizes (14pt and 20pt) and above body copy.
+    const MIN_HEADING_ITEM_HEIGHT = 12;
+    const MAX_HEADING_ITEMS = 8;
+    const structuralMatches = pages.map((page) => {
+      let exact = false;
+      let normalised = false;
+      let stripped = false;
+      for (let start = 0; start < page.items.length; start += 1) {
+        if (page.items[start].height < MIN_HEADING_ITEM_HEIGHT) continue;
+        const window: NavigationTextItem[] = [];
+        for (let offset = 0; offset < MAX_HEADING_ITEMS && start + offset < page.items.length; offset += 1) {
+          const item = page.items[start + offset];
+          if (item.height < MIN_HEADING_ITEM_HEIGHT) break;
+          window.push(item);
+          const spaced = window.map((candidate) => candidate.str).join(' ');
+          if (spaced === key) exact = true;
+          if (normaliseWhitespace(spaced) === normalisedKey) normalised = true;
+          if (stripWhitespace(spaced) === strippedKey) stripped = true;
+        }
+      }
+      return { pageNumber: page.pageNumber, exact, normalised, stripped };
+    });
+
+    const exactPages = structuralMatches.filter((page) => page.exact).map((page) => page.pageNumber);
+    const normalisedPages = structuralMatches.filter((page) => page.normalised).map((page) => page.pageNumber);
+    const strippedPages = structuralMatches.filter((page) => page.stripped).map((page) => page.pageNumber);
+'''
+          count = text.count(old_matches)
+          if count != 1:
+              raise SystemExit(f'heading match anchor count={count}, expected 1')
+          text = text.replace(old_matches, new_matches, 1)
+
+          path.write_text(text)
+          print('navigation now resolves only heading-sized bounded text-item runs')
           PY
+          git diff --check
 
       - name: Repair generated regression escaping
         shell: bash
@@ -272,5 +316,3 @@ jobs:
           fi
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
-
-# explicit provider-free hardening trigger
