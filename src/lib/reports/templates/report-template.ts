@@ -252,10 +252,10 @@ export function renderReportHtml(
       <div><span>Uncertainty responses</span><strong>${adaptiveScope.unknownCount}</strong></div>
     </div>
     <p class="lede">${esc(insufficientVisibility ? 'The reported result is provisional because the submitted assessment leaves important visibility limits. This report explains the assessed scope, information gaps and evidence needed for a more reliable view.' : adaptiveScope.resultStatus === 'PROVISIONAL' ? 'This is a provisional result. Differences in assessed scope or uncertainty may limit comparison with other assessments.' : 'The result reflects the control areas applicable to the organisation, including areas assessed through oversight responses.')}</p>
-    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} answered through the assessment's oversight-response route rather than the standard response route. These areas remain in scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
+    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} completed using the assessment's oversight question set rather than the standard question set. ${adaptiveScope.redirectedCount === 1 ? 'It remains' : 'They remain'} in the scored scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}
     ${adaptiveScope.limitationReasons.length ? `<p><strong>Visibility limitations:</strong> ${esc(adaptiveScope.limitationReasons.join(' '))}</p>` : ''}
     ${adaptiveScope.visibilityGaps?.length ? `<div class="compact-card amber-card"><h3>Visibility and proof priorities</h3><ul>${adaptiveScope.visibilityGaps.slice(0, 12).map((gap) => `<li><strong>${esc(gap.prompt)}</strong> ${esc(gap.statement)} Evidence needed: ${esc(gap.evidenceNeeded)}</li>`).join('')}</ul></div>` : ''}
-    <p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` ) : '';
+    ${adaptiveScope.resultStatus !== 'PROVISIONAL' ? `<p>${esc(adaptiveScope.scoreComparabilityStatement)}</p>` : ''}` ) : '';
 
   const heatmap = data.domainResults.map((domain) => {
     const band = bandFor(domain.rawScore);
@@ -376,8 +376,18 @@ export function renderReportHtml(
   const executiveNarrativeBlock = executiveNarrative
     || `<p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div>`;
 
+  const customerMaterialityLabel = (materialityClass: string): string => {
+    const labels: Record<string, string> = {
+      maturity_constraint: 'Maturity constraint',
+      control_failure: 'Priority control weakness',
+      cross_domain_dependency: 'Cross-domain dependency',
+      assurance_priority: 'Assurance priority'
+    };
+    return labels[materialityClass] ?? materialityClass.replaceAll('_', ' ');
+  };
+
   const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">
-    <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(finding.materialityClass.replaceAll('_', ' '))}</span></div>
+    <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(customerMaterialityLabel(finding.materialityClass))}</span></div>
     <div class="record-grid two">
       ${labelled('Domain', finding.domainName)}
       ${labelled('Recorded control condition', `${finding.questionPrompt} — ${finding.responseLabel}`)}
@@ -536,7 +546,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <p><strong>Limitations.</strong> This is not a forensic investigation, external audit, compliance certification or guarantee. Responses were not independently verified. Findings, scenarios and recommendations are decision-support material; leadership should obtain the specified operating proof before treating a control as effective or a finding as resolved.</p>
     <p><strong>Control completeness.</strong> Every priority control should state the What, Who, Population, Frequency, Evidence retained, Independent check, Escalation trigger and recipient, SLA, Effectiveness measure and Failure response.</p>
     <p class="section-note">Source: persisted assessment record, evidence model and supporting register.</p>
-    <p><strong>Next step.</strong> Agree the proof requirements listed in this report and supporting register, then sequence them through the leadership decisions above.</p>`;
+    `;
 
   // Customer-facing replacement for the removed internal controller/release-status callout: a
   // concrete, per-report "Recommended next step" derived from the single highest-priority evidence
@@ -547,7 +557,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // least one validation item), so this always has real, varying-per-report content to show.
   const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
   const recommendedNextStep = topEvidenceItem
-    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p></div>`
+    ? `<p class="recommended-next-step"><strong>Recommended next step.</strong> ${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p>`
     : '';
 
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
@@ -716,7 +726,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
 <meta charset="utf-8"/>
 <title>MK Fraud Readiness — Essential — ${esc(data.organisationName)}</title>
 <style>
-  @page { size: A4 portrait; margin: 0; }
+  @page { size: A4 portrait; margin: 12mm 13mm 15mm 13mm; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   :root { ${MK_CSS_VARIABLES} }
@@ -729,7 +739,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   ul { margin: 1mm 0 0; padding-left: 5mm; }
   li { margin-bottom: 1mm; }
   .cover, .report-section { break-before: page; page-break-before: always; }
-  .cover { break-before: auto; min-height: 270mm; padding: 19mm; color: var(--mk-white); background: linear-gradient(145deg,var(--mk-navy-900) 0%,var(--mk-navy-500) 70%,var(--mk-navy-500) 100%); display: flex; flex-direction: column; justify-content: space-between; }
+  .cover { break-before: auto; margin: -12mm -13mm 0; min-height: 270mm; padding: 19mm; color: var(--mk-white); background: linear-gradient(145deg,var(--mk-navy-900) 0%,var(--mk-navy-500) 70%,var(--mk-navy-500) 100%); display: flex; flex-direction: column; justify-content: space-between; }
   .cover-brand { font-size: 10pt; font-weight: 700; letter-spacing: 2.4px; }
   .cover-rule { width: 28mm; border-top: 1.2mm solid var(--mk-brass); margin: 9mm 0; }
   .cover-eyebrow { color: var(--mk-rule); font-size: 8pt; letter-spacing: 1.8px; text-transform: uppercase; }
@@ -871,6 +881,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .compact-register th:first-child, .compact-register td:first-child { width:8mm; }
   .support-grid .compact-card { min-height:42mm; }
   .closing-note { margin-top:7mm;background:var(--mk-neutral-bg);border-left-color:var(--mk-navy-500); }
+  .recommended-next-step { margin-top:4mm; padding:3mm 4mm; background:var(--mk-neutral-bg); border-left:1mm solid var(--mk-navy-500); break-before:avoid; page-break-before:avoid; }
 </style>
 </head>
 <body>${parts}</body>

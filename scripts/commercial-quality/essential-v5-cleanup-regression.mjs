@@ -73,7 +73,7 @@ assert.match(template, /affectedDomainLabels/);
 assert.match(template, /roadmapDeliverableForDisplay/);
 assert.doesNotMatch(template, /<td>\$\{esc\(action\.deliverable\)\}<\/td>/);
 assert.match(template, /roadmap-table-heading/);
-assert.match(template, /answered through the assessment's oversight-response route rather than the standard response route/);
+assert.match(template, /completed using the assessment's oversight question set rather than the standard question set/);
 const appendixBody = template.indexOf("section('Appendix', 'Appendix: supporting material'");
 const supportingDetail = template.lastIndexOf("subsection('Complete supporting detail', supportingReferenceBlock)");
 assert.ok(appendixBody >= 0 && supportingDetail > appendixBody, 'complete supporting detail must flow inside the appendix');

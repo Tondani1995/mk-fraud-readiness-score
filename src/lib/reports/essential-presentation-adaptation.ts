@@ -36,6 +36,7 @@ const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [
   [/\b(?:depots|branches|sites)\b/gi, 'operating locations'],
   [/\baudit, compliance, operations and risk functions\b/gi, 'relevant operational, control and oversight responsibilities'],
   [/\binduction packs, the workforce communication channels used by the organisation, notice boards at operating locations, intranet and supervisor briefings\b/gi, 'induction and onboarding materials, the workforce communication channels used by the organisation, and supervisor briefings'],
+  [/\binduction packs, the workforce communication channels used by the organisation, appropriate workforce communication channels and operating locations, internal workforce communication channel and supervisor briefings\b/gi, 'induction and onboarding materials, workforce communication channels used by the organisation, and supervisor briefings'],
   [/\bnotice boards? at operating locations\b/gi, 'appropriate workforce communication channels'],
   [/\bintranet\b/gi, 'internal workforce communication channel'],
   [/\bfraud forum\b/gi, 'management fraud-risk review route']
