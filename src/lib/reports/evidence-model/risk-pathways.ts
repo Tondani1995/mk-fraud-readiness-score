@@ -159,7 +159,7 @@ export function riskPathwayForFinding(finding: MaterialFinding): RiskPathway {
     title: fallbackTitle,
     cause: finding.materialityClass === 'assurance_priority'
       ? 'the self-reported control position has not yet been independently validated with operating evidence'
-      : 'the assessed control design or operation does not meet the exact expected standard',
+      : `the self-assessment records "${finding.questionPrompt.replace(/[.]$/, '')}" as "${finding.responseLabel}"; the expected control standard is therefore not yet met`,
     riskEvent: finding.materialityClass === 'assurance_priority'
       ? 'the reported control may not operate consistently across the full population, at the required frequency or under pressure'
       : finding.fraudMechanism.replace(/[.]$/, '').replace(/^./, (value) => value.toLowerCase()),
