@@ -45,19 +45,32 @@ const findings = [
   }
 ];
 const scenarioOne = groundEssentialScenarioStateLanguage(
-  'The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage. The activity may appear routine.',
+  'The current weakness linked to this pathway is that monitoring and exception review are at an initial or ad hoc stage. The activity may appear routine.',
   findings
 );
 assert.match(scenarioOne, /transaction and activity monitoring is self-assessed as "Partially designed"/i);
 assert.doesNotMatch(scenarioOne, /monitoring and exception review are at an initial or ad hoc stage/i);
 
 const scenarioTwo = groundEssentialScenarioStateLanguage(
-  'The current control weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage. A delayed report can weaken containment.',
+  'The current weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage. A delayed report can weaken containment.',
   findings
 );
 assert.match(scenarioTwo, /evidence preservation and custody are self-assessed as "Initial \/ ad hoc"/i);
 assert.match(scenarioTwo, /confidential or anonymous reporting is self-assessed as "Partially designed"/i);
 assert.doesNotMatch(scenarioTwo, /evidence preservation, reporting and custody are at an initial or ad hoc stage/i);
+
+const legacyScenarioOne = groundEssentialScenarioStateLanguage(
+  'The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage. The activity may appear routine.',
+  findings
+);
+assert.match(legacyScenarioOne, /transaction and activity monitoring is self-assessed as "Partially designed"/i);
+
+const legacyScenarioTwo = groundEssentialScenarioStateLanguage(
+  'The current control weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage. A delayed report can weaken containment.',
+  findings
+);
+assert.match(legacyScenarioTwo, /evidence preservation and custody are self-assessed as "Initial \/ ad hoc"/i);
+assert.match(legacyScenarioTwo, /confidential or anonymous reporting is self-assessed as "Partially designed"/i);
 
 const template = readFileSync(new URL('../../src/lib/reports/templates/report-template.ts', import.meta.url), 'utf8');
 const first30 = template.indexOf('First 30 days — decisions and foundations');
@@ -76,12 +89,16 @@ assert.match(template, /long-section continue-after-short-tail'\)\n  \]\.join/);
 assert.match(template, /\.report-section\.continue-after-short-tail \{ break-before: auto; page-break-before: auto; \}/);
 assert.match(template, /\.splittable-risk-section \.risk-record \{ break-inside: auto; page-break-inside: auto; \}/);
 assert.match(template, /groundEssentialScenarioStateLanguage\(value, evidenceModel\.materialFindings\)/);
+assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \{ break-after: avoid; page-break-after: avoid; \}/);
+assert.match(template, /\.roadmap-stage-panel \.manuscript-section > h3 \+ p \{ break-before: avoid; page-break-before: avoid; \}/);
 
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
   v7ExecutiveCopy: 'PASS',
   v7ScenarioStateGrounding: 'PASS',
+  v8ExactScenarioFixtures: 'PASS',
   v7RoadmapChronology: 'PASS',
-  v7SparsePageFlow: 'PASS'
+  v7SparsePageFlow: 'PASS',
+  v8RoadmapHeadingKeep: 'PASS'
 }, null, 2));

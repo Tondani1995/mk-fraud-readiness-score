@@ -912,6 +912,9 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   thead { display:table-header-group; }
   tr { break-inside:avoid;page-break-inside:avoid; }
   .roadmap-table { break-inside: avoid; page-break-inside: avoid; }
+  /* V8.1 acceptance: do not strand a 60/90-day manuscript heading at the foot of a page. */
+  .roadmap-stage-panel .manuscript-section > h3 { break-after: avoid; page-break-after: avoid; }
+  .roadmap-stage-panel .manuscript-section > h3 + p { break-before: avoid; page-break-before: avoid; }
   th,td { border:.2mm solid var(--mk-rule);padding:2.2mm 3mm;text-align:left;vertical-align:top; }
   th { background:var(--mk-navy-900);color:white;font-size:7pt;text-transform:uppercase;letter-spacing:.4px; }
   td { font-size:8pt; }

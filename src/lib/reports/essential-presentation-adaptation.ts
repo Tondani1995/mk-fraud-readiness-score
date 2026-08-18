@@ -187,7 +187,7 @@ export function groundEssentialScenarioStateLanguage(
   );
   if (monitoringLabel) {
     text = text.replace(
-      /The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage\./gi,
+      /The current (?:control )?weakness(?: in the pathway| linked to this pathway)? is that monitoring and exception review are at an initial or ad hoc stage\./gi,
       `The current control weakness in the pathway is that transaction and activity monitoring is self-assessed as "${monitoringLabel}".`
     );
   }
@@ -202,7 +202,7 @@ export function groundEssentialScenarioStateLanguage(
   );
   if (evidenceLabel && reportingLabel) {
     text = text.replace(
-      /The current control weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage\./gi,
+      /The current (?:control )?weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage\./gi,
       `The current control conditions are not at one shared maturity stage: evidence preservation and custody are self-assessed as "${evidenceLabel}", while confidential or anonymous reporting is self-assessed as "${reportingLabel}".`
     );
   }
