@@ -111,7 +111,27 @@ jobs:
           PY
 
       - name: Run rendered PDF hardening gate
-        run: npm run v7:test-checkpoint-f
+        shell: bash
+        run: |
+          set +e
+          npm run v7:test-checkpoint-f
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "=== RENDERED PDF AUDIT FAILURES ==="
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('tmp/pdfs/checkpoint-f-artifact/inspection/pdf-audit.json')
+          if not path.exists():
+              raise SystemExit('pdf-audit.json was not produced')
+          data = json.loads(path.read_text())
+          failures = [item for item in data.get('checks', []) if not item.get('passed')]
+          print(f"failureCount={len(failures)}")
+          for index, item in enumerate(failures, 1):
+              print(f"{index}. {item.get('code')} | {item.get('candidate')} | {item.get('detail')}")
+          PY
+            exit "$status"
+          fi
 
       - name: Commit proven source and requirement changes only
         shell: bash
