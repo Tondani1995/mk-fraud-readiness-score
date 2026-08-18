@@ -9,18 +9,15 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   report-regressions:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Check out working branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: commercial/mk-fraud-readiness-95-quality
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,47 +27,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Apply V5.1 cleanup once on the working branch
-        shell: bash
-        run: |
-          if [ -f scripts/commercial-quality/essential-v5-cleanup-regression.mjs ]; then
-            echo "V5.1 cleanup already applied; no source mutation required."
-            exit 0
-          fi
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          import subprocess
-          import tempfile
-
-          workflow = Path('.github/workflows/one-off-essential-v5-cleanup.yml').read_text()
-          match = re.search(r"          python - <<'PY'\n(.*?)\n          PY\n", workflow, re.S)
-          if not match:
-              raise SystemExit('staged V5.1 Python patch block not found')
-          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in match.group(1).splitlines())
-          code = code.replace("finding.questionPrompt.replace(/[.]$/, '')", "finding.questionPrompt.replace(/\\.$/, '')")
-          with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as handle:
-              handle.write(code)
-              patch_file = handle.name
-          subprocess.run(['python', patch_file], check=True)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/lib/reports/evidence-model/material-findings.ts \
-            src/lib/reports/evidence-model/registers.ts \
-            src/lib/reports/essential-presentation-adaptation.ts \
-            src/lib/reports/templates/report-template.ts \
-            src/components/admin/FulfilmentActions.tsx \
-            scripts/commercial-quality/essential-v5-cleanup-regression.mjs \
-            .github/workflows/essential-provider-diagnostics.yml
-          if git diff --cached --quiet; then
-            echo "No deterministic V5.1 changes to commit."
-          else
-            git commit -m "Polish Essential V5 customer report and generation UX"
-            git push origin HEAD:commercial/mk-fraud-readiness-95-quality
-          fi
 
       - name: Run provider-free Essential diagnostics
         run: npm run v11:narrative-diagnostics
@@ -95,6 +51,3 @@ jobs:
 
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
-
-      - name: Typecheck report cleanup
-        run: npm run typecheck
