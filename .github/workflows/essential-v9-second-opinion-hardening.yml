@@ -52,6 +52,34 @@ jobs:
           path.write_text(text.replace(old, new, 1))
           PY
 
+      - name: Close rendered sparse-tail transitions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/templates/report-template.ts')
+          text = path.read_text()
+          replacements = [
+              (
+                  "      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section'),",
+                  "      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section continue-after-short-tail'),",
+                  'Domain overview transition',
+              ),
+              (
+                  "      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),",
+                  "      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section continue-after-short-tail'),",
+                  'Leadership decisions transition',
+              ),
+          ]
+          for old, new, label in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one anchor, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          print('closed both rendered sparse-tail transitions')
+          PY
+
       - name: Repair generated regression escaping
         shell: bash
         run: |
