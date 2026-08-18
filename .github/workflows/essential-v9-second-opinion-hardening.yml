@@ -37,6 +37,21 @@ jobs:
       - name: Apply deterministic V9 second-opinion hardening
         run: python scripts/commercial-quality/apply-v9-second-opinion-hardening.py
 
+      - name: Normalize residual customer taxonomy
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/templates/report-template.ts')
+          text = path.read_text()
+          old = "labelled('Recorded control condition', `${finding.questionPrompt} — ${finding.responseLabel}`)"
+          new = "labelled('Assessed control state', `${finding.questionPrompt} — ${finding.responseLabel}`)"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one residual finding-label anchor, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Repair generated regression escaping
         shell: bash
         run: |
