@@ -80,6 +80,55 @@ jobs:
           print('closed both rendered sparse-tail transitions')
           PY
 
+      - name: Stabilize navigation heading precedence
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/pdf-navigation.ts')
+          text = path.read_text()
+          old = '''    // Acceptance order, strictest first. Tier 1 keeps its original first-match-wins behaviour so
+    // nothing that resolved before can resolve differently now. Tiers 2 and 3 are fallbacks only:
+    // each requires the full canonical heading in exact character order AND exactly one page, so
+    // an ambiguous heading is never silently attributed to a page.
+    let acceptedTier: HeadingMatchTier | null = null;
+    let acceptedPage: number | null = null;
+    if (exactPages.length > 0) {
+      acceptedTier = 'exact';
+      acceptedPage = exactPages[0];
+    } else if (normalisedPages.length === 1) {
+      acceptedTier = 'whitespace_normalised';
+      acceptedPage = normalisedPages[0];
+    } else if (strippedPages.length === 1) {
+      acceptedTier = 'whitespace_stripped';
+      acceptedPage = strippedPages[0];
+    }
+'''
+          new = '''    // Structural order wins before text-run neatness. Chromium can split a real heading inside
+    // a word on its actual section page while a later prose cross-reference contains the same
+    // canonical heading as one exact text run. Preferring "any exact match anywhere" therefore
+    // points navigation at the later prose instead of the section itself. The customer template
+    // contract already forbids tracked headings from being quoted before their real section, and
+    // the rendered audit uses the first post-Contents occurrence for the same reason. Select the
+    // earliest physical page on which the complete canonical heading is recoverable at any tier;
+    // when more than one tier matches that same page, use the strictest tier only as a tie-breaker.
+    const matchedPages = [...new Set([...exactPages, ...normalisedPages, ...strippedPages])]
+      .sort((left, right) => left - right);
+    const acceptedPage: number | null = matchedPages[0] ?? null;
+    let acceptedTier: HeadingMatchTier | null = null;
+    if (acceptedPage !== null) {
+      if (exactPages.includes(acceptedPage)) acceptedTier = 'exact';
+      else if (normalisedPages.includes(acceptedPage)) acceptedTier = 'whitespace_normalised';
+      else if (strippedPages.includes(acceptedPage)) acceptedTier = 'whitespace_stripped';
+    }
+'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one navigation precedence anchor, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          print('navigation heading precedence now follows earliest structural occurrence')
+          PY
+
       - name: Repair generated regression escaping
         shell: bash
         run: |
@@ -212,6 +261,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             src/lib/reports/templates/report-template.ts \
+            src/lib/reports/pdf-navigation.ts \
             scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
             scripts/checkpoint-f-pdf-audit.py \
             docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
