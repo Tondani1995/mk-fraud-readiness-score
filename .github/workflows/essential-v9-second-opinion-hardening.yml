@@ -272,3 +272,5 @@ jobs:
           fi
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+
+# explicit provider-free hardening trigger
