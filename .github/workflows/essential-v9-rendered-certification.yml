@@ -6,7 +6,7 @@ on:
       - commercial/mk-fraud-readiness-95-quality
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   rendered-certification:
@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -44,3 +45,27 @@ jobs:
 
       - name: Render and audit all Essential PDF fixtures
         run: npm run v7:test-checkpoint-f
+
+      - name: Record rendered certification success
+        if: success()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'source_sha=%s\nstatus=success\n' "$GITHUB_SHA" > scripts/commercial-quality/.v9-rendered-certification-status
+          git add scripts/commercial-quality/.v9-rendered-certification-status
+          git commit -m "Record V9 rendered certification success"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+
+      - name: Record rendered certification failure
+        if: failure()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'source_sha=%s\nstatus=failure\n' "$GITHUB_SHA" > scripts/commercial-quality/.v9-rendered-certification-status
+          git add scripts/commercial-quality/.v9-rendered-certification-status
+          git commit -m "Record V9 rendered certification failure"
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
