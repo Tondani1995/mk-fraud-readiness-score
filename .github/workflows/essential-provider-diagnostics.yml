@@ -9,85 +9,10 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-assurance-boundary:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out branch
-        uses: actions/checkout@v4
-        with:
-          ref: commercial/mk-fraud-readiness-95-quality
-          fetch-depth: 0
-
-      - name: Wire deterministic Essential assurance normalisation once
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          coordinator = Path('src/lib/reports/narrative/essential-manuscript-coordinator.ts')
-          text = coordinator.read_text()
-          import_line = "import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';\n"
-          if import_line not in text:
-              anchor = "} from './blueprint-text';\n"
-              if anchor not in text:
-                  raise SystemExit('coordinator import anchor not found')
-              text = text.replace(anchor, anchor + import_line, 1)
-
-          validate_anchor = "  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"
-          if 'deterministicAssuranceNormalisations' not in text:
-              replacement = """  const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
-  if (deterministicAssuranceNormalisations > 0) {
-    console.info('essential_assurance_boundary_normalisation', { replacements: deterministicAssuranceNormalisations });
-  }
-  const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);"""
-              if validate_anchor not in text:
-                  raise SystemExit('coordinator validation anchor not found')
-              text = text.replace(validate_anchor, replacement, 1)
-          coordinator.write_text(text)
-
-          tests = Path('scripts/commercial-quality/essential-assurance-boundary-tests.mjs')
-          if not tests.exists():
-              tests.write_text(r'''#!/usr/bin/env node
-import assert from 'node:assert/strict';
-import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
-import { normaliseProhibitedAssessmentAssurance } from '../../src/lib/reports/narrative/assurance-boundary-normalisation.ts';
-
-assert.equal(classifyAssuranceLanguage('This assessment has independently verified that the control operates as designed.')?.category, 'prohibited_assurance');
-
-const narrative = {
-  ok: true,
-  markdown: '# Executive\n\nThe MK scoring method is strategic fraud-risk analysis and control design, not independent verification.\n\n## Target\n\nThis assessment has independently verified that evidence exists.',
-  errors: [],
-  chapters: [{ chapterId: 'EXEC', title: 'Executive', sections: [{ chapterId: 'EXEC', sectionId: 'POSITION', title: 'Position', permittedClaimRefs: [], paragraphs: [{ text: 'The MK scoring method is strategic fraud-risk analysis and control design, not independent verification.', permittedClaimRefs: [] }], subsections: [{ subsectionId: 'TARGET', title: 'Target', paragraphs: [{ text: 'This assessment has independently verified that evidence exists.', permittedClaimRefs: [] }] }] }] }]
-};
-const count = normaliseProhibitedAssessmentAssurance(narrative);
-assert.equal(count, 4);
-assert.doesNotMatch(narrative.markdown, /not independent verification/i);
-assert.doesNotMatch(narrative.markdown, /assessment has independently verified/i);
-assert.match(narrative.chapters[0].sections[0].paragraphs[0].text, /without verification of operating effectiveness by this review/i);
-assert.match(narrative.chapters[0].sections[0].subsections[0].paragraphs[0].text, /^the self-assessment responses indicate that evidence exists\.$/i);
-assert.equal(classifyAssuranceLanguage(narrative.chapters[0].sections[0].paragraphs[0].text), null);
-assert.equal(classifyAssuranceLanguage(narrative.chapters[0].sections[0].subsections[0].paragraphs[0].text), null);
-console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', assuranceBoundary: 'PASS' }, null, 2));
-''')
-          PY
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/reports/narrative/essential-manuscript-coordinator.ts \
-                  scripts/commercial-quality/essential-assurance-boundary-tests.mjs
-          if git diff --cached --quiet; then
-            echo "Assurance normalisation already wired."
-          else
-            git commit -m "Wire Essential assurance normalisation before validation"
-            git push origin HEAD:commercial/mk-fraud-readiness-95-quality
-          fi
-
   report-regressions:
-    needs: patch-assurance-boundary
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -110,7 +35,6 @@ console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', assuranceBoundary: 'PAS
         run: npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
 
       - name: Prove Essential assurance boundary provider-free
-        if: ${{ hashFiles('scripts/commercial-quality/essential-assurance-boundary-tests.mjs') != '' }}
         run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
 
       - name: Run provider-free Comprehensive customer-visible regressions
