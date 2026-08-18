@@ -49,6 +49,7 @@ jobs:
           if not match:
               raise SystemExit('staged V5.1 Python patch block not found')
           code = '\n'.join(line[10:] if line.startswith('          ') else line for line in match.group(1).splitlines())
+          code = code.replace("finding.questionPrompt.replace(/[.]$/, '')", "finding.questionPrompt.replace(/\\.$/, '')")
           with tempfile.NamedTemporaryFile('w', suffix='.py', delete=False) as handle:
               handle.write(code)
               patch_file = handle.name
