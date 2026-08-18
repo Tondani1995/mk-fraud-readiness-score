@@ -95,6 +95,21 @@ jobs:
           npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
           npm run typecheck
 
+      - name: Align rendered audit with bounded Essential contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/checkpoint-f-pdf-audit.py')
+          text = path.read_text()
+          old = 'Evidence validation priorities'
+          count = text.count(old)
+          if count < 2:
+              raise SystemExit(f'expected legacy rendered-audit heading in at least two places, found {count}')
+          path.write_text(text.replace(old, 'Proof requirements'))
+          print(f'aligned {count} rendered-audit heading references')
+          PY
+
       - name: Install PDF audit dependencies
         shell: bash
         run: |
@@ -119,9 +134,14 @@ jobs:
           if [ "$status" -ne 0 ]; then
             echo "=== RENDERED PDF AUDIT FAILURES ==="
             python3 - <<'PY'
+          import ast
           import json
           from pathlib import Path
-          path = Path('tmp/pdfs/checkpoint-f-artifact/inspection/pdf-audit.json')
+          from PIL import Image
+          from pypdf import PdfReader
+
+          root = Path('tmp/pdfs/checkpoint-f-artifact')
+          path = root / 'inspection/pdf-audit.json'
           if not path.exists():
               raise SystemExit('pdf-audit.json was not produced')
           data = json.loads(path.read_text())
@@ -129,6 +149,30 @@ jobs:
           print(f"failureCount={len(failures)}")
           for index, item in enumerate(failures, 1):
               print(f"{index}. {item.get('code')} | {item.get('candidate')} | {item.get('detail')}")
+              if item.get('code') != 'PDF_NEAR_EMPTY_PAGE':
+                  continue
+              candidate = item.get('candidate')
+              pages = ast.literal_eval(item.get('detail', '').split('pages=', 1)[1])
+              reader = PdfReader(str(root / 'pdf' / f'{candidate}.pdf'))
+              images = sorted((root / 'renders' / candidate).glob('page-*.png'))
+              for page_number in pages:
+                  text = (reader.pages[page_number - 1].extract_text() or '').strip()
+                  ratio = None
+                  if page_number <= len(images):
+                      with Image.open(images[page_number - 1]).convert('L') as image:
+                          width, height = image.size
+                          top = int(height * 0.05)
+                          bottom = int(height * 0.95)
+                          region = image.crop((0, top, width, bottom))
+                          mask = region.point(lambda p: 255 if p < 235 else 0)
+                          bbox = mask.getbbox()
+                          if bbox is None:
+                              ratio = 0.0
+                          else:
+                              _, content_top, _, content_bottom = bbox
+                              ratio = (content_bottom - content_top) / region.height if region.height else 0.0
+                  print(f'   PAGE {page_number}: chars={len(text)} occupiedRatio={ratio:.3f}' if ratio is not None else f'   PAGE {page_number}: chars={len(text)}')
+                  print('   TEXT:', ' '.join(text.split())[:1800])
           PY
             exit "$status"
           fi
@@ -141,6 +185,7 @@ jobs:
           git add \
             src/lib/reports/templates/report-template.ts \
             scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
+            scripts/checkpoint-f-pdf-audit.py \
             docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
           if git diff --cached --quiet; then
             echo "No source changes to commit."
