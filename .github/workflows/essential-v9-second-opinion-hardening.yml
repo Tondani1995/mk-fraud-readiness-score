@@ -95,6 +95,11 @@ jobs:
           npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
           npm run typecheck
 
+      - name: Install PDF rendering dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
       - name: Run rendered PDF hardening gate
         run: npm run v7:test-checkpoint-f
 
