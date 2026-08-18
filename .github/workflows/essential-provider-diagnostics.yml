@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: Apply Essential manuscript binding patch
-        run: python scripts/commercial-quality/apply-essential-manuscript-binding.py
+        run: python scripts/commercial-quality/run-essential-binding-no-workflow-mutation.py
 
       - name: Prove Essential manuscript render binding provider-free
         run: npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
