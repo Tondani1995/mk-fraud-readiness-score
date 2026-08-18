@@ -31,5 +31,8 @@ jobs:
       - name: Run provider-free Essential diagnostics
         run: npm run v11:narrative-diagnostics
 
+      - name: Prove Essential output budget and one-call guard
+        run: npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
