@@ -11,7 +11,7 @@ permissions:
 jobs:
   patch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out branch
         uses: actions/checkout@v4
@@ -28,52 +28,116 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Replace generic fallback risk cause
+      - name: Apply deterministic risk specificity fix
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          p = Path('src/lib/reports/evidence-model/risk-pathways.ts')
-          text = p.read_text()
-          old = """    cause: finding.materialityClass === 'assurance_priority'
-      ? 'the self-reported control position has not yet been independently validated with operating evidence'
-      : 'the assessed control design or operation does not meet the exact expected standard',"""
-          new = """    cause: finding.materialityClass === 'assurance_priority'
-      ? 'the self-reported control position has not yet been independently validated with operating evidence'
-      : `the self-assessment records \"${finding.questionPrompt.replace(/[.]$/, '')}\" as \"${finding.responseLabel}\"; the expected control standard is therefore not yet met`,"""
-          if old not in text:
-              raise SystemExit('risk fallback cause anchor missing')
-          p.write_text(text.replace(old, new, 1))
 
-          test = Path('scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs')
-          test.write_text(r'''#!/usr/bin/env node
-          import assert from 'node:assert/strict';
-          import { riskPathwayForFinding } from '../../src/lib/reports/evidence-model/risk-pathways.ts';
+          path = Path('src/lib/reports/evidence-model/risk-pathways.ts')
+          text = path.read_text()
 
-          const finding = {
-            domainName: 'Continuous Improvement and Fraud Risk Monitoring',
-            domainCode: 'D10',
-            questionCode: 'D10-Q01',
-            questionPrompt: 'The organisation periodically reviews its fraud risks and control environment.',
-            responseLabel: 'Partially designed',
-            materialityClass: 'control_failure',
-            fraudMechanism: 'Control weaknesses can persist because the review cycle is incomplete.',
-            likelyFinancialImpact: 'Indirect — losses may recur where controls remain stale.',
-            likelyOperationalImpact: 'Management may rely on outdated control assumptions.',
-            isHardGate: true,
-            isCriticalControl: true
-          };
-          const pathway = riskPathwayForFinding(finding);
-          assert.match(pathway.cause, /periodically reviews its fraud risks and control environment/i);
-          assert.match(pathway.cause, /Partially designed/i);
-          assert.doesNotMatch(pathway.cause, /assessed control design or operation does not meet the exact expected standard/i);
-          assert.match(pathway.riskEvent, /review cycle is incomplete/i);
-          console.log(JSON.stringify({status:'PASS', ai:'ZERO', riskCauseSpecificity:'PASS'}, null, 2));
-          ''')
+          marker = "  'D3-Q03': {\n"
+          if "'D2-Q02': {\n    key: 'PROCESS-RISK-MAPPING'" not in text:
+              insertion = """  'D2-Q02': {
+    key: 'PROCESS-RISK-MAPPING', title: 'Process-level fraud opportunity remains unmapped',
+    cause: 'fraud scenarios, executable roles and relied-upon controls are not mapped across each material value-bearing process',
+    riskEvent: 'a process-specific diversion route is not identified, owned or linked to an effective preventive or detective control',
+    financialImpact: 'loss can occur through a process route that leadership has not explicitly assessed or assigned for treatment', operationalImpact: 'process owners cannot show which fraud scenarios their controls are expected to prevent or detect', reputationalImpact: 'leadership may discover a material process exposure only after loss, complaint or independent challenge', consequence: 'Severe',
+    resilienceTitle: 'Process-level fraud-risk mapping resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that each material value-bearing process has mapped fraud scenarios, executable roles and relied-upon controls',
+    resilienceRiskEvent: 'the reported process-level fraud-risk mapping may not cover the complete process population or may not remain current as processes change'
+  },
+  'D4-Q01': {
+    key: 'DETECTION-COVERAGE', title: 'Material anomalous activity is not detected early enough',
+    cause: 'the material transaction and operational-activity population is not systematically monitored for defined fraud red flags on a set rhythm',
+    riskEvent: 'suspicious activity persists until a complaint, external notification or incidental discovery exposes it',
+    financialImpact: 'losses can compound while suspicious activity continues undetected', operationalImpact: 'investigation and containment begin later, with a wider activity population requiring review', consequence: 'Severe',
+    resilienceTitle: 'Transaction and activity monitoring resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that the material transaction and operational-activity population is monitored for defined fraud red flags on a set rhythm',
+    resilienceRiskEvent: 'the reported monitoring may not cover the complete material activity population or may not operate consistently at the required frequency'
+  },
+  'D4-Q03': {
+    key: 'DETECTION-COVERAGE', title: 'Material anomalous activity is not detected early enough',
+    cause: 'analytics, rules, reports or data checks do not cover the reconciled activity population with maintained tests linked to identified fraud scenarios',
+    riskEvent: 'structured suspicious behaviour remains unexamined at scale and can persist beneath manual or incidental review',
+    financialImpact: 'losses can compound while repeat or patterned suspicious activity remains outside effective detection', operationalImpact: 'manual review carries more volume than it can reliably examine and control exceptions remain hidden', consequence: 'Severe',
+    resilienceTitle: 'Analytics and rule-based detection resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that maintained analytics, rules, reports or data checks cover the reconciled activity population and remain linked to identified fraud scenarios',
+    resilienceRiskEvent: 'the reported data-driven detection may not cover the complete material population or may not remain effective as fraud patterns change'
+  },
+  'D10-Q01': {
+    key: 'CONTROL-REVIEW-CYCLE', title: 'Fraud controls degrade without periodic challenge',
+    cause: 'fraud risks and key controls are not periodically re-examined against current processes, systems and operating evidence',
+    riskEvent: 'a control that has lapsed or degraded remains treated as effective until an incident or later review exposes the weakness',
+    financialImpact: 'losses can continue through a control believed to be operating', operationalImpact: 'remediation is delayed because control deterioration is not identified and owned', reputationalImpact: 'governance reporting can provide outdated comfort about fraud readiness', consequence: 'Severe',
+    resilienceTitle: 'Periodic fraud-risk and control-review resilience validation',
+    resilienceCause: 'independent operating evidence has not yet validated that fraud risks and key controls are periodically re-examined against current processes, systems and recent operating evidence',
+    resilienceRiskEvent: 'the reported periodic review may not identify control deterioration consistently or convert identified weakness into owned remediation'
+  },
+"""
+              if marker not in text:
+                  raise SystemExit('risk pathway insertion anchor missing')
+              text = text.replace(marker, insertion + marker, 1)
+
+          old = "      : 'the assessed control design or operation does not meet the exact expected standard',"
+          new = "      : `the self-assessment records ${finding.questionCode} as ${finding.responseLabel.toLowerCase()}, so the expected control standard for \\\"${finding.questionPrompt.replace(/[.]$/, '')}\\\" is not yet demonstrated as operating consistently`,"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('generic fallback cause anchor missing')
+
+          path.write_text(text)
+
+          test = Path('scripts/commercial-quality/essential-risk-specificity-tests.mjs')
+          test.write_text("""#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { riskPathwayForFinding } from '../../src/lib/reports/evidence-model/risk-pathways.ts';
+
+const finding = (questionCode, overrides = {}) => ({
+  questionCode,
+  questionPrompt: `Prompt for ${questionCode}.`,
+  domainName: 'Test domain',
+  materialityClass: 'control_failure',
+  responseLabel: 'Initial / ad hoc',
+  fraudMechanism: 'A specific fraud mechanism persists.',
+  likelyFinancialImpact: 'Direct loss is plausible.',
+  likelyOperationalImpact: 'Operating disruption is plausible.',
+  isHardGate: true,
+  isCriticalControl: true,
+  ...overrides
+});
+
+test('priority Essential risk pathways use specific deterministic causes', () => {
+  const d2 = riskPathwayForFinding(finding('D2-Q02'));
+  const d4a = riskPathwayForFinding(finding('D4-Q01'));
+  const d4b = riskPathwayForFinding(finding('D4-Q03'));
+  const d10 = riskPathwayForFinding(finding('D10-Q01'));
+
+  assert.equal(d2.key, 'PROCESS-RISK-MAPPING');
+  assert.match(d2.cause, /fraud scenarios/i);
+  assert.equal(d4a.key, 'DETECTION-COVERAGE');
+  assert.equal(d4b.key, 'DETECTION-COVERAGE');
+  assert.match(d4a.cause, /systematically monitored/i);
+  assert.match(d4b.cause, /analytics, rules, reports or data checks/i);
+  assert.equal(d10.key, 'CONTROL-REVIEW-CYCLE');
+  assert.match(d10.cause, /periodically re-examined/i);
+});
+
+test('unmapped weak controls cannot fall back to the old generic risk cause', () => {
+  const pathway = riskPathwayForFinding(finding('D99-Q99', {
+    questionPrompt: 'A named control should operate across the complete population.'
+  }));
+  assert.doesNotMatch(pathway.cause, /assessed control design or operation does not meet the exact expected standard/i);
+  assert.match(pathway.cause, /D99-Q99/);
+  assert.match(pathway.cause, /named control should operate across the complete population/i);
+});
+""")
           PY
 
       - name: Prove risk specificity provider-free
-        run: npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+        run: npx tsx --test scripts/commercial-quality/essential-risk-specificity-tests.mjs
 
       - name: Typecheck changed source
         run: npm run typecheck
@@ -83,6 +147,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/reports/evidence-model/risk-pathways.ts scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
-          git commit -m "Ground fallback risk causes in assessed control evidence"
+          git add src/lib/reports/evidence-model/risk-pathways.ts scripts/commercial-quality/essential-risk-specificity-tests.mjs
+          if git diff --cached --quiet; then
+            echo "No risk specificity changes to commit."
+            exit 0
+          fi
+          git commit -m "Make Essential priority risk language specific"
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
