@@ -95,14 +95,20 @@ jobs:
           npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
           npm run typecheck
 
-      - name: Install PDF rendering dependency
+      - name: Install PDF audit dependencies
         shell: bash
         run: |
           if ! command -v pdftoppm >/dev/null 2>&1; then
             sudo timeout 120 apt-get install -y --no-install-recommends poppler-utils
           fi
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
           command -v pdftoppm
           pdftoppm -v
+          python3 - <<'PY'
+          import PIL
+          import pypdf
+          print('PDF audit Python dependencies: OK')
+          PY
 
       - name: Run rendered PDF hardening gate
         run: npm run v7:test-checkpoint-f
