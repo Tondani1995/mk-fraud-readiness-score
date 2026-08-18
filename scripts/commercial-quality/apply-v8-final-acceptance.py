@@ -78,8 +78,10 @@ css_assert_block = """assert.match(template, /groundEssentialScenarioStateLangua
 assert.match(template, /\\.roadmap-stage-panel \\.manuscript-section > h3 \\{ break-after: avoid; page-break-after: avoid; \\}/);
 assert.match(template, /\\.roadmap-stage-panel \\.manuscript-section > h3 \\+ p \\{ break-before: avoid; page-break-before: avoid; \\}/);"""
 regression = replace_once(regression, css_assert_anchor, css_assert_block, "V8 roadmap orphan assertions")
-regression = regression.replace("v7ScenarioStateGrounding: 'PASS',", "v7ScenarioStateGrounding: 'PASS',\n  v8ExactScenarioFixtures: 'PASS',")
-regression = regression.replace("v7SparsePageFlow: 'PASS'", "v7SparsePageFlow: 'PASS',\n  v8RoadmapHeadingKeep: 'PASS'")
+if "v8ExactScenarioFixtures: 'PASS'" not in regression:
+    regression = regression.replace("v7ScenarioStateGrounding: 'PASS',", "v7ScenarioStateGrounding: 'PASS',\n  v8ExactScenarioFixtures: 'PASS',")
+if "v8RoadmapHeadingKeep: 'PASS'" not in regression:
+    regression = regression.replace("v7SparsePageFlow: 'PASS'", "v7SparsePageFlow: 'PASS',\n  v8RoadmapHeadingKeep: 'PASS'")
 regression_path.write_text(regression)
 
 print("V8.1 deterministic final acceptance fixes applied")
