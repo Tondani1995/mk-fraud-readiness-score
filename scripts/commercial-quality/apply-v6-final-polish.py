@@ -80,6 +80,16 @@ expanded = current + "\n  [/\\binduction packs, the workforce communication chan
 adaptation = replace_once(adaptation, current, expanded, "workforce channel cleanup")
 adaptation_path.write_text(adaptation)
 
+v5_regression_path = Path("scripts/commercial-quality/essential-v5-cleanup-regression.mjs")
+v5_regression = v5_regression_path.read_text()
+v5_regression = replace_once(
+    v5_regression,
+    "assert.match(template, /answered through the assessment's oversight-response route rather than the standard response route/);",
+    "assert.match(template, /completed using the assessment's oversight question set rather than the standard question set/);",
+    "V5 regression customer wording",
+)
+v5_regression_path.write_text(v5_regression)
+
 regression_path = Path("scripts/commercial-quality/essential-v6-final-polish-regression.mjs")
 regression_path.write_text(
     dedent(
