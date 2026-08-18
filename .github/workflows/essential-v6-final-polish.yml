@@ -56,6 +56,7 @@ jobs:
           git add \
             src/lib/reports/templates/report-template.ts \
             src/lib/reports/essential-presentation-adaptation.ts \
+            scripts/commercial-quality/essential-v5-cleanup-regression.mjs \
             scripts/commercial-quality/essential-v6-final-polish-regression.mjs
           git commit -m "Fix final Essential V6 commercial rendering defects"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
