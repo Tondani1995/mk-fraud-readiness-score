@@ -16,6 +16,10 @@ template = template_path.read_text()
 old_cross_ref = '<p><strong>Management response:</strong> see Leadership decisions and roadmap for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
 new_cross_ref = '<p><strong>Management response:</strong> see the leadership roadmap section for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
 template = replace_or_assert(template, old_cross_ref, new_cross_ref, 'governance cross-reference')
+
+old_kicker_css = "  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }"
+new_kicker_css = "  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; break-after: avoid; page-break-after: avoid; }\n  .section-kicker + h2 { break-before: avoid; page-break-before: avoid; }"
+template = replace_or_assert(template, old_kicker_css, new_kicker_css, 'section kicker heading keep')
 template_path.write_text(template)
 
 nav_path = Path('src/lib/reports/pdf-navigation.ts')
@@ -99,6 +103,10 @@ regression = regression_path.read_text()
 old_regression = "assert.ok(template.includes('Management response:</strong> see Leadership decisions and roadmap'));"
 new_regression = "assert.ok(template.includes('Management response:</strong> see the leadership roadmap section'));\nassert.doesNotMatch(template, /see Leadership decisions and roadmap/);"
 regression = replace_or_assert(regression, old_regression, new_regression, 'governance cross-reference regression')
+
+old_geometry_assert = "assert.match(template, /\\.score-basis-table th:nth-child\\(1\\).*width:58%/);"
+new_geometry_assert = old_geometry_assert + "\nassert.match(template, /\\.section-kicker \\{[^}]*break-after: avoid; page-break-after: avoid; \\}/);\nassert.match(template, /\\.section-kicker \\+ h2 \\{ break-before: avoid; page-break-before: avoid; \\}/);"
+regression = replace_or_assert(regression, old_geometry_assert, new_geometry_assert, 'section kicker heading regression')
 regression_path.write_text(regression)
 
 print('V9 navigation closure staged')
