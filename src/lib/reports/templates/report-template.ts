@@ -471,7 +471,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(decision.consequenceOfDelay)}</td>
   </tr>`);
   const decisionsBlock = subsection('Leadership decisions required', `
-    <p class="section-note">Every decision below carries a named accountable executive and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the appendix.</p>
+    <p class="section-note">Every decision below carries a named accountable executive and a fixed target period; each is grounded in the material findings, risks and controls set out in this report and in the complete registers in the supporting register issued with this report.</p>
     ${table(['No.', 'Decision required', 'Recommended decision', 'Accountable executive', 'Target period', 'Consequence of delay'], decisionRows)}`);
 
   // Bounded L2, exactly as the evidence-priority block below already does. This read
