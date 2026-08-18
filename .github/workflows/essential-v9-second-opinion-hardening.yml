@@ -4,13 +4,18 @@ on:
   push:
     branches:
       - commercial/mk-fraud-readiness-95-quality
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   harden-and-prove:
-    if: github.event.head_commit.message == 'Run V9 second-opinion hardening'
+    if: >-
+      (github.event_name == 'push' && github.event.head_commit.message == 'Run V9 second-opinion hardening') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'commercial/mk-fraud-readiness-95-quality')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
