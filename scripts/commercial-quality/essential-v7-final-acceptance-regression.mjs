@@ -6,13 +6,10 @@ const adaptation = readFileSync(new URL('../../src/lib/reports/essential-present
 const assurance = readFileSync(new URL('../../src/lib/reports/narrative/assurance-boundary-normalisation.ts', import.meta.url), 'utf8');
 const template = readFileSync(new URL('../../src/lib/reports/templates/report-template.ts', import.meta.url), 'utf8');
 
-// Executive assurance copy must consume the optional completed-effectiveness phrase so the
-// deterministic customer sentence cannot become "...by this review of operating effectiveness".
-assert.match(
-  assurance,
-  /not\\s\+\(\?:an\\s\+\)\?independent\\s\+verification\(\?:\\s\+of\\s\+operating\\s\+effectiveness\)\?/,
-  'assurance normaliser must consume optional operating-effectiveness wording'
-);
+// The assurance normaliser's behaviour is exercised directly in
+// essential-assurance-boundary-tests.mjs. Keep this V7 acceptance regression focused on the
+// customer-visible invariant that originally failed, rather than the implementation shape of the
+// normaliser regex. This avoids rejecting valid refactors that preserve the same behaviour.
 assert.doesNotMatch(
   assurance,
   /by this review of operating effectiveness/,
