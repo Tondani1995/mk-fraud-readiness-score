@@ -830,7 +830,8 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .cover-meta, .cover-confidential { color: var(--mk-rule); font: 8pt/1.7 Arial,sans-serif; }
   .cover-confidential { text-transform: uppercase; letter-spacing: 1px; }
   .report-section { padding: 1mm 1mm 0; }
-  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }
+  .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; break-after: avoid; page-break-after: avoid; }
+  .section-kicker + h2 { break-before: avoid; page-break-before: avoid; }
   .lede { color: var(--mk-muted); font-size: 10pt; max-width: 170mm; }
   .manuscript-panel { border-left: 1mm solid var(--mk-navy-500); background: var(--mk-cream); padding: 4mm 5mm; margin-bottom: 5mm; }
   .manuscript-section { margin-bottom: 4mm; }

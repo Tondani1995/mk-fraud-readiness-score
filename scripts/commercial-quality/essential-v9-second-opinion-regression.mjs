@@ -53,6 +53,8 @@ assert.match(template, /\.cap-card-list \{ break-inside: auto; page-break-inside
 assert.match(template, /\.manuscript-section > h3 \{ break-after: avoid; page-break-after: avoid; \}/);
 assert.match(template, /\.recommended-next-step .*break-inside:avoid; page-break-inside:avoid/);
 assert.match(template, /\.score-basis-table th:nth-child\(1\).*width:58%/);
+assert.match(template, /\.section-kicker \{[^}]*break-after: avoid; page-break-after: avoid; \}/);
+assert.match(template, /\.section-kicker \+ h2 \{ break-before: avoid; page-break-before: avoid; \}/);
 
 // Upstream organisation specificity is a launch requirement; no Mahlori-specific facts are hard-coded.
 for (const field of ['sector', 'size band', 'material value-bearing processes', 'systems and channels', 'operating footprint', 'third-party']) assert.match(launch, new RegExp(field, 'i'));
