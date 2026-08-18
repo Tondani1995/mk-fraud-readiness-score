@@ -44,17 +44,24 @@ jobs:
           from pathlib import Path
           path = Path('scripts/commercial-quality/essential-v9-second-opinion-regression.mjs')
           lines = path.read_text().splitlines()
-          replacement = '''for (const expected of ["Reactive', min: 0, max: 40", "Developing', min: 40, max: 60", "Structured', min: 60, max: 80", "Strategic', min: 80"]) assert.ok(maturity.includes(expected), `missing maturity threshold: ${expected}`);'''
-          matched = False
+          maturity_replacement = '''for (const expected of ["Reactive', min: 0, max: 40", "Developing', min: 40, max: 60", "Structured', min: 60, max: 80", "Strategic', min: 80"]) assert.ok(maturity.includes(expected), `missing maturity threshold: ${expected}`);'''
+          management_replacement = "assert.ok(template.includes('Management response:</strong> see Leadership decisions and roadmap'));"
+          maturity_matched = False
+          management_matched = False
           for index, line in enumerate(lines):
               if line.startswith('for (const expected of ['):
-                  lines[index] = replacement
-                  matched = True
-                  break
-          if not matched:
+                  lines[index] = maturity_replacement
+                  maturity_matched = True
+              elif line.startswith('assert.match(template, /Management response:'):
+                  lines[index] = management_replacement
+                  management_matched = True
+          if not maturity_matched:
               raise SystemExit('maturity-threshold regression anchor not found')
+          if not management_matched:
+              raise SystemExit('management-response regression anchor not found')
           path.write_text('\n'.join(lines) + '\n')
           PY
+          node --check scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
 
       - name: Run second-opinion closure regression
         run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
