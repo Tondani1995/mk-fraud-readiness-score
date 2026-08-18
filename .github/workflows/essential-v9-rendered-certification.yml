@@ -53,6 +53,7 @@ jobs:
           else
             gate_status=$self_test_status
           fi
+          export GATE_STATUS="$gate_status"
 
           python3 - <<'PY'
           import json
@@ -87,5 +88,3 @@ jobs:
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
           exit "$gate_status"
-        env:
-          GATE_STATUS: ${{ job.status }}
