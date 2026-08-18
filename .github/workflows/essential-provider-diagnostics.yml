@@ -49,85 +49,21 @@ jobs:
           npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
           npm run typecheck
 
-      - name: Commit proven changes and restore read-only gate
+      - name: Commit and push proven source changes only
         shell: bash
         run: |
-          cat > .github/workflows/essential-provider-diagnostics.yml <<'YAML'
-          name: Report Provider-Free Regressions
-
-          # Final Essential V7 deterministic acceptance gate. No provider calls are permitted here.
-          on:
-            push:
-              branches:
-                - commercial/mk-fraud-readiness-95-quality
-            pull_request:
-              branches:
-                - main
-
-          permissions:
-            contents: read
-
-          jobs:
-            report-regressions:
-              runs-on: ubuntu-latest
-              timeout-minutes: 10
-              steps:
-                - name: Check out repository
-                  uses: actions/checkout@v4
-
-                - name: Set up Node.js
-                  uses: actions/setup-node@v4
-                  with:
-                    node-version: '24'
-                    cache: npm
-
-                - name: Install dependencies
-                  run: npm ci
-
-                - name: Run provider-free Essential diagnostics
-                  run: npm run v11:narrative-diagnostics
-
-                - name: Prove Essential output budget and one-call guard
-                  run: npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
-
-                - name: Prove Essential assurance boundary provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
-
-                - name: Prove Essential numeric claim equivalence provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
-
-                - name: Prove Essential manuscript render binding provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
-
-                - name: Prove Essential risk cause specificity provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
-
-                - name: Prove Essential V5.1 customer-visible cleanup provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
-
-                - name: Prove Essential V6 final polish provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
-
-                - name: Prove Essential V7 final acceptance fixes provider-free
-                  run: npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
-
-                - name: Run provider-free Comprehensive customer-visible regressions
-                  run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
-          YAML
-          sed -i 's/^          //' .github/workflows/essential-provider-diagnostics.yml
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f \
-            .github/workflows/essential-v7-final-acceptance.yml \
-            scripts/commercial-quality/apply-v7-final-acceptance.py \
-            scripts/commercial-quality/.v7-final-acceptance-trigger || true
           git add \
-            .github/workflows/essential-provider-diagnostics.yml \
             src/lib/reports/narrative/assurance-boundary-normalisation.ts \
             src/lib/reports/essential-presentation-adaptation.ts \
             src/lib/reports/templates/report-template.ts \
             scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
-          git commit -m "Fix final Essential V7 commercial acceptance defects"
+          if git diff --cached --quiet; then
+            echo "No V7 source changes to commit."
+          else
+            git commit -m "Fix final Essential V7 commercial acceptance defects"
+          fi
+          git restore .github/workflows/essential-provider-diagnostics.yml
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
