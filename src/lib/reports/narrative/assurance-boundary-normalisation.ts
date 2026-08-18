@@ -45,7 +45,7 @@ const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
     // An explicit limitation is safe in substance, but the broad assurance guard can still
     // match the words "MK ... independent verification" before it considers the negation.
     // Preserve the limitation while removing that false-positive construction.
-    pattern: /\bnot\s+(?:an?\s+)?independent\s+verification\b/gi,
+    pattern: /\bnot\s+(?:an?\s+)?independent\s+verification(?:\s+of\s+operating\s+effectiveness)?\b/gi,
     replacement: 'without verification of operating effectiveness by this review'
   }
 ];

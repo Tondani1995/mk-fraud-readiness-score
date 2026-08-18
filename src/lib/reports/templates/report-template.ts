@@ -7,6 +7,7 @@ import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { SeverityBudget } from '../design/severity-budget';
 import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
+import { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -354,15 +355,22 @@ export function renderReportHtml(
 
   // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
   // report appended after methodology. Bind each chapter to the section it was written to explain.
-  const narrativeChapterBody = (chapterId: string): string => {
+  const narrativeBlockText = (chapterId: string, value: string): string =>
+    chapterId === 'EXPOSURE-COULD-MATERIALISE'
+      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
+      : value;
+  const narrativeChapterBody = (
+    chapterId: string,
+    sectionFilter: (title: string) => boolean = () => true
+  ): string => {
     const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
     if (!chapter) return '';
-    return chapter.sections.map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('');
+    return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
+      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('');
       const childBlocks = chapterSection.subsections.map((item) => `
         <div class="manuscript-subsection">
           <div class="field-label">${esc(item.title)}</div>
-          ${item.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('')}
+          ${item.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('')}
         </div>`).join('');
       return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
     }).join('');
@@ -372,7 +380,11 @@ export function renderReportHtml(
   const exposureNarrative = narrativeChapterBody('PRIORITY-FRAUD-EXPOSURES');
   const scenarioNarrative = narrativeChapterBody('EXPOSURE-COULD-MATERIALISE');
   const targetControlNarrative = narrativeChapterBody('TARGET-CONTROL-ENVIRONMENT');
-  const firstNinetyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION');
+  const thirtyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b30 days\b/i.test(title));
+  const sixtyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b60 days\b/i.test(title));
+  const ninetyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /\b90 days\b/i.test(title));
+  const roadmapConclusionNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => /conclusion/i.test(title));
+  const roadmapOtherNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION', (title) => !/\b(?:30|60|90) days\b|conclusion/i.test(title));
   const executiveNarrativeBlock = executiveNarrative
     || `<p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div>`;
 
@@ -495,13 +507,17 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     const trigger = match[1].trim().replace(/[.;]+$/, '');
     return `Implement the target control design for ${action.domainName}. Escalation trigger: ${trigger}.`;
   };
-  const roadmapRows = projection.roadmapActions.map((action) => `<tr>
-    <td>${esc(action.period)}</td>
-    <td>${esc(action.domainName)}</td>
-    <td>${esc(roadmapDeliverableForDisplay(action))}</td>
-    <td>${esc(action.accountableExecutive)}</td>
-    <td>${esc(action.successMeasure)}</td>
-  </tr>`);
+  const roadmapRowsForPeriod = (period: '30 days' | '60 days' | '90 days') => projection.roadmapActions
+    .filter((action) => action.period === period)
+    .map((action) => `<tr>
+      <td>${esc(action.domainName)}</td>
+      <td>${esc(roadmapDeliverableForDisplay(action))}</td>
+      <td>${esc(action.accountableExecutive)}</td>
+      <td>${esc(action.successMeasure)}</td>
+    </tr>`);
+  const roadmapThirtyRows = roadmapRowsForPeriod('30 days');
+  const roadmapSixtyRows = roadmapRowsForPeriod('60 days');
+  const roadmapNinetyRows = roadmapRowsForPeriod('90 days');
   const firstThirtyDayRows = evidenceModel.leadershipDecisions
     .filter((decision) => decision.targetPeriod === '30 days')
     .map((decision) => `<tr>
@@ -510,12 +526,22 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       <td>${esc(decision.accountableExecutive)}</td>
       <td>Decision recorded, accountable owner confirmed and escalation route documented.</td>
     </tr>`);
+  const roadmapActionTable = (rows: string[]) => table(
+    ['Domain', 'Deliverable', 'Accountable executive', 'Success measure'],
+    rows,
+    'compact-register roadmap-table'
+  );
   const roadmapBlock = subsection('30/60/90-day roadmap', `
     <p class="section-note">The first 30 days establish decisions and ownership; the 60- and 90-day windows implement and evidence the linked controls.</p>
-    ${firstNinetyDayNarrative ? `<div class="manuscript-panel">${firstNinetyDayNarrative}</div>` : ''}
+    ${thirtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${thirtyDayNarrative}</div>` : ''}
     ${firstThirtyDayRows.length ? `<h3 class="roadmap-table-heading">First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
-    <h3 class="roadmap-table-heading">60- and 90-day implementation actions</h3>
-    ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows, 'compact-register roadmap-table')}`);
+    ${roadmapThirtyRows.length ? `<h3 class="roadmap-table-heading">First 30 days — implementation foundations</h3>${roadmapActionTable(roadmapThirtyRows)}` : ''}
+    ${roadmapOtherNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${roadmapOtherNarrative}</div>` : ''}
+    ${sixtyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${sixtyDayNarrative}</div>` : ''}
+    ${roadmapSixtyRows.length ? `<h3 class="roadmap-table-heading">60-day implementation actions</h3>${roadmapActionTable(roadmapSixtyRows)}` : ''}
+    ${ninetyDayNarrative ? `<div class="manuscript-panel roadmap-stage-panel">${ninetyDayNarrative}</div>` : ''}
+    ${roadmapNinetyRows.length ? `<h3 class="roadmap-table-heading">90-day implementation actions</h3>${roadmapActionTable(roadmapNinetyRows)}` : ''}
+    ${roadmapConclusionNarrative ? `<div class="manuscript-panel roadmap-stage-panel roadmap-conclusion-panel">${roadmapConclusionNarrative}</div>` : ''}`);
 
   const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
   for (const item of evidenceModel.evidenceChecklist) {
@@ -662,7 +688,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${subsection('E1. Supporting control actions', `
         <p class="section-note">Further control actions beyond the priority set above, in materiality order.</p>
         ${table(['No.', 'Domain', 'Control objective', 'Control design', 'Owner / Target'], carAppendixRows)}`)}
-      ${subsection('E2. Definitions and score basis', definitionsBlock)}`, 'long-section')
+      ${subsection('E2. Definitions and score basis', definitionsBlock)}`, 'long-section continue-after-short-tail')
   ].join('\n');
 
   const tocRows = REPORT_TOC_ENTRIES.map((entry) => {
@@ -708,10 +734,10 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${exposureNarrative ? `<div class="manuscript-panel">${exposureNarrative}</div>` : ''}
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
-      ${priorityScenariosBlock}`, 'long-section'),
+      ${priorityScenariosBlock}`, 'long-section continue-after-short-tail'),
     section('Priority risks', 'Priority risks', `
       <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is provided in the supporting register issued with this report.</p>
-      ${priorityRisksBlock}`, 'long-section'),
+      ${priorityRisksBlock}`, 'long-section continue-after-short-tail splittable-risk-section'),
     section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${targetControlNarrative ? subsection('Target control environment', `<div class="manuscript-panel">${targetControlNarrative}</div>`) : ''}${systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
       : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),
@@ -783,6 +809,17 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
      row that fits a page is never split, it simply moves whole -- and splitting a control objective
      from its owner, timing and success measure is not what a commercial report should do. */
   .report-section.continue-after-long-register { break-before: auto; page-break-before: auto; }
+  /* V7 final acceptance: when the preceding section leaves a short tail, start the next section in
+     the available space instead of manufacturing a mostly-empty page. Section identity is
+     unchanged; the kicker and heading remain attached to the first meaningful content. */
+  .report-section.continue-after-short-tail { break-before: auto; page-break-before: auto; }
+  .continue-after-short-tail .section-kicker,
+  .continue-after-short-tail > h2 { break-after: avoid; page-break-after: avoid; }
+  /* Priority-risk records may cross a page only between already indivisible field blocks. */
+  .splittable-risk-section .risk-record { break-inside: auto; page-break-inside: auto; }
+  .splittable-risk-section .record-heading,
+  .splittable-risk-section .risk-statement,
+  .splittable-risk-section .field { break-inside: avoid; page-break-inside: avoid; }
   /* Do not solve one orphan by creating another: this section's kicker and heading must stay with
      its first meaningful content wherever it starts on the page. */
   .continue-after-long-register .section-kicker,

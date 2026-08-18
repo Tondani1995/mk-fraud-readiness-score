@@ -156,6 +156,60 @@ export function adaptEssentialText(value: string, context: EssentialAdaptationCo
   return text.replace(/\b([A-Z][a-z]+ \/ [a-z]+ accountable owner)(\s*\/\s*\1)+/g, '$1');
 }
 
+export interface EssentialScenarioStateFinding {
+  questionPrompt: string;
+  responseLabel: string;
+}
+
+function responseLabelForPrompt(
+  findings: ReadonlyArray<EssentialScenarioStateFinding>,
+  promptFragment: string
+): string | null {
+  const needle = promptFragment.toLowerCase();
+  return findings.find((finding) => finding.questionPrompt.toLowerCase().includes(needle))?.responseLabel ?? null;
+}
+
+/**
+ * Correct closed scenario-synthesis phrases where one maturity label was incorrectly applied to
+ * several different controls. The replacement is derived only from the recorded finding labels;
+ * no score, finding, scenario pathway or recommendation is changed.
+ */
+export function groundEssentialScenarioStateLanguage(
+  value: string,
+  findings: ReadonlyArray<EssentialScenarioStateFinding>
+): string {
+  if (!value) return value;
+  let text = value;
+
+  const monitoringLabel = responseLabelForPrompt(
+    findings,
+    'monitors transactions or operational activity for unusual patterns, anomalies or red flags'
+  );
+  if (monitoringLabel) {
+    text = text.replace(
+      /The current control weakness in the pathway is that monitoring and exception review are at an initial or ad hoc stage\./gi,
+      `The current control weakness in the pathway is that transaction and activity monitoring is self-assessed as "${monitoringLabel}".`
+    );
+  }
+
+  const evidenceLabel = responseLabelForPrompt(
+    findings,
+    'evidence linked to suspected fraud is identified, preserved and handled appropriately'
+  );
+  const reportingLabel = responseLabelForPrompt(
+    findings,
+    'provides a confidential or anonymous channel for reporting suspected fraud or misconduct'
+  );
+  if (evidenceLabel && reportingLabel) {
+    text = text.replace(
+      /The current control weakness is that evidence preservation, reporting and custody are at an initial or ad hoc stage\./gi,
+      `The current control conditions are not at one shared maturity stage: evidence preservation and custody are self-assessed as "${evidenceLabel}", while confidential or anonymous reporting is self-assessed as "${reportingLabel}".`
+    );
+  }
+
+  return text;
+}
+
 /** Keys carrying identity or references, which must never be rewritten. */
 const IDENTIFIER_KEY = /(^id$|Id$|Ids$|Ref$|Refs$|Code$|code$|^phase$|^targetPeriod$|^severity$|^materialityClass$|^status$|Class$|Family$)/;
 
