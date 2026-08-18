@@ -10,6 +10,7 @@ import {
   assertBlueprintTextValidation,
   type ParsedBlueprintMarkdown
 } from './blueprint-text';
+import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 
 /**
  * The Essential production narrative path.
@@ -324,6 +325,13 @@ export async function composeEssentialManuscript(input: {
         })
       }
     );
+  }
+
+  const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
+  if (deterministicAssuranceNormalisations > 0) {
+    console.info('essential_assurance_boundary_normalisation', {
+      replacements: deterministicAssuranceNormalisations
+    });
   }
 
   const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
