@@ -35,6 +35,13 @@ const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
     replacement: 'the self-assessment responses indicate'
   },
   {
+    // A provider may state completed assurance passively without naming MK or the report.
+    // That is still an unsupported assertion of completed verification and must be converted
+    // into the evidence-status limitation the Essential product actually supports.
+    pattern: /\boperating effectiveness (?:has been|was) independently (?:verified|reviewed|confirmed)\b/gi,
+    replacement: 'operating effectiveness remains subject to evidence validation'
+  },
+  {
     // An explicit limitation is safe in substance, but the broad assurance guard can still
     // match the words "MK ... independent verification" before it considers the negation.
     // Preserve the limitation while removing that false-positive construction.
