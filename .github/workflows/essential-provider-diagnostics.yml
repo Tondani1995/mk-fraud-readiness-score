@@ -1,6 +1,9 @@
 name: Report Provider-Free Regressions
 
 on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
   pull_request:
     branches:
       - main
