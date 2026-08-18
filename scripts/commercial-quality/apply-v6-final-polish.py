@@ -39,12 +39,15 @@ text = replace_once(
 )
 
 finding_anchor = "  const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class=\"long-record finding-record\">"
-finding_with_helper = """  const customerMaterialityLabel = (materialityClass: string): string => ({
-    maturity_constraint: 'Maturity constraint',
-    control_failure: 'Priority control weakness',
-    cross_domain_dependency: 'Cross-domain dependency',
-    assurance_priority: 'Assurance priority'
-  }[materialityClass] ?? materialityClass.replaceAll('_', ' '));
+finding_with_helper = """  const customerMaterialityLabel = (materialityClass: string): string => {
+    const labels: Record<string, string> = {
+      maturity_constraint: 'Maturity constraint',
+      control_failure: 'Priority control weakness',
+      cross_domain_dependency: 'Cross-domain dependency',
+      assurance_priority: 'Assurance priority'
+    };
+    return labels[materialityClass] ?? materialityClass.replaceAll('_', ' ');
+  };
 
   const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class=\"long-record finding-record\">"""
 text = replace_once(text, finding_anchor, finding_with_helper, "customer materiality helper")
