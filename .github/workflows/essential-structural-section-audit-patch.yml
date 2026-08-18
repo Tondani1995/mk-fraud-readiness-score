@@ -1,73 +1,25 @@
-name: Essential Structural Section Audit Patch
+name: Essential V9 Final Deterministic Proof
 
 on:
-  push:
-    branches:
-      - commercial/mk-fraud-readiness-95-quality
   pull_request:
     branches:
       - main
+    paths:
+      - scripts/commercial-quality/.v9-structural-navigation-trigger
 
 permissions:
   contents: write
 
 jobs:
-  patch-and-prove:
-    if: github.event_name == 'pull_request' || github.event.head_commit.message == 'Apply structural audit patch'
+  harden-render-and-prove:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out commercial branch
         uses: actions/checkout@v4
         with:
           ref: commercial/mk-fraud-readiness-95-quality
           fetch-depth: 0
-
-      - name: Patch rendered section detection structurally
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('scripts/checkpoint-f-pdf-audit.py')
-          text = path.read_text()
-
-          normalise_anchor = '''def normalise_page(text: str) -> str:\n    text = re.sub(r"MK Essential Report\\s*·\\s*Confidential\\s*\\d+\\s*/\\s*\\d+", "", text, flags=re.I)\n    return re.sub(r"\\s+", " ", text).strip().lower()\n'''
-          helper_block = normalise_anchor + '''\n\ndef _normalise_section_heading(value: str) -> str:\n    return re.sub(r"\\s+", " ", value).strip().strip(".").casefold()\n\n\ndef page_has_section_heading(page_text: str, heading: str) -> bool:\n    """Return True only when the canonical heading is present as heading-shaped extracted text.\n\n    PyPDF can split a rendered heading across two or three text lines, including inside a word.\n    Joining a bounded window therefore recovers wrapped headings. Equality against the complete\n    canonical heading is deliberate: an ordinary prose sentence that merely mentions the section\n    name must never become the section's physical page for TOC/bookmark validation.\n    """\n    lines = [\n        re.sub(r"\\s+", " ", line).strip()\n        for line in page_text.splitlines()\n        if line.strip()\n    ]\n    target = _normalise_section_heading(heading)\n    target_stripped = re.sub(r"\\s+", "", target)\n    for start in range(len(lines)):\n        for width in (1, 2, 3):\n            if start + width > len(lines):\n                break\n            window = lines[start : start + width]\n            for candidate in (" ".join(window), "".join(window)):\n                normalised = _normalise_section_heading(candidate)\n                if normalised == target:\n                    return True\n                if re.sub(r"\\s+", "", normalised) == target_stripped:\n                    return True\n    return False\n\n\ndef self_test_section_heading_rule() -> None:\n    prose = (\n        "Leadership should use Proof requirements to sequence evidence validation before any "\n        "independent assurance work begins."\n    )\n    assert not page_has_section_heading(prose, "Proof requirements"), \\\n        "a prose mention must not be treated as the section heading"\n\n    exact = "PROOF REQUIREMENTS\\nThe following evidence should be tested first."\n    assert page_has_section_heading(exact, "Proof requirements"), \\\n        "an exact standalone heading must be recognised"\n\n    wrapped = "METHODOLOGY, LIMITATIONS\\nAND NEXT STEPS\\nThis assessment is management self-report."\n    assert page_has_section_heading(wrapped, "Methodology, limitations and next steps"), \\\n        "a heading wrapped across extracted lines must be recognised"\n\n    split_word = "Proof require\\nments\\nPriority evidence follows."\n    assert page_has_section_heading(split_word, "Proof requirements"), \\\n        "a heading split inside a word must be recognised"\n\n    body_sentence = (\n        "This page explains methodology, limitations and next steps for management after the review."\n    )\n    assert not page_has_section_heading(body_sentence, "Methodology, limitations and next steps"), \\\n        "a longer body sentence containing the heading words must not be treated as the heading"\n\n    print("self_test_section_heading_rule: all structural heading fixtures passed")\n'''
-          count = text.count(normalise_anchor)
-          if count != 1:
-              raise SystemExit(f'normalise-page anchor count={count}, expected 1')
-          text = text.replace(normalise_anchor, helper_block, 1)
-
-          old_section_map = '''        current_section_map: dict[str, list[int]] = {}\n        for heading in REQUIRED_SECTIONS:\n            # The bare word "Appendix" also appears in core cross-references ("...is in Appendix\n            # A1"), so it needs the same distinctive-marker search as REPORT_TOC_ENTRIES' "Appendix"\n            # key in report-template.ts, not a literal substring match.\n            search_text = "The complete, authoritative registers behind the executive summary" if heading == "Appendix" else heading.lower()\n            # Page 2 (Contents) legitimately lists every heading as a TOC row -- exclude it here\n            # (except for "Contents" itself, whose real body is page 2) so the map reflects where\n            # each section's real body actually is, matching the PDF outline.\n            pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]\n            current_section_map[heading] = pages\n            record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)\n'''
-          new_section_map = '''        current_section_map: dict[str, list[int]] = {}\n        for heading in REQUIRED_SECTIONS:\n            # Page 2 (Contents) legitimately lists every tracked heading as a TOC row. Exclude it\n            # for all real sections, then require heading-shaped extracted text rather than a raw\n            # substring anywhere in page prose. This keeps TOC/bookmark validation tied to the\n            # physical section heading, not to an earlier cross-reference sentence.\n            pages = [\n                index + 1\n                for index, page_text in enumerate(page_texts)\n                if (index != 1 or heading == "Contents")\n                and page_has_section_heading(page_text, heading)\n            ]\n            current_section_map[heading] = pages\n            record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)\n'''
-          count = text.count(old_section_map)
-          if count != 1:
-              raise SystemExit(f'section-map anchor count={count}, expected 1')
-          text = text.replace(old_section_map, new_section_map, 1)
-
-          cli_anchor = '''    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-customer-copy-grammar":\n        self_test_customer_copy_grammar_defect()\n        return 0\n'''
-          cli_replacement = cli_anchor + '''    # Isolated regression for structural section-page detection: prose mentions must not become\n    # TOC/bookmark destinations, while wrapped headings must still be recoverable.\n    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-section-heading-rule":\n        self_test_section_heading_rule()\n        return 0\n'''
-          count = text.count(cli_anchor)
-          if count != 1:
-              raise SystemExit(f'CLI anchor count={count}, expected 1')
-          text = text.replace(cli_anchor, cli_replacement, 1)
-
-          path.write_text(text)
-          print('structural section-page audit patched')
-          PY
-
-      - name: Install PDF audit test dependencies
-        run: python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
-
-      - name: Prove structural heading rule
-        run: python scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
-
-      - name: Revert ineffective navigation experiment
-        shell: bash
-        run: |
-          git show ef9af7375a1aafd552cf129675bf5fdeb2caa31d:src/lib/reports/pdf-navigation.ts > src/lib/reports/pdf-navigation.ts
-          git diff --check
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -78,15 +30,285 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Apply deterministic V9 second-opinion hardening
+        run: python scripts/commercial-quality/apply-v9-second-opinion-hardening.py
 
-      - name: Commit structural audit correction
+      - name: Normalize residual customer taxonomy
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/templates/report-template.ts')
+          text = path.read_text()
+          old = "labelled('Recorded control condition', `${finding.questionPrompt} — ${finding.responseLabel}`)"
+          new = "labelled('Assessed control state', `${finding.questionPrompt} — ${finding.responseLabel}`)"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one residual finding-label anchor, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Close rendered sparse-tail transitions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/templates/report-template.ts')
+          text = path.read_text()
+          replacements = [
+              (
+                  "      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section'),",
+                  "      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section continue-after-short-tail'),",
+                  'Domain overview transition',
+              ),
+              (
+                  "      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),",
+                  "      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section continue-after-short-tail'),",
+                  'Leadership decisions transition',
+              ),
+          ]
+          for old, new, label in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one anchor, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          print('closed both rendered sparse-tail transitions')
+          PY
+
+      - name: Use structural PDF heading navigation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/reports/pdf-navigation.ts')
+          text = path.read_text()
+
+          old_pages = '''  // Every page is read, rather than stopping at the first hit, so a tier's uniqueness can be
+  // established. Acceptance itself is unchanged: the first page whose text contains the heading
+  // exactly still wins, and nothing else can approve a heading.
+  const pages: Array<{ pageNumber: number; exact: string; normalised: string; stripped: string; itemCount: number }> = [];
+  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const exact = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    pages.push({
+      pageNumber,
+      exact,
+      normalised: normaliseWhitespace(exact),
+      stripped: stripWhitespace(exact),
+      itemCount: content.items.length,
+    });
+  }
+'''
+          new_pages = '''  // Every page is read so the extractor can identify the actual rendered heading rather than an
+  // arbitrary prose mention of the same words. REPORT_TOC_ENTRIES are rendered as h2 elements at
+  // 14pt (merged subsection headings) or 20pt (section headings); body/cross-reference copy is
+  // smaller. Keep the individual pdfjs text items and their rendered height so matching can use
+  // that structural distinction instead of page-wide substring search.
+  type NavigationTextItem = { str: string; height: number };
+  const pages: Array<{ pageNumber: number; items: NavigationTextItem[]; itemCount: number }> = [];
+  for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map((item) => ({
+        str: 'str' in item ? item.str : '',
+        height: 'height' in item && typeof item.height === 'number' ? item.height : 0,
+      }))
+      .filter((item) => item.str.trim().length > 0);
+    pages.push({ pageNumber, items, itemCount: content.items.length });
+  }
+'''
+          count = text.count(old_pages)
+          if count != 1:
+              raise SystemExit(f'page extraction anchor count={count}, expected 1')
+          text = text.replace(old_pages, new_pages, 1)
+
+          old_matches = '''    const exactPages = pages.filter((page) => page.exact.includes(key)).map((page) => page.pageNumber);
+    const normalisedPages = pages.filter((page) => page.normalised.includes(normalisedKey)).map((page) => page.pageNumber);
+    const strippedPages = pages.filter((page) => page.stripped.includes(strippedKey)).map((page) => page.pageNumber);
+'''
+          new_matches = '''    // A tracked heading must be recoverable from a bounded run of heading-sized text items. This
+    // rejects ordinary 8-11pt prose even when it quotes the canonical section title verbatim, while
+    // still accepting Chromium's legitimate wrapping and inside-a-word text-item splits. The 12pt
+    // floor is deliberately below both tracked h2 sizes (14pt and 20pt) and above body copy.
+    const MIN_HEADING_ITEM_HEIGHT = 12;
+    const MAX_HEADING_ITEMS = 8;
+    const structuralMatches = pages.map((page) => {
+      let exact = false;
+      let normalised = false;
+      let stripped = false;
+      for (let start = 0; start < page.items.length; start += 1) {
+        if (page.items[start].height < MIN_HEADING_ITEM_HEIGHT) continue;
+        const window: NavigationTextItem[] = [];
+        for (let offset = 0; offset < MAX_HEADING_ITEMS && start + offset < page.items.length; offset += 1) {
+          const item = page.items[start + offset];
+          if (item.height < MIN_HEADING_ITEM_HEIGHT) break;
+          window.push(item);
+          const spaced = window.map((candidate) => candidate.str).join(' ');
+          if (spaced === key) exact = true;
+          if (normaliseWhitespace(spaced) === normalisedKey) normalised = true;
+          if (stripWhitespace(spaced) === strippedKey) stripped = true;
+        }
+      }
+      return { pageNumber: page.pageNumber, exact, normalised, stripped };
+    });
+
+    const exactPages = structuralMatches.filter((page) => page.exact).map((page) => page.pageNumber);
+    const normalisedPages = structuralMatches.filter((page) => page.normalised).map((page) => page.pageNumber);
+    const strippedPages = structuralMatches.filter((page) => page.stripped).map((page) => page.pageNumber);
+'''
+          count = text.count(old_matches)
+          if count != 1:
+              raise SystemExit(f'heading match anchor count={count}, expected 1')
+          text = text.replace(old_matches, new_matches, 1)
+
+          path.write_text(text)
+          print('navigation now resolves only heading-sized bounded text-item runs')
+          PY
+          git diff --check
+
+      - name: Repair generated regression escaping
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/commercial-quality/essential-v9-second-opinion-regression.mjs')
+          lines = path.read_text().splitlines()
+          maturity_replacement = '''for (const expected of ["Reactive', min: 0, max: 40", "Developing', min: 40, max: 60", "Structured', min: 60, max: 80", "Strategic', min: 80"]) assert.ok(maturity.includes(expected), `missing maturity threshold: ${expected}`);'''
+          management_replacement = "assert.ok(template.includes('Management response:</strong> see Leadership decisions and roadmap'));"
+          maturity_matched = False
+          management_matched = False
+          for index, line in enumerate(lines):
+              if line.startswith('for (const expected of ['):
+                  lines[index] = maturity_replacement
+                  maturity_matched = True
+              elif line.startswith('assert.match(template, /Management response:'):
+                  lines[index] = management_replacement
+                  management_matched = True
+          if not maturity_matched:
+              raise SystemExit('maturity-threshold regression anchor not found')
+          if not management_matched:
+              raise SystemExit('management-response regression anchor not found')
+          path.write_text('\n'.join(lines) + '\n')
+          PY
+          node --check scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Run second-opinion closure regression
+        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Run complete provider-free report regressions
+        run: |
+          npm run v11:narrative-diagnostics
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
+          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+          npm run typecheck
+
+      - name: Align rendered audit with bounded Essential contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/checkpoint-f-pdf-audit.py')
+          text = path.read_text()
+          old = 'Evidence validation priorities'
+          count = text.count(old)
+          if count < 2:
+              raise SystemExit(f'expected legacy rendered-audit heading in at least two places, found {count}')
+          path.write_text(text.replace(old, 'Proof requirements'))
+          print(f'aligned {count} rendered-audit heading references')
+          PY
+
+      - name: Install PDF audit dependencies
+        shell: bash
+        run: |
+          if ! command -v pdftoppm >/dev/null 2>&1; then
+            sudo timeout 120 apt-get install -y --no-install-recommends poppler-utils
+          fi
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
+          command -v pdftoppm
+          pdftoppm -v
+          python3 - <<'PY'
+          import PIL
+          import pypdf
+          print('PDF audit Python dependencies: OK')
+          PY
+
+      - name: Run rendered PDF hardening gate
+        shell: bash
+        run: |
+          set +e
+          npm run v7:test-checkpoint-f
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "=== RENDERED PDF AUDIT FAILURES ==="
+            python3 - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+          from PIL import Image
+          from pypdf import PdfReader
+
+          root = Path('tmp/pdfs/checkpoint-f-artifact')
+          path = root / 'inspection/pdf-audit.json'
+          if not path.exists():
+              raise SystemExit('pdf-audit.json was not produced')
+          data = json.loads(path.read_text())
+          failures = [item for item in data.get('checks', []) if not item.get('passed')]
+          print(f"failureCount={len(failures)}")
+          for index, item in enumerate(failures, 1):
+              print(f"{index}. {item.get('code')} | {item.get('candidate')} | {item.get('detail')}")
+              if item.get('code') != 'PDF_NEAR_EMPTY_PAGE':
+                  continue
+              candidate = item.get('candidate')
+              pages = ast.literal_eval(item.get('detail', '').split('pages=', 1)[1])
+              reader = PdfReader(str(root / 'pdf' / f'{candidate}.pdf'))
+              images = sorted((root / 'renders' / candidate).glob('page-*.png'))
+              for page_number in pages:
+                  text = (reader.pages[page_number - 1].extract_text() or '').strip()
+                  ratio = None
+                  if page_number <= len(images):
+                      with Image.open(images[page_number - 1]).convert('L') as image:
+                          width, height = image.size
+                          top = int(height * 0.05)
+                          bottom = int(height * 0.95)
+                          region = image.crop((0, top, width, bottom))
+                          mask = region.point(lambda p: 255 if p < 235 else 0)
+                          bbox = mask.getbbox()
+                          if bbox is None:
+                              ratio = 0.0
+                          else:
+                              _, content_top, _, content_bottom = bbox
+                              ratio = (content_bottom - content_top) / region.height if region.height else 0.0
+                  print(f'   PAGE {page_number}: chars={len(text)} occupiedRatio={ratio:.3f}' if ratio is not None else f'   PAGE {page_number}: chars={len(text)}')
+                  print('   TEXT:', ' '.join(text.split())[:1800])
+          PY
+            exit "$status"
+          fi
+
+      - name: Commit proven source and requirement changes only
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/checkpoint-f-pdf-audit.py src/lib/reports/pdf-navigation.ts
-          git commit -m "Fix rendered section-page audit"
+          git add \
+            src/lib/reports/templates/report-template.ts \
+            src/lib/reports/pdf-navigation.ts \
+            scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
+            scripts/checkpoint-f-pdf-audit.py \
+            docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git commit -m "Harden Essential after independent V9 review"
+          fi
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
