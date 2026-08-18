@@ -1,0 +1,88 @@
+name: One-off Essential risk specificity fix
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Replace generic fallback risk cause
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/reports/evidence-model/risk-pathways.ts')
+          text = p.read_text()
+          old = """    cause: finding.materialityClass === 'assurance_priority'
+      ? 'the self-reported control position has not yet been independently validated with operating evidence'
+      : 'the assessed control design or operation does not meet the exact expected standard',"""
+          new = """    cause: finding.materialityClass === 'assurance_priority'
+      ? 'the self-reported control position has not yet been independently validated with operating evidence'
+      : `the self-assessment records \"${finding.questionPrompt.replace(/[.]$/, '')}\" as \"${finding.responseLabel}\"; the expected control standard is therefore not yet met`,"""
+          if old not in text:
+              raise SystemExit('risk fallback cause anchor missing')
+          p.write_text(text.replace(old, new, 1))
+
+          test = Path('scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs')
+          test.write_text(r'''#!/usr/bin/env node
+          import assert from 'node:assert/strict';
+          import { riskPathwayForFinding } from '../../src/lib/reports/evidence-model/risk-pathways.ts';
+
+          const finding = {
+            domainName: 'Continuous Improvement and Fraud Risk Monitoring',
+            domainCode: 'D10',
+            questionCode: 'D10-Q01',
+            questionPrompt: 'The organisation periodically reviews its fraud risks and control environment.',
+            responseLabel: 'Partially designed',
+            materialityClass: 'control_failure',
+            fraudMechanism: 'Control weaknesses can persist because the review cycle is incomplete.',
+            likelyFinancialImpact: 'Indirect — losses may recur where controls remain stale.',
+            likelyOperationalImpact: 'Management may rely on outdated control assumptions.',
+            isHardGate: true,
+            isCriticalControl: true
+          };
+          const pathway = riskPathwayForFinding(finding);
+          assert.match(pathway.cause, /periodically reviews its fraud risks and control environment/i);
+          assert.match(pathway.cause, /Partially designed/i);
+          assert.doesNotMatch(pathway.cause, /assessed control design or operation does not meet the exact expected standard/i);
+          assert.match(pathway.riskEvent, /review cycle is incomplete/i);
+          console.log(JSON.stringify({status:'PASS', ai:'ZERO', riskCauseSpecificity:'PASS'}, null, 2));
+          ''')
+          PY
+
+      - name: Prove risk specificity provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+
+      - name: Typecheck changed source
+        run: npm run typecheck
+
+      - name: Commit source and regression only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/reports/evidence-model/risk-pathways.ts scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          git commit -m "Ground fallback risk causes in assessed control evidence"
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
