@@ -1,3 +1,0 @@
-Trigger the existing one-off Essential manuscript binding workflow.
-Provider calls: prohibited.
-Purpose: apply the provider-free renderer/navigation binding fix and self-retire the workflow.

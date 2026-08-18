@@ -3,7 +3,6 @@ import { getMaturityBand } from '../../scoring/maturity-band';
 import { buildAdvisoryEvidenceModel, type AdvisoryEvidenceModel } from '../evidence-model';
 import { assertCommercialReportQuality } from '../commercial-quality';
 import { buildEssentialProjection, type EssentialProjection } from '../essential-projection';
-import { gapKey } from '../select-content-blocks';
 import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { SeverityBudget } from '../design/severity-budget';
@@ -280,7 +279,6 @@ export function renderReportHtml(
 
   let criticalLabelEmitted = false;
   const priorityGaps = data.criticalMajorGaps.map((gap, index) => {
-    const commentary = content.gapCommentary[gapKey(gap.domainCode, gap.questionCode)];
     const allocation = severityBudget.request({ page: 4 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: gap.questionCode });
     const showCriticalLabel = allocation.allocated === 'critical' && !criticalLabelEmitted;
     if (showCriticalLabel) criticalLabelEmitted = true;
@@ -288,7 +286,7 @@ export function renderReportHtml(
     return `<div class="compact-card alert-card">
       <div class="card-eyebrow">${severityLabel} · ${esc(gap.domainName)}</div>
       <h3>${esc(gap.prompt)}</h3>
-      <p>${esc(commentary?.body ?? 'Leadership should agree the operating proof and remediation ownership for this recorded condition.')}</p>
+      <p>This assessment records this as a ${gap.isCriticalGap ? 'critical' : 'major'} control gap. Its management significance is addressed in the connected diagnosis.</p>
     </div>`;
   }).join('');
 
@@ -327,14 +325,12 @@ export function renderReportHtml(
     const cards = group.domains.map((domainName) => {
       const domain = domainByName.get(domainName);
       if (!domain) return '';
-      const narrative = content.domainNarratives[domainName];
       const band = bandFor(domain.rawScore);
       const gaps = data.criticalMajorGaps.filter((gap) => gap.domainName === domainName);
       return `<div class="compact-card domain-card">
         <div class="domain-top"><h3>${esc(domainName)}</h3><span style="color:${BAND_COLOR[band]}">${score(domain.rawScore)}/100</span></div>
         <div class="mini-track"><i style="width:${domain.rawScore ?? 0}%;background:${BAND_COLOR[band]}"></i></div>
-        <p><strong>${esc(narrative?.title ?? band)}</strong></p>
-        <p>${esc(narrative?.body ?? 'No domain narrative was produced.')}</p>
+        <p><strong>${esc(band)}</strong> reported position.</p>
         ${gaps.map((gap, index) => { const allocation = severityBudget.request({ page: 20 + index, severity: gap.isCriticalGap ? 'critical' : 'major', label: `${domainName}-${index}` }); return `<div class="inline-alert">${allocation.allocated === 'critical' ? 'Critical' : allocation.allocated === 'major' ? 'Priority' : 'Recorded'} condition: ${esc(gap.prompt)}</div>`; }).join('')}
       </div>`;
     }).join('');
@@ -351,6 +347,30 @@ export function renderReportHtml(
   const topRisks = projection.risks;
   const topContradictions = projection.contradictions;
   const topScenarios = projection.scenarios;
+
+  // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
+  // report appended after methodology. Bind each chapter to the section it was written to explain.
+  const narrativeChapterBody = (chapterId: string): string => {
+    const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
+    if (!chapter) return '';
+    return chapter.sections.map((chapterSection) => {
+      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('');
+      const childBlocks = chapterSection.subsections.map((item) => `
+        <div class="manuscript-subsection">
+          <div class="field-label">${esc(item.title)}</div>
+          ${item.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('')}
+        </div>`).join('');
+      return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
+    }).join('');
+  };
+  const executiveNarrative = narrativeChapterBody('EXECUTIVE-ASSESSMENT');
+  const diagnosisNarrative = narrativeChapterBody('WHAT-HOLDS-READINESS-BACK');
+  const exposureNarrative = narrativeChapterBody('PRIORITY-FRAUD-EXPOSURES');
+  const scenarioNarrative = narrativeChapterBody('EXPOSURE-COULD-MATERIALISE');
+  const targetControlNarrative = narrativeChapterBody('TARGET-CONTROL-ENVIRONMENT');
+  const firstNinetyDayNarrative = narrativeChapterBody('FIRST-90-DAYS-CONCLUSION');
+  const executiveNarrativeBlock = executiveNarrative
+    || `<p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div>`;
 
   const findingCard = (finding: AdvisoryEvidenceModel['materialFindings'][number], index: number) => `<article class="long-record finding-record">
     <div class="record-heading"><div><span class="record-number">Material finding ${index + 1}</span><h3>${esc(finding.title)}</h3></div><span class="priority-badge">${esc(finding.materialityClass.replaceAll('_', ' '))}</span></div>
@@ -432,7 +452,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   const priorityContradictionsBlock = topContradictions.length > 0
     ? subsection('Contradictions', topContradictions.map(contradictionCard).join(''))
     : subsection('Contradictions', '<div class="clean-note"><strong>No material contradiction was detected.</strong><p>Independent evidence remains necessary to validate the reported control position.</p></div>');
-  const priorityScenariosBlock = subsection('Scenarios and assurance tests', topScenarios.map(scenarioCard).join(''));
+  const priorityScenariosBlock = subsection('Scenarios and assurance tests', scenarioNarrative || topScenarios.map(scenarioCard).join(''));
   const priorityRisksBlock = topRisks.map(riskCard).join('');
 
   const decisionRows = evidenceModel.leadershipDecisions.map((decision, index) => `<tr>
@@ -459,8 +479,19 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     <td>${esc(action.accountableExecutive)}</td>
     <td>${esc(action.successMeasure)}</td>
   </tr>`);
+  const firstThirtyDayRows = evidenceModel.leadershipDecisions
+    .filter((decision) => decision.targetPeriod === '30 days')
+    .map((decision) => `<tr>
+      <td>${esc(decision.decisionRequired)}</td>
+      <td>${esc(decision.recommendedDecision)}</td>
+      <td>${esc(decision.accountableExecutive)}</td>
+      <td>Decision recorded, accountable owner confirmed and escalation route documented.</td>
+    </tr>`);
   const roadmapBlock = subsection('30/60/90-day roadmap', `
-    <p class="section-note">This is the report's only action roadmap. Dependencies and measures are carried directly from the material findings, risks and controls set out in this report.</p>
+    <p class="section-note">The first 30 days establish decisions and ownership; the 60- and 90-day windows implement and evidence the linked controls.</p>
+    ${firstNinetyDayNarrative ? `<div class="manuscript-panel">${firstNinetyDayNarrative}</div>` : ''}
+    ${firstThirtyDayRows.length ? `<h3>First 30 days — decisions and foundations</h3>${table(['Priority decision', 'Deliverable', 'Accountable executive', 'Completion test'], firstThirtyDayRows, 'compact-register roadmap-table')}` : ''}
+    <h3>60- and 90-day implementation actions</h3>
     ${table(['Period', 'Domain', 'Deliverable', 'Accountable executive', 'Success measure'], roadmapRows, 'compact-register roadmap-table')}`);
 
   const evidenceGroupedByFinding = new Map<string, typeof evidenceModel.evidenceChecklist>();
@@ -503,7 +534,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // least one validation item), so this always has real, varying-per-report content to show.
   const topEvidenceItem = (topFindings[0] && evidenceGroupedByFinding.get(topFindings[0].id)?.[0]) ?? evidenceModel.evidenceChecklist[0];
   const recommendedNextStep = topEvidenceItem
-    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the appendix.</p></div>`
+    ? `<div class="closing-note"><strong>Recommended next step</strong><p>${esc(buildEvidenceRecommendation(topEvidenceItem))} This is the immediate proof priority; the complete sequence is set out in Proof requirements above and the full checklist in the supporting register.</p></div>`
     : '';
 
   const priorityAndFalseComfort = data.maturityCapEvents.length > 0
@@ -594,7 +625,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   // supporting register does not actually contain.
   const supportingReferenceBlock = `
     <div class="keep-together">
-    <p class="lede">This report presents the highest-priority matters from a complete assessment of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
+    <p class="lede">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>
     <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>
     </div>`;
   // The appendix root opens the same physical page as E1. The former standalone
@@ -617,20 +648,6 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
     return `<tr class="${entry.appendix ? 'toc-appendix-row' : ''}"><td>${esc(entry.label)}</td><td class="toc-page">${pageNumber ?? '—'}</td></tr>`;
   }).join('');
 
-  // Blueprint narrative, in the blueprint's own order. Every chapter, section and
-  // subsection the validator accepted is emitted exactly once; nothing is reordered to
-  // suit the legacy layout and nothing is dropped for want of a legacy slot.
-  const narrativeSections = (narrative?.chapters ?? []).map((chapter) => {
-    const body = chapter.sections.map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('');
-      const subsections = chapterSection.subsections
-        .map((item) => subsection(item.title, item.paragraphs.map((block) => `<p>${esc(block.text)}</p>`).join('')))
-        .join('');
-      return subsection(chapterSection.title, `${paragraphs}${subsections}`);
-    }).join('');
-    return section(chapter.title, chapter.title, body, 'long-section');
-  }).join('\n');
-
   const parts = [
     `<section class="cover">
       <div>
@@ -649,7 +666,7 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${subsection(content.executiveSummary.title, `
       <div class="diagnosis">
         <div class="score-tile"><span>Reported readiness</span><strong>${insufficientVisibility ? 'Not issued' : score(sr.overallScore)}</strong><span>${insufficientVisibility ? 'visibility limited' : 'out of 100'}</span><b style="background:${bandColor}">${esc(insufficientVisibility ? 'Not issued' : sr.finalMaturity)}</b></div>
-        <div><p class="executive-copy">${esc(content.executiveSummary.body)}</p>${systemicDiagnosisBlock}<div class="attention-box"><strong>Leadership attention</strong><p>${esc(content.leadershipAttention.body)}</p></div></div>
+        <div class="manuscript-panel executive-manuscript">${executiveNarrativeBlock}</div>
       </div>
       <div class="metric-grid">
         ${adaptiveExposureAssessed ? `<div><span>Exposure</span><strong>${esc(sr.exposureBand ?? 'Not assessed')}</strong></div>` : ''}
@@ -661,23 +678,23 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
       ${subsection('The aggregate result and its ten underlying domains', `<p class="lede">The ${esc(sr.finalMaturity ?? 'visibility-limited')} result describes the reported self-assessment position. It does not, by itself, establish operating effectiveness.</p><div class="heatmap">${heatmap}</div>`)}
       ${exposureSection}
       ${subsection('What the result means', priorityAndFalseComfort)}`, 'long-section'),
-    section('Domain overview', 'Domain overview', systemic.systemic
+    section('Domain overview', 'Domain overview', `${diagnosisNarrative ? `<div class="manuscript-panel">${diagnosisNarrative}</div>` : ''}${systemic.systemic
       ? `<p class="lede">Every assessed domain is summarised below. Individual domain narratives are omitted because the recorded condition is systemic rather than domain-specific.</p>${systemicDomainAggregation}`
-      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join(''), 'long-section'),
+      : domainGroupBlocks.map((block, index) => subsection(DOMAIN_GROUPS[index].title, block)).join('')}`, 'long-section'),
     section('Priority findings, contradictions and scenarios', 'Priority findings, contradictions and scenarios', `
       <p class="lede">The ${topFindings.length} conditions selected for executive attention from ${sortedFindings.length} recorded findings. The complete register of all ${sortedFindings.length} findings is provided in the supporting register issued with this report.</p>
+      ${exposureNarrative ? `<div class="manuscript-panel">${exposureNarrative}</div>` : ''}
       ${priorityFindingsBlock}
       ${priorityContradictionsBlock}
       ${priorityScenariosBlock}`, 'long-section'),
     section('Priority risks', 'Priority risks', `
       <p class="section-note">Priority is derived from the assessment evidence and is not an independent risk assessment. The complete risk register (${sortedRisks.length} risks) is provided in the supporting register issued with this report.</p>
       ${priorityRisksBlock}`, 'long-section'),
-    section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', systemic.systemic
+    section('Leadership decisions and roadmap', 'Leadership decisions and roadmap', `${targetControlNarrative ? subsection('Target control environment', `<div class="manuscript-panel">${targetControlNarrative}</div>`) : ''}${systemic.systemic
       ? `${decisionsBlock}${subsection('Foundational control programme', foundationalProgramme)}${roadmapBlock}`
-      : `${decisionsBlock}${roadmapBlock}`, 'long-section'),
+      : `${decisionsBlock}${roadmapBlock}`}`, 'long-section'),
     section('Proof requirements', 'Proof requirements', evidencePriorityBlock, 'long-section continue-after-long-register'),
     section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),
-    narrativeSections,
     appendixSections
   ].join('\n');
 
@@ -714,6 +731,10 @@ function consequenceClauses(values: Array<string | null | undefined>): string {
   .report-section { padding: 1mm 1mm 0; }
   .section-kicker { display: inline-block; background: var(--mk-navy-900); color: var(--mk-white); font-size: 7pt; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 1.7mm 4mm; margin-bottom: 5mm; }
   .lede { color: var(--mk-muted); font-size: 10pt; max-width: 170mm; }
+  .manuscript-panel { border-left: 1mm solid var(--mk-navy-500); background: var(--mk-cream); padding: 4mm 5mm; margin-bottom: 5mm; }
+  .manuscript-section { margin-bottom: 4mm; }
+  .manuscript-section:last-child { margin-bottom: 0; }
+  .manuscript-subsection { margin-top: 3mm; }
   .keep-together { break-inside: avoid; page-break-inside: avoid; }
   /* Scoped to the bounded 15-item evidence-priority table only; global table rules are unchanged. */
   .evidence-priority-table td, .evidence-priority-table th { padding-top: 1.1mm; padding-bottom: 1.1mm; }

@@ -101,6 +101,8 @@ export async function renderValidatedCommercialPdfWithNavigation(
     content: SelectedContent;
     roadmap: { agenda: RoadmapItem[] };
     evidenceModel?: AdvisoryEvidenceModel;
+    /** Validated v1.1 manuscript must survive every navigation fixed-point render pass. */
+    narrative?: ParsedBlueprintMarkdown;
   },
   dependencies: CommercialPdfRenderDependencies = {
     renderHtml: renderReportHtml,
@@ -135,7 +137,7 @@ export async function renderValidatedCommercialPdfWithNavigation(
   // The first render used placeholder numbers, so the loop starts from the first real map.
   let pageMap = await measure(new Uint8Array(firstPassPdf));
   for (let attempt = 0; attempt < MAX_NAVIGATION_PASSES; attempt += 1) {
-    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap);
+    const html = dependencies.renderHtml(input.data, input.content, input.roadmap, input.evidenceModel, pageMap, undefined, input.narrative);
     const numberedPdf = await dependencies.renderPdf(html);
     const measured = await measure(new Uint8Array(numberedPdf));
     // Fixed point: what the contents page prints is what the render actually paginated to, so the
