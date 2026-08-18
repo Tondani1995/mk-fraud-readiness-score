@@ -1,0 +1,70 @@
+name: Essential V9 Second Opinion Hardening
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  harden-and-prove:
+    if: github.event.head_commit.message == 'Run V9 second-opinion hardening'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply deterministic V9 second-opinion hardening
+        run: python scripts/commercial-quality/apply-v9-second-opinion-hardening.py
+
+      - name: Run second-opinion closure regression
+        run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
+
+      - name: Run complete provider-free report regressions
+        run: |
+          npm run v11:narrative-diagnostics
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
+          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
+          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+          npm run typecheck
+
+      - name: Run rendered PDF hardening gate
+        run: npm run v7:test-checkpoint-f
+
+      - name: Commit proven source and requirement changes only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/reports/templates/report-template.ts \
+            scripts/commercial-quality/essential-v9-second-opinion-regression.mjs \
+            docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git commit -m "Harden Essential after independent V9 review"
+          fi
+          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
