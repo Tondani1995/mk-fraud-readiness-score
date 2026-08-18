@@ -1,4 +1,54 @@
-name: Report Provider-Free Regressions
+name: Apply one-off Essential numeric claim canonicalisation
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Patch numeric validation and restore provider-free gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          helper = """function canonicalNumericClaimToken(value: string): string {
+  const stripped = value.replace('%', '');
+  const parsed = Number(stripped);
+  return Number.isFinite(parsed) ? String(parsed) : stripped;
+}
+
+"""
+
+          for filename in [
+              'src/lib/reports/narrative/blueprint-text.ts',
+              'src/lib/reports/narrative/validation.ts'
+          ]:
+              path = Path(filename)
+              text = path.read_text()
+              if 'function canonicalNumericClaimToken' not in text:
+                  anchor = 'function numericValues(pack: NarrativeFactPack): Set<string> {'
+                  if anchor not in text:
+                      raise SystemExit(f'numericValues anchor missing in {filename}')
+                  text = text.replace(anchor, helper + anchor, 1)
+              text = text.replace("values.add(match[0].replace('%', ''));", "values.add(canonicalNumericClaimToken(match[0]));")
+              text = text.replace("knownNumbers.has(token.replace('%', ''))", "knownNumbers.has(canonicalNumericClaimToken(token))")
+              text = text.replace("numbers.has(token.replace('%', ''))", "numbers.has(canonicalNumericClaimToken(token))")
+              path.write_text(text)
+
+          final_workflow = '''name: Report Provider-Free Regressions
 
 on:
   push:
@@ -37,5 +87,26 @@ jobs:
       - name: Prove Essential assurance boundary provider-free
         run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
 
+      - name: Prove Essential numeric claim equivalence provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
+'''
+          Path('.github/workflows/essential-provider-diagnostics.yml').write_text(final_workflow)
+          Path('.github/workflows/one-off-essential-numeric-canonicalisation.yml').unlink(missing_ok=True)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/reports/narrative/blueprint-text.ts \
+                  src/lib/reports/narrative/validation.ts \
+                  scripts/commercial-quality/essential-numeric-claim-tests.mjs \
+                  .github/workflows/essential-provider-diagnostics.yml
+          git add -u .github/workflows/one-off-essential-numeric-canonicalisation.yml || true
+          if git diff --cached --quiet; then
+            echo "Numeric canonicalisation already applied."
+          else
+            git commit -m "Fix Essential numeric claim semantic equivalence"
+            git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+          fi
