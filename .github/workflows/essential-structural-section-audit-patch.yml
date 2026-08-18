@@ -57,6 +57,9 @@ jobs:
           print('structural section-page audit patched')
           PY
 
+      - name: Install PDF audit test dependencies
+        run: python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
+
       - name: Prove structural heading rule
         run: python scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
 
