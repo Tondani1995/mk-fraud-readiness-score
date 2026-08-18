@@ -96,9 +96,13 @@ jobs:
           npm run typecheck
 
       - name: Install PDF rendering dependency
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils
+          if ! command -v pdftoppm >/dev/null 2>&1; then
+            sudo timeout 120 apt-get install -y --no-install-recommends poppler-utils
+          fi
+          command -v pdftoppm
+          pdftoppm -v
 
       - name: Run rendered PDF hardening gate
         run: npm run v7:test-checkpoint-f
