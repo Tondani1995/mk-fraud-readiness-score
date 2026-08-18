@@ -40,32 +40,52 @@ jobs:
           python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
           command -v pdftoppm
 
-      - name: Prove structural heading audit behaviour
-        run: python3 scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
-
-      - name: Render and audit all Essential PDF fixtures
-        run: npm run v7:test-checkpoint-f
-
-      - name: Record rendered certification success
-        if: success()
+      - name: Run rendered certification and persist exact disposition
         shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          printf 'source_sha=%s\nstatus=success\n' "$GITHUB_SHA" > scripts/commercial-quality/.v9-rendered-certification-status
-          git add scripts/commercial-quality/.v9-rendered-certification-status
-          git commit -m "Record V9 rendered certification success"
-          git pull --rebase origin commercial/mk-fraud-readiness-95-quality
-          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+          set +e
+          python3 scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
+          self_test_status=$?
+          gate_status=0
+          if [ "$self_test_status" -eq 0 ]; then
+            npm run v7:test-checkpoint-f
+            gate_status=$?
+          else
+            gate_status=$self_test_status
+          fi
 
-      - name: Record rendered certification failure
-        if: failure()
-        shell: bash
-        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          status_path = Path('scripts/commercial-quality/.v9-rendered-certification-status')
+          gate_status = int(os.environ.get('GATE_STATUS', '1'))
+          lines = [
+              f"run_id={os.environ.get('GITHUB_RUN_ID', '')}",
+              f"source_sha={os.environ.get('GITHUB_SHA', '')}",
+              f"status={'success' if gate_status == 0 else 'failure'}",
+          ]
+          audit = Path('tmp/pdfs/checkpoint-f-artifact/inspection/pdf-audit.json')
+          if audit.exists():
+              data = json.loads(audit.read_text())
+              failures = [item for item in data.get('checks', []) if not item.get('passed')]
+              lines.append(f"failure_count={len(failures)}")
+              for index, item in enumerate(failures[:20], 1):
+                  detail = str(item.get('detail', '')).replace('\n', ' ').strip()
+                  lines.append(f"failure_{index}={item.get('code')} | {item.get('candidate')} | {detail}")
+          else:
+              lines.append('failure_count=unknown')
+              lines.append('failure_1=rendered audit JSON not produced; inspect structural self-test or render command')
+          status_path.write_text('\n'.join(lines) + '\n')
+          PY
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          printf 'source_sha=%s\nstatus=failure\n' "$GITHUB_SHA" > scripts/commercial-quality/.v9-rendered-certification-status
           git add scripts/commercial-quality/.v9-rendered-certification-status
-          git commit -m "Record V9 rendered certification failure"
+          git commit -m "Record V9 rendered certification disposition"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
+          exit "$gate_status"
+        env:
+          GATE_STATUS: ${{ job.status }}
