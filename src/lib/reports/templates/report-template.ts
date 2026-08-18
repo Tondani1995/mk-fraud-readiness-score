@@ -318,7 +318,7 @@ export function renderReportHtml(
 
   const capCards = data.maturityCapEvents.map((event) => {
     const governanceCrossReference = event.relatedDomainName === 'Fraud Leadership and Governance'
-      ? '<p><strong>Management response:</strong> see Leadership decisions and roadmap for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
+      ? '<p><strong>Management response:</strong> see the leadership roadmap section for accountable executive mandates, escalation authority and the fraud-risk implementation and control-effectiveness review cadence.</p>'
       : '';
     return `<div class="compact-card amber-card">
       <div class="card-eyebrow">Maturity ceiling · ${esc(event.relatedDomainName ?? 'Cross-domain')}</div>

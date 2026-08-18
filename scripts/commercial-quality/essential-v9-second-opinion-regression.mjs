@@ -38,7 +38,8 @@ assert.match(template, /Risks sharing the same priority class are not more finel
 
 // Governance cap has an explicit management cross-reference.
 assert.match(template, /Fraud Leadership and Governance/);
-assert.ok(template.includes('Management response:</strong> see Leadership decisions and roadmap'));
+assert.ok(template.includes('Management response:</strong> see the leadership roadmap section'));
+assert.doesNotMatch(template, /see Leadership decisions and roadmap/);
 
 // Supporting register is named precisely and the commercial package contract is explicit.
 assert.match(template, /supportingRegisterFileName = `\$\{data\.reportReference\}-supporting-register\.xlsx`/);
