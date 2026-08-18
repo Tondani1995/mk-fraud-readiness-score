@@ -1,16 +1,15 @@
 name: Essential V8 Final Acceptance Fixes
 
 on:
-  push:
+  pull_request:
     branches:
-      - commercial/mk-fraud-readiness-95-quality
+      - main
 
 permissions:
   contents: write
 
 jobs:
   fix-and-prove:
-    if: github.event.head_commit.message == 'Run V8 final acceptance patch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
