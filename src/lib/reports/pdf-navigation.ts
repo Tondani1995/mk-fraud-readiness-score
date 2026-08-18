@@ -73,20 +73,17 @@ async function ensureGeometryGlobals(): Promise<void> {
 }
 
 /**
- * Diagnostic tiers, in decreasing strictness. The earliest physical page on which the complete
- * canonical heading is recoverable is accepted; when several tiers match that same page, the
- * strictest tier is reported.
+ * Diagnostic tiers, in decreasing strictness. Only `exact` is ever used to accept a heading.
  *
- * Tiers 2 and 3 identify how a heading that is demonstrably present in the HTML survived PDF text
- * extraction. Extracted whitespace does not correspond to HTML whitespace: a heading long enough
- * to wrap is emitted as several text runs, and depending on how the line breaks those runs may be
- * separated by inconsistent spacing (tier 2) or split inside a word (tier 3).
+ * Tiers 2 and 3 exist purely to identify *why* a heading that is demonstrably present in the HTML
+ * was not found in the extracted PDF text, without guessing. Extracted whitespace does not
+ * correspond to HTML whitespace: a heading long enough to wrap is emitted as several text runs,
+ * and depending on how the line breaks those runs may be separated by inconsistent spacing
+ * (tier 2) or split inside a word (tier 3). Which of those actually occurs is an empirical
+ * question about the real renderer, so it is measured rather than assumed.
  *
  * Every tier still requires the complete canonical heading in exact character order. None of them
- * is a similarity, token-subset or fuzzy match. Physical document order is authoritative because
- * the customer template contract forbids tracked headings from being quoted before their actual
- * section; a later prose cross-reference must never outrank the real, earlier heading merely
- * because Chromium extracted that later prose as one cleaner text run.
+ * is a similarity, token-subset or fuzzy match.
  */
 /**
  * Measured on the real renderer during RC1 certification. For the three headings that failed --
@@ -145,10 +142,11 @@ function stripWhitespace(value: string): string {
 }
 
 /**
- * Measures, for every entry, which tiers locate it and on how many pages. The accepted page is the
- * earliest post-Contents physical occurrence at any tier; tier strictness only breaks ties on that
- * same page. This mirrors the rendered audit's structural first-occurrence rule and prevents a
- * later exact prose cross-reference from displacing an earlier heading split across PDF text runs.
+ * Measures, for every entry, which tiers would have located it and on how many pages.
+ *
+ * Exposed separately from extractHeadingPageMap so the evidence can be read whether or not
+ * extraction succeeds -- a heading accepted at tier 1 still carries a uniqueness result worth
+ * knowing. This function decides nothing; it only measures.
  */
 export async function collectHeadingMatchDiagnostics(
   pdfBytes: Uint8Array,
@@ -159,8 +157,9 @@ export async function collectHeadingMatchDiagnostics(
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
 
-  // Every page is read so candidate locations and tier diagnostics remain observable even after
-  // the earliest structural occurrence has been selected.
+  // Every page is read, rather than stopping at the first hit, so a tier's uniqueness can be
+  // established. Acceptance itself is unchanged: the first page whose text contains the heading
+  // exactly still wins, and nothing else can approve a heading.
   const pages: Array<{ pageNumber: number; exact: string; normalised: string; stripped: string; itemCount: number }> = [];
   for (let pageNumber = startPage; pageNumber <= doc.numPages; pageNumber += 1) {
     const page = await doc.getPage(pageNumber);
@@ -192,22 +191,21 @@ export async function collectHeadingMatchDiagnostics(
       { tier: 'whitespace_stripped', pages: strippedPages, unique: strippedPages.length === 1 },
     ];
 
-    // Structural order wins before text-run neatness. Chromium can split a real heading inside a
-    // word on its actual section page while a later prose cross-reference contains the same
-    // canonical heading as one exact text run. Preferring "any exact match anywhere" therefore
-    // points navigation at the later prose instead of the section itself. The customer template
-    // contract already forbids tracked headings from being quoted before their real section, and
-    // the rendered audit uses the first post-Contents occurrence for the same reason. Select the
-    // earliest physical page on which the complete canonical heading is recoverable at any tier;
-    // when more than one tier matches that same page, use the strictest tier only as a tie-breaker.
-    const matchedPages = [...new Set([...exactPages, ...normalisedPages, ...strippedPages])]
-      .sort((left, right) => left - right);
-    const acceptedPage: number | null = matchedPages[0] ?? null;
+    // Acceptance order, strictest first. Tier 1 keeps its original first-match-wins behaviour so
+    // nothing that resolved before can resolve differently now. Tiers 2 and 3 are fallbacks only:
+    // each requires the full canonical heading in exact character order AND exactly one page, so
+    // an ambiguous heading is never silently attributed to a page.
     let acceptedTier: HeadingMatchTier | null = null;
-    if (acceptedPage !== null) {
-      if (exactPages.includes(acceptedPage)) acceptedTier = 'exact';
-      else if (normalisedPages.includes(acceptedPage)) acceptedTier = 'whitespace_normalised';
-      else if (strippedPages.includes(acceptedPage)) acceptedTier = 'whitespace_stripped';
+    let acceptedPage: number | null = null;
+    if (exactPages.length > 0) {
+      acceptedTier = 'exact';
+      acceptedPage = exactPages[0];
+    } else if (normalisedPages.length === 1) {
+      acceptedTier = 'whitespace_normalised';
+      acceptedPage = normalisedPages[0];
+    } else if (strippedPages.length === 1) {
+      acceptedTier = 'whitespace_stripped';
+      acceptedPage = strippedPages[0];
     }
 
     diagnostics.push({

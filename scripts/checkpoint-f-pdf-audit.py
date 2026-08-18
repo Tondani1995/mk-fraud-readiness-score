@@ -462,6 +462,68 @@ def normalise_page(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+def _normalise_section_heading(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip().strip(".").casefold()
+
+
+def page_has_section_heading(page_text: str, heading: str) -> bool:
+    """Return True only when the canonical heading is present as heading-shaped extracted text.
+
+    PyPDF can split a rendered heading across two or three text lines, including inside a word.
+    Joining a bounded window therefore recovers wrapped headings. Equality against the complete
+    canonical heading is deliberate: an ordinary prose sentence that merely mentions the section
+    name must never become the section's physical page for TOC/bookmark validation.
+    """
+    lines = [
+        re.sub(r"\s+", " ", line).strip()
+        for line in page_text.splitlines()
+        if line.strip()
+    ]
+    target = _normalise_section_heading(heading)
+    target_stripped = re.sub(r"\s+", "", target)
+    for start in range(len(lines)):
+        for width in (1, 2, 3):
+            if start + width > len(lines):
+                break
+            window = lines[start : start + width]
+            for candidate in (" ".join(window), "".join(window)):
+                normalised = _normalise_section_heading(candidate)
+                if normalised == target:
+                    return True
+                if re.sub(r"\s+", "", normalised) == target_stripped:
+                    return True
+    return False
+
+
+def self_test_section_heading_rule() -> None:
+    prose = (
+        "Leadership should use Proof requirements to sequence evidence validation before any "
+        "independent assurance work begins."
+    )
+    assert not page_has_section_heading(prose, "Proof requirements"), \
+        "a prose mention must not be treated as the section heading"
+
+    exact = "PROOF REQUIREMENTS\nThe following evidence should be tested first."
+    assert page_has_section_heading(exact, "Proof requirements"), \
+        "an exact standalone heading must be recognised"
+
+    wrapped = "METHODOLOGY, LIMITATIONS\nAND NEXT STEPS\nThis assessment is management self-report."
+    assert page_has_section_heading(wrapped, "Methodology, limitations and next steps"), \
+        "a heading wrapped across extracted lines must be recognised"
+
+    split_word = "Proof require\nments\nPriority evidence follows."
+    assert page_has_section_heading(split_word, "Proof requirements"), \
+        "a heading split inside a word must be recognised"
+
+    body_sentence = (
+        "This page explains methodology, limitations and next steps for management after the review."
+    )
+    assert not page_has_section_heading(body_sentence, "Methodology, limitations and next steps"), \
+        "a longer body sentence containing the heading words must not be treated as the heading"
+
+    print("self_test_section_heading_rule: all structural heading fixtures passed")
+
+
 def create_contact_sheets(candidate: str, images: list[Path], output_dir: Path) -> list[str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     emitted: list[str] = []
@@ -652,6 +714,11 @@ def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] == "--self-test-customer-copy-grammar":
         self_test_customer_copy_grammar_defect()
         return 0
+    # Isolated regression for structural section-page detection: prose mentions must not become
+    # TOC/bookmark destinations, while wrapped headings must still be recoverable.
+    if len(sys.argv) == 2 and sys.argv[1] == "--self-test-section-heading-rule":
+        self_test_section_heading_rule()
+        return 0
     if len(sys.argv) != 3:
         raise SystemExit("usage: checkpoint-f-pdf-audit.py <artifact-dir> <metadata-json>")
     artifact = Path(sys.argv[1]).resolve()
@@ -746,14 +813,16 @@ def main() -> int:
 
         current_section_map: dict[str, list[int]] = {}
         for heading in REQUIRED_SECTIONS:
-            # The bare word "Appendix" also appears in core cross-references ("...is in Appendix
-            # A1"), so it needs the same distinctive-marker search as REPORT_TOC_ENTRIES' "Appendix"
-            # key in report-template.ts, not a literal substring match.
-            search_text = "The complete, authoritative registers behind the executive summary" if heading == "Appendix" else heading.lower()
-            # Page 2 (Contents) legitimately lists every heading as a TOC row -- exclude it here
-            # (except for "Contents" itself, whose real body is page 2) so the map reflects where
-            # each section's real body actually is, matching the PDF outline.
-            pages = [index + 1 for index, text in enumerate(page_texts) if (index != 1 or heading == "Contents") and search_text.lower() in text.lower()]
+            # Page 2 (Contents) legitimately lists every tracked heading as a TOC row. Exclude it
+            # for all real sections, then require heading-shaped extracted text rather than a raw
+            # substring anywhere in page prose. This keeps TOC/bookmark validation tied to the
+            # physical section heading, not to an earlier cross-reference sentence.
+            pages = [
+                index + 1
+                for index, page_text in enumerate(page_texts)
+                if (index != 1 or heading == "Contents")
+                and page_has_section_heading(page_text, heading)
+            ]
             current_section_map[heading] = pages
             record(checks, "PDF_REQUIRED_SECTION_MISSING", bool(pages), name, heading)
         # Structural detection, not a raw substring scan. A legacy register is present only when
