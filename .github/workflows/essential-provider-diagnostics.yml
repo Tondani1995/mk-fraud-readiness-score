@@ -1,5 +1,6 @@
 name: Report Provider-Free Regressions
 
+# Final Essential V6 deterministic acceptance gate. No provider calls are permitted here.
 on:
   push:
     branches:
