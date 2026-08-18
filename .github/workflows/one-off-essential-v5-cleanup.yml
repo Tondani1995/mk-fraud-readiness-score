@@ -1,0 +1,429 @@
+name: One-off Essential V5.1 commercial cleanup
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+    paths:
+      - .github/workflows/one-off-essential-v5-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out working branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply deterministic V5.1 customer-visible cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'anchor missing in {path}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          # 1) Replace generic D2/D10 consequence placeholders with cautious domain-specific pathways.
+          replace_once(
+              'src/lib/reports/evidence-model/material-findings.ts',
+              """  const impacts: Record<string, { financial: string; operational: string }> = {\n    D1: { financial: 'Indirect -- unresolved control gaps can remain unfunded or unchallenged.', operational: 'Accountability and independent challenge may be unclear.' },\n    D3: { financial: 'Direct -- access or supplier-control weakness can enable unauthorised payments or manipulation.', operational: 'Preventive controls may not match current roles or approved suppliers.' },\n    D4: { financial: 'Direct -- unreviewed exceptions can allow losses to compound.', operational: 'Alert backlogs can conceal important anomalies.' },\n    D5: { financial: 'Indirect -- delayed response or compromised evidence increases investigation and recovery cost.', operational: 'Containment, investigation and legal action may be weakened.' },\n    D6: { financial: 'Indirect -- suppressed reporting lets fraud continue longer.', operational: 'Early-warning information may never reach an independent reviewer.' },\n    D7: { financial: 'Direct -- false suppliers, invoices or bank changes can redirect payments.', operational: 'Vendor and payment integrity can be bypassed.' },\n    D8: { financial: 'Direct -- compromised or privileged access can alter records and transactions.', operational: 'Digital misuse can evade prevention and monitoring.' },\n    D9: { financial: 'Indirect -- staff may comply with fraudulent requests.', operational: 'Role-specific warning signs can be missed.' }\n  };\n""",
+              """  const impacts: Record<string, { financial: string; operational: string }> = {\n    D1: { financial: 'Indirect -- unresolved control gaps can remain unfunded or unchallenged.', operational: 'Accountability and independent challenge may be unclear.' },\n    D2: { financial: 'Unmapped process-level fraud routes can leave value diversion or loss outside targeted controls.', operational: 'Material process exposures can remain without explicit control ownership or treatment.' },\n    D3: { financial: 'Direct -- access or supplier-control weakness can enable unauthorised payments or manipulation.', operational: 'Preventive controls may not match current roles or approved suppliers.' },\n    D4: { financial: 'Direct -- unreviewed exceptions can allow losses to compound.', operational: 'Alert backlogs can conceal important anomalies.' },\n    D5: { financial: 'Indirect -- delayed response or compromised evidence increases investigation and recovery cost.', operational: 'Containment, investigation and legal action may be weakened.' },\n    D6: { financial: 'Indirect -- suppressed reporting lets fraud continue longer.', operational: 'Early-warning information may never reach an independent reviewer.' },\n    D7: { financial: 'Direct -- false suppliers, invoices or bank changes can redirect payments.', operational: 'Vendor and payment integrity can be bypassed.' },\n    D8: { financial: 'Direct -- compromised or privileged access can alter records and transactions.', operational: 'Digital misuse can evade prevention and monitoring.' },\n    D9: { financial: 'Indirect -- staff may comply with fraudulent requests.', operational: 'Role-specific warning signs can be missed.' },\n    D10: { financial: 'Undetected control deterioration can allow loss exposure to persist or compound before management intervenes.', operational: 'Control ownership, evidence and remediation can lapse as processes, systems or responsibilities change.' }\n  };\n"""
+          )
+
+          # 2) Make each evidence artefact explain its distinct proof purpose rather than repeating the control prompt.
+          registers = Path('src/lib/reports/evidence-model/registers.ts')
+          text = registers.read_text()
+          anchor = "export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {\n"
+          helper = r'''function lowerFirst(value: string): string {
+  return value.length > 0 ? value.charAt(0).toLowerCase() + value.slice(1) : value;
+}
+
+function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): string {
+  const name = artefact.normalize('NFKC').trim();
+  const rules: Array<[RegExp, string]> = [
+    [/control linkage.*preventive.*detective/i, 'Whether each mapped fraud scenario is linked to named preventive and detective controls, with residual gaps identifiable.'],
+    [/per-process fraud scenario map/i, 'Whether each material process has explicit fraud scenarios, relevant roles or permissions and residual exposure documented.'],
+    [/process inventory/i, 'Whether the complete population of material value-bearing processes has been identified before fraud-risk mapping is assessed.'],
+    [/process-owner sign-off/i, 'Whether process owners have reviewed and accepted the mapped fraud scenarios, control ownership and residual gaps.'],
+    [/coverage report.*fraud maps/i, 'Whether monitoring covers every material process identified in the fraud maps and exposes any unmonitored population.'],
+    [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
+    [/population reconciliation/i, 'Whether the monitoring input reconciles to the complete source-system population for the stated period.'],
+    [/red-flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
+    [/chain-of-custody/i, 'Whether each transfer of material evidence records custody, timing and handover without unexplained gaps.'],
+    [/evidence register/i, 'Whether all material evidence items are uniquely recorded, assigned and traceable through the case.'],
+    [/hash or seal/i, 'Whether collected evidence has integrity markers that can be matched at later custody points.'],
+    [/repository access log/i, 'Whether access to preserved evidence is restricted, attributable and reviewable.'],
+    [/retention.*legal-hold/i, 'Whether preservation instructions define the required retention or legal-hold treatment for relevant records.'],
+    [/alert case records/i, 'Whether suspicious digital-activity alerts are assigned, investigated, dispositioned and escalated to the required service level.'],
+    [/in-scope event inventory/i, 'Whether the complete population of priority login, access, profile and transaction events has been identified for monitoring.']
+  ];
+  const matched = rules.find(([pattern]) => pattern.test(name));
+  if (matched) return matched[1];
+  const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/[.]$/, '')));
+  const shown = prompts.slice(0, 2);
+  const remainder = prompts.length - shown.length;
+  const tail = remainder > 0 ? `, together with ${remainder} further linked control${remainder === 1 ? '' : 's'}` : '';
+  return `Whether the ${lowerFirst(name)} provides operating evidence that ${shown.join('; ')}${tail} is implemented across the complete in-scope population.`;
+}
+
+'''
+          if 'function evidenceProofPurpose(' not in text:
+              if anchor not in text:
+                  raise SystemExit('buildEvidenceChecklist anchor missing')
+              text = text.replace(anchor, helper + anchor, 1)
+          old_proves = """      provesWhat: (() => {\n        const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/[.]$/, '')));\n        const shown = prompts.slice(0, 2);\n        const remainder = prompts.length - shown.length;\n        const tail = remainder > 0 ? `, and ${remainder} further linked control${remainder === 1 ? '' : 's'},` : '';\n        return `Whether ${shown.join('; ')}${tail} operate${prompts.length === 1 ? 's' : ''} to the exact expected control standard across the complete in-scope population.`;\n      })(),\n"""
+          if old_proves not in text:
+              raise SystemExit('old provesWhat template missing')
+          text = text.replace(old_proves, "      provesWhat: evidenceProofPurpose(artefact, linked),\n", 1)
+          registers.write_text(text)
+
+          # 3) Essential-only presentation cleanup: no .; artefact, no assumed forum/intranet/noticeboard,
+          # and put accountable ownership/escalation into the genuine 30-day foundation.
+          adaptation = Path('src/lib/reports/essential-presentation-adaptation.ts')
+          text = adaptation.read_text()
+          old_structures = """const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [\n  [/\\bpayslip inserts?\\b/gi, 'the workforce communication channels used by the organisation'],\n  [/\\b(?:depots|branches|sites)\\b/gi, 'operating locations'],\n  [/\\baudit, compliance, operations and risk functions\\b/gi, 'relevant operational, control and oversight responsibilities']\n];\n"""
+          new_structures = """const STRUCTURE_ADAPTATIONS: ReadonlyArray<[RegExp, string]> = [\n  [/\\bpayslip inserts?\\b/gi, 'the workforce communication channels used by the organisation'],\n  [/\\b(?:depots|branches|sites)\\b/gi, 'operating locations'],\n  [/\\baudit, compliance, operations and risk functions\\b/gi, 'relevant operational, control and oversight responsibilities'],\n  [/\\binduction packs, the workforce communication channels used by the organisation, notice boards at operating locations, intranet and supervisor briefings\\b/gi, 'induction and onboarding materials, the workforce communication channels used by the organisation, and supervisor briefings'],\n  [/\\bnotice boards? at operating locations\\b/gi, 'appropriate workforce communication channels'],\n  [/\\bintranet\\b/gi, 'internal workforce communication channel'],\n  [/\\bfraud forum\\b/gi, 'management fraud-risk review route']\n];\n"""
+          if old_structures not in text:
+              raise SystemExit('structure adaptations anchor missing')
+          text = text.replace(old_structures, new_structures, 1)
+          old_punct = """    .replace(/\\s+--\\s+/g, ' — ')\n    // Remove a deterministic duplicate introduced when generic location labels are adapted twice.\n"""
+          new_punct = """    .replace(/\\s+--\\s+/g, ' — ')\n    // A replacement can consume the original full stop but leave the join semicolon behind.\n    // Never show the customer a malformed \".;\" sequence.\n    .replace(/\\.\\s*;\\s*/g, '; ')\n    // Remove a deterministic duplicate introduced when generic location labels are adapted twice.\n"""
+          if old_punct not in text:
+              raise SystemExit('punctuation cleanup anchor missing')
+          text = text.replace(old_punct, new_punct, 1)
+          leadership_helper_anchor = "/**\n * An Essential-only adapted copy of the advisory evidence model.\n"
+          leadership_helper = r'''interface EssentialLeadershipDecisionCandidate {
+  decisionRequired?: string;
+  targetPeriod?: string;
+}
+
+function ensureEssentialThirtyDayOwnershipDecision<T>(model: T): T {
+  if (!model || typeof model !== 'object') return model;
+  const record = model as Record<string, unknown>;
+  if (!Array.isArray(record.leadershipDecisions)) return model;
+  record.leadershipDecisions = record.leadershipDecisions.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const decision = item as EssentialLeadershipDecisionCandidate;
+    if (decision.targetPeriod !== '60 days') return item;
+    if (!/accountable executive mandates and escalation authority/i.test(decision.decisionRequired ?? '')) return item;
+    return { ...item, targetPeriod: '30 days' };
+  });
+  return model;
+}
+
+'''
+          if 'function ensureEssentialThirtyDayOwnershipDecision' not in text:
+              if leadership_helper_anchor not in text:
+                  raise SystemExit('Essential adapted copy comment anchor missing')
+              text = text.replace(leadership_helper_anchor, leadership_helper + leadership_helper_anchor, 1)
+          old_return = "  return ensureEssentialThirtyDayFoundation(walk(model) as T);\n"
+          new_return = "  return ensureEssentialThirtyDayOwnershipDecision(ensureEssentialThirtyDayFoundation(walk(model) as T));\n"
+          if old_return not in text:
+              raise SystemExit('Essential adaptation return anchor missing')
+          text = text.replace(old_return, new_return, 1)
+          adaptation.write_text(text)
+
+          # 4) Bind final customer-visible refinements in the legacy/Essential report template.
+          template = Path('src/lib/reports/templates/report-template.ts')
+          text = template.read_text()
+
+          # TOC: Complete supporting detail now lives inside the Appendix instead of consuming its own page.
+          text = text.replace("  { key: 'Complete supporting detail', label: 'Complete supporting detail' },\n", '', 1)
+          appendix_entry = "  { key: 'Appendix: supporting material', label: 'Appendix: supporting material', appendix: true },\n"
+          if appendix_entry not in text:
+              raise SystemExit('appendix TOC entry missing')
+          text = text.replace(appendix_entry, appendix_entry + "  { key: 'Complete supporting detail', label: 'Complete supporting detail', appendix: true },\n", 1)
+
+          # Explain adaptive oversight routing in customer language.
+          old_oversight = """    ${adaptiveScope.redirectedCount > 0 ? `<p> ${adaptiveScope.redirectedCount} area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} assessed through an oversight response. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}\n"""
+          new_oversight = """    ${adaptiveScope.redirectedCount > 0 ? `<p>${adaptiveScope.redirectedCount} control area${adaptiveScope.redirectedCount === 1 ? ' was' : 's were'} answered through the assessment's oversight-response route rather than the standard response route. These areas remain in scope. Excluded areas are outside the assessed scope and are not treated as weaknesses.</p>` : ''}\n"""
+          if old_oversight not in text:
+              raise SystemExit('oversight copy anchor missing')
+          text = text.replace(old_oversight, new_oversight, 1)
+
+          # Map internal domain codes to customer-facing names wherever the core report prints them.
+          old_domain_map = "  const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));\n"
+          new_domain_map = """  const domainByName = new Map(data.domainResults.map((domain) => [domain.domainName, domain]));\n  const domainNameByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain.domainName]));\n  const customerDomainText = (value: string): string => value.replace(/\\bD\\d+\\b/g, (code) => domainNameByCode.get(code) ?? code);\n"""
+          if old_domain_map not in text:
+              raise SystemExit('domain map anchor missing')
+          text = text.replace(old_domain_map, new_domain_map, 1)
+          old_cap = "    <h3>${esc(event.relatedQuestionPrompt ?? event.reason)}</h3>\n"
+          new_cap = "    <h3>${esc(event.relatedQuestionPrompt ?? customerDomainText(event.reason))}</h3>\n"
+          if old_cap not in text:
+              raise SystemExit('cap card heading anchor missing')
+          text = text.replace(old_cap, new_cap, 1)
+
+          # Risk heading: human domain name, not D10/D2/D4 internal shorthand.
+          old_risk = """  const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => `<article class=\"long-record risk-record\">\n    <div class=\"record-heading\"><div><span class=\"record-number\">Risk ${index + 1} · ${esc(risk.affectedDomains.join(', '))}</span><h3>${esc(risk.title)}</h3></div><span class=\"priority-badge priority-${risk.priority.toLowerCase()}\">${esc(risk.priority)}</span></div>\n    <div class=\"risk-statement\">${esc(risk.riskStatement)}</div>\n    <div class=\"record-grid two\">\n      ${labelled('Cause', risk.cause)}\n      ${labelled('Risk event', risk.riskEvent)}\n      ${labelled('Likelihood', `${risk.likelihood} — ${risk.likelihoodRationale}`)}\n      ${labelled('Impact', `${risk.impact} — ${risk.impactRationale}`)}\n      ${labelled('Current control position', risk.currentControlPosition)}\n      ${labelled('Required treatment', risk.requiredTreatment)}\n      ${labelled('Accountable executive', risk.accountableExecutive)}\n      ${labelled('Target period', risk.targetPeriod)}\n    </div>\n  </article>`;\n"""
+          new_risk = """  const riskCard = (risk: AdvisoryEvidenceModel['riskRegister'][number], index: number) => {\n    const affectedDomainLabels = risk.affectedDomains.map((code) => domainNameByCode.get(code) ?? code).join(', ');\n    return `<article class=\"long-record risk-record\">\n    <div class=\"record-heading\"><div><span class=\"record-number\">Risk ${index + 1} · ${esc(affectedDomainLabels)}</span><h3>${esc(risk.title)}</h3></div><span class=\"priority-badge priority-${risk.priority.toLowerCase()}\">${esc(risk.priority)}</span></div>\n    <div class=\"risk-statement\">${esc(risk.riskStatement)}</div>\n    <div class=\"record-grid two\">\n      ${labelled('Cause', risk.cause)}\n      ${labelled('Risk event', risk.riskEvent)}\n      ${labelled('Likelihood', `${risk.likelihood} — ${risk.likelihoodRationale}`)}\n      ${labelled('Impact', `${risk.impact} — ${risk.impactRationale}`)}\n      ${labelled('Current control position', risk.currentControlPosition)}\n      ${labelled('Required treatment', risk.requiredTreatment)}\n      ${labelled('Accountable executive', risk.accountableExecutive)}\n      ${labelled('Target period', risk.targetPeriod)}\n    </div>\n  </article>`;\n  };\n"""
+          if old_risk not in text:
+              raise SystemExit('risk card anchor missing')
+          text = text.replace(old_risk, new_risk, 1)
+
+          # The proof sentence is now artefact-specific; keep the closing recommendation grammatical.
+          old_test_sentence = """  const testSentence = match\n    ? `Confirm across the complete in-scope population that ${lowercaseFirst(match[1])}.`\n    : 'Confirm that this control operates as designed across the complete in-scope population.';\n"""
+          new_test_sentence = """  const testSentence = match\n    ? `Confirm across the complete in-scope population that ${lowercaseFirst(match[1])}.`\n    : item.provesWhat.trim()\n      ? `Confirm ${lowercaseFirst(item.provesWhat.replace(/[.]$/, ''))}.`\n      : 'Confirm that this control operates as designed across the complete in-scope population.';\n"""
+          if old_test_sentence not in text:
+              raise SystemExit('evidence recommendation sentence anchor missing')
+          text = text.replace(old_test_sentence, new_test_sentence, 1)
+
+          # Condense roadmap rows: the exact control design already appears in the findings/target-control
+          # sections and supporting register, so the roadmap should show action, trigger, owner and measure.
+          roadmap_anchor = """  const roadmapRows = projection.roadmapActions.map((action) => `<tr>\n    <td>${esc(action.period)}</td>\n    <td>${esc(action.domainName)}</td>\n    <td>${esc(action.deliverable)}</td>\n"""
+          roadmap_replacement = """  const roadmapDeliverableForDisplay = (action: { deliverable: string; domainName: string }): string => {\n    const match = action.deliverable.match(/^Apply immediate escalation at \"([^\"]+)\" and deliver the exact control design:\\s*/i);\n    if (!match) return action.deliverable;\n    const trigger = match[1].trim().replace(/[.;]+$/, '');\n    return `Implement the target control design for ${action.domainName}. Escalation trigger: ${trigger}.`;\n  };\n  const roadmapRows = projection.roadmapActions.map((action) => `<tr>\n    <td>${esc(action.period)}</td>\n    <td>${esc(action.domainName)}</td>\n    <td>${esc(roadmapDeliverableForDisplay(action))}</td>\n"""
+          if roadmap_anchor not in text:
+              raise SystemExit('roadmap row anchor missing')
+          text = text.replace(roadmap_anchor, roadmap_replacement, 1)
+          text = text.replace('<h3>First 30 days — decisions and foundations</h3>', '<h3 class="roadmap-table-heading">First 30 days — decisions and foundations</h3>', 1)
+          text = text.replace('<h3>60- and 90-day implementation actions</h3>', '<h3 class="roadmap-table-heading">60- and 90-day implementation actions</h3>', 1)
+
+          # Supporting detail joins the Appendix instead of becoming a sparse standalone page.
+          old_support = """  const supportingReferenceBlock = `\n    <div class=\"keep-together\">\n    <p class=\"lede\">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>\n    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>\n    </div>`;\n"""
+          new_support = """  const supportingReferenceBlock = `\n    <p class=\"lede\">This report presents the highest-priority matters from a complete assessment inventory of ${u.materialFindings > 0 ? data.questionTraces.length : 0} controls${adaptiveScope ? ` (${adaptiveScope.applicableCount} applicable and ${adaptiveScope.excludedCount} excluded)` : ''}. The full assessment identified ${u.materialFindings} material findings, ${u.riskRegister} risks, ${u.controlImprovements} control improvements, ${u.evidenceChecklist} evidence artefacts, ${u.roadmapActions} recommended actions and ${u.functionalAgenda} functional-agenda items.</p>\n    <p>Every item not shown in this report is retained in full in the supporting register issued with it. No identified weakness has been discarded.</p>`;\n"""
+          if old_support not in text:
+              raise SystemExit('supporting reference block anchor missing')
+          text = text.replace(old_support, new_support, 1)
+          old_appendix = """    section('Appendix', 'Appendix: supporting material', `\n      <p class=\"lede\">Bounded supporting material for the priority matters above. The complete authoritative registers are provided in the supporting register, not reproduced here.</p>\n      ${subsection('E1. Supporting control actions', `\n"""
+          new_appendix = """    section('Appendix', 'Appendix: supporting material', `\n      <p class=\"lede\">Bounded supporting material for the priority matters above. The complete authoritative registers are provided in the supporting register, not reproduced here.</p>\n      ${subsection('Complete supporting detail', supportingReferenceBlock)}\n      ${subsection('E1. Supporting control actions', `\n"""
+          if old_appendix not in text:
+              raise SystemExit('appendix body anchor missing')
+          text = text.replace(old_appendix, new_appendix, 1)
+          old_methodology_part = """    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}${subsection('Complete supporting detail', supportingReferenceBlock)}`, 'continue-after-long-register'),\n"""
+          new_methodology_part = """    section('Methodology, limitations and next steps', 'Methodology, limitations and next steps', `${methodology}${recommendedNextStep}`, 'continue-after-long-register'),\n"""
+          if old_methodology_part not in text:
+              raise SystemExit('methodology parts anchor missing')
+          text = text.replace(old_methodology_part, new_methodology_part, 1)
+
+          # Keep roadmap headings attached to the first table rows so an orphan heading cannot sit on a sparse page.
+          css_anchor = """  .subsection-heading + .section-note,\n  .subsection-heading + .lede { break-after: avoid; page-break-after: avoid; }\n"""
+          css_replacement = css_anchor + """  .roadmap-table-heading { break-after: avoid; page-break-after: avoid; margin-top: 5mm; }\n  .roadmap-table-heading + table { break-before: avoid; page-break-before: avoid; }\n"""
+          if css_anchor not in text:
+              raise SystemExit('roadmap CSS anchor missing')
+          text = text.replace(css_anchor, css_replacement, 1)
+          template.write_text(text)
+
+          # 5) Admin UX: a transport/parsing ambiguity after a long-running request must never tell
+          # the operator that generation failed or re-enable a duplicate-click path before reconciliation.
+          actions = Path('src/components/admin/FulfilmentActions.tsx')
+          text = actions.read_text()
+          old_generation = r'''  async function generation(action: 'admin_generate' | 'admin_retry' | 'admin_regenerate') {
+    if (running) return;
+    setRunning(action);
+    setNotice({ tone: 'info', text: 'Generating report…' });
+    try {
+      const response = await fetch(`/score/api/admin/orders/${encodeURIComponent(props.orderReference)}/generate-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': requestKey(action) },
+        body: JSON.stringify({ action, requestKey: requestKey(action) })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.message ?? 'Report generation failed.');
+      setNotice({ tone: 'success', text: result.message ?? 'Report generated successfully.' });
+      window.setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+      setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'Report generation failed.' });
+    } finally {
+      setRunning(null);
+    }
+  }
+'''
+          new_generation = r'''  async function generation(action: 'admin_generate' | 'admin_retry' | 'admin_regenerate') {
+    if (running) return;
+    setRunning(action);
+    setNotice({ tone: 'info', text: 'Generating report…' });
+    let statusUncertain = false;
+    const slowNoticeTimer = window.setTimeout(() => {
+      setNotice({ tone: 'info', text: 'Still generating — do not retry. The page will update when the server confirms the final status.' });
+    }, 45_000);
+    try {
+      const response = await fetch(`/score/api/admin/orders/${encodeURIComponent(props.orderReference)}/generate-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': requestKey(action) },
+        body: JSON.stringify({ action, requestKey: requestKey(action) })
+      });
+      let result: Record<string, unknown>;
+      try {
+        result = await response.json() as Record<string, unknown>;
+      } catch {
+        statusUncertain = true;
+        setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed in this browser response. Do not retry — this page will refresh to reconcile the server status.' });
+        window.setTimeout(() => window.location.reload(), 5_000);
+        return;
+      }
+      if (!response.ok || !result.ok) {
+        setNotice({ tone: 'error', text: typeof result.message === 'string' ? result.message : 'Report generation failed.' });
+        return;
+      }
+      setNotice({ tone: 'success', text: typeof result.message === 'string' ? result.message : 'Report generated successfully.' });
+      window.setTimeout(() => window.location.reload(), 700);
+    } catch {
+      statusUncertain = true;
+      setNotice({ tone: 'info', text: 'The generation request was submitted, but completion could not be confirmed. Do not retry — this page will refresh to reconcile the server status.' });
+      window.setTimeout(() => window.location.reload(), 5_000);
+    } finally {
+      window.clearTimeout(slowNoticeTimer);
+      if (!statusUncertain) setRunning(null);
+    }
+  }
+'''
+          if old_generation not in text:
+              raise SystemExit('FulfilmentActions generation function anchor missing')
+          actions.write_text(text.replace(old_generation, new_generation, 1))
+
+          # 6) Provider-free regression: lock the V5 customer-visible corrections and UX safeguard.
+          test_path = Path('scripts/commercial-quality/essential-v5-cleanup-regression.mjs')
+          test_path.write_text(r'''#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  adaptEssentialEvidenceModel,
+  adaptEssentialText,
+  buildEssentialAdaptationContext
+} from '../../src/lib/reports/essential-presentation-adaptation.ts';
+import { buildEvidenceChecklist } from '../../src/lib/reports/evidence-model/registers.ts';
+
+const context = buildEssentialAdaptationContext({});
+const cleaned = adaptEssentialText(
+  'Impact requires case-specific validation.; Operating impact requires case-specific validation.; Report to the fraud forum using notice boards at operating locations and intranet.',
+  context
+);
+assert.doesNotMatch(cleaned, /\.\s*;/, 'customer-visible punctuation must not contain .;');
+assert.doesNotMatch(cleaned, /case-specific validation|fraud forum|notice boards|\bintranet\b/i);
+assert.match(cleaned, /management fraud-risk review route/i);
+
+const model = {
+  materialFindings: [
+    { id: 'F-1', materialityScore: 900 },
+    { id: 'F-2', materialityScore: 700 },
+    { id: 'F-3', materialityScore: 500 }
+  ],
+  roadmapActions: [
+    { id: 'RA-1', period: '60 days', domainCode: 'D1', deliverable: 'Appoint a fraud-risk owner and approve the escalation route.', linkedFindingIds: ['F-1'], dependencyIds: [] },
+    { id: 'RA-2', period: '60 days', domainCode: 'D5', deliverable: 'Define incident intake and evidence preservation responsibilities.', linkedFindingIds: ['F-2'], dependencyIds: [] },
+    { id: 'RA-3', period: '90 days', domainCode: 'D4', deliverable: 'Operate monitoring and exception review.', linkedFindingIds: ['F-3'], dependencyIds: [] }
+  ],
+  leadershipDecisions: [
+    { decisionRequired: 'Approve accountable executive mandates and escalation authority for priority remediation.', targetPeriod: '60 days' },
+    { decisionRequired: 'Approve target control standards.', targetPeriod: '30 days' }
+  ]
+};
+const adapted = adaptEssentialEvidenceModel(model, {});
+assert.equal(model.leadershipDecisions[0].targetPeriod, '60 days', 'shared model must not mutate');
+assert.equal(adapted.leadershipDecisions[0].targetPeriod, '30 days', 'ownership/escalation is a 30-day foundation in Essential');
+assert.ok(adapted.roadmapActions.some((action) => action.period === '30 days'));
+assert.ok(adapted.roadmapActions.some((action) => action.period === '60 days'));
+assert.ok(adapted.roadmapActions.some((action) => action.period === '90 days'));
+
+const finding = {
+  id: 'MF-D2-Q01',
+  questionCode: 'D2-Q01',
+  questionPrompt: 'Fraud risks have been mapped across important processes',
+  evidenceToRequest: [
+    'Control linkage showing preventive and detective controls',
+    'Per-process fraud scenario map',
+    'Process inventory identifying material value-bearing processes',
+    'Process-owner sign-off',
+    'Population reconciliation to source systems'
+  ],
+  processOwner: 'Risk / compliance accountable owner',
+  accountableOwner: 'Finance / operations accountable owner',
+  operatingFrequency: 'Quarterly',
+  minimumEvidenceCharacteristics: ['Complete population']
+};
+const evidence = buildEvidenceChecklist([finding], []);
+const proofByArtefact = new Map(evidence.map((item) => [item.artefact, item.provesWhat]));
+assert.match(proofByArtefact.get('Control linkage showing preventive and detective controls') ?? '', /mapped fraud scenario.*preventive and detective controls/i);
+assert.match(proofByArtefact.get('Per-process fraud scenario map') ?? '', /explicit fraud scenarios/i);
+assert.match(proofByArtefact.get('Process inventory identifying material value-bearing processes') ?? '', /complete population of material value-bearing processes/i);
+assert.match(proofByArtefact.get('Process-owner sign-off') ?? '', /process owners have reviewed and accepted/i);
+assert.equal(new Set(evidence.map((item) => item.provesWhat)).size, evidence.length, 'priority artefacts should not repeat one proof sentence');
+
+const materialFindingsSource = readFileSync(new URL('../../src/lib/reports/evidence-model/material-findings.ts', import.meta.url), 'utf8');
+assert.match(materialFindingsSource, /D2: \{ financial: 'Unmapped process-level fraud routes/i);
+assert.match(materialFindingsSource, /D10: \{ financial: 'Undetected control deterioration/i);
+
+const template = readFileSync(new URL('../../src/lib/reports/templates/report-template.ts', import.meta.url), 'utf8');
+assert.match(template, /affectedDomainLabels/);
+assert.match(template, /roadmapDeliverableForDisplay/);
+assert.doesNotMatch(template, /<td>\$\{esc\(action\.deliverable\)\}<\/td>/);
+assert.match(template, /roadmap-table-heading/);
+assert.match(template, /answered through the assessment's oversight-response route rather than the standard response route/);
+const appendixBody = template.indexOf("section('Appendix', 'Appendix: supporting material'");
+const supportingDetail = template.lastIndexOf("subsection('Complete supporting detail', supportingReferenceBlock)");
+assert.ok(appendixBody >= 0 && supportingDetail > appendixBody, 'complete supporting detail must flow inside the appendix');
+const tocAppendix = template.indexOf("{ key: 'Appendix: supporting material'");
+const tocSupporting = template.indexOf("{ key: 'Complete supporting detail'");
+assert.ok(tocAppendix >= 0 && tocSupporting > tocAppendix, 'TOC should place supporting detail under the appendix');
+
+const actions = readFileSync(new URL('../../src/components/admin/FulfilmentActions.tsx', import.meta.url), 'utf8');
+assert.match(actions, /Still generating — do not retry/);
+assert.match(actions, /completion could not be confirmed/);
+assert.match(actions, /if \(!statusUncertain\) setRunning\(null\)/);
+
+console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', essentialV51Cleanup: 'PASS', adminGenerationReconciliation: 'PASS' }, null, 2));
+''')
+
+          # Keep this regression in the normal provider-free gate after the one-off workflow is retired.
+          gate = Path('.github/workflows/essential-provider-diagnostics.yml')
+          gate_text = gate.read_text()
+          gate_anchor = """      - name: Prove Essential risk cause specificity provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs\n\n"""
+          gate_step = gate_anchor + """      - name: Prove Essential V5.1 customer-visible cleanup provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs\n\n"""
+          if 'Prove Essential V5.1 customer-visible cleanup provider-free' not in gate_text:
+              if gate_anchor not in gate_text:
+                  raise SystemExit('provider-free workflow anchor missing')
+              gate.write_text(gate_text.replace(gate_anchor, gate_step, 1))
+          PY
+
+      - name: Prove new V5.1 cleanup provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
+
+      - name: Prove existing Essential report regressions
+        run: |
+          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
+          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Commit deterministic cleanup and regression
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/lib/reports/evidence-model/material-findings.ts \
+            src/lib/reports/evidence-model/registers.ts \
+            src/lib/reports/essential-presentation-adaptation.ts \
+            src/lib/reports/templates/report-template.ts \
+            src/components/admin/FulfilmentActions.tsx \
+            scripts/commercial-quality/essential-v5-cleanup-regression.mjs \
+            .github/workflows/essential-provider-diagnostics.yml
+          if git diff --cached --quiet; then
+            echo "V5.1 cleanup already applied."
+            exit 0
+          fi
+          git commit -m "Polish Essential V5 customer report and generation UX"
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
