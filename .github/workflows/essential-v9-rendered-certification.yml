@@ -1,0 +1,46 @@
+name: Essential V9 Rendered Certification
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: read
+
+jobs:
+  rendered-certification:
+    if: github.event.head_commit.message == 'Run V9 rendered certification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      V7_ARTIFACT_HEAD_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install rendered PDF audit dependencies
+        shell: bash
+        run: |
+          if ! command -v pdftoppm >/dev/null 2>&1; then
+            sudo apt-get install -y --no-install-recommends poppler-utils
+          fi
+          python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
+          command -v pdftoppm
+
+      - name: Prove structural heading audit behaviour
+        run: python3 scripts/checkpoint-f-pdf-audit.py --self-test-section-heading-rule
+
+      - name: Render and audit all Essential PDF fixtures
+        run: npm run v7:test-checkpoint-f
