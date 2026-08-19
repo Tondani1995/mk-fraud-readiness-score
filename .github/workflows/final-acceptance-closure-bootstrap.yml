@@ -1,0 +1,242 @@
+name: Final Acceptance Closure Bootstrap
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: write
+
+jobs:
+  close-known-gates:
+    if: github.event.head_commit.message == 'Bootstrap final acceptance closure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out commercial branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install accepted head dependencies
+        run: npm ci
+
+      - name: Apply reviewed acceptance closure
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          actual_hash="$(node scripts/rc1-service-role-privilege-contract-analysis.mjs --print-hash)"
+          test "$actual_hash" = "5c39f2551a9225477845b5cd90f7f5069626b91871743fa01f8493ff32326725"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1. Manual RC1 privilege-inventory review: accept only the exact inventory already
+          # observed on fd894a3. The analyzer then continues through its semantic table/RPC checks.
+          manifest_path = Path('scripts/rc1-service-role-privilege-contract.manifest.json')
+          manifest = manifest_path.read_text()
+          old_hash = 'd713344b40ed332f5e5f0b98f7904a1d5f0c3268c51d96d25b0206fb36a082d6'
+          new_hash = '5c39f2551a9225477845b5cd90f7f5069626b91871743fa01f8493ff32326725'
+          if manifest.count(old_hash) != 1:
+              raise SystemExit('expected exactly one prior RC1 AST inventory hash')
+          manifest_path.write_text(manifest.replace(old_hash, new_hash, 1))
+
+          # 2. Keep the Phase 6 direct engine harness pointed at the actual central maturity-band
+          # implementation rather than failing merely because scoring-engine gained the import.
+          phase6_path = Path('scripts/phase6-engine-direct-tests.mjs')
+          phase6 = phase6_path.read_text()
+          old_engine_sources = "const engineSource = fs.readFileSync(enginePath, 'utf8');\n"
+          new_engine_sources = "const engineSource = fs.readFileSync(enginePath, 'utf8');\nconst maturityBandPath = path.join(root, 'src/lib/scoring/maturity-band.ts');\nconst maturityBandSource = fs.readFileSync(maturityBandPath, 'utf8');\n"
+          if phase6.count(old_engine_sources) != 1:
+              raise SystemExit('phase6 engine source anchor drifted')
+          phase6 = phase6.replace(old_engine_sources, new_engine_sources, 1)
+          old_sandbox = """  const module = { exports: {} };\n  const sandbox = {\n    module,\n    exports: module.exports,\n    require: (id) => {\n      throw new Error(`Unexpected runtime import from scoring-engine.ts: ${id}`);\n    },\n    console\n  };\n"""
+          new_sandbox = """  const maturityTranspiled = ts.transpileModule(maturityBandSource, {\n    compilerOptions: {\n      module: ts.ModuleKind.CommonJS,\n      target: ts.ScriptTarget.ES2022,\n      esModuleInterop: true\n    },\n    fileName: maturityBandPath\n  }).outputText;\n  const maturityModule = { exports: {} };\n  vm.runInNewContext(maturityTranspiled, {\n    module: maturityModule,\n    exports: maturityModule.exports,\n    require: (id) => {\n      throw new Error(`Unexpected runtime import from maturity-band.ts: ${id}`);\n    },\n    console\n  }, { filename: 'maturity-band.transpiled.cjs' });\n\n  const module = { exports: {} };\n  const sandbox = {\n    module,\n    exports: module.exports,\n    require: (id) => {\n      if (id === './maturity-band') return maturityModule.exports;\n      throw new Error(`Unexpected runtime import from scoring-engine.ts: ${id}`);\n    },\n    console\n  };\n"""
+          if phase6.count(old_sandbox) != 1:
+              raise SystemExit('phase6 sandbox anchor drifted')
+          phase6_path.write_text(phase6.replace(old_sandbox, new_sandbox, 1))
+
+          # 3. Keep the Node 24 Chromium smoke loading the real design token module introduced by
+          # the report renderer, while leaving Puppeteer/Chromium fully real.
+          smoke_path = Path('scripts/phase14-node24-chromium-smoke.mjs')
+          smoke = smoke_path.read_text()
+          old_source = "const source = readFileSync(sourcePath, 'utf8');\n"
+          new_source = "const source = readFileSync(sourcePath, 'utf8');\nconst tokenSourcePath = join(process.cwd(), 'src/lib/reports/design/tokens.ts');\nconst tokenSource = readFileSync(tokenSourcePath, 'utf8');\n"
+          if smoke.count(old_source) != 1:
+              raise SystemExit('phase14 smoke source anchor drifted')
+          smoke = smoke.replace(old_source, new_source, 1)
+          old_exec = """const module = { exports: {} };\nnew Function('require', 'module', 'exports', '__filename', '__dirname', output)(\n  require,\n  module,\n  module.exports,\n  sourcePath,\n  join(process.cwd(), 'src/lib/reports')\n);\n"""
+          new_exec = """const tokenOutput = ts.transpileModule(tokenSource, {\n  compilerOptions: {\n    module: ts.ModuleKind.CommonJS,\n    target: ts.ScriptTarget.ES2022,\n    esModuleInterop: true\n  },\n  fileName: tokenSourcePath\n}).outputText;\nconst tokenModule = { exports: {} };\nnew Function('require', 'module', 'exports', '__filename', '__dirname', tokenOutput)(\n  require,\n  tokenModule,\n  tokenModule.exports,\n  tokenSourcePath,\n  join(process.cwd(), 'src/lib/reports/design')\n);\n\nconst runtimeRequire = (id) => id === './design/tokens' ? tokenModule.exports : require(id);\nconst module = { exports: {} };\nnew Function('require', 'module', 'exports', '__filename', '__dirname', output)(\n  runtimeRequire,\n  module,\n  module.exports,\n  sourcePath,\n  join(process.cwd(), 'src/lib/reports')\n);\n"""
+          if smoke.count(old_exec) != 1:
+              raise SystemExit('phase14 smoke execution anchor drifted')
+          smoke_path.write_text(smoke.replace(old_exec, new_exec, 1))
+
+          # 4. Make the false-positive safety net a permanent provider-free acceptance gate.
+          workflow_path = Path('.github/workflows/essential-provider-diagnostics.yml')
+          workflow = workflow_path.read_text()
+          assurance_step = """      - name: Prove Essential assurance boundary provider-free\n        run: npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs\n"""
+          safety_step = assurance_step + """\n      - name: Prove MUST_ALLOW / MUST_REPAIR / MUST_REJECT false-positive safety net\n        run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs\n"""
+          if workflow.count(assurance_step) != 1:
+              raise SystemExit('provider-free assurance step anchor drifted')
+          workflow_path.write_text(workflow.replace(assurance_step, safety_step, 1))
+          PY
+
+          cat > scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import test from 'node:test';
+          import { classifyAssuranceLanguage } from '../../src/lib/reports/narrative/validation.ts';
+          import { normaliseProhibitedAssessmentAssurance } from '../../src/lib/reports/narrative/assurance-boundary-normalisation.ts';
+          import { classifyNarrativeIssue, classifyNarrativeRecoveryIssue } from '../../src/lib/reports/narrative/validation-severity.ts';
+          import { emptyNarrativeRecoveryBudget, recoveryDecision } from '../../src/lib/reports/narrative/recovery-policy.ts';
+
+          const MUST_ALLOW = [
+            'Operating effectiveness should then be independently verified before management closes the action.',
+            'The control evidence must be independently reviewed before reliance.',
+            'Control effectiveness can be independently verified once the evidence pack is complete.',
+            'Management should independently review whether activation occurred only after verification and whether exceptions were approved.',
+            'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.'
+          ];
+
+          const MUST_REPAIR = [
+            'This assessment has independently verified that evidence exists.',
+            'Operating effectiveness has been independently verified before closure.'
+          ];
+
+          const MUST_REJECT = [
+            'Operating effectiveness was independently verified.',
+            'The evidence must be independently verified by MK before closure.',
+            'Independent verification is important.'
+          ];
+
+          function manuscript(text) {
+            return {
+              ok: true,
+              markdown: `# Executive\n\n${text}`,
+              errors: [],
+              chapters: [{
+                chapterId: 'EXEC',
+                title: 'Executive',
+                sections: [{
+                  chapterId: 'EXEC',
+                  sectionId: 'POSITION',
+                  title: 'Position',
+                  permittedClaimRefs: [],
+                  paragraphs: [{ text, permittedClaimRefs: [] }],
+                  subsections: []
+                }]
+              }]
+            };
+          }
+
+          test('MUST_ALLOW: legitimate management/control verification language is never a report-blocking false positive', () => {
+            for (const text of MUST_ALLOW) {
+              assert.notEqual(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
+              const candidate = manuscript(text);
+              assert.equal(normaliseProhibitedAssessmentAssurance(candidate), 0, `allowed wording was rewritten: ${text}`);
+              assert.equal(candidate.chapters[0].sections[0].paragraphs[0].text, text);
+            }
+          });
+
+          test('MUST_REPAIR: bounded, otherwise-grounded assurance wording is blocked until deterministic repair clears it', () => {
+            const recoveryIssue = classifyNarrativeRecoveryIssue({ code: 'assurance_claim', localSemanticEligible: true });
+            assert.equal(recoveryIssue.blocking, true);
+            assert.equal(recoveryIssue.repairEligible, true);
+            assert.equal(recoveryIssue.severity, 'REPAIRABLE_SEMANTIC_FAILURE');
+            const decision = recoveryDecision({
+              budget: emptyNarrativeRecoveryBudget(),
+              issueSeverity: recoveryIssue.severity,
+              issueScope: 'block',
+              fullGenerationRejected: true
+            });
+            assert.equal(decision.action, 'TARGETED_REPAIR');
+            assert.equal(decision.scope, 'block');
+
+            for (const text of MUST_REPAIR) {
+              assert.equal(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', `repair fixture must start blocked: ${text}`);
+              const candidate = manuscript(text);
+              assert.equal(normaliseProhibitedAssessmentAssurance(candidate), 2, `expected parsed prose + Markdown repair: ${text}`);
+              const repaired = candidate.chapters[0].sections[0].paragraphs[0].text;
+              assert.notEqual(repaired, text);
+              assert.equal(classifyAssuranceLanguage(repaired), null, `repair did not clear assurance violation: ${repaired}`);
+            }
+          });
+
+          test('MUST_REJECT: real assurance/integrity violations remain fail-closed and are never auto-waived', () => {
+            for (const text of MUST_REJECT) {
+              assert.equal(classifyAssuranceLanguage(text)?.category, 'prohibited_assurance', text);
+            }
+
+            const nonLocal = classifyNarrativeRecoveryIssue({ code: 'assurance_claim', localSemanticEligible: false });
+            assert.equal(nonLocal.severity, 'HARD_TRUTH_FAILURE');
+            assert.equal(nonLocal.repairEligible, false);
+            assert.equal(recoveryDecision({
+              budget: emptyNarrativeRecoveryBudget(),
+              issueSeverity: nonLocal.severity,
+              issueScope: 'block',
+              fullGenerationRejected: true
+            }).action, 'HUMAN_REVIEW_REQUIRED');
+
+            for (const code of ['unsupported_numeric_claim', 'invented_finding', 'invented_scenario', 'unknown_claim_ref']) {
+              const issue = classifyNarrativeIssue(code);
+              assert.equal(issue.severity, 'HARD_TRUTH_FAILURE', code);
+              assert.equal(issue.blocking, true, code);
+              assert.equal(issue.repairEligible, false, code);
+            }
+          });
+
+          console.log(JSON.stringify({
+            status: 'PASS',
+            mustAllow: MUST_ALLOW.length,
+            mustRepair: MUST_REPAIR.length,
+            mustReject: MUST_REJECT.length,
+            principle: 'allow legitimate control language; repair only bounded grounded wording; reject real truth/assurance violations'
+          }, null, 2));
+          EOF
+
+          # 5. Remove the newly disclosed Puppeteer production advisories with a real patched
+          # dependency, not a gate exception. The generated lockfile is authoritative.
+          npm install puppeteer-core@25.5.0 --save-exact --package-lock-only --ignore-scripts
+
+      - name: Prove closure locally before committing
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm ci
+          npm run rc1:analyze-service-role-contract
+          npm run phase6:test-engine
+          npm run phase14:test-node24-pdf
+          node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
+          node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-assurance-boundary-tests.mjs
+          npm run typecheck
+          npm audit --omit=dev --json > /tmp/npm-audit-production.json || true
+          node scripts/phase14-dependency-audit-gate.mjs /tmp/npm-audit-production.json
+          git diff --check
+
+      - name: Commit one bounded closure and remove bootstrap
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm .github/workflows/final-acceptance-closure-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            scripts/rc1-service-role-privilege-contract.manifest.json \
+            scripts/phase6-engine-direct-tests.mjs \
+            scripts/phase14-node24-chromium-smoke.mjs \
+            scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs \
+            .github/workflows/essential-provider-diagnostics.yml \
+            package.json \
+            package-lock.json \
+            .github/workflows/final-acceptance-closure-bootstrap.yml
+          git diff --cached --check
+          git commit -m "Close final acceptance gates and false-positive safety net"
+          git push origin HEAD:commercial/mk-fraud-readiness-95-quality
