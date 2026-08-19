@@ -62,6 +62,9 @@ jobs:
       - name: Prove Essential V9 second-opinion closure provider-free
         run: npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
 
+      - name: Prove Bokamoso commercial closure provider-free
+        run: npx tsx --test scripts/commercial-quality/essential-bokamoso-commercial-closure-regression.mjs
+
       - name: Run provider-free Comprehensive customer-visible regressions
         run: npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
 
