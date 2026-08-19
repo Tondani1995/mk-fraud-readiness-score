@@ -7,97 +7,40 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: read
+  id-token: write
 
 jobs:
   generate-one-report:
     if: github.event.pull_request.number == 54 && github.event.pull_request.head.ref == 'acceptance/customer-1-runner'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 7
     env:
       PREVIEW_URL: https://mk-fraud-platform-3tau2y3oa-tondanis-projects.vercel.app
       ORDER_REFERENCE: MKORD-2026-FAA9331C
       REQUEST_KEY: acceptance-c1-23fb3ea-vhutshilo
-      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Create ephemeral encryption key for Preview access handoff
-        shell: bash
-        run: |
-          set -euo pipefail
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/c1-private.pem 2>/dev/null
-          openssl pkey -in /tmp/c1-private.pem -pubout -out /tmp/c1-public.pem
-          chmod 600 /tmp/c1-private.pem
-          public_key_b64="$(base64 -w0 /tmp/c1-public.pem)"
-          body="C1_PUBLIC_KEY_B64:$public_key_b64"
-          payload="$(jq -n --arg body "$body" '{body:$body}')"
-          curl -fsS -X POST \
-            -H 'Accept: application/vnd.github+json' \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            'https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/issues/54/comments' \
-            -d "$payload" >/dev/null
-          echo 'Ephemeral public key posted to PR #54; private key remains only on this runner.'
-
-      - name: Receive encrypted one-time Preview share token
-        shell: bash
-        run: |
-          set -euo pipefail
-          cipher=''
-          for attempt in $(seq 1 40); do
-            comments="$(curl -fsS \
-              -H 'Accept: application/vnd.github+json' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H 'X-GitHub-Api-Version: 2022-11-28' \
-              'https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/issues/54/comments')"
-            cipher="$(printf '%s' "$comments" | jq -r '[.[] | select(.body | startswith("C1_ENC_TOKEN:"))][-1].body // empty' | sed 's/^C1_ENC_TOKEN://' | tr -d '\r\n[:space:]')"
-            if [ -n "$cipher" ]; then break; fi
-            sleep 3
-          done
-          if [ -z "$cipher" ]; then
-            echo '::error::Encrypted Preview token was not received before timeout. No request was sent.'
-            exit 1
-          fi
-          printf '%s' "$cipher" | base64 -d > /tmp/c1-token.enc
-          openssl pkeyutl -decrypt -inkey /tmp/c1-private.pem -in /tmp/c1-token.enc -out /tmp/c1-token.txt
-          chmod 600 /tmp/c1-token.txt
-          token_len="$(wc -c < /tmp/c1-token.txt | tr -d ' ')"
-          if [ "$token_len" -lt 16 ] || [ "$token_len" -gt 256 ]; then
-            echo '::error::Decrypted Preview token failed sanity validation. No request was sent.'
-            exit 1
-          fi
-          echo 'Encrypted Preview access token received and decrypted in runner memory.'
-
-      - name: Establish protected Preview session
-        shell: bash
-        run: |
-          set -euo pipefail
-          token="$(cat /tmp/c1-token.txt)"
-          status="$(curl -sS -L \
-            --max-time 45 \
-            -c /tmp/vercel-cookies \
-            -b /tmp/vercel-cookies \
-            -o /tmp/preview-handshake-body \
-            -w '%{http_code}' \
-            "$PREVIEW_URL/?_vercel_share=$token")"
-          rm -f /tmp/c1-token.txt /tmp/c1-token.enc /tmp/c1-private.pem /tmp/c1-public.pem
-          echo "Preview handshake HTTP status: $status"
-          if [[ ! "$status" =~ ^2 ]]; then
-            echo '::error::Protected Preview session could not be established. No generation request was sent.'
-            exit 1
-          fi
+      - name: Obtain GitHub Actions OIDC token for Vercel trusted-source access
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token);
 
       - name: Generate exactly one Essential report through the certified Preview route
         shell: bash
+        env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
           status="$({ curl -sS \
             --max-time 290 \
-            -b /tmp/vercel-cookies \
             -o "$response_file" \
             -w '%{http_code}' \
             -X POST \
+            -H "x-vercel-trusted-oidc-idp-token: $VERCEL_TRUSTED_OIDC_TOKEN" \
             -H 'Accept: application/json' \
             -H 'Content-Type: application/json' \
             --data "{\"action\":\"admin_generate\",\"requestKey\":\"$REQUEST_KEY\"}" \
@@ -106,7 +49,7 @@ jobs:
           echo "Generation HTTP status: $status"
           cat "$response_file"
           echo
-          [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed.'; exit 1; }
+          [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed before successful completion.'; exit 1; }
           jq -e '.ok == true and (.reportReference | type == "string" and length > 0)' "$response_file" >/dev/null || { echo '::error::Route returned non-success payload.'; exit 1; }
           echo "Customer 1 report reference: $(jq -r '.reportReference' "$response_file")"
           echo 'No delivery/email action is performed.'
