@@ -1,0 +1,74 @@
+name: Customer 1 Acceptance Runner
+
+on:
+  push:
+    branches:
+      - acceptance/customer-1-runner
+
+permissions:
+  contents: read
+
+jobs:
+  generate-one-report:
+    if: github.event.head_commit.message == 'Run Customer 1 acceptance route'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-3tau2y3oa-tondanis-projects.vercel.app
+      ORDER_REFERENCE: MKORD-2026-FAA9331C
+      REQUEST_KEY: acceptance-c1-23fb3ea-vhutshilo
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Refuse to call provider without protected-preview bypass
+        shell: bash
+        run: |
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo '::error::VERCEL_AUTOMATION_BYPASS_SECRET is not configured in GitHub Actions. No request was sent.'
+            exit 1
+          fi
+
+      - name: Generate exactly one Essential report through the front-end admin route
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          status="$({ curl -sS \
+            --max-time 290 \
+            -o "$response_file" \
+            -w '%{http_code}' \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H 'x-vercel-set-bypass-cookie: true' \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            --data "{\"action\":\"admin_generate\",\"requestKey\":\"$REQUEST_KEY\"}" \
+            "$PREVIEW_URL/score/api/admin/orders/$ORDER_REFERENCE/generate-report"; } 2>/tmp/curl-error || true)"
+
+          if [ -s /tmp/curl-error ]; then
+            cat /tmp/curl-error >&2
+          fi
+          echo "HTTP status: $status"
+          cat "$response_file"
+          echo
+
+          if [[ ! "$status" =~ ^2 ]]; then
+            echo '::error::Customer 1 front-end generation request did not succeed.'
+            exit 1
+          fi
+          if ! jq -e '.ok == true' "$response_file" >/dev/null 2>&1; then
+            echo '::error::Customer 1 route returned a non-success payload.'
+            exit 1
+          fi
+
+          report_reference="$(jq -r '.reportReference // empty' "$response_file")"
+          if [ -z "$report_reference" ]; then
+            echo '::error::Successful route response did not contain a report reference.'
+            exit 1
+          fi
+          echo "CUSTOMER_1_REPORT_REFERENCE=$report_reference" >> "$GITHUB_ENV"
+
+      - name: Record route success only
+        shell: bash
+        run: |
+          echo "Customer 1 front-end generation succeeded: $CUSTOMER_1_REPORT_REFERENCE"
+          echo 'No delivery or email action is performed by this runner.'
