@@ -142,13 +142,7 @@ export function validatePremiumReportGenerationEntitlement(
     reject('order_not_eligible', productMessage(assembled.productCode));
   }
 
-  // Payment verification above is the commercial authority. `under_review` is a valid
-  // post-payment fulfilment/recovery state and must not revoke an already verified paid
-  // entitlement after a generation failure. Unpaid, cancelled, refunded and other
-  // workflow states remain blocked here.
-  const paidWorkflowStatus = assembled.orderStatus === PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS
-    || assembled.orderStatus === 'under_review';
-  if (!paidWorkflowStatus) {
+  if (assembled.orderStatus !== PREMIUM_REPORT_ELIGIBLE_ORDER_STATUS) {
     reject(
       'order_not_eligible',
       `Order has status "${assembled.orderStatus ?? 'unknown'}" and is not eligible for premium report generation.`
