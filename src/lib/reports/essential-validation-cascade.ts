@@ -118,7 +118,13 @@ function sentences(text: string): string[] {
     .filter(Boolean);
 }
 
-const ASSURANCE_CANDIDATE = /\b(?:independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|independent assurance|operating effectiveness|confirmed)\b/i;
+/**
+ * High-recall assurance candidate, but not a generic vocabulary scan. A bare word such as
+ * "confirmed" in "confirmed true/false positives" is ordinary control language and must not enter
+ * assurance adjudication. "Confirmed" is therefore only a candidate when attached to an actor or
+ * evidence subject capable of making an assurance proposition.
+ */
+const ASSURANCE_CANDIDATE = /\b(?:independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|independent assurance|operating effectiveness|(?:MK|the assessment|this assessment|the report|this report|the findings?|the evidence|evidence)\b[^.!?]{0,100}\bconfirmed)\b/i;
 const COMPLETED_ASSURANCE = /\b(?:MK|the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,160}\b(?:independently\s+(?:verified|reviewed)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i;
 const COMPLETED_EFFECTIVENESS = /\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
 const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed)|operating effectiveness)\b/i;
@@ -274,9 +280,11 @@ const GENERIC_PROOF = 'This evidence should demonstrate that the linked control 
 
 function scanFinalHtml(html: string): EssentialValidationCandidate[] {
   const text = stripHtml(html);
+  const coreHtml = html.split(/<h2[^>]*>\s*Appendix: supporting material\s*<\/h2>/i)[0] ?? html;
+  const coreText = stripHtml(coreHtml);
   const found: EssentialValidationCandidate[] = [];
-  for (const match of text.match(FINAL_RAW_ID) ?? []) {
-    found.push(candidate({ ruleCode: 'raw_internal_id_final', severity: 'HARD_CONTRACT_FAILURE', path: 'final_html', span: match }));
+  for (const match of coreText.match(FINAL_RAW_ID) ?? []) {
+    found.push(candidate({ ruleCode: 'raw_internal_id_final', severity: 'HARD_CONTRACT_FAILURE', path: 'final_html_core', span: match }));
   }
   for (const match of text.match(FINAL_BROKEN_PROOF) ?? []) {
     found.push(candidate({ ruleCode: 'broken_proof_construction', severity: 'QUALITY_FAILURE', path: 'final_html', span: match }));
@@ -322,9 +330,7 @@ export function validateEssentialFinalHtml(input: {
 
   for (const item of candidates) {
     if (item.ruleCode === 'assurance_language_final') {
-      // Rehydrate only the candidate sentence from its hash is intentionally impossible; the scan
-      // already supplied the sentence to adjudication by re-scanning matching sentences in order.
-      // Resolve by matching the candidate hash against the current immutable text.
+      // Resolve the exact candidate sentence by hash from the immutable final HTML.
       const sentence = sentences(stripHtml(input.html)).find((value) => sha256(value) === item.spanHash) ?? '';
       const decision = adjudicateAssuranceSentence(sentence);
       addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
