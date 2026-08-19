@@ -132,6 +132,13 @@ const CUSTOMER_NORMATIVE_VERIFICATION = /\b(?:management|the organisation|the or
 const PASSIVE_NORMATIVE_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|evidence|implementation|remediation|closure)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)\s+be\s+independently\s+(?:verified|reviewed)\b/i;
 const ASSESSMENT_DIRECTIONAL = /\b(?:the assessment|this assessment|the findings?|the report|this report)\b[^.!?]{0,120}\b(?:points?|directs?|guides?|recommends?|signals?)\b[^.!?]{0,100}\b(?:management|the organisation|the organization)\b[^.!?]{0,80}\bindependent\s+(?:verification|review)\b/i;
 const REPORT_AS_VERIFIER = /\b(?:the report|this report|the assessment|this assessment|MK)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)?\s*independently\s+(?:verify|review)\b/i;
+/**
+ * "Independent review" is often a control-design noun: separation from independent review,
+ * independent-review responsibilities, or an independent-review route. That is not a proposition
+ * that MK/the assessment performed assurance. Layer 2 must clear this context rather than letting a
+ * high-recall lexical candidate become a false blocker.
+ */
+const CONTROL_DESIGN_INDEPENDENT_REVIEW = /(?:\b(?:separation|segregation|oversight|challenge|route|function|responsibilit(?:y|ies)|role|approval)\b[^.!?]{0,180}\bindependent review\b|\bindependent review\b[^.!?]{0,180}\b(?:role|function|responsibilit(?:y|ies)|route|requirement|separation|oversight|challenge)\b)/i;
 
 export function adjudicateAssuranceSentence(sentence: string): {
   disposition: 'ALLOW_CONTEXT' | 'CONFIRMED_VIOLATION' | 'AMBIGUOUS';
@@ -142,16 +149,22 @@ export function adjudicateAssuranceSentence(sentence: string): {
   if (COMPLETED_ASSURANCE.test(value) || COMPLETED_EFFECTIVENESS.test(value)) {
     return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'completed_assurance_not_supported' };
   }
+  // A negative assurance-boundary statement is explicitly saying what was NOT done. It must be
+  // cleared before the actor check below, otherwise "This assessment does not independently verify"
+  // is mechanically misread as the assessment acting as verifier.
+  if (EXPLICIT_LIMITATION.test(value)) {
+    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'explicit_assurance_limitation' };
+  }
   if (REPORT_AS_VERIFIER.test(value) && !ASSESSMENT_DIRECTIONAL.test(value)) {
     return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'invalid_assurance_actor' };
   }
   if (
-    EXPLICIT_LIMITATION.test(value)
-    || CUSTOMER_NORMATIVE_VERIFICATION.test(value)
+    CUSTOMER_NORMATIVE_VERIFICATION.test(value)
     || PASSIVE_NORMATIVE_VERIFICATION.test(value)
     || ASSESSMENT_DIRECTIONAL.test(value)
+    || CONTROL_DESIGN_INDEPENDENT_REVIEW.test(value)
   ) {
-    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'customer_owned_or_limitation_context' };
+    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'customer_owned_or_control_design_context' };
   }
   return { disposition: 'AMBIGUOUS', reasonCode: 'assurance_context_unresolved' };
 }
