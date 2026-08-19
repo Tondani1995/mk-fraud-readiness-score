@@ -7,23 +7,74 @@ on:
 
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
   generate-one-report:
     if: github.event.pull_request.number == 54 && github.event.pull_request.head.ref == 'acceptance/customer-1-runner'
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 10
     env:
       PREVIEW_URL: https://mk-fraud-platform-3tau2y3oa-tondanis-projects.vercel.app
       ORDER_REFERENCE: MKORD-2026-FAA9331C
       REQUEST_KEY: acceptance-c1-23fb3ea-vhutshilo
-      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Refuse to call provider without protected-preview bypass
+      - name: Create ephemeral encryption key for Preview access handoff
         shell: bash
         run: |
-          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
-            echo '::error::VERCEL_AUTOMATION_BYPASS_SECRET is not configured. No request was sent.'
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/c1-private.pem 2>/dev/null
+          openssl pkey -in /tmp/c1-private.pem -pubout -out /tmp/c1-public.pem
+          chmod 600 /tmp/c1-private.pem
+          echo "C1_PUBLIC_KEY_B64=$(base64 -w0 /tmp/c1-public.pem)"
+
+      - name: Receive encrypted one-time Preview share token
+        shell: bash
+        run: |
+          set -euo pipefail
+          cipher=''
+          for attempt in $(seq 1 40); do
+            comments="$(curl -fsS \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              'https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/issues/54/comments')"
+            cipher="$(printf '%s' "$comments" | jq -r '[.[] | select(.body | startswith("C1_ENC_TOKEN:"))][-1].body // empty' | sed 's/^C1_ENC_TOKEN://' | tr -d '\r\n[:space:]')"
+            if [ -n "$cipher" ]; then break; fi
+            sleep 3
+          done
+          if [ -z "$cipher" ]; then
+            echo '::error::Encrypted Preview token was not received before timeout. No request was sent.'
+            exit 1
+          fi
+          printf '%s' "$cipher" | base64 -d > /tmp/c1-token.enc
+          openssl pkeyutl -decrypt -inkey /tmp/c1-private.pem -in /tmp/c1-token.enc -out /tmp/c1-token.txt
+          chmod 600 /tmp/c1-token.txt
+          token_len="$(wc -c < /tmp/c1-token.txt | tr -d ' ')"
+          if [ "$token_len" -lt 16 ] || [ "$token_len" -gt 256 ]; then
+            echo '::error::Decrypted Preview token failed sanity validation. No request was sent.'
+            exit 1
+          fi
+          echo 'Encrypted Preview access token received and decrypted in runner memory.'
+
+      - name: Establish protected Preview session
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/c1-token.txt)"
+          status="$(curl -sS -L \
+            --max-time 45 \
+            -c /tmp/vercel-cookies \
+            -b /tmp/vercel-cookies \
+            -o /tmp/preview-handshake-body \
+            -w '%{http_code}' \
+            "$PREVIEW_URL/?_vercel_share=$token")"
+          rm -f /tmp/c1-token.txt /tmp/c1-token.enc /tmp/c1-private.pem /tmp/c1-public.pem
+          echo "Preview handshake HTTP status: $status"
+          if [[ ! "$status" =~ ^2 ]]; then
+            echo '::error::Protected Preview session could not be established. No generation request was sent.'
             exit 1
           fi
 
@@ -34,17 +85,16 @@ jobs:
           response_file="$(mktemp)"
           status="$({ curl -sS \
             --max-time 290 \
+            -b /tmp/vercel-cookies \
             -o "$response_file" \
             -w '%{http_code}' \
             -X POST \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -H 'x-vercel-set-bypass-cookie: true' \
             -H 'Accept: application/json' \
             -H 'Content-Type: application/json' \
             --data "{\"action\":\"admin_generate\",\"requestKey\":\"$REQUEST_KEY\"}" \
             "$PREVIEW_URL/score/api/admin/orders/$ORDER_REFERENCE/generate-report"; } 2>/tmp/curl-error || true)"
           if [ -s /tmp/curl-error ]; then cat /tmp/curl-error >&2; fi
-          echo "HTTP status: $status"
+          echo "Generation HTTP status: $status"
           cat "$response_file"
           echo
           [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed.'; exit 1; }
