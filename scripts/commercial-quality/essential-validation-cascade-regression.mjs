@@ -77,13 +77,25 @@ test('hard evidence and contract failures cannot be context-cleared', () => {
   assert.equal(result.candidates[0].finalDisposition, 'REJECT');
 });
 
-test('assurance adjudication distinguishes recommendation from completed assurance', () => {
+test('assurance adjudication distinguishes recommendation, proof criteria and completed assurance', () => {
   assert.equal(
     adjudicateAssuranceSentence('Operating effectiveness should be independently verified before closure.').disposition,
     'ALLOW_CONTEXT'
   );
   assert.equal(
     adjudicateAssuranceSentence('This assessment does not independently verify operating effectiveness.').disposition,
+    'ALLOW_CONTEXT'
+  );
+  assert.equal(
+    adjudicateAssuranceSentence('Whether supplier legal identity and bank-account ownership were independently verified before activation or payment.').disposition,
+    'ALLOW_CONTEXT'
+  );
+  assert.equal(
+    adjudicateAssuranceSentence('Confirm whether supplier legal identity and bank-account ownership were independently verified before activation or payment.').disposition,
+    'ALLOW_CONTEXT'
+  );
+  assert.equal(
+    adjudicateAssuranceSentence('Whether fraud-risk matters and independent assurance are reported through the approved governance route.').disposition,
     'ALLOW_CONTEXT'
   );
   assert.equal(
@@ -107,6 +119,15 @@ test('final exact HTML carries the full candidate-to-acceptance ledger', () => {
   );
   assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
   assert.match(result.finalHtmlSha256, /^[a-f0-9]{64}$/);
+});
+
+test('final evidence proof criteria do not masquerade as completed assurance', () => {
+  const proof = essentialEvidenceProofPurpose('Independent registration and bank verification');
+  const html = `<html><body><table><tr><td>1</td><td>Independent registration and bank verification</td><td>${proof}</td></tr></table><p>Confirm ${proof.replace(/^Whether /, 'whether ').replace(/[.]$/, '')}.</p></body></html>`;
+  const result = final(html);
+  assert.equal(result.publishable, true);
+  assert.ok(result.candidates.length >= 1);
+  assert.ok(result.candidates.every((item) => item.finalDisposition === 'ACCEPT'));
 });
 
 test('final exact HTML rejects internal ids and unsupported categorical risk claims', () => {
