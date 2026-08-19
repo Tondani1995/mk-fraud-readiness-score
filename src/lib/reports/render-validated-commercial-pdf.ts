@@ -35,11 +35,18 @@ type CommercialPdfInput = {
    * Absent for Comprehensive and for any caller still on the deterministic content path.
    */
   narrative?: ParsedBlueprintMarkdown;
+  /**
+   * Owner decision 4: content-addressed assurance-sentence identities already accepted at
+   * manuscript stage (EssentialManuscriptResult.acceptedAssuranceSpanHashes), threaded through so
+   * the final-HTML validation cascade can inherit that decision for unchanged content instead of
+   * re-adjudicating it from scratch. Absent for Comprehensive and any caller without a manuscript.
+   */
+  carryForwardAssuranceSpanHashes?: string[];
 };
 
 function prepareAcceptedCustomerHtml(input: CommercialPdfInput, rawHtml: string): string {
   const finalHtml = closeEssentialCommercialOutputDefects(rawHtml);
-  assertEssentialFinalHtml({ html: finalHtml, data: input.data });
+  assertEssentialFinalHtml({ html: finalHtml, data: input.data, carryForwardAssuranceSpanHashes: input.carryForwardAssuranceSpanHashes });
   return finalHtml;
 }
 

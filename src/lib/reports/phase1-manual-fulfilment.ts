@@ -9,6 +9,7 @@ import { assertEssentialProjectionPresent, buildEssentialProjection } from './es
 import { buildAndStoreSupportingRegister } from './supporting-register-delivery';
 import { renderValidatedCommercialPdf, renderValidatedCommercialPdfWithNavigation } from './render-validated-commercial-pdf';
 import { isReportCommercialQualityError, toSafeQualityDiagnostics } from './commercial-quality';
+import { EssentialValidationCascadeError } from './essential-validation-cascade';
 import type { ContentBlock } from './types';
 import { getPhase1SchemaCapability, PHASE1_SCHEMA_UNAVAILABLE_MESSAGE } from './phase1-schema-capability';
 import { getPremiumReportAutomationFlags } from './automation/feature-flags';
@@ -93,6 +94,14 @@ export type Phase1GenerationReason =
   | 'report_persistence_failed'
   | 'phase1_schema_unavailable'
   | 'commercial_quality_failed'
+  /**
+   * Owner decision 6: the final-customer validation cascade (essential-validation-cascade.ts) is a
+   * content-acceptance gate, not a PDF renderer. These two reasons keep a confirmed content
+   * rejection and an unresolved-ambiguity hold distinguishable from each other and from a genuine
+   * `pdf_render_failed` renderer/infrastructure fault (see the render_pdf catch block below).
+   */
+  | 'essential_final_validation_rejected'
+  | 'essential_final_validation_held_for_review'
   | 'generation_failed';
 
 export class Phase1GenerationError extends Error {
@@ -537,6 +546,9 @@ export async function generateManualPhase1Report(
     // fallback: if the manuscript cannot be produced or validated, generation fails
     // rather than silently reopening a retired pipeline.
     let essentialNarrative: ParsedBlueprintMarkdown | undefined;
+    // Owner decision 4: carried forward into the render call below so the final-HTML validation
+    // stage can inherit already-accepted assurance sentences instead of re-adjudicating them.
+    let essentialAcceptedAssuranceSpanHashes: string[] | undefined;
     let comprehensivePdf: Buffer | undefined;
     if (isComprehensive) {
       // One bounded interpretation call against the certified Comprehensive pipeline.
@@ -574,6 +586,7 @@ export async function generateManualPhase1Report(
         writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
       });
       essentialNarrative = composed.narrative;
+      essentialAcceptedAssuranceSpanHashes = composed.acceptedAssuranceSpanHashes;
       console.info('essential_manuscript_generation', {
         technicalReference, orderReference: input.orderReference, stage: 'accepted',
         model: composed.manuscript.writerMetadata?.model,
@@ -632,7 +645,8 @@ export async function generateManualPhase1Report(
         content: deterministicContent,
         narrative: essentialNarrative,
         roadmap,
-        evidenceModel: reportEvidenceModel
+        evidenceModel: reportEvidenceModel,
+        carryForwardAssuranceSpanHashes: essentialAcceptedAssuranceSpanHashes
       });
       logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {
@@ -646,6 +660,32 @@ export async function generateManualPhase1Report(
         });
         await recordQualityDiagnostics(db, attemptId, error);
         throw new Phase1GenerationError('commercial_quality_failed', error.safeMessage, 422, technicalReference);
+      }
+      if (error instanceof EssentialValidationCascadeError) {
+        // Owner decision 6, and the concrete root cause of the Bokamoso order MKORD-2026-4790A29D
+        // symptom: before this fix, an EssentialValidationCascadeError thrown by the final-HTML
+        // acceptance gate (essential-validation-cascade.ts, invoked inside
+        // renderValidatedCommercialPdf/-WithNavigation above) fell through to the generic branch
+        // below and was reported as "The PDF renderer failed" -- a content-acceptance rejection
+        // hidden behind a misleading infrastructure-failure message. A confirmed violation and an
+        // unresolved held-for-review candidate are surfaced here under their own reasons instead,
+        // and neither is ever treated as, or reported as, a successful render.
+        const heldForReview = error.result.heldForReviewCodes.length > 0;
+        console.error('essential_final_validation_failure', {
+          technicalReference,
+          orderReference: input.orderReference,
+          blockingCodes: error.result.blockingCodes,
+          heldForReviewCodes: error.result.heldForReviewCodes,
+          disposition: heldForReview ? 'held_for_review' : 'rejected'
+        });
+        throw new Phase1GenerationError(
+          heldForReview ? 'essential_final_validation_held_for_review' : 'essential_final_validation_rejected',
+          heldForReview
+            ? 'The report requires review before it can be published. Inspect the technical reference.'
+            : 'The report content did not pass final validation. Inspect the technical reference.',
+          422,
+          technicalReference
+        );
       }
       if (error instanceof Phase1GenerationError) throw error;
       console.error('phase1_manual_generation', { technicalReference, orderReference: input.orderReference, stage: 'render', error: messageOf(error) });

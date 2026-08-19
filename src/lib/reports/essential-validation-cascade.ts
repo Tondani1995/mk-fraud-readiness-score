@@ -5,7 +5,9 @@ import type {
   TextFirstValidationIssue,
   TextFirstValidationReport
 } from './narrative/blueprint-text';
+import { compact, numericValues, UNEVIDENCED_STRUCTURE } from './narrative/blueprint-text';
 import type { NarrativeFactPack } from './narrative/fact-pack';
+import { adjudicateAssuranceProposition, isAssuranceCandidate } from './narrative/assurance-adjudication';
 
 export type EssentialValidationLayer =
   | 'CANDIDATE_SCAN'
@@ -21,12 +23,21 @@ export type EssentialValidationSeverity =
   | 'SEMANTIC_AMBIGUITY'
   | 'QUALITY_FAILURE';
 
+/**
+ * Owner decision 2: every layer must record a disposition, and NOT_APPLICABLE is a first-class,
+ * honest one -- "this layer had nothing of its own to examine for this candidate" -- rather than
+ * silently re-emitting the prior layer's value under a new layer name. See
+ * lastSubstantiveDisposition below and the EVIDENCE_COMPARISON/DOCUMENT_REVIEW loops in both
+ * adjudication functions for the exact bug this replaced ("the false semantics where
+ * EVIDENCE_COMPARISON merely renames the prior disposition").
+ */
 export type EssentialCandidateDisposition =
   | 'CANDIDATE'
   | 'ALLOW_CONTEXT'
   | 'CONFIRMED_VIOLATION'
   | 'REPAIRABLE'
   | 'AMBIGUOUS'
+  | 'NOT_APPLICABLE'
   | 'ACCEPT';
 
 export interface EssentialValidationDecision {
@@ -42,7 +53,12 @@ export interface EssentialValidationCandidate {
   path: string;
   spanHash: string;
   decisions: EssentialValidationDecision[];
-  finalDisposition: 'ACCEPT' | 'REPAIR' | 'ESCALATE' | 'REJECT' | 'WARN';
+  /**
+   * Owner decision 6: HELD_FOR_REVIEW (formerly ESCALATE) is a fail-safe, not-auto-published outcome
+   * distinct from REJECT. An unresolved AMBIGUOUS candidate lands here rather than on a rejection,
+   * and a held report is never counted as a successful acceptance.
+   */
+  finalDisposition: 'ACCEPT' | 'REPAIR' | 'HELD_FOR_REVIEW' | 'REJECT' | 'WARN';
 }
 
 export interface EssentialValidationCascadeResult {
@@ -51,7 +67,17 @@ export interface EssentialValidationCascadeResult {
   finalHtmlSha256?: string;
   candidates: EssentialValidationCandidate[];
   blockingCodes: string[];
+  /** Owner decision 6: distinct from blockingCodes -- unresolved ambiguity, not a confirmed violation. */
+  heldForReviewCodes: string[];
   warningCodes: string[];
+  /**
+   * Owner decision 4: sha256(compact(sentence)) identities of assurance-language sentences
+   * ALLOW_CONTEXT'd by adjudicateTextFirstValidation, so validateEssentialFinalHtml's
+   * carryForwardAssuranceSpanHashes input can inherit that decision for byte-identical content
+   * instead of re-adjudicating it from scratch. Always empty from validateEssentialFinalHtml itself,
+   * which has no further downstream stage to carry forward to.
+   */
+  acceptedAssuranceSpanHashes: string[];
 }
 
 export class EssentialValidationCascadeError extends Error {
@@ -59,7 +85,10 @@ export class EssentialValidationCascadeError extends Error {
   readonly result: EssentialValidationCascadeResult;
 
   constructor(result: EssentialValidationCascadeResult) {
-    super(`Essential validation cascade failed: ${result.blockingCodes.join(', ')}`);
+    const parts: string[] = [];
+    if (result.blockingCodes.length) parts.push(`rejected: ${result.blockingCodes.join(', ')}`);
+    if (result.heldForReviewCodes.length) parts.push(`held for review: ${result.heldForReviewCodes.join(', ')}`);
+    super(`Essential validation cascade failed (${parts.join('; ') || 'no publishable candidates'})`);
     this.name = 'EssentialValidationCascadeError';
     this.result = result;
   }
@@ -68,6 +97,15 @@ export class EssentialValidationCascadeError extends Error {
 const sha256 = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
 const candidateId = (ruleCode: string, path: string, span: string): string =>
   `${ruleCode}:${sha256(`${path}\n${span}`).slice(0, 16)}`;
+
+/**
+ * Owner decision 4: normalised, content-addressed sentence identity, used to carry an assurance
+ * disposition forward from the manuscript stage to final HTML without re-adjudicating unchanged
+ * text. Normalised (not a raw-text hash) because the same proposition reaches final HTML only after
+ * a markdown-to-HTML render and an HTML-to-text strip, either of which can shift incidental
+ * whitespace or punctuation without changing the sentence's meaning.
+ */
+const spanIdentityHash = (text: string): string => sha256(compact(text));
 
 function candidate(input: {
   ruleCode: string;
@@ -82,7 +120,7 @@ function candidate(input: {
     path: input.path,
     spanHash: sha256(input.span),
     decisions: [{ layer: 'CANDIDATE_SCAN', disposition: 'CANDIDATE', reasonCode: 'high_recall_candidate' }],
-    finalDisposition: 'ESCALATE'
+    finalDisposition: 'HELD_FOR_REVIEW'
   };
 }
 
@@ -94,6 +132,19 @@ function addDecision(
 ): EssentialValidationCandidate {
   item.decisions.push({ layer, disposition, reasonCode });
   return item;
+}
+
+/**
+ * Owner decision 2: downstream layers act on the most recent SUBSTANTIVE disposition, not
+ * necessarily the literal last decision -- a layer that honestly records NOT_APPLICABLE must not
+ * look, to the layer after it, like nothing has ever been decided.
+ */
+function lastSubstantiveDisposition(item: EssentialValidationCandidate): EssentialCandidateDisposition | undefined {
+  for (let index = item.decisions.length - 1; index >= 0; index -= 1) {
+    const disposition = item.decisions[index].disposition;
+    if (disposition !== 'NOT_APPLICABLE') return disposition;
+  }
+  return undefined;
 }
 
 function stripHtml(html: string): string {
@@ -119,64 +170,45 @@ function sentences(text: string): string[] {
 }
 
 /**
- * High-recall assurance candidate, but not a generic vocabulary scan. A bare word such as
- * "confirmed" in "confirmed true/false positives" is ordinary control language and must not enter
- * assurance adjudication. "Confirmed" is therefore only a candidate when attached to an actor or
- * evidence subject capable of making an assurance proposition.
+ * Owner decision 3: genuine re-consumption of the same Fact Pack grounding blueprint-text.ts uses at
+ * candidate-scan time, reused (not duplicated) via its exported numericValues. The grounding rule
+ * itself is unchanged and stays exactly as strict as before ("existing hard deterministic
+ * arithmetic/grounding controls remain strict and unchanged") -- what changes is that this layer now
+ * actually performs the comparison against the live factPack argument instead of assuming Layer 2's
+ * disposition still holds.
  */
-const ASSURANCE_CANDIDATE = /\b(?:independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|independent assurance|operating effectiveness|(?:MK|the assessment|this assessment|the report|this report|the findings?|the evidence|evidence)\b[^.!?]{0,100}\bconfirmed)\b/i;
-/**
- * Evidence tables and recommended-next-step prose deliberately use epistemic criteria such as
- * "Whether X was independently verified" and "Confirm whether X was independently verified".
- * Those clauses describe what evidence must establish; they do not assert that verification was
- * completed. They therefore enter the high-recall scan but must be cleared by contextual review.
- */
-const EVIDENCE_ASSURANCE_CRITERION = /\b(?:confirm\s+|determine\s+|establish\s+|verify\s+)?whether\b[^.!?]{0,260}\b(?:independent assurance|independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|operating effectiveness)\b/i;
-const COMPLETED_ASSURANCE = /\b(?:MK|the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,160}\b(?:independently\s+(?:verified|reviewed)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i;
-const COMPLETED_EFFECTIVENESS = /\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
-const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed)|operating effectiveness)\b/i;
-const CUSTOMER_NORMATIVE_VERIFICATION = /\b(?:management|the organisation|the organization|control owner|process owner|internal audit|assurance function|supplier|bank[- ]detail|payment|identity|access|control(?:s)?|operating effectiveness|evidence)\b[^.!?]{0,180}\b(?:should|must|needs? to|is required to|are required to|before|prior to)\b[^.!?]{0,100}\bindependent(?:ly)?\s+(?:verif(?:y|ied)|verification|review(?:ed)?)\b/i;
-const PASSIVE_NORMATIVE_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|evidence|implementation|remediation|closure)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)\s+be\s+independently\s+(?:verified|reviewed)\b/i;
-const ASSESSMENT_DIRECTIONAL = /\b(?:the assessment|this assessment|the findings?|the report|this report)\b[^.!?]{0,120}\b(?:points?|directs?|guides?|recommends?|signals?)\b[^.!?]{0,100}\b(?:management|the organisation|the organization)\b[^.!?]{0,80}\bindependent\s+(?:verification|review)\b/i;
-const REPORT_AS_VERIFIER = /\b(?:the report|this report|the assessment|this assessment|MK)\b[^.!?]{0,120}\b(?:should|must|needs? to|is required to|are required to)?\s*independently\s+(?:verify|review)\b/i;
-/**
- * "Independent review" is often a control-design noun: separation from independent review,
- * independent-review responsibilities, or an independent-review route. That is not a proposition
- * that MK/the assessment performed assurance. Layer 2 must clear this context rather than letting a
- * high-recall lexical candidate become a false blocker.
- */
-const CONTROL_DESIGN_INDEPENDENT_REVIEW = /(?:\b(?:separation|segregation|oversight|challenge|route|function|responsibilit(?:y|ies)|role|approval)\b[^.!?]{0,180}\bindependent review\b|\bindependent review\b[^.!?]{0,180}\b(?:role|function|responsibilit(?:y|ies)|route|requirement|separation|oversight|challenge)\b)/i;
+function isNumericClaimGrounded(span: string, factPack: NarrativeFactPack): boolean {
+  const knownNumbers = numericValues(factPack);
+  const tokens = span.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
+  if (tokens.length === 0) return true;
+  return tokens.every((token) => knownNumbers.has(token.replace('%', '')));
+}
 
+/** Owner decision 3: same reasoning as isNumericClaimGrounded, for structural claims. */
+function isStructureClaimGrounded(span: string, factPack: NarrativeFactPack): boolean {
+  const matches = span.match(UNEVIDENCED_STRUCTURE) ?? [];
+  if (matches.length === 0) return true;
+  const haystack = compact(JSON.stringify(factPack)).toLowerCase();
+  return matches.every((match) => haystack.includes(match.toLowerCase()));
+}
+
+/**
+ * Thin wrapper around the shared adjudication core (narrative/assurance-adjudication.ts) -- see
+ * that module's doc comment for why a single canonical classifier now backs both this function and
+ * narrative/validation.ts's classifyAssuranceLanguage. Signature and disposition vocabulary are
+ * unchanged so every existing call site in this file (and the committed cascade regression) needs
+ * no changes: ALLOW/REJECT/AMBIGUOUS from the shared core map directly onto
+ * ALLOW_CONTEXT/CONFIRMED_VIOLATION/AMBIGUOUS here, a direct passthrough rather than the lossy
+ * two-state fold classifyAssuranceLanguage performs, so AMBIGUOUS remains observably distinct from
+ * CONFIRMED_VIOLATION at every downstream cascade layer (owner decision 6).
+ */
 export function adjudicateAssuranceSentence(sentence: string): {
   disposition: 'ALLOW_CONTEXT' | 'CONFIRMED_VIOLATION' | 'AMBIGUOUS';
   reasonCode: string;
 } {
-  const value = sentence.trim();
-  if (!ASSURANCE_CANDIDATE.test(value)) return { disposition: 'ALLOW_CONTEXT', reasonCode: 'no_assurance_candidate' };
-  if (EVIDENCE_ASSURANCE_CRITERION.test(value)) {
-    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'evidence_assurance_criterion_not_completed_assurance' };
-  }
-  if (COMPLETED_ASSURANCE.test(value) || COMPLETED_EFFECTIVENESS.test(value)) {
-    return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'completed_assurance_not_supported' };
-  }
-  // A negative assurance-boundary statement is explicitly saying what was NOT done. It must be
-  // cleared before the actor check below, otherwise "This assessment does not independently verify"
-  // is mechanically misread as the assessment acting as verifier.
-  if (EXPLICIT_LIMITATION.test(value)) {
-    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'explicit_assurance_limitation' };
-  }
-  if (REPORT_AS_VERIFIER.test(value) && !ASSESSMENT_DIRECTIONAL.test(value)) {
-    return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'invalid_assurance_actor' };
-  }
-  if (
-    CUSTOMER_NORMATIVE_VERIFICATION.test(value)
-    || PASSIVE_NORMATIVE_VERIFICATION.test(value)
-    || ASSESSMENT_DIRECTIONAL.test(value)
-    || CONTROL_DESIGN_INDEPENDENT_REVIEW.test(value)
-  ) {
-    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'customer_owned_or_control_design_context' };
-  }
-  return { disposition: 'AMBIGUOUS', reasonCode: 'assurance_context_unresolved' };
+  const result = adjudicateAssuranceProposition(sentence);
+  const disposition = result.disposition === 'ALLOW' ? 'ALLOW_CONTEXT' : result.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS';
+  return { disposition, reasonCode: result.reasonCode };
 }
 
 function textBlocks(parsed: ParsedBlueprintMarkdown): Map<string, string> {
@@ -205,6 +237,14 @@ function severityForTextFirstIssue(issue: TextFirstValidationIssue): EssentialVa
  * The text-first validator is intentionally high recall. Its output is therefore input to this
  * cascade, not the release decision itself. Hard evidence/contract mismatches remain hard; only
  * contextual language candidates (notably assurance wording) can be cleared by a later layer.
+ *
+ * Five layers, honestly (owner decision 2): CANDIDATE_SCAN (the high-recall detector that produced
+ * `report`) -> CONTEXT_ADJUDICATION (does the surrounding language make this a genuine violation?)
+ * -> EVIDENCE_COMPARISON (for the two candidate types actually gated on Fact Pack evidence, does the
+ * live factPack support the claim?) -> DOCUMENT_REVIEW (any whole-manuscript-level fact left to
+ * weigh?) -> FINAL_ACCEPTANCE. A layer with nothing new to examine for a given candidate honestly
+ * records NOT_APPLICABLE rather than re-emitting the previous layer's disposition under its own
+ * name.
  */
 export function adjudicateTextFirstValidation(input: {
   parsed: ParsedBlueprintMarkdown;
@@ -224,13 +264,21 @@ export function adjudicateTextFirstValidation(input: {
     span: blocks.get(issue.path) ?? issue.code
   }));
 
+  // Layer 2: does context make an otherwise-flagged candidate customer-safe? Only assurance wording
+  // has a context dimension in the current architecture; every other hard/contract issue is
+  // confirmed immediately (no context legitimises a raw internal id or an unsupported comparative
+  // claim), and quality issues are repairable rather than context-adjudicated.
+  const acceptedAssuranceSpanHashes: string[] = [];
   for (const item of candidates) {
     const source = blocks.get(item.path) ?? '';
     if (item.ruleCode === 'assurance_claim') {
-      const assuranceSentences = sentences(source).filter((sentence) => ASSURANCE_CANDIDATE.test(sentence));
+      const assuranceSentences = sentences(source).filter((sentence) => isAssuranceCandidate(sentence));
       const decisions = assuranceSentences.map(adjudicateAssuranceSentence);
       if (decisions.length > 0 && decisions.every((decision) => decision.disposition === 'ALLOW_CONTEXT')) {
         addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'all_assurance_clauses_customer_safe');
+        // Owner decision 4: record each cleared sentence's normalised identity so the final-HTML
+        // layer can inherit this exact decision for unchanged content instead of re-adjudicating it.
+        for (const sentence of assuranceSentences) acceptedAssuranceSpanHashes.push(spanIdentityHash(sentence));
       } else if (decisions.some((decision) => decision.disposition === 'CONFIRMED_VIOLATION')) {
         addDecision(item, 'CONTEXT_ADJUDICATION', 'CONFIRMED_VIOLATION', 'completed_or_invalid_assurance_actor');
       } else {
@@ -243,20 +291,40 @@ export function adjudicateTextFirstValidation(input: {
     }
   }
 
-  // Layer 3 reviews Layer 2, it does not start from scratch. Context-cleared assurance wording is
-  // accepted because it makes no completed assurance proposition. Confirmed hard truth/contract
-  // issues remain confirmed. Ambiguity remains unresolved and therefore fail-closed.
+  // Layer 3 genuinely compares evidence-dependent factual candidates against the live Fact Pack
+  // (owner decision 3), instead of relabelling Layer 2's disposition under a new name (the "false
+  // EVIDENCE_COMPARISON" bug owner decision 2 requires removed). Only unsupported_numeric_claim and
+  // unsupported_structure_claim are actually gated on fact-pack evidence; assurance wording is a
+  // closed linguistic question already settled by context adjudication, and every other candidate
+  // type here is an absolute pattern with no fact-pack dimension to compare against, so this layer
+  // honestly records NOT_APPLICABLE for them rather than pretending a comparison took place.
   for (const item of candidates) {
-    const prior = item.decisions.at(-1)?.disposition;
-    if (prior === 'ALLOW_CONTEXT') addDecision(item, 'EVIDENCE_COMPARISON', 'ACCEPT', 'no_completed_assurance_claim_to_evidence');
-    else if (prior === 'REPAIRABLE') addDecision(item, 'EVIDENCE_COMPARISON', 'REPAIRABLE', 'quality_only_no_truth_override');
-    else if (prior === 'CONFIRMED_VIOLATION') addDecision(item, 'EVIDENCE_COMPARISON', 'CONFIRMED_VIOLATION', 'evidence_or_contract_failure_preserved');
-    else addDecision(item, 'EVIDENCE_COMPARISON', 'AMBIGUOUS', 'unresolved_high_risk_semantic_ambiguity');
+    const source = blocks.get(item.path) ?? '';
+    if (item.ruleCode === 'unsupported_numeric_claim') {
+      const grounded = isNumericClaimGrounded(source, input.factPack);
+      addDecision(item, 'EVIDENCE_COMPARISON', grounded ? 'ACCEPT' : 'CONFIRMED_VIOLATION', grounded ? 'numeric_claim_grounded_in_fact_pack' : 'numeric_claim_not_grounded_in_fact_pack');
+    } else if (item.ruleCode === 'unsupported_structure_claim') {
+      const grounded = isStructureClaimGrounded(source, input.factPack);
+      addDecision(item, 'EVIDENCE_COMPARISON', grounded ? 'ACCEPT' : 'CONFIRMED_VIOLATION', grounded ? 'structure_claim_grounded_in_fact_pack' : 'structure_claim_not_grounded_in_fact_pack');
+    } else if (item.ruleCode === 'assurance_claim') {
+      addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', 'closed_linguistic_question_resolved_at_context_adjudication');
+    } else {
+      addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', 'no_fact_pack_evidence_dimension_for_candidate_type');
+    }
+  }
+
+  // Layer 4 (whole-document review). Repetition and excess-disclaimer signals are already whole-
+  // manuscript-scoped facts computed once by blueprint-text.ts's own duplicate/disclaimer-density
+  // pass at candidate-scan time; nothing here re-examines the assembled manuscript a second time, so
+  // every candidate honestly carries NOT_APPLICABLE rather than claiming a review that did not occur
+  // (owner decision 2's five-layer contract explicitly allows this).
+  for (const item of candidates) {
+    addDecision(item, 'DOCUMENT_REVIEW', 'NOT_APPLICABLE', 'no_additional_whole_document_fact_beyond_prior_layers');
   }
 
   for (const item of candidates) {
-    const prior = item.decisions.at(-1)?.disposition;
-    if (prior === 'ACCEPT') {
+    const prior = lastSubstantiveDisposition(item);
+    if (prior === 'ACCEPT' || prior === 'ALLOW_CONTEXT') {
       addDecision(item, 'FINAL_ACCEPTANCE', 'ACCEPT', 'cascade_cleared');
       item.finalDisposition = 'ACCEPT';
     } else if (prior === 'REPAIRABLE') {
@@ -264,20 +332,23 @@ export function adjudicateTextFirstValidation(input: {
       item.finalDisposition = 'WARN';
     } else if (prior === 'AMBIGUOUS') {
       addDecision(item, 'FINAL_ACCEPTANCE', 'AMBIGUOUS', 'unresolved_high_risk_ambiguity');
-      item.finalDisposition = 'ESCALATE';
+      item.finalDisposition = 'HELD_FOR_REVIEW';
     } else {
       addDecision(item, 'FINAL_ACCEPTANCE', 'CONFIRMED_VIOLATION', 'confirmed_failure');
       item.finalDisposition = 'REJECT';
     }
   }
 
-  const blocking = candidates.filter((item) => item.finalDisposition === 'REJECT' || item.finalDisposition === 'ESCALATE');
+  const rejected = candidates.filter((item) => item.finalDisposition === 'REJECT');
+  const heldForReview = candidates.filter((item) => item.finalDisposition === 'HELD_FOR_REVIEW');
   return {
     policyVersion: 'mk-essential-validation-cascade-v1',
-    publishable: blocking.length === 0,
+    publishable: rejected.length === 0 && heldForReview.length === 0,
     candidates,
-    blockingCodes: [...new Set(blocking.map((item) => item.ruleCode))],
-    warningCodes: [...new Set(candidates.filter((item) => item.finalDisposition === 'WARN').map((item) => item.ruleCode))]
+    blockingCodes: [...new Set(rejected.map((item) => item.ruleCode))],
+    heldForReviewCodes: [...new Set(heldForReview.map((item) => item.ruleCode))],
+    warningCodes: [...new Set(candidates.filter((item) => item.finalDisposition === 'WARN').map((item) => item.ruleCode))],
+    acceptedAssuranceSpanHashes
   };
 }
 
@@ -321,7 +392,7 @@ function scanFinalHtml(html: string): EssentialValidationCandidate[] {
     }
   }
   for (const sentence of sentences(text)) {
-    if (!ASSURANCE_CANDIDATE.test(sentence)) continue;
+    if (!isAssuranceCandidate(sentence)) continue;
     found.push(candidate({ ruleCode: 'assurance_language_final', severity: 'SEMANTIC_AMBIGUITY', path: 'final_html', span: sentence }));
   }
   const genericProofCount = text.split(GENERIC_PROOF).length - 1;
@@ -348,15 +419,30 @@ function scanFinalHtml(html: string): EssentialValidationCandidate[] {
 export function validateEssentialFinalHtml(input: {
   html: string;
   data: AssembledReportData;
+  /**
+   * Owner decision 4: sha256(compact(sentence)) identities of assurance-language sentences already
+   * cleared to ALLOW_CONTEXT at manuscript stage (adjudicateTextFirstValidation's
+   * acceptedAssuranceSpanHashes). A final-HTML sentence whose normalised identity matches inherits
+   * that decision instead of being re-adjudicated from scratch; only new or changed assurance
+   * sentences are freshly run through adjudicateAssuranceSentence.
+   */
+  carryForwardAssuranceSpanHashes?: string[];
 }): EssentialValidationCascadeResult {
   const candidates = scanFinalHtml(input.html);
+  const carryForward = new Set(input.carryForwardAssuranceSpanHashes ?? []);
 
   for (const item of candidates) {
     if (item.ruleCode === 'assurance_language_final') {
       // Resolve the exact candidate sentence by hash from the immutable final HTML.
       const sentence = sentences(stripHtml(input.html)).find((value) => sha256(value) === item.spanHash) ?? '';
-      const decision = adjudicateAssuranceSentence(sentence);
-      addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
+      if (carryForward.has(spanIdentityHash(sentence))) {
+        // Owner decision 4: unchanged content inherits its manuscript-stage decision rather than
+        // being re-adjudicated from scratch.
+        addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'inherited_manuscript_stage_acceptance_unchanged_content');
+      } else {
+        const decision = adjudicateAssuranceSentence(sentence);
+        addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
+      }
     } else if (item.severity === 'QUALITY_FAILURE') {
       addDecision(item, 'CONTEXT_ADJUDICATION', 'REPAIRABLE', 'customer_visible_quality_candidate');
     } else {
@@ -364,34 +450,33 @@ export function validateEssentialFinalHtml(input: {
     }
   }
 
+  // Layer 3: no final-HTML candidate type is fact-pack-evidence-gated -- the two that are
+  // (unsupported_numeric_claim, unsupported_structure_claim) are manuscript-only and never reach
+  // this stage. Assurance wording is a closed linguistic question already settled at Layer 2 (fresh
+  // or inherited); every other final-HTML candidate type is an absolute structural/quality pattern
+  // with no fact-pack dimension. Honestly NOT_APPLICABLE rather than the prior code's silent relabel
+  // of Layer 2's disposition under the EVIDENCE_COMPARISON name (owner decision 2).
   for (const item of candidates) {
-    const prior = item.decisions.at(-1)?.disposition;
-    if (prior === 'ALLOW_CONTEXT') {
-      addDecision(item, 'EVIDENCE_COMPARISON', 'ACCEPT', 'context_proposition_does_not_assert_completed_assurance');
-    } else if (prior === 'CONFIRMED_VIOLATION') {
-      // These final-output hard candidates describe claims the self-assessment cannot establish or
-      // a contract leak that no evidence can legitimise. They remain hard.
-      addDecision(item, 'EVIDENCE_COMPARISON', 'CONFIRMED_VIOLATION', 'not_supported_by_self_assessment_contract');
-    } else if (prior === 'REPAIRABLE') {
-      addDecision(item, 'EVIDENCE_COMPARISON', 'REPAIRABLE', 'truth_preserved_but_customer_quality_not_acceptable');
-    } else {
-      addDecision(item, 'EVIDENCE_COMPARISON', 'AMBIGUOUS', 'evidence_scope_unresolved');
-    }
+    addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', item.ruleCode === 'assurance_language_final'
+      ? 'closed_linguistic_question_resolved_at_context_adjudication'
+      : 'no_fact_pack_evidence_dimension_for_candidate_type');
   }
 
   // Layer 4 explicitly reviews the accumulated decisions at document level. At the paid-product
-  // acceptance bar, known broken grammar, repeated generic proof language and pagination risk are
-  // release-blocking quality defects, not harmless warnings.
+  // acceptance bar, a customer-visible quality defect Layer 2 marked repairable is release-blocking
+  // -- new information this layer actually decides, not merely inherited. Everything else was
+  // already fully settled by an earlier layer with nothing further to examine at document scope, so
+  // it is honestly NOT_APPLICABLE rather than re-emitting the prior value under the DOCUMENT_REVIEW
+  // name (owner decision 2: "must not claim ... document review occurred if none was examined").
   for (const item of candidates) {
-    const prior = item.decisions.at(-1)?.disposition;
-    if (prior === 'ACCEPT') addDecision(item, 'DOCUMENT_REVIEW', 'ACCEPT', 'document_context_consistent');
-    else if (prior === 'REPAIRABLE') addDecision(item, 'DOCUMENT_REVIEW', 'CONFIRMED_VIOLATION', 'paid_product_quality_bar_not_met');
-    else addDecision(item, 'DOCUMENT_REVIEW', prior ?? 'AMBIGUOUS', 'document_review_preserves_prior_decision');
+    const prior = lastSubstantiveDisposition(item);
+    if (prior === 'REPAIRABLE') addDecision(item, 'DOCUMENT_REVIEW', 'CONFIRMED_VIOLATION', 'paid_product_quality_bar_not_met');
+    else addDecision(item, 'DOCUMENT_REVIEW', 'NOT_APPLICABLE', 'no_additional_whole_document_fact_beyond_prior_layers');
   }
 
   for (const item of candidates) {
-    const prior = item.decisions.at(-1)?.disposition;
-    if (prior === 'ACCEPT') {
+    const prior = lastSubstantiveDisposition(item);
+    if (prior === 'ALLOW_CONTEXT') {
       addDecision(item, 'FINAL_ACCEPTANCE', 'ACCEPT', 'all_layers_cleared');
       item.finalDisposition = 'ACCEPT';
     } else if (prior === 'CONFIRMED_VIOLATION') {
@@ -399,24 +484,28 @@ export function validateEssentialFinalHtml(input: {
       item.finalDisposition = 'REJECT';
     } else {
       addDecision(item, 'FINAL_ACCEPTANCE', 'AMBIGUOUS', 'unresolved_final_ambiguity');
-      item.finalDisposition = 'ESCALATE';
+      item.finalDisposition = 'HELD_FOR_REVIEW';
     }
   }
 
-  const blocking = candidates.filter((item) => item.finalDisposition === 'REJECT' || item.finalDisposition === 'ESCALATE');
+  const rejected = candidates.filter((item) => item.finalDisposition === 'REJECT');
+  const heldForReview = candidates.filter((item) => item.finalDisposition === 'HELD_FOR_REVIEW');
   return {
     policyVersion: 'mk-essential-validation-cascade-v1',
-    publishable: blocking.length === 0,
+    publishable: rejected.length === 0 && heldForReview.length === 0,
     finalHtmlSha256: sha256(input.html),
     candidates,
-    blockingCodes: [...new Set(blocking.map((item) => item.ruleCode))],
-    warningCodes: []
+    blockingCodes: [...new Set(rejected.map((item) => item.ruleCode))],
+    heldForReviewCodes: [...new Set(heldForReview.map((item) => item.ruleCode))],
+    warningCodes: [],
+    acceptedAssuranceSpanHashes: []
   };
 }
 
 export function assertEssentialFinalHtml(input: {
   html: string;
   data: AssembledReportData;
+  carryForwardAssuranceSpanHashes?: string[];
 }): EssentialValidationCascadeResult {
   const result = validateEssentialFinalHtml(input);
   if (!result.publishable) throw new EssentialValidationCascadeError(result);

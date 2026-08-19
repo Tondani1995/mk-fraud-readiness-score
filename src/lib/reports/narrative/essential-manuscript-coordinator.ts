@@ -12,7 +12,8 @@ import {
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import {
   assertTextFirstValidationCascade,
-  EssentialValidationCascadeError
+  EssentialValidationCascadeError,
+  type EssentialValidationCascadeResult
 } from '../essential-validation-cascade';
 
 /**
@@ -34,6 +35,13 @@ export interface EssentialManuscriptResult {
   narrative: ParsedBlueprintMarkdown;
   blueprint: ReportBlueprint;
   manuscript: WholeManuscriptTextResult;
+  /**
+   * Owner decision 4: content-addressed identities of assurance-language sentences already cleared
+   * to ALLOW_CONTEXT by the manuscript-stage validation cascade, so the final-HTML validation stage
+   * (validateEssentialFinalHtml's carryForwardAssuranceSpanHashes input) can inherit this decision
+   * for byte-identical content rather than re-adjudicating it from scratch.
+   */
+  acceptedAssuranceSpanHashes: string[];
 }
 
 /** Evidence the writer attaches when it rejects its own initial response. */
@@ -344,11 +352,15 @@ export async function composeEssentialManuscript(input: {
   // hard evidence/contract failures remain hard, while context-safe assurance wording can be
   // cleared without weakening the truth boundary.
   const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
+  let cascadeResult: EssentialValidationCascadeResult;
   try {
-    assertTextFirstValidationCascade({ parsed: narrative, report, factPack });
+    cascadeResult = assertTextFirstValidationCascade({ parsed: narrative, report, factPack });
   } catch (error) {
+    // Owner decision 6: a manuscript can fail here either because a candidate was confirmed
+    // rejected or because one was left HELD_FOR_REVIEW (unresolved ambiguity) -- both block
+    // publication, so both must surface their originating issues, not just outright rejections.
     const blockingCodes = error instanceof EssentialValidationCascadeError
-      ? error.result.blockingCodes
+      ? [...error.result.blockingCodes, ...error.result.heldForReviewCodes]
       : report.hardTruth.issues.map((issue) => issue.code);
     const survivingIssues = report.hardTruth.issues.filter((issue) => blockingCodes.includes(issue.code));
     throw new EssentialManuscriptError(
@@ -367,5 +379,10 @@ export async function composeEssentialManuscript(input: {
     );
   }
 
-  return { narrative, blueprint: authoritativeBlueprint, manuscript };
+  return {
+    narrative,
+    blueprint: authoritativeBlueprint,
+    manuscript,
+    acceptedAssuranceSpanHashes: cascadeResult.acceptedAssuranceSpanHashes
+  };
 }

@@ -104,7 +104,7 @@ export interface TextFirstValidationReport {
 
 const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
 const normalise = (value: string): string => value.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
-const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export const compact = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 function expectedHeadings(blueprint: ReportBlueprint): BlueprintHeadingExpectation[] {
   return blueprint.chapters.flatMap((chapter) => [
@@ -378,7 +378,14 @@ function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block
   ]));
 }
 
-function numericValues(pack: NarrativeFactPack): Set<string> {
+/**
+ * Exported so essential-validation-cascade.ts's Layer 3 (EVIDENCE_COMPARISON) can genuinely
+ * re-consume the same Fact Pack grounding this module uses at candidate-scan time, rather than
+ * maintaining a second, potentially divergent copy of the same comparison (owner decision 3; see
+ * also narrative/assurance-adjudication.ts's doc comment on why the codebase now avoids exactly
+ * this kind of duplicated-logic risk).
+ */
+export function numericValues(pack: NarrativeFactPack): Set<string> {
   const values = new Set<string>();
   for (const match of JSON.stringify(pack).matchAll(/\b\d+(?:\.\d+)?%?\b/g)) values.add(match[0].replace('%', ''));
   return values;
@@ -392,8 +399,8 @@ const COMPARATIVE_CLAIM = /\b(?:ahead of|behind|compared (?:to|with)|relative to
 /** Current staff counts or knowledge concentration. */
 const WORKFORCE_CLAIM = /\b(?:the\s+)?one or two people\b|\ba single (?:employee|person|individual)\b|\bonly one person\b|\b\d+\s+(?:employees|staff|people)\b/gi;
 
-/** Formal structures asserted as existing. */
-const UNEVIDENCED_STRUCTURE = /\bAudit Committee\b|\bChief Technology Officer\b|\bChief People Officer\b|\bGeneral Counsel\b|\bSecurity Operations Cent(?:re|er)\b/g;
+/** Formal structures asserted as existing. Exported for the same reason as numericValues above. */
+export const UNEVIDENCED_STRUCTURE = /\bAudit Committee\b|\bChief Technology Officer\b|\bChief People Officer\b|\bGeneral Counsel\b|\bSecurity Operations Cent(?:re|er)\b/g;
 export function validateBlueprintTextManuscript(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, factPack: NarrativeFactPack): TextFirstValidationReport {
   const hardTruth: TextFirstValidationIssue[] = parsed.errors.map((item) => ({ ...item, severity: 'HARD_TRUTH_FAILURE' }));
   const repairable: TextFirstValidationIssue[] = [];
