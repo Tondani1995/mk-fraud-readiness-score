@@ -151,8 +151,8 @@ async function launchBrowser() {
   const localOverride = Boolean(process.env.PUPPETEER_EXECUTABLE_PATH?.trim());
   const pdfAccessibilityArgs = ['--export-tagged-pdf', '--generate-pdf-document-outline'];
   const args = localOverride
-    ? puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
-    : puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
+    ? await puppeteer.defaultArgs({ args: ['--no-sandbox', '--disable-setuid-sandbox', ...pdfAccessibilityArgs], headless: true })
+    : await puppeteer.defaultArgs({ args: [...chromium.args, ...pdfAccessibilityArgs], headless: 'shell' });
 
   // A launch with no timeout is unbounded: if the browser process starts but
   // never completes the DevTools handshake, the render hangs until the caller

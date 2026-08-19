@@ -7,6 +7,8 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const sourcePath = join(process.cwd(), 'src/lib/reports/render-pdf.ts');
 const source = readFileSync(sourcePath, 'utf8');
+const tokenSourcePath = join(process.cwd(), 'src/lib/reports/design/tokens.ts');
+const tokenSource = readFileSync(tokenSourcePath, 'utf8');
 assert(!source.includes('AWS_LAMBDA_JS_RUNTIME'), 'PDF renderer must not spoof AWS_LAMBDA_JS_RUNTIME.');
 assert(!source.includes('AWS_EXECUTION_ENV'), 'PDF renderer must not spoof AWS_EXECUTION_ENV.');
 assert(!source.includes('executablePath(packagedBinDirectory)'), 'PDF renderer must not pass a discovered bin directory into executablePath().');
@@ -21,13 +23,18 @@ const output = ts.transpileModule(source, {
   fileName: sourcePath
 }).outputText;
 
+const tokenOutput = ts.transpileModule(tokenSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+  fileName: tokenSourcePath
+}).outputText;
+const tokenModule = { exports: {} };
+new Function('require', 'module', 'exports', '__filename', '__dirname', tokenOutput)(
+  require, tokenModule, tokenModule.exports, tokenSourcePath, join(process.cwd(), 'src/lib/reports/design')
+);
+const runtimeRequire = (id) => id === './design/tokens' ? tokenModule.exports : require(id);
 const module = { exports: {} };
 new Function('require', 'module', 'exports', '__filename', '__dirname', output)(
-  require,
-  module,
-  module.exports,
-  sourcePath,
-  join(process.cwd(), 'src/lib/reports')
+  runtimeRequire, module, module.exports, sourcePath, join(process.cwd(), 'src/lib/reports')
 );
 
 const { renderHtmlToPdfBuffer } = module.exports;

@@ -1556,9 +1556,9 @@
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:291",
-    "src/lib/reports/phase1-manual-fulfilment.ts:605",
-    "src/lib/reports/phase1-manual-fulfilment.ts:755",
+    "src/lib/reports/phase1-manual-fulfilment.ts:297",
+    "src/lib/reports/phase1-manual-fulfilment.ts:665",
+    "src/lib/reports/phase1-manual-fulfilment.ts:815",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
@@ -1635,7 +1635,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "d713344b40ed332f5e5f0b98f7904a1d5f0c3268c51d96d25b0206fb36a082d6"
+    "fullAstInventorySha256": "0981eb73c4c90036e243f459a666b049c5a97b110a6ca49d220d9cc87afcf14f"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",

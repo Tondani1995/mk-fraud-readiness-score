@@ -102,18 +102,22 @@ export default async function AdminOrderDetailPage(
     ...(reportResult.failedQuery ? [reportResult.failedQuery] : [])
   ];
   const latestReport = reportVersions[0] ?? null;
-  // Manual delivery record: MK emailed the report and recorded it. Separate from the
-  // provider delivery authorisations shown in the Release C panel.
+  // Manual operator delivery is persisted in the existing Phase 1 delivery-attempt
+  // table. provider_mode=disabled distinguishes an operator-sent customer email from the
+  // historical provider-double test path; DELIVERED is written only by the existing
+  // complete_manual_report_delivery RPC.
   const { data: manualDelivery } = latestReport
-    ? await db.from('manual_report_deliveries')
-        .select('delivered_at,recipient_email,delivered_by')
-        .eq('report_id', latestReport.id).maybeSingle()
+    ? await db.from('manual_report_delivery_attempts')
+        .select('completed_at,recipient_email,requested_by')
+        .eq('report_id', latestReport.id)
+        .eq('status', 'DELIVERED')
+        .eq('provider_mode', 'disabled')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
     : { data: null };
-  // Resolved separately rather than as an embedded join: the delivery row is the
-  // authoritative record, and a failure to resolve the actor's display name must not
-  // make a recorded delivery look as though it never happened.
-  const { data: manualDeliveryActor } = manualDelivery?.delivered_by
-    ? await db.from('admin_profiles').select('full_name,email').eq('id', manualDelivery.delivered_by).maybeSingle()
+  const { data: manualDeliveryActor } = manualDelivery?.requested_by
+    ? await db.from('admin_profiles').select('full_name,email').eq('id', manualDelivery.requested_by).maybeSingle()
     : { data: null };
   const storageCandidate = Boolean(latestReport?.storage_bucket && latestReport?.storage_path && latestReport?.checksum);
   const storageReady = Boolean(latestReport?.storage_status === 'VERIFIED' && latestReport.storage_bucket && latestReport.storage_path);
@@ -265,7 +269,7 @@ export default async function AdminOrderDetailPage(
           productCode={order.products?.product_code ?? null}
           storageReady={storageReady}
           paymentConfirmed={order.status === 'payment_received'}
-          deliveredAt={manualDelivery?.delivered_at ?? null}
+          deliveredAt={manualDelivery?.completed_at ?? null}
           deliveredBy={manualDeliveryActor?.full_name ?? manualDeliveryActor?.email ?? null}
         />
 
