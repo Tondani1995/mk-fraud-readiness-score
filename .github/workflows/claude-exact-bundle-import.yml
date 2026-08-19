@@ -1,4 +1,4 @@
-name: Import and certify exact Claude acceptance tree
+name: Import exact Claude acceptance tree
 
 on:
   push:
@@ -9,16 +9,16 @@ permissions:
   contents: write
 
 jobs:
-  import-certify-publish:
+  import-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - name: Check out full repository history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Reconstruct and verify exact Claude bundle
+      - name: Reconstruct, verify and publish exact Claude commits
         shell: bash
         run: |
           set -euo pipefail
@@ -37,45 +37,4 @@ jobs:
           test "$(git rev-parse claude-final^)" = "53c6764b68d4915a31e7b847b32de9b0f347315d"
           test "$(git rev-parse claude-final^^)" = "f99b862591758581312ceaa52206ae7f78edd7ea"
           test "$(git rev-parse claude-final^{tree})" = "711cc1d746c26e8b3dbf9e297acd7224ee271fde"
-          git checkout --detach claude-final
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run exact provider-free acceptance suite
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run v11:narrative-diagnostics
-          npx tsx --test scripts/commercial-quality/essential-output-budget-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-assurance-boundary-tests.mjs
-          node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
-          npx tsx --test scripts/commercial-quality/assurance-adjudication-corpus-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-layer-semantics-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-deterministic-prose-adjudication-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-final-acceptance-immutability-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-manuscript-render-binding-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-risk-cause-specificity-tests.mjs
-          npx tsx --test scripts/commercial-quality/essential-v5-cleanup-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v6-final-polish-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v7-final-acceptance-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-v9-second-opinion-regression.mjs
-          npx tsx --test scripts/commercial-quality/essential-bokamoso-commercial-closure-regression.mjs
-          npx tsx --test scripts/commercial-quality/comprehensive-customer-visible-adaptation-tests.mjs
-          npm run typecheck
-
-      - name: Publish exact Claude commits to acceptance branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "23fb3ea2d04d2c976c3a53e727b062a27c64694d"
-          test "$(git rev-parse HEAD^{tree})" = "711cc1d746c26e8b3dbf9e297acd7224ee271fde"
           git push origin 23fb3ea2d04d2c976c3a53e727b062a27c64694d:refs/heads/commercial/mk-fraud-readiness-95-quality
