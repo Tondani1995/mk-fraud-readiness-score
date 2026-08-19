@@ -7,10 +7,13 @@ import { WHOLE_MANUSCRIPT_TIMEOUT_MS } from './whole-manuscript-writer';
 import {
   parseBlueprintMarkdown,
   validateBlueprintTextManuscript,
-  assertBlueprintTextValidation,
   type ParsedBlueprintMarkdown
 } from './blueprint-text';
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
+import {
+  assertTextFirstValidationCascade,
+  EssentialValidationCascadeError
+} from '../essential-validation-cascade';
 
 /**
  * The Essential production narrative path.
@@ -22,10 +25,10 @@ import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-nor
  * This is that composition and nothing more.
  *
  * It deliberately owns no analytical judgement. The blueprint decides what must be
- * written and in what order, the writer produces prose against it, and the existing
- * validator decides whether that prose is acceptable. Scores, findings, risks, controls,
- * roadmap actions and evidence remain the deterministic pipeline's, and nothing here
- * reads a number back out of provider prose.
+ * written and in what order, the writer produces prose against it, and the canonical
+ * validation cascade decides whether detector findings survive contextual and evidence
+ * adjudication. Scores, findings, risks, controls, roadmap actions and evidence remain the
+ * deterministic pipeline's, and nothing here reads a number back out of provider prose.
  */
 export interface EssentialManuscriptResult {
   narrative: ParsedBlueprintMarkdown;
@@ -82,7 +85,7 @@ export interface EssentialManuscriptDiagnostics {
   parseOk?: boolean;
   parseErrors?: Array<{ code: string; path: string }>;
   validationCode?: string;
-  /** Every hard-truth rule that fired, so a rejection names itself. */
+  /** Every surviving hard-truth/contract rule, so a rejection names itself. */
   validationIssues?: Array<{ code: string; path: string; message: string }>;
   /** Heading-level evidence for a manuscript that would not bind. */
   structural?: ManuscriptStructuralDiagnostics;
@@ -327,6 +330,8 @@ export async function composeEssentialManuscript(input: {
     );
   }
 
+  // Closed-set normalisation is Layer 0. It may repair only known-safe presentation wording; the
+  // candidate ledger that follows still decides whether any suspicious proposition survives.
   const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
   if (deterministicAssuranceNormalisations > 0) {
     console.info('essential_assurance_boundary_normalisation', {
@@ -334,18 +339,26 @@ export async function composeEssentialManuscript(input: {
     });
   }
 
+  // The text-first validator is deliberately high recall. Its findings are candidates for the
+  // canonical cascade, not independent final blockers. Later layers review the earlier decision;
+  // hard evidence/contract failures remain hard, while context-safe assurance wording can be
+  // cleared without weakening the truth boundary.
   const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
   try {
-    assertBlueprintTextValidation(report);
+    assertTextFirstValidationCascade({ parsed: narrative, report, factPack });
   } catch (error) {
+    const blockingCodes = error instanceof EssentialValidationCascadeError
+      ? error.result.blockingCodes
+      : report.hardTruth.issues.map((issue) => issue.code);
+    const survivingIssues = report.hardTruth.issues.filter((issue) => blockingCodes.includes(issue.code));
     throw new EssentialManuscriptError(
       'validate_manuscript',
-      error instanceof Error ? error.message : 'The manuscript failed validation.',
+      error instanceof Error ? error.message : 'The manuscript failed layered validation.',
       {
         ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
         parseOk: true,
-        validationCode: report.hardTruth.issues[0]?.code,
-        validationIssues: report.hardTruth.issues.map((issue) => ({
+        validationCode: blockingCodes[0],
+        validationIssues: survivingIssues.map((issue) => ({
           code: issue.code,
           path: issue.path,
           message: String(issue.message ?? '').slice(0, 200)
