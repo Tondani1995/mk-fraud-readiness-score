@@ -1,8 +1,8 @@
 name: Report Provider-Free Regressions
 
 # Permanent read-only report acceptance gate. Provider-backed acceptance is separately
-# fenced behind the provider-free job and only runs when the dedicated acceptance marker
-# is changed in the exact checked-out commit.
+# fenced behind the provider-free job and only runs for the same-repository PR when the
+# dedicated acceptance marker is changed in the PR head commit.
 on:
   push:
     branches:
@@ -73,7 +73,7 @@ jobs:
   five-customer-acceptance:
     name: Essential 5x Provider Acceptance
     needs: report-regressions
-    if: github.event_name == 'push'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -83,23 +83,26 @@ jobs:
       STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
       VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
     steps:
-      - name: Check out acceptance harness
+      - name: Check out exact PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
 
-      - name: Verify explicit owner acceptance marker changed in this commit
+      - name: Verify explicit owner acceptance marker changed in PR head commit
         id: acceptance-trigger
         shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           marker='scripts/commercial-quality/.essential-five-customer-trigger'
-          if git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -Fxq "$marker"; then
+          if git diff-tree --no-commit-id --name-only -r "$PR_HEAD_SHA" | grep -Fxq "$marker"; then
             echo 'run=true' >> "$GITHUB_OUTPUT"
-            echo "Explicit acceptance marker changed in $GITHUB_SHA. Provider-backed gate is authorised."
+            echo "Explicit acceptance marker changed in $PR_HEAD_SHA. Provider-backed gate is authorised."
           else
             echo 'run=false' >> "$GITHUB_OUTPUT"
-            echo 'No acceptance marker change in this commit; provider-backed gate remains fenced off.'
+            echo 'No acceptance marker change in the PR head commit; provider-backed gate remains fenced off.'
           fi
 
       - name: Generate five distinct Essential reports exactly once each
