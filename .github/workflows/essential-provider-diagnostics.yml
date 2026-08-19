@@ -41,6 +41,9 @@ jobs:
       - name: Prove MUST_ALLOW / MUST_REPAIR / MUST_REJECT false-positive safety net
         run: node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs
 
+      - name: Prove canonical layered validation cascade
+        run: npx tsx --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
+
       - name: Prove Essential numeric claim equivalence provider-free
         run: npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
 
