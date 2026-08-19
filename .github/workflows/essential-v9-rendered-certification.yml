@@ -114,3 +114,28 @@ jobs:
           git pull --rebase --autostash origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
           exit "$gate_status"
+
+  final-acceptance-generation:
+    if: github.event.head_commit.message == 'Run V10 final acceptance generation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CERTIFIED_SHA: 32fe97c418b81911ad39c0f6bc17407e6702f312
+      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
+      ORDER_REFERENCE: MKORD-2026-7046035F
+      ORDER_ID: 32fb9b0c-298e-4514-b9aa-0529d541d5ae
+      EXPECTED_V9: RPT-MKFRS-2026-3AEAFD09F9-V9
+      EXPECTED_V10: RPT-MKFRS-2026-3AEAFD09F9-V10
+      REQUEST_KEY: v10-final-acceptance-32fe97c418b81911
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.STAGING_VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Check out acceptance branch
+        uses: actions/checkout@v4
+        with:
+          ref: commercial/mk-fraud-readiness-95-quality
+          fetch-depth: 1
+
+      - name: Preflight, generate exactly once, and verify
+        run: node scripts/commercial-quality/v10-final-acceptance-generation.mjs
