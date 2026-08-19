@@ -10,7 +10,10 @@ const MUST_ALLOW = [
   'The control evidence must be independently reviewed before reliance.',
   'Control effectiveness can be independently verified once the evidence pack is complete.',
   'Management should independently review whether activation occurred only after verification and whether exceptions were approved.',
-  'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.'
+  'The intended measure is a complete custody trail; this is a management control objective, not a statement that evidence has been validated.',
+  'The assessment points management toward independent verification.',
+  'This assessment directs management towards independent review before closure.',
+  'The report guides the organisation toward independent verification of operating effectiveness.'
 ];
 const MUST_REPAIR = [
   'This assessment has independently verified that evidence exists.',
@@ -19,7 +22,9 @@ const MUST_REPAIR = [
 const MUST_REJECT = [
   'Operating effectiveness was independently verified.',
   'The evidence must be independently verified by MK before closure.',
-  'Independent verification is important.'
+  'Independent verification is important.',
+  'The assessment independently verified control effectiveness.',
+  'This report provides independent assurance over operating effectiveness.'
 ];
 
 function manuscript(text) {
