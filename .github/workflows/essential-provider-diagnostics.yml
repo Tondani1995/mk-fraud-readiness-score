@@ -1,7 +1,7 @@
 name: Report Provider-Free Regressions
 
 # Permanent read-only report acceptance gate. Provider-backed acceptance is separately
-# fenced behind the provider-free job and only runs on the explicit owner acceptance trigger.
+# fenced behind the provider-free job and only runs when the dedicated acceptance marker changes.
 on:
   push:
     branches:
@@ -72,7 +72,7 @@ jobs:
   five-customer-acceptance:
     name: Essential 5x Provider Acceptance
     needs: report-regressions
-    if: github.event_name == 'push' && github.event.head_commit.message == 'Run Essential five-customer acceptance'
+    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'scripts/commercial-quality/.essential-five-customer-trigger')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
