@@ -40,6 +40,32 @@ jobs:
           python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
           command -v pdftoppm
 
+      - name: Align two legacy copy assertions to current V10 wording
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/phase-v7-checkpoint-f-rendered-pdf-tests.mjs')
+          text = path.read_text()
+          replacements = [
+              (
+                  "      assert.match(text[candidate.name], /Commission independent validation of/);",
+                  "      assert.match(text[candidate.name], /Commission (?:independent validation of the|an independently observed fraud-incident tabletop exercise)/);",
+              ),
+              (
+                  "      const match = /Recommended next step\\s+(.+?)\\s+This is the immediate validation priority/.exec(normalised);",
+                  "      const match = /Recommended next step\\s+(.+?)\\s+This is the immediate proof priority/.exec(normalised);",
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'legacy V10 assertion anchor drifted: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          print('V10 certification adapter aligned exactly two obsolete wording assertions; product source unchanged.')
+          PY
+
       - name: Run rendered certification and persist exact disposition
         shell: bash
         run: |

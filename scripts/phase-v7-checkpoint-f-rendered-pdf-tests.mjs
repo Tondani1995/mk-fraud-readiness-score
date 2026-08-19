@@ -56,8 +56,12 @@ const DOMAIN_FOCUS = {
 
 function context(data) {
   const advisoryModel = buildAdvisoryEvidenceModel(data);
+  // Mirrors production: the rendered roadmap is the shared projection's dependency-closed
+  // selection, which is also the provenance source validateRoadmapSource() checks against.
   const essentialProjection = buildEssentialProjection(data, advisoryModel);
   const roadmap = adaptAdvisoryRoadmapToLegacyAgenda(essentialProjection.roadmapActions);
+  // Bounded Essential production chain: one projection, threaded through content, evidence and
+  // the renderer, exactly as the fulfilment seam does.
   const deterministicContent = selectContent(data, [], essentialProjection);
   const evidence = buildPremiumReportEvidencePack(data, advisoryModel, PREMIUM_REPORT_SCHEMA_VERSION, essentialProjection);
   const brief = buildPremiumReportNarrativeBrief(evidence);
@@ -72,6 +76,8 @@ function bandForScore(rawScore) {
   return 'Strategic';
 }
 
+// A domain-response-pattern opener, not a single formula sentence repeated for every domain --
+// wording changes with the recorded band so ten domains in one report do not read identically.
 const BAND_OPENER = {
   Reactive: (focus) => `${focus} is not yet functioning as a working control`,
   Developing: (focus) => `${focus} is partly in place but still depends on specific people rather than a repeatable process`,
@@ -80,12 +86,22 @@ const BAND_OPENER = {
   'Not scored': (focus) => `${focus} was not scored in this assessment`
 };
 
+/**
+ * Checkpoint F controller review, blocker 3: this stands in for a live AI editorial pass (no
+ * provider is called -- see the module header) but must read like a commercial advisory, not a
+ * QA artefact. It must (a) name the two or three fixture-specific drivers that actually matter,
+ * using real evidence-model fields rather than a template with the organisation name swapped in,
+ * and (b) produce domain/gap commentary that differs by domain and response pattern rather than
+ * repeating one formula sentence ten times.
+ */
 const AI_SYNTHESIS_MARKER = 'This diagnosis draws together the complete set of recorded assessment evidence';
 
 function validatedPlan(current) {
   const { data, brief, advisoryModel } = current;
   const clean = data.criticalMajorGaps.length === 0;
   const domainByCode = new Map(data.domainResults.map((domain) => [domain.domainCode, domain]));
+  // Bounded contract: brief.gaps is the projection selection, which may include findings that are
+  // not themselves L1 critical/major gaps. Join by stable question code, never array position.
   const gapByCode = new Map(data.criticalMajorGaps.map((gap) => [gap.questionCode, gap]));
   for (const finding of advisoryModel.materialFindings) {
     if (gapByCode.has(finding.questionCode)) continue;
@@ -111,6 +127,11 @@ function validatedPlan(current) {
     : (topDomainNames[0] ?? 'the domains covered by this assessment');
   const leadFinding = topFindings[0];
 
+  // Narrative bodies must never contain a numeric literal that is not the exact cited metric value
+  // (see automation/ai-plan-validation.ts's numeric_claim_evidence_mismatch/metric_number_
+  // reassignment checks) -- so scores are only ever named through data.scoreRun.overallScore
+  // itself, and finding.diagnosis (which embeds "normalised score N/100") is deliberately avoided
+  // in favour of finding.whyItMatters, which carries the same substance without a raw number.
   const driverSentence = clean
     ? `The strongest reported positions sit in ${domainList}, and none of them has yet been independently tested against the complete operating population.`
     : leadFinding
@@ -138,6 +159,11 @@ function validatedPlan(current) {
       const focus = DOMAIN_FOCUS[domainCode] ?? domain.domainName.toLowerCase();
       const domainGaps = [...gapByCode.values()].filter((gap) => gap.domainCode === domainCode);
       const opener = BAND_OPENER[band](focus);
+      // When every domain in one report shares the same band (a uniformly clean or uniformly weak
+      // assessment), BAND_OPENER alone produces ten near-identical closing sentences even though the
+      // focus text differs -- exactly the "same formula ten times" defect Checkpoint F controller
+      // review blocker 3 flagged. Rotate the closing sentence structure by domain position so the
+      // *shape* of the sentence varies too, not just the substituted focus/domain name.
       const domainLower = domain.domainName.toLowerCase();
       const noGapClosers = [
         `The open question for ${domainLower} is whether that position holds under a complete-population test, not the sampled self-assessment already recorded.`,
@@ -161,6 +187,8 @@ function validatedPlan(current) {
   assert.equal(validatePremiumReportAiEditorialPlan(plan, current.evidence, current.brief).ok, true);
   const narrative = aiPlanToNarrative(current.data, current.deterministicContent, plan);
   assert.equal(validatePremiumReportNarrative(narrative, current.evidence).ok, true);
+  // Same bounded projection the renderer and validator use, so gap commentary keys resolve for
+  // every projection-selected finding rather than only for L1 critical/major gaps.
   return narrativeToSelectedContent(current.data, narrative, false, current.essentialProjection);
 }
 
@@ -175,17 +203,58 @@ function synthetic(base, organisation, assessmentReference, reportReference) {
   return data;
 }
 
+// Organisation names are synthetic and fixed (never production customer data), but must read as
+// plausible client names -- Checkpoint F controller review blocker 3 flagged that literal internal
+// process jargon ("Checkpoint F ... Organisation") was rendering on the customer-facing cover page.
 const candidates = [
-  { name: 'mk-essential-v7-materially-weak-ai', fixture: 'materially-weak', mode: 'ai', organisation: 'Riverbend Distribution Group', assessmentReference: 'ESS-WEAK-AI-2026', reportReference: 'RPT-WEAK-AI-2026', base: buildMateriallyWeakDecisionFixture(), aiMarker: AI_SYNTHESIS_MARKER },
-  { name: 'mk-essential-v7-materially-weak-fallback', fixture: 'materially-weak', mode: 'fallback', organisation: 'Northfield Facilities Group', assessmentReference: 'ESS-WEAK-FALLBACK-2026', reportReference: 'RPT-WEAK-FALLBACK-2026', base: buildMateriallyWeakDecisionFixture(), aiMarker: AI_SYNTHESIS_MARKER },
-  { name: 'mk-essential-v7-moderate-ai', fixture: 'moderate', mode: 'ai', organisation: 'Coastal Retail Holdings', assessmentReference: 'ESS-MODERATE-AI-2026', reportReference: 'RPT-MODERATE-AI-2026', base: buildModerateDecisionFixture(), aiMarker: AI_SYNTHESIS_MARKER },
-  { name: 'mk-essential-v7-clean-assurance-ai', fixture: 'clean', mode: 'ai', organisation: 'Meridian Professional Services', assessmentReference: 'ESS-CLEAN-AI-2026', reportReference: 'RPT-CLEAN-AI-2026', base: buildCleanAssuranceFixture(), aiMarker: AI_SYNTHESIS_MARKER }
+  {
+    name: 'mk-essential-v7-materially-weak-ai',
+    fixture: 'materially-weak',
+    mode: 'ai',
+    organisation: 'Riverbend Distribution Group',
+    assessmentReference: 'ESS-WEAK-AI-2026',
+    reportReference: 'RPT-WEAK-AI-2026',
+    base: buildMateriallyWeakDecisionFixture(),
+    aiMarker: AI_SYNTHESIS_MARKER
+  },
+  {
+    name: 'mk-essential-v7-materially-weak-fallback',
+    fixture: 'materially-weak',
+    mode: 'fallback',
+    organisation: 'Northfield Facilities Group',
+    assessmentReference: 'ESS-WEAK-FALLBACK-2026',
+    reportReference: 'RPT-WEAK-FALLBACK-2026',
+    base: buildMateriallyWeakDecisionFixture(),
+    aiMarker: AI_SYNTHESIS_MARKER
+  },
+  {
+    name: 'mk-essential-v7-moderate-ai',
+    fixture: 'moderate',
+    mode: 'ai',
+    organisation: 'Coastal Retail Holdings',
+    assessmentReference: 'ESS-MODERATE-AI-2026',
+    reportReference: 'RPT-MODERATE-AI-2026',
+    base: buildModerateDecisionFixture(),
+    aiMarker: AI_SYNTHESIS_MARKER
+  },
+  {
+    name: 'mk-essential-v7-clean-assurance-ai',
+    fixture: 'clean',
+    mode: 'ai',
+    organisation: 'Meridian Professional Services',
+    assessmentReference: 'ESS-CLEAN-AI-2026',
+    reportReference: 'RPT-CLEAN-AI-2026',
+    base: buildCleanAssuranceFixture(),
+    aiMarker: AI_SYNTHESIS_MARKER
+  }
 ];
 
 async function renderCandidate(candidate) {
   const data = synthetic(candidate.base, candidate.organisation, candidate.assessmentReference, candidate.reportReference);
   const current = context(data);
-  const content = candidate.mode === 'ai' ? validatedPlan(current) : current.deterministicContent;
+  const content = candidate.mode === 'ai'
+    ? validatedPlan(current)
+    : current.deterministicContent;
   const input = { data, content, roadmap: current.roadmap, evidenceModel: current.advisoryModel };
   const first = await renderValidatedCommercialPdfWithNavigation(input);
   const second = await renderValidatedCommercialPdfWithNavigation(input);
@@ -209,6 +278,10 @@ async function renderCandidate(candidate) {
 }
 
 console.log('V7 Checkpoint F — rendered PDF commercial review');
+
+// Blocker 2 (Checkpoint F controller review): the rendered exposure headline must always be
+// derived from the authoritative sr.exposureBand, and only ever mention that exact band -- never
+// re-derived from an independent percentage-threshold heuristic that can disagree with it.
 console.log('  checking exposure headline derivation against every authoritative band');
 const EXPOSURE_BANDS = ['Low', 'Moderate', 'High', 'Severe'];
 for (const band of EXPOSURE_BANDS) {
@@ -217,7 +290,9 @@ for (const band of EXPOSURE_BANDS) {
   const current = context(data);
   const html = renderReportHtml(data, current.deterministicContent, current.roadmap, current.advisoryModel, undefined, current.essentialProjection);
   assert.ok(html.includes(`${band} exposure with`), `expected the "${band} exposure with…" headline for the ${band} band fixture`);
-  for (const other of EXPOSURE_BANDS.filter((value) => value !== band)) assert.ok(!html.includes(`${other} exposure with`), `${band}-band report must never render "${other} exposure with…"`);
+  for (const other of EXPOSURE_BANDS.filter((value) => value !== band)) {
+    assert.ok(!html.includes(`${other} exposure with`), `${band}-band report must never render "${other} exposure with…"`);
+  }
   console.log(`    ok — ${band} fixture renders "${band} exposure with…" and no other band`);
 }
 
@@ -229,11 +304,16 @@ for (const candidate of candidates) {
   console.log(`  rendering twice: ${candidate.name}`);
   await renderCandidate(candidate);
 }
-await writeFile(METADATA, JSON.stringify({ candidates: candidates.map(({ base, ...item }) => ({ ...item, exposureBand: base.scoreRun.exposureBand })) }, null, 2));
+await writeFile(METADATA, JSON.stringify({
+  candidates: candidates.map(({ base, ...item }) => ({ ...item, exposureBand: base.scoreRun.exposureBand }))
+}, null, 2));
 execFileSync(PYTHON, [path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py'), ARTIFACT, METADATA], { stdio: 'inherit' });
 
 const audit = JSON.parse(await readFile(path.join(ARTIFACT, 'inspection', 'pdf-audit.json'), 'utf8'));
-const text = Object.fromEntries(await Promise.all(candidates.map(async (candidate) => [candidate.name, await readFile(path.join(ARTIFACT, 'extracted-text', `${candidate.name}.txt`), 'utf8')])));
+const text = Object.fromEntries(await Promise.all(candidates.map(async (candidate) => [
+  candidate.name,
+  await readFile(path.join(ARTIFACT, 'extracted-text', `${candidate.name}.txt`), 'utf8')
+])));
 const sha = (value) => createHash('sha256').update(value).digest('hex');
 const contexts = candidates.map((candidate) => context(synthetic(candidate.base, candidate.organisation, candidate.assessmentReference, candidate.reportReference)));
 const models = contexts.map((entry) => entry.advisoryModel);
@@ -252,19 +332,36 @@ const tests = [
   ['F11 AI and fallback use identical deterministic authority', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_AI_FALLBACK_AUTHORITY_MISMATCH').every((x) => x.passed))],
   ['F12 clean assurance avoids false failure language', () => assert.ok(audit.checks.filter((x) => x.code === 'PDF_CLEAN_FALSE_FAILURE_LANGUAGE').every((x) => x.passed))],
   ['F13 risk, decision and roadmap authority contains no semantic duplicates', () => { for (const model of models) for (const key of ['riskRegister', 'leadershipDecisions', 'roadmapActions']) { const values = model[key].map((item) => sha(JSON.stringify(item))); assert.equal(new Set(values).size, values.length); } }],
+  // Bounded Essential contract: the PDF renders the capped evidence PRIORITIES (projection), not
+  // the complete L1 checklist -- that lives in the L3 supporting register. The status obligation is
+  // unchanged and still fail-closed: every rendered evidence row must carry its required status.
   ['F14 every rendered evidence priority renders its required status', () => { for (const [index, candidate] of candidates.entries()) { const expected = contexts[index].essentialProjection.evidenceToObtain.length; assert.ok(expected > 0); assert.ok((text[candidate.name].match(/Not yet\s+requested/g) ?? []).length >= expected); } }],
   ['F15 the audit has zero blocking failures and publishes the complete review tree', async () => { assert.equal(audit.passed, true); for (const relative of ['pdf', 'renders', 'contact-sheets', 'inspection/pdf-audit.json', 'inspection/page-by-page-review.md', 'inspection/section-map.json', 'extracted-text']) await import('node:fs/promises').then((fs) => fs.stat(path.join(ARTIFACT, relative))); }],
   ['F16 review metadata uses the real PR head SHA, never the checkout merge-ref, when the two diverge', () => {
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    // The CI workflow sets V7_ARTIFACT_HEAD_SHA for this whole step (so the *real* audit run below
+    // uses the real PR head), which means it is already present in this test's own process.env --
+    // inheriting it unmodified would test nothing here. The local-dev fallback path only exists
+    // when the override is genuinely absent, so it must be stripped explicitly for this assertion,
+    // regardless of what the ambient (CI or local) environment happens to have set.
     const envWithoutOverride = { ...process.env };
     delete envWithoutOverride.V7_ARTIFACT_HEAD_SHA;
     const withoutOverride = execFileSync(PYTHON, [auditScript, '--print-resolved-head-sha'], { cwd: ROOT, encoding: 'utf8', env: envWithoutOverride }).trim();
     const actualGitHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
     assert.equal(withoutOverride, actualGitHead, 'without a PR-head override, resolve_head_sha() must fall back to git rev-parse HEAD (the local-dev path)');
+
+    // Simulate a pull_request CI run where the checked-out merge-ref commit (what `git rev-parse
+    // HEAD` would return) differs from the real PR branch head GitHub ties the artifact to --
+    // exactly the divergence this correction round fixes.
     const simulatedMergeRefHead = actualGitHead;
     const simulatedPrHead = `f${actualGitHead.slice(1)}` === actualGitHead ? `e${actualGitHead.slice(1)}` : `f${actualGitHead.slice(1)}`;
     assert.notEqual(simulatedPrHead, simulatedMergeRefHead, 'test fixture must actually simulate a divergent PR head');
-    const withOverride = execFileSync(PYTHON, [auditScript, '--print-resolved-head-sha'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, V7_ARTIFACT_HEAD_SHA: simulatedPrHead } }).trim();
+
+    const withOverride = execFileSync(
+      PYTHON,
+      [auditScript, '--print-resolved-head-sha'],
+      { cwd: ROOT, encoding: 'utf8', env: { ...process.env, V7_ARTIFACT_HEAD_SHA: simulatedPrHead } }
+    ).trim();
     assert.equal(withOverride, simulatedPrHead, 'V7_ARTIFACT_HEAD_SHA (the PR branch head) must win over whatever git rev-parse HEAD (the merge-ref commit) would independently resolve to');
     assert.notEqual(withOverride, simulatedMergeRefHead, 'the resolved head SHA must not silently fall back to the merge-ref commit once a PR-head override is present');
   }],
@@ -275,31 +372,62 @@ const tests = [
   }],
   ['F18 no internal release-workflow copy in any customer PDF; replacement content present; review file unaffected', async () => {
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    // 3. A deliberately injected release-candidate callout (and every phrase on the controller's
+    //    minimum list) fails with PDF_INTERNAL_RELEASE_WORKFLOW_COPY, without falsely flagging
+    //    ordinary fraud-control prose that happens to use the same bare words.
     const output = execFileSync(PYTHON, [auditScript, '--self-test-internal-release-copy'], { cwd: ROOT, encoding: 'utf8' });
     assert.match(output, /self_test_internal_release_workflow_copy: all fixtures passed/);
-    assert.ok(audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').length === candidates.length && audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').every((x) => x.passed), 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY must run and pass for every candidate');
+
+    // 1. All four real, rendered customer PDFs contain zero internal release-workflow phrases --
+    //    the actual audit check, already run as part of the real render above.
+    assert.ok(
+      audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').length === candidates.length
+        && audit.checks.filter((x) => x.code === 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY').every((x) => x.passed),
+      'PDF_INTERNAL_RELEASE_WORKFLOW_COPY must run and pass for every candidate'
+    );
+
+    // 4. The replacement customer-facing content -- a concrete, per-report "Recommended next step"
+    //    -- is present in every candidate in place of the removed callout.
     for (const candidate of candidates) {
       assert.match(text[candidate.name], /Recommended next step/);
-      assert.match(text[candidate.name], /Commission (?:independent validation of the|an independently observed fraud-incident tabletop exercise)/);
+      assert.match(text[candidate.name], /Commission independent validation of/);
       assert.doesNotMatch(text[candidate.name], /Controller review remains required/i);
       assert.doesNotMatch(text[candidate.name], /commercial release candidate/i);
     }
+
+    // 2. inspection/commercial-review.md (a non-customer review record, never scanned by the PDF
+    //    audit) may still say controller review is outstanding.
     const reviewMarkdown = await readFile(path.join(ARTIFACT, 'inspection', 'commercial-review.md'), 'utf8');
     assert.match(reviewMarkdown, /awaiting controller review/);
   }],
   ['F19 recommended-next-step copy is grammatical, deterministic and assessment-specific (no artefact -- Whether concatenation)', () => {
     const auditScript = path.join(ROOT, 'scripts', 'checkpoint-f-pdf-audit.py');
+    // 2/5. The exact malformed concatenation (and every phrase on the controller's minimum list) is
+    //    caught if reintroduced; the corrected two-sentence form and ordinary "whether" usage in
+    //    unrelated advisory prose are never falsely flagged.
     const output = execFileSync(PYTHON, [auditScript, '--self-test-customer-copy-grammar'], { cwd: ROOT, encoding: 'utf8' });
     assert.match(output, /self_test_customer_copy_grammar_defect: all fixtures passed/);
+
+    // 2/7. All four real, rendered customer PDFs are clean under the actual audit check (already
+    //    run as part of the real render above), and the internal-release-workflow audit (previous
+    //    round) remains green alongside it -- no regression in either.
     for (const code of ['PDF_CUSTOMER_COPY_GRAMMAR_DEFECT', 'PDF_INTERNAL_RELEASE_WORKFLOW_COPY']) {
       const results = audit.checks.filter((x) => x.code === code);
       assert.equal(results.length, candidates.length, `${code} must run for every candidate`);
       assert.ok(results.every((x) => x.passed), `${code} must pass for every candidate`);
     }
+
+    // 1. Extract each candidate's actual recommendation sentence pair and prove it is natural,
+    //    assessment-specific prose -- no raw "Whether", no "--" concatenation, no mid-sentence
+    //    doubled capitalisation ("The organisation"/"Management" is fine as the answer's own opening
+    //    word, just not glued onto "Whether").
     const recommendationByName = {};
     for (const candidate of candidates) {
+      // pypdf wraps extracted text at the PDF's rendered line breaks, which can fall mid-phrase
+      // (e.g. "validation\npriority") -- normalise whitespace before matching, same as the
+      // line-wrap-tolerant pattern already used for F14's "Not yet\s+requested".
       const normalised = text[candidate.name].replace(/\s+/g, ' ');
-      const match = /Recommended next step\s+(.+?)\s+This is the immediate proof priority/.exec(normalised);
+      const match = /Recommended next step\s+(.+?)\s+This is the immediate validation priority/.exec(normalised);
       assert.ok(match, `${candidate.name}: Recommended next step sentence pair must be present and extractable`);
       const recommendation = match[1].trim();
       recommendationByName[candidate.name] = recommendation;
@@ -309,8 +437,27 @@ const tests = [
       assert.match(recommendation, /^Commission /, `${candidate.name}: must open with a natural action sentence`);
       assert.match(recommendation, /\. Confirm /, `${candidate.name}: must be exactly two sentences (action, then a Confirm... test)`);
     }
-    assert.equal(recommendationByName['mk-essential-v7-materially-weak-ai'], recommendationByName['mk-essential-v7-materially-weak-fallback'], 'weak AI and fallback recommendations must be identical');
-    assert.notEqual(recommendationByName['mk-essential-v7-moderate-ai'], recommendationByName['mk-essential-v7-clean-assurance-ai'], 'moderate and clean recommendations must differ');
+
+    // 3. Weak AI and fallback share the same deterministic advisory authority (Checkpoint E), so
+    //    their recommendation must be identical, not independently varied text.
+    assert.equal(
+      recommendationByName['mk-essential-v7-materially-weak-ai'],
+      recommendationByName['mk-essential-v7-materially-weak-fallback'],
+      'weak AI and fallback recommendations must be identical'
+    );
+
+    // 4. Moderate and clean draw on different findings/evidence, so their recommendations must
+    //    differ -- proves this is genuinely assessment-specific, not a fixed template string.
+    assert.notEqual(
+      recommendationByName['mk-essential-v7-moderate-ai'],
+      recommendationByName['mk-essential-v7-clean-assurance-ai'],
+      'moderate and clean recommendations must differ'
+    );
+
+    // 6. No page-count, near-empty, TOC/bookmark, clean-assurance or AI/fallback-authority
+    //    regression -- these are the same checks F2/F5/F11/F12 and the TOC checks already assert
+    //    against this same regenerated artifact; re-assert the aggregate here as a single guard tied
+    //    specifically to this round's change.
     assert.equal(audit.passed, true, 'the full audit (page budgets, near-empty pages, TOC/bookmarks, clean-assurance semantics, AI/fallback authority) must remain green');
   }]
 ];
