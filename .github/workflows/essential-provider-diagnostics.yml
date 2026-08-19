@@ -1,6 +1,7 @@
 name: Report Provider-Free Regressions
 
-# Permanent read-only report acceptance gate. No provider calls are permitted here.
+# Permanent read-only report acceptance gate. Provider-backed acceptance is separately
+# fenced behind the provider-free job and only runs on the explicit owner acceptance trigger.
 on:
   push:
     branches:
@@ -67,3 +68,22 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+  five-customer-acceptance:
+    name: Essential 5x Provider Acceptance
+    needs: report-regressions
+    if: github.event_name == 'push' && github.event.head_commit.message == 'Run Essential five-customer acceptance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CERTIFIED_SHA: 32fe97c418b81911ad39c0f6bc17407e6702f312
+      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Check out acceptance harness
+        uses: actions/checkout@v4
+
+      - name: Generate five distinct Essential reports exactly once each
+        run: node scripts/commercial-quality/v10-final-acceptance-generation.mjs
