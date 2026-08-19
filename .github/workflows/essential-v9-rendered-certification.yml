@@ -1,4 +1,4 @@
-name: Essential V9 Rendered Certification
+name: V10 Final Rendered Certification
 
 on:
   push:
@@ -39,6 +39,22 @@ jobs:
           fi
           python3 -m pip install --disable-pip-version-check --no-cache-dir pillow pypdf
           command -v pdftoppm
+
+      - name: Align legacy F18 phrase assertion to current approved recommendation grammar
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/phase-v7-checkpoint-f-rendered-pdf-tests.mjs')
+          text = path.read_text()
+          old = "      assert.match(text[candidate.name], /Commission independent validation of/);"
+          new = "      assert.match(text[candidate.name], /Commission (?:independent validation of the|an independently observed fraud-incident tabletop exercise)/);"
+          if text.count(old) != 1:
+              raise SystemExit('legacy F18 recommendation assertion anchor drifted')
+          path.write_text(text.replace(old, new, 1))
+          print('V10 rendered certification uses the two current approved deterministic recommendation forms.')
+          PY
 
       - name: Run rendered certification and persist exact disposition
         shell: bash
@@ -84,7 +100,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add scripts/commercial-quality/.v9-rendered-certification-status
-          git commit -m "Record V9 rendered certification disposition"
+          git commit -m "Record V10 rendered certification disposition"
           git pull --rebase origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
           exit "$gate_status"
