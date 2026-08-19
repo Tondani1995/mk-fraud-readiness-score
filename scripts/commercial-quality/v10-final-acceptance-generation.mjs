@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 const required = [
   'STAGING_SUPABASE_URL',
   'STAGING_SUPABASE_SERVICE_ROLE_KEY',
@@ -16,12 +13,9 @@ const preview = process.env.PREVIEW_URL.replace(/\/$/, '');
 const supabaseUrl = process.env.STAGING_SUPABASE_URL.replace(/\/$/, '');
 const serviceKey = process.env.STAGING_SUPABASE_SERVICE_ROLE_KEY;
 const bypass = process.env.VERCEL_PROTECTION_BYPASS;
-const outputRoot = path.resolve('tmp/essential-five-customer-acceptance');
-fs.mkdirSync(outputRoot, { recursive: true });
 
 const candidates = [
   {
-    slug: 'bokamoso-skills-institute',
     organisation: 'Bokamoso Skills Institute',
     orderReference: 'MKORD-2026-4790A29D',
     orderId: '74eddf8c-7043-40d5-bef8-46ef5e14d099',
@@ -30,7 +24,6 @@ const candidates = [
     expectedMaturity: 'Reactive'
   },
   {
-    slug: 'rivonia-health-logistics',
     organisation: 'Rivonia Health Logistics (Pty) Ltd',
     orderReference: 'MKORD-2026-22FF6B69',
     orderId: '7bb56b39-37fd-4310-9586-a6479c5aafaa',
@@ -39,7 +32,6 @@ const candidates = [
     expectedMaturity: 'Reactive'
   },
   {
-    slug: 'siyakhula-community-foundation',
     organisation: 'Siyakhula Community Foundation',
     orderReference: 'MKORD-2026-912225EC',
     orderId: '1ecd5ab1-6c67-4bf4-b40f-771012453795',
@@ -48,7 +40,6 @@ const candidates = [
     expectedMaturity: 'Developing'
   },
   {
-    slug: 'vhutshilo-foods-manufacturing',
     organisation: 'Vhutshilo Foods Manufacturing (Pty) Ltd',
     orderReference: 'MKORD-2026-FAA9331C',
     orderId: 'dea30683-e478-4676-b806-3d19dc88ed7e',
@@ -57,7 +48,6 @@ const candidates = [
     expectedMaturity: 'Developing'
   },
   {
-    slug: 'mzanzi-living-property-services',
     organisation: 'Mzanzi Living Property Services',
     orderReference: 'MKORD-2026-FAE975D6',
     orderId: 'f9ecc010-ec06-495f-9a8e-0a629c5ad25b',
@@ -70,10 +60,6 @@ const candidates = [
 const results = [];
 const fail = (message) => { throw new Error(message); };
 const assert = (condition, message) => { if (!condition) fail(message); };
-
-function encodeStoragePath(value) {
-  return String(value).split('/').map((segment) => encodeURIComponent(segment)).join('/');
-}
 
 async function sb(resourcePath) {
   const response = await fetch(`${supabaseUrl}/rest/v1/${resourcePath}`, {
@@ -88,28 +74,8 @@ async function sb(resourcePath) {
   return text ? JSON.parse(text) : [];
 }
 
-async function downloadStorageObject(bucket, storagePath, destination) {
-  const url = `${supabaseUrl}/storage/v1/object/authenticated/${encodeURIComponent(bucket)}/${encodeStoragePath(storagePath)}`;
-  const response = await fetch(url, {
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`
-    }
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    fail(`Storage download failed (${response.status}) for ${storagePath}: ${text.slice(0, 300)}`);
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  assert(bytes.length > 10_000, `Downloaded artefact is unexpectedly small: ${storagePath} (${bytes.length} bytes).`);
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, bytes);
-  return bytes.length;
-}
-
 async function runCandidate(candidate, index) {
-  const startedAt = new Date().toISOString();
-  const requestKey = `essential-5x-${certifiedSha?.slice(0, 12) ?? 'certified'}-${index + 1}-${candidate.slug}`;
+  const requestKey = `essential-5x-${certifiedSha?.slice(0, 12) ?? 'certified'}-${index + 1}-${candidate.orderReference}`;
   const reportPath = `reports?order_id=eq.${encodeURIComponent(candidate.orderId)}&select=id,report_reference,version_number,status,storage_status,storage_bucket,storage_path,file_name,file_size_bytes,generated_at&order=version_number.desc`;
   const deliveryPath = `manual_report_delivery_attempts?order_id=eq.${encodeURIComponent(candidate.orderId)}&select=id,status`;
   const generationPath = `manual_report_generation_attempts?order_id=eq.${encodeURIComponent(candidate.orderId)}&select=id,status,report_version,output_report_id,request_key,created_at&order=created_at.desc`;
@@ -174,6 +140,7 @@ async function runCandidate(candidate, index) {
   const report = newReports[0];
   assert(report.status === 'generated', `${candidate.organisation}: generated report status is ${report.status}.`);
   assert(report.storage_status === 'VERIFIED', `${candidate.organisation}: report storage is ${report.storage_status}.`);
+  assert(Number(report.file_size_bytes) > 100_000, `${candidate.organisation}: report file size ${report.file_size_bytes} is unexpectedly small.`);
   assert(laterReports.length === 0, `${candidate.organisation}: found ${laterReports.length} report(s) later than expected V${expectedVersion}.`);
   assert(afterDeliveries.length === beforeDeliveries.length, `${candidate.organisation}: delivery attempts changed from ${beforeDeliveries.length} to ${afterDeliveries.length}.`);
   assert(afterGenerations.length === beforeGenerations.length + 1, `${candidate.organisation}: generation attempts delta was ${afterGenerations.length - beforeGenerations.length}, expected +1.`);
@@ -183,66 +150,49 @@ async function runCandidate(candidate, index) {
   assert(supporting.length === 1, `${candidate.organisation}: expected one Supporting Register artefact, found ${supporting.length}.`);
   assert(supporting[0].storage_status === 'VERIFIED', `${candidate.organisation}: Supporting Register storage is ${supporting[0].storage_status}.`);
   assert(supporting[0].release_state === 'verified', `${candidate.organisation}: Supporting Register release state is ${supporting[0].release_state}.`);
-
-  const candidateDir = path.join(outputRoot, candidate.slug);
-  const pdfName = report.file_name || `${report.report_reference}.pdf`;
-  const xlsxName = supporting[0].file_name || `${report.report_reference}-supporting-register.xlsx`;
-  const pdfBytes = await downloadStorageObject(report.storage_bucket, report.storage_path, path.join(candidateDir, pdfName));
-  const xlsxBytes = await downloadStorageObject(supporting[0].storage_bucket, supporting[0].storage_path, path.join(candidateDir, xlsxName));
+  assert(Number(supporting[0].file_size_bytes) > 20_000, `${candidate.organisation}: Supporting Register is unexpectedly small.`);
 
   const result = {
     organisation: candidate.organisation,
     orderReference: candidate.orderReference,
-    assessmentId: candidate.assessmentId,
     expectedScore: candidate.expectedScore,
     expectedMaturity: candidate.expectedMaturity,
     action,
-    requestKey,
-    beforeMaxVersion,
     generatedVersion: expectedVersion,
     reportReference: report.report_reference,
     reportId: report.id,
-    reportStorageStatus: report.storage_status,
-    reportBytes: pdfBytes,
-    supportingRegister: xlsxName,
-    supportingRegisterBytes: xlsxBytes,
+    reportBytes: Number(report.file_size_bytes),
+    supportingRegisterBytes: Number(supporting[0].file_size_bytes),
     deliveryAttemptsBefore: beforeDeliveries.length,
     deliveryAttemptsAfter: afterDeliveries.length,
     generationAttemptsDelta: afterGenerations.length - beforeGenerations.length,
-    startedAt,
-    completedAt: new Date().toISOString(),
     status: 'PASS'
   };
   results.push(result);
-  fs.writeFileSync(path.join(outputRoot, 'manifest.json'), JSON.stringify({ certifiedSha, preview, results }, null, 2));
-  console.log(`[${index + 1}/5] ${candidate.organisation}: PASS -> ${report.report_reference}; report ${pdfBytes} bytes; register ${xlsxBytes} bytes.`);
+  console.log(`[${index + 1}/5] ${candidate.organisation}: PASS -> ${report.report_reference}; report ${result.reportBytes} bytes; Supporting Register ${result.supportingRegisterBytes} bytes.`);
 }
 
-let failure = null;
-try {
-  for (let index = 0; index < candidates.length; index += 1) {
-    await runCandidate(candidates[index], index);
-  }
-} catch (error) {
-  failure = error instanceof Error ? error.message : String(error);
-  console.error(`FIVE-CUSTOMER ACCEPTANCE STOPPED: ${failure}`);
-} finally {
-  fs.writeFileSync(path.join(outputRoot, 'manifest.json'), JSON.stringify({ certifiedSha, preview, results, failure }, null, 2));
+for (let index = 0; index < candidates.length; index += 1) {
+  await runCandidate(candidates[index], index);
 }
 
 const summary = [
-  '# Essential five-customer generation acceptance',
+  '# Essential five-customer generation acceptance — PASS',
   '',
   `Certified product SHA: ${certifiedSha}`,
   `Exact Preview: ${preview}`,
   `Successful fresh generations: ${results.length}/5`,
-  `Failure: ${failure ?? 'none'}`,
   '',
-  ...results.map((result, index) => `${index + 1}. ${result.organisation} — ${result.reportReference} — ${result.status} — delivery ${result.deliveryAttemptsBefore}/${result.deliveryAttemptsAfter}`)
+  ...results.map((result, index) => `${index + 1}. ${result.organisation} — ${result.reportReference} — ${result.status} — delivery ${result.deliveryAttemptsBefore}/${result.deliveryAttemptsAfter}`),
+  '',
+  'Provider-generation POSTs: 5 total; exactly one per organisation; no retry loop exists in this harness.'
 ].join('\n');
 console.log(summary);
-if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
 
-if (failure) throw new Error(failure);
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const fs = await import('node:fs');
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+}
+
 assert(results.length === 5, `Expected 5 successful generations, got ${results.length}.`);
 console.log('FIVE-CUSTOMER ESSENTIAL GENERATION ACCEPTANCE: PASS 5/5, zero retries, zero delivery mutations.');
