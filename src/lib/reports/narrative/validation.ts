@@ -43,7 +43,7 @@ const ABSOLUTELY_PROHIBITED_ASSURANCE = [
   /\bevidence validated\b/i,
   /\breviewer judgement\b/i,
   /\bMK\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|reviewed evidence|tested\s+(?:the\s+)?(?:operation|operating effectiveness|controls?)|independently confirmed)\b/i,
-  /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|independent\s+(?:verification|review)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i,
+  /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,100}\b(?:independently\s+(?:verified|reviewed)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i,
   /\b(?:independent\s+(?:verification|review)|independently\s+(?:verified|reviewed))\b.{0,100}\b(?:confirmed|established|demonstrates?|shows?)\b.{0,100}\b(?:control|operating effectiveness|operates? effectively)\b/i,
   /\boperating effectiveness\b.{0,80}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+(?:verified|reviewed)|validated|established|confirmed)\b/i,
   /\b(?:the\s+)?evidence\b.{0,40}\b(?:was|were|has been|have been)\s+validated\b/i,
@@ -68,6 +68,11 @@ const CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW = /(?:^|[.!?]\s+)\s*independently\
 // future/normative control design, not a claim that MK or the assessment has already provided
 // assurance. Past-tense or present-perfect assertions remain blocked by the absolute rules above.
 const CUSTOMER_PASSIVE_CONTROL_VERIFICATION = /\b(?:operating effectiveness|control effectiveness|controls?|control environment|control design|control operation|implementation|remediation|evidence(?: package)?|closure)\b.{0,180}\b(?:(?:should|must|can|could)\s+(?:then\s+)?be|(?:need(?:s)?\s+to|is required to|are required to)\s+be)\s+independently\s+(?:verified|reviewed)\b/i;
+// The assessment/report may direct management toward future independent verification without
+// claiming that the assessment/report itself performed or supplied that verification. Keep this
+// exception explicitly directional and management-owned; completed-assurance verbs remain blocked
+// by the absolute rules above.
+const CUSTOMER_ASSESSMENT_DIRECTION_TO_INDEPENDENT_REVIEW = /\b(?:the assessment|this assessment|the findings?|the report|this report)\b.{0,120}\b(?:points?|directs?|guides?|recommends?|signals?)\b.{0,80}\b(?:management|the organisation|the organization)\b.{0,80}\bindependent\s+(?:verification|review)\b/i;
 // Even normative wording remains prohibited when the proposed reviewer is MK or the report itself.
 const PROHIBITED_ASSURANCE_SUBJECT = /\b(?:MK|the assessment|this assessment|the findings?|the report|this report)\b.{0,120}\b(?:should|must|need(?:s)?\s+to|is required to|are required to)?\s*independently\s+(?:review|verify)\b/i;
 // Narrow, deterministic exception for the supplied management-versus-assurance role-separation
@@ -99,6 +104,7 @@ export function classifyAssuranceLanguage(text: string): AssuranceLanguageClassi
     || DIRECT_CONTROL_ACTIVITY.test(assuranceText)
     || CUSTOMER_RECOMMENDED_INDEPENDENT_REVIEW.test(assuranceText)
     || CUSTOMER_PASSIVE_CONTROL_VERIFICATION.test(assuranceText)
+    || CUSTOMER_ASSESSMENT_DIRECTION_TO_INDEPENDENT_REVIEW.test(assuranceText)
     || CUSTOMER_GOVERNANCE_ROLE_SEPARATION.test(assuranceText)) {
     return { category: 'customer_control_activity', matched: ambiguous[0] };
   }
