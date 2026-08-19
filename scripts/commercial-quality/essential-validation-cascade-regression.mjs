@@ -62,7 +62,10 @@ test('layer 2 can clear a layer-1 assurance false positive without weakening har
   assert.equal(result.candidates.length, 1);
   assert.deepEqual(
     result.candidates[0].decisions.map((decision) => decision.layer),
-    ['CANDIDATE_SCAN', 'CONTEXT_ADJUDICATION', 'EVIDENCE_COMPARISON', 'FINAL_ACCEPTANCE']
+    // Owner decision 2: the manuscript-stage cascade now carries a fifth, honest DOCUMENT_REVIEW
+    // layer too (previously only the final-HTML cascade had one), even though this particular
+    // candidate has nothing further for it to examine -- see the NOT_APPLICABLE assertion below.
+    ['CANDIDATE_SCAN', 'CONTEXT_ADJUDICATION', 'EVIDENCE_COMPARISON', 'DOCUMENT_REVIEW', 'FINAL_ACCEPTANCE']
   );
   assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
 });

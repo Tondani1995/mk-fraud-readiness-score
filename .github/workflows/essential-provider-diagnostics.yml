@@ -44,6 +44,18 @@ jobs:
       - name: Prove canonical layered validation cascade
         run: npx tsx --test scripts/commercial-quality/essential-validation-cascade-regression.mjs
 
+      - name: Prove shared assurance/context adjudication core against the consolidated corpus
+        run: npx tsx --test scripts/commercial-quality/assurance-adjudication-corpus-regression.mjs
+
+      - name: Prove cascade layer semantics (NOT_APPLICABLE, live evidence comparison, carry-forward, HELD_FOR_REVIEW)
+        run: npx tsx --test scripts/commercial-quality/essential-layer-semantics-regression.mjs
+
+      - name: Prove deterministic evidence-proof-purpose and Recommended Next Step prose against the shared corpus
+        run: npx tsx --test scripts/commercial-quality/essential-deterministic-prose-adjudication-regression.mjs
+
+      - name: Prove repair-then-immutable-final-acceptance allows no post-acceptance mutation
+        run: npx tsx --test scripts/commercial-quality/essential-final-acceptance-immutability-regression.mjs
+
       - name: Prove Essential numeric claim equivalence provider-free
         run: npx tsx --test scripts/commercial-quality/essential-numeric-claim-tests.mjs
 
