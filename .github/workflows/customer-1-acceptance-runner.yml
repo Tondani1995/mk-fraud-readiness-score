@@ -1,5 +1,6 @@
 name: Customer 1 Acceptance Runner
 
+# Disposable acceptance runner. Never merge this workflow into the product branch.
 on:
   push:
     branches:
