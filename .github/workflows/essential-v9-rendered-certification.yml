@@ -114,23 +114,3 @@ jobs:
           git pull --rebase --autostash origin commercial/mk-fraud-readiness-95-quality
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
           exit "$gate_status"
-
-  five-customer-acceptance:
-    if: github.event.head_commit.message == 'Run Essential five-customer acceptance'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CERTIFIED_SHA: 32fe97c418b81911ad39c0f6bc17407e6702f312
-      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
-      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-      STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-      VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
-    steps:
-      - name: Check out acceptance harness
-        uses: actions/checkout@v4
-        with:
-          ref: commercial/mk-fraud-readiness-95-quality
-          fetch-depth: 1
-
-      - name: Generate five distinct Essential reports exactly once each
-        run: node scripts/commercial-quality/v10-final-acceptance-generation.mjs
