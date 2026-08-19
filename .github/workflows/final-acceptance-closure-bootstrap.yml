@@ -68,18 +68,27 @@ jobs:
           node scripts/phase14-dependency-audit-gate.mjs /tmp/npm-audit-production.json
           git diff --check
 
-      - name: Commit bounded closure and remove temporary machinery
+      - name: Commit proven non-workflow closure
         shell: bash
         run: |
           set -Eeuo pipefail
-          rm -f \
-            .github/workflows/final-acceptance-closure-bootstrap.yml \
-            .github/workflows/final-acceptance-bootstrap-observer.yml \
-            .github/acceptance-bootstrap-trigger \
-            scripts/commercial-quality/apply-final-acceptance-closure.py
+          # The GitHub Actions token cannot update workflow files. Restore the permanent workflow
+          # for this push; ChatGPT will add the already-proven safety-net step through the GitHub
+          # connector in the immediate cleanup commit.
+          git checkout -- .github/workflows/essential-provider-diagnostics.yml
+          rm -f tmp/phase14-node24-chromium-smoke.pdf
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add \
+            src/app/score/admin/orders/[orderReference]/page.tsx \
+            src/app/score/api/admin/orders/[orderReference]/mark-delivered/route.ts \
+            src/lib/reports/render-pdf.ts \
+            scripts/rc1-service-role-privilege-contract.manifest.json \
+            scripts/phase6-engine-direct-tests.mjs \
+            scripts/phase14-node24-chromium-smoke.mjs \
+            scripts/commercial-quality/essential-false-positive-safety-net-tests.mjs \
+            package.json \
+            package-lock.json
           git diff --cached --check
-          git commit -m "Close final acceptance gates and false-positive safety net"
+          git commit -m "Close final acceptance product gates"
           git push origin HEAD:commercial/mk-fraud-readiness-95-quality
