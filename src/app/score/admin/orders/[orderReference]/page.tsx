@@ -137,6 +137,10 @@ export default async function AdminOrderDetailPage(
   const canGenerate = ['platform_admin', 'reviewer', 'approver'].includes(admin.role);
   const canRegenerate = ['platform_admin', 'approver'].includes(admin.role);
   const canDeliver = ['platform_admin', 'approver'].includes(admin.role);
+  // Payment state is the commercial authority. A paid order can move into `under_review`
+  // during fulfilment/recovery without losing its right to be generated, retried or manually
+  // delivered. The order-status fallback preserves legacy paid orders that predate payment automation.
+  const paymentConfirmed = payment.record.state === 'PAID' || order.status === 'payment_received';
   const eft = order.eft_instructions_snapshot ?? {};
   const assessment = order.assessments;
   const dataRequest = order.data_requests;
@@ -197,7 +201,7 @@ export default async function AdminOrderDetailPage(
               generationState={generationState}
               generationStuck={generationStuck}
               deliveryState={legacyDeliveryState}
-              eligible={order.status === 'payment_received'}
+              eligible={paymentConfirmed}
               storageReady={storageReady}
               storageCandidate={storageCandidate}
               canGenerate={canGenerate}
@@ -268,7 +272,7 @@ export default async function AdminOrderDetailPage(
           recipientEmail={order.customer_email ?? assessment?.respondents?.email ?? null}
           productCode={order.products?.product_code ?? null}
           storageReady={storageReady}
-          paymentConfirmed={order.status === 'payment_received'}
+          paymentConfirmed={paymentConfirmed}
           deliveredAt={manualDelivery?.completed_at ?? null}
           deliveredBy={manualDeliveryActor?.full_name ?? manualDeliveryActor?.email ?? null}
         />
