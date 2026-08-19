@@ -1,6 +1,7 @@
 name: Customer 1 Acceptance Runner
 
 # Disposable acceptance runner. Never merge this workflow into the product branch.
+# Stable request key prevents any duplicate provider generation during observability retries.
 on:
   push:
     branches:
