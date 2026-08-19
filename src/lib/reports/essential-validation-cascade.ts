@@ -125,6 +125,13 @@ function sentences(text: string): string[] {
  * evidence subject capable of making an assurance proposition.
  */
 const ASSURANCE_CANDIDATE = /\b(?:independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|independent assurance|operating effectiveness|(?:MK|the assessment|this assessment|the report|this report|the findings?|the evidence|evidence)\b[^.!?]{0,100}\bconfirmed)\b/i;
+/**
+ * Evidence tables and recommended-next-step prose deliberately use epistemic criteria such as
+ * "Whether X was independently verified" and "Confirm whether X was independently verified".
+ * Those clauses describe what evidence must establish; they do not assert that verification was
+ * completed. They therefore enter the high-recall scan but must be cleared by contextual review.
+ */
+const EVIDENCE_ASSURANCE_CRITERION = /\b(?:confirm\s+|determine\s+|establish\s+|verify\s+)?whether\b[^.!?]{0,260}\b(?:independent assurance|independent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?)|operating effectiveness)\b/i;
 const COMPLETED_ASSURANCE = /\b(?:MK|the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,160}\b(?:independently\s+(?:verified|reviewed)|provides?\s+(?:independent\s+)?assurance|confirmed)\b/i;
 const COMPLETED_EFFECTIVENESS = /\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
 const EXPLICIT_LIMITATION = /\b(?:does not|do not|did not|has not|have not|not|without)\b[^.!?]{0,80}\b(?:independent(?:ly)?\s+(?:verification|verify|verified|review|reviewed)|operating effectiveness)\b/i;
@@ -146,6 +153,9 @@ export function adjudicateAssuranceSentence(sentence: string): {
 } {
   const value = sentence.trim();
   if (!ASSURANCE_CANDIDATE.test(value)) return { disposition: 'ALLOW_CONTEXT', reasonCode: 'no_assurance_candidate' };
+  if (EVIDENCE_ASSURANCE_CRITERION.test(value)) {
+    return { disposition: 'ALLOW_CONTEXT', reasonCode: 'evidence_assurance_criterion_not_completed_assurance' };
+  }
   if (COMPLETED_ASSURANCE.test(value) || COMPLETED_EFFECTIVENESS.test(value)) {
     return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'completed_assurance_not_supported' };
   }
