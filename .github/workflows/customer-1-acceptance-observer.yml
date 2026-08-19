@@ -1,0 +1,55 @@
+name: Customer 1 Acceptance Observer
+
+on:
+  pull_request:
+    branches:
+      - fix/essential-validation-cascade-unification
+
+actions: {}
+
+permissions:
+  contents: read
+
+jobs:
+  generate-one-report:
+    if: github.event.pull_request.number == 54 && github.event.pull_request.head.ref == 'acceptance/customer-1-runner'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      PREVIEW_URL: https://mk-fraud-platform-3tau2y3oa-tondanis-projects.vercel.app
+      ORDER_REFERENCE: MKORD-2026-FAA9331C
+      REQUEST_KEY: acceptance-c1-23fb3ea-vhutshilo
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Refuse to call provider without protected-preview bypass
+        shell: bash
+        run: |
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo '::error::VERCEL_AUTOMATION_BYPASS_SECRET is not configured. No request was sent.'
+            exit 1
+          fi
+
+      - name: Generate exactly one Essential report through the certified Preview route
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          status="$({ curl -sS \
+            --max-time 290 \
+            -o "$response_file" \
+            -w '%{http_code}' \
+            -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -H 'x-vercel-set-bypass-cookie: true' \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            --data "{\"action\":\"admin_generate\",\"requestKey\":\"$REQUEST_KEY\"}" \
+            "$PREVIEW_URL/score/api/admin/orders/$ORDER_REFERENCE/generate-report"; } 2>/tmp/curl-error || true)"
+          if [ -s /tmp/curl-error ]; then cat /tmp/curl-error >&2; fi
+          echo "HTTP status: $status"
+          cat "$response_file"
+          echo
+          [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed.'; exit 1; }
+          jq -e '.ok == true and (.reportReference | type == "string" and length > 0)' "$response_file" >/dev/null || { echo '::error::Route returned non-success payload.'; exit 1; }
+          echo "Customer 1 report reference: $(jq -r '.reportReference' "$response_file")"
+          echo 'No delivery/email action is performed.'
