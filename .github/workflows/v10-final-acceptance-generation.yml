@@ -1,0 +1,150 @@
+name: V10 Final Acceptance Generation
+
+on:
+  push:
+    branches:
+      - commercial/mk-fraud-readiness-95-quality
+
+permissions:
+  contents: read
+
+jobs:
+  final-acceptance-generation:
+    if: github.event.head_commit.message == 'Run V10 final acceptance generation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CERTIFIED_SHA: 32fe97c418b81911ad39c0f6bc17407e6702f312
+      PREVIEW_URL: https://mk-fraud-platform-no2bt1i6n-tondanis-projects.vercel.app
+      ORDER_REFERENCE: MKORD-2026-7046035F
+      ORDER_ID: 32fb9b0c-298e-4514-b9aa-0529d541d5ae
+      EXPECTED_V9: RPT-MKFRS-2026-3AEAFD09F9-V9
+      EXPECTED_V10: RPT-MKFRS-2026-3AEAFD09F9-V10
+      REQUEST_KEY: v10-final-acceptance-32fe97c418b81911
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      VERCEL_PROTECTION_BYPASS: ${{ secrets.STAGING_VERCEL_PROTECTION_BYPASS }}
+    steps:
+      - name: Preflight, generate exactly once, and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const required = [
+            'STAGING_SUPABASE_URL',
+            'STAGING_SUPABASE_SERVICE_ROLE_KEY',
+            'VERCEL_PROTECTION_BYPASS'
+          ];
+          for (const key of required) {
+            if (!process.env[key]) throw new Error(`Missing required secret: ${key}`);
+          }
+
+          const preview = process.env.PREVIEW_URL;
+          const orderReference = process.env.ORDER_REFERENCE;
+          const orderId = process.env.ORDER_ID;
+          const expectedV9 = process.env.EXPECTED_V9;
+          const expectedV10 = process.env.EXPECTED_V10;
+          const requestKey = process.env.REQUEST_KEY;
+          const supabaseUrl = process.env.STAGING_SUPABASE_URL.replace(/\/$/, '');
+          const serviceKey = process.env.STAGING_SUPABASE_SERVICE_ROLE_KEY;
+          const bypass = process.env.VERCEL_PROTECTION_BYPASS;
+
+          const fail = (message) => { throw new Error(message); };
+          const assert = (condition, message) => { if (!condition) fail(message); };
+
+          async function sb(path) {
+            const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+              headers: {
+                apikey: serviceKey,
+                Authorization: `Bearer ${serviceKey}`,
+                Accept: 'application/json'
+              }
+            });
+            const text = await response.text();
+            if (!response.ok) fail(`Staging read failed (${response.status}): ${text.slice(0, 300)}`);
+            return text ? JSON.parse(text) : [];
+          }
+
+          const reportPath = `reports?order_id=eq.${encodeURIComponent(orderId)}&select=id,report_reference,version_number,status,storage_status&order=version_number.desc`;
+          const deliveryPath = `manual_report_delivery_attempts?order_id=eq.${encodeURIComponent(orderId)}&select=id,status`;
+          const generationPath = `manual_report_generation_attempts?order_id=eq.${encodeURIComponent(orderId)}&select=id,status,report_version,output_report_id,request_key,created_at&order=created_at.desc`;
+
+          const beforeReports = await sb(reportPath);
+          const beforeDeliveries = await sb(deliveryPath);
+          const beforeGenerations = await sb(generationPath);
+
+          assert(beforeReports.length > 0, 'Preflight: no reports found for Mahlori order.');
+          assert(beforeReports[0].report_reference === expectedV9, `Preflight: expected current V9, got ${beforeReports[0].report_reference}.`);
+          assert(Number(beforeReports[0].version_number) === 9, 'Preflight: current report version is not 9.');
+          assert(beforeReports[0].status === 'generated', `Preflight: V9 status is ${beforeReports[0].status}, not generated.`);
+          assert(beforeReports[0].storage_status === 'VERIFIED', `Preflight: V9 storage is ${beforeReports[0].storage_status}, not VERIFIED.`);
+          assert(!beforeReports.some((r) => Number(r.version_number) >= 10), 'Preflight: V10 or later already exists; refusing provider generation.');
+          assert(beforeDeliveries.length === 0, `Preflight: expected zero delivery attempts, found ${beforeDeliveries.length}.`);
+          assert(!beforeGenerations.some((a) => a.request_key === requestKey), 'Preflight: fixed V10 request key already exists; refusing replay.');
+
+          const adminPage = await fetch(`${preview}/score/admin/orders/${encodeURIComponent(orderReference)}`, {
+            method: 'GET',
+            redirect: 'manual',
+            headers: {
+              'x-vercel-protection-bypass': bypass,
+              Accept: 'text/html'
+            }
+          });
+          const adminHtml = await adminPage.text();
+          assert(adminPage.status === 200, `Preview admin preflight failed with HTTP ${adminPage.status}.`);
+          assert(adminHtml.includes(orderReference) || adminHtml.includes('Mahlori Advisory'), 'Preview admin preflight did not resolve the Mahlori staging order.');
+
+          console.log('V10 acceptance preflight PASS: exact certified Preview resolves Mahlori V9 with zero delivery attempts.');
+          console.log('Issuing exactly one admin_regenerate request; no retry is configured.');
+
+          const generationResponse = await fetch(`${preview}/score/api/admin/orders/${encodeURIComponent(orderReference)}/generate-report`, {
+            method: 'POST',
+            redirect: 'manual',
+            headers: {
+              'x-vercel-protection-bypass': bypass,
+              'x-idempotency-key': requestKey,
+              'content-type': 'application/json',
+              Accept: 'application/json'
+            },
+            body: JSON.stringify({ action: 'admin_regenerate', requestKey })
+          });
+          const generationText = await generationResponse.text();
+          console.log(`Generation HTTP status: ${generationResponse.status}`);
+          let generationBody = null;
+          try { generationBody = JSON.parse(generationText); } catch {}
+          if (!generationResponse.ok) fail(`Single V10 generation request failed (${generationResponse.status}): ${generationText.slice(0, 500)}`);
+          assert(generationBody?.ok === true, `Generation response was not ok: ${generationText.slice(0, 500)}`);
+
+          const afterReports = await sb(reportPath);
+          const afterDeliveries = await sb(deliveryPath);
+          const afterGenerations = await sb(generationPath);
+          const v10s = afterReports.filter((r) => Number(r.version_number) === 10);
+          const later = afterReports.filter((r) => Number(r.version_number) > 10);
+
+          assert(v10s.length === 1, `Postflight: expected exactly one V10, found ${v10s.length}.`);
+          assert(v10s[0].report_reference === expectedV10, `Postflight: unexpected V10 reference ${v10s[0].report_reference}.`);
+          assert(v10s[0].status === 'generated', `Postflight: V10 status is ${v10s[0].status}, not generated.`);
+          assert(v10s[0].storage_status === 'VERIFIED', `Postflight: V10 storage is ${v10s[0].storage_status}, not VERIFIED.`);
+          assert(later.length === 0, `Postflight: found ${later.length} report(s) later than V10.`);
+          assert(afterDeliveries.length === beforeDeliveries.length, `Postflight: delivery attempts changed from ${beforeDeliveries.length} to ${afterDeliveries.length}.`);
+          assert(afterGenerations.length === beforeGenerations.length + 1, `Postflight: generation attempts changed by ${afterGenerations.length - beforeGenerations.length}, expected exactly +1.`);
+          assert(afterGenerations.some((a) => a.request_key === requestKey && a.status === 'SUCCEEDED' && Number(a.report_version) === 10), 'Postflight: no successful V10 generation attempt found for the fixed request key.');
+
+          const summary = [
+            '## V10 Final Acceptance Generation — PASS',
+            '',
+            `- Certified product SHA: \`${process.env.CERTIFIED_SHA}\``,
+            `- Preview: \`${preview}\``,
+            `- Order: \`${orderReference}\``,
+            `- Generated report: \`${v10s[0].report_reference}\``,
+            `- Status: \`${v10s[0].status}\``,
+            `- Storage: \`${v10s[0].storage_status}\``,
+            `- Reports later than V10: \`${later.length}\``,
+            `- Delivery attempts before/after: \`${beforeDeliveries.length}/${afterDeliveries.length}\``,
+            `- Generation attempts delta: \`${afterGenerations.length - beforeGenerations.length}\``,
+            '- Provider-generation POSTs issued by this job: `1` (no retry)'
+          ].join('\n');
+          console.log(summary);
+          const fs = require('node:fs');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+          NODE
