@@ -3,7 +3,7 @@ name: Customer 1 Acceptance Runner
 # Disposable acceptance runner. Never merge this workflow into the product branch.
 # Stable request key prevents any duplicate provider generation during observability retries.
 # PR #54 is the only observable execution path; this push runner remains fail-safe/idempotent.
-# Synchronize-only marker for the encrypted Preview handoff observer.
+# Synchronize-only marker for the Vercel trusted-OIDC observer.
 on:
   push:
     branches:
