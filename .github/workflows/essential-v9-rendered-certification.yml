@@ -55,7 +55,7 @@ jobs:
               ),
               (
                   "      const match = /Recommended next step\\s+(.+?)\\s+This is the immediate validation priority/.exec(normalised);",
-                  "      const match = /Recommended next step\\s+(.+?)\\s+This is the immediate proof priority/.exec(normalised);",
+                  "      const match = /Recommended next step\\.\\s+(.+?)\\s+This is the immediate proof priority/.exec(normalised);",
               ),
           ]
           for old, new in replacements:
