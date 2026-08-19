@@ -7,40 +7,100 @@ on:
 
 permissions:
   contents: read
-  id-token: write
+  issues: read
+  statuses: write
 
 jobs:
   generate-one-report:
     if: github.event.pull_request.number == 54 && github.event.pull_request.head.ref == 'acceptance/customer-1-runner'
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 10
     env:
       PREVIEW_URL: https://mk-fraud-platform-3tau2y3oa-tondanis-projects.vercel.app
       ORDER_REFERENCE: MKORD-2026-FAA9331C
       REQUEST_KEY: acceptance-c1-23fb3ea-vhutshilo
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Obtain GitHub Actions OIDC token for Vercel trusted-source access
-        id: oidc
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const token = await core.getIDToken();
-            core.setSecret(token);
-            core.setOutput('token', token);
+      - name: Publish ephemeral public key and keep private key on runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/c1-private.pem 2>/dev/null
+          openssl pkey -in /tmp/c1-private.pem -pubout -out /tmp/c1-public.pem
+          chmod 600 /tmp/c1-private.pem
+          public_key_b64="$(base64 -w0 /tmp/c1-public.pem | tr '+/' '-_' | tr -d '=')"
+          target_url="https://github.com/Tondani1995/mk-fraud-readiness-score/pull/54?c1run=$GITHUB_RUN_ID&c1k=$public_key_b64"
+          payload="$(jq -n --arg state pending --arg context 'c1-key' --arg description 'Ephemeral encrypted handoff key ready' --arg target_url "$target_url" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          curl -fsS -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/statuses/$HEAD_SHA" \
+            -d "$payload" >/dev/null
+          echo 'Ephemeral public key published as c1-key commit status. Private key remains only on this runner.'
+
+      - name: Receive encrypted one-time Preview share token
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="C1_ENC_TOKEN:$GITHUB_RUN_ID:"
+          cipher=''
+          for attempt in $(seq 1 60); do
+            comments="$(curl -fsS \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              'https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/issues/54/comments')"
+            body="$(printf '%s' "$comments" | jq -r --arg p "$prefix" '[.[] | select(.body | startswith($p))][-1].body // empty')"
+            if [ -n "$body" ]; then
+              cipher="${body#"$prefix"}"
+              cipher="$(printf '%s' "$cipher" | tr -d '\r\n[:space:]')"
+              break
+            fi
+            sleep 3
+          done
+          if [ -z "$cipher" ]; then
+            echo '::error::Encrypted Preview token was not received before timeout. No request was sent.'
+            exit 1
+          fi
+          printf '%s' "$cipher" | base64 -d > /tmp/c1-token.enc
+          openssl pkeyutl -decrypt -inkey /tmp/c1-private.pem -in /tmp/c1-token.enc -out /tmp/c1-token.txt
+          chmod 600 /tmp/c1-token.txt
+          token_len="$(wc -c < /tmp/c1-token.txt | tr -d ' ')"
+          if [ "$token_len" -lt 16 ] || [ "$token_len" -gt 256 ]; then
+            echo '::error::Decrypted Preview token failed sanity validation. No request was sent.'
+            exit 1
+          fi
+          echo 'Encrypted Preview token received and decrypted in runner memory.'
+
+      - name: Establish protected Preview session
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/c1-token.txt)"
+          status="$(curl -sS -L \
+            --max-time 45 \
+            -c /tmp/vercel-cookies \
+            -b /tmp/vercel-cookies \
+            -o /tmp/preview-handshake-body \
+            -w '%{http_code}' \
+            "$PREVIEW_URL/?_vercel_share=$token")"
+          rm -f /tmp/c1-token.txt /tmp/c1-token.enc /tmp/c1-private.pem /tmp/c1-public.pem
+          echo "Preview handshake HTTP status: $status"
+          [[ "$status" =~ ^2 ]] || { echo '::error::Protected Preview session could not be established. No generation request was sent.'; exit 1; }
 
       - name: Generate exactly one Essential report through the certified Preview route
         shell: bash
-        env:
-          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
           status="$({ curl -sS \
             --max-time 290 \
+            -b /tmp/vercel-cookies \
             -o "$response_file" \
             -w '%{http_code}' \
             -X POST \
-            -H "x-vercel-trusted-oidc-idp-token: $VERCEL_TRUSTED_OIDC_TOKEN" \
             -H 'Accept: application/json' \
             -H 'Content-Type: application/json' \
             --data "{\"action\":\"admin_generate\",\"requestKey\":\"$REQUEST_KEY\"}" \
@@ -49,7 +109,19 @@ jobs:
           echo "Generation HTTP status: $status"
           cat "$response_file"
           echo
-          [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed before successful completion.'; exit 1; }
+          [[ "$status" =~ ^2 ]] || { echo '::error::Front-end generation request failed.'; exit 1; }
           jq -e '.ok == true and (.reportReference | type == "string" and length > 0)' "$response_file" >/dev/null || { echo '::error::Route returned non-success payload.'; exit 1; }
           echo "Customer 1 report reference: $(jq -r '.reportReference' "$response_file")"
           echo 'No delivery/email action is performed.'
+
+      - name: Mark encrypted handoff complete
+        if: success()
+        shell: bash
+        run: |
+          payload="$(jq -n --arg state success --arg context 'c1-key' --arg description 'Customer 1 Preview route completed' '{state:$state,context:$context,description:$description}')"
+          curl -fsS -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/Tondani1995/mk-fraud-readiness-score/statuses/$HEAD_SHA" \
+            -d "$payload" >/dev/null
