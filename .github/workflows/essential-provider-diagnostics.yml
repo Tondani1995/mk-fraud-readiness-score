@@ -1,7 +1,8 @@
 name: Report Provider-Free Regressions
 
 # Permanent read-only report acceptance gate. Provider-backed acceptance is separately
-# fenced behind the provider-free job and only runs when the dedicated acceptance marker changes.
+# fenced behind the provider-free job and only runs when the dedicated acceptance marker
+# is changed in the exact checked-out commit.
 on:
   push:
     branches:
@@ -72,7 +73,7 @@ jobs:
   five-customer-acceptance:
     name: Essential 5x Provider Acceptance
     needs: report-regressions
-    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'scripts/commercial-quality/.essential-five-customer-trigger')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -84,6 +85,23 @@ jobs:
     steps:
       - name: Check out acceptance harness
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify explicit owner acceptance marker changed in this commit
+        id: acceptance-trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='scripts/commercial-quality/.essential-five-customer-trigger'
+          if git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -Fxq "$marker"; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            echo "Explicit acceptance marker changed in $GITHUB_SHA. Provider-backed gate is authorised."
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo 'No acceptance marker change in this commit; provider-backed gate remains fenced off.'
+          fi
 
       - name: Generate five distinct Essential reports exactly once each
+        if: steps.acceptance-trigger.outputs.run == 'true'
         run: node scripts/commercial-quality/v10-final-acceptance-generation.mjs
