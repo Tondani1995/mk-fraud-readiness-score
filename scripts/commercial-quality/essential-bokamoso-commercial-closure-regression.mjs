@@ -28,10 +28,11 @@ test('priority weakness card cannot describe itself as a maturity constraint', (
 });
 
 test('proof requirement fallback is converted to clean advisory prose', () => {
-  const input = '<td>Whether the last two fraud-risk governance packs provides operating evidence that A named senior owner is implemented across the complete in-scope population.</td>';
+  const input = '<table><tr><td>1</td><td>Last two governance packs</td><td>Whether the last two governance packs provides operating evidence that A named senior owner is implemented across the complete in-scope population.</td><td>Governance</td><td>Not yet requested</td></tr></table>';
   const output = close(input);
   assert.doesNotMatch(output, /provides operating evidence that/);
-  assert.match(output, /linked control requirements operate consistently across the complete in-scope population/);
+  assert.doesNotMatch(output, /A named senior owner is implemented/);
+  assert.match(output, /Whether the last two governance packs demonstrates that the linked control was operated and evidenced across the complete in-scope population for the stated period\./);
 });
 
 test('unsupported transaction-volume absolutes cannot reach the PDF', () => {
