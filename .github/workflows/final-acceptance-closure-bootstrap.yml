@@ -43,6 +43,11 @@ jobs:
           sed -i 's#src/lib/reports/phase1-manual-fulfilment.ts:605#src/lib/reports/phase1-manual-fulfilment.ts:665#' scripts/rc1-service-role-privilege-contract.manifest.json
           sed -i 's#src/lib/reports/phase1-manual-fulfilment.ts:755#src/lib/reports/phase1-manual-fulfilment.ts:815#' scripts/rc1-service-role-privilege-contract.manifest.json
 
+          # Puppeteer 25 made defaultArgs async. Await the exact same default-argument construction;
+          # otherwise launch receives Promise<string[]> as args and fails before Chromium starts.
+          sed -i 's/? puppeteer.defaultArgs(/? await puppeteer.defaultArgs(/' src/lib/reports/render-pdf.ts
+          sed -i 's/: puppeteer.defaultArgs(/: await puppeteer.defaultArgs(/' src/lib/reports/render-pdf.ts
+
           post_hash="$(node scripts/rc1-service-role-privilege-contract-analysis.mjs --print-hash)"
           POST_HASH="$post_hash" python3 -c "import os; from pathlib import Path; p=Path('scripts/rc1-service-role-privilege-contract.manifest.json'); t=p.read_text(); old='d713344b40ed332f5e5f0b98f7904a1d5f0c3268c51d96d25b0206fb36a082d6'; assert t.count(old)==1; p.write_text(t.replace(old, os.environ['POST_HASH'], 1)); print('accepted reviewed AST inventory', os.environ['POST_HASH'])"
           npm install puppeteer-core@25.5.0 --save-exact --package-lock-only --ignore-scripts
