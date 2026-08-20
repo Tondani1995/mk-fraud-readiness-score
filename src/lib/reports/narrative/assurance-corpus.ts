@@ -91,6 +91,8 @@ export const ASSURANCE_MUST_ALLOW: AssuranceCorpusEntry[] = [
   { id: 'allow-limitation-05', text: 'This assessment has not independently verified operating effectiveness.', source: 'consolidation-gap-both' },
   { id: 'allow-limitation-06', text: 'This report has not independently verified control effectiveness.', source: 'consolidation-gap-both' },
   { id: 'allow-limitation-07', text: 'The assessment does not independently verify operating effectiveness, evidence or every in-scope control.', source: 'whole-manuscript-recovery-tests (blueprint assuranceBoundary)' },
+  { id: 'allow-limitation-08', text: 'Neither measure is independent assurance.', source: 'vhutshilo-customer-1-final-template-incident-2026-08-20', expectCandidate: true },
+  { id: 'allow-limitation-09', text: 'This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.', source: 'vhutshilo-customer-1-final-template-incident-2026-08-20', expectCandidate: true },
   { id: 'allow-evidence-criterion-01', text: 'Whether supplier legal identity and bank-account ownership were independently verified before activation or payment.', source: 'bokamoso-incident + essential-validation-cascade-regression' },
   { id: 'allow-evidence-criterion-02', text: 'Confirm whether supplier legal identity and bank-account ownership were independently verified before activation or payment.', source: 'bokamoso-incident + essential-validation-cascade-regression' },
   { id: 'allow-evidence-criterion-03', text: 'Whether supplier identity was independently verified before onboarding remains to be confirmed.', source: 'owner-request' },
