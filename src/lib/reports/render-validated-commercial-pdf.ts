@@ -5,6 +5,7 @@ import { addPdfBookmarks, extractHeadingPageMap, type BookmarkNode } from './pdf
 import type { AdvisoryEvidenceModel } from './evidence-model';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 import { closeEssentialCommercialOutputDefects } from './essential-commercial-output-closure';
+import { closeResidualEssentialGroundingDefects } from './essential-grounding-closure';
 import { assertEssentialFinalHtml } from './essential-validation-cascade';
 
 /**
@@ -45,7 +46,8 @@ type CommercialPdfInput = {
 };
 
 function prepareAcceptedCustomerHtml(input: CommercialPdfInput, rawHtml: string): string {
-  const finalHtml = closeEssentialCommercialOutputDefects(rawHtml);
+  const commerciallyClosedHtml = closeEssentialCommercialOutputDefects(rawHtml);
+  const finalHtml = closeResidualEssentialGroundingDefects(commerciallyClosedHtml);
   assertEssentialFinalHtml({ html: finalHtml, data: input.data, carryForwardAssuranceSpanHashes: input.carryForwardAssuranceSpanHashes });
   return finalHtml;
 }
