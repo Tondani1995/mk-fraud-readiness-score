@@ -94,6 +94,24 @@ assert.match(closedRisk, /there is a risk that suspicious patterns and structure
 const standaloneRisk = closeEssentialCommercialOutputDefects('<p>Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</p>');
 assert.match(standaloneRisk, /Where data-driven detection is not defined and operated reliably/i);
 
+// Vhutshilo V3 acceptance regression: weak self-assessment responses must not be converted into
+// categorical statements about a route that is "never" mapped or a fabricated incident narrative.
+// These two strings appeared in both the visible risk title and risk statement, so the closure must
+// ground every occurrence before final validation.
+const v3UngroundedRisks = `
+<h3>Organisation-level risk statements hide process-level opportunity, so a specific diversion route such as stock write-off manipulation is never mapped to a control owner.</h3>
+<p>Because mapping is weak, there is a risk that organisation-level risk statements hide process-level opportunity, so a specific diversion route such as stock write-off manipulation is never mapped to a control owner.</p>
+<h3>Treating each incident as an isolated act of one dishonest person leaves the systemic weakness that enabled it fully available to the next person.</h3>
+<p>Because root-cause analysis is weak, there is a risk that treating each incident as an isolated act of one dishonest person leaves the systemic weakness that enabled it fully available to the next person.</p>
+<p>The 8 conditions selected for executive attention from 23 recorded findings.</p>`;
+const v3Grounded = closeEssentialCommercialOutputDefects(v3UngroundedRisks);
+assert.doesNotMatch(v3Grounded, /is never mapped to a control owner/i);
+assert.doesNotMatch(v3Grounded, /one dishonest person/i);
+assert.doesNotMatch(v3Grounded, /fully available to the next person/i);
+assert.match(v3Grounded, /process-level fraud opportunities may remain unmapped to named control owners/i);
+assert.match(v3Grounded, /material incidents or control failures may be closed without identifying and treating the underlying systemic weakness, allowing repeat exposure to persist/i);
+assert.match(v3Grounded, /8 conditions were selected for executive attention from 23 recorded findings\./i);
+
 // Vhutshilo V2 acceptance regression: distinct 30-day leadership decisions must not all carry the
 // same generic completion test. Closed-set presentation rewrites preserve the underlying decisions.
 const decisionRows = `
@@ -129,11 +147,13 @@ console.log(JSON.stringify({
   ai: 'ZERO',
   v9SecondOpinionClosure: 'PASS',
   vhutshiloV2ContentClosure: 'PASS',
+  vhutshiloV3RiskGrounding: 'PASS',
   weakControlClassification: 'PASS',
   evidenceProofSpecificity: 'PASS',
   genericProofGrammar: 'PASS',
   riskGrammar: 'PASS',
   leadershipCompletionTests: 'PASS',
+  executivePriorityLeadGrammar: 'PASS',
   scoreBasis: 'PASS',
   pagination: 'PASS',
   registerContract: 'PASS',
