@@ -121,6 +121,21 @@ test('final exact HTML carries the full candidate-to-acceptance ledger', () => {
   assert.match(result.finalHtmlSha256, /^[a-f0-9]{64}$/);
 });
 
+test('final deterministic template limitations are cleared without weakening positive assurance blocking', () => {
+  const limitations = final(`<html><body>
+    <p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p>
+    <p>This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
+  </body></html>`);
+  assert.equal(limitations.publishable, true);
+  assert.equal(limitations.heldForReviewCodes.length, 0);
+  assert.ok(limitations.candidates.length >= 2);
+  assert.ok(limitations.candidates.every((item) => item.finalDisposition === 'ACCEPT'));
+
+  const positive = final('<html><body><p>This report provides independent assurance that the controls are effective.</p></body></html>');
+  assert.equal(positive.publishable, false);
+  assert.ok(positive.blockingCodes.includes('assurance_language_final'));
+});
+
 test('final evidence proof criteria do not masquerade as completed assurance', () => {
   const proof = essentialEvidenceProofPurpose('Independent registration and bank verification');
   const html = `<html><body><table><tr><td>1</td><td>Independent registration and bank verification</td><td>${proof}</td></tr></table><p>Confirm ${proof.replace(/^Whether /, 'whether ').replace(/[.]$/, '')}.</p></body></html>`;
