@@ -77,7 +77,10 @@ for (const [artefact, expected] of proofCases) {
   assert.doesNotMatch(purpose, /linked control was operated and evidenced/i);
   assert.doesNotMatch(purpose, /\b(?:logs|tickets) demonstrates\b/i);
 }
-assert.match(registers, /contains sufficient, attributable evidence to test/);
+const genericProof = essentialEvidenceProofPurpose('Last two governance packs');
+assert.match(genericProof, /Whether sufficient, attributable evidence is present in the last two governance packs to test the linked control/i);
+assert.doesNotMatch(genericProof, /packs (?:demonstrates|contains)\b/i);
+assert.match(registers, /sufficient, attributable evidence is present in/);
 assert.doesNotMatch(registers, /provides operating evidence that \$\{shown\.join/);
 
 // Vhutshilo V2 acceptance regression: the old standalone risk rewrite was applied inside an
@@ -128,6 +131,7 @@ console.log(JSON.stringify({
   vhutshiloV2ContentClosure: 'PASS',
   weakControlClassification: 'PASS',
   evidenceProofSpecificity: 'PASS',
+  genericProofGrammar: 'PASS',
   riskGrammar: 'PASS',
   leadershipCompletionTests: 'PASS',
   scoreBasis: 'PASS',
