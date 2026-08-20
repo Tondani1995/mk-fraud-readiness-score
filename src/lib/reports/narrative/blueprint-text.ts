@@ -375,12 +375,16 @@ export function parseBlueprintMarkdown(markdown: string, blueprint: ReportBluepr
   return { ok: errors.length === 0, markdown: source, chapters, errors };
 }
 
-function allBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block: BlueprintTextBlock }> {
+/** Every provider-authored customer-facing narrative block, independent of lexical findings. */
+export function providerAuthoredNarrativeBlocks(parsed: ParsedBlueprintMarkdown): Array<{ path: string; block: BlueprintTextBlock }> {
   return parsed.chapters.flatMap((chapter) => chapter.sections.flatMap((section) => [
     ...section.paragraphs.map((block, index) => ({ path: `${section.sectionId}.paragraphs[${index}]`, block })),
     ...section.subsections.flatMap((subsection) => subsection.paragraphs.map((block, index) => ({ path: `${subsection.subsectionId}.paragraphs[${index}]`, block })))
   ]));
 }
+
+// Internal compatibility alias for the deterministic validator's existing call sites.
+const allBlocks = providerAuthoredNarrativeBlocks;
 
 /**
  * Exported so essential-validation-cascade.ts's Layer 3 (EVIDENCE_COMPARISON) can genuinely

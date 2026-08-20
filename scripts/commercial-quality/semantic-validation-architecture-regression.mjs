@@ -13,7 +13,7 @@ import { buildComprehensiveDeliveryModel } from '../../src/lib/reports/comprehen
 import { comprehensiveFixtures } from '../../src/lib/reports/comprehensive/fixtures.ts';
 import { buildComprehensiveNarrativeFactPack } from '../../src/lib/reports/narrative/fact-pack.ts';
 import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from '../../src/lib/reports/narrative/story-plan.ts';
-import { buildBlueprintMarkdownSkeleton } from '../../src/lib/reports/narrative/blueprint-text.ts';
+import { buildBlueprintMarkdownSkeleton, parseBlueprintMarkdown, validateBlueprintTextManuscript } from '../../src/lib/reports/narrative/blueprint-text.ts';
 import { buildReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
 import { emptyNarrativeRecoveryBudget } from '../../src/lib/reports/narrative/recovery-policy.ts';
 import { replaceTargetBlock } from '../../src/lib/reports/narrative/whole-manuscript-recovery.ts';
@@ -271,6 +271,48 @@ test('final HTML carries forward unchanged semantic acceptance and holds new can
   assert.equal(allowedResult.cascade.acceptedSemanticDecisions[0]?.spanHash, essentialSemanticSpanHash('fraud is found only by accident'));
 });
 
+test('final HTML binds reviewed provider blocks by exact Blueprint path and content', () => {
+  const paragraph = 'Oversight is coordinated through a regional hub.';
+  const path = 'SEC.paragraphs[0]';
+  const result = adjudicateTextFirstValidation({
+    parsed: minimalParsed(paragraph),
+    report: {
+      ok: true,
+      hardTruth: { status: 'PASS', issues: [] },
+      semanticCandidates: { status: 'PASS', issues: [] },
+      repairableSemantic: { status: 'PASS', issues: [] },
+      quality: { status: 'PASS', issues: [] },
+      sectionCount: 1,
+      subsectionCount: 0,
+      paragraphCount: 1
+    },
+    factPack: emptyFacts,
+    semanticGroundingBlocks: [{ path, span: paragraph }],
+    semanticDecisions: [{
+      candidateId: essentialCandidateId('semantic_grounding_block', path, paragraph),
+      disposition: 'ALLOW',
+      reasonCode: 'fixture_allow',
+      reason: 'Provider-free exact-block allow.'
+    }],
+    requireSemanticReviewer: true
+  });
+  assert.equal(result.publishable, true);
+  const carry = result.acceptedSemanticDecisions;
+  const valid = validateEssentialFinalHtml({
+    html: `<html><body><p data-narrative-block="${path}">${paragraph}</p></body></html>`,
+    data: {},
+    carryForwardSemanticDecisions: carry
+  });
+  assert.equal(valid.publishable, true);
+  const changed = validateEssentialFinalHtml({
+    html: `<html><body><p data-narrative-block="${path}">Oversight is coordinated through a local team.</p></body></html>`,
+    data: {},
+    carryForwardSemanticDecisions: carry
+  });
+  assert.equal(changed.publishable, false);
+  assert.ok(changed.blockingCodes.includes('semantic_grounding_block_content_changed'));
+});
+
 test('semantic envelope rejects omissions and multiple repairs', () => {
   const entries = CORPUS.slice(2, 4);
   const inputs = entries.map(reviewerInput);
@@ -329,18 +371,26 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
   const semanticReviewer = {
     async review(input) {
       reviewerCalls += 1;
-      assert.equal(input.candidates.length, 1);
-      const candidate = input.candidates[0];
-      assert.equal(candidate.ruleCode, 'unsupported_workforce_claim');
+      assert.ok(input.candidates.length > 1, 'the coordinator must send every narrative block, not only the lexical hit');
+      const candidate = input.candidates.find((item) => /one or two people/i.test(item.paragraph));
+      assert.ok(candidate);
+      assert.equal(candidate.ruleCode, 'semantic_grounding_block');
       assert.ok(candidate.permittedClaimRefs.length > 0);
       return {
-        decisions: [{
-          candidateId: candidate.candidateId,
-          disposition: 'REPAIR',
-          reasonCode: 'unsupported_concentration_reframed',
-          reason: 'The management implication is useful, but the workforce fact is not established.',
-          replacementProse: 'Management should document and cross-train control responsibilities across the relevant process.'
-        }],
+        decisions: input.candidates.map((item) => item.candidateId === candidate.candidateId
+          ? {
+            candidateId: item.candidateId,
+            disposition: 'REPAIR',
+            reasonCode: 'unsupported_concentration_reframed',
+            reason: 'The management implication is useful, but the workforce fact is not established.',
+            replacementProse: 'Management should document and cross-train control responsibilities across the relevant process.'
+          }
+          : {
+            candidateId: item.candidateId,
+            disposition: 'ALLOW',
+            reasonCode: 'provider_free_block_allow',
+            reason: 'No unsupported customer-specific proposition remains after block review.'
+          }),
         accounting: { providerCalls: 0, repairCount: 1 }
       };
     }
@@ -349,8 +399,128 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
   assert.equal(reviewerCalls, 1);
   assert.doesNotMatch(composed.manuscript.markdown, /one or two people/i);
   assert.match(composed.manuscript.markdown, /document and cross-train control responsibilities/i);
-  assert.equal(composed.acceptedSemanticDecisions.length, 0);
+  assert.equal(composed.acceptedSemanticDecisions.length, composed.manuscript.writerMetadata.semanticReviewCandidateCount);
   assert.equal(composed.manuscript.writerMetadata.recovery.totalCalls, 1, 'the injected provider-free reviewer adds no provider call');
+  assert.equal(composed.manuscript.writerMetadata.semanticReviewCandidateCount, composed.manuscript.writerMetadata.semanticReviewAllowCount + 1);
+});
+
+test('unseen provider-free corpus has zero lexical candidates but every block reaches one reviewer batch', async () => {
+  const deliveryModel = buildComprehensiveDeliveryModel(comprehensiveFixtures.denseWeakAssessment.analytical);
+  const factPack = buildComprehensiveNarrativeFactPack(deliveryModel);
+  const storyPlan = buildNarrativeStoryPlan(factPack);
+  assertNarrativeStoryPlan(storyPlan, factPack);
+  const blueprint = buildReportBlueprint(factPack, storyPlan);
+  const unseen = [
+    'Oversight is coordinated through a regional hub.',
+    'The review team samples only a fraction of activity.',
+    'Cases are retained by the originating business unit.',
+    'Operational monitoring is centralised before escalation.',
+    'The control environment is stronger than comparable charities.',
+    'A small group carries most of the institutional knowledge.'
+  ];
+  const skeleton = buildBlueprintMarkdownSkeleton(blueprint);
+  let proseIndex = 0;
+  const markdown = skeleton.headings.map((heading) => {
+    const headingLine = `${'#'.repeat(heading.level)} ${heading.title}`;
+    if (heading.kind === 'chapter') return headingLine;
+    const prose = unseen[proseIndex] ?? 'Management should preserve the deterministic takeaway and document the next supported control action.';
+    proseIndex += 1;
+    return `${headingLine}\n\n${prose}`;
+  }).join('\n\n');
+  const parsed = parseBlueprintMarkdown(markdown, blueprint);
+  assert.equal(parsed.ok, true);
+  const lexicalReport = validateBlueprintTextManuscript(parsed, blueprint, factPack);
+  assert.equal(lexicalReport.semanticCandidates.issues.length, 0, 'the unseen corpus must bypass the current lexical candidate patterns');
+  assert.ok(lexicalReport.paragraphCount > unseen.length);
+
+  const writerMetadata = {
+    contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
+    architecture: 'whole-manuscript',
+    provider: 'test-injected',
+    model: 'test-injected/semantic-reviewer',
+    promptVersion: 'test',
+    generationMode: 'test-injected',
+    generatedAt: new Date(0).toISOString(),
+    inputFactPackSha256: 'fixture',
+    inputStoryPlanSha256: 'fixture',
+    recovery: { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1 }
+  };
+  const writer = {
+    provider: 'test-injected',
+    model: 'test-injected/semantic-reviewer',
+    promptVersion: 'test',
+    async writeManuscript() { return { contractVersion: writerMetadata.contractVersion, architecture: 'whole-manuscript', markdown, blueprint, writerMetadata }; },
+    async completeTail() { throw new Error('tail recovery must not be called'); },
+    async repairBlock() { throw new Error('legacy repair path must not be called'); },
+    async coherencePass() { throw new Error('coherence recovery must not be called'); }
+  };
+  const outcomes = new Map([
+    [unseen[0], 'ALLOW'],
+    [unseen[1], 'REPAIR'],
+    [unseen[2], 'REJECT'],
+    [unseen[3], 'HOLD'],
+    [unseen[4], 'ALLOW'],
+    [unseen[5], 'ALLOW']
+  ]);
+  let reviewerCalls = 0;
+  const reviewedParagraphs = [];
+  const semanticReviewer = {
+    async review(input) {
+      reviewerCalls += 1;
+      reviewedParagraphs.push(...input.candidates.map((candidate) => candidate.paragraph));
+      assert.equal(input.candidates.length, lexicalReport.paragraphCount);
+      return {
+        decisions: input.candidates.map((candidate) => {
+          const disposition = outcomes.get(candidate.paragraph) ?? 'ALLOW';
+          return {
+            candidateId: candidate.candidateId,
+            disposition,
+            reasonCode: `unseen_${disposition.toLowerCase()}`,
+            reason: `Provider-free unseen corpus outcome: ${disposition}.`,
+            ...(disposition === 'REPAIR' ? { replacementProse: 'Management should define and evidence the relevant review coverage and escalation route.' } : {})
+          };
+        }),
+        accounting: { providerCalls: 0, repairCount: 1 }
+      };
+    }
+  };
+  await assert.rejects(
+    composeEssentialManuscript({ factPack, writer, semanticReviewer }),
+    /semantic validation/,
+    'REJECT and HOLD outcomes must fail closed after the one batch review'
+  );
+  assert.equal(reviewerCalls, 1, 'all unseen blocks use one bounded reviewer call');
+  for (const phrase of unseen) assert.ok(reviewedParagraphs.includes(phrase), `unseen paragraph reached reviewer: ${phrase}`);
+  assert.equal(reviewedParagraphs.length, lexicalReport.paragraphCount);
+
+  let cleanReviewerCalls = 0;
+  const clean = await composeEssentialManuscript({
+    factPack,
+    writer,
+    semanticReviewer: {
+      async review(input) {
+        cleanReviewerCalls += 1;
+        return {
+          decisions: input.candidates.map((candidate) => ({
+            candidateId: candidate.candidateId,
+            disposition: 'ALLOW',
+            reasonCode: 'clean_block_allow',
+            reason: 'Provider-free clean-generation accounting fixture.'
+          })),
+          // Simulated provider accounting proves the production 1 + 1 = 2 envelope without a
+          // live request or customer report generation.
+          accounting: { providerCalls: 1, repairCount: 0 }
+        };
+      }
+    }
+  });
+  assert.equal(cleanReviewerCalls, 1);
+  assert.equal(clean.manuscript.writerMetadata.manuscriptProviderCalls, 1);
+  assert.equal(clean.manuscript.writerMetadata.semanticReviewProviderCalls, 1);
+  assert.equal(clean.manuscript.writerMetadata.totalProviderCalls, 2);
+  assert.equal(clean.manuscript.writerMetadata.semanticReviewBlockCount, lexicalReport.paragraphCount);
+  assert.equal(clean.manuscript.writerMetadata.semanticReviewCandidateCount, lexicalReport.paragraphCount);
+  assert.equal(clean.manuscript.writerMetadata.semanticReviewRepairCount, 0);
 });
 
 console.log(JSON.stringify({

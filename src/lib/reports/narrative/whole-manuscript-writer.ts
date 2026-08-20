@@ -55,11 +55,11 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
 
 function semanticReviewPrompt(input: SemanticReviewerInput): string {
   return [
-    'Review all semantic language candidates in one bounded MK Fraud Readiness manuscript pass.',
+    'Review every provider-authored customer-visible narrative block in one bounded MK Fraud Readiness semantic grounding pass.',
     '',
-    'Return JSON only in the form {"decisions":[{"candidateId":"...","disposition":"ALLOW|REPAIR|REJECT|HOLD","reasonCode":"...","reason":"...","replacementProse":"..."}]} .',
-    'Return exactly one decision for every candidateId. ALLOW means the lexical hit is safe in context. REPAIR means the management implication is valid but the target prose overstates the evidence; return only the replacement prose for that one bounded paragraph. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
-    'At most one candidate may be REPAIR. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts that are absent from the permitted facts. Do not return Markdown, headings, bullets, commentary or code fences.',
+    'Each input item is a full paragraph/block, not merely a lexical hit. The path and candidateId are the exact Blueprint block identity. Return JSON only in the form {"decisions":[{"candidateId":"...","disposition":"ALLOW|REPAIR|REJECT|HOLD","reasonCode":"...","reason":"...","replacementProse":"..."}]} .',
+    'Return exactly one decision for every candidateId, including blocks with an empty warningSignals array. ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence; return only replacement prose for that one exact block. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
+    'At most one block may be REPAIR. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from the permitted facts. Do not return Markdown, headings, bullets, commentary or code fences.',
     '',
     JSON.stringify({ candidates: input.candidates }, null, 2)
   ].join('\n');
@@ -158,13 +158,15 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
    * regeneration and coherence remain outside this path. Exceeding the ceiling fails closed.
    */
   private readonly providerCallBudget: number;
+  private readonly allowTailRecovery: boolean;
   private providerCallsUsed = 0;
 
-  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}) {
+  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean } = {}) {
     const resolved = requireProvider(model);
     this.provider = resolved.provider;
     this.model = resolved.model;
     this.providerCallBudget = options.providerCallBudget ?? Number.POSITIVE_INFINITY;
+    this.allowTailRecovery = options.allowTailRecovery ?? true;
   }
 
   /** Charged immediately before every provider request. */
@@ -199,6 +201,13 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       blueprint: input.blueprint,
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) })
     };
+    initialResult.writerMetadata.manuscriptProviderCalls = 1;
+    initialResult.writerMetadata.semanticReviewProviderCalls = 0;
+    initialResult.writerMetadata.totalProviderCalls = 1;
+    initialResult.writerMetadata.manuscriptInputTokens = initialResult.writerMetadata.inputTokens;
+    initialResult.writerMetadata.manuscriptOutputTokens = initialResult.writerMetadata.outputTokens;
+    initialResult.writerMetadata.manuscriptTotalTokens = initialResult.writerMetadata.totalTokens;
+    initialResult.writerMetadata.manuscriptProviderCostMicros = initialResult.writerMetadata.providerCostMicros;
     const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
     // A structurally complete manuscript is returned to the caller even when text-first
     // validation identifies an editorial/semantic issue; the existing bounded semantic-repair
@@ -222,6 +231,22 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       const failure = new WholeManuscriptReconciliationError('initial_manuscript_not_recoverable', 'Initial whole-manuscript generation did not produce a valid complete manuscript or a proven technical-truncation prefix.', { outcome: initialOutcome, parsed: initialParsed.errors, missing: missing.errors });
       (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
         stage: 'initial_manuscript_not_recoverable',
+        writerMetadata: initialResult.writerMetadata,
+        classification: initialOutcome,
+        missingTail: { ok: missing.ok, missingHeadingCount: missing.missingHeadings.length, lastCompleteHeading: missing.lastCompleteHeading, errors: missing.errors },
+        providerCalls: this.providerCallsUsed,
+        structural: buildManuscriptStructuralDiagnostics({ markdown: initialResult.markdown, blueprint: input.blueprint, parsed: initialParsed })
+      };
+      throw failure;
+    }
+    if (!this.allowTailRecovery) {
+      const failure = new WholeManuscriptReconciliationError(
+        'acceptance_recovery_disabled',
+        'Acceptance mode does not dispatch tail completion, regeneration or coherence recovery after the manuscript request.',
+        { outcome: initialOutcome, missing: missing.errors }
+      );
+      (failure as { writerDiagnostics?: unknown }).writerDiagnostics = {
+        stage: 'acceptance_recovery_disabled',
         writerMetadata: initialResult.writerMetadata,
         classification: initialOutcome,
         missingTail: { ok: missing.ok, missingHeadingCount: missing.missingHeadings.length, lastCompleteHeading: missing.lastCompleteHeading, errors: missing.errors },
@@ -354,7 +379,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
         model: this.model,
         system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return the closed JSON decision envelope only.',
         prompt,
-        maxOutputTokens: 1800,
+        maxOutputTokens: Math.min(7200, Math.max(1800, 500 + input.candidates.length * 150)),
         maxRetries: 0,
         providerOptions: { gateway: { only: [this.provider] } },
         abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
@@ -372,7 +397,11 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
           outputTokens,
           totalTokens,
           providerCostMicros: parseCostMicros(response),
-          repairCount: checked.decisions.filter((decision) => decision.disposition === 'REPAIR').length
+          repairCount: checked.decisions.filter((decision) => decision.disposition === 'REPAIR').length,
+          candidateCount: checked.decisions.length,
+          allowCount: checked.decisions.filter((decision) => decision.disposition === 'ALLOW').length,
+          rejectCount: checked.decisions.filter((decision) => decision.disposition === 'REJECT').length,
+          holdCount: checked.decisions.filter((decision) => decision.disposition === 'HOLD').length
         }
       };
     } catch (error) {
@@ -436,6 +465,6 @@ function parseCostMicros(response: any): number {
   return Number.isFinite(numericCost) ? Math.round(numericCost * 1_000_000) : 0;
 }
 
-export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number } = {}): WholeManuscriptWriter {
+export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean } = {}): WholeManuscriptWriter {
   return new V11WholeManuscriptWriter(model, options);
 }

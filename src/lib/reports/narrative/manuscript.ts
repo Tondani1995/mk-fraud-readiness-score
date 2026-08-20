@@ -90,6 +90,24 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   contractVersion: typeof WHOLE_MANUSCRIPT_WRITER_CONTRACT_VERSION;
   architecture: 'whole-manuscript' | 'whole-manuscript-targeted-repair' | 'whole-manuscript-coherence';
   recovery: NarrativeRecoveryBudget;
+  /** Separate acceptance accounting: manuscript generation and semantic grounding review. */
+  manuscriptProviderCalls?: number;
+  semanticReviewProviderCalls?: number;
+  totalProviderCalls?: number;
+  manuscriptInputTokens?: number;
+  manuscriptOutputTokens?: number;
+  manuscriptTotalTokens?: number;
+  manuscriptProviderCostMicros?: number;
+  semanticReviewBlockCount?: number;
+  semanticReviewCandidateCount?: number;
+  semanticReviewAllowCount?: number;
+  semanticReviewRepairCount?: number;
+  semanticReviewRejectCount?: number;
+  semanticReviewHoldCount?: number;
+  semanticReviewInputTokens?: number;
+  semanticReviewOutputTokens?: number;
+  semanticReviewTotalTokens?: number;
+  semanticReviewProviderCostMicros?: number;
   inputBlueprintSha256?: string;
   executionContract?: {
     sdkFunction: 'generateText';

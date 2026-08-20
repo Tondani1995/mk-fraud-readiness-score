@@ -78,7 +78,7 @@ export interface EssentialValidationCascadeResult {
    */
   acceptedAssuranceSpanHashes: string[];
   /** Content-addressed ALLOW decisions for all semantic candidate families. */
-  acceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }>;
+  acceptedSemanticDecisions: Array<{ ruleCode: string; path: string; spanHash: string; reasonCode: string }>;
   /** Candidate decisions that require the bounded repair seam before acceptance. */
   repairCodes: string[];
 }
@@ -253,6 +253,7 @@ const SEMANTIC_RULE_CODES = new Set([
   'unsupported_comparative_claim',
   'unsupported_workforce_claim',
   'unsupported_structure_claim',
+  'semantic_grounding_block',
   ...UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS.map(([code]) => code),
   ...UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS.map(([code]) => code)
 ]);
@@ -284,11 +285,18 @@ export function adjudicateTextFirstValidation(input: {
   semanticDecisions?: SemanticReviewDecision[];
   /** Production sets this so a lexical candidate cannot fall through to a rule-based verdict. */
   requireSemanticReviewer?: boolean;
+  /** Production supplies every provider-authored paragraph, including paragraphs with no warning. */
+  semanticGroundingBlocks?: Array<{ path: string; span: string }>;
 }): EssentialValidationCascadeResult {
   const blocks = textBlocks(input.parsed);
+  const groundingMode = input.semanticGroundingBlocks !== undefined;
   const legacySemanticIssues = input.report.hardTruth.issues.filter((issue) => SEMANTIC_RULE_CODES.has(issue.code));
-  const semanticIssues = [...(input.report.semanticCandidates?.issues ?? []), ...legacySemanticIssues]
+  const lexicalSemanticIssues = [...(input.report.semanticCandidates?.issues ?? []), ...legacySemanticIssues]
     .filter((issue, index, all) => all.findIndex((other) => semanticIssueKey(other) === semanticIssueKey(issue)) === index);
+  // In the production path lexical findings are warning signals attached to a full-block review
+  // unit. Keeping them out of the candidate ledger prevents a second, narrower lexical decision
+  // from bypassing the block-level reviewer. The legacy branch preserves the old unit-test seam.
+  const semanticIssues = groundingMode ? [] : lexicalSemanticIssues;
   const hardTruthIssues = input.report.hardTruth.issues.filter((issue) => !SEMANTIC_RULE_CODES.has(issue.code));
   const allIssues = [...hardTruthIssues, ...semanticIssues, ...input.report.repairableSemantic.issues, ...input.report.quality.issues];
   const candidates = allIssues.map((issue) => candidate({
@@ -297,6 +305,14 @@ export function adjudicateTextFirstValidation(input: {
     path: issue.path,
     span: issue.matchedSpan ?? blocks.get(issue.path) ?? issue.code
   }));
+  if (groundingMode) {
+    candidates.push(...input.semanticGroundingBlocks!.map((block) => candidate({
+      ruleCode: 'semantic_grounding_block',
+      severity: 'SEMANTIC_AMBIGUITY',
+      path: block.path,
+      span: block.span
+    })));
+  }
 
   const semanticDecisionByCandidateId = new Map((input.semanticDecisions ?? []).map((decision) => [decision.candidateId, decision]));
 
@@ -325,14 +341,14 @@ export function adjudicateTextFirstValidation(input: {
   // closed reviewer decision supplied by the caller. No candidate is promoted to a truth decision
   // merely because a lexical detector matched it.
   const acceptedAssuranceSpanHashes: string[] = [];
-  const acceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }> = [];
+  const acceptedSemanticDecisions: Array<{ ruleCode: string; path: string; spanHash: string; reasonCode: string }> = [];
   for (const item of candidates) {
     const source = blocks.get(item.path) ?? '';
     if (SEMANTIC_RULE_CODES.has(item.ruleCode)) {
       const decision = semanticDisposition(item, source);
       addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
       if (decision.disposition === 'ALLOW_CONTEXT') {
-        acceptedSemanticDecisions.push({ ruleCode: item.ruleCode, spanHash: spanIdentityHash(item.span), reasonCode: decision.reasonCode });
+        acceptedSemanticDecisions.push({ ruleCode: item.ruleCode, path: item.path, spanHash: spanIdentityHash(item.span), reasonCode: decision.reasonCode });
         if (item.ruleCode === 'assurance_claim') {
           acceptedAssuranceSpanHashes.push(spanIdentityHash(item.span));
           for (const sentence of sentences(source)) {
@@ -412,6 +428,7 @@ export function assertTextFirstValidationCascade(input: {
   factPack: NarrativeFactPack;
   semanticDecisions?: SemanticReviewDecision[];
   requireSemanticReviewer?: boolean;
+  semanticGroundingBlocks?: Array<{ path: string; span: string }>;
 }): EssentialValidationCascadeResult {
   const result = adjudicateTextFirstValidation(input);
   if (!result.publishable) throw new EssentialValidationCascadeError(result);
@@ -429,11 +446,32 @@ function isFinalSemanticCandidate(ruleCode: string): boolean {
   return FINAL_SEMANTIC_RULE_CODES.has(ruleCode);
 }
 
+function providerNarrativeBlocksFromHtml(html: string): Array<{ path: string; span: string }> {
+  const blocks: Array<{ path: string; span: string }> = [];
+  const pattern = /<p\b[^>]*data-narrative-block="([^"]+)"[^>]*>([\s\S]*?)<\/p>/gi;
+  for (const match of html.matchAll(pattern)) {
+    const path = match[1]?.trim();
+    if (!path) continue;
+    blocks.push({ path, span: stripHtml(match[2] ?? '') });
+  }
+  return blocks;
+}
+
+/** Remove reviewed provider blocks before final lexical scans; binding owns their decision. */
+function stripProviderNarrativeBlocks(html: string): string {
+  return html.replace(/<p\b[^>]*data-narrative-block="[^"]+"[^>]*>[\s\S]*?<\/p>/gi, ' ');
+}
+
 function scanFinalHtml(html: string): EssentialValidationCandidate[] {
   const text = stripHtml(html);
+  const semanticHtml = stripProviderNarrativeBlocks(html);
+  const semanticText = stripHtml(semanticHtml);
   const coreHtml = html.split(/<h2[^>]*>\s*Appendix: supporting material\s*<\/h2>/i)[0] ?? html;
   const coreText = stripHtml(coreHtml);
   const found: EssentialValidationCandidate[] = [];
+  for (const block of providerNarrativeBlocksFromHtml(html)) {
+    found.push(candidate({ ruleCode: 'semantic_grounding_block_final', severity: 'HARD_CONTRACT_FAILURE', path: block.path, span: block.span }));
+  }
   for (const match of coreText.match(FINAL_RAW_ID) ?? []) {
     found.push(candidate({ ruleCode: 'raw_internal_id_final', severity: 'HARD_CONTRACT_FAILURE', path: 'final_html_core', span: match }));
   }
@@ -444,11 +482,11 @@ function scanFinalHtml(html: string): EssentialValidationCandidate[] {
     found.push(candidate({ ruleCode: 'broken_next_step_construction', severity: 'QUALITY_FAILURE', path: 'final_html', span: match }));
   }
   for (const [code, pattern] of FINAL_UNSUPPORTED_ABSOLUTES) {
-    for (const match of text.match(pattern) ?? []) {
+    for (const match of semanticText.match(pattern) ?? []) {
       found.push(candidate({ ruleCode: code, severity: 'SEMANTIC_AMBIGUITY', path: 'final_html', span: match }));
     }
   }
-  for (const sentence of finalHtmlSentences(html)) {
+  for (const sentence of finalHtmlSentences(semanticHtml)) {
     if (!isAssuranceCandidate(sentence)) continue;
     found.push(candidate({ ruleCode: 'assurance_language_final', severity: 'SEMANTIC_AMBIGUITY', path: 'final_html', span: sentence }));
   }
@@ -484,15 +522,47 @@ export function validateEssentialFinalHtml(input: {
    * sentences are freshly run through adjudicateAssuranceSentence.
    */
   carryForwardAssuranceSpanHashes?: string[];
-  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; path?: string; spanHash: string; reasonCode?: string }>;
 }): EssentialValidationCascadeResult {
   const candidates = scanFinalHtml(input.html);
   const carryForward = new Set(input.carryForwardAssuranceSpanHashes ?? []);
-  const carryForwardSemantic = new Set((input.carryForwardSemanticDecisions ?? []).map((item) => `${item.ruleCode}|${item.spanHash}`));
-  const finalSentences = finalHtmlSentences(input.html);
+  const carryForwardSemanticDecisions = input.carryForwardSemanticDecisions ?? [];
+  const carryForwardSemantic = new Set(carryForwardSemanticDecisions.map((item) => `${item.ruleCode}|${item.spanHash}`));
+  const carriedGroundingBlocks = new Map(
+    carryForwardSemanticDecisions
+      .filter((item) => item.ruleCode === 'semantic_grounding_block' && item.path)
+      .map((item) => [item.path!, item])
+  );
+  const renderedGroundingBlocks = providerNarrativeBlocksFromHtml(input.html);
+  const renderedGroundingPathCounts = new Map<string, number>();
+  for (const block of renderedGroundingBlocks) renderedGroundingPathCounts.set(block.path, (renderedGroundingPathCounts.get(block.path) ?? 0) + 1);
+  const finalSentences = finalHtmlSentences(stripProviderNarrativeBlocks(input.html));
+
+  // A provider-authored block is accepted only when the exact path is present once and its
+  // content-addressed prose is unchanged from the manuscript-stage decision. This is a binding
+  // contract, not a new semantic verdict, so changed/missing/duplicated prose fails closed.
+  for (const [path, carried] of carriedGroundingBlocks) {
+    const count = renderedGroundingPathCounts.get(path) ?? 0;
+    if (count !== 1) {
+      candidates.push(candidate({ ruleCode: 'semantic_grounding_block_binding_missing', severity: 'HARD_CONTRACT_FAILURE', path, span: path }));
+      continue;
+    }
+    const rendered = renderedGroundingBlocks.find((block) => block.path === path);
+    if (!rendered || essentialSemanticSpanHash(rendered.span) !== carried.spanHash) {
+      candidates.push(candidate({ ruleCode: 'semantic_grounding_block_content_changed', severity: 'HARD_CONTRACT_FAILURE', path, span: rendered?.span ?? path }));
+    }
+  }
 
   for (const item of candidates) {
-    if (item.ruleCode === 'assurance_language_final') {
+    if (item.ruleCode === 'semantic_grounding_block_final') {
+      const carried = carriedGroundingBlocks.get(item.path);
+      const count = renderedGroundingPathCounts.get(item.path) ?? 0;
+      if (carried && count === 1 && essentialSemanticSpanHash(item.span) === carried.spanHash) {
+        addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'inherited_exact_block_acceptance_unchanged_content');
+      } else {
+        addDecision(item, 'CONTEXT_ADJUDICATION', 'CONFIRMED_VIOLATION', 'final_provider_block_binding_failed');
+      }
+    } else if (item.ruleCode === 'assurance_language_final') {
       // Resolve the exact candidate sentence by hash from the immutable final HTML using the SAME
       // block-aware segmentation used by scanFinalHtml. This keeps manuscript carry-forward identity
       // stable across HTML presentation boundaries instead of resolving against a flattened document.
@@ -585,7 +655,7 @@ export function assertEssentialFinalHtml(input: {
   html: string;
   data: AssembledReportData;
   carryForwardAssuranceSpanHashes?: string[];
-  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; path?: string; spanHash: string; reasonCode?: string }>;
 }): EssentialValidationCascadeResult {
   const result = validateEssentialFinalHtml(input);
   if (!result.publishable) throw new EssentialValidationCascadeError(result);

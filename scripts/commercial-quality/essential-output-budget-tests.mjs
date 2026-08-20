@@ -42,11 +42,12 @@ assert.deepEqual(comprehensive.expectedWordRange, { minimum: 4200, maximum: 7600
 // request only when candidates exist. The existing tail mechanism stays available in the writer,
 // but production must not silently spend it when the first call truncates.
 const fulfilmentSource = fs.readFileSync('src/lib/reports/phase1-manual-fulfilment.ts', 'utf8');
-assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ providerCallBudget: 2 \}\)/);
+assert.match(fulfilmentSource, /createV11WholeManuscriptWriter\(flags\.model, \{ providerCallBudget: 2, allowTailRecovery: false \}\)/);
 const writerSource = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
 assert.match(writerSource, /this\.chargeProviderCall\('tail'\)/);
 assert.match(writerSource, /this\.chargeProviderCall\('semantic-adjudication'\)/);
 assert.match(writerSource, /provider_call_budget_exhausted/);
+assert.match(writerSource, /allowTailRecovery/);
 
 console.log(JSON.stringify({
   status: 'PASS',

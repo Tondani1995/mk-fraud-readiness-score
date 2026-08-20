@@ -7,7 +7,6 @@ import type { TocEntry } from '../pdf-navigation';
 import { MK_CSS_VARIABLES } from '../design/tokens';
 import { SeverityBudget } from '../design/severity-budget';
 import type { ParsedBlueprintMarkdown } from '../narrative/blueprint-text';
-import { groundEssentialScenarioStateLanguage } from '../essential-presentation-adaptation';
 
 const BAND_COLOR: Record<string, string> = {
   Reactive: 'var(--mk-critical)',
@@ -87,6 +86,16 @@ function esc(value: unknown): string {
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/\s+(?:for|on)\s+D\d+-Q\d+/g, '')
     .replace(/\bD\d+-Q\d+\b/g, '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+/** Reviewed provider prose is rendered verbatim apart from HTML escaping. */
+function escNarrative(value: unknown): string {
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -382,10 +391,6 @@ export function renderReportHtml(
 
   // The accepted v1.1 manuscript is interpretation around deterministic exhibits, not a second
   // report appended after methodology. Bind each chapter to the section it was written to explain.
-  const narrativeBlockText = (chapterId: string, value: string): string =>
-    chapterId === 'EXPOSURE-COULD-MATERIALISE'
-      ? groundEssentialScenarioStateLanguage(value, evidenceModel.materialFindings)
-      : value;
   const narrativeChapterBody = (
     chapterId: string,
     sectionFilter: (title: string) => boolean = () => true
@@ -393,11 +398,11 @@ export function renderReportHtml(
     const chapter = narrative?.chapters.find((item) => item.chapterId === chapterId);
     if (!chapter) return '';
     return chapter.sections.filter((chapterSection) => sectionFilter(chapterSection.title)).map((chapterSection) => {
-      const paragraphs = chapterSection.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('');
+      const paragraphs = chapterSection.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${chapterSection.sectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('');
       const childBlocks = chapterSection.subsections.map((item) => `
         <div class="manuscript-subsection">
           <div class="field-label">${esc(item.title)}</div>
-          ${item.paragraphs.map((block) => `<p>${esc(narrativeBlockText(chapterId, block.text))}</p>`).join('')}
+          ${item.paragraphs.map((block, index) => `<p data-narrative-block="${escNarrative(`${item.subsectionId}.paragraphs[${index}]`)}">${escNarrative(block.text)}</p>`).join('')}
         </div>`).join('');
       return `<div class="manuscript-section"><h3>${esc(chapterSection.title)}</h3>${paragraphs}${childBlocks}</div>`;
     }).join('');

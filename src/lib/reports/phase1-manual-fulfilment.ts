@@ -585,10 +585,9 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
-        // A clean manuscript uses one request; a manuscript with candidates may use one
-        // additional bounded semantic adjudication/repair request. Tail, regeneration and
-        // coherence recovery remain outside this acceptance path.
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 2 }),
+        // A clean manuscript uses one request plus one batched block review. Acceptance never
+        // spends the second slot on tail, regeneration or coherence recovery.
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 2, allowTailRecovery: false }),
         semanticReviewer: dependencies.semanticReviewer
       });
       essentialNarrative = composed.narrative;
@@ -599,7 +598,23 @@ export async function generateManualPhase1Report(
         model: composed.manuscript.writerMetadata?.model,
         generationId: composed.manuscript.writerMetadata?.generationId,
         totalTokens: composed.manuscript.writerMetadata?.totalTokens,
-        providerCalls: composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1
+        manuscriptProviderCalls: composed.manuscript.writerMetadata?.manuscriptProviderCalls ?? 1,
+        semanticReviewProviderCalls: composed.manuscript.writerMetadata?.semanticReviewProviderCalls ?? 0,
+        totalProviderCalls: composed.manuscript.writerMetadata?.totalProviderCalls ?? composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1,
+        manuscriptInputTokens: composed.manuscript.writerMetadata?.manuscriptInputTokens,
+        manuscriptOutputTokens: composed.manuscript.writerMetadata?.manuscriptOutputTokens,
+        manuscriptTotalTokens: composed.manuscript.writerMetadata?.manuscriptTotalTokens,
+        manuscriptProviderCostMicros: composed.manuscript.writerMetadata?.manuscriptProviderCostMicros,
+        semanticReviewBlockCount: composed.manuscript.writerMetadata?.semanticReviewBlockCount,
+        semanticReviewCandidateCount: composed.manuscript.writerMetadata?.semanticReviewCandidateCount,
+        semanticReviewAllowCount: composed.manuscript.writerMetadata?.semanticReviewAllowCount,
+        semanticReviewRepairCount: composed.manuscript.writerMetadata?.semanticReviewRepairCount,
+        semanticReviewRejectCount: composed.manuscript.writerMetadata?.semanticReviewRejectCount,
+        semanticReviewHoldCount: composed.manuscript.writerMetadata?.semanticReviewHoldCount,
+        semanticReviewInputTokens: composed.manuscript.writerMetadata?.semanticReviewInputTokens,
+        semanticReviewOutputTokens: composed.manuscript.writerMetadata?.semanticReviewOutputTokens,
+        semanticReviewTotalTokens: composed.manuscript.writerMetadata?.semanticReviewTotalTokens,
+        semanticReviewProviderCostMicros: composed.manuscript.writerMetadata?.semanticReviewProviderCostMicros
       });
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {

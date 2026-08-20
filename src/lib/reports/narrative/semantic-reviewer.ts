@@ -2,6 +2,12 @@ import type { NarrativeFactPack } from './fact-pack';
 
 export type SemanticReviewDisposition = 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD';
 
+export interface SemanticReviewWarning {
+  code: string;
+  matchedSpan?: string;
+  message?: string;
+}
+
 export interface SemanticReviewCandidateInput {
   candidateId: string;
   ruleCode: string;
@@ -17,6 +23,8 @@ export interface SemanticReviewCandidateInput {
   permittedFacts: NarrativeFactPack['facts'];
   requiredManagementTakeaway: string;
   assuranceBoundary: string;
+  /** Deterministic detector signals are context for review, never a gate to review. */
+  warningSignals?: SemanticReviewWarning[];
 }
 
 export interface SemanticReviewerInput {
@@ -38,6 +46,10 @@ export interface SemanticReviewAccounting {
   totalTokens?: number;
   providerCostMicros?: number;
   repairCount: number;
+  candidateCount?: number;
+  allowCount?: number;
+  rejectCount?: number;
+  holdCount?: number;
 }
 
 export interface SemanticReviewResult {
@@ -114,7 +126,14 @@ export function validateSemanticReviewResult(input: SemanticReviewerInput, resul
     if (!Number.isInteger(result.accounting.providerCalls) || result.accounting.providerCalls < 0) {
       throw invalid('accounting.providerCalls must be a non-negative integer');
     }
-    accounting = { ...result.accounting, repairCount };
+    accounting = {
+      ...result.accounting,
+      repairCount,
+      candidateCount: input.candidates.length,
+      allowCount: decisions.filter((decision) => decision.disposition === 'ALLOW').length,
+      rejectCount: decisions.filter((decision) => decision.disposition === 'REJECT').length,
+      holdCount: decisions.filter((decision) => decision.disposition === 'HOLD').length
+    };
   }
   return { decisions, ...(accounting ? { accounting } : {}) };
 }

@@ -44,7 +44,7 @@ type CommercialPdfInput = {
    */
   carryForwardAssuranceSpanHashes?: string[];
   /** Manuscript-stage ALLOW decisions for non-assurance semantic candidates. */
-  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; path?: string; spanHash: string; reasonCode?: string }>;
 };
 
 function prepareAcceptedCustomerHtml(input: CommercialPdfInput, rawHtml: string): string {
