@@ -214,10 +214,20 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
     [/per-process fraud scenario map/i, 'Whether each material process has explicit fraud scenarios, relevant roles or permissions and residual exposure documented.'],
     [/process inventory/i, 'Whether the complete population of material value-bearing processes has been identified before fraud-risk mapping is assessed.'],
     [/process-owner sign-off/i, 'Whether process owners have reviewed and accepted the mapped fraud scenarios, control ownership and residual gaps.'],
+    [/beneficial[- ]ownership.*conflict/i, 'Whether proposed suppliers are screened for ownership and conflict indicators before activation and any exceptions are resolved or approved.'],
+    [/completed onboarding checklist/i, 'Whether the required supplier due-diligence checks were completed before activation for the in-scope supplier population.'],
+    [/independent registration.*bank verification/i, 'Whether supplier legal identity and bank-account ownership were independently verified before activation or payment.'],
+    [/second[- ]reviewer approval/i, 'Whether supplier activation or another high-risk change received the required independent second-person approval before release.'],
+    [/approval and business justification/i, 'Whether every privileged-access assignment in scope has an approved business justification, a named accountable owner and a documented basis for the level of access granted.'],
+    [/privileged[- ]account register/i, 'Whether the complete privileged-account population is recorded with account type, system, owner, privilege level, status and review date so that unknown or unjustified access can be identified.'],
+    [/privileged[- ]session.*access logs|privileged session.*access logs/i, 'Whether privileged activity is attributable to named accounts and reviewable for unusual, unauthorised or out-of-pattern activity during the stated period.'],
+    [/quarterly independent recertification/i, 'Whether the complete privileged-access population was independently reviewed on schedule, with explicit keep-or-remove decisions and unresolved exceptions identified.'],
+    [/removal tickets/i, 'Whether access removals identified through recertification, role change or leaver events were completed within the required service level and are traceable to closure evidence.'],
     [/coverage report.*fraud maps/i, 'Whether monitoring covers every material process identified in the fraud maps and exposes any unmonitored population.'],
+    [/monitoring[- ]rule catalogue|rule catalogue/i, 'Whether monitoring rules are defined, linked to fraud scenarios, assigned to a reviewing role and maintained through controlled tuning.'],
     [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
     [/population reconciliation/i, 'Whether the monitoring input reconciles to the complete source-system population for the stated period.'],
-    [/red-flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
+    [/red[- ]flag indicator definitions/i, 'Whether monitoring criteria are documented per process and aligned to the mapped fraud scenarios.'],
     [/chain-of-custody/i, 'Whether each transfer of material evidence records custody, timing and handover without unexplained gaps.'],
     [/evidence register/i, 'Whether all material evidence items are uniquely recorded, assigned and traceable through the case.'],
     [/hash or seal/i, 'Whether collected evidence has integrity markers that can be matched at later custody points.'],
@@ -228,11 +238,14 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
   ];
   const matched = rules.find(([pattern]) => pattern.test(name));
   if (matched) return matched[1];
+  // Unknown artefact names still need grammatical, honest customer copy. Avoid stitching the
+  // artefact noun to a questionnaire prompt (which caused plural agreement errors and template
+  // leakage in Vhutshilo V2); describe the proof task without claiming the evidence already exists.
   const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
-  const shown = prompts.slice(0, 2);
-  const remainder = prompts.length - shown.length;
-  const tail = remainder > 0 ? `, together with ${remainder} further linked control${remainder === 1 ? '' : 's'}` : '';
-  return `Whether the ${lowerFirst(name)} provides operating evidence that ${shown.join('; ')}${tail} is implemented across the complete in-scope population.`;
+  const scope = prompts.length > 0
+    ? `the linked control${prompts.length === 1 ? '' : 's'}`
+    : 'the linked control';
+  return `Whether the ${lowerFirst(name)} contains sufficient, attributable evidence to test ${scope} across the complete in-scope population for the stated period.`;
 }
 
 export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {
