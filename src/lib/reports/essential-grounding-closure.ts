@@ -4,6 +4,7 @@
  * This runs before the canonical final-HTML validation gate and may only remove unsupported
  * categorical/invented operating-detail variants that have already appeared in acceptance PDFs.
  * It does not alter scores, findings, owners, target dates, risk priority or control design.
+ * Siyakhula V2/V3 acceptance variants are permanently exercised by the provider-free regression.
  */
 export function closeResidualEssentialGroundingDefects(html: string): string {
   let closed = html;
