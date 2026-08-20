@@ -36,11 +36,12 @@ name: V7 Report Hardening
 # canonical evidence references and checksums; and verifies the evidence builder never activates an
 # AI provider. The aggregate command now runs Checkpoints A, B, C and D.
 #
-# V7 Checkpoints E and F extend the same credential-free gate through active-path AI narrative
-# integration and the real Chromium PDF renderer. Checkpoint F renders four fixed synthetic
-# candidates twice, rasterises every page at 200 DPI, runs the commercial PDF audit and publishes
-# controller-review artifacts. No production data, database credential or external AI provider is
-# used.
+# V7 Checkpoints E and F extend the same credential-free gate through the current v1.1
+# whole-manuscript/semantic-validation architecture and the real Chromium PDF renderer.
+# The historical pre-v1.1 Checkpoint E script remains in the repository for traceability but is not
+# the active gate. Checkpoint F renders four fixed synthetic candidates twice, rasterises every
+# page at 200 DPI, runs the commercial PDF audit and publishes controller-review artifacts. No
+# production data, database credential or external AI provider is used.
 
 on:
   pull_request:

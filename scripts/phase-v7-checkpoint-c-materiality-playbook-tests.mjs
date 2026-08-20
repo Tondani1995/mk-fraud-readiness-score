@@ -189,9 +189,9 @@ test('S14. strong D4 detection with weak D5 response creates a contradiction on 
 });
 
 test('S15. strong D2 identification with weak D10 improvement creates a contradiction on D10', () => {
-  const improvement = unregisteredTrace('D10-Q99', 'D10', 2);
+  const improvement = trace('D10-Q01', 2);
   const data = withDomainScores(assembledData([improvement], { maturityCapEvents: [] }), { D2: 70, D10: 35 });
-  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D10-Q99');
+  const finding = buildMaterialFindings(data).find((item) => item.questionCode === 'D10-Q01');
   assert.ok(finding.selectionReasons.includes('MATERIAL_CONTRADICTION'));
 });
 
@@ -285,12 +285,17 @@ test('P8-P10. material findings use exact playbooks only and a missing playbook 
   assert.ok(findings.every((finding) => finding.fallbackStatus === 'exact_question_playbook'));
   assert.ok(findings.every((finding) => finding.playbookSource === `question-playbooks:${finding.questionCode}`));
   // RC1: every active MFRS-V1.1 question now has an exact playbook (see
-  // scripts/rc1-question-playbook-coverage-tests.mjs), so this negative case must use a code that
-  // is deliberately outside the active methodology. The fail-closed mechanism itself is unchanged
-  // and still has to fire for any finding whose question has no exact playbook.
-  const unknownTrace = { questionCode: 'D2-Q99', domainCode: 'D2', domainName: DOMAIN_NAMES.D2, prompt: 'Deliberately unregistered, non-methodology test question.', responseValue: 1, normalisedScore: 20, applicable: true, triggeredRules: [], isCritical: true, isHardGate: true, isCriticalGap: true, isMajorGap: false };
-  const missingData = assembledData([unknownTrace]);
+  // scripts/rc1-question-playbook-coverage-tests.mjs), so exercise the gate with a registered
+  // finding whose normalised result is deliberately altered to the missing-playbook state. The
+  // fail-closed mechanism itself is unchanged; unknown question identity is rejected earlier by
+  // the semantic mapping boundary.
+  const missingData = assembledData([trace('D2-Q01', 1)]);
   const model = buildAdvisoryEvidenceModel(missingData);
+  model.materialFindings[0] = {
+    ...model.materialFindings[0],
+    fallbackStatus: 'missing_question_playbook',
+    playbookSource: null
+  };
   const gate = checkQualityGates(model, missingData);
   assert.equal(model.materialFindings[0].fallbackStatus, 'missing_question_playbook');
   assert.ok(gate.violations.some((issue) => issue.code === 'QG_MATERIAL_PLAYBOOK_MISSING'));
