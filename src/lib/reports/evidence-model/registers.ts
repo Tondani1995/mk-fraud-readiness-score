@@ -245,7 +245,7 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
   const scope = prompts.length > 0
     ? `the linked control${prompts.length === 1 ? '' : 's'}`
     : 'the linked control';
-  return `Whether the ${lowerFirst(name)} contains sufficient, attributable evidence to test ${scope} across the complete in-scope population for the stated period.`;
+  return `Whether sufficient, attributable evidence is present in the ${lowerFirst(name)} to test ${scope} across the complete in-scope population for the stated period.`;
 }
 
 export function buildEvidenceChecklist(findings: MaterialFinding[], risks: RiskRegisterEntry[], visibilityGaps: VisibilityGap[] = []): EvidenceChecklistItem[] {
