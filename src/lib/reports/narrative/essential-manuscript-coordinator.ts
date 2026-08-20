@@ -126,6 +126,12 @@ export interface EssentialManuscriptDiagnostics {
   validationCode?: string;
   /** Every surviving hard-truth/contract rule, so a rejection names itself. */
   validationIssues?: Array<{ code: string; path: string; message: string }>;
+  /** Safe manuscript-output conformance fields copied from the physical attempt ledger. */
+  conformanceFailureCode?: string;
+  conformancePath?: string;
+  structuralErrorCodes?: string[];
+  conformancePatternFamily?: string;
+  conformancePatternHash?: string;
   /** Heading-level evidence for a manuscript that would not bind. */
   structural?: ManuscriptStructuralDiagnostics;
   /** Outcome of classifyWholeManuscriptGeneration, when the writer rejected the response. */
@@ -537,6 +543,7 @@ export async function composeEssentialManuscript(input: {
     // here instead of allowing the exact V4 failure to collapse to a row of undefined values.
     const forwarded = (error as { writerDiagnostics?: WriterFailureDiagnostics })?.writerDiagnostics;
     const attemptAccounting = getNarrativeAttemptAccounting(error);
+    const lastAttempt = attemptAccounting?.attemptRecords.at(-1);
     const meta = forwarded?.writerMetadata ?? {};
     const dispatchOccurred = rawWriterThrowWasDispatched(error, forwarded);
     const recordedProviderCalls = forwarded?.providerCalls ?? meta.recovery?.totalCalls ?? attemptAccounting?.totalPhysicalProviderRequests;
@@ -557,13 +564,15 @@ export async function composeEssentialManuscript(input: {
         requestedProvider: writerIdentity.provider,
         requestedModel: meta.model ?? writerIdentity.model,
         dispatchOccurred,
-        generationId: meta.generationId ?? meta.responseId,
-        inputTokens: meta.inputTokens,
-        outputTokens: meta.outputTokens,
-        totalTokens: meta.totalTokens,
-        providerCostMicros: meta.providerCostMicros,
-        finishReason: meta.finishReason,
-        providerFinishReason: meta.providerFinishReason,
+        generationId: meta.generationId ?? meta.responseId ?? lastAttempt?.generationId ?? lastAttempt?.responseId,
+        inputTokens: meta.inputTokens ?? attemptAccounting?.inputTokens,
+        outputTokens: meta.outputTokens ?? attemptAccounting?.outputTokens,
+        reasoningTokens: meta.reasoningTokens ?? attemptAccounting?.reasoningTokens,
+        visibleOutputTokens: meta.visibleOutputTokens ?? attemptAccounting?.visibleOutputTokens,
+        totalTokens: meta.totalTokens ?? attemptAccounting?.totalTokens,
+        providerCostMicros: meta.providerCostMicros ?? attemptAccounting?.costMicros,
+        finishReason: meta.finishReason ?? lastAttempt?.finishReason,
+        providerFinishReason: meta.providerFinishReason ?? lastAttempt?.providerFinishReason,
         providerCalls,
         modelSelectionSource: meta.modelSelectionSource,
         configuredModelOverride: meta.configuredModelOverride,
@@ -573,6 +582,11 @@ export async function composeEssentialManuscript(input: {
         totalFallbackAttempts: meta.totalFallbackAttempts ?? attemptAccounting?.totalFallbackAttempts,
         totalPhysicalProviderRequests: meta.totalPhysicalProviderRequests ?? attemptAccounting?.totalPhysicalProviderRequests,
         totalGenerationCostMicros: meta.totalGenerationCostMicros ?? attemptAccounting?.costMicros,
+        conformanceFailureCode: lastAttempt?.conformanceFailureCode,
+        conformancePath: lastAttempt?.conformancePath,
+        structuralErrorCodes: lastAttempt?.structuralErrorCodes,
+        conformancePatternFamily: lastAttempt?.conformancePatternFamily,
+        conformancePatternHash: lastAttempt?.conformancePatternHash,
         providerFailure,
         parseOk: forwarded ? false : undefined,
         parseErrors: forwarded?.structural?.parseErrors?.map((issue) => ({ code: issue.code, path: issue.path })),

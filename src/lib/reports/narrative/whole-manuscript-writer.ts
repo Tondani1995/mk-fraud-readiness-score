@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { MAX_PROVIDER_ATTEMPTS_PER_STAGE, selectNarrativeModel, selectNarrativeModelForRequestedModel, type NarrativeModelSelection } from '../ai-model-policy';
 import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
-import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
+import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, validateBlueprintTextManuscript, type MissingBlueprintTail, type ParsedBlueprintMarkdown, type TextFirstValidationReport } from './blueprint-text';
+import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
@@ -62,6 +63,7 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     'The deterministic Blueprint owns every chapter, section, subsection, order, analytical role, required fact, management takeaway and exhibit. Write only narrative beneath the existing headings in the exact skeleton below.',
     'Do not remove, rename, add or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata outside the skeleton. Do not repeat the executive judgement as a new opening in later chapters. Use connected professional prose with natural transitions. Separate diagnosis, evidence, exposure, target state, response, implementation and conclusion by their assigned Blueprint roles.',
     'Use only the deterministic Fact Pack and the permitted claim references assigned to each Blueprint section. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance. Do not claim that MK, the assessment or the report independently verified operating effectiveness. Customer control design may describe what management should independently review or verify.',
+    'Machine identifiers in the Blueprint and Fact Pack are routing metadata only. Never copy them into customer-facing prose; translate the underlying meaning into natural language.',
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
@@ -191,6 +193,100 @@ function technicalFailure(input: {
   return input;
 }
 
+export interface WholeManuscriptConformanceFailure {
+  /** A bounded family, never the rejected paragraph or a provider response body. */
+  conformanceFailureCode: 'structural' | 'raw_internal_id' | 'unsupported_numeric_claim';
+  conformancePath: string;
+  structuralErrorCodes?: string[];
+  conformancePatternFamily: string;
+  conformancePatternHash: string;
+}
+
+export type WholeManuscriptConformanceResult =
+  | {
+    ok: true;
+    markdown: string;
+    parsed: ParsedBlueprintMarkdown;
+    validation: TextFirstValidationReport;
+    assuranceNormalisations: number;
+  }
+  | {
+    ok: false;
+    markdown: string;
+    parsed: ParsedBlueprintMarkdown;
+    validation: TextFirstValidationReport;
+    assuranceNormalisations: number;
+    failure: WholeManuscriptConformanceFailure;
+  };
+
+/**
+ * The manuscript attempt is not accepted at SDK success. It must first bind to the exact
+ * Blueprint, pass the existing closed-set numeric normalisation and clear every deterministic
+ * hard-truth issue. The returned diagnostics are deliberately limited to rule families and
+ * paths; customer prose never crosses the attempt ledger.
+ */
+export function validateWholeManuscriptConformance(input: {
+  markdown: string;
+  blueprint: WholeManuscriptWriterInput['blueprint'];
+  factPack: WholeManuscriptWriterInput['factPack'];
+}): WholeManuscriptConformanceResult {
+  const parsed = parseBlueprintMarkdown(input.markdown, input.blueprint);
+  const assuranceNormalisations = normaliseProhibitedAssessmentAssurance(parsed);
+  const validation = validateBlueprintTextManuscript(parsed, input.blueprint, input.factPack);
+  const firstStructuralError = parsed.errors[0];
+  const firstHardIssue = validation.hardTruth.issues[0];
+  if (!parsed.ok || firstStructuralError) {
+    const path = firstStructuralError?.path ?? 'headings';
+    const structuralErrorCodes = [...new Set(parsed.errors.map((error) => error.code))];
+    return {
+      ok: false,
+      markdown: parsed.markdown,
+      parsed,
+      validation,
+      assuranceNormalisations,
+      failure: {
+        conformanceFailureCode: 'structural',
+        conformancePath: path,
+        ...(structuralErrorCodes.length ? { structuralErrorCodes } : {}),
+        conformancePatternFamily: structuralErrorCodes[0] ?? 'structural',
+        conformancePatternHash: sha({ conformanceFailureCode: 'structural', path, structuralErrorCodes })
+      }
+    };
+  }
+  if (firstHardIssue) {
+    const code = firstHardIssue.code === 'raw_internal_id' || firstHardIssue.code === 'unsupported_numeric_claim'
+      ? firstHardIssue.code
+      : 'structural';
+    return {
+      ok: false,
+      markdown: parsed.markdown,
+      parsed,
+      validation,
+      assuranceNormalisations,
+      failure: {
+        conformanceFailureCode: code,
+        conformancePath: firstHardIssue.path,
+        conformancePatternFamily: code,
+        conformancePatternHash: sha({ conformanceFailureCode: code, path: firstHardIssue.path })
+      }
+    };
+  }
+  return { ok: true, markdown: parsed.markdown, parsed, validation, assuranceNormalisations };
+}
+
+export function createManuscriptConformanceError(response: unknown, failure: WholeManuscriptConformanceFailure): Error {
+  const error = new Error('manuscript_conformance_failed');
+  (error as { providerResponse?: unknown }).providerResponse = response;
+  (error as { narrativeProviderFailure?: NarrativeProviderFailure }).narrativeProviderFailure = {
+    classification: 'retryable_technical',
+    code: 'manuscript_conformance_failed',
+    retryable: true,
+    fallbackEligible: false
+  };
+  (error as { narrativeConformanceFailure?: WholeManuscriptConformanceFailure }).narrativeConformanceFailure = failure;
+  return error;
+}
+
 export function classifyNarrativeProviderFailure(error: unknown, context: NarrativeProviderAttemptContext): NarrativeProviderFailure {
   const record = recordValue(error);
   const response = responseFromError(error);
@@ -219,7 +315,7 @@ export function classifyNarrativeProviderFailure(error: unknown, context: Narrat
     if (context.logicalStage === 'semantic_review') {
       return technicalFailure({ classification: 'retryable_technical', code: 'semantic_output_contract_too_large', retryable: true, fallbackEligible: false });
     }
-    return technicalFailure({ classification: 'non_retryable', code: 'provider_output_contract_too_large', retryable: false, fallbackEligible: false });
+    return technicalFailure({ classification: 'retryable_technical', code: 'manuscript_output_contract_too_large', retryable: true, fallbackEligible: false });
   }
   const status = [record?.statusCode, record?.status, recordValue(record?.response)?.status, recordValue(response?.response)?.status]
     .find((value) => typeof value === 'number' && Number.isFinite(value)) as number | undefined;
@@ -330,6 +426,7 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
     '',
     'This is a bounded technical truncation recovery. The existing manuscript is preserved. If the preceding context ends mid-sentence, complete only that interrupted sentence under the current final heading; then emit each missing deterministic heading exactly once, followed by its narrative. Do not rewrite, repeat or summarise any complete existing paragraph.',
     'Do not add, rename or reorder headings. Do not emit a title, preamble, tables, bullets, numbering, code fences, IDs or metadata. Use only the deterministic Fact Pack and permitted claim references. Do not invent facts, scores, dates, owners, controls, scenarios, decisions, costs or assurance.',
+    'Machine identifiers in the Blueprint and Fact Pack are routing metadata only. Never copy them into customer-facing prose; translate the underlying meaning into natural language.',
     // The validator rejects customer assertions the assessment never established. The
     // writer was never told about them, so it produced one and the manuscript failed
     // after a paid call. Both sides now state the same boundary.
@@ -498,12 +595,9 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
         throw error;
       }
       const markdown = String(response.text ?? '').trim();
-      if (!markdown) {
-        const error = new Error('Whole-manuscript text generation returned empty Markdown.');
-        (error as { providerResponse?: unknown }).providerResponse = response;
-        throw error;
-      }
-      return { value: { markdown, response }, response };
+      const conformance = validateWholeManuscriptConformance({ markdown, blueprint: input.blueprint, factPack: input.factPack });
+      if (!conformance.ok) throw createManuscriptConformanceError(response, conformance.failure);
+      return { value: { markdown: conformance.markdown, response }, response };
     });
     const response = stage.response as any;
     const markdown = stage.value.markdown;
@@ -528,19 +622,25 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     initialResult.writerMetadata.manuscriptProviderCalls = stage.accounting.totalPhysicalProviderRequests;
     initialResult.writerMetadata.semanticReviewProviderCalls = 0;
     initialResult.writerMetadata.totalProviderCalls = stage.accounting.totalPhysicalProviderRequests;
+    // The accepted response may be Mini attempt 2/3/4. Expose the logical manuscript stage
+    // totals, not only the final response's usage, so every paid physical request remains visible
+    // in both the attempt ledger and the manuscript-level accounting fields.
+    initialResult.writerMetadata.inputTokens = stage.accounting.inputTokens ?? initialResult.writerMetadata.inputTokens;
+    initialResult.writerMetadata.outputTokens = stage.accounting.outputTokens ?? initialResult.writerMetadata.outputTokens;
+    initialResult.writerMetadata.reasoningTokens = stage.accounting.reasoningTokens ?? initialResult.writerMetadata.reasoningTokens;
+    initialResult.writerMetadata.visibleOutputTokens = stage.accounting.visibleOutputTokens ?? initialResult.writerMetadata.visibleOutputTokens;
+    initialResult.writerMetadata.totalTokens = stage.accounting.totalTokens ?? initialResult.writerMetadata.totalTokens;
+    initialResult.writerMetadata.providerCostMicros = stage.accounting.costMicros;
     initialResult.writerMetadata.manuscriptInputTokens = initialResult.writerMetadata.inputTokens;
     initialResult.writerMetadata.manuscriptOutputTokens = initialResult.writerMetadata.outputTokens;
-    initialResult.writerMetadata.reasoningTokens = stage.accounting.reasoningTokens;
-    initialResult.writerMetadata.visibleOutputTokens = stage.accounting.visibleOutputTokens;
-    initialResult.writerMetadata.manuscriptReasoningTokens = stage.accounting.reasoningTokens;
-    initialResult.writerMetadata.manuscriptVisibleOutputTokens = stage.accounting.visibleOutputTokens;
+    initialResult.writerMetadata.manuscriptReasoningTokens = initialResult.writerMetadata.reasoningTokens;
+    initialResult.writerMetadata.manuscriptVisibleOutputTokens = initialResult.writerMetadata.visibleOutputTokens;
     initialResult.writerMetadata.manuscriptTotalTokens = initialResult.writerMetadata.totalTokens;
     initialResult.writerMetadata.manuscriptProviderCostMicros = initialResult.writerMetadata.providerCostMicros;
     const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
-    // A structurally complete manuscript is returned to the caller even when text-first
-    // validation identifies an editorial/semantic issue; the existing bounded semantic-repair
-    // policy owns that path. Only a structurally incomplete, proven truncation may enter tail
-    // reconciliation here.
+    // The logical manuscript attempt has already passed the deterministic pre-semantic contract
+    // inside runStage. Keep the defensive structural branch for legacy recovery callers, but a
+    // provider response with a structural or hard-truth defect can no longer reach this point.
     if (initialParsed.ok) return initialResult;
 
     const missing = deriveMissingBlueprintTail(initialResult.markdown, input.blueprint);

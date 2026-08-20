@@ -57,6 +57,12 @@ export interface NarrativeProviderAttemptRecord extends NarrativeProviderAttempt
   success: boolean;
   failureClassification?: NarrativeFailureClassification;
   failureCode?: string;
+  /** Safe deterministic manuscript-output diagnostics; never the rejected paragraph. */
+  conformanceFailureCode?: string;
+  conformancePath?: string;
+  structuralErrorCodes?: string[];
+  conformancePatternFamily?: string;
+  conformancePatternHash?: string;
 }
 
 export interface NarrativeProviderStageAccounting {
@@ -101,6 +107,12 @@ function recordValue(value: unknown): Record<string, unknown> | undefined {
 
 function textValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function boundedStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const values = [...new Set(value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).map((item) => item.trim().slice(0, 100)))].slice(0, 12);
+  return values.length ? values : undefined;
 }
 
 function numeric(value: unknown): number | undefined {
@@ -190,6 +202,19 @@ function responseMetadata(response: unknown): Pick<NarrativeProviderAttemptRecor
       ?? textValue(recordValue(responseRecord?.providerMetadata)?.openai && recordValue(recordValue(responseRecord?.providerMetadata)?.openai)?.finishReason)
       ?? textValue(firstChoice?.finish_reason)
       ?? textValue(recordValue(providerResponse?.headers)?.['x-provider-finish-reason'])
+  };
+}
+
+function conformanceMetadata(error: unknown): Pick<NarrativeProviderAttemptRecord, 'conformanceFailureCode' | 'conformancePath' | 'structuralErrorCodes' | 'conformancePatternFamily' | 'conformancePatternHash'> {
+  const failure = recordValue(recordValue(error)?.narrativeConformanceFailure);
+  if (!failure) return {};
+  const patternHash = textValue(failure.conformancePatternHash);
+  return {
+    conformanceFailureCode: textValue(failure.conformanceFailureCode),
+    conformancePath: textValue(failure.conformancePath),
+    structuralErrorCodes: boundedStringList(failure.structuralErrorCodes),
+    conformancePatternFamily: textValue(failure.conformancePatternFamily),
+    conformancePatternHash: patternHash && /^[a-f0-9]{8,64}$/i.test(patternHash) ? patternHash : undefined
   };
 }
 
@@ -298,6 +323,7 @@ export async function runNarrativeProviderAttempts<T>(input: NarrativeProviderAt
           endedAt: new Date(endedAtMs).toISOString(),
           elapsedMs: Math.max(0, endedAtMs - startedAtMs),
           ...responseMetadata(response),
+          ...conformanceMetadata(error),
           providerRequestDispatched: recordValue(error)?.narrativeProviderRequestDispatched === false ? false : true,
           success: false,
           failureClassification: failure.classification,
