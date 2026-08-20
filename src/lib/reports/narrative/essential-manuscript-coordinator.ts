@@ -21,10 +21,13 @@ import {
 } from '../essential-validation-cascade';
 import { replaceTargetBlock } from './whole-manuscript-recovery';
 import {
+  buildSemanticReviewPolicyDiagnostics,
   type EssentialSemanticReviewer,
   type SemanticReviewCandidateInput,
   type SemanticReviewDecision,
   type SemanticReviewDiagnostics,
+  type SemanticReviewPolicyDiagnostic,
+  type SemanticReviewReasonCode,
   type SemanticReviewResult
 } from './semantic-reviewer';
 import { getNarrativeAttemptAccounting, type NarrativeProviderAttemptRecord } from './provider-attempt-policy';
@@ -90,6 +93,20 @@ export interface EssentialProviderFailureDiagnostics {
   accountingStatus: 'recorded' | 'dispatched_settlement_unknown' | 'not_dispatched';
 }
 
+export interface EssentialValidationDiagnostic {
+  code: string;
+  path: string;
+  message: string;
+  candidateId?: string;
+  disposition?: Exclude<SemanticReviewDecision['disposition'], 'ALLOW'>;
+  reasonCode?: SemanticReviewReasonCode;
+  ruleCode?: string;
+  blueprintPath?: string;
+  chapterTitle?: string;
+  sectionTitle?: string;
+  subsectionTitle?: string;
+}
+
 export interface EssentialManuscriptDiagnostics {
   stage: string;
   requestedModel?: string;
@@ -124,7 +141,9 @@ export interface EssentialManuscriptDiagnostics {
   parseErrors?: Array<{ code: string; path: string }>;
   validationCode?: string;
   /** Every surviving hard-truth/contract rule, so a rejection names itself. */
-  validationIssues?: Array<{ code: string; path: string; message: string }>;
+  validationIssues?: EssentialValidationDiagnostic[];
+  /** Customer-content-free metadata for semantic REJECT, HOLD and REPAIR policy decisions. */
+  semanticPolicyDecisions?: SemanticReviewPolicyDiagnostic[];
   /** Safe manuscript-output conformance fields copied from the physical attempt ledger. */
   conformanceFailureCode?: string;
   conformancePath?: string;
@@ -292,6 +311,25 @@ function diagnosticsFrom(stage: string, writer: { provider?: string; model?: str
     semanticReviewDiagnostics: meta.semanticReviewDiagnostics,
     providerCalls: meta.totalProviderCalls ?? meta.totalPhysicalProviderRequests ?? meta.recovery?.totalCalls
   };
+}
+
+function semanticPolicyValidationIssues(
+  decisions: SemanticReviewPolicyDiagnostic[],
+  message: string
+): EssentialValidationDiagnostic[] {
+  return decisions.map((decision) => ({
+    code: 'semantic_grounding_block',
+    path: decision.path,
+    message,
+    candidateId: decision.candidateId,
+    disposition: decision.disposition,
+    reasonCode: decision.reasonCode,
+    ruleCode: decision.ruleCode,
+    blueprintPath: decision.blueprintPath,
+    chapterTitle: decision.chapterTitle,
+    sectionTitle: decision.sectionTitle,
+    ...(decision.subsectionTitle !== undefined ? { subsectionTitle: decision.subsectionTitle } : {})
+  }));
 }
 
 function rawWriterThrowWasDispatched(error: unknown, forwarded?: WriterFailureDiagnostics): boolean {
@@ -750,16 +788,29 @@ export async function composeEssentialManuscript(input: {
   const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');
   const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');
   const semanticPolicyDiagnostics = reviewed?.accounting?.diagnostics;
-  const semanticPolicyBase = diagnosticsFrom('semantic_review', writerIdentity, manuscript);
+  const semanticPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, semanticDecisions);
+  const rejectedPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, rejectedDecisions);
+  const heldPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, heldDecisions);
+  const repairPolicyDecisions = buildSemanticReviewPolicyDiagnostics({ candidates: reviewInput }, repairDecisions);
+  const semanticPolicyBase = {
+    ...diagnosticsFrom('semantic_review', writerIdentity, manuscript),
+    ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})
+  };
+  const semanticPolicyReviewDiagnostics = semanticPolicyDiagnostics
+    ? {
+        ...semanticPolicyDiagnostics,
+        ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {})
+      }
+    : semanticPolicyBase.semanticReviewDiagnostics;
   if (rejectedDecisions.length > 0) {
     throw new EssentialManuscriptError(
       'semantic_review',
       'The semantic reviewer rejected one or more provider-authored narrative blocks.',
       {
         ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
         validationCode: 'semantic_reject',
-        validationIssues: rejectedDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'A provider-authored narrative block was rejected by semantic grounding review.' }))
+        validationIssues: semanticPolicyValidationIssues(rejectedPolicyDecisions, 'A provider-authored narrative block was rejected by semantic grounding review.')
       }
     );
   }
@@ -769,9 +820,9 @@ export async function composeEssentialManuscript(input: {
       'The semantic reviewer held one or more provider-authored narrative blocks for review.',
       {
         ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
         validationCode: 'semantic_hold',
-        validationIssues: heldDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'A provider-authored narrative block was held by semantic grounding review.' }))
+        validationIssues: semanticPolicyValidationIssues(heldPolicyDecisions, 'A provider-authored narrative block was held by semantic grounding review.')
       }
     );
   }
@@ -781,9 +832,9 @@ export async function composeEssentialManuscript(input: {
       'More than one semantic repair is required; the bounded single-repair policy fails closed.',
       {
         ...semanticPolicyBase,
-        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        semanticReviewDiagnostics: semanticPolicyReviewDiagnostics,
         validationCode: 'multiple_semantic_repairs_required',
-        validationIssues: repairDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'Multiple provider-authored blocks require semantic repair; no repair was applied.' }))
+        validationIssues: semanticPolicyValidationIssues(repairPolicyDecisions, 'Multiple provider-authored blocks require semantic repair; no repair was applied.')
       }
     );
   }

@@ -10,10 +10,12 @@ import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import {
+  buildSemanticReviewPolicyDiagnostics,
   semanticReviewEnvelopeSchema,
   reviewIdForCandidateIndex,
   validateSemanticReviewEnvelope,
   type SemanticReviewDiagnostics,
+  type SemanticReviewDecision,
   type SemanticReviewExecutionContract,
   type SemanticReviewerInput,
   type SemanticReviewFailureCode,
@@ -122,7 +124,7 @@ function semanticReviewPrompt(input: SemanticReviewerInput): string {
     '',
     'Each input item is a full paragraph/block, not merely a lexical hit. Use the short reviewId (for example B01) in every decision; the application maps it back to the exact candidateId and Blueprint path. Return the typed semantic-review object with one decision for every reviewId and an envelope-level repair field.',
     'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
-    'Use only a short bounded reasonCode. Do not emit prose reasons. Set repair to null for zero REPAIR decisions. For exactly one REPAIR, put one bounded replacement paragraph in repair and identify its reviewId. If more than one block is truthfully REPAIR, set repair to null; the deterministic coordinator fails closed with multiple_semantic_repairs_required and no replacement is applied. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Use only the complete permittedFacts attached to each block.',
+    'Use exactly one reasonCode from this closed vocabulary: grounded, unsupported_actor, unsupported_structure, unsupported_mechanism, unsupported_workflow, unsupported_location, unsupported_population, unsupported_frequency, unsupported_capacity, unsupported_ownership, unsupported_control_state, unsupported_causality, unsupported_comparison, unsupported_assurance, unsupported_operating_detail, evidence_conflict, unresolved_ambiguity, repairable_overstatement. Do not emit prose reasons. Set repair to null for zero REPAIR decisions. For exactly one REPAIR, put one bounded replacement paragraph in repair and identify its reviewId. If more than one block is truthfully REPAIR, set repair to null; the deterministic coordinator fails closed with multiple_semantic_repairs_required and no replacement is applied. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Use only the complete permittedFacts attached to each block.',
     '',
     JSON.stringify(buildSemanticReviewRequestPayload(input), null, 2)
   ].join('\n');
@@ -363,6 +365,7 @@ function semanticReviewExecutionContract(provider: string, prompt: string, maxOu
 
 function buildSemanticReviewDiagnostics(input: {
   reviewerInput: SemanticReviewerInput;
+  decisions?: SemanticReviewDecision[];
   provider: string;
   model: string;
   startedAtMs: number;
@@ -387,6 +390,9 @@ function buildSemanticReviewDiagnostics(input: {
     ?? textValue(response?.providerMetadata?.openai?.finishReason)
     ?? textValue(firstChoice?.finish_reason)
     ?? textValue(recordValue(responseRecord?.headers)?.['x-provider-finish-reason']);
+  const semanticPolicyDecisions = input.decisions
+    ? buildSemanticReviewPolicyDiagnostics(input.reviewerInput, input.decisions)
+    : [];
   return {
     provider: input.provider,
     model: input.model,
@@ -409,6 +415,7 @@ function buildSemanticReviewDiagnostics(input: {
     responseSchemaValid: input.responseSchemaValid,
     providerCalls: input.providerCalls,
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+    ...(semanticPolicyDecisions.length > 0 ? { semanticPolicyDecisions } : {}),
     executionContract: input.executionContract,
     ...(input.stageAccounting ? {
       attemptRecords: input.stageAccounting.attemptRecords,
@@ -852,6 +859,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       const executionContract = semanticReviewExecutionContract(stage.provider, prompt, maxOutputTokens);
       const diagnostics = buildSemanticReviewDiagnostics({
         reviewerInput: input,
+        decisions: stage.value.decisions,
         provider: stage.provider,
         model: stage.model,
         startedAtMs,

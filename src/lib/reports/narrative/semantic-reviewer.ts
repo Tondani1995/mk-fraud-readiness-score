@@ -4,6 +4,29 @@ import { z } from 'zod';
 
 export type SemanticReviewDisposition = 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD';
 
+export const SEMANTIC_REVIEW_REASON_CODES = [
+  'grounded',
+  'unsupported_actor',
+  'unsupported_structure',
+  'unsupported_mechanism',
+  'unsupported_workflow',
+  'unsupported_location',
+  'unsupported_population',
+  'unsupported_frequency',
+  'unsupported_capacity',
+  'unsupported_ownership',
+  'unsupported_control_state',
+  'unsupported_causality',
+  'unsupported_comparison',
+  'unsupported_assurance',
+  'unsupported_operating_detail',
+  'evidence_conflict',
+  'unresolved_ambiguity',
+  'repairable_overstatement'
+] as const;
+
+export type SemanticReviewReasonCode = typeof SEMANTIC_REVIEW_REASON_CODES[number];
+
 export type SemanticReviewFailureCode =
   | 'semantic_provider_timeout'
   | 'semantic_provider_http'
@@ -61,6 +84,19 @@ export interface SemanticReviewRepair {
   replacementProse: string;
 }
 
+/** Customer-content-free metadata for non-ALLOW semantic policy decisions. */
+export interface SemanticReviewPolicyDiagnostic {
+  candidateId: string;
+  disposition: Exclude<SemanticReviewDisposition, 'ALLOW'>;
+  reasonCode: SemanticReviewReasonCode;
+  ruleCode: string;
+  path: string;
+  blueprintPath: string;
+  chapterTitle: string;
+  sectionTitle: string;
+  subsectionTitle?: string;
+}
+
 export interface SemanticReviewAccounting {
   providerCalls: number;
   inputTokens?: number;
@@ -113,6 +149,7 @@ export interface SemanticReviewDiagnostics {
   responseSchemaValid: boolean;
   providerCalls: number;
   failureCode?: SemanticReviewFailureCode;
+  semanticPolicyDecisions?: SemanticReviewPolicyDiagnostic[];
   executionContract?: SemanticReviewExecutionContract;
   attemptRecords?: NarrativeProviderAttemptRecord[];
   totalMiniAttempts?: number;
@@ -133,7 +170,7 @@ export interface EssentialSemanticReviewer {
 const DISPOSITIONS: readonly SemanticReviewDisposition[] = ['ALLOW', 'REPAIR', 'REJECT', 'HOLD'];
 
 const boundedReviewId = z.string().trim().regex(/^B\d{2,4}$/);
-const boundedReasonCode = z.string().trim().regex(/^[a-z0-9][a-z0-9_]{0,47}$/);
+const boundedReasonCode = z.enum(SEMANTIC_REVIEW_REASON_CODES);
 const boundedReplacement = z.string().trim().min(1).max(2400);
 
 const semanticDecisionBase = {
@@ -184,6 +221,14 @@ function cleanProviderReviewId(value: unknown): string {
   return reviewId;
 }
 
+function cleanReasonCode(value: unknown): SemanticReviewReasonCode {
+  const reasonCode = cleanText(value, 'reasonCode', 48);
+  if (!boundedReasonCode.safeParse(reasonCode).success) {
+    throw invalid('reasonCode must use the controlled semantic reason-code vocabulary');
+  }
+  return reasonCode as SemanticReviewReasonCode;
+}
+
 function validateReplacement(value: unknown): string {
   if (typeof value !== 'string' || !value.trim()) throw invalid('REPAIR requires replacementProse', 'semantic_deterministic_validation_failed');
   const replacement = value.trim();
@@ -203,6 +248,34 @@ export function reviewIdForCandidate(input: SemanticReviewerInput, candidateId: 
   const index = input.candidates.findIndex((candidate) => candidate.candidateId === candidateId);
   if (index < 0) throw invalid(`unknown candidateId ${candidateId}`, 'semantic_unknown_candidate');
   return reviewIdForCandidateIndex(index);
+}
+
+/**
+ * Project reviewed decisions onto deterministic candidate metadata without carrying any
+ * customer-authored paragraph, surrounding prose, replacement prose, facts or model reasoning.
+ */
+export function buildSemanticReviewPolicyDiagnostics(
+  input: SemanticReviewerInput,
+  decisions: SemanticReviewDecision[]
+): SemanticReviewPolicyDiagnostic[] {
+  const candidatesById = new Map(input.candidates.map((candidate) => [candidate.candidateId, candidate]));
+  return decisions
+    .filter((decision) => decision.disposition !== 'ALLOW')
+    .map((decision) => {
+      const candidate = candidatesById.get(decision.candidateId);
+      if (!candidate) throw invalid(`unknown candidateId ${decision.candidateId}`, 'semantic_unknown_candidate');
+      return {
+        candidateId: candidate.candidateId,
+        disposition: decision.disposition as Exclude<SemanticReviewDisposition, 'ALLOW'>,
+        reasonCode: cleanReasonCode(decision.reasonCode),
+        ruleCode: candidate.ruleCode,
+        path: candidate.path,
+        blueprintPath: candidate.blueprintPath,
+        chapterTitle: candidate.chapterTitle,
+        sectionTitle: candidate.sectionTitle,
+        ...(candidate.subsectionTitle !== undefined ? { subsectionTitle: candidate.subsectionTitle } : {})
+      };
+    });
 }
 
 /**
@@ -230,7 +303,7 @@ export function assertInternalSemanticReviewResult(input: SemanticReviewerInput,
       throw invalid(`unsupported disposition for ${candidateId}`, 'semantic_structured_output_invalid');
     }
     const disposition = decision.disposition as SemanticReviewDisposition;
-    const reasonCode = cleanText(decision.reasonCode, 'reasonCode', 48);
+    const reasonCode = cleanReasonCode(decision.reasonCode);
     const replacementProse = disposition === 'REPAIR' && 'replacementProse' in decision && decision.replacementProse !== undefined && decision.replacementProse !== null
       ? validateReplacement(decision.replacementProse)
       : undefined;
@@ -314,7 +387,7 @@ export function validateSemanticReviewEnvelope(input: SemanticReviewerInput, env
     return {
       candidateId: candidate.candidateId,
       disposition: decision.disposition as SemanticReviewDisposition,
-      reasonCode: cleanText(decision.reasonCode, 'reasonCode', 48)
+      reasonCode: cleanReasonCode(decision.reasonCode)
     };
   });
 

@@ -137,6 +137,14 @@ function reviewerInput(entry) {
   };
 }
 
+function reasonCodeForEntry(entry) {
+  if (entry.disposition === 'ALLOW') return 'grounded';
+  if (entry.disposition === 'REPAIR') return 'repairable_overstatement';
+  if (entry.code === 'assurance_claim') return 'unsupported_assurance';
+  if (entry.code === 'unsupported_comparative_claim') return 'unsupported_comparison';
+  return 'unsupported_mechanism';
+}
+
 function fakeReviewer(entries) {
   let calls = 0;
   return {
@@ -151,7 +159,7 @@ function fakeReviewer(entries) {
           return {
             candidateId: candidate.candidateId,
             disposition: entry.disposition,
-            reasonCode: `${entry.category.toLowerCase()}_fixture`,
+            reasonCode: reasonCodeForEntry(entry),
             reason: `Provider-free ${entry.category} semantic fixture.`,
             ...(entry.disposition === 'REPAIR' ? { replacementProse: entry.replacementProse } : {})
           };
@@ -224,7 +232,7 @@ test('hard deterministic gates cannot be overridden by semantic ALLOW', () => {
       paragraphCount: 1
     },
     factPack: emptyFacts,
-    semanticDecisions: [{ candidateId: 'unsupported_numeric_claim:fixture', disposition: 'ALLOW', reasonCode: 'fixture', reason: 'not applicable' }],
+    semanticDecisions: [{ candidateId: 'unsupported_numeric_claim:fixture', disposition: 'ALLOW', reasonCode: 'grounded', reason: 'not applicable' }],
     requireSemanticReviewer: true
   });
   assert.equal(result.publishable, false);
@@ -297,7 +305,7 @@ test('final HTML binds reviewed provider blocks by exact Blueprint path and cont
     semanticDecisions: [{
       candidateId: essentialCandidateId('semantic_grounding_block', path, paragraph),
       disposition: 'ALLOW',
-      reasonCode: 'fixture_allow',
+      reasonCode: 'grounded',
       reason: 'Provider-free exact-block allow.'
     }],
     requireSemanticReviewer: true
@@ -326,7 +334,7 @@ test('structured semantic envelope accepts all four dispositions and truthfully 
     decisions: inputs.map((candidate, index) => ({
       reviewId: `B${String(index + 1).padStart(2, '0')}`,
       disposition: ['ALLOW', 'REPAIR', 'REJECT', 'HOLD', 'REPAIR'][index],
-      reasonCode: `fixture_${index}`
+      reasonCode: ['grounded', 'repairable_overstatement', 'unsupported_assurance', 'unresolved_ambiguity', 'unsupported_comparison'][index]
     })),
     repair: null
   };
@@ -340,14 +348,14 @@ test('semantic provider envelope fails closed on omission, duplicate, unknown an
   const entries = CORPUS.slice(2, 4);
   const inputs = entries.map(reviewerInput);
   assert.throws(
-    () => validateSemanticReviewEnvelope({ candidates: inputs }, { decisions: [{ reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' }], repair: null }),
+    () => validateSemanticReviewEnvelope({ candidates: inputs }, { decisions: [{ reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'grounded' }], repair: null }),
     (error) => error?.semanticReviewFailureCode === 'semantic_candidate_count_mismatch'
   );
   assert.throws(
     () => validateSemanticReviewEnvelope({ candidates: inputs }, {
       decisions: [
-        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' },
-        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'fixture' }
+        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'grounded' },
+        { reviewId: 'B01', disposition: 'ALLOW', reasonCode: 'grounded' }
       ],
       repair: null
     }),
@@ -356,19 +364,19 @@ test('semantic provider envelope fails closed on omission, duplicate, unknown an
   assert.throws(
     () => validateSemanticReviewEnvelope({ candidates: inputs }, {
       decisions: [
-        { reviewId: 'B99', disposition: 'ALLOW', reasonCode: 'fixture' },
-        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+        { reviewId: 'B99', disposition: 'ALLOW', reasonCode: 'grounded' },
+        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'grounded' }
       ],
       repair: null
     }),
     (error) => error?.semanticReviewFailureCode === 'semantic_unknown_candidate'
   );
-  const malformed = semanticReviewEnvelopeSchema.parse({ decisions: [{ reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' }], repair: null });
+  const malformed = semanticReviewEnvelopeSchema.parse({ decisions: [{ reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'repairable_overstatement' }], repair: null });
   assert.throws(() => validateSemanticReviewEnvelope({ candidates: [reviewerInput(entries[0])] }, malformed), /exactly one REPAIR/);
   const malformedRepair = semanticReviewEnvelopeSchema.parse({
     decisions: [
-      { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' },
-      { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+      { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'repairable_overstatement' },
+      { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'grounded' }
     ],
     repair: { reviewId: 'B99', replacementProse: 'Management should document the bounded control route.' }
   });
@@ -379,12 +387,22 @@ test('semantic provider envelope fails closed on omission, duplicate, unknown an
   assert.throws(
     () => validateSemanticReviewEnvelope({ candidates: inputs }, {
       decisions: [
-        { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' },
-        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'fixture' }
+        { reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'repairable_overstatement' },
+        { reviewId: 'B02', disposition: 'ALLOW', reasonCode: 'grounded' }
       ],
       repair: { reviewId: 'malformed', replacementProse: 'Management should document the bounded control route.' }
     }),
     (error) => error?.semanticReviewFailureCode === 'semantic_structured_output_invalid'
+  );
+});
+
+test('provider reason codes are restricted to the controlled semantic vocabulary', () => {
+  assert.throws(
+    () => semanticReviewEnvelopeSchema.parse({
+      decisions: [{ reviewId: 'B01', disposition: 'REJECT', reasonCode: 'model_invented_reason' }],
+      repair: null
+    }),
+    /reasonCode/
   );
 });
 
@@ -490,7 +508,7 @@ function providerEnvelopeFor(input, repairCandidateId) {
     decisions: input.candidates.map((candidate, index) => ({
       reviewId: `B${String(index + 1).padStart(2, '0')}`,
       disposition: index === repairIndex ? 'REPAIR' : 'ALLOW',
-      reasonCode: index === repairIndex ? 'provider_mapped_repair' : 'provider_mapped_allow'
+      reasonCode: index === repairIndex ? 'repairable_overstatement' : 'grounded'
     })),
     repair: repairIndex >= 0
       ? { reviewId: `B${String(repairIndex + 1).padStart(2, '0')}`, replacementProse: 'Management should document and cross-train control responsibilities across the relevant process.' }
@@ -556,14 +574,14 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
           ? {
             candidateId: item.candidateId,
             disposition: 'REPAIR',
-            reasonCode: 'unsupported_concentration_reframed',
+            reasonCode: 'repairable_overstatement',
             reason: 'The management implication is useful, but the workforce fact is not established.',
             replacementProse: 'Management should document and cross-train control responsibilities across the relevant process.'
           }
           : {
             candidateId: item.candidateId,
             disposition: 'ALLOW',
-            reasonCode: 'provider_free_block_allow',
+            reasonCode: 'grounded',
             reason: 'No unsupported customer-specific proposition remains after block review.'
           }),
         accounting: { providerCalls: 0, repairCount: 1 }
@@ -591,14 +609,14 @@ test('multiple truthful REPAIR findings fail closed with a distinct policy code 
           ? {
             candidateId: candidate.candidateId,
             disposition: 'REPAIR',
-            reasonCode: 'multiple_repairs_fixture',
+            reasonCode: 'repairable_overstatement',
             reason: 'This block requires a bounded evidence-safe rewrite.',
             replacementProse: 'Management should document the relevant control responsibility and review route.'
           }
           : {
             candidateId: candidate.candidateId,
             disposition: 'ALLOW',
-            reasonCode: 'fixture_allow',
+            reasonCode: 'grounded',
             reason: 'The block is grounded.'
           }),
         accounting: { providerCalls: 0, repairCount: 2 }
@@ -610,10 +628,53 @@ test('multiple truthful REPAIR findings fail closed with a distinct policy code 
     (error) => {
       assert.equal(error?.diagnostics?.validationCode, 'multiple_semantic_repairs_required');
       assert.equal(error?.diagnostics?.totalProviderCalls, 1, 'provider-free fixture adds no live call');
+      assert.equal(error?.diagnostics?.semanticPolicyDecisions?.length, 2);
+      assert.ok(error.diagnostics.semanticPolicyDecisions.every((decision) => decision.disposition === 'REPAIR'));
+      assert.ok(error.diagnostics.semanticPolicyDecisions.every((decision) => decision.reasonCode === 'repairable_overstatement'));
+      assert.ok(error.diagnostics.semanticPolicyDecisions.every((decision) => decision.path.includes('.paragraphs[')));
+      assert.equal(error.diagnostics.validationIssues.length, 2);
+      assert.ok(error.diagnostics.validationIssues.every((issue) => issue.path.includes('.paragraphs[')));
+      assert.doesNotMatch(JSON.stringify(error.diagnostics), /Knowledge is held by one or two people/i);
       return true;
     }
   );
   assert.equal(reviewerCalls, 1, 'multiple repair truth is handled after the single batch response');
+});
+
+test('HOLD exposes safe candidate metadata without paragraph or replacement prose', async () => {
+  const fixture = coordinatorFixture();
+  let reviewerCalls = 0;
+  let heldCandidate;
+  const semanticReviewer = {
+    async review(input) {
+      reviewerCalls += 1;
+      heldCandidate = input.candidates[0];
+      return {
+        decisions: input.candidates.map((candidate) => candidate.candidateId === heldCandidate.candidateId
+          ? { candidateId: candidate.candidateId, disposition: 'HOLD', reasonCode: 'unresolved_ambiguity', replacementProse: undefined }
+          : { candidateId: candidate.candidateId, disposition: 'ALLOW', reasonCode: 'grounded' }),
+        accounting: { providerCalls: 0, repairCount: 0 }
+      };
+    }
+  };
+  await assert.rejects(
+    composeEssentialManuscript({ factPack: fixture.factPack, writer: fixtureWriter(fixture), semanticReviewer }),
+    (error) => {
+      assert.equal(error?.diagnostics?.validationCode, 'semantic_hold');
+      const decision = error?.diagnostics?.semanticPolicyDecisions?.find((item) => item.disposition === 'HOLD');
+      assert.ok(decision);
+      assert.equal(decision.candidateId, heldCandidate.candidateId);
+      assert.equal(decision.reasonCode, 'unresolved_ambiguity');
+      assert.equal(decision.path, heldCandidate.path);
+      assert.equal(decision.ruleCode, heldCandidate.ruleCode);
+      assert.equal(decision.blueprintPath, heldCandidate.blueprintPath);
+      assert.equal(error.diagnostics.validationIssues[0].path, heldCandidate.path);
+      assert.doesNotMatch(JSON.stringify(error.diagnostics), /Knowledge is held by one or two people/i);
+      assert.doesNotMatch(JSON.stringify(error.diagnostics), /document and cross-train control responsibilities/i);
+      return true;
+    }
+  );
+  assert.equal(reviewerCalls, 1);
 });
 
 test('semantic provider diagnostics survive a failed batch without customer paragraph text', async () => {
@@ -728,7 +789,7 @@ test('unseen provider-free corpus has zero lexical candidates but every block re
           return {
             candidateId: candidate.candidateId,
             disposition,
-            reasonCode: `unseen_${disposition.toLowerCase()}`,
+            reasonCode: disposition === 'ALLOW' ? 'grounded' : disposition === 'REPAIR' ? 'repairable_overstatement' : disposition === 'REJECT' ? 'unsupported_mechanism' : 'unresolved_ambiguity',
             reason: `Provider-free unseen corpus outcome: ${disposition}.`,
             ...(disposition === 'REPAIR' ? { replacementProse: 'Management should define and evidence the relevant review coverage and escalation route.' } : {})
           };
@@ -741,6 +802,16 @@ test('unseen provider-free corpus has zero lexical candidates but every block re
     composeEssentialManuscript({ factPack, writer, semanticReviewer }),
     (error) => {
       assert.equal(error?.diagnostics?.validationCode, 'semantic_reject');
+      const policyDecisions = error?.diagnostics?.semanticPolicyDecisions ?? [];
+      assert.ok(policyDecisions.some((decision) => decision.disposition === 'REJECT'));
+      const rejected = policyDecisions.find((decision) => decision.disposition === 'REJECT');
+      assert.equal(rejected.reasonCode, 'unsupported_mechanism');
+      assert.equal(rejected.ruleCode, 'semantic_grounding_block');
+      assert.ok(rejected.path.includes('.paragraphs['));
+      assert.ok(error.diagnostics.validationIssues.some((issue) => issue.path === rejected.path && issue.reasonCode === 'unsupported_mechanism'));
+      const safeDiagnostics = JSON.stringify(error.diagnostics);
+      assert.doesNotMatch(safeDiagnostics, /Oversight is coordinated through a regional hub/i);
+      assert.doesNotMatch(safeDiagnostics, /Management should define and evidence the relevant review coverage/i);
       return true;
     },
     'REJECT and HOLD outcomes must fail closed after the one batch review'
@@ -760,7 +831,7 @@ test('unseen provider-free corpus has zero lexical candidates but every block re
           decisions: input.candidates.map((candidate) => ({
             candidateId: candidate.candidateId,
             disposition: 'ALLOW',
-            reasonCode: 'clean_block_allow',
+            reasonCode: 'grounded',
             reason: 'Provider-free clean-generation accounting fixture.'
           })),
           // Simulated provider accounting proves the production 1 + 1 = 2 envelope without a
