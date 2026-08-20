@@ -14,6 +14,8 @@ The Essential narrative route uses one closed model policy. Selection precedence
 
 Only the approved Mini/Luna/Terra/Sol model identifiers are accepted as explicit overrides. An unsupported or stale override such as `openai/gpt-5.5` resolves safely to the compiled Mini primary and is retained only as a bounded diagnostic. For each logical stage (manuscript and semantic review), the application owns at most four total Mini attempts, then may use `openai/gpt-5.6-luna`, `openai/gpt-5.6-terra` and `openai/gpt-5.6-sol` in that order for an authorised technical or capability failure. SDK retries are disabled with `maxRetries: 0` so physical requests remain observable.
 
+Semantic review keeps the full grounding input for every candidate: paragraph, surrounding prose, candidate span, claim references, deterministic facts, management takeaway, assurance boundary and warning metadata. Only the response is compacted to review IDs, dispositions, bounded reason codes and at most one bounded repair. Because Mini reasoning tokens share the output ceiling, semantic review starts at a 4,500-token ceiling and uses a fixed 6,000-token hard ceiling for same-Mini length retries. A semantic length stop never escalates to a fallback model; after four Mini truncations the stage fails closed with its complete attempt ledger.
+
 The application does not store a provider API key in Supabase or report provenance. Authentication is expected to use the Vercel deployment environment and AI Gateway configuration.
 
 ## Data minimisation

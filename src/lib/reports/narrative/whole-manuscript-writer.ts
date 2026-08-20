@@ -8,7 +8,6 @@ import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
-import type { NarrativeFactPack } from './fact-pack';
 import {
   semanticReviewEnvelopeSchema,
   reviewIdForCandidateIndex,
@@ -21,6 +20,7 @@ import {
 } from './semantic-reviewer';
 import {
   getNarrativeAttemptAccounting,
+  extractNarrativeTokenUsage,
   runNarrativeProviderAttempts,
   type NarrativeProviderAttemptContext,
   type NarrativeProviderFailure,
@@ -30,6 +30,19 @@ import {
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
+
+/**
+ * Mini's output usage includes reasoning tokens as well as the visible structured response. The
+ * observed 45-block compact envelope is about 739 visible tokens, but a 3,000-token ceiling can
+ * still stop Mini while it is reasoning. Start with 4,500 tokens and give the same Mini call a
+ * bounded 6,000-token ceiling on retry; 6,000 is the hard cap for this logical stage.
+ */
+export const SEMANTIC_REVIEW_INITIAL_MAX_OUTPUT_TOKENS = 4_500;
+export const SEMANTIC_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
+
+export function semanticReviewMaxOutputTokensForAttempt(modelAttempt: number): number {
+  return modelAttempt <= 1 ? SEMANTIC_REVIEW_INITIAL_MAX_OUTPUT_TOKENS : SEMANTIC_REVIEW_MAX_OUTPUT_TOKENS;
+}
 
 function providerFromModel(model: string): string { return model.split('/')[0]?.trim() || 'vercel-ai-gateway'; }
 function sha(value: unknown): string { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
@@ -71,46 +84,34 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
   ].join('\n');
 }
 
-function adjacentContext(paragraph: string, surroundingProse: string): string {
-  const context = surroundingProse.trim();
-  const target = paragraph.trim();
-  if (!context || !target) return context;
-  const index = context.indexOf(target);
-  if (index < 0) return context;
-  return `${context.slice(0, index)}[TARGET_BLOCK]${context.slice(index + target.length)}`.trim();
-}
-
 /**
- * Build the compact one-call semantic request. Fact objects are keyed once by ID; blocks carry
- * only the IDs they are allowed to use, so a shared fact is never serialised once per paragraph.
+ * Build the semantic request without compacting the evidence. The provider receives every
+ * candidate field, including the full paragraph, original surrounding prose, candidate span,
+ * detector metadata, claim references and complete permitted fact objects. Only the response
+ * schema is intentionally compact.
  */
 export function buildSemanticReviewRequestPayload(input: SemanticReviewerInput): {
-  factsById: Record<string, NarrativeFactPack['facts'][number]>;
   blocks: Array<Record<string, unknown>>;
 } {
-  const factsById = new Map<string, NarrativeFactPack['facts'][number]>();
-  for (const candidate of input.candidates) {
-    for (const fact of candidate.permittedFacts) {
-      if (fact?.id && !factsById.has(fact.id)) factsById.set(fact.id, fact);
-    }
-  }
   const blocks = input.candidates.map((candidate, index) => ({
     reviewId: reviewIdForCandidateIndex(index),
     candidateId: candidate.candidateId,
+    ruleCode: candidate.ruleCode,
     path: candidate.path,
+    candidateSpan: candidate.candidateSpan,
+    paragraph: candidate.paragraph,
+    surroundingProse: candidate.surroundingProse,
     blueprintPath: candidate.blueprintPath,
     chapterTitle: candidate.chapterTitle,
     sectionTitle: candidate.sectionTitle,
-    ...(candidate.subsectionTitle ? { subsectionTitle: candidate.subsectionTitle } : {}),
-    paragraph: candidate.paragraph,
-    adjacentContext: adjacentContext(candidate.paragraph, candidate.surroundingProse),
+    ...(candidate.subsectionTitle !== undefined ? { subsectionTitle: candidate.subsectionTitle } : {}),
     permittedClaimRefs: candidate.permittedClaimRefs,
-    permittedFactIds: candidate.permittedFacts.map((fact) => fact.id).filter(Boolean),
+    permittedFacts: candidate.permittedFacts,
     requiredManagementTakeaway: candidate.requiredManagementTakeaway,
     assuranceBoundary: candidate.assuranceBoundary,
-    warningSignals: candidate.warningSignals ?? []
+    ...(candidate.warningSignals !== undefined ? { warningSignals: candidate.warningSignals } : {})
   }));
-  return { factsById: Object.fromEntries(factsById.entries()), blocks };
+  return { blocks };
 }
 
 function semanticReviewPrompt(input: SemanticReviewerInput): string {
@@ -119,7 +120,7 @@ function semanticReviewPrompt(input: SemanticReviewerInput): string {
     '',
     'Each input item is a full paragraph/block, not merely a lexical hit. Use the short reviewId (for example B01) in every decision; the application maps it back to the exact candidateId and Blueprint path. Return the typed semantic-review object with one decision for every reviewId and an envelope-level repair field.',
     'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
-    'Use only a short bounded reasonCode. Do not emit prose reasons. Set repair to null for zero REPAIR decisions. For exactly one REPAIR, put one bounded replacement paragraph in repair and identify its reviewId. If more than one block is truthfully REPAIR, set repair to null; the deterministic coordinator fails closed with multiple_semantic_repairs_required and no replacement is applied. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from factsById.',
+    'Use only a short bounded reasonCode. Do not emit prose reasons. Set repair to null for zero REPAIR decisions. For exactly one REPAIR, put one bounded replacement paragraph in repair and identify its reviewId. If more than one block is truthfully REPAIR, set repair to null; the deterministic coordinator fails closed with multiple_semantic_repairs_required and no replacement is applied. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Use only the complete permittedFacts attached to each block.',
     '',
     JSON.stringify(buildSemanticReviewRequestPayload(input), null, 2)
   ].join('\n');
@@ -190,7 +191,7 @@ function technicalFailure(input: {
   return input;
 }
 
-function classifyNarrativeProviderFailure(error: unknown, context: NarrativeProviderAttemptContext): NarrativeProviderFailure {
+export function classifyNarrativeProviderFailure(error: unknown, context: NarrativeProviderAttemptContext): NarrativeProviderFailure {
   const record = recordValue(error);
   const response = responseFromError(error);
   const explicit = recordValue(record?.narrativeProviderFailure);
@@ -204,12 +205,21 @@ function classifyNarrativeProviderFailure(error: unknown, context: NarrativeProv
     });
   }
   const semanticCode = safeSemanticFailureCode(record?.semanticReviewFailureCode);
-  if (semanticCode === 'semantic_output_contract_too_large' || semanticCode === 'semantic_deterministic_validation_failed' || semanticCode === 'semantic_candidate_count_mismatch' || semanticCode === 'semantic_unknown_candidate' || semanticCode === 'multiple_semantic_repairs_required' || semanticCode === 'semantic_reject' || semanticCode === 'semantic_hold' || semanticCode === 'semantic_repair_validation_failed') {
+  if (context.logicalStage === 'semantic_review' && semanticCode === 'semantic_output_contract_too_large') {
+    // A length stop is technical for Mini, but it is not fallback-eligible: the same compact
+    // task gets the remaining Mini attempts with the deterministic larger ceiling first. If all
+    // four Mini attempts stop on length, the runner fails closed with the full ledger attached.
+    return technicalFailure({ classification: 'retryable_technical', code: semanticCode, retryable: true, fallbackEligible: false });
+  }
+  if (semanticCode === 'semantic_deterministic_validation_failed' || semanticCode === 'semantic_candidate_count_mismatch' || semanticCode === 'semantic_unknown_candidate' || semanticCode === 'multiple_semantic_repairs_required' || semanticCode === 'semantic_reject' || semanticCode === 'semantic_hold' || semanticCode === 'semantic_repair_validation_failed') {
     return technicalFailure({ classification: 'non_retryable', code: semanticCode, retryable: false, fallbackEligible: false });
   }
   const finishReason = responseFinishReason(response, error)?.toLowerCase();
   if (finishReason === 'length' || finishReason === 'max_output_tokens') {
-    return technicalFailure({ classification: 'non_retryable', code: context.logicalStage === 'semantic_review' ? 'semantic_output_contract_too_large' : 'provider_output_contract_too_large', retryable: false, fallbackEligible: false });
+    if (context.logicalStage === 'semantic_review') {
+      return technicalFailure({ classification: 'retryable_technical', code: 'semantic_output_contract_too_large', retryable: true, fallbackEligible: false });
+    }
+    return technicalFailure({ classification: 'non_retryable', code: 'provider_output_contract_too_large', retryable: false, fallbackEligible: false });
   }
   const status = [record?.statusCode, record?.status, recordValue(record?.response)?.status, recordValue(response?.response)?.status]
     .find((value) => typeof value === 'number' && Number.isFinite(value)) as number | undefined;
@@ -269,6 +279,7 @@ function buildSemanticReviewDiagnostics(input: {
   stageAccounting?: NarrativeProviderStageAccounting;
 }): SemanticReviewDiagnostics {
   const response = input.response;
+  const tokenUsage = extractNarrativeTokenUsage(response);
   const endedAtMs = Date.now();
   const gateway = recordValue(response?.providerMetadata?.gateway);
   const responseRecord = recordValue(response?.response);
@@ -291,9 +302,11 @@ function buildSemanticReviewDiagnostics(input: {
     responseId: textValue(responseRecord?.id) ?? textValue(response?.id),
     finishReason,
     providerFinishReason,
-    inputTokens: input.stageAccounting?.inputTokens ?? numeric(response?.usage?.inputTokens),
-    outputTokens: input.stageAccounting?.outputTokens ?? numeric(response?.usage?.outputTokens),
-    totalTokens: input.stageAccounting?.totalTokens ?? numeric(response?.usage?.totalTokens),
+    inputTokens: input.stageAccounting?.inputTokens ?? tokenUsage.inputTokens,
+    outputTokens: input.stageAccounting?.outputTokens ?? tokenUsage.outputTokens,
+    reasoningTokens: input.stageAccounting?.reasoningTokens ?? tokenUsage.reasoningTokens,
+    visibleOutputTokens: input.stageAccounting?.visibleOutputTokens ?? tokenUsage.visibleOutputTokens,
+    totalTokens: input.stageAccounting?.totalTokens ?? tokenUsage.totalTokens,
     providerCostMicros: input.stageAccounting?.costMicros ?? optionalCostMicros(response),
     candidateCount: input.reviewerInput.candidates.length,
     blockCount: input.reviewerInput.candidates.length,
@@ -346,9 +359,10 @@ function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail)
 
 function metadata(input: { context: WholeManuscriptWriterInput['context']; blueprint: WholeManuscriptWriterInput['blueprint']; factPack?: unknown }, provider: string, model: string, response: any, prompt: string, maxOutputTokens: number, recovery: WholeManuscriptWriterMetadata['recovery'], architecture: WholeManuscriptWriterMetadata['architecture'] = 'whole-manuscript'): WholeManuscriptWriterMetadata {
   const identity = parseAiGatewayExecutionIdentity({ requestedProvider: provider, requestedModel: model, providerMetadata: response.providerMetadata, response: response.response });
-  const inputTokens = numeric(response.usage?.inputTokens);
-  const outputTokens = numeric(response.usage?.outputTokens);
-  const totalTokens = numeric(response.usage?.totalTokens);
+  const tokenUsage = extractNarrativeTokenUsage(response);
+  const inputTokens = tokenUsage.inputTokens;
+  const outputTokens = tokenUsage.outputTokens;
+  const totalTokens = tokenUsage.totalTokens;
   const rawGatewayCost = response.providerMetadata?.gateway?.cost;
   const providerCostMicros = identity?.gatewayCostMicros;
   const finishReason = textValue(response.finishReason) ?? textValue(response.response?.finishReason);
@@ -371,6 +385,8 @@ function metadata(input: { context: WholeManuscriptWriterInput['context']; bluep
     inputBlueprintSha256: sha(input.blueprint),
     inputTokens,
     outputTokens,
+    reasoningTokens: tokenUsage.reasoningTokens,
+    visibleOutputTokens: tokenUsage.visibleOutputTokens,
     totalTokens,
     providerCostMicros,
     providerCostRaw: typeof rawGatewayCost === 'string' || typeof rawGatewayCost === 'number' ? rawGatewayCost : undefined,
@@ -514,6 +530,10 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
     initialResult.writerMetadata.totalProviderCalls = stage.accounting.totalPhysicalProviderRequests;
     initialResult.writerMetadata.manuscriptInputTokens = initialResult.writerMetadata.inputTokens;
     initialResult.writerMetadata.manuscriptOutputTokens = initialResult.writerMetadata.outputTokens;
+    initialResult.writerMetadata.reasoningTokens = stage.accounting.reasoningTokens;
+    initialResult.writerMetadata.visibleOutputTokens = stage.accounting.visibleOutputTokens;
+    initialResult.writerMetadata.manuscriptReasoningTokens = stage.accounting.reasoningTokens;
+    initialResult.writerMetadata.manuscriptVisibleOutputTokens = stage.accounting.visibleOutputTokens;
     initialResult.writerMetadata.manuscriptTotalTokens = initialResult.writerMetadata.totalTokens;
     initialResult.writerMetadata.manuscriptProviderCostMicros = initialResult.writerMetadata.providerCostMicros;
     const initialParsed = parseBlueprintMarkdown(initialResult.markdown, input.blueprint);
@@ -682,13 +702,16 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   async reviewSemanticCandidates(input: SemanticReviewerInput): Promise<SemanticReviewResult> {
     const prompt = semanticReviewPrompt(input);
     // The provider only returns compact identity/disposition/reason-code decisions plus one
-    // bounded replacement envelope. The rich grounding input remains in the prompt; only the
-    // output contract is compacted so a 45-block all-ALLOW response stays well below the old
-    // 7,200-token truncation boundary.
-    const maxOutputTokens = Math.min(3000, Math.max(1200, 650 + input.candidates.length * 32));
+    // bounded replacement envelope. The full grounding input remains in the prompt. Mini's
+    // reasoning tokens share the output ceiling, so the first attempt starts at 4,500 and a
+    // length retry deterministically increases to the fixed 6,000-token hard maximum.
+    const initialMaxOutputTokens = semanticReviewMaxOutputTokensForAttempt(1);
     const startedAtMs = Date.now();
     try {
       const stage = await this.runStage('semantic_review', async (attempt) => {
+        const maxOutputTokens = semanticReviewMaxOutputTokensForAttempt(attempt.modelAttempt);
+        // The shared attempt ledger records the exact ceiling used for each physical request.
+        attempt.maxOutputTokens = maxOutputTokens;
         const response = await generateText({
           model: attempt.model,
           system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return only the typed semantic-review object required by the structured output schema.',
@@ -725,6 +748,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
         return { value: checked, response };
       });
       const response = stage.response as any;
+      const maxOutputTokens = stage.accounting.attemptRecords.at(-1)?.maxOutputTokens ?? initialMaxOutputTokens;
       const executionContract = semanticReviewExecutionContract(stage.provider, prompt, maxOutputTokens);
       const diagnostics = buildSemanticReviewDiagnostics({
         reviewerInput: input,
@@ -744,6 +768,8 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
           providerCalls: stage.accounting.totalPhysicalProviderRequests,
           inputTokens: stage.accounting.inputTokens,
           outputTokens: stage.accounting.outputTokens,
+          reasoningTokens: stage.accounting.reasoningTokens,
+          visibleOutputTokens: stage.accounting.visibleOutputTokens,
           totalTokens: stage.accounting.totalTokens,
           providerCostMicros: stage.accounting.costMicros,
           repairCount: stage.value.decisions.filter((decision) => decision.disposition === 'REPAIR').length,
@@ -763,6 +789,7 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       const failureCode = classifySemanticProviderFailure(error, response);
       const provider = lastAttempt?.provider ?? this.provider;
       const model = lastAttempt?.model ?? this.model;
+      const maxOutputTokens = lastAttempt?.maxOutputTokens ?? initialMaxOutputTokens;
       const executionContract = semanticReviewExecutionContract(provider, prompt, maxOutputTokens);
       const diagnostics = buildSemanticReviewDiagnostics({
         reviewerInput: input,

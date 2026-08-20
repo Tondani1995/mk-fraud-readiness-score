@@ -30,6 +30,8 @@ export interface NarrativeProviderAttemptContext {
   model: string;
   provider: string;
   primaryOrFallback: 'primary' | 'fallback';
+  /** Per-attempt application-owned output ceiling, when a stage uses progressive budgeting. */
+  maxOutputTokens?: number;
   miniAttempt?: number;
   fallbackIndex?: number;
   retryReason?: string;
@@ -44,6 +46,8 @@ export interface NarrativeProviderAttemptRecord extends NarrativeProviderAttempt
   responseId?: string;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   finishReason?: string;
@@ -63,6 +67,8 @@ export interface NarrativeProviderStageAccounting {
   totalPhysicalProviderRequests: number;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   costMicros: number;
 }
@@ -101,8 +107,68 @@ function numeric(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function responseMetadata(response: unknown): Pick<NarrativeProviderAttemptRecord, 'generationId' | 'responseId' | 'inputTokens' | 'outputTokens' | 'totalTokens' | 'providerCostMicros' | 'finishReason' | 'providerFinishReason'> {
+export interface NarrativeProviderTokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
+  totalTokens?: number;
+}
+
+/**
+ * AI SDK exposes reasoning separately when the provider reports outputTokenDetails. Some
+ * gateway/provider responses only expose the raw OpenAI-style completion-token details, so the
+ * extractor accepts both shapes. It never returns or logs reasoning content itself.
+ */
+export function extractNarrativeTokenUsage(response: unknown): NarrativeProviderTokenUsage {
   const responseRecord = recordValue(response);
+  const usage = recordValue(responseRecord?.usage);
+  const outputTokenDetails = recordValue(usage?.outputTokenDetails);
+  const rawUsage = recordValue(usage?.raw);
+  const rawOutputTokenDetails = recordValue(rawUsage?.completion_tokens_details)
+    ?? recordValue(rawUsage?.completionTokensDetails)
+    ?? recordValue(rawUsage?.output_token_details)
+    ?? recordValue(rawUsage?.outputTokenDetails);
+  const providerMetadata = recordValue(responseRecord?.providerMetadata);
+  const openaiMetadata = recordValue(providerMetadata?.openai);
+  const providerUsage = recordValue(openaiMetadata?.usage);
+  const providerOutputTokenDetails = recordValue(providerUsage?.completion_tokens_details)
+    ?? recordValue(providerUsage?.completionTokensDetails)
+    ?? recordValue(providerUsage?.output_token_details)
+    ?? recordValue(providerUsage?.outputTokenDetails);
+  const outputTokens = numeric(usage?.outputTokens) ?? numeric(providerUsage?.completion_tokens);
+  const reasoningTokens = numeric(outputTokenDetails?.reasoningTokens)
+    ?? numeric(usage?.reasoningTokens)
+    ?? numeric(rawOutputTokenDetails?.reasoning_tokens)
+    ?? numeric(rawOutputTokenDetails?.reasoningTokens)
+    ?? numeric(providerOutputTokenDetails?.reasoning_tokens)
+    ?? numeric(providerOutputTokenDetails?.reasoningTokens);
+  const explicitVisibleOutputTokens = numeric(outputTokenDetails?.textTokens)
+    ?? numeric(outputTokenDetails?.visibleOutputTokens)
+    ?? numeric(rawOutputTokenDetails?.text_tokens)
+    ?? numeric(rawOutputTokenDetails?.textTokens)
+    ?? numeric(rawOutputTokenDetails?.visible_output_tokens)
+    ?? numeric(rawOutputTokenDetails?.visibleOutputTokens)
+    ?? numeric(providerOutputTokenDetails?.text_tokens)
+    ?? numeric(providerOutputTokenDetails?.textTokens)
+    ?? numeric(providerOutputTokenDetails?.visible_output_tokens)
+    ?? numeric(providerOutputTokenDetails?.visibleOutputTokens);
+  const visibleOutputTokens = explicitVisibleOutputTokens
+    ?? (outputTokens !== undefined && reasoningTokens !== undefined
+      ? Math.max(0, outputTokens - reasoningTokens)
+      : undefined);
+  return {
+    inputTokens: numeric(usage?.inputTokens),
+    outputTokens,
+    reasoningTokens,
+    visibleOutputTokens,
+    totalTokens: numeric(usage?.totalTokens)
+  };
+}
+
+function responseMetadata(response: unknown): Pick<NarrativeProviderAttemptRecord, 'generationId' | 'responseId' | 'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'visibleOutputTokens' | 'totalTokens' | 'providerCostMicros' | 'finishReason' | 'providerFinishReason'> {
+  const responseRecord = recordValue(response);
+  const tokenUsage = extractNarrativeTokenUsage(response);
   const gateway = recordValue(recordValue(responseRecord?.providerMetadata)?.gateway);
   const providerResponse = recordValue(responseRecord?.response);
   const providerBody = recordValue(providerResponse?.body);
@@ -113,9 +179,11 @@ function responseMetadata(response: unknown): Pick<NarrativeProviderAttemptRecor
   return {
     generationId: textValue(gateway?.generationId),
     responseId: textValue(providerResponse?.id) ?? textValue(responseRecord?.id),
-    inputTokens: numeric(recordValue(responseRecord?.usage)?.inputTokens),
-    outputTokens: numeric(recordValue(responseRecord?.usage)?.outputTokens),
-    totalTokens: numeric(recordValue(responseRecord?.usage)?.totalTokens),
+    inputTokens: tokenUsage.inputTokens,
+    outputTokens: tokenUsage.outputTokens,
+    reasoningTokens: tokenUsage.reasoningTokens,
+    visibleOutputTokens: tokenUsage.visibleOutputTokens,
+    totalTokens: tokenUsage.totalTokens,
     providerCostMicros: Number.isFinite(cost) && cost >= 0 ? Math.round(cost * 1_000_000) : undefined,
     finishReason: textValue(responseRecord?.finishReason) ?? textValue(providerResponse?.finishReason),
     providerFinishReason: textValue(gateway?.finishReason)
@@ -136,7 +204,7 @@ function modelSequence(selection: NarrativeModelSelection): string[] {
 }
 
 function stageAccounting(logicalStage: NarrativeLogicalStage, records: NarrativeProviderAttemptRecord[]): NarrativeProviderStageAccounting {
-  const sum = (field: 'inputTokens' | 'outputTokens' | 'totalTokens'): number | undefined => {
+  const sum = (field: 'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'visibleOutputTokens' | 'totalTokens'): number | undefined => {
     const values = records.map((record) => record[field]).filter((value): value is number => value !== undefined);
     return values.length ? values.reduce((total, value) => total + value, 0) : undefined;
   };
@@ -149,6 +217,8 @@ function stageAccounting(logicalStage: NarrativeLogicalStage, records: Narrative
     totalPhysicalProviderRequests: physicalRecords.length,
     inputTokens: sum('inputTokens'),
     outputTokens: sum('outputTokens'),
+    reasoningTokens: sum('reasoningTokens'),
+    visibleOutputTokens: sum('visibleOutputTokens'),
     totalTokens: sum('totalTokens'),
     costMicros: records.reduce((total, record) => total + (record.providerCostMicros ?? 0), 0)
   };

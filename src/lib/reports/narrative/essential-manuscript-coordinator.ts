@@ -99,6 +99,8 @@ export interface EssentialManuscriptDiagnostics {
   generationId?: string;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   finishReason?: string;
@@ -115,6 +117,8 @@ export interface EssentialManuscriptDiagnostics {
   totalFallbackAttempts?: number;
   totalPhysicalProviderRequests?: number;
   totalGenerationCostMicros?: number;
+  semanticReviewReasoningTokens?: number;
+  semanticReviewVisibleOutputTokens?: number;
   semanticReviewDiagnostics?: SemanticReviewDiagnostics;
   providerFailure?: EssentialProviderFailureDiagnostics;
   parseOk?: boolean;
@@ -263,6 +267,8 @@ function diagnosticsFrom(stage: string, writer: { provider?: string; model?: str
     generationId: meta.generationId ?? meta.responseId,
     inputTokens: meta.inputTokens,
     outputTokens: meta.outputTokens,
+    reasoningTokens: meta.reasoningTokens,
+    visibleOutputTokens: meta.visibleOutputTokens,
     totalTokens: meta.totalTokens,
     providerCostMicros: meta.providerCostMicros,
     finishReason: meta.finishReason,
@@ -464,6 +470,8 @@ function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, resu
       semanticReviewHoldCount: accounting?.holdCount ?? result.decisions.filter((decision) => decision.disposition === 'HOLD').length,
       semanticReviewInputTokens: accounting?.inputTokens,
       semanticReviewOutputTokens: accounting?.outputTokens,
+      semanticReviewReasoningTokens: accounting?.reasoningTokens,
+      semanticReviewVisibleOutputTokens: accounting?.visibleOutputTokens,
       semanticReviewTotalTokens: accounting?.totalTokens,
       semanticReviewProviderCostMicros: accounting?.providerCostMicros,
       semanticReviewProvider: accounting?.diagnostics?.provider,
@@ -490,6 +498,8 @@ function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, resu
       totalGenerationCostMicros: (previous.totalGenerationCostMicros ?? previous.providerCostMicros ?? 0) + (stageAccounting?.costMicros ?? accounting?.providerCostMicros ?? 0),
       inputTokens: (previous.inputTokens ?? 0) + (accounting?.inputTokens ?? 0),
       outputTokens: (previous.outputTokens ?? 0) + (accounting?.outputTokens ?? 0),
+      reasoningTokens: (previous.reasoningTokens ?? 0) + (accounting?.reasoningTokens ?? 0),
+      visibleOutputTokens: (previous.visibleOutputTokens ?? 0) + (accounting?.visibleOutputTokens ?? 0),
       totalTokens: (previous.totalTokens ?? 0) + (accounting?.totalTokens ?? 0),
       providerCostMicros: (previous.providerCostMicros ?? 0) + (accounting?.providerCostMicros ?? 0),
       recovery: {

@@ -58,6 +58,8 @@ export interface NarrativeWriterMetadata {
   presentationSanitisedProvenanceTokenCount?: number;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   providerCostRaw?: string | number;
@@ -97,6 +99,8 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   totalProviderCalls?: number;
   manuscriptInputTokens?: number;
   manuscriptOutputTokens?: number;
+  manuscriptReasoningTokens?: number;
+  manuscriptVisibleOutputTokens?: number;
   manuscriptTotalTokens?: number;
   manuscriptProviderCostMicros?: number;
   semanticReviewBlockCount?: number;
@@ -107,6 +111,8 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   semanticReviewHoldCount?: number;
   semanticReviewInputTokens?: number;
   semanticReviewOutputTokens?: number;
+  semanticReviewReasoningTokens?: number;
+  semanticReviewVisibleOutputTokens?: number;
   semanticReviewTotalTokens?: number;
   semanticReviewProviderCostMicros?: number;
   semanticReviewProvider?: string;

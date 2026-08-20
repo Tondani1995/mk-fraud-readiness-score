@@ -623,6 +623,8 @@ export async function generateManualPhase1Report(
         semanticReviewHoldCount: composed.manuscript.writerMetadata?.semanticReviewHoldCount,
         semanticReviewInputTokens: composed.manuscript.writerMetadata?.semanticReviewInputTokens,
         semanticReviewOutputTokens: composed.manuscript.writerMetadata?.semanticReviewOutputTokens,
+        semanticReviewReasoningTokens: composed.manuscript.writerMetadata?.semanticReviewReasoningTokens,
+        semanticReviewVisibleOutputTokens: composed.manuscript.writerMetadata?.semanticReviewVisibleOutputTokens,
         semanticReviewTotalTokens: composed.manuscript.writerMetadata?.semanticReviewTotalTokens,
         semanticReviewProviderCostMicros: composed.manuscript.writerMetadata?.semanticReviewProviderCostMicros,
         semanticReviewProvider: composed.manuscript.writerMetadata?.semanticReviewProvider,

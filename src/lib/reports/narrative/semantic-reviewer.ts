@@ -65,6 +65,8 @@ export interface SemanticReviewAccounting {
   providerCalls: number;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   repairCount: number;
@@ -102,6 +104,8 @@ export interface SemanticReviewDiagnostics {
   providerFinishReason?: string;
   inputTokens?: number;
   outputTokens?: number;
+  reasoningTokens?: number;
+  visibleOutputTokens?: number;
   totalTokens?: number;
   providerCostMicros?: number;
   candidateCount: number;

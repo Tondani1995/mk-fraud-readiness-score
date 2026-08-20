@@ -9,7 +9,13 @@ import {
   selectNarrativeModel,
   selectNarrativeModelForRequestedModel
 } from '../../src/lib/reports/ai-model-policy.ts';
-import { buildSemanticReviewRequestPayload } from '../../src/lib/reports/narrative/whole-manuscript-writer.ts';
+import {
+  SEMANTIC_REVIEW_INITIAL_MAX_OUTPUT_TOKENS,
+  SEMANTIC_REVIEW_MAX_OUTPUT_TOKENS,
+  buildSemanticReviewRequestPayload,
+  classifyNarrativeProviderFailure,
+  semanticReviewMaxOutputTokensForAttempt
+} from '../../src/lib/reports/narrative/whole-manuscript-writer.ts';
 import { semanticReviewEnvelopeSchema, validateSemanticReviewResult } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
 import { runNarrativeProviderAttempts } from '../../src/lib/reports/narrative/provider-attempt-policy.ts';
 
@@ -32,15 +38,20 @@ function classifier(error) {
 
 function response(attempt, text = undefined) {
   return {
-    usage: { inputTokens: 100 + attempt, outputTokens: 20 + attempt, totalTokens: 120 + attempt },
+    usage: {
+      inputTokens: 100 + attempt,
+      outputTokens: 20 + attempt,
+      outputTokenDetails: { reasoningTokens: 5 + attempt, textTokens: 15 },
+      totalTokens: 120 + attempt
+    },
     providerMetadata: { gateway: { generationId: `gen-${attempt}`, cost: '0.000001' } },
     response: { id: `resp-${attempt}`, body: text ? { choices: [{ message: { content: text } }] } : undefined },
     finishReason: 'stop'
   };
 }
 
-async function runStage({ logicalStage = 'semantic_review', selection = selectNarrativeModel({}), execute }) {
-  return runNarrativeProviderAttempts({ logicalStage, modelSelection: selection, execute, classifyFailure: classifier });
+async function runStage({ logicalStage = 'semantic_review', selection = selectNarrativeModel({}), execute, classifyFailure = classifier }) {
+  return runNarrativeProviderAttempts({ logicalStage, modelSelection: selection, execute, classifyFailure });
 }
 
 assert.equal(selectNarrativeModel({}).requestedModel, PRIMARY_NARRATIVE_MODEL);
@@ -48,12 +59,15 @@ assert.equal(selectNarrativeModelForRequestedModel('openai/gpt-5.5').requestedMo
 assert.equal(MAX_MINI_ATTEMPTS_PER_STAGE, 4);
 assert.equal(MAX_FALLBACK_ATTEMPTS_PER_STAGE, 3);
 assert.equal(MAX_PROVIDER_ATTEMPTS_PER_STAGE, 7);
+assert.equal(SEMANTIC_REVIEW_INITIAL_MAX_OUTPUT_TOKENS, 4500);
+assert.equal(SEMANTIC_REVIEW_MAX_OUTPUT_TOKENS, 6000);
+assert.deepEqual([1, 2, 3, 4].map(semanticReviewMaxOutputTokensForAttempt), [4500, 6000, 6000, 6000]);
 
 const secondAttemptContexts = [];
 const secondAttempt = await runStage({
   execute: async (context) => {
     secondAttemptContexts.push(context);
-    if (context.attempt === 1) throw technicalError('provider_timeout');
+    if (context.attempt === 1) throw technicalError('provider_timeout', { providerResponse: response(context.attempt) });
     return { value: 'accepted', response: response(context.attempt) };
   }
 });
@@ -62,6 +76,70 @@ assert.deepEqual(secondAttemptContexts.map((context) => context.model), [PRIMARY
 assert.equal(secondAttempt.accounting.totalMiniAttempts, 2);
 assert.equal(secondAttempt.accounting.totalFallbackAttempts, 0);
 assert.equal(secondAttempt.accounting.totalPhysicalProviderRequests, 2);
+assert.equal(secondAttempt.accounting.outputTokens, 43);
+assert.equal(secondAttempt.accounting.reasoningTokens, 13);
+assert.equal(secondAttempt.accounting.visibleOutputTokens, 30);
+assert.equal(secondAttempt.accounting.reasoningTokens + secondAttempt.accounting.visibleOutputTokens, secondAttempt.accounting.outputTokens);
+assert.equal(secondAttempt.accounting.attemptRecords[1].reasoningTokens, 7);
+assert.equal(secondAttempt.accounting.attemptRecords[1].visibleOutputTokens, 15);
+
+function semanticLengthError() {
+  const error = new Error('semantic_output_contract_too_large');
+  error.semanticReviewFailureCode = 'semantic_output_contract_too_large';
+  error.providerResponse = { ...response(1), finishReason: 'length' };
+  return error;
+}
+
+const semanticLengthClassification = classifyNarrativeProviderFailure(semanticLengthError(), {
+  logicalStage: 'semantic_review',
+  attempt: 1,
+  modelAttempt: 1,
+  model: PRIMARY_NARRATIVE_MODEL,
+  provider: 'openai',
+  primaryOrFallback: 'primary'
+});
+assert.equal(semanticLengthClassification.classification, 'retryable_technical');
+assert.equal(semanticLengthClassification.retryable, true);
+assert.equal(semanticLengthClassification.fallbackEligible, false);
+
+const semanticRetryContexts = [];
+const semanticRetry = await runStage({
+  classifyFailure: classifyNarrativeProviderFailure,
+  execute: async (context) => {
+    context.maxOutputTokens = semanticReviewMaxOutputTokensForAttempt(context.modelAttempt);
+    semanticRetryContexts.push({ ...context });
+    if (context.modelAttempt === 1) throw semanticLengthError();
+    return { value: 'semantic-accepted-on-second-mini-attempt', response: response(context.attempt) };
+  }
+});
+assert.equal(semanticRetry.value, 'semantic-accepted-on-second-mini-attempt');
+assert.deepEqual(semanticRetryContexts.map((context) => context.model), [PRIMARY_NARRATIVE_MODEL, PRIMARY_NARRATIVE_MODEL]);
+assert.deepEqual(semanticRetryContexts.map((context) => context.maxOutputTokens), [4500, 6000]);
+assert.equal(semanticRetry.accounting.totalMiniAttempts, 2);
+assert.equal(semanticRetry.accounting.totalFallbackAttempts, 0);
+assert.equal(semanticRetry.accounting.totalPhysicalProviderRequests, 2);
+assert.deepEqual(semanticRetry.accounting.attemptRecords.map((record) => record.maxOutputTokens), [4500, 6000]);
+
+const fourSemanticTruncations = [];
+await assert.rejects(
+  runStage({
+    classifyFailure: classifyNarrativeProviderFailure,
+    execute: async (context) => {
+      context.maxOutputTokens = semanticReviewMaxOutputTokensForAttempt(context.modelAttempt);
+      fourSemanticTruncations.push({ ...context });
+      throw semanticLengthError();
+    }
+  }),
+  (error) => {
+    assert.equal(error.message, 'semantic_output_contract_too_large');
+    assert.equal(error.narrativeAttemptAccounting.totalMiniAttempts, 4);
+    assert.equal(error.narrativeAttemptAccounting.totalFallbackAttempts, 0);
+    assert.equal(error.narrativeAttemptAccounting.totalPhysicalProviderRequests, 4);
+    assert.deepEqual(error.narrativeAttemptAccounting.attemptRecords.map((record) => record.maxOutputTokens), [4500, 6000, 6000, 6000]);
+    return true;
+  }
+);
+assert.deepEqual(fourSemanticTruncations.map((context) => context.model), Array(4).fill(PRIMARY_NARRATIVE_MODEL));
 
 const miniThenLunaContexts = [];
 const miniThenLuna = await runStage({
@@ -178,9 +256,11 @@ assert.equal(validateSemanticReviewResult({ candidates }, semanticReviewEnvelope
 
 const richPayload = buildSemanticReviewRequestPayload({ candidates: [candidate] });
 assert.equal(richPayload.blocks[0].paragraph, candidate.paragraph);
-assert.match(richPayload.blocks[0].adjacentContext, /\[TARGET_BLOCK\]/);
+assert.equal(richPayload.blocks[0].ruleCode, candidate.ruleCode);
+assert.equal(richPayload.blocks[0].candidateSpan, candidate.candidateSpan);
+assert.equal(richPayload.blocks[0].surroundingProse, candidate.surroundingProse);
 assert.deepEqual(richPayload.blocks[0].permittedClaimRefs, candidate.permittedClaimRefs);
-assert.deepEqual(richPayload.blocks[0].permittedFactIds, ['FACT-1']);
+assert.deepEqual(richPayload.blocks[0].permittedFacts, candidate.permittedFacts);
 assert.equal(richPayload.blocks[0].requiredManagementTakeaway, candidate.requiredManagementTakeaway);
 assert.equal(richPayload.blocks[0].assuranceBoundary, candidate.assuranceBoundary);
 assert.deepEqual(richPayload.blocks[0].warningSignals, candidate.warningSignals);
@@ -208,5 +288,5 @@ console.log(JSON.stringify({
     oneRepair45: estimateTokens(oneRepairEnvelope),
     multipleRepair45: estimateTokens(multipleRepairEnvelope)
   },
-  proof: ['default Mini', 'attempt 2 stops', 'four total Mini attempts', 'technical fallback order', 'REJECT no retry', 'compact output', 'mandatory identity', 'rich semantic input preserved', 'customer prose excluded from diagnostics', 'physical counts']
+  proof: ['default Mini', 'semantic length retries Mini with increased headroom', 'second semantic Mini success stops', 'four semantic truncations fail closed', 'reasoning-token accounting', 'four total Mini attempts', 'technical fallback order', 'REJECT no retry', 'compact output', 'mandatory identity', 'full semantic input preserved', 'customer prose excluded from diagnostics', 'physical counts']
 }, null, 2));

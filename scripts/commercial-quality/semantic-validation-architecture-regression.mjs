@@ -349,19 +349,33 @@ test('semantic envelope fails closed on omission, unknown candidate and malforme
   assert.throws(() => validateSemanticReviewResult({ candidates: [reviewerInput(entries[0])] }, malformed), /exactly one REPAIR/);
 });
 
-test('compact semantic request sends shared facts once and blocks reference only permitted fact IDs', () => {
+test('semantic request preserves every grounding field and does not compact input evidence', () => {
   const sharedFact = { id: 'FACT-SHARED', kind: 'finding', value: 'A shared deterministic fact used by multiple blocks.' };
   const inputs = [reviewerInput(CORPUS[0]), reviewerInput(CORPUS[1])].map((candidate) => ({
     ...candidate,
     permittedFacts: [sharedFact]
   }));
   const payload = buildSemanticReviewRequestPayload({ candidates: inputs });
-  assert.deepEqual(Object.keys(payload.factsById), ['FACT-SHARED']);
   assert.deepEqual(payload.blocks.map((block) => block.reviewId), ['B01', 'B02']);
-  assert.deepEqual(payload.blocks.map((block) => block.permittedFactIds), [['FACT-SHARED'], ['FACT-SHARED']]);
-  assert.ok(payload.blocks.every((block) => block.paragraph && block.adjacentContext && block.permittedClaimRefs && block.requiredManagementTakeaway && block.assuranceBoundary && block.warningSignals));
-  assert.ok(payload.blocks.every((block) => !Object.hasOwn(block, 'permittedFacts')));
-  assert.equal(JSON.stringify(payload).split('A shared deterministic fact used by multiple blocks.').length - 1, 1);
+  assert.deepEqual(payload.blocks.map((block) => block.permittedFacts), [[sharedFact], [sharedFact]]);
+  for (const [index, block] of payload.blocks.entries()) {
+    const source = inputs[index];
+    assert.equal(block.candidateId, source.candidateId);
+    assert.equal(block.ruleCode, source.ruleCode);
+    assert.equal(block.path, source.path);
+    assert.equal(block.candidateSpan, source.candidateSpan);
+    assert.equal(block.paragraph, source.paragraph);
+    assert.equal(block.surroundingProse, source.surroundingProse);
+    assert.equal(block.blueprintPath, source.blueprintPath);
+    assert.equal(block.chapterTitle, source.chapterTitle);
+    assert.equal(block.sectionTitle, source.sectionTitle);
+    assert.deepEqual(block.permittedClaimRefs, source.permittedClaimRefs);
+    assert.deepEqual(block.permittedFacts, source.permittedFacts);
+    assert.equal(block.requiredManagementTakeaway, source.requiredManagementTakeaway);
+    assert.equal(block.assuranceBoundary, source.assuranceBoundary);
+    assert.deepEqual(block.warningSignals, source.warningSignals);
+  }
+  assert.equal(JSON.stringify(payload).split('A shared deterministic fact used by multiple blocks.').length - 1, 2);
 });
 
 test('semantic reviewer source uses provider structured output and never reparses free-text JSON', () => {
