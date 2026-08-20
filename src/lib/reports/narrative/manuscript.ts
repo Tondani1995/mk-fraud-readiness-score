@@ -2,6 +2,7 @@ import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
 import type { ReportBlueprint, WholeManuscriptWriterContext } from './report-blueprint';
 import type { NarrativeRecoveryBudget } from './recovery-policy';
+import type { EssentialSemanticReviewer, SemanticReviewerInput, SemanticReviewResult } from './semantic-reviewer';
 
 export const NARRATIVE_MANUSCRIPT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-manuscript-v1';
 export const NARRATIVE_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-writer-v1';
@@ -196,6 +197,8 @@ export interface WholeManuscriptWriter {
   completeTail(input: WholeManuscriptTailInput): Promise<WholeManuscriptTailResult>;
   repairBlock(input: WholeManuscriptRepairInput): Promise<WholeManuscriptRepairResult>;
   coherencePass(input: WholeManuscriptCoherenceInput): Promise<WholeManuscriptCoherenceResult>;
+  /** Optional one-request semantic adjudication seam used by the Essential coordinator. */
+  reviewSemanticCandidates?(input: SemanticReviewerInput): Promise<SemanticReviewResult>;
 }
 
 export class NarrativeWriterUnavailableError extends Error {

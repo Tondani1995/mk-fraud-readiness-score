@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { closeEssentialCommercialOutputDefects } from '../../src/lib/reports/essential-commercial-output-closure.ts';
 import { closeResidualEssentialGroundingDefects } from '../../src/lib/reports/essential-grounding-closure.ts';
+import { validateEssentialFinalHtml } from '../../src/lib/reports/essential-validation-cascade.ts';
 
 const leadership = fs.readFileSync('src/lib/reports/evidence-model/leadership.ts', 'utf8');
 
@@ -23,23 +24,18 @@ const acceptanceExcerpt = `
 const commerciallyClosed = closeEssentialCommercialOutputDefects(acceptanceExcerpt);
 const closed = closeResidualEssentialGroundingDefects(commerciallyClosed);
 
-assert.doesNotMatch(closed, /Manual review cannot cover the full practical range/i);
-assert.doesNotMatch(closed, /Manual review cannot cover every relevant transaction or behavioural pattern/i);
-assert.doesNotMatch(closed, /Manual review also cannot cover the full transaction volume/i);
-assert.match(closed, /self-assessment does not establish complete monitoring coverage across the relevant transaction or behavioural population/i);
+assert.match(closed, /Manual review cannot cover the full practical range/i);
+assert.match(closed, /Manual review cannot cover every relevant transaction or behavioural pattern/i);
+assert.match(closed, /Manual review also cannot cover the full transaction volume/i);
 
-assert.doesNotMatch(closed, /reviewed locally rather than compared across the complete relevant population/i);
-assert.doesNotMatch(closed, /reviewed locally rather than compared across the complete in-scope population/i);
-assert.doesNotMatch(closed, /reviewed locally rather than compared across sites/i);
-assert.doesNotMatch(closed, /timely central review route/i);
-assert.doesNotMatch(closed, /challenged centrally/i);
-assert.match(closed, /reviewed in isolation rather than compared across the complete relevant population/i);
-assert.match(closed, /timely defined review route/i);
-assert.match(closed, /challenged consistently/i);
+assert.match(closed, /reviewed locally rather than compared across the complete relevant population/i);
+assert.match(closed, /reviewed locally rather than compared across the complete in-scope population/i);
+assert.match(closed, /reviewed locally rather than compared across sites/i);
+assert.match(closed, /timely central review route/i);
+assert.match(closed, /challenged centrally/i);
 
-assert.doesNotMatch(closed, /records remain with the location where the matter arose/i);
-assert.doesNotMatch(closed, /records staying with the location where the matter arose/i);
-assert.match(closed, /records (?:may )?remain(?:ing)? outside a defined preservation and custody route/i);
+assert.match(closed, /records remain with the location where the matter arose/i);
+assert.match(closed, /records staying with the location where the matter arose/i);
 
 assert.doesNotMatch(closed, /deterministic qualitative likelihood\/impact matrix/i);
 assert.match(closed, /MK qualitative likelihood\/impact matrix/i);
@@ -56,14 +52,18 @@ assert.equal(closeResidualEssentialGroundingDefects(safeControlDesign), safeCont
 const safeGroundedCentralRoute = 'Management documented a central review route in the submitted operating model and should retain evidence that it operates as designed.';
 assert.equal(closeResidualEssentialGroundingDefects(safeGroundedCentralRoute), safeGroundedCentralRoute, 'grounded central-route language outside the known speculative provider shape must remain unchanged');
 
+const finalCandidate = validateEssentialFinalHtml({ html: `<html><body>${closed}</body></html>`, data: {} });
+assert.equal(finalCandidate.publishable, false, 'historical semantic wording is held for manuscript-stage review, not rewritten here');
+assert.ok(finalCandidate.heldForReviewCodes.length > 0);
+
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
-  siyakhulaV2GroundingClosure: 'PASS',
-  siyakhulaV3VariantClosure: 'PASS',
-  siyakhulaV4VariantClosure: 'PASS',
-  manualReviewAbsolute: 'CLOSED',
-  inventedLocationMechanism: 'CLOSED',
+  semanticCandidatePreservation: 'PASS',
+  siyakhulaV3VariantPreservation: 'PASS',
+  siyakhulaV4VariantPreservation: 'PASS',
+  manualReviewAbsolute: 'HELD_FOR_REVIEW',
+  inventedLocationMechanism: 'HELD_FOR_REVIEW',
   roadmapInternalIdLanguage: 'CLOSED',
   methodologyImplementationJargon: 'CLOSED',
   unrelatedLocationLanguage: 'PRESERVED',

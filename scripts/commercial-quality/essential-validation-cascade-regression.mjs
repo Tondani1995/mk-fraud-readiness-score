@@ -148,10 +148,11 @@ test('final assurance validation preserves HTML block boundaries and carry-forwa
 
   const prohibited = final('<html><body><h3>Leadership action</h3><p>This report provides independent assurance that the controls are effective.</p></body></html>');
   assert.equal(prohibited.publishable, false);
-  assert.ok(prohibited.blockingCodes.includes('assurance_language_final'));
+  assert.ok(prohibited.heldForReviewCodes.includes('assurance_language_final'));
+  assert.equal(prohibited.blockingCodes.includes('assurance_language_final'), false);
 });
 
-test('final deterministic template limitations are cleared without weakening positive assurance blocking', () => {
+test('final deterministic template limitations are cleared while new positive assurance is held', () => {
   const limitations = final(`<html><body>
     <p>Exposure describes the operating model's inherent fraud risk. Readiness describes the reported control response. Neither measure is independent assurance.</p>
     <p>This remains a self-assessment: no document, interview, transaction sample or system evidence has been independently verified for any item.</p>
@@ -163,7 +164,8 @@ test('final deterministic template limitations are cleared without weakening pos
 
   const positive = final('<html><body><p>This report provides independent assurance that the controls are effective.</p></body></html>');
   assert.equal(positive.publishable, false);
-  assert.ok(positive.blockingCodes.includes('assurance_language_final'));
+  assert.ok(positive.heldForReviewCodes.includes('assurance_language_final'));
+  assert.equal(positive.blockingCodes.includes('assurance_language_final'), false);
 });
 
 test('final evidence proof criteria do not masquerade as completed assurance', () => {
@@ -182,18 +184,19 @@ test('final exact HTML rejects internal ids and unsupported categorical risk cla
 
   const absolute = final('<html><body><p>Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.</p></body></html>');
   assert.equal(absolute.publishable, false);
-  assert.ok(absolute.blockingCodes.includes('unsupported_detection_absolute'));
+  assert.ok(absolute.heldForReviewCodes.includes('unsupported_detection_absolute'));
+  assert.equal(absolute.blockingCodes.includes('unsupported_detection_absolute'), false);
 
-  // Vhutshilo Customer-1 acceptance regression (2026-08-20): Layer-0 now rewrites these closed
-  // phrases before manuscript acceptance, but the final scanner must remain an independent fail-safe
-  // in case a deterministic/rendering surface ever reintroduces either unsupported absolute.
+  // Final-output scanners surface these families as semantic candidates. Without a carried-forward
+  // manuscript decision they hold, rather than turning a lexical match into a confirmed truth failure.
   const transactionVolume = final('<html><body><p>Manual review cannot cover transaction volume.</p></body></html>');
   assert.equal(transactionVolume.publishable, false);
-  assert.ok(transactionVolume.blockingCodes.includes('unsupported_transaction_volume_absolute'));
+  assert.ok(transactionVolume.heldForReviewCodes.includes('unsupported_transaction_volume_absolute'));
+  assert.equal(transactionVolume.blockingCodes.includes('unsupported_transaction_volume_absolute'), false);
 
   const majorityUnexamined = final('<html><body><p>The majority of activity is never examined.</p></body></html>');
   assert.equal(majorityUnexamined.publishable, false);
-  assert.ok(majorityUnexamined.blockingCodes.includes('unsupported_transaction_volume_absolute'));
+  assert.ok(majorityUnexamined.heldForReviewCodes.includes('unsupported_transaction_volume_absolute'));
 });
 
 test('repeated generic proof language is a document-level commercial failure', () => {
@@ -216,15 +219,13 @@ test('Bokamoso and Rivonia known defects are repaired before final validation, t
       <article class="long-record finding-record"><span class="priority-badge">Priority control weakness</span><div>This is a maturity-limiting control condition.</div></article>
       <table><tr><td>1</td><td>Approved fraud-risk RACI</td><td>Whether the approved fraud-risk RACI provides operating evidence that A named senior owner is accountable for fraud risk management is implemented across the complete in-scope population.</td><td>Risk</td><td>Not yet requested</td></tr></table>
       <p class="recommended-next-step"><strong>Recommended next step.</strong> Commission independent validation of the approved fraud-risk RACI. Confirm whether the approved fraud-risk RACI provides operating evidence that A named senior owner is accountable for fraud risk management is implemented across the complete in-scope population. This is the immediate proof priority;</p>
-      <p>Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.</p>
-      <p>Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.</p>
+      <p>Without a current structured assessment, material fraud exposures may not be identified, prioritised or treated consistently.</p>
+      <p>Without deliberate monitoring, suspicious activity may not be detected or escalated consistently before losses or exceptions compound.</p>
     </body></html>`;
   const closed = closeEssentialCommercialOutputDefects(raw);
   assert.doesNotMatch(closed, /D3-Q02/);
   assert.doesNotMatch(closed, /provides operating evidence that/);
   assert.doesNotMatch(closed, /Confirm This evidence/);
-  assert.doesNotMatch(closed, /control investment follows intuition/i);
-  assert.doesNotMatch(closed, /fraud is found only by accident/i);
   assert.match(closed, /fraud-risk ownership, decision rights, escalation authority/i);
   assert.match(closed, /break-inside: avoid/);
   assert.equal(final(closed).publishable, true);

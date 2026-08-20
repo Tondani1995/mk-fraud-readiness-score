@@ -24,18 +24,18 @@ import { renderValidatedCommercialPdf } from '../../src/lib/reports/render-valid
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
-// The exact known-defect fixture already certified elsewhere (essential-validation-cascade-
-// regression.mjs's Bokamoso/Rivonia test) as fully repairable by one closeEssentialCommercialOutputDefects
-// pass to a publishable state -- reused here rather than inventing a new one, so this proof rests on
-// an already-proven-repairable input.
+// The exact presentation-defect fixture already certified elsewhere as fully repairable by one
+// closeEssentialCommercialOutputDefects pass to a publishable state. Semantic candidate wording is
+// intentionally absent: semantic acceptance must arrive through manuscript carry-forward, not a
+// final HTML phrase rewrite.
 const RAW_HTML_WITH_KNOWN_DEFECTS = `
     <html><head><style>.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }</style></head><body>
       <p>Evidence mapped to G28-D3-Q02, including the complete in-scope population.</p>
       <article class="long-record finding-record"><span class="priority-badge">Priority control weakness</span><div>This is a maturity-limiting control condition.</div></article>
       <table><tr><td>1</td><td>Approved fraud-risk RACI</td><td>Whether the approved fraud-risk RACI provides operating evidence that A named senior owner is accountable for fraud risk management is implemented across the complete in-scope population.</td><td>Risk</td><td>Not yet requested</td></tr></table>
       <p class="recommended-next-step"><strong>Recommended next step.</strong> Commission independent validation of the approved fraud-risk RACI. Confirm whether the approved fraud-risk RACI provides operating evidence that A named senior owner is accountable for fraud risk management is implemented across the complete in-scope population. This is the immediate proof priority;</p>
-      <p>Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded.</p>
-      <p>Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.</p>
+      <p>Without a current structured assessment, material fraud exposures may not be identified, prioritised or treated consistently.</p>
+      <p>Without deliberate monitoring, suspicious activity may not be detected or escalated consistently before losses or exceptions compound.</p>
     </body></html>`;
 
 test('closeEssentialCommercialOutputDefects is idempotent -- a second pass cannot further mutate already-repaired text', () => {

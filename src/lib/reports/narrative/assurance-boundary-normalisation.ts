@@ -1,86 +1,9 @@
 import type { ParsedBlueprintMarkdown } from './blueprint-text';
 
 /**
- * Deterministic pre-validation cleanup for the Essential manuscript. It removes a closed set
- * of assurance-boundary phrases and known unsupported absolutes that the writer is not permitted
- * to assert, and canonicalises provider-only decimal formatting so numerically identical Fact Pack
- * values do not fail grounding solely because the provider wrote, for example, 20.00 instead of 20.
- *
- * This is not a provider repair and does not change any score, finding, risk, control, owner,
- * timing or analytical conclusion. The unsupported-absolute rewrites only replace an unevidenced
- * categorical claim with the narrower truth the self-assessment can actually support: the claimed
- * coverage/share is not established by this assessment. Final HTML keeps its independent fail-safe
- * scan for the original prohibited wording.
- */
-const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
-  {
-    pattern: /\b(?:this|the) assessment has independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    pattern: /\b(?:this|the) assessment independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    pattern: /\b(?:this|the) report has independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    pattern: /\b(?:this|the) report independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    pattern: /\bMK has independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    pattern: /\bMK independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'the self-assessment responses indicate'
-  },
-  {
-    // A provider may state completed assurance passively without naming MK or the report.
-    // That is still an unsupported assertion of completed verification and must be converted
-    // into the evidence-status limitation the Essential product actually supports.
-    pattern: /\boperating effectiveness (?:has been|was) independently (?:verified|reviewed|confirmed)\b/gi,
-    replacement: 'operating effectiveness remains subject to evidence validation'
-  },
-  {
-    // An explicit limitation is safe in substance, but the broad assurance guard can still
-    // match the words "MK ... independent verification" before it considers the negation.
-    // Preserve the limitation while removing that false-positive construction.
-    pattern: /\bnot\s+(?:an?\s+)?independent\s+verification(?:\s+of\s+operating\s+effectiveness)?\b/gi,
-    replacement: 'without verification of operating effectiveness by this review'
-  },
-  {
-    // Siyakhula Customer-2 acceptance incident (2026-08-20): a legitimate control-design sentence
-    // followed an explicit "not independently verified" limitation and described ongoing review as
-    // "evidence-based". The shared hard-vocabulary guard joined the negated "verified" token to
-    // "evidence-based" and incorrectly classified the sentence as completed assurance. Keep the
-    // meaning while removing that validator collision before manuscript acceptance.
-    pattern: /\bmake ongoing review visible and evidence-based\b/gi,
-    replacement: 'make ongoing review visible and tied to defined evidence requirements'
-  },
-  {
-    // Vhutshilo Customer-1 final-output incident (2026-08-20): this final-only legacy truth guard
-    // fired only after a provider call and manuscript acceptance. Repair the closed phrase at Layer
-    // 0 instead of letting final HTML re-litigate it after acceptance; the final regex remains as a
-    // fail-safe if this wording is ever introduced by a different surface.
-    pattern: /\bmanual review cannot cover transaction volume\b/gi,
-    replacement: 'manual-review coverage is not established by this self-assessment'
-  },
-  {
-    // Same incident family. The assessment contains no population statistic proving that most
-    // activity is unexamined, so replace that categorical claim with the precise evidence boundary.
-    pattern: /\bmajority of activity is never examined\b/gi,
-    replacement: 'the share of activity examined is not established by this self-assessment'
-  }
-];
-
-/**
- * JSON numbers in the deterministic Fact Pack are already canonical (20, 20.5, etc.).
- * Provider prose may render the same value as 20.00 or 20.50. Canonicalise only decimal
- * numeric tokens, preserving a trailing percent sign, so the existing fail-closed numeric
- * validator can compare like with like. Genuinely different values remain untouched.
+ * Deterministic presentation normalisation is limited to equivalent numeric formatting. Semantic
+ * language is never rewritten from a phrase dictionary here; it is surfaced to the bounded
+ * semantic reviewer and, if repaired, replaced through exact Blueprint block targeting.
  */
 function canonicaliseDecimalFormatting(value: string): { text: string; replacements: number } {
   let replacements = 0;
@@ -97,20 +20,10 @@ function canonicaliseDecimalFormatting(value: string): { text: string; replaceme
 }
 
 function normaliseText(value: string): { text: string; replacements: number } {
-  let text = value;
-  let replacements = 0;
-  for (const rewrite of REWRITES) {
-    text = text.replace(rewrite.pattern, () => {
-      replacements += 1;
-      return rewrite.replacement;
-    });
-  }
-  const numeric = canonicaliseDecimalFormatting(text);
-  text = numeric.text;
-  replacements += numeric.replacements;
-  return { text, replacements };
+  return canonicaliseDecimalFormatting(value);
 }
 
+/** Kept as the stable call-site name; it no longer performs semantic phrase rewrites. */
 export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprintMarkdown): number {
   let replacements = 0;
   const rewriteBlock = (block: { text: string }) => {
@@ -126,11 +39,8 @@ export function normaliseProhibitedAssessmentAssurance(narrative: ParsedBlueprin
     }
   }
 
-  // Keep the raw Markdown representation aligned with the parsed blocks so no downstream
-  // consumer can accidentally retain the pre-normalised assertion or numeric formatting.
   const markdown = normaliseText(narrative.markdown);
   narrative.markdown = markdown.text;
   replacements += markdown.replacements;
-
   return replacements;
 }

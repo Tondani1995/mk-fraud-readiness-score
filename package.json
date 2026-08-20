@@ -27,6 +27,7 @@
     "v11:narrative-call-accounting": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-call-accounting-tests.mjs",
     "v11:narrative-assurance": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-assurance-semantics-tests.mjs",
     "v11:narrative-diagnostics": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/narrative-owner-review-diagnostics-tests.mjs",
+    "v11:semantic-validation-architecture": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/semantic-validation-architecture-regression.mjs",
     "v11:text-first": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/blueprint-text-first-tests.mjs",
     "v11:whole-manuscript-truncation": "node --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/whole-manuscript-truncation-tests.mjs",
     "v11:whole-manuscript-reconciliation": "node --env-file=.env.local --experimental-strip-types --experimental-loader=./scripts/lib/ts-relative-resolve-loader.mjs scripts/commercial-quality/whole-manuscript-reconciliation-tests.mjs",

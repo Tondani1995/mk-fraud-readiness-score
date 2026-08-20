@@ -43,12 +43,19 @@ type CommercialPdfInput = {
    * re-adjudicating it from scratch. Absent for Comprehensive and any caller without a manuscript.
    */
   carryForwardAssuranceSpanHashes?: string[];
+  /** Manuscript-stage ALLOW decisions for non-assurance semantic candidates. */
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
 };
 
 function prepareAcceptedCustomerHtml(input: CommercialPdfInput, rawHtml: string): string {
   const commerciallyClosedHtml = closeEssentialCommercialOutputDefects(rawHtml);
   const finalHtml = closeResidualEssentialGroundingDefects(commerciallyClosedHtml);
-  assertEssentialFinalHtml({ html: finalHtml, data: input.data, carryForwardAssuranceSpanHashes: input.carryForwardAssuranceSpanHashes });
+  assertEssentialFinalHtml({
+    html: finalHtml,
+    data: input.data,
+    carryForwardAssuranceSpanHashes: input.carryForwardAssuranceSpanHashes,
+    carryForwardSemanticDecisions: input.carryForwardSemanticDecisions
+  });
   return finalHtml;
 }
 

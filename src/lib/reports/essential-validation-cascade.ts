@@ -5,9 +5,10 @@ import type {
   TextFirstValidationIssue,
   TextFirstValidationReport
 } from './narrative/blueprint-text';
-import { compact, numericValues, UNEVIDENCED_STRUCTURE } from './narrative/blueprint-text';
+import { compact, UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS, UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS } from './narrative/blueprint-text';
 import type { NarrativeFactPack } from './narrative/fact-pack';
 import { adjudicateAssuranceProposition, isAssuranceCandidate } from './narrative/assurance-adjudication';
+import type { SemanticReviewDecision } from './narrative/semantic-reviewer';
 
 export type EssentialValidationLayer =
   | 'CANDIDATE_SCAN'
@@ -51,6 +52,7 @@ export interface EssentialValidationCandidate {
   ruleCode: string;
   severity: EssentialValidationSeverity;
   path: string;
+  span: string;
   spanHash: string;
   decisions: EssentialValidationDecision[];
   /**
@@ -71,13 +73,14 @@ export interface EssentialValidationCascadeResult {
   heldForReviewCodes: string[];
   warningCodes: string[];
   /**
-   * Owner decision 4: sha256(compact(sentence)) identities of assurance-language sentences
-   * ALLOW_CONTEXT'd by adjudicateTextFirstValidation, so validateEssentialFinalHtml's
-   * carryForwardAssuranceSpanHashes input can inherit that decision for byte-identical content
-   * instead of re-adjudicating it from scratch. Always empty from validateEssentialFinalHtml itself,
-   * which has no further downstream stage to carry forward to.
+   * Backwards-compatible assurance-only view of accepted semantic spans. New callers should use
+   * acceptedSemanticDecisions so all semantic candidate families can carry forward together.
    */
   acceptedAssuranceSpanHashes: string[];
+  /** Content-addressed ALLOW decisions for all semantic candidate families. */
+  acceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }>;
+  /** Candidate decisions that require the bounded repair seam before acceptance. */
+  repairCodes: string[];
 }
 
 export class EssentialValidationCascadeError extends Error {
@@ -95,7 +98,7 @@ export class EssentialValidationCascadeError extends Error {
 }
 
 const sha256 = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
-const candidateId = (ruleCode: string, path: string, span: string): string =>
+export const essentialCandidateId = (ruleCode: string, path: string, span: string): string =>
   `${ruleCode}:${sha256(`${path}\n${span}`).slice(0, 16)}`;
 
 /**
@@ -105,7 +108,8 @@ const candidateId = (ruleCode: string, path: string, span: string): string =>
  * a markdown-to-HTML render and an HTML-to-text strip, either of which can shift incidental
  * whitespace or punctuation without changing the sentence's meaning.
  */
-const spanIdentityHash = (text: string): string => sha256(compact(text));
+export const essentialSemanticSpanHash = (text: string): string => sha256(compact(text));
+const spanIdentityHash = essentialSemanticSpanHash;
 
 function candidate(input: {
   ruleCode: string;
@@ -114,10 +118,11 @@ function candidate(input: {
   span: string;
 }): EssentialValidationCandidate {
   return {
-    id: candidateId(input.ruleCode, input.path, input.span),
+    id: essentialCandidateId(input.ruleCode, input.path, input.span),
     ruleCode: input.ruleCode,
     severity: input.severity,
     path: input.path,
+    span: input.span,
     spanHash: sha256(input.span),
     decisions: [{ layer: 'CANDIDATE_SCAN', disposition: 'CANDIDATE', reasonCode: 'high_recall_candidate' }],
     finalDisposition: 'HELD_FOR_REVIEW'
@@ -204,29 +209,6 @@ function finalHtmlSentences(html: string): string[] {
 }
 
 /**
- * Owner decision 3: genuine re-consumption of the same Fact Pack grounding blueprint-text.ts uses at
- * candidate-scan time, reused (not duplicated) via its exported numericValues. The grounding rule
- * itself is unchanged and stays exactly as strict as before ("existing hard deterministic
- * arithmetic/grounding controls remain strict and unchanged") -- what changes is that this layer now
- * actually performs the comparison against the live factPack argument instead of assuming Layer 2's
- * disposition still holds.
- */
-function isNumericClaimGrounded(span: string, factPack: NarrativeFactPack): boolean {
-  const knownNumbers = numericValues(factPack);
-  const tokens = span.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
-  if (tokens.length === 0) return true;
-  return tokens.every((token) => knownNumbers.has(token.replace('%', '')));
-}
-
-/** Owner decision 3: same reasoning as isNumericClaimGrounded, for structural claims. */
-function isStructureClaimGrounded(span: string, factPack: NarrativeFactPack): boolean {
-  const matches = span.match(UNEVIDENCED_STRUCTURE) ?? [];
-  if (matches.length === 0) return true;
-  const haystack = compact(JSON.stringify(factPack)).toLowerCase();
-  return matches.every((match) => haystack.includes(match.toLowerCase()));
-}
-
-/**
  * Thin wrapper around the shared adjudication core (narrative/assurance-adjudication.ts) -- see
  * that module's doc comment for why a single canonical classifier now backs both this function and
  * narrative/validation.ts's classifyAssuranceLanguage. Signature and disposition vocabulary are
@@ -260,9 +242,23 @@ function textBlocks(parsed: ParsedBlueprintMarkdown): Map<string, string> {
 
 function severityForTextFirstIssue(issue: TextFirstValidationIssue): EssentialValidationSeverity {
   if (issue.code === 'mechanical_format' || issue.code === 'repetition' || issue.code === 'excess_disclaimer') return 'QUALITY_FAILURE';
-  if (issue.code === 'assurance_claim') return 'SEMANTIC_AMBIGUITY';
+  if (SEMANTIC_RULE_CODES.has(issue.code)) return 'SEMANTIC_AMBIGUITY';
   if (issue.code === 'raw_internal_id' || issue.code === 'unsupported_numeric_claim') return 'HARD_CONTRACT_FAILURE';
   return 'HARD_TRUTH_FAILURE';
+}
+
+/** Linguistic detectors are candidate generators; they are never hard gates by themselves. */
+const SEMANTIC_RULE_CODES = new Set([
+  'assurance_claim',
+  'unsupported_comparative_claim',
+  'unsupported_workforce_claim',
+  'unsupported_structure_claim',
+  ...UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS.map(([code]) => code),
+  ...UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS.map(([code]) => code)
+]);
+
+function semanticIssueKey(issue: TextFirstValidationIssue): string {
+  return `${issue.code}|${issue.path}|${issue.matchedSpan ?? issue.message}`;
 }
 
 /**
@@ -284,39 +280,65 @@ export function adjudicateTextFirstValidation(input: {
   parsed: ParsedBlueprintMarkdown;
   report: TextFirstValidationReport;
   factPack: NarrativeFactPack;
+  /** Closed decisions returned by the one bounded semantic reviewer request. */
+  semanticDecisions?: SemanticReviewDecision[];
+  /** Production sets this so a lexical candidate cannot fall through to a rule-based verdict. */
+  requireSemanticReviewer?: boolean;
 }): EssentialValidationCascadeResult {
   const blocks = textBlocks(input.parsed);
-  const allIssues = [
-    ...input.report.hardTruth.issues,
-    ...input.report.repairableSemantic.issues,
-    ...input.report.quality.issues
-  ];
+  const legacySemanticIssues = input.report.hardTruth.issues.filter((issue) => SEMANTIC_RULE_CODES.has(issue.code));
+  const semanticIssues = [...(input.report.semanticCandidates?.issues ?? []), ...legacySemanticIssues]
+    .filter((issue, index, all) => all.findIndex((other) => semanticIssueKey(other) === semanticIssueKey(issue)) === index);
+  const hardTruthIssues = input.report.hardTruth.issues.filter((issue) => !SEMANTIC_RULE_CODES.has(issue.code));
+  const allIssues = [...hardTruthIssues, ...semanticIssues, ...input.report.repairableSemantic.issues, ...input.report.quality.issues];
   const candidates = allIssues.map((issue) => candidate({
     ruleCode: issue.code,
     severity: severityForTextFirstIssue(issue),
     path: issue.path,
-    span: blocks.get(issue.path) ?? issue.code
+    span: issue.matchedSpan ?? blocks.get(issue.path) ?? issue.code
   }));
 
-  // Layer 2: does context make an otherwise-flagged candidate customer-safe? Only assurance wording
-  // has a context dimension in the current architecture; every other hard/contract issue is
-  // confirmed immediately (no context legitimises a raw internal id or an unsupported comparative
-  // claim), and quality issues are repairable rather than context-adjudicated.
+  const semanticDecisionByCandidateId = new Map((input.semanticDecisions ?? []).map((decision) => [decision.candidateId, decision]));
+
+  function semanticDisposition(item: EssentialValidationCandidate, source: string): { disposition: EssentialCandidateDisposition; reasonCode: string; repair: boolean } {
+    const reviewed = semanticDecisionByCandidateId.get(item.id);
+    if (reviewed) {
+      return {
+        disposition: reviewed.disposition === 'ALLOW' ? 'ALLOW_CONTEXT'
+          : reviewed.disposition === 'REPAIR' ? 'REPAIRABLE'
+            : reviewed.disposition === 'REJECT' ? 'CONFIRMED_VIOLATION' : 'AMBIGUOUS',
+        reasonCode: reviewed.reasonCode,
+        repair: reviewed.disposition === 'REPAIR'
+      };
+    }
+    if (input.requireSemanticReviewer) return { disposition: 'AMBIGUOUS', reasonCode: 'semantic_reviewer_decision_missing', repair: false };
+    // Compatibility behaviour for the pre-existing provider-free cascade unit tests. Production
+    // always passes requireSemanticReviewer when semantic candidates exist.
+    if (item.ruleCode === 'assurance_claim') {
+      const decision = adjudicateAssuranceSentence(source);
+      return { disposition: decision.disposition, reasonCode: decision.reasonCode, repair: false };
+    }
+    return { disposition: 'CONFIRMED_VIOLATION', reasonCode: 'unresolved_semantic_candidate', repair: false };
+  }
+
+  // Layer 2: hard gates are confirmed without semantic review; language candidates consume the
+  // closed reviewer decision supplied by the caller. No candidate is promoted to a truth decision
+  // merely because a lexical detector matched it.
   const acceptedAssuranceSpanHashes: string[] = [];
+  const acceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }> = [];
   for (const item of candidates) {
     const source = blocks.get(item.path) ?? '';
-    if (item.ruleCode === 'assurance_claim') {
-      const assuranceSentences = sentences(source).filter((sentence) => isAssuranceCandidate(sentence));
-      const decisions = assuranceSentences.map(adjudicateAssuranceSentence);
-      if (decisions.length > 0 && decisions.every((decision) => decision.disposition === 'ALLOW_CONTEXT')) {
-        addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'all_assurance_clauses_customer_safe');
-        // Owner decision 4: record each cleared sentence's normalised identity so the final-HTML
-        // layer can inherit this exact decision for unchanged content instead of re-adjudicating it.
-        for (const sentence of assuranceSentences) acceptedAssuranceSpanHashes.push(spanIdentityHash(sentence));
-      } else if (decisions.some((decision) => decision.disposition === 'CONFIRMED_VIOLATION')) {
-        addDecision(item, 'CONTEXT_ADJUDICATION', 'CONFIRMED_VIOLATION', 'completed_or_invalid_assurance_actor');
-      } else {
-        addDecision(item, 'CONTEXT_ADJUDICATION', 'AMBIGUOUS', 'assurance_clause_requires_evidence_scope');
+    if (SEMANTIC_RULE_CODES.has(item.ruleCode)) {
+      const decision = semanticDisposition(item, source);
+      addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
+      if (decision.disposition === 'ALLOW_CONTEXT') {
+        acceptedSemanticDecisions.push({ ruleCode: item.ruleCode, spanHash: spanIdentityHash(item.span), reasonCode: decision.reasonCode });
+        if (item.ruleCode === 'assurance_claim') {
+          acceptedAssuranceSpanHashes.push(spanIdentityHash(item.span));
+          for (const sentence of sentences(source)) {
+            if (isAssuranceCandidate(sentence)) acceptedAssuranceSpanHashes.push(spanIdentityHash(sentence));
+          }
+        }
       }
     } else if (item.severity === 'QUALITY_FAILURE') {
       addDecision(item, 'CONTEXT_ADJUDICATION', 'REPAIRABLE', 'editorial_quality_candidate');
@@ -325,23 +347,15 @@ export function adjudicateTextFirstValidation(input: {
     }
   }
 
-  // Layer 3 genuinely compares evidence-dependent factual candidates against the live Fact Pack
-  // (owner decision 3), instead of relabelling Layer 2's disposition under a new name (the "false
-  // EVIDENCE_COMPARISON" bug owner decision 2 requires removed). Only unsupported_numeric_claim and
-  // unsupported_structure_claim are actually gated on fact-pack evidence; assurance wording is a
-  // closed linguistic question already settled by context adjudication, and every other candidate
-  // type here is an absolute pattern with no fact-pack dimension to compare against, so this layer
-  // honestly records NOT_APPLICABLE for them rather than pretending a comparison took place.
+  // Layer 3 remains a deterministic hard-truth recheck. Unsupported numeric claims are never
+  // overridable by the reviewer; ambiguous organisational/workforce/comparative wording remains a
+  // semantic candidate and is not silently converted into a fact verdict here.
   for (const item of candidates) {
     const source = blocks.get(item.path) ?? '';
     if (item.ruleCode === 'unsupported_numeric_claim') {
-      const grounded = isNumericClaimGrounded(source, input.factPack);
-      addDecision(item, 'EVIDENCE_COMPARISON', grounded ? 'ACCEPT' : 'CONFIRMED_VIOLATION', grounded ? 'numeric_claim_grounded_in_fact_pack' : 'numeric_claim_not_grounded_in_fact_pack');
-    } else if (item.ruleCode === 'unsupported_structure_claim') {
-      const grounded = isStructureClaimGrounded(source, input.factPack);
-      addDecision(item, 'EVIDENCE_COMPARISON', grounded ? 'ACCEPT' : 'CONFIRMED_VIOLATION', grounded ? 'structure_claim_grounded_in_fact_pack' : 'structure_claim_not_grounded_in_fact_pack');
-    } else if (item.ruleCode === 'assurance_claim') {
-      addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', 'closed_linguistic_question_resolved_at_context_adjudication');
+      addDecision(item, 'EVIDENCE_COMPARISON', 'CONFIRMED_VIOLATION', 'unsupported_numeric_claim_is_hard_gate');
+    } else if (SEMANTIC_RULE_CODES.has(item.ruleCode)) {
+      addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', 'semantic_candidate_requires_bounded_reviewer_decision');
     } else {
       addDecision(item, 'EVIDENCE_COMPARISON', 'NOT_APPLICABLE', 'no_fact_pack_evidence_dimension_for_candidate_type');
     }
@@ -361,6 +375,9 @@ export function adjudicateTextFirstValidation(input: {
     if (prior === 'ACCEPT' || prior === 'ALLOW_CONTEXT') {
       addDecision(item, 'FINAL_ACCEPTANCE', 'ACCEPT', 'cascade_cleared');
       item.finalDisposition = 'ACCEPT';
+    } else if (prior === 'REPAIRABLE' && SEMANTIC_RULE_CODES.has(item.ruleCode)) {
+      addDecision(item, 'FINAL_ACCEPTANCE', 'REPAIRABLE', 'bounded_semantic_repair_required');
+      item.finalDisposition = 'REPAIR';
     } else if (prior === 'REPAIRABLE') {
       addDecision(item, 'FINAL_ACCEPTANCE', 'REPAIRABLE', 'quality_repair_or_warning');
       item.finalDisposition = 'WARN';
@@ -375,14 +392,17 @@ export function adjudicateTextFirstValidation(input: {
 
   const rejected = candidates.filter((item) => item.finalDisposition === 'REJECT');
   const heldForReview = candidates.filter((item) => item.finalDisposition === 'HELD_FOR_REVIEW');
+  const repairs = candidates.filter((item) => item.finalDisposition === 'REPAIR');
   return {
     policyVersion: 'mk-essential-validation-cascade-v1',
-    publishable: rejected.length === 0 && heldForReview.length === 0,
+    publishable: rejected.length === 0 && heldForReview.length === 0 && repairs.length === 0,
     candidates,
     blockingCodes: [...new Set(rejected.map((item) => item.ruleCode))],
     heldForReviewCodes: [...new Set(heldForReview.map((item) => item.ruleCode))],
     warningCodes: [...new Set(candidates.filter((item) => item.finalDisposition === 'WARN').map((item) => item.ruleCode))],
-    acceptedAssuranceSpanHashes
+    acceptedAssuranceSpanHashes: [...new Set(acceptedAssuranceSpanHashes)],
+    acceptedSemanticDecisions,
+    repairCodes: [...new Set(repairs.map((item) => item.ruleCode))]
   };
 }
 
@@ -390,6 +410,8 @@ export function assertTextFirstValidationCascade(input: {
   parsed: ParsedBlueprintMarkdown;
   report: TextFirstValidationReport;
   factPack: NarrativeFactPack;
+  semanticDecisions?: SemanticReviewDecision[];
+  requireSemanticReviewer?: boolean;
 }): EssentialValidationCascadeResult {
   const result = adjudicateTextFirstValidation(input);
   if (!result.publishable) throw new EssentialValidationCascadeError(result);
@@ -399,12 +421,13 @@ export function assertTextFirstValidationCascade(input: {
 const FINAL_RAW_ID = /\bD\d+-Q\d+\b/g;
 const FINAL_BROKEN_PROOF = /provides operating evidence that[^.]{0,500}?is implemented across the complete in-scope population/gi;
 const FINAL_BROKEN_NEXT_STEP = /\bConfirm\s+This evidence should demonstrate\b/gi;
-const FINAL_UNSUPPORTED_ABSOLUTES: Array<[string, RegExp]> = [
-  ['unsupported_transaction_volume_absolute', /manual review cannot cover transaction volume|majority of activity is never examined/gi],
-  ['unsupported_risk_assessment_absolute', /control investment follows intuition and recent events|whole exposure areas unexamined and unfunded/gi],
-  ['unsupported_detection_absolute', /fraud is found only by accident|typically long after the loss has compounded/gi]
-];
+const FINAL_UNSUPPORTED_ABSOLUTES = [...UNSUPPORTED_ABSOLUTE_CLAIM_PATTERNS, ...UNSUPPORTED_OPERATING_DETAIL_CLAIM_PATTERNS];
+const FINAL_SEMANTIC_RULE_CODES = new Set(FINAL_UNSUPPORTED_ABSOLUTES.map(([code]) => code));
 const GENERIC_PROOF = 'This evidence should demonstrate that the linked control requirements operate consistently across the complete in-scope population.';
+
+function isFinalSemanticCandidate(ruleCode: string): boolean {
+  return FINAL_SEMANTIC_RULE_CODES.has(ruleCode);
+}
 
 function scanFinalHtml(html: string): EssentialValidationCandidate[] {
   const text = stripHtml(html);
@@ -422,7 +445,7 @@ function scanFinalHtml(html: string): EssentialValidationCandidate[] {
   }
   for (const [code, pattern] of FINAL_UNSUPPORTED_ABSOLUTES) {
     for (const match of text.match(pattern) ?? []) {
-      found.push(candidate({ ruleCode: code, severity: 'HARD_TRUTH_FAILURE', path: 'final_html', span: match }));
+      found.push(candidate({ ruleCode: code, severity: 'SEMANTIC_AMBIGUITY', path: 'final_html', span: match }));
     }
   }
   for (const sentence of finalHtmlSentences(html)) {
@@ -461,9 +484,11 @@ export function validateEssentialFinalHtml(input: {
    * sentences are freshly run through adjudicateAssuranceSentence.
    */
   carryForwardAssuranceSpanHashes?: string[];
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
 }): EssentialValidationCascadeResult {
   const candidates = scanFinalHtml(input.html);
   const carryForward = new Set(input.carryForwardAssuranceSpanHashes ?? []);
+  const carryForwardSemantic = new Set((input.carryForwardSemanticDecisions ?? []).map((item) => `${item.ruleCode}|${item.spanHash}`));
   const finalSentences = finalHtmlSentences(input.html);
 
   for (const item of candidates) {
@@ -472,13 +497,28 @@ export function validateEssentialFinalHtml(input: {
       // block-aware segmentation used by scanFinalHtml. This keeps manuscript carry-forward identity
       // stable across HTML presentation boundaries instead of resolving against a flattened document.
       const sentence = finalSentences.find((value) => sha256(value) === item.spanHash) ?? '';
-      if (carryForward.has(spanIdentityHash(sentence))) {
+      if (carryForward.has(spanIdentityHash(sentence)) || carryForwardSemantic.has(`${item.ruleCode}|${spanIdentityHash(item.span)}`)) {
         // Owner decision 4: unchanged content inherits its manuscript-stage decision rather than
         // being re-adjudicated from scratch.
         addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'inherited_manuscript_stage_acceptance_unchanged_content');
       } else {
         const decision = adjudicateAssuranceSentence(sentence);
-        addDecision(item, 'CONTEXT_ADJUDICATION', decision.disposition, decision.reasonCode);
+        // A final-only assurance phrase has no manuscript-stage reviewer decision. Deterministic
+        // context may clear an explicit limitation or proof criterion, but a regex/core result that
+        // would reject or remain ambiguous is held rather than promoted to a customer-blocking truth
+        // decision. Positive assurance must be resolved upstream and carried forward.
+        addDecision(
+          item,
+          'CONTEXT_ADJUDICATION',
+          decision.disposition === 'ALLOW_CONTEXT' ? 'ALLOW_CONTEXT' : 'AMBIGUOUS',
+          decision.disposition === 'ALLOW_CONTEXT' ? decision.reasonCode : 'final_assurance_candidate_requires_manuscript_adjudication'
+        );
+      }
+    } else if (isFinalSemanticCandidate(item.ruleCode)) {
+      if (carryForwardSemantic.has(`${item.ruleCode}|${spanIdentityHash(item.span)}`)) {
+        addDecision(item, 'CONTEXT_ADJUDICATION', 'ALLOW_CONTEXT', 'inherited_manuscript_stage_semantic_acceptance_unchanged_content');
+      } else {
+        addDecision(item, 'CONTEXT_ADJUDICATION', 'AMBIGUOUS', 'final_semantic_candidate_requires_manuscript_adjudication');
       }
     } else if (item.severity === 'QUALITY_FAILURE') {
       addDecision(item, 'CONTEXT_ADJUDICATION', 'REPAIRABLE', 'customer_visible_quality_candidate');
@@ -535,7 +575,9 @@ export function validateEssentialFinalHtml(input: {
     blockingCodes: [...new Set(rejected.map((item) => item.ruleCode))],
     heldForReviewCodes: [...new Set(heldForReview.map((item) => item.ruleCode))],
     warningCodes: [],
-    acceptedAssuranceSpanHashes: []
+    acceptedAssuranceSpanHashes: [],
+    acceptedSemanticDecisions: [],
+    repairCodes: []
   };
 }
 
@@ -543,6 +585,7 @@ export function assertEssentialFinalHtml(input: {
   html: string;
   data: AssembledReportData;
   carryForwardAssuranceSpanHashes?: string[];
+  carryForwardSemanticDecisions?: Array<{ ruleCode: string; spanHash: string; reasonCode?: string }>;
 }): EssentialValidationCascadeResult {
   const result = validateEssentialFinalHtml(input);
   if (!result.publishable) throw new EssentialValidationCascadeError(result);

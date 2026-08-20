@@ -31,8 +31,8 @@ const bad = `${complete.replace(/## What management should take away\n\n[^\n]+/,
 const good = bad.replace('the controls were independently verified', 'the recorded control position should be reviewed by management before reliance');
 const baseCandidate = (markdown, recovery = { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1 }) => ({ contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1', architecture: 'whole-manuscript', markdown, blueprint, writerMetadata: { contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1', architecture: 'whole-manuscript', provider: 'openai', model: 'openai/gpt-5.6-luna', promptVersion: 'test', generationMode: 'ai', generatedAt: new Date(0).toISOString(), inputFactPackSha256: 'fact', inputStoryPlanSha256: 'plan', recovery } });
 const validation = validateBlueprintTextManuscript(parseBlueprintMarkdown(bad, blueprint), blueprint, facts);
-assert.equal(validation.ok, false);
-assert.equal(validation.hardTruth.issues.some((issue) => issue.code === 'assurance_claim'), true);
+assert.equal(validation.ok, true, 'semantic language is a candidate, not a hard-truth parse failure');
+assert.equal(validation.semanticCandidates.issues.some((issue) => issue.code === 'assurance_claim'), true);
 assert.equal(classifyNarrativeIssue('assurance_claim').blocking, true);
 assert.equal(classifyNarrativeIssue('assurance_claim').repairEligible, false);
 assert.equal(classifyNarrativeRecoveryIssue({ code: 'assurance_claim', localSemanticEligible: true }).severity, 'REPAIRABLE_SEMANTIC_FAILURE');

@@ -12,9 +12,19 @@ import {
 import { normaliseProhibitedAssessmentAssurance } from './assurance-boundary-normalisation';
 import {
   assertTextFirstValidationCascade,
+  adjudicateTextFirstValidation,
   EssentialValidationCascadeError,
+  essentialCandidateId,
   type EssentialValidationCascadeResult
 } from '../essential-validation-cascade';
+import { replaceTargetBlock } from './whole-manuscript-recovery';
+import {
+  validateSemanticReviewResult,
+  type EssentialSemanticReviewer,
+  type SemanticReviewCandidateInput,
+  type SemanticReviewDecision,
+  type SemanticReviewResult
+} from './semantic-reviewer';
 
 /**
  * The Essential production narrative path.
@@ -42,6 +52,7 @@ export interface EssentialManuscriptResult {
    * for byte-identical content rather than re-adjudicating it from scratch.
    */
   acceptedAssuranceSpanHashes: string[];
+  acceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }>;
 }
 
 /** Evidence the writer attaches when it rejects its own initial response. */
@@ -257,9 +268,161 @@ function rawWriterThrowWasDispatched(error: unknown, forwarded?: WriterFailureDi
   return true;
 }
 
+type SemanticBlockTarget = {
+  chapterTitle: string;
+  sectionTitle: string;
+  subsectionTitle?: string;
+  sectionId: string;
+  subsectionId?: string;
+  level: 2 | 3;
+  paragraphIndex: number;
+  targetText: string;
+  surroundingProse: string;
+  permittedClaimRefs: string[];
+  requiredManagementTakeaway: string;
+};
+
+function semanticBlockTarget(parsed: ParsedBlueprintMarkdown, blueprint: ReportBlueprint, path: string): SemanticBlockTarget | null {
+  const match = path.match(/^([^\.]+)\.paragraphs\[(\d+)\]$/);
+  if (!match) return null;
+  const identity = match[1]!;
+  const paragraphIndex = Number(match[2]);
+  for (const chapter of blueprint.chapters) {
+    const parsedChapter = parsed.chapters.find((item) => item.chapterId === chapter.chapterId);
+    for (const section of chapter.sections) {
+      const parsedSection = parsedChapter?.sections.find((item) => item.sectionId === section.sectionId);
+      if (section.sectionId === identity && parsedSection) {
+        const block = parsedSection.paragraphs[paragraphIndex];
+        if (!block) return null;
+        return {
+          chapterTitle: chapter.title,
+          sectionTitle: section.title,
+          sectionId: section.sectionId,
+          level: 2,
+          paragraphIndex,
+          targetText: block.text,
+          surroundingProse: parsedSection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n'),
+          permittedClaimRefs: block.permittedClaimRefs,
+          requiredManagementTakeaway: section.requiredManagementTakeaway
+        };
+      }
+      const subsection = section.optionalSubsections.find((item) => item.subsectionId === identity);
+      const parsedSubsection = parsedSection?.subsections.find((item) => item.subsectionId === identity);
+      if (subsection && parsedSubsection) {
+        const block = parsedSubsection.paragraphs[paragraphIndex];
+        if (!block) return null;
+        return {
+          chapterTitle: chapter.title,
+          sectionTitle: section.title,
+          subsectionTitle: subsection.title,
+          sectionId: section.sectionId,
+          subsectionId: subsection.subsectionId,
+          level: 3,
+          paragraphIndex,
+          targetText: block.text,
+          surroundingProse: parsedSubsection.paragraphs.map((item) => item.text).slice(Math.max(0, paragraphIndex - 1), paragraphIndex + 2).join('\n\n'),
+          permittedClaimRefs: block.permittedClaimRefs,
+          requiredManagementTakeaway: subsection.requiredManagementTakeaway
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function semanticReviewCandidates(input: {
+  parsed: ParsedBlueprintMarkdown;
+  blueprint: ReportBlueprint;
+  factPack: NarrativeFactPack;
+  assuranceBoundary: string;
+  issues: Array<{ code: string; path: string; matchedSpan?: string }>;
+}): SemanticReviewCandidateInput[] {
+  return input.issues.map((issue) => {
+    const target = semanticBlockTarget(input.parsed, input.blueprint, issue.path);
+    if (!target) throw new Error(`semantic_candidate_target_missing: ${issue.code} at ${issue.path}`);
+    const candidateSpan = issue.matchedSpan ?? target.targetText;
+    return {
+      candidateId: essentialCandidateId(issue.code, issue.path, candidateSpan),
+      ruleCode: issue.code,
+      path: issue.path,
+      candidateSpan,
+      paragraph: target.targetText,
+      surroundingProse: target.surroundingProse,
+      blueprintPath: [target.sectionId, target.subsectionId].filter(Boolean).join('/'),
+      chapterTitle: target.chapterTitle,
+      sectionTitle: target.sectionTitle,
+      subsectionTitle: target.subsectionTitle,
+      permittedClaimRefs: target.permittedClaimRefs,
+      permittedFacts: input.factPack.facts.filter((fact) => target.permittedClaimRefs.includes(fact.id)),
+      requiredManagementTakeaway: target.requiredManagementTakeaway,
+      assuranceBoundary: input.assuranceBoundary
+    };
+  });
+}
+
+function numberTokens(value: string): string[] {
+  return value.match(/\b\d+(?:\.\d+)?%?\b/g)?.map((token) => token.replace('%', '')) ?? [];
+}
+
+function factLiterals(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(factLiterals);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(factLiterals);
+  return [];
+}
+
+function compactFact(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Deterministic post-repair proof: protected numeric tokens and any relevant fact literals that
+ * were present in the target block must remain present in the replacement. The semantic reviewer
+ * can soften unsafe wording, but it cannot silently change a deterministic fact.
+ */
+export function assertProtectedRepairFacts(before: string, after: string, protectedFacts: NarrativeFactPack['facts'] = []): void {
+  const expected = numberTokens(before).sort();
+  const received = numberTokens(after).sort();
+  if (expected.length !== received.length || expected.some((value, index) => value !== received[index])) {
+    throw new Error('semantic_repair_changed_protected_numeric_facts');
+  }
+  const beforeCompact = compactFact(before);
+  const afterCompact = compactFact(after);
+  for (const literal of protectedFacts.flatMap((fact) => factLiterals(fact.value))) {
+    const compactLiteral = compactFact(literal);
+    if (compactLiteral.length < 4 || !beforeCompact.includes(compactLiteral)) continue;
+    if (!afterCompact.includes(compactLiteral)) throw new Error('semantic_repair_changed_protected_fact');
+  }
+}
+
+function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, result: SemanticReviewResult): WholeManuscriptTextResult {
+  const accounting = result.accounting;
+  if (!accounting || accounting.providerCalls === 0) return manuscript;
+  const previous = manuscript.writerMetadata;
+  return {
+    ...manuscript,
+    writerMetadata: {
+      ...previous,
+      inputTokens: (previous.inputTokens ?? 0) + (accounting.inputTokens ?? 0),
+      outputTokens: (previous.outputTokens ?? 0) + (accounting.outputTokens ?? 0),
+      totalTokens: (previous.totalTokens ?? 0) + (accounting.totalTokens ?? 0),
+      providerCostMicros: (previous.providerCostMicros ?? 0) + (accounting.providerCostMicros ?? 0),
+      recovery: {
+        ...previous.recovery,
+        targetedRepairCount: previous.recovery.targetedRepairCount + accounting.repairCount,
+        totalCalls: previous.recovery.totalCalls + accounting.providerCalls,
+        totalTokens: previous.recovery.totalTokens + (accounting.totalTokens ?? 0),
+        totalProviderCostMicros: previous.recovery.totalProviderCostMicros + (accounting.providerCostMicros ?? 0)
+      }
+    }
+  };
+}
+
 export async function composeEssentialManuscript(input: {
   factPack: NarrativeFactPack;
   writer: WholeManuscriptWriter;
+  semanticReviewer?: EssentialSemanticReviewer;
 }): Promise<EssentialManuscriptResult> {
   const { factPack, writer } = input;
 
@@ -342,47 +505,180 @@ export async function composeEssentialManuscript(input: {
   // candidate ledger that follows still decides whether any suspicious proposition survives.
   const deterministicAssuranceNormalisations = normaliseProhibitedAssessmentAssurance(narrative);
   if (deterministicAssuranceNormalisations > 0) {
-    console.info('essential_assurance_boundary_normalisation', {
+    console.info('essential_manuscript_numeric_normalisation', {
       replacements: deterministicAssuranceNormalisations
     });
   }
+  manuscript = { ...manuscript, markdown: narrative.markdown };
 
-  // The text-first validator is deliberately high recall. Its findings are candidates for the
-  // canonical cascade, not independent final blockers. Later layers review the earlier decision;
-  // hard evidence/contract failures remain hard, while context-safe assurance wording can be
-  // cleared without weakening the truth boundary.
+  // The text-first validator separates deterministic hard gates from high-recall language
+  // candidates. A hard gate stops here; semantic candidates are the only inputs to the one bounded
+  // reviewer request below.
   const report = validateBlueprintTextManuscript(narrative, authoritativeBlueprint, factPack);
-  let cascadeResult: EssentialValidationCascadeResult;
-  try {
-    cascadeResult = assertTextFirstValidationCascade({ parsed: narrative, report, factPack });
-  } catch (error) {
-    // Owner decision 6: a manuscript can fail here either because a candidate was confirmed
-    // rejected or because one was left HELD_FOR_REVIEW (unresolved ambiguity) -- both block
-    // publication, so both must surface their originating issues, not just outright rejections.
-    const blockingCodes = error instanceof EssentialValidationCascadeError
-      ? [...error.result.blockingCodes, ...error.result.heldForReviewCodes]
-      : report.hardTruth.issues.map((issue) => issue.code);
-    const survivingIssues = report.hardTruth.issues.filter((issue) => blockingCodes.includes(issue.code));
+  if (report.hardTruth.issues.length > 0) {
     throw new EssentialManuscriptError(
       'validate_manuscript',
-      error instanceof Error ? error.message : 'The manuscript failed layered validation.',
+      `The manuscript failed deterministic hard validation (${report.hardTruth.issues.map((issue) => `${issue.code}:${issue.path}`).join(', ')}).`,
       {
         ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
         parseOk: true,
-        validationCode: blockingCodes[0],
-        validationIssues: survivingIssues.map((issue) => ({
-          code: issue.code,
-          path: issue.path,
-          message: String(issue.message ?? '').slice(0, 200)
-        }))
+        validationCode: report.hardTruth.issues[0]?.code,
+        validationIssues: report.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) }))
       }
     );
+  }
+
+  const semanticIssues = report.semanticCandidates.issues;
+  let cascadeResult: EssentialValidationCascadeResult;
+  let reviewed: SemanticReviewResult | undefined;
+  let reviewInput: SemanticReviewCandidateInput[] = [];
+  if (semanticIssues.length > 0) {
+    const semanticReviewer: EssentialSemanticReviewer | undefined = input.semanticReviewer
+      ?? (writer.reviewSemanticCandidates
+        ? { review: (reviewInput) => writer.reviewSemanticCandidates!(reviewInput) }
+        : undefined);
+    if (!semanticReviewer) {
+      throw new EssentialManuscriptError(
+        'semantic_review',
+        'Semantic candidates were found but no semantic reviewer was injected or configured.',
+        {
+          ...diagnosticsFrom('semantic_review', writerIdentity, manuscript),
+          parseOk: true,
+          validationCode: 'semantic_reviewer_unavailable',
+          validationIssues: semanticIssues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) }))
+        }
+      );
+    }
+    try {
+      reviewInput = semanticReviewCandidates({
+        parsed: narrative,
+        blueprint: authoritativeBlueprint,
+        factPack,
+        assuranceBoundary: context.boundaries.assurance,
+        issues: semanticIssues
+      });
+      reviewed = validateSemanticReviewResult({ candidates: reviewInput }, await semanticReviewer.review({ candidates: reviewInput }));
+      if ((reviewed.accounting?.providerCalls ?? 0) > 1) throw new Error('semantic_review_provider_call_budget_exceeded');
+      manuscript = addSemanticReviewAccounting(manuscript, reviewed);
+    } catch (error) {
+      const diagnostics = (error as { semanticReviewerDiagnostics?: { providerCalls?: number } })?.semanticReviewerDiagnostics;
+      const providerCalls = manuscript.writerMetadata.recovery.totalCalls + (diagnostics?.providerCalls ?? 0);
+      throw new EssentialManuscriptError(
+        'semantic_review',
+        error instanceof Error ? error.message : 'The semantic reviewer failed.',
+        {
+          ...diagnosticsFrom('semantic_review', writerIdentity, manuscript),
+          parseOk: true,
+          providerCalls,
+          validationCode: 'semantic_review_failed',
+          validationIssues: semanticIssues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) }))
+        }
+      );
+    }
+  }
+
+  const firstCascade = adjudicateTextFirstValidation({
+    parsed: narrative,
+    report,
+    factPack,
+    semanticDecisions: reviewed?.decisions,
+    requireSemanticReviewer: semanticIssues.length > 0
+  });
+
+  const failureDetails = (result: EssentialValidationCascadeResult) => {
+    const codes = [...result.blockingCodes, ...result.heldForReviewCodes, ...result.repairCodes];
+    const issues = [...report.hardTruth.issues, ...report.semanticCandidates.issues, ...report.quality.issues, ...report.repairableSemantic.issues];
+    return {
+      codes,
+      validationIssues: issues.filter((issue) => codes.includes(issue.code)).map((issue) => ({
+        code: issue.code,
+        path: issue.path,
+        message: String(issue.message ?? '').slice(0, 200)
+      }))
+    };
+  };
+
+  if (firstCascade.blockingCodes.length || firstCascade.heldForReviewCodes.length) {
+    const failure = failureDetails(firstCascade);
+    throw new EssentialManuscriptError(
+      'validate_manuscript',
+      `The manuscript failed semantic validation (${failure.codes.join(', ')}).`,
+      {
+        ...diagnosticsFrom('validate_manuscript', writerIdentity, manuscript),
+        parseOk: true,
+        validationCode: failure.codes[0],
+        validationIssues: failure.validationIssues
+      }
+    );
+  }
+
+  // A semantic reviewer may repair exactly one deterministic paragraph. Apply that response
+  // without entering the old recovery loop: reparse, rerun hard gates, and rescan candidates once.
+  const repairDecision = reviewed?.decisions.find((decision) => decision.disposition === 'REPAIR');
+  if (repairDecision) {
+    const target = reviewInput?.find((item) => item.candidateId === repairDecision.candidateId);
+    const block = target ? semanticBlockTarget(narrative, authoritativeBlueprint, target.path) : null;
+    if (!target || !block || !repairDecision.replacementProse) {
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair did not resolve to one deterministic Blueprint prose block.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_target_missing' });
+    }
+    assertProtectedRepairFacts(
+      block.targetText,
+      repairDecision.replacementProse,
+      input.factPack.facts.filter((fact) => block.permittedClaimRefs.includes(fact.id))
+    );
+    let repairedMarkdown: string;
+    try {
+      repairedMarkdown = replaceTargetBlock(
+        narrative.markdown,
+        block.subsectionTitle ?? block.sectionTitle,
+        block.level,
+        block.targetText,
+        repairDecision.replacementProse
+      );
+    } catch (error) {
+      throw new EssentialManuscriptError('semantic_repair', error instanceof Error ? error.message : 'The bounded semantic repair could not be applied.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_target_invalid' });
+    }
+    const repairedNarrative = parseBlueprintMarkdown(repairedMarkdown, authoritativeBlueprint);
+    if (!repairedNarrative.ok) {
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair changed deterministic manuscript structure.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: false, validationCode: repairedNarrative.errors[0]?.code, parseErrors: repairedNarrative.errors.map((issue) => ({ code: issue.code, path: issue.path })) });
+    }
+    const repairedReport = validateBlueprintTextManuscript(repairedNarrative, authoritativeBlueprint, factPack);
+    if (repairedReport.hardTruth.issues.length > 0) {
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair failed a deterministic hard gate.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: repairedReport.hardTruth.issues[0]?.code, validationIssues: repairedReport.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) })) });
+    }
+    const allowedIds = new Set((reviewed?.decisions ?? []).filter((decision) => decision.disposition === 'ALLOW').map((decision) => decision.candidateId));
+    const repairedSemanticIds = repairedReport.semanticCandidates.issues.map((issue) => essentialCandidateId(issue.code, issue.path, issue.matchedSpan ?? (semanticBlockTarget(repairedNarrative, authoritativeBlueprint, issue.path)?.targetText ?? issue.code)));
+    const unresolved = repairedSemanticIds.filter((id) => !allowedIds.has(id));
+    if (unresolved.length > 0) {
+      throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair left a semantic candidate unresolved; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_left_candidate' });
+    }
+    const postDecisions = (reviewed?.decisions ?? []).filter((decision) => repairedSemanticIds.includes(decision.candidateId));
+    const repairedCascade = assertTextFirstValidationCascade({
+      parsed: repairedNarrative,
+      report: repairedReport,
+      factPack,
+      semanticDecisions: postDecisions,
+      requireSemanticReviewer: repairedReport.semanticCandidates.issues.length > 0
+    });
+    narrative.markdown = repairedNarrative.markdown;
+    narrative.chapters = repairedNarrative.chapters;
+    manuscript = { ...manuscript, markdown: repairedNarrative.markdown };
+    cascadeResult = repairedCascade;
+  } else {
+    cascadeResult = assertTextFirstValidationCascade({
+      parsed: narrative,
+      report,
+      factPack,
+      semanticDecisions: reviewed?.decisions,
+      requireSemanticReviewer: semanticIssues.length > 0
+    });
   }
 
   return {
     narrative,
     blueprint: authoritativeBlueprint,
     manuscript,
-    acceptedAssuranceSpanHashes: cascadeResult.acceptedAssuranceSpanHashes
+    acceptedAssuranceSpanHashes: cascadeResult.acceptedAssuranceSpanHashes,
+    acceptedSemanticDecisions: cascadeResult.acceptedSemanticDecisions
   };
 }

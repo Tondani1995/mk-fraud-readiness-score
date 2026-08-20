@@ -27,6 +27,7 @@ import { logPremiumReportPhase } from './automation/phase-timing';
 import type { ParsedBlueprintMarkdown } from './narrative/blueprint-text';
 import { buildEssentialNarrativeFactPack } from './narrative/fact-pack';
 import type { WholeManuscriptWriter } from './narrative/manuscript';
+import type { EssentialSemanticReviewer } from './narrative/semantic-reviewer';
 import { adaptEssentialEvidenceModel } from './essential-presentation-adaptation';
 
 /**
@@ -44,6 +45,8 @@ export interface ManualPhase1Dependencies {
   validatePremiumReportGenerationEntitlement?: typeof validatePremiumReportGenerationEntitlement;
   /** Injected for provider-free proof; production uses the real v1.1 writer. */
   wholeManuscriptWriter?: WholeManuscriptWriter;
+  /** Injected semantic adjudicator for provider-free tests; production uses the writer seam. */
+  semanticReviewer?: EssentialSemanticReviewer;
   getPhase1SchemaCapability?: typeof getPhase1SchemaCapability;
   renderValidatedCommercialPdf?: typeof renderValidatedCommercialPdf;
   /** Injectable so the supporting-register build/upload/verify step can be failed in tests. */
@@ -549,6 +552,7 @@ export async function generateManualPhase1Report(
     // Owner decision 4: carried forward into the render call below so the final-HTML validation
     // stage can inherit already-accepted assurance sentences instead of re-adjudicating them.
     let essentialAcceptedAssuranceSpanHashes: string[] | undefined;
+    let essentialAcceptedSemanticDecisions: Array<{ ruleCode: string; spanHash: string; reasonCode: string }> | undefined;
     let comprehensivePdf: Buffer | undefined;
     if (isComprehensive) {
       // One bounded interpretation call against the certified Comprehensive pipeline.
@@ -581,12 +585,15 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
-        // One provider request per Generate. Tail, repair and coherence remain available
-        // globally; they simply cannot be spent silently inside an acceptance generation.
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 1 })
+        // A clean manuscript uses one request; a manuscript with candidates may use one
+        // additional bounded semantic adjudication/repair request. Tail, regeneration and
+        // coherence recovery remain outside this acceptance path.
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 2 }),
+        semanticReviewer: dependencies.semanticReviewer
       });
       essentialNarrative = composed.narrative;
       essentialAcceptedAssuranceSpanHashes = composed.acceptedAssuranceSpanHashes;
+      essentialAcceptedSemanticDecisions = composed.acceptedSemanticDecisions;
       console.info('essential_manuscript_generation', {
         technicalReference, orderReference: input.orderReference, stage: 'accepted',
         model: composed.manuscript.writerMetadata?.model,
@@ -646,7 +653,8 @@ export async function generateManualPhase1Report(
         narrative: essentialNarrative,
         roadmap,
         evidenceModel: reportEvidenceModel,
-        carryForwardAssuranceSpanHashes: essentialAcceptedAssuranceSpanHashes
+        carryForwardAssuranceSpanHashes: essentialAcceptedAssuranceSpanHashes,
+        carryForwardSemanticDecisions: essentialAcceptedSemanticDecisions
       });
       logPremiumReportPhase({ phase: 'pdf_rendering_completed', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, reportReference: assembled.reportReference });
     } catch (error) {

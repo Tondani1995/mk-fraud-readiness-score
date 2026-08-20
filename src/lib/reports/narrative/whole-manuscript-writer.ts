@@ -8,6 +8,7 @@ import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
+import { validateSemanticReviewResult, type SemanticReviewerInput, type SemanticReviewResult } from './semantic-reviewer';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -49,6 +50,18 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
     '',
     'BOUNDARIES AND STYLE',
     JSON.stringify({ boundaries: input.context.boundaries, style: input.context.style })
+  ].join('\n');
+}
+
+function semanticReviewPrompt(input: SemanticReviewerInput): string {
+  return [
+    'Review all semantic language candidates in one bounded MK Fraud Readiness manuscript pass.',
+    '',
+    'Return JSON only in the form {"decisions":[{"candidateId":"...","disposition":"ALLOW|REPAIR|REJECT|HOLD","reasonCode":"...","reason":"...","replacementProse":"..."}]} .',
+    'Return exactly one decision for every candidateId. ALLOW means the lexical hit is safe in context. REPAIR means the management implication is valid but the target prose overstates the evidence; return only the replacement prose for that one bounded paragraph. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
+    'At most one candidate may be REPAIR. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts that are absent from the permitted facts. Do not return Markdown, headings, bullets, commentary or code fences.',
+    '',
+    JSON.stringify({ candidates: input.candidates }, null, 2)
   ].join('\n');
 }
 
@@ -140,10 +153,9 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   /**
    * Optional ceiling on provider requests for one writeManuscript call.
    *
-   * Recovery is unchanged by default. Acceptance runs set this to 1 so a single Generate
-   * cannot silently spend a second call on tail completion, semantic repair or a
-   * coherence pass -- which is how two calls were consumed and billed while the system
-   * recorded none. Exceeding it fails closed rather than dispatching.
+   * Recovery is unchanged by default. Acceptance runs set this to 2: one manuscript request and,
+   * only when candidates exist, one bounded semantic adjudication request. Tail completion,
+   * regeneration and coherence remain outside this path. Exceeding the ceiling fails closed.
    */
   private readonly providerCallBudget: number;
   private providerCallsUsed = 0;
@@ -327,6 +339,46 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
       blueprint: input.blueprint,
       writerMetadata: metadata(input, this.provider, this.model, response, prompt, 900, { ...emptyNarrativeRecoveryBudget(), targetedRepairCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) }, 'whole-manuscript-targeted-repair')
     };
+  }
+
+  /**
+   * One small provider request adjudicates every semantic candidate and, when necessary, returns
+   * one bounded replacement. It deliberately shares the writer's call budget so the production
+   * path can account for manuscript + semantic review exactly.
+   */
+  async reviewSemanticCandidates(input: SemanticReviewerInput): Promise<SemanticReviewResult> {
+    const prompt = semanticReviewPrompt(input);
+    this.chargeProviderCall('semantic-adjudication');
+    try {
+      const response = await generateText({
+        model: this.model,
+        system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return the closed JSON decision envelope only.',
+        prompt,
+        maxOutputTokens: 1800,
+        maxRetries: 0,
+        providerOptions: { gateway: { only: [this.provider] } },
+        abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      });
+      const raw = JSON.parse(String(response.text ?? '')) as SemanticReviewResult;
+      const checked = validateSemanticReviewResult(input, raw);
+      const inputTokens = numeric(response.usage?.inputTokens);
+      const outputTokens = numeric(response.usage?.outputTokens);
+      const totalTokens = numeric(response.usage?.totalTokens);
+      return {
+        ...checked,
+        accounting: {
+          providerCalls: 1,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          providerCostMicros: parseCostMicros(response),
+          repairCount: checked.decisions.filter((decision) => decision.disposition === 'REPAIR').length
+        }
+      };
+    } catch (error) {
+      (error as { semanticReviewerDiagnostics?: { providerCalls: number } }).semanticReviewerDiagnostics = { providerCalls: 1 };
+      throw error;
+    }
   }
 
   async coherencePass(input: WholeManuscriptCoherenceInput): Promise<WholeManuscriptCoherenceResult> {

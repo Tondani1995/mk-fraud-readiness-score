@@ -111,33 +111,41 @@ test('decision 3: unsupported_numeric_claim is REJECT against a Fact Pack that d
   assert.equal(result.publishable, false);
 });
 
-test('decision 3: the identical unsupported_numeric_claim candidate is ACCEPT once the live Fact Pack actually contains the number', () => {
+test('decision 3: unsupported_numeric_claim remains a hard gate even when the Fact Pack contains the number elsewhere', () => {
   const result = adjudicateTextFirstValidation({
     parsed: minimalParsed('The reported score is 91.'),
     report: reportWithIssue('unsupported_numeric_claim'),
     factPack: { facts: [{ label: 'overall score', value: 91 }] }
   });
-  assert.equal(decisionAt(result.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'ACCEPT');
-  assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
-  assert.equal(result.publishable, true);
+  assert.equal(decisionAt(result.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'CONFIRMED_VIOLATION');
+  assert.equal(result.candidates[0].finalDisposition, 'REJECT');
+  assert.equal(result.publishable, false);
 });
 
-test('decision 3: unsupported_structure_claim is REJECT against a Fact Pack that does not contain the structure, ACCEPT once it does', () => {
+test('decision 3: unsupported_structure_claim is a semantic candidate, not an evidence-layer truth verdict', () => {
   const text = 'The Audit Committee approved this control.';
-  const rejected = adjudicateTextFirstValidation({
+  const held = adjudicateTextFirstValidation({
     parsed: minimalParsed(text),
     report: reportWithIssue('unsupported_structure_claim'),
-    factPack: { facts: [] }
+    factPack: { facts: [] },
+    requireSemanticReviewer: true
   });
-  assert.equal(decisionAt(rejected.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'CONFIRMED_VIOLATION');
-  assert.equal(rejected.candidates[0].finalDisposition, 'REJECT');
+  assert.equal(decisionAt(held.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'NOT_APPLICABLE');
+  assert.equal(held.candidates[0].finalDisposition, 'HELD_FOR_REVIEW');
 
   const accepted = adjudicateTextFirstValidation({
     parsed: minimalParsed(text),
     report: reportWithIssue('unsupported_structure_claim'),
-    factPack: { facts: [{ structure: 'Audit Committee' }] }
+    factPack: { facts: [] },
+    semanticDecisions: [{
+      candidateId: held.candidates[0].id,
+      disposition: 'ALLOW',
+      reasonCode: 'fixture_context_support',
+      reason: 'The surrounding Blueprint context supports this as customer-owned design.'
+    }],
+    requireSemanticReviewer: true
   });
-  assert.equal(decisionAt(accepted.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'ACCEPT');
+  assert.equal(decisionAt(accepted.candidates[0], 'EVIDENCE_COMPARISON').disposition, 'NOT_APPLICABLE');
   assert.equal(accepted.candidates[0].finalDisposition, 'ACCEPT');
   assert.equal(accepted.publishable, true);
 });
@@ -176,7 +184,8 @@ test('decision 4: changed text does not match the carried-forward identity and i
   });
   assert.equal(manuscriptResult.publishable, true);
 
-  // A genuine MUST_REJECT sentence, unrelated to the accepted text, appears at final HTML instead.
+  // A changed assurance sentence appears at final HTML instead. It must not inherit the accepted
+  // identity; without a manuscript-stage semantic decision it is held for review.
   // A carry-forward mechanism that inherited on any non-empty hash list (rather than checking exact
   // per-sentence identity) would be a serious safety bug -- this proves it does not.
   const changedText = 'MK independently verified the controls.';
@@ -188,8 +197,8 @@ test('decision 4: changed text does not match the carried-forward identity and i
   });
   const item = finalResult.candidates[0];
   assert.notEqual(decisionAt(item, 'CONTEXT_ADJUDICATION').reasonCode, 'inherited_manuscript_stage_acceptance_unchanged_content');
-  assert.equal(decisionAt(item, 'CONTEXT_ADJUDICATION').disposition, 'CONFIRMED_VIOLATION');
-  assert.equal(item.finalDisposition, 'REJECT');
+  assert.equal(decisionAt(item, 'CONTEXT_ADJUDICATION').disposition, 'AMBIGUOUS');
+  assert.equal(item.finalDisposition, 'HELD_FOR_REVIEW');
   assert.equal(finalResult.publishable, false);
 });
 
@@ -228,7 +237,7 @@ test('decision 6: an unresolved ambiguous manuscript candidate is HELD_FOR_REVIE
   assert.equal(result.publishable, false);
 });
 
-test('decision 6: the same ambiguity at final HTML is HELD_FOR_REVIEW, distinct from a genuine rejection, and neither is publishable', () => {
+test('decision 6: final assurance candidates are held, while hard structural output failures still reject', () => {
   const ambiguousHtml = '<html><body><p>Independent review outcomes vary.</p></body></html>';
   const ambiguousResult = validateEssentialFinalHtml({ html: ambiguousHtml, data: {} });
   assert.equal(ambiguousResult.candidates[0].finalDisposition, 'HELD_FOR_REVIEW');
@@ -236,11 +245,11 @@ test('decision 6: the same ambiguity at final HTML is HELD_FOR_REVIEW, distinct 
   assert.equal(ambiguousResult.blockingCodes.includes('assurance_language_final'), false);
   assert.equal(ambiguousResult.publishable, false);
 
-  const rejectedHtml = '<html><body><p>MK independently verified the controls.</p></body></html>';
+  const rejectedHtml = '<html><body><p>Evidence mapped to D3-Q02.</p></body></html>';
   const rejectedResult = validateEssentialFinalHtml({ html: rejectedHtml, data: {} });
   assert.equal(rejectedResult.candidates[0].finalDisposition, 'REJECT');
-  assert.equal(rejectedResult.blockingCodes.includes('assurance_language_final'), true);
-  assert.equal(rejectedResult.heldForReviewCodes.includes('assurance_language_final'), false);
+  assert.equal(rejectedResult.blockingCodes.includes('raw_internal_id_final'), true);
+  assert.equal(rejectedResult.heldForReviewCodes.includes('raw_internal_id_final'), false);
   assert.equal(rejectedResult.publishable, false);
 });
 

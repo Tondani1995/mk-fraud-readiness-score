@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { closeEssentialCommercialOutputDefects } from '../../src/lib/reports/essential-commercial-output-closure.ts';
+import { validateEssentialFinalHtml } from '../../src/lib/reports/essential-validation-cascade.ts';
 
 const oldRisk = 'Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.';
 const safeRisk = 'Where data-driven detection is not defined and operated reliably, suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.';
@@ -36,11 +37,14 @@ test('proof requirement fallback is converted to clean advisory prose', () => {
   assert.match(output, /Whether sufficient, attributable evidence is present in the last two governance packs to test the linked control across the complete in-scope population for the stated period\./);
 });
 
-test('unsupported transaction-volume absolutes cannot reach the PDF', () => {
+test('unsupported transaction-volume absolutes remain semantic candidates until manuscript review', () => {
   const output = close(`<div>${oldRisk}</div>`);
-  assert.doesNotMatch(output, /Manual review cannot cover transaction volume/i);
-  assert.doesNotMatch(output, /majority of activity is never examined/i);
-  assert.match(output, new RegExp(safeRisk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(output, `<div>${oldRisk}</div>`);
+  const final = validateEssentialFinalHtml({ html: output, data: {} });
+  assert.equal(final.publishable, false);
+  assert.ok(final.heldForReviewCodes.includes('unsupported_transaction_volume_absolute'));
+  assert.equal(final.blockingCodes.includes('unsupported_transaction_volume_absolute'), false);
+  assert.doesNotMatch(output, new RegExp(safeRisk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
 
 test('executive KPI grid is kept together across page breaks', () => {

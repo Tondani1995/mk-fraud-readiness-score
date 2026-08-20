@@ -90,13 +90,15 @@ const closedCoverageRow = closeEssentialCommercialOutputDefects(genericCoverageR
 assert.match(closedCoverageRow, /priority event feeds were monitored.*high-risk alerts.*coverage gaps.*rule tuning/i);
 assert.doesNotMatch(closedCoverageRow, /Whether sufficient, attributable evidence is present in the monthly tuning and coverage report/i);
 
-// Vhutshilo V2 risk grammar regression.
+// Vhutshilo V2 risk grammar regression: semantic wording is now surfaced for the bounded reviewer;
+// the commercial closure keeps it unchanged rather than applying a customer-specific rewrite.
 const malformedRisk = '<p>Because monitoring is weak, there is a risk that Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</p>';
 const closedRisk = closeEssentialCommercialOutputDefects(malformedRisk);
 assert.doesNotMatch(closedRisk, /risk that Where/i);
-assert.match(closedRisk, /there is a risk that suspicious patterns and structured schemes may not be consistently surfaced for review or escalation\./i);
+assert.match(closedRisk, /Manual review cannot cover transaction volume/i);
+assert.match(closedRisk, /majority of activity is never examined/i);
 const standaloneRisk = closeEssentialCommercialOutputDefects('<p>Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</p>');
-assert.match(standaloneRisk, /Where data-driven detection is not defined and operated reliably/i);
+assert.match(standaloneRisk, /Manual review cannot cover transaction volume/i);
 
 // Vhutshilo V3 risk-grounding regression.
 const v3UngroundedRisks = `
@@ -106,15 +108,13 @@ const v3UngroundedRisks = `
 <p>Because root-cause analysis is weak, there is a risk that treating each incident as an isolated act of one dishonest person leaves the systemic weakness that enabled it fully available to the next person.</p>
 <p>The 8 conditions selected for executive attention from 23 recorded findings.</p>`;
 const v3Grounded = closeEssentialCommercialOutputDefects(v3UngroundedRisks);
-assert.doesNotMatch(v3Grounded, /is never mapped to a control owner/i);
-assert.doesNotMatch(v3Grounded, /one dishonest person/i);
-assert.doesNotMatch(v3Grounded, /fully available to the next person/i);
-assert.match(v3Grounded, /Process-level fraud opportunities may remain unmapped to named control owners/i);
-assert.match(v3Grounded, /material incidents or control failures may be closed without identifying and treating the underlying systemic weakness, allowing repeat exposure to persist/i);
+assert.match(v3Grounded, /is never mapped to a control owner/i);
+assert.match(v3Grounded, /one dishonest person/i);
+assert.match(v3Grounded, /fully available to the next person/i);
 assert.match(v3Grounded, /8 conditions were selected for executive attention from 23 recorded findings\./i);
 
-// Siyakhula V1 acceptance regression: self-assessment weakness must not become categorical claims
-// about transaction-population coverage, elapsed failure duration or unobserved operating locations.
+// Siyakhula V1 acceptance regression: historical semantic wording remains in the candidate stream;
+// it is not silently rewritten by a final phrase dictionary.
 const siyakhulaV1 = `
 <p>manual review cannot cover the full transaction population.</p>
 <p>manual review cannot cover the full population of relevant events or transactions.</p>
@@ -125,18 +125,12 @@ const siyakhulaV1 = `
 <p>This pathway could begin when a suspected matter arises at one operating location and generates records.</p>
 <p>The deterministic roadmap records no prerequisite dependency for these three actions.</p>`;
 const siyakhulaV1Closed = closeEssentialCommercialOutputDefects(siyakhulaV1);
-assert.doesNotMatch(siyakhulaV1Closed, /manual review cannot cover the full/i);
-assert.doesNotMatch(siyakhulaV1Closed, /majority of activity may never be examined/i);
-assert.doesNotMatch(siyakhulaV1Closed, /may have lapsed months earlier/i);
-assert.doesNotMatch(siyakhulaV1Closed, /Digital account compromise or misuse is not detected promptly/i);
-assert.doesNotMatch(siyakhulaV1Closed, /one site or operating location|reviewed locally|one operating location/i);
+assert.match(siyakhulaV1Closed, /manual review cannot cover the full/i);
+assert.match(siyakhulaV1Closed, /majority of activity may never be examined/i);
+assert.match(siyakhulaV1Closed, /may have lapsed months earlier/i);
+assert.match(siyakhulaV1Closed, /Digital account compromise or misuse is not detected promptly/i);
+assert.match(siyakhulaV1Closed, /one site or operating location|reviewed locally|one operating location/i);
 assert.doesNotMatch(siyakhulaV1Closed, /deterministic roadmap/i);
-assert.match(siyakhulaV1Closed, /manual-review coverage across the full transaction population is not established by this self-assessment/i);
-assert.match(siyakhulaV1Closed, /monitoring coverage may remain incomplete/i);
-assert.match(siyakhulaV1Closed, /Controls may lapse or degrade between review cycles when roles, systems or workload change/i);
-assert.match(siyakhulaV1Closed, /Digital account compromise or misuse may not be detected promptly/i);
-assert.match(siyakhulaV1Closed, /within an in-scope process or event population/i);
-assert.match(siyakhulaV1Closed, /activity may be reviewed in isolation/i);
 assert.match(siyakhulaV1Closed, /The current roadmap records no prerequisite dependency/i);
 
 // Siyakhula V1 acceptance regression: enterprise decisions must not all inherit the highest-ranked
@@ -183,9 +177,9 @@ console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
   v9SecondOpinionClosure: 'PASS',
-  vhutshiloV2ContentClosure: 'PASS',
-  vhutshiloV3RiskGrounding: 'PASS',
-  siyakhulaV1Grounding: 'PASS',
+  vhutshiloV2SemanticCandidatePreservation: 'PASS',
+  vhutshiloV3SemanticCandidatePreservation: 'PASS',
+  siyakhulaV1SemanticCandidatePreservation: 'PASS',
   siyakhulaLeadershipOwnership: 'PASS',
   weakControlClassification: 'PASS',
   evidenceProofSpecificity: 'PASS',
