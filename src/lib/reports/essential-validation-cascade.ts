@@ -162,11 +162,45 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+/**
+ * Final assurance adjudication must preserve semantic block boundaries. Flattening every HTML tag
+ * to a single space can fuse an unpunctuated heading, table cell or label to the next paragraph and
+ * manufacture a proposition that never existed in either source block. That also defeats the
+ * manuscript-stage carry-forward hash because the accepted sentence is no longer byte/meaning
+ * equivalent after flattening. Keep block-level boundaries as newlines for assurance sentence
+ * extraction while leaving stripHtml() unchanged for document-wide regex checks.
+ */
+function stripHtmlPreservingBlockBoundaries(html: string): string {
+  const blockTags = 'address|article|aside|blockquote|caption|dd|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|section|table|tbody|td|tfoot|th|thead|tr|ul';
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(new RegExp(`<\\/?(?:${blockTags})\\b[^>]*>`, 'gi'), '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
 function sentences(text: string): string[] {
   return text
     .split(/(?<=[.!?])\s+/)
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function finalHtmlSentences(html: string): string[] {
+  return stripHtmlPreservingBlockBoundaries(html)
+    .split(/\n+/)
+    .flatMap((block) => sentences(block));
 }
 
 /**
@@ -391,7 +425,7 @@ function scanFinalHtml(html: string): EssentialValidationCandidate[] {
       found.push(candidate({ ruleCode: code, severity: 'HARD_TRUTH_FAILURE', path: 'final_html', span: match }));
     }
   }
-  for (const sentence of sentences(text)) {
+  for (const sentence of finalHtmlSentences(html)) {
     if (!isAssuranceCandidate(sentence)) continue;
     found.push(candidate({ ruleCode: 'assurance_language_final', severity: 'SEMANTIC_AMBIGUITY', path: 'final_html', span: sentence }));
   }
@@ -430,11 +464,14 @@ export function validateEssentialFinalHtml(input: {
 }): EssentialValidationCascadeResult {
   const candidates = scanFinalHtml(input.html);
   const carryForward = new Set(input.carryForwardAssuranceSpanHashes ?? []);
+  const finalSentences = finalHtmlSentences(input.html);
 
   for (const item of candidates) {
     if (item.ruleCode === 'assurance_language_final') {
-      // Resolve the exact candidate sentence by hash from the immutable final HTML.
-      const sentence = sentences(stripHtml(input.html)).find((value) => sha256(value) === item.spanHash) ?? '';
+      // Resolve the exact candidate sentence by hash from the immutable final HTML using the SAME
+      // block-aware segmentation used by scanFinalHtml. This keeps manuscript carry-forward identity
+      // stable across HTML presentation boundaries instead of resolving against a flattened document.
+      const sentence = finalSentences.find((value) => sha256(value) === item.spanHash) ?? '';
       if (carryForward.has(spanIdentityHash(sentence))) {
         // Owner decision 4: unchanged content inherits its manuscript-stage decision rather than
         // being re-adjudicated from scratch.
