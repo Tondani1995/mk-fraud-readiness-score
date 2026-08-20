@@ -811,11 +811,7 @@ export async function generateManualPhase1Report(
     // migration is absent or misapplied, so a missing contract must fail closed.
     generationStage = 'finalise_generation';
     finalisationInvoked = true;
-    const finaliseRpc = isComprehensive
-      ? 'finalise_comprehensive_automated_report_with_supporting_register'
-      : 'finalise_manual_report_with_supporting_register';
-    const { data: completed, error: completeError } = await db.rpc(
-      finaliseRpc, {
+    const finaliseArguments = {
       p_attempt_id: attemptId,
       p_template_id: template.id,
       p_report_type: reportType,
@@ -830,7 +826,10 @@ export async function generateManualPhase1Report(
       p_register_mime_type: storedRegister.mimeType,
       p_register_file_size_bytes: storedRegister.fileSizeBytes,
       p_register_checksum: storedRegister.checksumSha256
-    });
+    };
+    const { data: completed, error: completeError } = isComprehensive
+      ? await db.rpc('finalise_comprehensive_automated_report_with_supporting_register', finaliseArguments)
+      : await db.rpc('finalise_manual_report_with_supporting_register', finaliseArguments);
     if (completeError || !completed?.report) {
       // Keep the underlying Postgres error out of the user-facing message
       // (report_persistence_failed / "verified PDF could not be linked")

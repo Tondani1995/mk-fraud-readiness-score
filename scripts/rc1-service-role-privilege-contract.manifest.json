@@ -1424,9 +1424,18 @@
       "securityMode": "DEFINER",
       "searchPath": "public, pg_temp",
       "sources": [
-        "src/lib/reports/phase1-manual-fulfilment.ts:637"
+        "src/lib/reports/phase1-manual-fulfilment.ts:818"
       ],
       "classification": "Atomic report + supporting-register finalisation (search_path mirrors the accepted complete_manual_report_generation)"
+    },
+    {
+      "signature": "public.finalise_comprehensive_automated_report_with_supporting_register(uuid,uuid,public.report_type,text,text,text,text,bigint,text,text,text,text,bigint,text)",
+      "securityMode": "DEFINER",
+      "searchPath": "public, pg_temp",
+      "sources": [
+        "src/lib/reports/phase1-manual-fulfilment.ts:817"
+      ],
+      "classification": "Atomic automated Comprehensive PDF + supporting-register finalisation with exact version and null legacy engagement binding"
     },
     {
       "signature": "public.ingest_phase14_provider_webhook(text,text,text,text,text,text,jsonb,bigint,uuid,text)",
@@ -1543,22 +1552,21 @@
   },
   "storageApiOnly": [
     "src/app/score/api/internal/phase14-storage-cleanup/route.ts:51",
-    "src/lib/comprehensive/evidence-service.ts:126",
-    "src/lib/comprehensive/evidence-service.ts:249",
-    "src/lib/comprehensive/package-registration.ts:54",
-    "src/lib/comprehensive/package-registration.ts:91",
-    "src/lib/comprehensive/package-registration.ts:95",
+    "src/lib/comprehensive/evidence-service.ts:127",
+    "src/lib/comprehensive/evidence-service.ts:250",
+    "src/lib/comprehensive/package-registration.ts:55",
+    "src/lib/comprehensive/package-registration.ts:92",
+    "src/lib/comprehensive/package-registration.ts:96",
     "src/lib/rc1/control-plane.ts:510",
     "src/lib/rc1/control-plane.ts:516",
-    "src/lib/reports/customer-report-access.ts:236",
-    "src/lib/reports/customer-report-access.ts:290",
-    "src/lib/reports/customer-report-access.ts:338",
+    "src/lib/reports/customer-report-access.ts:187",
+    "src/lib/reports/customer-report-access.ts:230",
     "src/lib/reports/download-verification.ts:29",
     "src/lib/reports/email/delivery-dispatch.ts:28",
     "src/lib/reports/phase1-manual-delivery.ts:58",
-    "src/lib/reports/phase1-manual-fulfilment.ts:309",
-    "src/lib/reports/phase1-manual-fulfilment.ts:738",
-    "src/lib/reports/phase1-manual-fulfilment.ts:888",
+    "src/lib/reports/phase1-manual-fulfilment.ts:314",
+    "src/lib/reports/phase1-manual-fulfilment.ts:763",
+    "src/lib/reports/phase1-manual-fulfilment.ts:924",
     "src/lib/reports/phase1-report-access.ts:179",
     "src/lib/reports/phase1-report-access.ts:212",
     "src/lib/reports/premium-report-service-core.ts:731",
@@ -1567,8 +1575,8 @@
     "src/lib/reports/storage-publication.ts:59",
     "src/lib/reports/storage-publication.ts:80",
     "src/lib/reports/storage-publication.ts:88",
-    "src/lib/reports/supporting-register-delivery.ts:157",
-    "src/lib/reports/supporting-register-delivery.ts:97"
+    "src/lib/reports/supporting-register-delivery.ts:188",
+    "src/lib/reports/supporting-register-delivery.ts:87"
   ],
   "authAdminApiOnly": [],
   "dynamicResolutions": {
@@ -1635,7 +1643,7 @@
       "src/lib/rc1/control-plane.ts:76:from",
       "src/lib/rc1/control-plane.ts:99:rpc"
     ],
-    "fullAstInventorySha256": "0981eb73c4c90036e243f459a666b049c5a97b110a6ca49d220d9cc87afcf14f"
+    "fullAstInventorySha256": "1391cdcc0fb4d34d1f52f64b95df82da9541a0e2df7451ae7f64f50780b3790c"
   },
   "productionOverPrivilegeBacklog": {
     "scope": "Deferred; no Production ACL change is authorised by this correction.",
