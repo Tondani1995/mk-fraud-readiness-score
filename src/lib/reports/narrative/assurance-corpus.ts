@@ -111,7 +111,8 @@ export const ASSURANCE_MUST_ALLOW: AssuranceCorpusEntry[] = [
   { id: 'allow-governance-role-separation-01', text: 'Fraud-risk ownership, structured assessment and periodic review are recorded as initial or ad hoc. Management owns fraud risk, while independent review responsibilities should remain separate where an internal audit or equivalent assurance function exists. The CEO / Managing Director should approve the accountability RACI and establish a scheduled review.', source: 'narrative-assurance-semantics-tests (rivoniaCustomerControl)', expectCandidate: true },
   { id: 'allow-repaired-limitation-01', text: 'The MK scoring method is strategic fraud-risk analysis and control design, without verification of operating effectiveness by this review.', source: 'essential-assurance-boundary-tests (post-normalisation repaired text)', expectNoCandidate: true },
   { id: 'allow-repaired-target-01', text: 'the self-assessment responses indicate that evidence exists.', source: 'essential-assurance-boundary-tests (post-normalisation repaired text)', expectNoCandidate: true },
-  { id: 'allow-repaired-passive-01', text: 'operating effectiveness remains subject to evidence validation before closure.', source: 'essential-assurance-boundary-tests (post-normalisation repaired text)', expectNoCandidate: true }
+  { id: 'allow-repaired-passive-01', text: 'operating effectiveness remains subject to evidence validation before closure.', source: 'essential-assurance-boundary-tests (post-normalisation repaired text)', expectNoCandidate: true },
+  { id: 'allow-vhutshilo-confirmed-outcomes-01', text: 'evidence, and rules should be tuned monthly from confirmed', source: 'vhutshilo-customer-1-acceptance-incident-2026-08-19 (runtime validator matched span)', expectNoCandidate: true }
 ];
 
 /**
@@ -157,7 +158,8 @@ export const ASSURANCE_MUST_REJECT: AssuranceCorpusEntry[] = [
   { id: 'reject-report-verifier-01', text: 'This report should independently verify whether the control is effective.', source: 'narrative-assurance-semantics-tests' },
   { id: 'reject-report-verifier-02', text: 'The report should independently verify the control before management relies on it.', source: 'essential-assurance-boundary-tests' },
   { id: 'reject-compound-negated-plus-positive-01', text: 'This is not a statement that existing evidence has been validated. MK independently verified the controls.', source: 'narrative-assurance-semantics-tests (negatedPlusPositive)' },
-  { id: 'reject-reviewer-judgement-01', text: 'The finding relied on reviewer judgement.', source: 'synthetic-tier-a-coverage (exercises existing, currently-untested engine1 ABSOLUTELY_PROHIBITED_ASSURANCE pattern)' }
+  { id: 'reject-reviewer-judgement-01', text: 'The finding relied on reviewer judgement.', source: 'synthetic-tier-a-coverage (exercises existing, currently-untested engine1 ABSOLUTELY_PROHIBITED_ASSURANCE pattern)' },
+  { id: 'reject-evidence-confirmed-01', text: 'The evidence confirmed operating effectiveness.', source: 'vhutshilo-incident-boundary-counterexample' }
 ];
 
 export const ASSURANCE_CORPUS = {
