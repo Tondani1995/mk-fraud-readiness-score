@@ -32,7 +32,8 @@ test('proof requirement fallback is converted to clean advisory prose', () => {
   const output = close(input);
   assert.doesNotMatch(output, /provides operating evidence that/);
   assert.doesNotMatch(output, /A named senior owner is implemented/);
-  assert.match(output, /Whether the last two governance packs demonstrates that the linked control was operated and evidenced across the complete in-scope population for the stated period\./);
+  assert.doesNotMatch(output, /packs (?:demonstrates|contains)\b/i);
+  assert.match(output, /Whether sufficient, attributable evidence is present in the last two governance packs to test the linked control across the complete in-scope population for the stated period\./);
 });
 
 test('unsupported transaction-volume absolutes cannot reach the PDF', () => {
