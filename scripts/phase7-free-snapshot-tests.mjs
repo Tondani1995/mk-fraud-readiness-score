@@ -28,16 +28,32 @@ function assertDeepEqual(actual, expected, label) {
 function loadActualScoringEngine() {
   const enginePath = path.join(root, 'src/lib/scoring/scoring-engine.ts');
   const source = fs.readFileSync(enginePath, 'utf8');
+  const maturityBandPath = path.join(root, 'src/lib/scoring/maturity-band.ts');
+  const maturityBandSource = fs.readFileSync(maturityBandPath, 'utf8');
   const transpiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
     fileName: enginePath
   }).outputText;
+  const maturityTranspiled = ts.transpileModule(maturityBandSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+    fileName: maturityBandPath
+  }).outputText;
+  const maturityModule = { exports: {} };
+  vm.runInNewContext(maturityTranspiled, {
+    module: maturityModule,
+    exports: maturityModule.exports,
+    require: (id) => { throw new Error(`Unexpected runtime import from maturity-band.ts: ${id}`); },
+    console
+  }, { filename: 'maturity-band.phase7.cjs' });
 
   const module = { exports: {} };
   vm.runInNewContext(transpiled, {
     module,
     exports: module.exports,
-    require: (id) => { throw new Error(`Unexpected import from scoring-engine.ts: ${id}`); },
+    require: (id) => {
+      if (id === './maturity-band') return maturityModule.exports;
+      throw new Error(`Unexpected import from scoring-engine.ts: ${id}`);
+    },
     console
   }, { filename: 'scoring-engine.phase7.cjs' });
 
