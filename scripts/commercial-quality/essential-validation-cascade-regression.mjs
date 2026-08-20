@@ -62,9 +62,6 @@ test('layer 2 can clear a layer-1 assurance false positive without weakening har
   assert.equal(result.candidates.length, 1);
   assert.deepEqual(
     result.candidates[0].decisions.map((decision) => decision.layer),
-    // Owner decision 2: the manuscript-stage cascade now carries a fifth, honest DOCUMENT_REVIEW
-    // layer too (previously only the final-HTML cascade had one), even though this particular
-    // candidate has nothing further for it to examine -- see the NOT_APPLICABLE assertion below.
     ['CANDIDATE_SCAN', 'CONTEXT_ADJUDICATION', 'EVIDENCE_COMPARISON', 'DOCUMENT_REVIEW', 'FINAL_ACCEPTANCE']
   );
   assert.equal(result.candidates[0].finalDisposition, 'ACCEPT');
@@ -141,6 +138,17 @@ test('final exact HTML rejects internal ids and unsupported categorical risk cla
   const absolute = final('<html><body><p>Without deliberate monitoring, fraud is found only by accident, complaint or external notification, typically long after the loss has compounded.</p></body></html>');
   assert.equal(absolute.publishable, false);
   assert.ok(absolute.blockingCodes.includes('unsupported_detection_absolute'));
+
+  // Vhutshilo Customer-1 acceptance regression (2026-08-20): Layer-0 now rewrites these closed
+  // phrases before manuscript acceptance, but the final scanner must remain an independent fail-safe
+  // in case a deterministic/rendering surface ever reintroduces either unsupported absolute.
+  const transactionVolume = final('<html><body><p>Manual review cannot cover transaction volume.</p></body></html>');
+  assert.equal(transactionVolume.publishable, false);
+  assert.ok(transactionVolume.blockingCodes.includes('unsupported_transaction_volume_absolute'));
+
+  const majorityUnexamined = final('<html><body><p>The majority of activity is never examined.</p></body></html>');
+  assert.equal(majorityUnexamined.publishable, false);
+  assert.ok(majorityUnexamined.blockingCodes.includes('unsupported_transaction_volume_absolute'));
 });
 
 test('repeated generic proof language is a document-level commercial failure', () => {
