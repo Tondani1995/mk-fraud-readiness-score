@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {
+  closeEssentialCommercialOutputDefects,
+  essentialEvidenceProofPurpose
+} from '../../src/lib/reports/essential-commercial-output-closure.ts';
 
 const template = fs.readFileSync('src/lib/reports/templates/report-template.ts', 'utf8');
 const scoring = fs.readFileSync('src/lib/scoring/scoring-engine.ts', 'utf8');
 const maturity = fs.readFileSync('src/lib/scoring/maturity-band.ts', 'utf8');
 const launch = fs.readFileSync('docs/v2/phase14-commercial-launch/essential-organisation-profile-launch-requirement.md', 'utf8');
+const materialFindings = fs.readFileSync('src/lib/reports/evidence-model/material-findings.ts', 'utf8');
+const registers = fs.readFileSync('src/lib/reports/evidence-model/registers.ts', 'utf8');
 
 // Score basis comes from the authoritative scoring contract, not a local invented scale.
 assert.match(template, /MATURITY_BAND_THRESHOLDS/);
@@ -47,6 +53,58 @@ assert.match(template, /Essential Supporting Register/);
 assert.doesNotMatch(template, /supporting register issued with this report/i);
 assert.doesNotMatch(template, /see the closing section of this report/i);
 
+// Vhutshilo V2 acceptance regression: a 0-2 response selected only because it represents a weakest
+// domain is still a weak control, never an assurance priority. This source invariant protects the
+// finding, risk, control-improvement and roadmap semantics that all branch on materialityClass.
+assert.match(materialFindings, /if \(responseValue <= 2\) return 'control_gap';/);
+assert.match(materialFindings, /return 'assurance_priority';/);
+
+// Vhutshilo V2 acceptance regression: proof purposes must be artefact-specific for the evidence
+// families actually surfaced by the customer report and companion register. The generic fallback
+// must remain grammatical and must not claim that unreviewed evidence already demonstrates
+// effective operation.
+const proofCases = [
+  ['Control linkage showing preventive and detective controls', /mapped fraud scenario.*preventive and detective controls/i],
+  ['Approval and business justification', /approved business justification.*named accountable owner/i],
+  ['Privileged-account register', /complete privileged-account population.*owner.*review date/i],
+  ['Privileged-session/access logs', /attributable to named accounts.*unusual, unauthorised or out-of-pattern/i],
+  ['Quarterly independent recertification', /complete privileged-access population.*keep-or-remove/i],
+  ['Removal tickets', /required service level.*closure evidence/i]
+];
+for (const [artefact, expected] of proofCases) {
+  const purpose = essentialEvidenceProofPurpose(artefact);
+  assert.match(purpose, expected, `${artefact} proof purpose was not specific enough`);
+  assert.doesNotMatch(purpose, /linked control was operated and evidenced/i);
+  assert.doesNotMatch(purpose, /\b(?:logs|tickets) demonstrates\b/i);
+}
+assert.match(registers, /contains sufficient, attributable evidence to test/);
+assert.doesNotMatch(registers, /provides operating evidence that \$\{shown\.join/);
+
+// Vhutshilo V2 acceptance regression: the old standalone risk rewrite was applied inside an
+// already-composed `there is a risk that ...` sentence and produced `there is a risk that Where`.
+// The embedded form must remain one grammatical proposition; the standalone statement still gets a
+// separately grammatical conditional rewrite.
+const malformedRisk = '<p>Because monitoring is weak, there is a risk that Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</p>';
+const closedRisk = closeEssentialCommercialOutputDefects(malformedRisk);
+assert.doesNotMatch(closedRisk, /risk that Where/i);
+assert.match(closedRisk, /there is a risk that suspicious patterns and structured schemes may not be consistently surfaced for review or escalation\./i);
+const standaloneRisk = closeEssentialCommercialOutputDefects('<p>Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected.</p>');
+assert.match(standaloneRisk, /Where data-driven detection is not defined and operated reliably/i);
+
+// Vhutshilo V2 acceptance regression: distinct 30-day leadership decisions must not all carry the
+// same generic completion test. Closed-set presentation rewrites preserve the underlying decisions.
+const decisionRows = `
+<table>
+<tr><td>Approve accountable executive mandates and escalation authority for priority remediation.</td><td>x</td><td>x</td><td>Decision recorded, accountable owner confirmed and escalation route documented.</td></tr>
+<tr><td>Approve the target control standards management will implement across the priority risk areas.</td><td>x</td><td>x</td><td>Decision recorded, accountable owner confirmed and escalation route documented.</td></tr>
+<tr><td>Approve prerequisite-first sequencing for dependent improvements.</td><td>x</td><td>x</td><td>Decision recorded, accountable owner confirmed and escalation route documented.</td></tr>
+</table>`;
+const closedDecisionRows = closeEssentialCommercialOutputDefects(decisionRows);
+assert.doesNotMatch(closedDecisionRows, /Decision recorded, accountable owner confirmed and escalation route documented/);
+assert.match(closedDecisionRows, /Signed mandate names each accountable executive, decision rights and the escalation route/);
+assert.match(closedDecisionRows, /Approved control-improvement baseline records the required design standard/);
+assert.match(closedDecisionRows, /Dependency sequence is approved with named prerequisite owners/);
+
 // Pagination/geometry guards for the exact V9 visual failures.
 assert.match(template, /splittable-finding-section/);
 assert.match(template, /\.cap-card-list \{ break-inside: auto; page-break-inside: auto; \}/);
@@ -63,4 +121,17 @@ assert.match(launch, /report_artifacts/i);
 assert.match(launch, /hard launch blocker/i);
 assert.doesNotMatch(template, /Mahlori Advisory|Mahlori/);
 
-console.log(JSON.stringify({ status: 'PASS', ai: 'ZERO', v9SecondOpinionClosure: 'PASS', scoreBasis: 'PASS', pagination: 'PASS', registerContract: 'PASS', profileRequirement: 'PASS' }, null, 2));
+console.log(JSON.stringify({
+  status: 'PASS',
+  ai: 'ZERO',
+  v9SecondOpinionClosure: 'PASS',
+  vhutshiloV2ContentClosure: 'PASS',
+  weakControlClassification: 'PASS',
+  evidenceProofSpecificity: 'PASS',
+  riskGrammar: 'PASS',
+  leadershipCompletionTests: 'PASS',
+  scoreBasis: 'PASS',
+  pagination: 'PASS',
+  registerContract: 'PASS',
+  profileRequirement: 'PASS'
+}, null, 2));
