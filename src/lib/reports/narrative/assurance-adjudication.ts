@@ -98,8 +98,15 @@ const TIER_A_HARD_VOCABULARY: RegExp[] = [
 // ordinary domain vocabulary with no nearby assurance verb at all, and must not become candidates
 // merely for containing those words. A text that fails this gate is not an assurance proposition;
 // it never reaches Tier C onward.
+//
+// Vhutshilo Customer-1 acceptance incident (2026-08-19): the prior gate treated any occurrence of
+// "evidence" followed somewhere within 100 characters by "confirmed" as assurance-flavoured. That
+// incorrectly captured ordinary forward-looking control prose ending "evidence, and rules should be
+// tuned monthly from confirmed ...". Evidence is therefore a candidate actor only when it is the
+// grammatical subject of the confirmation ("the evidence confirmed ..." / "the evidence has been
+// confirmed"), while report/assessment/finding actors retain the wider completed-claim gate.
 // ---------------------------------------------------------------------------------------------
-const CANDIDATE_GATE = /\bindependent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?|assurance)\b|\b(?:MK|the assessment|this assessment|the report|this report|the findings?|the evidence|evidence)\b[^.!?]{0,100}\b(?:confirmed|provides?\s+(?:independent\s+)?assurance)\b|\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
+const CANDIDATE_GATE = /\bindependent(?:ly)?\s+(?:verif(?:y|ied|ication)|review(?:ed)?|assurance)\b|\b(?:MK|the assessment|this assessment|the report|this report|the findings?)\b[^.!?]{0,100}\b(?:confirmed|provides?\s+(?:independent\s+)?assurance)\b|\b(?:the\s+)?evidence\b\s+(?:(?:was|were|has been|have been)\s+)?(?:independently\s+)?confirmed\b|\boperating effectiveness\b[^.!?]{0,100}\b(?:was|were|has been|have been|is|are)\s+(?:independently\s+)?(?:verified|reviewed|validated|confirmed|established)\b/i;
 
 // ---------------------------------------------------------------------------------------------
 // Tier C -- evidence/epistemic criterion. Evidence tables and recommended-next-step prose
