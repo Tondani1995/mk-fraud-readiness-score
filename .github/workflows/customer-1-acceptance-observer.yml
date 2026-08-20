@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      PREVIEW_URL: https://mk-fraud-platform-85y70rrfc-tondanis-projects.vercel.app
+      PREVIEW_URL: https://mk-fraud-platform-5nhmjhfpv-tondanis-projects.vercel.app
       ORDER_REFERENCE: MKORD-2026-FAA9331C
-      REQUEST_KEY: acceptance-c1-c5e8ba6d-vhutshilo
+      REQUEST_KEY: acceptance-c1-cc6b697f-vhutshilo
       GH_TOKEN: ${{ github.token }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
