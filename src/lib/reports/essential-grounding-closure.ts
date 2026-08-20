@@ -34,7 +34,7 @@ export function closeResidualEssentialGroundingDefects(html: string): string {
       'without a timely defined review route'
     )
     .replace(
-      /(?:an )?unusual pattern may not be challenged centrally/gi,
+      /(?:the|an) unusual pattern (?:is not|may not be) challenged centrally/gi,
       'an unusual pattern may not be challenged consistently'
     )
     .replace(
