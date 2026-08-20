@@ -16,6 +16,8 @@ const acceptanceExcerpt = `
 <p>Manual review cannot cover every relevant transaction or behavioural pattern, and account compromise or misuse can persist when anomalous patterns are not surfaced.</p>
 <p>The actor relies on the activity being reviewed locally rather than compared across sites.</p>
 <p>The actor may rely on records staying with the location where the matter arose, so that scope and timing become harder to establish once the matter is escalated.</p>
+<p>Manual review also cannot cover the full transaction volume, so without data-driven tests, structured patterns may remain unchallenged.</p>
+<p>Activity within an in-scope process or event population could fall outside the expected pattern without a timely central review route. The pathway depends on activity being reviewed locally rather than compared across the complete in-scope population, so an unusual pattern may not be challenged centrally.</p>
 `;
 
 const commerciallyClosed = closeEssentialCommercialOutputDefects(acceptanceExcerpt);
@@ -23,11 +25,17 @@ const closed = closeResidualEssentialGroundingDefects(commerciallyClosed);
 
 assert.doesNotMatch(closed, /Manual review cannot cover the full practical range/i);
 assert.doesNotMatch(closed, /Manual review cannot cover every relevant transaction or behavioural pattern/i);
+assert.doesNotMatch(closed, /Manual review also cannot cover the full transaction volume/i);
 assert.match(closed, /self-assessment does not establish complete monitoring coverage across the relevant transaction or behavioural population/i);
 
 assert.doesNotMatch(closed, /reviewed locally rather than compared across the complete relevant population/i);
+assert.doesNotMatch(closed, /reviewed locally rather than compared across the complete in-scope population/i);
 assert.doesNotMatch(closed, /reviewed locally rather than compared across sites/i);
+assert.doesNotMatch(closed, /timely central review route/i);
+assert.doesNotMatch(closed, /challenged centrally/i);
 assert.match(closed, /reviewed in isolation rather than compared across the complete relevant population/i);
+assert.match(closed, /timely defined review route/i);
+assert.match(closed, /challenged consistently/i);
 
 assert.doesNotMatch(closed, /records remain with the location where the matter arose/i);
 assert.doesNotMatch(closed, /records staying with the location where the matter arose/i);
@@ -45,14 +53,19 @@ assert.match(leadership, /recommendedDecision: 'Approve the prerequisite sequenc
 const safeControlDesign = 'Management should compare exception outcomes across sites where the organisation actually operates multiple sites.';
 assert.equal(closeResidualEssentialGroundingDefects(safeControlDesign), safeControlDesign, 'generic location wording outside the known unsupported scenario shapes must remain unchanged');
 
+const safeGroundedCentralRoute = 'Management documented a central review route in the submitted operating model and should retain evidence that it operates as designed.';
+assert.equal(closeResidualEssentialGroundingDefects(safeGroundedCentralRoute), safeGroundedCentralRoute, 'grounded central-route language outside the known speculative provider shape must remain unchanged');
+
 console.log(JSON.stringify({
   status: 'PASS',
   ai: 'ZERO',
   siyakhulaV2GroundingClosure: 'PASS',
   siyakhulaV3VariantClosure: 'PASS',
+  siyakhulaV4VariantClosure: 'PASS',
   manualReviewAbsolute: 'CLOSED',
   inventedLocationMechanism: 'CLOSED',
   roadmapInternalIdLanguage: 'CLOSED',
   methodologyImplementationJargon: 'CLOSED',
-  unrelatedLocationLanguage: 'PRESERVED'
+  unrelatedLocationLanguage: 'PRESERVED',
+  groundedCentralRouteLanguage: 'PRESERVED'
 }, null, 2));
