@@ -3,6 +3,7 @@ import type { NarrativeStoryPlan } from './story-plan';
 import type { ReportBlueprint, WholeManuscriptWriterContext } from './report-blueprint';
 import type { NarrativeRecoveryBudget } from './recovery-policy';
 import type { EssentialSemanticReviewer, SemanticReviewerInput, SemanticReviewDiagnostics, SemanticReviewExecutionContract, SemanticReviewResult } from './semantic-reviewer';
+import type { NarrativeProviderAttemptRecord } from './provider-attempt-policy';
 
 export const NARRATIVE_MANUSCRIPT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-manuscript-v1';
 export const NARRATIVE_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-writer-v1';
@@ -121,6 +122,16 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   semanticReviewResponseSchemaValid?: boolean;
   semanticReviewFailureCode?: string;
   semanticReviewDiagnostics?: SemanticReviewDiagnostics;
+  requestedModel?: string;
+  primaryModel?: string;
+  modelSelectionSource?: string;
+  configuredModelOverride?: string;
+  modelOverrideRejected?: string;
+  providerAttemptRecords?: NarrativeProviderAttemptRecord[];
+  totalMiniAttempts?: number;
+  totalFallbackAttempts?: number;
+  totalPhysicalProviderRequests?: number;
+  totalGenerationCostMicros?: number;
   inputBlueprintSha256?: string;
   executionContract?: {
     sdkFunction: 'generateText';

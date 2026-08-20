@@ -52,6 +52,10 @@ export function logPremiumReportPhase(input: {
   reportReference?: string | null;
   provider?: string | null;
   model?: string | null;
+  requestedModel?: string | null;
+  modelSelectionSource?: string | null;
+  configuredModelOverride?: string | null;
+  modelOverrideRejected?: string | null;
   gatewayGenerationId?: string | null;
   timeoutDiagnostic?: AiTimeoutDiagnostic | null;
   aiBudgetDiagnostics?: PremiumReportAiBudgetDiagnostics | null;
@@ -65,6 +69,10 @@ export function logPremiumReportPhase(input: {
     reportReference: input.reportReference ?? null,
     provider: input.provider ?? null,
     model: input.model ?? null,
+    requestedModel: input.requestedModel ?? null,
+    modelSelectionSource: input.modelSelectionSource ?? null,
+    configuredModelOverride: input.configuredModelOverride ?? null,
+    modelOverrideRejected: input.modelOverrideRejected ?? null,
     gatewayGenerationId: input.gatewayGenerationId ?? null,
     timeoutDiagnostic: input.timeoutDiagnostic ?? null,
     aiBudgetDiagnostics: input.aiBudgetDiagnostics ?? null

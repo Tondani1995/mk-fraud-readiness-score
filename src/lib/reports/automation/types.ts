@@ -75,6 +75,9 @@ export interface PremiumReportAutomationFlags {
   testRecipientOverrideEnabled: boolean;
   testRecipientOverride: string | null;
   model: string;
+  modelSelectionSource?: string;
+  configuredModelOverride?: string;
+  modelOverrideRejected?: string;
   promptVersion: string;
   schemaVersion: string;
   /**

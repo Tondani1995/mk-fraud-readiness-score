@@ -577,7 +577,7 @@ export async function generateManualPhase1Report(
       }
     } else {
     try {
-      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
+      logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'started', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null, requestedModel: flags.model, modelSelectionSource: flags.modelSelectionSource ?? null, configuredModelOverride: flags.configuredModelOverride ?? null, modelOverrideRejected: flags.modelOverrideRejected ?? null });
       // v1.1 whole-manuscript composition. The blueprint decides structure and order,
       // the existing validator decides acceptability, and deterministic analytics remain
       // the sole source of every number, finding, risk, control and action on the page.
@@ -585,9 +585,10 @@ export async function generateManualPhase1Report(
       const { createV11WholeManuscriptWriter } = await import('./narrative/whole-manuscript-writer');
       const composed = await composeEssentialManuscript({
         factPack: buildEssentialNarrativeFactPack(assembled, reportEvidenceModel, essentialProjection),
-        // A clean manuscript uses one request plus one batched block review. Acceptance never
-        // spends the second slot on tail, regeneration or coherence recovery.
-        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { providerCallBudget: 2, allowTailRecovery: false }),
+        // Essential owns a bounded Mini-first attempt chain per logical stage. Tail, regeneration
+        // and coherence recovery remain disabled in acceptance mode, while technical retries and
+        // the ordered Luna/Terra/Sol fallback are fully accounted for by the writer.
+        writer: dependencies.wholeManuscriptWriter ?? createV11WholeManuscriptWriter(flags.model, { allowTailRecovery: false }),
         semanticReviewer: dependencies.semanticReviewer
       });
       essentialNarrative = composed.narrative;
@@ -601,6 +602,15 @@ export async function generateManualPhase1Report(
         manuscriptProviderCalls: composed.manuscript.writerMetadata?.manuscriptProviderCalls ?? 1,
         semanticReviewProviderCalls: composed.manuscript.writerMetadata?.semanticReviewProviderCalls ?? 0,
         totalProviderCalls: composed.manuscript.writerMetadata?.totalProviderCalls ?? composed.manuscript.writerMetadata?.recovery?.totalCalls ?? 1,
+        requestedModel: flags.model,
+        primaryModel: composed.manuscript.writerMetadata?.primaryModel ?? 'openai/gpt-5-mini',
+        modelSelectionSource: flags.modelSelectionSource ?? composed.manuscript.writerMetadata?.modelSelectionSource,
+        configuredModelOverride: flags.configuredModelOverride ?? composed.manuscript.writerMetadata?.configuredModelOverride,
+        modelOverrideRejected: flags.modelOverrideRejected ?? composed.manuscript.writerMetadata?.modelOverrideRejected,
+        totalMiniAttempts: composed.manuscript.writerMetadata?.totalMiniAttempts,
+        totalFallbackAttempts: composed.manuscript.writerMetadata?.totalFallbackAttempts,
+        totalPhysicalProviderRequests: composed.manuscript.writerMetadata?.totalPhysicalProviderRequests,
+        totalGenerationCostMicros: composed.manuscript.writerMetadata?.totalGenerationCostMicros,
         manuscriptInputTokens: composed.manuscript.writerMetadata?.manuscriptInputTokens,
         manuscriptOutputTokens: composed.manuscript.writerMetadata?.manuscriptOutputTokens,
         manuscriptTotalTokens: composed.manuscript.writerMetadata?.manuscriptTotalTokens,

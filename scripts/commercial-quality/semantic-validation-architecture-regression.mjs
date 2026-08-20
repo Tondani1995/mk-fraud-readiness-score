@@ -320,12 +320,11 @@ test('structured semantic envelope accepts all four dispositions and truthfully 
   const inputs = entries.map(reviewerInput);
   const envelope = {
     decisions: inputs.map((candidate, index) => ({
-      candidateId: candidate.candidateId,
+      reviewId: `B${String(index + 1).padStart(2, '0')}`,
       disposition: ['ALLOW', 'REPAIR', 'REJECT', 'HOLD', 'REPAIR'][index],
-      reasonCode: `fixture_${index}`,
-      reason: `Structured disposition fixture ${index}.`,
-      ...([1, 4].includes(index) ? { replacementProse: 'A bounded replacement preserves the deterministic meaning.' } : {})
-    }))
+      reasonCode: `fixture_${index}`
+    })),
+    repair: null
   };
   const schemaResult = semanticReviewEnvelopeSchema.parse(envelope);
   const result = validateSemanticReviewResult({ candidates: inputs }, schemaResult);
@@ -346,7 +345,8 @@ test('semantic envelope fails closed on omission, unknown candidate and malforme
     }),
     (error) => error?.semanticReviewFailureCode === 'semantic_unknown_candidate'
   );
-  assert.throws(() => semanticReviewEnvelopeSchema.parse({ decisions: [{ candidateId: 'x', disposition: 'REPAIR', reasonCode: 'fixture' }] }), /replacementProse/);
+  const malformed = semanticReviewEnvelopeSchema.parse({ decisions: [{ reviewId: 'B01', disposition: 'REPAIR', reasonCode: 'fixture' }], repair: null });
+  assert.throws(() => validateSemanticReviewResult({ candidates: [reviewerInput(entries[0])] }, malformed), /exactly one REPAIR/);
 });
 
 test('compact semantic request sends shared facts once and blocks reference only permitted fact IDs', () => {
@@ -357,7 +357,9 @@ test('compact semantic request sends shared facts once and blocks reference only
   }));
   const payload = buildSemanticReviewRequestPayload({ candidates: inputs });
   assert.deepEqual(Object.keys(payload.factsById), ['FACT-SHARED']);
+  assert.deepEqual(payload.blocks.map((block) => block.reviewId), ['B01', 'B02']);
   assert.deepEqual(payload.blocks.map((block) => block.permittedFactIds), [['FACT-SHARED'], ['FACT-SHARED']]);
+  assert.ok(payload.blocks.every((block) => block.paragraph && block.adjacentContext && block.permittedClaimRefs && block.requiredManagementTakeaway && block.assuranceBoundary && block.warningSignals));
   assert.ok(payload.blocks.every((block) => !Object.hasOwn(block, 'permittedFacts')));
   assert.equal(JSON.stringify(payload).split('A shared deterministic fact used by multiple blocks.').length - 1, 1);
 });

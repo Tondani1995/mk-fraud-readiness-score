@@ -4,6 +4,7 @@ import { buildNarrativeStoryPlan, assertNarrativeStoryPlan } from './story-plan'
 import { buildReportBlueprint, buildWholeManuscriptContext, type ReportBlueprint } from './report-blueprint';
 import { buildManuscriptStructuralDiagnostics, type ManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import { WHOLE_MANUSCRIPT_TIMEOUT_MS } from './whole-manuscript-writer';
+import { MAX_PROVIDER_ATTEMPTS_PER_STAGE } from '../ai-model-policy';
 import {
   parseBlueprintMarkdown,
   providerAuthoredNarrativeBlocks,
@@ -27,6 +28,7 @@ import {
   type SemanticReviewDiagnostics,
   type SemanticReviewResult
 } from './semantic-reviewer';
+import { getNarrativeAttemptAccounting, type NarrativeProviderAttemptRecord } from './provider-attempt-policy';
 
 /**
  * The Essential production narrative path.
@@ -105,6 +107,14 @@ export interface EssentialManuscriptDiagnostics {
   manuscriptProviderCalls?: number;
   semanticReviewProviderCalls?: number;
   totalProviderCalls?: number;
+  modelSelectionSource?: string;
+  configuredModelOverride?: string;
+  modelOverrideRejected?: string;
+  providerAttemptRecords?: NarrativeProviderAttemptRecord[];
+  totalMiniAttempts?: number;
+  totalFallbackAttempts?: number;
+  totalPhysicalProviderRequests?: number;
+  totalGenerationCostMicros?: number;
   semanticReviewDiagnostics?: SemanticReviewDiagnostics;
   providerFailure?: EssentialProviderFailureDiagnostics;
   parseOk?: boolean;
@@ -247,8 +257,8 @@ function diagnosticsFrom(stage: string, writer: { provider?: string; model?: str
   const meta = manuscript?.writerMetadata ?? {};
   return {
     stage,
-    requestedProvider: writer.provider,
-    requestedModel: writer.model,
+    requestedProvider: meta.provider ?? writer.provider,
+    requestedModel: meta.requestedModel ?? writer.model,
     dispatchOccurred: Boolean(manuscript),
     generationId: meta.generationId ?? meta.responseId,
     inputTokens: meta.inputTokens,
@@ -260,8 +270,16 @@ function diagnosticsFrom(stage: string, writer: { provider?: string; model?: str
     manuscriptProviderCalls: meta.manuscriptProviderCalls,
     semanticReviewProviderCalls: meta.semanticReviewProviderCalls,
     totalProviderCalls: meta.totalProviderCalls,
+    modelSelectionSource: meta.modelSelectionSource,
+    configuredModelOverride: meta.configuredModelOverride,
+    modelOverrideRejected: meta.modelOverrideRejected,
+    providerAttemptRecords: meta.providerAttemptRecords,
+    totalMiniAttempts: meta.totalMiniAttempts,
+    totalFallbackAttempts: meta.totalFallbackAttempts,
+    totalPhysicalProviderRequests: meta.totalPhysicalProviderRequests,
+    totalGenerationCostMicros: meta.totalGenerationCostMicros,
     semanticReviewDiagnostics: meta.semanticReviewDiagnostics,
-    providerCalls: meta.totalProviderCalls ?? meta.recovery?.totalCalls
+    providerCalls: meta.totalProviderCalls ?? meta.totalPhysicalProviderRequests ?? meta.recovery?.totalCalls
   };
 }
 
@@ -414,6 +432,7 @@ export function assertProtectedRepairFacts(before: string, after: string, protec
 
 function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, result: SemanticReviewResult, candidateCount: number): WholeManuscriptTextResult {
   const accounting = result.accounting;
+  const stageAccounting = accounting?.attemptAccounting;
   const previous = manuscript.writerMetadata;
   const manuscriptProviderCalls = previous.manuscriptProviderCalls ?? previous.recovery.initialGenerationCount ?? 1;
   const semanticReviewProviderCalls = accounting?.providerCalls ?? 0;
@@ -461,6 +480,14 @@ function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, resu
       semanticReviewFailureCode: accounting?.diagnostics?.failureCode,
       semanticReviewDiagnostics: accounting?.diagnostics,
       semanticReviewExecutionContract: accounting?.executionContract,
+      providerAttemptRecords: [
+        ...(previous.providerAttemptRecords ?? []),
+        ...(stageAccounting?.attemptRecords ?? [])
+      ],
+      totalMiniAttempts: (previous.totalMiniAttempts ?? 0) + (stageAccounting?.totalMiniAttempts ?? 0),
+      totalFallbackAttempts: (previous.totalFallbackAttempts ?? 0) + (stageAccounting?.totalFallbackAttempts ?? 0),
+      totalPhysicalProviderRequests: (previous.totalPhysicalProviderRequests ?? manuscriptProviderCalls) + (stageAccounting?.totalPhysicalProviderRequests ?? semanticReviewProviderCalls),
+      totalGenerationCostMicros: (previous.totalGenerationCostMicros ?? previous.providerCostMicros ?? 0) + (stageAccounting?.costMicros ?? accounting?.providerCostMicros ?? 0),
       inputTokens: (previous.inputTokens ?? 0) + (accounting?.inputTokens ?? 0),
       outputTokens: (previous.outputTokens ?? 0) + (accounting?.outputTokens ?? 0),
       totalTokens: (previous.totalTokens ?? 0) + (accounting?.totalTokens ?? 0),
@@ -499,9 +526,10 @@ export async function composeEssentialManuscript(input: {
     // provider/SDK/network throws do not, so preserve a closed set of safe transport fields
     // here instead of allowing the exact V4 failure to collapse to a row of undefined values.
     const forwarded = (error as { writerDiagnostics?: WriterFailureDiagnostics })?.writerDiagnostics;
+    const attemptAccounting = getNarrativeAttemptAccounting(error);
     const meta = forwarded?.writerMetadata ?? {};
     const dispatchOccurred = rawWriterThrowWasDispatched(error, forwarded);
-    const recordedProviderCalls = forwarded?.providerCalls ?? meta.recovery?.totalCalls;
+    const recordedProviderCalls = forwarded?.providerCalls ?? meta.recovery?.totalCalls ?? attemptAccounting?.totalPhysicalProviderRequests;
     const providerCalls = recordedProviderCalls ?? (dispatchOccurred ? 1 : 0);
     const providerFailure = describeEssentialWriterFailure({
       error,
@@ -527,6 +555,14 @@ export async function composeEssentialManuscript(input: {
         finishReason: meta.finishReason,
         providerFinishReason: meta.providerFinishReason,
         providerCalls,
+        modelSelectionSource: meta.modelSelectionSource,
+        configuredModelOverride: meta.configuredModelOverride,
+        modelOverrideRejected: meta.modelOverrideRejected,
+        providerAttemptRecords: meta.providerAttemptRecords ?? attemptAccounting?.attemptRecords,
+        totalMiniAttempts: meta.totalMiniAttempts ?? attemptAccounting?.totalMiniAttempts,
+        totalFallbackAttempts: meta.totalFallbackAttempts ?? attemptAccounting?.totalFallbackAttempts,
+        totalPhysicalProviderRequests: meta.totalPhysicalProviderRequests ?? attemptAccounting?.totalPhysicalProviderRequests,
+        totalGenerationCostMicros: meta.totalGenerationCostMicros ?? attemptAccounting?.costMicros,
         providerFailure,
         parseOk: forwarded ? false : undefined,
         parseErrors: forwarded?.structural?.parseErrors?.map((issue) => ({ code: issue.code, path: issue.path })),
@@ -643,13 +679,13 @@ export async function composeEssentialManuscript(input: {
     // Exactly one batched request covers every block. Lexical warnings are included only as
     // compact context on their owning block and can never suppress an otherwise required review.
     reviewed = validateSemanticReviewResult({ candidates: reviewInput }, await semanticReviewer.review({ candidates: reviewInput }));
-    if ((reviewed.accounting?.providerCalls ?? 0) > 1) {
+    if ((reviewed.accounting?.providerCalls ?? 0) > MAX_PROVIDER_ATTEMPTS_PER_STAGE) {
       const error = new Error('semantic_review_provider_call_budget_exceeded');
       (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = reviewed.accounting?.diagnostics;
       throw error;
     }
     const expectedTotalProviderCalls = manuscript.writerMetadata.manuscriptProviderCalls! + (reviewed.accounting?.providerCalls ?? 0);
-    if (expectedTotalProviderCalls > 2) {
+    if (expectedTotalProviderCalls > MAX_PROVIDER_ATTEMPTS_PER_STAGE * 2) {
       const error = new Error('essential_provider_call_budget_exceeded');
       (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = reviewed.accounting?.diagnostics;
       throw error;
@@ -657,8 +693,9 @@ export async function composeEssentialManuscript(input: {
     manuscript = addSemanticReviewAccounting(manuscript, reviewed, reviewInput.length);
   } catch (error) {
     const diagnostics = (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics })?.semanticReviewerDiagnostics;
+    const attemptAccounting = getNarrativeAttemptAccounting(error);
     const manuscriptCalls = manuscript.writerMetadata.manuscriptProviderCalls ?? manuscript.writerMetadata.recovery.totalCalls;
-    const semanticCalls = diagnostics?.providerCalls ?? (semanticReviewerUsesWriter ? 1 : 0);
+    const semanticCalls = diagnostics?.providerCalls ?? attemptAccounting?.totalPhysicalProviderRequests ?? (semanticReviewerUsesWriter ? 1 : 0);
     const providerCalls = manuscriptCalls + semanticCalls;
     const failureCode = diagnostics?.failureCode ?? (error instanceof Error && /semantic_review_provider_call_budget_exceeded|essential_provider_call_budget_exceeded/.test(error.message)
       ? 'semantic_review_provider_call_budget_exceeded'
@@ -673,6 +710,11 @@ export async function composeEssentialManuscript(input: {
         manuscriptProviderCalls: manuscriptCalls,
         semanticReviewProviderCalls: semanticCalls,
         totalProviderCalls: providerCalls,
+        providerAttemptRecords: attemptAccounting?.attemptRecords,
+        totalMiniAttempts: (manuscript.writerMetadata.totalMiniAttempts ?? 0) + (attemptAccounting?.totalMiniAttempts ?? 0),
+        totalFallbackAttempts: (manuscript.writerMetadata.totalFallbackAttempts ?? 0) + (attemptAccounting?.totalFallbackAttempts ?? 0),
+        totalPhysicalProviderRequests: (manuscript.writerMetadata.totalPhysicalProviderRequests ?? manuscriptCalls) + semanticCalls,
+        totalGenerationCostMicros: (manuscript.writerMetadata.totalGenerationCostMicros ?? manuscript.writerMetadata.providerCostMicros ?? 0) + (attemptAccounting?.costMicros ?? 0),
         semanticReviewDiagnostics: diagnostics,
         validationCode: failureCode,
         validationIssues: [{ code: 'semantic_grounding_block', path: 'manuscript', message: 'The single bounded semantic review did not complete safely.' }]
@@ -819,8 +861,7 @@ export async function composeEssentialManuscript(input: {
         return {
           candidateId: postBlock.candidateId,
           disposition: 'ALLOW' as const,
-          reasonCode: 'bounded_semantic_repair_accepted',
-          reason: 'The exact reviewed block repair passed deterministic revalidation.'
+          reasonCode: 'bounded_semantic_repair_accepted'
         };
       }
       if (postBlock.paragraph !== before.paragraph) {

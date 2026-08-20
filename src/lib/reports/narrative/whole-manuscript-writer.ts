@@ -1,7 +1,7 @@
 import { generateText, Output } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
-import { selectNarrativeModel } from '../ai-model-policy';
+import { MAX_PROVIDER_ATTEMPTS_PER_STAGE, selectNarrativeModel, selectNarrativeModelForRequestedModel, type NarrativeModelSelection } from '../ai-model-policy';
 import { NarrativeWriterUnavailableError, type WholeManuscriptWriter, type WholeManuscriptWriterInput, type WholeManuscriptWriterMetadata, type WholeManuscriptTextResult, type WholeManuscriptTailInput, type WholeManuscriptTailResult, type WholeManuscriptRepairInput, type WholeManuscriptRepairResult, type WholeManuscriptCoherenceInput, type WholeManuscriptCoherenceResult } from './manuscript';
 import { appendBlueprintTail, buildBlueprintMarkdownSkeleton, classifyWholeManuscriptGeneration, deriveMissingBlueprintTail, parseBlueprintMarkdown, type MissingBlueprintTail } from './blueprint-text';
 import { deriveTailOutputTokenLimit } from './report-blueprint';
@@ -11,6 +11,7 @@ import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
 import type { NarrativeFactPack } from './fact-pack';
 import {
   semanticReviewEnvelopeSchema,
+  reviewIdForCandidateIndex,
   validateSemanticReviewResult,
   type SemanticReviewDiagnostics,
   type SemanticReviewExecutionContract,
@@ -18,6 +19,14 @@ import {
   type SemanticReviewFailureCode,
   type SemanticReviewResult
 } from './semantic-reviewer';
+import {
+  getNarrativeAttemptAccounting,
+  runNarrativeProviderAttempts,
+  type NarrativeProviderAttemptContext,
+  type NarrativeProviderFailure,
+  type NarrativeProviderAttemptResult,
+  type NarrativeProviderStageAccounting
+} from './provider-attempt-policy';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -85,7 +94,8 @@ export function buildSemanticReviewRequestPayload(input: SemanticReviewerInput):
       if (fact?.id && !factsById.has(fact.id)) factsById.set(fact.id, fact);
     }
   }
-  const blocks = input.candidates.map((candidate) => ({
+  const blocks = input.candidates.map((candidate, index) => ({
+    reviewId: reviewIdForCandidateIndex(index),
     candidateId: candidate.candidateId,
     path: candidate.path,
     blueprintPath: candidate.blueprintPath,
@@ -107,9 +117,9 @@ function semanticReviewPrompt(input: SemanticReviewerInput): string {
   return [
     'Review every provider-authored customer-visible narrative block in one bounded MK Fraud Readiness semantic grounding pass.',
     '',
-    'Each input item is a full paragraph/block, not merely a lexical hit. The path and candidateId are the exact Blueprint block identity. Return the typed semantic-review object with one decision for every candidateId.',
-    'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence; return replacement prose for that exact block. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
-    'Report the truth for every block. Multiple blocks may legitimately be REPAIR; the deterministic coordinator applies at most one repair and fails closed with multiple_semantic_repairs_required when more than one repair is required. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from factsById.',
+    'Each input item is a full paragraph/block, not merely a lexical hit. Use the short reviewId (for example B01) in every decision; the application maps it back to the exact candidateId and Blueprint path. Return the typed semantic-review object with one decision for every reviewId and an envelope-level repair field.',
+    'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
+    'Use only a short bounded reasonCode. Do not emit prose reasons. Set repair to null for zero REPAIR decisions. For exactly one REPAIR, put one bounded replacement paragraph in repair and identify its reviewId. If more than one block is truthfully REPAIR, set repair to null; the deterministic coordinator fails closed with multiple_semantic_repairs_required and no replacement is applied. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from factsById.',
     '',
     JSON.stringify(buildSemanticReviewRequestPayload(input), null, 2)
   ].join('\n');
@@ -120,6 +130,8 @@ const SEMANTIC_FAILURE_CODES = new Set<SemanticReviewFailureCode>([
   'semantic_provider_http',
   'semantic_provider_sdk',
   'semantic_structured_output_invalid',
+  'semantic_output_contract_too_large',
+  'semantic_deterministic_validation_failed',
   'semantic_candidate_count_mismatch',
   'semantic_unknown_candidate',
   'multiple_semantic_repairs_required',
@@ -156,6 +168,73 @@ function classifySemanticProviderFailure(error: unknown, response: any): Semanti
   return 'semantic_provider_sdk';
 }
 
+function responseFromError(error: unknown): any {
+  return recordValue(error)?.providerResponse;
+}
+
+function responseFinishReason(response: any, error: unknown): string | undefined {
+  const record = recordValue(error);
+  return textValue(response?.finishReason)
+    ?? textValue(response?.response?.finishReason)
+    ?? textValue(record?.finishReason)
+    ?? textValue(recordValue(record?.response)?.finishReason);
+}
+
+function technicalFailure(input: {
+  classification: NarrativeProviderFailure['classification'];
+  code: string;
+  retryable: boolean;
+  fallbackEligible: boolean;
+  fallbackReason?: NarrativeProviderFailure['fallbackReason'];
+}): NarrativeProviderFailure {
+  return input;
+}
+
+function classifyNarrativeProviderFailure(error: unknown, context: NarrativeProviderAttemptContext): NarrativeProviderFailure {
+  const record = recordValue(error);
+  const response = responseFromError(error);
+  const explicit = recordValue(record?.narrativeProviderFailure);
+  if (explicit && (explicit.classification === 'retryable_technical' || explicit.classification === 'fallback_technical' || explicit.classification === 'non_retryable') && typeof explicit.code === 'string') {
+    return technicalFailure({
+      classification: explicit.classification,
+      code: explicit.code,
+      retryable: explicit.retryable === true,
+      fallbackEligible: explicit.fallbackEligible === true,
+      ...(typeof explicit.fallbackReason === 'string' ? { fallbackReason: explicit.fallbackReason as NarrativeProviderFailure['fallbackReason'] } : {})
+    });
+  }
+  const semanticCode = safeSemanticFailureCode(record?.semanticReviewFailureCode);
+  if (semanticCode === 'semantic_output_contract_too_large' || semanticCode === 'semantic_deterministic_validation_failed' || semanticCode === 'semantic_candidate_count_mismatch' || semanticCode === 'semantic_unknown_candidate' || semanticCode === 'multiple_semantic_repairs_required' || semanticCode === 'semantic_reject' || semanticCode === 'semantic_hold' || semanticCode === 'semantic_repair_validation_failed') {
+    return technicalFailure({ classification: 'non_retryable', code: semanticCode, retryable: false, fallbackEligible: false });
+  }
+  const finishReason = responseFinishReason(response, error)?.toLowerCase();
+  if (finishReason === 'length' || finishReason === 'max_output_tokens') {
+    return technicalFailure({ classification: 'non_retryable', code: context.logicalStage === 'semantic_review' ? 'semantic_output_contract_too_large' : 'provider_output_contract_too_large', retryable: false, fallbackEligible: false });
+  }
+  const status = [record?.statusCode, record?.status, recordValue(record?.response)?.status, recordValue(response?.response)?.status]
+    .find((value) => typeof value === 'number' && Number.isFinite(value)) as number | undefined;
+  const message = `${record?.name ?? ''} ${record?.code ?? ''} ${record?.message ?? ''}`.toLowerCase();
+  if (/provider_call_budget_exhausted|attempt_budget_exhausted/.test(message)) {
+    return technicalFailure({ classification: 'non_retryable', code: 'narrative_provider_attempt_budget_exhausted', retryable: false, fallbackEligible: false });
+  }
+  if ((status === 401 || status === 403 || status === 404) || /model.?not.?found|unknown.?model|unsupported.?model|capability.?not/.test(message)) {
+    return technicalFailure({ classification: 'fallback_technical', code: 'provider_model_unavailable', retryable: false, fallbackEligible: true, fallbackReason: 'model_unavailable' });
+  }
+  if (status === 429 || (status !== undefined && status >= 500) || /429|rate.?limit|overloaded|temporar|service.?unavailable/.test(message)) {
+    return technicalFailure({ classification: 'retryable_technical', code: 'provider_transient_http', retryable: true, fallbackEligible: true, fallbackReason: 'provider_outage' });
+  }
+  if (/abort|timeout|timed out|etimedout|headers_timeout|connect_timeout/.test(message)) {
+    return technicalFailure({ classification: 'retryable_technical', code: 'provider_timeout', retryable: true, fallbackEligible: true, fallbackReason: 'provider_outage' });
+  }
+  if (/econnreset|econnrefused|enotfound|eai_again|socket|network|fetch failed/.test(message)) {
+    return technicalFailure({ classification: 'retryable_technical', code: 'provider_network_transient', retryable: true, fallbackEligible: true, fallbackReason: 'model_transport_failure' });
+  }
+  if (semanticCode === 'semantic_structured_output_invalid' || /schema|structured|noobject|no object|invalid.*(output|object)|object.*(invalid|missing)|parse/.test(message)) {
+    return technicalFailure({ classification: 'retryable_technical', code: 'structured_output_transport_failure', retryable: true, fallbackEligible: true, fallbackReason: 'capability_incompatibility' });
+  }
+  return technicalFailure({ classification: 'non_retryable', code: context.logicalStage === 'semantic_review' ? 'semantic_provider_sdk' : 'manuscript_provider_sdk', retryable: false, fallbackEligible: false });
+}
+
 function optionalCostMicros(response: any): number | undefined {
   const raw = response?.providerMetadata?.gateway?.cost;
   const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
@@ -187,6 +266,7 @@ function buildSemanticReviewDiagnostics(input: {
   failureCode?: SemanticReviewFailureCode;
   executionContract: SemanticReviewExecutionContract;
   providerCalls: number;
+  stageAccounting?: NarrativeProviderStageAccounting;
 }): SemanticReviewDiagnostics {
   const response = input.response;
   const endedAtMs = Date.now();
@@ -211,16 +291,22 @@ function buildSemanticReviewDiagnostics(input: {
     responseId: textValue(responseRecord?.id) ?? textValue(response?.id),
     finishReason,
     providerFinishReason,
-    inputTokens: numeric(response?.usage?.inputTokens),
-    outputTokens: numeric(response?.usage?.outputTokens),
-    totalTokens: numeric(response?.usage?.totalTokens),
-    providerCostMicros: optionalCostMicros(response),
+    inputTokens: input.stageAccounting?.inputTokens ?? numeric(response?.usage?.inputTokens),
+    outputTokens: input.stageAccounting?.outputTokens ?? numeric(response?.usage?.outputTokens),
+    totalTokens: input.stageAccounting?.totalTokens ?? numeric(response?.usage?.totalTokens),
+    providerCostMicros: input.stageAccounting?.costMicros ?? optionalCostMicros(response),
     candidateCount: input.reviewerInput.candidates.length,
     blockCount: input.reviewerInput.candidates.length,
     responseSchemaValid: input.responseSchemaValid,
     providerCalls: input.providerCalls,
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
-    executionContract: input.executionContract
+    executionContract: input.executionContract,
+    ...(input.stageAccounting ? {
+      attemptRecords: input.stageAccounting.attemptRecords,
+      totalMiniAttempts: input.stageAccounting.totalMiniAttempts,
+      totalFallbackAttempts: input.stageAccounting.totalFallbackAttempts,
+      totalPhysicalProviderRequests: input.stageAccounting.totalPhysicalProviderRequests
+    } : {})
   };
 }
 
@@ -310,21 +396,27 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   readonly promptVersion = WHOLE_MANUSCRIPT_PROMPT_VERSION;
 
   /**
-   * Optional ceiling on provider requests for one writeManuscript call.
+   * Optional ceiling on provider requests for one Essential composition.
    *
-   * Recovery is unchanged by default. Acceptance runs set this to 2: one manuscript request and,
-   * only when candidates exist, one bounded semantic adjudication request. Tail completion,
-   * regeneration and coherence remain outside this path. Exceeding the ceiling fails closed.
+   * The default is two logical stages multiplied by the seven physical-attempt ceiling: four
+   * total Mini requests followed, only for authorised technical/capability failures, by one
+   * request on each ordered fallback model. Tail completion, regeneration and coherence remain
+   * outside the acceptance path. Exceeding the ceiling fails closed.
    */
   private readonly providerCallBudget: number;
   private readonly allowTailRecovery: boolean;
   private providerCallsUsed = 0;
+  private readonly stageAccountings = new Map<'manuscript' | 'semantic_review', NarrativeProviderStageAccounting>();
 
-  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean } = {}) {
-    const resolved = requireProvider(model);
+  readonly modelSelection: NarrativeModelSelection;
+
+  constructor(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean; modelSelection?: NarrativeModelSelection } = {}) {
+    const modelSelection = options.modelSelection ?? selectNarrativeModelForRequestedModel(model);
+    const resolved = requireProvider(modelSelection.requestedModel);
+    this.modelSelection = modelSelection;
     this.provider = resolved.provider;
     this.model = resolved.model;
-    this.providerCallBudget = options.providerCallBudget ?? Number.POSITIVE_INFINITY;
+    this.providerCallBudget = options.providerCallBudget ?? MAX_PROVIDER_ATTEMPTS_PER_STAGE * 2;
     this.allowTailRecovery = options.allowTailRecovery ?? true;
   }
 
@@ -332,37 +424,94 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
   private chargeProviderCall(kind: string): void {
     if (this.providerCallsUsed >= this.providerCallBudget) {
       const error = new Error(`provider_call_budget_exhausted: ${kind} would exceed the ${this.providerCallBudget}-call ceiling for this generation.`);
-      (error as { code?: string }).code = 'provider_call_budget_exhausted';
+      (error as { code?: string; narrativeProviderRequestDispatched?: boolean }).code = 'provider_call_budget_exhausted';
+      (error as { narrativeProviderRequestDispatched?: boolean }).narrativeProviderRequestDispatched = false;
       throw error;
     }
     this.providerCallsUsed += 1;
   }
 
+  private rememberStageAccounting(accounting: NarrativeProviderStageAccounting): void {
+    this.stageAccountings.set(accounting.logicalStage, accounting);
+  }
+
+  private allAttemptRecords(): NarrativeProviderStageAccounting['attemptRecords'] {
+    return [...this.stageAccountings.values()].flatMap((accounting) => accounting.attemptRecords);
+  }
+
+  private totalAttemptCostMicros(): number {
+    return [...this.stageAccountings.values()].reduce((total, accounting) => total + accounting.costMicros, 0);
+  }
+
+  private async runStage<T>(logicalStage: 'manuscript' | 'semantic_review', execute: (context: NarrativeProviderAttemptContext) => Promise<{ value: T; response?: unknown }>): Promise<NarrativeProviderAttemptResult<T>> {
+    try {
+      const result = await runNarrativeProviderAttempts({
+        logicalStage,
+        modelSelection: this.modelSelection,
+        execute: async (context) => {
+          this.chargeProviderCall(`${logicalStage}:${context.attempt}`);
+          return execute(context);
+        },
+        classifyFailure: classifyNarrativeProviderFailure
+      });
+      this.rememberStageAccounting(result.accounting);
+      return result;
+    } catch (error) {
+      const accounting = getNarrativeAttemptAccounting(error);
+      if (accounting) this.rememberStageAccounting(accounting);
+      throw error;
+    }
+  }
+
   async writeManuscript(input: WholeManuscriptWriterInput): Promise<WholeManuscriptTextResult> {
     if (!input.context.singleCallFeasible && input.context.partitionPlan.length < 2) throw new Error('Whole-manuscript context is over the approved limit without a coherent partition plan.');
     const prompt = generationPrompt(input);
-    this.chargeProviderCall('initial');
-    const response = await generateText({
-      model: this.model,
-      system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
-      prompt,
-      maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
-      maxRetries: 0,
-      providerOptions: { gateway: { only: [this.provider] } },
-      abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+    const stage = await this.runStage('manuscript', async (attempt) => {
+      const response = await generateText({
+        model: attempt.model,
+        system: 'You are the constrained MK Fraud Readiness v1.1 whole-manuscript advisory writer. The deterministic Blueprint decides the report. Return plain Markdown text only. The application will parse and bind every heading deterministically after generation.',
+        prompt,
+        maxOutputTokens: input.context.outputBudget.hardOutputTokenLimit,
+        maxRetries: 0,
+        providerOptions: { gateway: { only: [attempt.provider] } },
+        abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      });
+      if (responseFinishReason(response, undefined) === 'length' || responseFinishReason(response, undefined) === 'max_output_tokens') {
+        const error = new Error('provider_output_contract_too_large');
+        (error as { providerResponse?: unknown }).providerResponse = response;
+        throw error;
+      }
+      const markdown = String(response.text ?? '').trim();
+      if (!markdown) {
+        const error = new Error('Whole-manuscript text generation returned empty Markdown.');
+        (error as { providerResponse?: unknown }).providerResponse = response;
+        throw error;
+      }
+      return { value: { markdown, response }, response };
     });
-    const markdown = String(response.text ?? '').trim();
+    const response = stage.response as any;
+    const markdown = stage.value.markdown;
     if (!markdown) throw new Error('Whole-manuscript text generation returned empty Markdown.');
     const initialResult: WholeManuscriptTextResult = {
       contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
       architecture: 'whole-manuscript',
       markdown,
       blueprint: input.blueprint,
-      writerMetadata: metadata(input, this.provider, this.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1, totalTokens: numeric(response.usage?.totalTokens) ?? 0, totalProviderCostMicros: parseCostMicros(response) })
+      writerMetadata: metadata(input, stage.provider, stage.model, response, prompt, input.context.outputBudget.hardOutputTokenLimit, { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, technicalFallbackCount: stage.accounting.totalFallbackAttempts, totalCalls: stage.accounting.totalPhysicalProviderRequests, totalTokens: stage.accounting.totalTokens ?? 0, totalProviderCostMicros: stage.accounting.costMicros })
     };
-    initialResult.writerMetadata.manuscriptProviderCalls = 1;
+    initialResult.writerMetadata.requestedModel = this.modelSelection.requestedModel;
+    initialResult.writerMetadata.primaryModel = this.modelSelection.primaryModel;
+    initialResult.writerMetadata.modelSelectionSource = this.modelSelection.selectionSource;
+    initialResult.writerMetadata.configuredModelOverride = this.modelSelection.configuredOverride;
+    initialResult.writerMetadata.modelOverrideRejected = this.modelSelection.overrideRejectedReason;
+    initialResult.writerMetadata.providerAttemptRecords = this.allAttemptRecords();
+    initialResult.writerMetadata.totalMiniAttempts = stage.accounting.totalMiniAttempts;
+    initialResult.writerMetadata.totalFallbackAttempts = stage.accounting.totalFallbackAttempts;
+    initialResult.writerMetadata.totalPhysicalProviderRequests = stage.accounting.totalPhysicalProviderRequests;
+    initialResult.writerMetadata.totalGenerationCostMicros = this.totalAttemptCostMicros();
+    initialResult.writerMetadata.manuscriptProviderCalls = stage.accounting.totalPhysicalProviderRequests;
     initialResult.writerMetadata.semanticReviewProviderCalls = 0;
-    initialResult.writerMetadata.totalProviderCalls = 1;
+    initialResult.writerMetadata.totalProviderCalls = stage.accounting.totalPhysicalProviderRequests;
     initialResult.writerMetadata.manuscriptInputTokens = initialResult.writerMetadata.inputTokens;
     initialResult.writerMetadata.manuscriptOutputTokens = initialResult.writerMetadata.outputTokens;
     initialResult.writerMetadata.manuscriptTotalTokens = initialResult.writerMetadata.totalTokens;
@@ -532,72 +681,101 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
    */
   async reviewSemanticCandidates(input: SemanticReviewerInput): Promise<SemanticReviewResult> {
     const prompt = semanticReviewPrompt(input);
-    const maxOutputTokens = Math.min(7200, Math.max(1800, 500 + input.candidates.length * 150));
-    const executionContract = semanticReviewExecutionContract(this.provider, prompt, maxOutputTokens);
+    // The provider only returns compact identity/disposition/reason-code decisions plus one
+    // bounded replacement envelope. The rich grounding input remains in the prompt; only the
+    // output contract is compacted so a 45-block all-ALLOW response stays well below the old
+    // 7,200-token truncation boundary.
+    const maxOutputTokens = Math.min(3000, Math.max(1200, 650 + input.candidates.length * 32));
     const startedAtMs = Date.now();
-    let dispatchOccurred = false;
-    let response: any;
-    let responseSchemaValid = false;
     try {
-      this.chargeProviderCall('semantic-adjudication');
-      dispatchOccurred = true;
-      response = await generateText({
-        model: this.model,
-        system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return only the typed semantic-review object required by the structured output schema.',
-        prompt,
-        output: Output.object({ schema: semanticReviewEnvelopeSchema, name: 'mk_fraud_readiness_semantic_review' }),
-        maxOutputTokens,
-        maxRetries: 0,
-        providerOptions: { gateway: { only: [this.provider] } },
-        abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+      const stage = await this.runStage('semantic_review', async (attempt) => {
+        const response = await generateText({
+          model: attempt.model,
+          system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return only the typed semantic-review object required by the structured output schema.',
+          prompt,
+          output: Output.object({ schema: semanticReviewEnvelopeSchema, name: 'mk_fraud_readiness_semantic_review' }),
+          maxOutputTokens,
+          maxRetries: 0,
+          providerOptions: { gateway: { only: [attempt.provider] } },
+          abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
+        });
+        if (responseFinishReason(response, undefined) === 'length' || responseFinishReason(response, undefined) === 'max_output_tokens') {
+          const error = new Error('semantic_output_contract_too_large');
+          (error as { providerResponse?: unknown; semanticReviewFailureCode?: SemanticReviewFailureCode }).providerResponse = response;
+          (error as { semanticReviewFailureCode?: SemanticReviewFailureCode }).semanticReviewFailureCode = 'semantic_output_contract_too_large';
+          throw error;
+        }
+        let envelope;
+        try {
+          envelope = semanticReviewEnvelopeSchema.parse(response.output);
+        } catch (error) {
+          const failure = error instanceof Error ? error : new Error('semantic structured output was invalid');
+          (failure as { providerResponse?: unknown; semanticReviewFailureCode?: SemanticReviewFailureCode }).providerResponse = response;
+          (failure as { semanticReviewFailureCode?: SemanticReviewFailureCode }).semanticReviewFailureCode = 'semantic_structured_output_invalid';
+          throw failure;
+        }
+        let checked: SemanticReviewResult;
+        try {
+          checked = validateSemanticReviewResult(input, envelope);
+        } catch (error) {
+          const failure = error instanceof Error ? error : new Error('semantic envelope validation failed');
+          (failure as { providerResponse?: unknown }).providerResponse = response;
+          throw failure;
+        }
+        return { value: checked, response };
       });
-      const envelope = semanticReviewEnvelopeSchema.parse(response.output);
-      responseSchemaValid = true;
-      const checked = validateSemanticReviewResult(input, envelope);
-      const inputTokens = numeric(response.usage?.inputTokens);
-      const outputTokens = numeric(response.usage?.outputTokens);
-      const totalTokens = numeric(response.usage?.totalTokens);
+      const response = stage.response as any;
+      const executionContract = semanticReviewExecutionContract(stage.provider, prompt, maxOutputTokens);
       const diagnostics = buildSemanticReviewDiagnostics({
         reviewerInput: input,
-        provider: this.provider,
-        model: this.model,
+        provider: stage.provider,
+        model: stage.model,
         startedAtMs,
         response,
-        dispatchOccurred,
-        responseSchemaValid,
+        dispatchOccurred: stage.accounting.totalPhysicalProviderRequests > 0,
+        responseSchemaValid: true,
         executionContract,
-        providerCalls: 1
+        providerCalls: stage.accounting.totalPhysicalProviderRequests,
+        stageAccounting: stage.accounting
       });
       return {
-        ...checked,
+        ...stage.value,
         accounting: {
-          providerCalls: 1,
-          inputTokens,
-          outputTokens,
-          totalTokens,
-          providerCostMicros: parseCostMicros(response),
-          repairCount: checked.decisions.filter((decision) => decision.disposition === 'REPAIR').length,
-          candidateCount: checked.decisions.length,
-          allowCount: checked.decisions.filter((decision) => decision.disposition === 'ALLOW').length,
-          rejectCount: checked.decisions.filter((decision) => decision.disposition === 'REJECT').length,
-          holdCount: checked.decisions.filter((decision) => decision.disposition === 'HOLD').length,
+          providerCalls: stage.accounting.totalPhysicalProviderRequests,
+          inputTokens: stage.accounting.inputTokens,
+          outputTokens: stage.accounting.outputTokens,
+          totalTokens: stage.accounting.totalTokens,
+          providerCostMicros: stage.accounting.costMicros,
+          repairCount: stage.value.decisions.filter((decision) => decision.disposition === 'REPAIR').length,
+          candidateCount: stage.value.decisions.length,
+          allowCount: stage.value.decisions.filter((decision) => decision.disposition === 'ALLOW').length,
+          rejectCount: stage.value.decisions.filter((decision) => decision.disposition === 'REJECT').length,
+          holdCount: stage.value.decisions.filter((decision) => decision.disposition === 'HOLD').length,
           diagnostics,
-          executionContract
+          executionContract,
+          attemptAccounting: stage.accounting
         }
       };
     } catch (error) {
+      const attemptAccounting = getNarrativeAttemptAccounting(error);
+      const lastAttempt = attemptAccounting?.attemptRecords.at(-1);
+      const response = responseFromError(error);
       const failureCode = classifySemanticProviderFailure(error, response);
+      const provider = lastAttempt?.provider ?? this.provider;
+      const model = lastAttempt?.model ?? this.model;
+      const executionContract = semanticReviewExecutionContract(provider, prompt, maxOutputTokens);
       const diagnostics = buildSemanticReviewDiagnostics({
         reviewerInput: input,
-        provider: this.provider,
-        model: this.model,
+        provider,
+        model,
         startedAtMs,
         response,
-        dispatchOccurred,
-        responseSchemaValid,
+        dispatchOccurred: Boolean(attemptAccounting?.totalPhysicalProviderRequests),
+        responseSchemaValid: ['semantic_deterministic_validation_failed', 'semantic_candidate_count_mismatch', 'semantic_unknown_candidate'].includes(failureCode ?? ''),
         failureCode,
         executionContract,
-        providerCalls: dispatchOccurred ? 1 : 0
+        providerCalls: attemptAccounting?.totalPhysicalProviderRequests ?? 0,
+        stageAccounting: attemptAccounting
       });
       (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = diagnostics;
       throw error;
@@ -659,6 +837,6 @@ function parseCostMicros(response: any): number {
   return Number.isFinite(numericCost) ? Math.round(numericCost * 1_000_000) : 0;
 }
 
-export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean } = {}): WholeManuscriptWriter {
+export function createV11WholeManuscriptWriter(model = selectNarrativeModel().requestedModel, options: { providerCallBudget?: number; allowTailRecovery?: boolean; modelSelection?: NarrativeModelSelection } = {}): WholeManuscriptWriter {
   return new V11WholeManuscriptWriter(model, options);
 }
