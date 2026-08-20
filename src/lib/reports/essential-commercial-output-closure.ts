@@ -75,9 +75,9 @@ export function essentialEvidenceProofPurpose(artefact: string): string {
   ];
   const match = rules.find(([pattern]) => pattern.test(name));
   if (match) return match[1];
-  // Fail-safe fallback: grammatical for singular or plural artefact names and deliberately avoids
-  // asserting that the artefact already demonstrates effective operation before it has been reviewed.
-  return `Whether the ${lowerFirst(name)} contains sufficient, attributable evidence to test the linked control across the complete in-scope population for the stated period.`;
+  // Fail-safe fallback: the artefact name sits inside a prepositional phrase so singular/plural
+  // agreement cannot be broken by an unknown title such as "Last two governance packs".
+  return `Whether sufficient, attributable evidence is present in the ${lowerFirst(name)} to test the linked control across the complete in-scope population for the stated period.`;
 }
 
 function replaceEvidenceProofRows(html: string): string {
