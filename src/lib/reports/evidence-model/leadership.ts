@@ -20,6 +20,25 @@ const DECISION_ORDER: LeadershipDecisionCategory[] = [
   'governance_reporting_cadence'
 ];
 
+/**
+ * Enterprise leadership decisions must be owned by the role with authority over that decision,
+ * not by whichever material finding happens to rank first. Siyakhula V1 exposed the prior defect:
+ * a technology finding ranked first and every enterprise decision inherited Technology / security
+ * accountable owner, including risk acceptance, enterprise control standards and governance
+ * cadence. Finding-level implementation ownership remains evidence-derived below; this map only
+ * governs the executive decision-right itself.
+ */
+const DECISION_ACCOUNTABLE_EXECUTIVE: Partial<Record<LeadershipDecisionCategory, string>> = {
+  accountable_executive_mandate: 'CEO / Managing Director',
+  risk_acceptance_or_remediation: 'CEO / Managing Director',
+  control_design_standard: 'CEO / Managing Director',
+  funding_resource_allocation: 'Finance / operations accountable owner',
+  independent_validation: 'Governing body / independent oversight',
+  sequencing_dependency: 'CEO / Managing Director',
+  external_specialist_support: 'Legal / investigations accountable owner',
+  governance_reporting_cadence: 'CEO / Managing Director'
+};
+
 interface DecisionText {
   decisionRequired: string;
   whyNow: string;
@@ -50,7 +69,7 @@ function makeDecision(
     evidenceDrivingIt: String(findings.length) + ' linked finding(s) and ' + String(risks.length) + ' consolidated risk(s) drive this decision.',
     whyNow: text.whyNow,
     recommendedDecision: text.recommendedDecision,
-    accountableExecutive: lead?.accountableOwner ?? 'CEO / Managing Director',
+    accountableExecutive: DECISION_ACCOUNTABLE_EXECUTIVE[category] ?? lead?.accountableOwner ?? 'CEO / Managing Director',
     implementationOwner: lead?.processOwner ?? 'Head of Risk',
     oversightFunction: lead?.oversightFunction ?? 'Board / Audit Committee',
     targetPeriod,
