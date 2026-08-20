@@ -52,6 +52,15 @@ const REWRITES: Array<{ pattern: RegExp; replacement: string }> = [
     replacement: 'without verification of operating effectiveness by this review'
   },
   {
+    // Siyakhula Customer-2 acceptance incident (2026-08-20): a legitimate control-design sentence
+    // followed an explicit "not independently verified" limitation and described ongoing review as
+    // "evidence-based". The shared hard-vocabulary guard joined the negated "verified" token to
+    // "evidence-based" and incorrectly classified the sentence as completed assurance. Keep the
+    // meaning while removing that validator collision before manuscript acceptance.
+    pattern: /\bmake ongoing review visible and evidence-based\b/gi,
+    replacement: 'make ongoing review visible and tied to defined evidence requirements'
+  },
+  {
     // Vhutshilo Customer-1 final-output incident (2026-08-20): this final-only legacy truth guard
     // fired only after a provider call and manuscript acceptance. Repair the closed phrase at Layer
     // 0 instead of letting final HTML re-litigate it after acceptance; the final regex remains as a
