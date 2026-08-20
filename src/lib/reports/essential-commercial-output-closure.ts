@@ -157,6 +157,13 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
       'Each step names the exact control requiring establishment or strengthening.'
     );
 
+  // Fix the executive-priority lead sentence before final validation. V3 exposed the source fragment
+  // "The 8 conditions selected ..."; preserve the counts and meaning while making it a sentence.
+  closed = closed.replace(
+    /The (\d+) conditions selected for executive attention from (\d+) recorded findings\./g,
+    '$1 conditions were selected for executive attention from $2 recorded findings.'
+  );
+
   // Keep the four executive KPI cells together as one print unit.
   closed = closed.replace(
     '.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }',
@@ -181,10 +188,19 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
   closed = replaceThirtyDayDecisionCompletionTests(closed);
 
   // Self-assessment evidence supports conditional exposure statements, not categorical claims about
-  // transaction coverage, investment behaviour or the only way fraud is discovered.
-  // The embedded risk-statement form must be handled before the standalone sentence form; replacing
-  // only the inner sentence created Vhutshilo V2's "there is a risk that Where ..." grammar defect.
+  // transaction coverage, investment behaviour, root-cause treatment, process mapping or the only
+  // way fraud is discovered. The embedded risk-statement form must be handled before the standalone
+  // sentence form; replacing only the inner sentence created Vhutshilo V2's "there is a risk that
+  // Where ..." grammar defect.
   const groundedRiskRewrites: Array<[RegExp, string]> = [
+    [
+      /organisation-level risk statements hide process-level opportunity, so a specific diversion route such as stock write-off manipulation is never mapped to a control owner/gi,
+      'process-level fraud opportunities may remain unmapped to named control owners, including value-diversion routes affecting stock or other material processes'
+    ],
+    [
+      /treating each incident as an isolated act of one dishonest person leaves the systemic weakness that enabled it fully available to the next person/gi,
+      'material incidents or control failures may be closed without identifying and treating the underlying systemic weakness, allowing repeat exposure to persist'
+    ],
     [
       /there is a risk that Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
       'there is a risk that suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.'
