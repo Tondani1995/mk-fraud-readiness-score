@@ -138,7 +138,7 @@ export function buildLeadershipDecisions(findings: MaterialFinding[], risks: Ris
     candidates.push(makeDecision('sequencing_dependency', dependent, risksFor(dependent, risks), {
       decisionRequired: 'Approve prerequisite-first sequencing for dependent improvements.',
       whyNow: 'Dependent controls cannot operate reliably before prerequisite ownership, data or processes exist.',
-      recommendedDecision: 'Use authoritative roadmap dependency IDs and escalate threatened prerequisites.',
+      recommendedDecision: 'Approve the prerequisite sequence and escalate threatened prerequisites.',
       consequenceOfDelay: 'Downstream controls are implemented on incomplete foundations.',
       immediateNextDeliverable: 'Dependency-confirmed delivery sequence with escalation owners.'
     }));
