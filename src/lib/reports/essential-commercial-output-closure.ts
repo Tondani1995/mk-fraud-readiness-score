@@ -61,6 +61,7 @@ export function essentialEvidenceProofPurpose(artefact: string): string {
     [/monitoring[- ]rule catalogue|rule catalogue/i, 'Whether monitoring rules are defined, linked to fraud scenarios, assigned to a reviewing role and maintained through controlled tuning.'],
     [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
     [/population reconciliation/i, 'Whether the monitored population reconciles to the complete source-system population for the stated period.'],
+    [/monthly tuning.*coverage report|tuning and coverage report/i, 'Whether priority event feeds were monitored for the stated period, high-risk alerts were triaged to the required service level, coverage gaps were recorded and rule tuning was completed from confirmed outcomes.'],
     [/coverage report/i, 'Whether monitoring coverage includes the material processes or events in scope and makes any coverage gap visible.'],
     [/red[- ]flag indicator definitions/i, 'Whether monitoring criteria are documented for the material processes and aligned to the fraud scenarios management intends to detect.'],
     [/alert case records/i, 'Whether alerts are assigned, investigated, dispositioned and escalated within the defined review standard.'],
@@ -75,8 +76,6 @@ export function essentialEvidenceProofPurpose(artefact: string): string {
   ];
   const match = rules.find(([pattern]) => pattern.test(name));
   if (match) return match[1];
-  // Fail-safe fallback: the artefact name sits inside a prepositional phrase so singular/plural
-  // agreement cannot be broken by an unknown title such as "Last two governance packs".
   return `Whether sufficient, attributable evidence is present in the ${lowerFirst(name)} to test the linked control across the complete in-scope population for the stated period.`;
 }
 
@@ -85,7 +84,7 @@ function replaceEvidenceProofRows(html: string): string {
     const cells = [...row.matchAll(/<td>([\s\S]*?)<\/td>/gi)];
     if (cells.length < 3) return row;
     const currentProof = textOnly(cells[2]![1] ?? '');
-    if (!/provides operating evidence that|This evidence should demonstrate that the linked control requirements|demonstrates that the linked control was operated and evidenced/i.test(currentProof)) return row;
+    if (!/provides operating evidence that|This evidence should demonstrate that the linked control requirements|demonstrates that the linked control was operated and evidenced|Whether sufficient, attributable evidence is present in/i.test(currentProof)) return row;
     const artefact = textOnly(cells[1]![1] ?? '');
     const purpose = essentialEvidenceProofPurpose(artefact);
     const oldCell = `<td>${cells[2]![1]}</td>`;
@@ -103,11 +102,6 @@ function replaceRecommendedNextStep(html: string): string {
   );
 }
 
-/**
- * Vhutshilo V2 rendered three different 30-day leadership decisions with the same generic
- * completion test. Preserve the decisions themselves and only replace that shared presentation
- * sentence with the concrete evidence already implied by each deterministic decision category.
- */
 function replaceThirtyDayDecisionCompletionTests(html: string): string {
   const oldCompletion = '<td>Decision recorded, accountable owner confirmed and escalation route documented.</td>';
   const replacements: Array<[string, string]> = [
@@ -136,16 +130,12 @@ function replaceThirtyDayDecisionCompletionTests(html: string): string {
 export function closeEssentialCommercialOutputDefects(html: string): string {
   let closed = html;
 
-  // Remove the complete internal visibility identifier before the generic G28 label is rewritten.
-  // Matching the whole token avoids the V2 artefact "populationD3-Q02" created by sequential
-  // partial replacements.
   closed = closed
     .replace(/Evidence mapped to G28-?D\d+-Q\d+/gi, 'Evidence mapped to the named risk and value population')
     .replace(/Evidence mapped to G28-?/gi, 'Evidence mapped to the named risk and value population')
     .replace(/populationD\d+-Q\d+/gi, 'population')
     .replace(/\bD\d+-Q\d+\b/g, '');
 
-  // A 0-2 response range includes Partially designed. It must never be labelled simply "absent".
   closed = closed
     .replace(
       'This assessment records an absence of foundational fraud controls across ',
@@ -157,20 +147,16 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
       'Each step names the exact control requiring establishment or strengthening.'
     );
 
-  // Fix the executive-priority lead sentence before final validation. V3 exposed the source fragment
-  // "The 8 conditions selected ..."; preserve the counts and meaning while making it a sentence.
   closed = closed.replace(
     /The (\d+) conditions selected for executive attention from (\d+) recorded findings\./g,
     '$1 conditions were selected for executive attention from $2 recorded findings.'
   );
 
-  // Keep the four executive KPI cells together as one print unit.
   closed = closed.replace(
     '.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; }',
     '.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3mm; margin-top: 6mm; break-inside: avoid; page-break-inside: avoid; }'
   );
 
-  // A card labelled Priority control weakness must not describe itself as a maturity constraint.
   closed = closed.replace(
     /<article class="long-record finding-record">[\s\S]*?<\/article>/g,
     (card) => card.includes('>Priority control weakness<')
@@ -181,17 +167,21 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
       : card
   );
 
-  // Make proof descriptions artefact-specific before final validation rather than applying a
-  // generic sentence after the commercial gate.
   closed = replaceEvidenceProofRows(closed);
   closed = replaceRecommendedNextStep(closed);
   closed = replaceThirtyDayDecisionCompletionTests(closed);
 
-  // Self-assessment evidence supports conditional exposure statements, not categorical claims about
-  // transaction coverage, investment behaviour, root-cause treatment, process mapping or the only
-  // way fraud is discovered. The embedded risk-statement form must be handled before the standalone
-  // sentence form; replacing only the inner sentence created Vhutshilo V2's "there is a risk that
-  // Where ..." grammar defect.
+  // Customer-facing roadmap prose should describe the current roadmap, not expose the internal
+  // deterministic implementation mechanism used to build it.
+  closed = closed.replaceAll('The deterministic roadmap records no prerequisite dependency', 'The current roadmap records no prerequisite dependency');
+
+  // Siyakhula V1 exposed generated site/location specificity although the assessment carried no
+  // location evidence. Keep scenarios at the evidence-supported process/population level.
+  closed = closed
+    .replace(/at one site or operating location/gi, 'within an in-scope process or event population')
+    .replace(/activity may be reviewed locally rather than compared across the full relevant population/gi, 'activity may be reviewed in isolation rather than compared across the full relevant population')
+    .replace(/a suspected matter arises at one operating location/gi, 'a suspected matter arises within an in-scope process');
+
   const groundedRiskRewrites: Array<[RegExp, string]> = [
     [
       /organisation-level risk statements hide process-level opportunity, so a specific diversion route such as stock write-off manipulation is never mapped to a control owner/gi,
@@ -208,6 +198,30 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
     [
       /Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
       'Where data-driven detection is not defined and operated reliably, suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.'
+    ],
+    [
+      /manual review cannot cover the full transaction population/gi,
+      'manual-review coverage across the full transaction population is not established by this self-assessment'
+    ],
+    [
+      /manual review cannot cover the full population of relevant events or transactions/gi,
+      'manual-review coverage across the full relevant event or transaction population is not established by this self-assessment'
+    ],
+    [
+      /without data-driven tests the majority of activity may never be examined/gi,
+      'without defined data-driven tests, monitoring coverage may remain incomplete'
+    ],
+    [
+      /Controls decay quietly through staff turnover, system change and workload pressure, so a control believed to be operating may have lapsed months earlier/gi,
+      'Controls may lapse or degrade between review cycles when roles, systems or workload change'
+    ],
+    [
+      /Digital account compromise or misuse is not detected promptly/gi,
+      'Digital account compromise or misuse may not be detected promptly'
+    ],
+    [
+      /process-level fraud opportunities may remain unmapped to named control owners, including value-diversion routes affecting stock or other material processes/gi,
+      'Process-level fraud opportunities may remain unmapped to named control owners, including value-diversion routes affecting stock or other material processes'
     ],
     [
       /Without a current structured assessment, control investment follows intuition and recent events, leaving whole exposure areas unexamined and unfunded\./gi,
