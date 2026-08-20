@@ -85,19 +85,11 @@ export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed 
     const ordered = [...groupedFindings].sort((a, b) => b.materialityScore - a.materialityScore || a.questionCode.localeCompare(b.questionCode));
     const lead = ordered[0];
     const pathway = riskPathwayForFinding(lead);
-    // Blocker 1 (Checkpoint F controller review): a risk grouped entirely from assurance_priority
-    // findings must never assert failure/absence as a present fact. Preserve the reported strong
-    // state, make the cause the absence of independent validation, and make the risk event
-    // conditional -- never reuse the raw failure-toned pathway text and append a disclaimer.
     const isAssurance = ordered.every((finding) => finding.materialityClass === 'assurance_priority');
     const title = isAssurance ? pathway.resilienceTitle : pathway.title;
     const cause = isAssurance ? pathway.resilienceCause : pathway.cause;
     const riskEvent = isAssurance ? pathway.resilienceRiskEvent : pathway.riskEvent;
     const ratings = deriveRiskRatings(ordered, pathway.consequence, exposureAssessed);
-    // The financial/operational/legal/reputational impact fields are rendered directly as their own
-    // labelled fields in the PDF (see report-template.ts riskCards), not only inside riskStatement --
-    // so an assurance-only risk must condition these individually too, not just the cause/riskEvent/
-    // riskStatement fields, or the raw failure-toned pathway impact text still leaks into the report.
     const conditionalImpact = (value: string) => isAssurance ? `If independent validation identifies a defect: ${value}` : value;
     const financialImpact = conditionalImpact(pathway.financialImpact);
     const operationalImpact = conditionalImpact(pathway.operationalImpact);
@@ -122,9 +114,6 @@ export function buildRiskRegister(findings: MaterialFinding[], exposureAssessed 
       riskStatement: isAssurance
         ? `Because ${cause}, there is a risk that ${riskEvent}. This does not assert a control defect. The potential financial, operational, legal and reputational consequence is set out in the linked impact fields below, and applies only if independent validation identifies a defect.`
         : (() => {
-          // Consequences are presented as their own sentence rather than inlined after "resulting
-          // in", so a clause that legitimately begins with a capitalised term reads correctly and
-          // no clause needs its first letter rewritten.
           const clauses = stableUnique([
             pathway.financialImpact,
             pathway.operationalImpact,
@@ -223,6 +212,7 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
     [/privileged[- ]session.*access logs|privileged session.*access logs/i, 'Whether privileged activity is attributable to named accounts and reviewable for unusual, unauthorised or out-of-pattern activity during the stated period.'],
     [/quarterly independent recertification/i, 'Whether the complete privileged-access population was independently reviewed on schedule, with explicit keep-or-remove decisions and unresolved exceptions identified.'],
     [/removal tickets/i, 'Whether access removals identified through recertification, role change or leaver events were completed within the required service level and are traceable to closure evidence.'],
+    [/monthly tuning.*coverage report|tuning and coverage report/i, 'Whether priority event feeds were monitored for the stated period, high-risk alerts were triaged to the required service level, coverage gaps were recorded and rule tuning was completed from confirmed outcomes.'],
     [/coverage report.*fraud maps/i, 'Whether monitoring covers every material process identified in the fraud maps and exposes any unmonitored population.'],
     [/monitoring[- ]rule catalogue|rule catalogue/i, 'Whether monitoring rules are defined, linked to fraud scenarios, assigned to a reviewing role and maintained through controlled tuning.'],
     [/monitoring output/i, 'Whether the defined monitoring cycle actually ran for the stated period and produced reviewable exceptions.'],
@@ -238,9 +228,6 @@ function evidenceProofPurpose(artefact: string, linked: MaterialFinding[]): stri
   ];
   const matched = rules.find(([pattern]) => pattern.test(name));
   if (matched) return matched[1];
-  // Unknown artefact names still need grammatical, honest customer copy. Avoid stitching the
-  // artefact noun to a questionnaire prompt (which caused plural agreement errors and template
-  // leakage in Vhutshilo V2); describe the proof task without claiming the evidence already exists.
   const prompts = stableUnique(linked.map((finding) => finding.questionPrompt.replace(/\.$/, '')));
   const scope = prompts.length > 0
     ? `the linked control${prompts.length === 1 ? '' : 's'}`
