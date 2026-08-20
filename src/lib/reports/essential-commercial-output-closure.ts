@@ -35,10 +35,19 @@ export function essentialEvidenceProofPurpose(artefact: string): string {
     [/approved fraud[- ]risk RACI/i, 'Whether fraud-risk ownership, decision rights, escalation authority and the separation of control operation from independent review are formally assigned and approved.'],
     [/governing body.*minutes.*independent reporting/i, 'Whether fraud-risk matters and independent assurance are reported through the approved governance route with decisions and escalation recorded.'],
     [/internal audit charter|assurance mandate/i, 'Whether the independent assurance function has a formally approved mandate, unrestricted reporting route and responsibilities separate from management control ownership.'],
+    [/control linkage.*preventive.*detective/i, 'Whether each mapped fraud scenario is linked to named preventive and detective controls, with residual gaps identifiable.'],
+    [/per[- ]process fraud scenario map/i, 'Whether each material process has explicit fraud scenarios, relevant roles or permissions and residual exposure documented.'],
+    [/process inventory.*material value[- ]bearing/i, 'Whether the complete population of material value-bearing processes has been identified before fraud-risk mapping is assessed.'],
+    [/process[- ]owner sign[- ]off/i, 'Whether process owners have reviewed and accepted the mapped fraud scenarios, control ownership and residual gaps.'],
     [/beneficial[- ]ownership.*conflict/i, 'Whether proposed suppliers are screened for ownership and conflict indicators before activation and any exceptions are resolved or approved.'],
     [/completed onboarding checklist/i, 'Whether the required supplier due-diligence checks were completed before activation for the in-scope supplier population.'],
     [/independent registration.*bank verification/i, 'Whether supplier legal identity and bank-account ownership were independently verified before activation or payment.'],
     [/second[- ]reviewer approval/i, 'Whether supplier activation or another high-risk change received the required independent second-person approval before release.'],
+    [/approval and business justification/i, 'Whether every privileged-access assignment in scope has an approved business justification, a named accountable owner and a documented basis for the level of access granted.'],
+    [/privileged[- ]account register/i, 'Whether the complete privileged-account population is recorded with account type, system, owner, privilege level, status and review date so that unknown or unjustified access can be identified.'],
+    [/privileged[- ]session.*access logs|privileged session.*access logs/i, 'Whether privileged activity is attributable to named accounts and reviewable for unusual, unauthorised or out-of-pattern activity during the stated period.'],
+    [/quarterly independent recertification/i, 'Whether the complete privileged-access population was independently reviewed on schedule, with explicit keep-or-remove decisions and unresolved exceptions identified.'],
+    [/removal tickets/i, 'Whether access removals identified through recertification, role change or leaver events were completed within the required service level and are traceable to closure evidence.'],
     [/bank[- ]detail[- ]change request/i, 'Whether each bank-detail change is uniquely recorded, attributable and linked to the verification and approval trail before payment release.'],
     [/^independent approval$/i, 'Whether the high-risk change or transaction received approval from the required independent role before release.'],
     [/monthly .*exception report/i, 'Whether control exceptions, failures and bypass attempts are consolidated, reviewed by the accountable owner and followed through to resolution.'],
@@ -66,7 +75,9 @@ export function essentialEvidenceProofPurpose(artefact: string): string {
   ];
   const match = rules.find(([pattern]) => pattern.test(name));
   if (match) return match[1];
-  return `Whether the ${lowerFirst(name)} demonstrates that the linked control was operated and evidenced across the complete in-scope population for the stated period.`;
+  // Fail-safe fallback: grammatical for singular or plural artefact names and deliberately avoids
+  // asserting that the artefact already demonstrates effective operation before it has been reviewed.
+  return `Whether the ${lowerFirst(name)} contains sufficient, attributable evidence to test the linked control across the complete in-scope population for the stated period.`;
 }
 
 function replaceEvidenceProofRows(html: string): string {
@@ -74,7 +85,7 @@ function replaceEvidenceProofRows(html: string): string {
     const cells = [...row.matchAll(/<td>([\s\S]*?)<\/td>/gi)];
     if (cells.length < 3) return row;
     const currentProof = textOnly(cells[2]![1] ?? '');
-    if (!/provides operating evidence that|This evidence should demonstrate that the linked control requirements/i.test(currentProof)) return row;
+    if (!/provides operating evidence that|This evidence should demonstrate that the linked control requirements|demonstrates that the linked control was operated and evidenced/i.test(currentProof)) return row;
     const artefact = textOnly(cells[1]![1] ?? '');
     const purpose = essentialEvidenceProofPurpose(artefact);
     const oldCell = `<td>${cells[2]![1]}</td>`;
@@ -90,6 +101,36 @@ function replaceRecommendedNextStep(html: string): string {
       return `${prefix}${artefact}. Confirm ${lowerFirst(purpose)}.`;
     }
   );
+}
+
+/**
+ * Vhutshilo V2 rendered three different 30-day leadership decisions with the same generic
+ * completion test. Preserve the decisions themselves and only replace that shared presentation
+ * sentence with the concrete evidence already implied by each deterministic decision category.
+ */
+function replaceThirtyDayDecisionCompletionTests(html: string): string {
+  const oldCompletion = '<td>Decision recorded, accountable owner confirmed and escalation route documented.</td>';
+  const replacements: Array<[string, string]> = [
+    [
+      'Approve accountable executive mandates and escalation authority for priority remediation.',
+      '<td>Signed mandate names each accountable executive, decision rights and the escalation route.</td>'
+    ],
+    [
+      'Approve the target control standards management will implement across the priority risk areas.',
+      '<td>Approved control-improvement baseline records the required design standard and any authorised deviations.</td>'
+    ],
+    [
+      'Approve prerequisite-first sequencing for dependent improvements.',
+      '<td>Dependency sequence is approved with named prerequisite owners and escalation for threatened dependencies.</td>'
+    ]
+  ];
+
+  return html.replace(/<tr>[\s\S]*?<\/tr>/gi, (row) => {
+    if (!row.includes(oldCompletion)) return row;
+    const rowText = textOnly(row);
+    const replacement = replacements.find(([decision]) => rowText.includes(decision));
+    return replacement ? row.replace(oldCompletion, replacement[1]) : row;
+  });
 }
 
 export function closeEssentialCommercialOutputDefects(html: string): string {
@@ -137,10 +178,17 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
   // generic sentence after the commercial gate.
   closed = replaceEvidenceProofRows(closed);
   closed = replaceRecommendedNextStep(closed);
+  closed = replaceThirtyDayDecisionCompletionTests(closed);
 
   // Self-assessment evidence supports conditional exposure statements, not categorical claims about
   // transaction coverage, investment behaviour or the only way fraud is discovered.
+  // The embedded risk-statement form must be handled before the standalone sentence form; replacing
+  // only the inner sentence created Vhutshilo V2's "there is a risk that Where ..." grammar defect.
   const groundedRiskRewrites: Array<[RegExp, string]> = [
+    [
+      /there is a risk that Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
+      'there is a risk that suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.'
+    ],
     [
       /Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
       'Where data-driven detection is not defined and operated reliably, suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.'
