@@ -171,16 +171,25 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
   closed = replaceRecommendedNextStep(closed);
   closed = replaceThirtyDayDecisionCompletionTests(closed);
 
-  // Customer-facing roadmap prose should describe the current roadmap, not expose the internal
-  // deterministic implementation mechanism used to build it.
-  closed = closed.replaceAll('The deterministic roadmap records no prerequisite dependency', 'The current roadmap records no prerequisite dependency');
+  // Customer-facing roadmap prose should describe management sequencing, not implementation IDs
+  // or the internal deterministic mechanism used to build the roadmap.
+  closed = closed
+    .replaceAll('The deterministic roadmap records no prerequisite dependency', 'The current roadmap records no prerequisite dependency')
+    .replaceAll('Use authoritative roadmap dependency IDs and escalate threatened prerequisites.', 'Approve the prerequisite sequence and escalate threatened prerequisites.');
 
-  // Siyakhula V1 exposed generated site/location specificity although the assessment carried no
+  // Customer-facing methodology language should explain the rule without exposing implementation
+  // terminology that does not help a management reader.
+  closed = closed
+    .replaceAll('Risk priority is produced by the deterministic qualitative likelihood/impact matrix.', 'Risk priority is produced by the MK qualitative likelihood/impact matrix.')
+    .replaceAll('Risk priority uses the deterministic qualitative likelihood/impact matrix.', 'Risk priority uses the MK qualitative likelihood/impact matrix.');
+
+  // Siyakhula exposed generated site/location specificity although the assessment carried no
   // location evidence. Keep scenarios at the evidence-supported process/population level.
   closed = closed
     .replace(/at one site or operating location/gi, 'within an in-scope process or event population')
-    .replace(/activity may be reviewed locally rather than compared across the full relevant population/gi, 'activity may be reviewed in isolation rather than compared across the full relevant population')
-    .replace(/a suspected matter arises at one operating location/gi, 'a suspected matter arises within an in-scope process');
+    .replace(/activity may be reviewed locally rather than compared across the (?:full|complete) relevant population/gi, 'activity may be reviewed in isolation rather than compared across the complete relevant population')
+    .replace(/a suspected matter arises at one operating location/gi, 'a suspected matter arises within an in-scope process')
+    .replace(/records remain with the location where the matter arose, making scope and timing harder to establish once the matter is escalated/gi, 'records may remain outside a defined preservation and custody route, making scope and timing harder to establish once the matter is escalated');
 
   const groundedRiskRewrites: Array<[RegExp, string]> = [
     [
@@ -198,6 +207,10 @@ export function closeEssentialCommercialOutputDefects(html: string): string {
     [
       /Manual review cannot cover transaction volume, so without data-driven tests the majority of activity is never examined and structured schemes persist undetected\./gi,
       'Where data-driven detection is not defined and operated reliably, suspicious patterns and structured schemes may not be consistently surfaced for review or escalation.'
+    ],
+    [
+      /Manual review cannot cover the full practical range of transaction or behavioural activity/gi,
+      'The self-assessment does not establish complete monitoring coverage across the relevant transaction or behavioural population'
     ],
     [
       /manual review cannot cover the full transaction population/gi,
