@@ -2,7 +2,7 @@ import type { NarrativeFactPack } from './fact-pack';
 import type { NarrativeStoryPlan } from './story-plan';
 import type { ReportBlueprint, WholeManuscriptWriterContext } from './report-blueprint';
 import type { NarrativeRecoveryBudget } from './recovery-policy';
-import type { EssentialSemanticReviewer, SemanticReviewerInput, SemanticReviewResult } from './semantic-reviewer';
+import type { EssentialSemanticReviewer, SemanticReviewerInput, SemanticReviewDiagnostics, SemanticReviewExecutionContract, SemanticReviewResult } from './semantic-reviewer';
 
 export const NARRATIVE_MANUSCRIPT_SCHEMA_VERSION = 'mk-reporting-bible-1.1-manuscript-v1';
 export const NARRATIVE_WRITER_CONTRACT_VERSION = 'mk-reporting-bible-1.1-writer-v1';
@@ -108,6 +108,19 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
   semanticReviewOutputTokens?: number;
   semanticReviewTotalTokens?: number;
   semanticReviewProviderCostMicros?: number;
+  semanticReviewProvider?: string;
+  semanticReviewModel?: string;
+  semanticReviewDispatchOccurred?: boolean;
+  semanticReviewGenerationId?: string;
+  semanticReviewResponseId?: string;
+  semanticReviewStartedAt?: string;
+  semanticReviewEndedAt?: string;
+  semanticReviewElapsedMs?: number;
+  semanticReviewFinishReason?: string;
+  semanticReviewProviderFinishReason?: string;
+  semanticReviewResponseSchemaValid?: boolean;
+  semanticReviewFailureCode?: string;
+  semanticReviewDiagnostics?: SemanticReviewDiagnostics;
   inputBlueprintSha256?: string;
   executionContract?: {
     sdkFunction: 'generateText';
@@ -119,6 +132,7 @@ export interface WholeManuscriptWriterMetadata extends NarrativeWriterMetadata {
     timeoutMs: number;
     providerOptions: Record<string, unknown>;
   };
+  semanticReviewExecutionContract?: SemanticReviewExecutionContract;
 }
 
 export interface WholeManuscriptTailInput {

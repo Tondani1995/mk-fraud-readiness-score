@@ -614,7 +614,17 @@ export async function generateManualPhase1Report(
         semanticReviewInputTokens: composed.manuscript.writerMetadata?.semanticReviewInputTokens,
         semanticReviewOutputTokens: composed.manuscript.writerMetadata?.semanticReviewOutputTokens,
         semanticReviewTotalTokens: composed.manuscript.writerMetadata?.semanticReviewTotalTokens,
-        semanticReviewProviderCostMicros: composed.manuscript.writerMetadata?.semanticReviewProviderCostMicros
+        semanticReviewProviderCostMicros: composed.manuscript.writerMetadata?.semanticReviewProviderCostMicros,
+        semanticReviewProvider: composed.manuscript.writerMetadata?.semanticReviewProvider,
+        semanticReviewModel: composed.manuscript.writerMetadata?.semanticReviewModel,
+        semanticReviewDispatchOccurred: composed.manuscript.writerMetadata?.semanticReviewDispatchOccurred,
+        semanticReviewGenerationId: composed.manuscript.writerMetadata?.semanticReviewGenerationId,
+        semanticReviewResponseId: composed.manuscript.writerMetadata?.semanticReviewResponseId,
+        semanticReviewElapsedMs: composed.manuscript.writerMetadata?.semanticReviewElapsedMs,
+        semanticReviewFinishReason: composed.manuscript.writerMetadata?.semanticReviewFinishReason,
+        semanticReviewProviderFinishReason: composed.manuscript.writerMetadata?.semanticReviewProviderFinishReason,
+        semanticReviewResponseSchemaValid: composed.manuscript.writerMetadata?.semanticReviewResponseSchemaValid,
+        semanticReviewFailureCode: composed.manuscript.writerMetadata?.semanticReviewFailureCode
       });
       logPremiumReportPhase({ phase: 'ai_route_authorised', status: 'completed', startedAt: generationStartedAt, technicalReference, generationAttemptId: attemptId, provider: generator?.provider ?? null, model: generator?.model ?? null });
     } catch (error) {

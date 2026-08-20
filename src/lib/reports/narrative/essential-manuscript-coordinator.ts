@@ -24,6 +24,7 @@ import {
   type EssentialSemanticReviewer,
   type SemanticReviewCandidateInput,
   type SemanticReviewDecision,
+  type SemanticReviewDiagnostics,
   type SemanticReviewResult
 } from './semantic-reviewer';
 
@@ -104,6 +105,7 @@ export interface EssentialManuscriptDiagnostics {
   manuscriptProviderCalls?: number;
   semanticReviewProviderCalls?: number;
   totalProviderCalls?: number;
+  semanticReviewDiagnostics?: SemanticReviewDiagnostics;
   providerFailure?: EssentialProviderFailureDiagnostics;
   parseOk?: boolean;
   parseErrors?: Array<{ code: string; path: string }>;
@@ -258,6 +260,7 @@ function diagnosticsFrom(stage: string, writer: { provider?: string; model?: str
     manuscriptProviderCalls: meta.manuscriptProviderCalls,
     semanticReviewProviderCalls: meta.semanticReviewProviderCalls,
     totalProviderCalls: meta.totalProviderCalls,
+    semanticReviewDiagnostics: meta.semanticReviewDiagnostics,
     providerCalls: meta.totalProviderCalls ?? meta.recovery?.totalCalls
   };
 }
@@ -444,6 +447,20 @@ function addSemanticReviewAccounting(manuscript: WholeManuscriptTextResult, resu
       semanticReviewOutputTokens: accounting?.outputTokens,
       semanticReviewTotalTokens: accounting?.totalTokens,
       semanticReviewProviderCostMicros: accounting?.providerCostMicros,
+      semanticReviewProvider: accounting?.diagnostics?.provider,
+      semanticReviewModel: accounting?.diagnostics?.model,
+      semanticReviewDispatchOccurred: accounting?.diagnostics?.dispatchOccurred,
+      semanticReviewGenerationId: accounting?.diagnostics?.generationId,
+      semanticReviewResponseId: accounting?.diagnostics?.responseId,
+      semanticReviewStartedAt: accounting?.diagnostics?.startedAt,
+      semanticReviewEndedAt: accounting?.diagnostics?.endedAt,
+      semanticReviewElapsedMs: accounting?.diagnostics?.elapsedMs,
+      semanticReviewFinishReason: accounting?.diagnostics?.finishReason,
+      semanticReviewProviderFinishReason: accounting?.diagnostics?.providerFinishReason,
+      semanticReviewResponseSchemaValid: accounting?.diagnostics?.responseSchemaValid,
+      semanticReviewFailureCode: accounting?.diagnostics?.failureCode,
+      semanticReviewDiagnostics: accounting?.diagnostics,
+      semanticReviewExecutionContract: accounting?.executionContract,
       inputTokens: (previous.inputTokens ?? 0) + (accounting?.inputTokens ?? 0),
       outputTokens: (previous.outputTokens ?? 0) + (accounting?.outputTokens ?? 0),
       totalTokens: (previous.totalTokens ?? 0) + (accounting?.totalTokens ?? 0),
@@ -626,18 +643,29 @@ export async function composeEssentialManuscript(input: {
     // Exactly one batched request covers every block. Lexical warnings are included only as
     // compact context on their owning block and can never suppress an otherwise required review.
     reviewed = validateSemanticReviewResult({ candidates: reviewInput }, await semanticReviewer.review({ candidates: reviewInput }));
-    if ((reviewed.accounting?.providerCalls ?? 0) > 1) throw new Error('semantic_review_provider_call_budget_exceeded');
+    if ((reviewed.accounting?.providerCalls ?? 0) > 1) {
+      const error = new Error('semantic_review_provider_call_budget_exceeded');
+      (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = reviewed.accounting?.diagnostics;
+      throw error;
+    }
     const expectedTotalProviderCalls = manuscript.writerMetadata.manuscriptProviderCalls! + (reviewed.accounting?.providerCalls ?? 0);
-    if (expectedTotalProviderCalls > 2) throw new Error('essential_provider_call_budget_exceeded');
+    if (expectedTotalProviderCalls > 2) {
+      const error = new Error('essential_provider_call_budget_exceeded');
+      (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = reviewed.accounting?.diagnostics;
+      throw error;
+    }
     manuscript = addSemanticReviewAccounting(manuscript, reviewed, reviewInput.length);
   } catch (error) {
-    const diagnostics = (error as { semanticReviewerDiagnostics?: { providerCalls?: number } })?.semanticReviewerDiagnostics;
+    const diagnostics = (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics })?.semanticReviewerDiagnostics;
     const manuscriptCalls = manuscript.writerMetadata.manuscriptProviderCalls ?? manuscript.writerMetadata.recovery.totalCalls;
     const semanticCalls = diagnostics?.providerCalls ?? (semanticReviewerUsesWriter ? 1 : 0);
     const providerCalls = manuscriptCalls + semanticCalls;
+    const failureCode = diagnostics?.failureCode ?? (error instanceof Error && /semantic_review_provider_call_budget_exceeded|essential_provider_call_budget_exceeded/.test(error.message)
+      ? 'semantic_review_provider_call_budget_exceeded'
+      : 'semantic_review_failed');
     throw new EssentialManuscriptError(
       'semantic_review',
-      error instanceof Error ? error.message : 'The semantic reviewer failed.',
+      `The bounded semantic reviewer failed safely (${failureCode}).`,
       {
         ...diagnosticsFrom('semantic_review', writerIdentity, manuscript),
         parseOk: true,
@@ -645,8 +673,52 @@ export async function composeEssentialManuscript(input: {
         manuscriptProviderCalls: manuscriptCalls,
         semanticReviewProviderCalls: semanticCalls,
         totalProviderCalls: providerCalls,
-        validationCode: 'semantic_review_failed',
+        semanticReviewDiagnostics: diagnostics,
+        validationCode: failureCode,
         validationIssues: [{ code: 'semantic_grounding_block', path: 'manuscript', message: 'The single bounded semantic review did not complete safely.' }]
+      }
+    );
+  }
+
+  const semanticDecisions = reviewed?.decisions ?? [];
+  const rejectedDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REJECT');
+  const heldDecisions = semanticDecisions.filter((decision) => decision.disposition === 'HOLD');
+  const repairDecisions = semanticDecisions.filter((decision) => decision.disposition === 'REPAIR');
+  const semanticPolicyDiagnostics = reviewed?.accounting?.diagnostics;
+  const semanticPolicyBase = diagnosticsFrom('semantic_review', writerIdentity, manuscript);
+  if (rejectedDecisions.length > 0) {
+    throw new EssentialManuscriptError(
+      'semantic_review',
+      'The semantic reviewer rejected one or more provider-authored narrative blocks.',
+      {
+        ...semanticPolicyBase,
+        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        validationCode: 'semantic_reject',
+        validationIssues: rejectedDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'A provider-authored narrative block was rejected by semantic grounding review.' }))
+      }
+    );
+  }
+  if (heldDecisions.length > 0) {
+    throw new EssentialManuscriptError(
+      'semantic_review',
+      'The semantic reviewer held one or more provider-authored narrative blocks for review.',
+      {
+        ...semanticPolicyBase,
+        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        validationCode: 'semantic_hold',
+        validationIssues: heldDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'A provider-authored narrative block was held by semantic grounding review.' }))
+      }
+    );
+  }
+  if (repairDecisions.length > 1) {
+    throw new EssentialManuscriptError(
+      'semantic_review',
+      'More than one semantic repair is required; the bounded single-repair policy fails closed.',
+      {
+        ...semanticPolicyBase,
+        semanticReviewDiagnostics: semanticPolicyDiagnostics,
+        validationCode: 'multiple_semantic_repairs_required',
+        validationIssues: repairDecisions.map((decision) => ({ code: 'semantic_grounding_block', path: decision.candidateId, message: 'Multiple provider-authored blocks require semantic repair; no repair was applied.' }))
       }
     );
   }
@@ -697,13 +769,17 @@ export async function composeEssentialManuscript(input: {
     const target = reviewInput?.find((item) => item.candidateId === repairDecision.candidateId);
     const block = target ? semanticBlockTarget(narrative, authoritativeBlueprint, target.path) : null;
     if (!target || !block || !repairDecision.replacementProse) {
-      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair did not resolve to one deterministic Blueprint prose block.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_target_missing' });
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair did not resolve to one deterministic Blueprint prose block.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed' });
     }
-    assertProtectedRepairFacts(
-      block.targetText,
-      repairDecision.replacementProse,
-      input.factPack.facts.filter((fact) => block.permittedClaimRefs.includes(fact.id))
-    );
+    try {
+      assertProtectedRepairFacts(
+        block.targetText,
+        repairDecision.replacementProse,
+        input.factPack.facts.filter((fact) => block.permittedClaimRefs.includes(fact.id))
+      );
+    } catch {
+      throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair changed protected deterministic content.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed', validationIssues: [{ code: 'semantic_grounding_block', path: repairDecision.candidateId, message: 'The bounded semantic repair changed protected deterministic content.' }] });
+    }
     let repairedMarkdown: string;
     try {
       repairedMarkdown = replaceTargetBlock(
@@ -714,15 +790,15 @@ export async function composeEssentialManuscript(input: {
         repairDecision.replacementProse
       );
     } catch (error) {
-      throw new EssentialManuscriptError('semantic_repair', error instanceof Error ? error.message : 'The bounded semantic repair could not be applied.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_target_invalid' });
+      throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair could not be applied.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed' });
     }
     const repairedNarrative = parseBlueprintMarkdown(repairedMarkdown, authoritativeBlueprint);
     if (!repairedNarrative.ok) {
-      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair changed deterministic manuscript structure.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: false, validationCode: repairedNarrative.errors[0]?.code, parseErrors: repairedNarrative.errors.map((issue) => ({ code: issue.code, path: issue.path })) });
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair changed deterministic manuscript structure.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: false, validationCode: 'semantic_repair_validation_failed', parseErrors: repairedNarrative.errors.map((issue) => ({ code: issue.code, path: issue.path })) });
     }
     const repairedReport = validateBlueprintTextManuscript(repairedNarrative, authoritativeBlueprint, factPack);
     if (repairedReport.hardTruth.issues.length > 0) {
-      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair failed a deterministic hard gate.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: repairedReport.hardTruth.issues[0]?.code, validationIssues: repairedReport.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: String(issue.message ?? '').slice(0, 200) })) });
+      throw new EssentialManuscriptError('semantic_repair', 'The semantic repair failed a deterministic hard gate.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed', validationIssues: repairedReport.hardTruth.issues.map((issue) => ({ code: issue.code, path: issue.path, message: 'The bounded semantic repair failed a deterministic hard gate.' })) });
     }
     const postReviewInput = semanticReviewBlocks({
       parsed: repairedNarrative,
@@ -734,7 +810,7 @@ export async function composeEssentialManuscript(input: {
     const beforeByPath = new Map(reviewInput.map((item) => [item.path, item]));
     const postByPath = new Map(postReviewInput.map((item) => [item.path, item]));
     if (beforeByPath.size !== postByPath.size || [...beforeByPath.keys()].some((path) => !postByPath.has(path))) {
-      throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair changed the provider block set; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_changed_block_set' });
+      throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair changed the provider block set; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed' });
     }
     const originalDecisionById = new Map((reviewed?.decisions ?? []).map((decision) => [decision.candidateId, decision]));
     const postDecisions = postReviewInput.map((postBlock) => {
@@ -748,11 +824,11 @@ export async function composeEssentialManuscript(input: {
         };
       }
       if (postBlock.paragraph !== before.paragraph) {
-        throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair changed an unapproved provider block; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_changed_unapproved_block' });
+        throw new EssentialManuscriptError('semantic_repair', 'The bounded semantic repair changed an unapproved provider block; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed' });
       }
       const originalDecision = originalDecisionById.get(before.candidateId);
       if (!originalDecision || originalDecision.disposition !== 'ALLOW') {
-        throw new EssentialManuscriptError('semantic_repair', 'An unchanged provider block lacks an ALLOW decision after the bounded repair; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), parseOk: true, validationCode: 'semantic_repair_unresolved_block' });
+        throw new EssentialManuscriptError('semantic_repair', 'An unchanged provider block lacks an ALLOW decision after the bounded repair; no second reviewer call is permitted.', { ...diagnosticsFrom('semantic_repair', writerIdentity, manuscript), semanticReviewDiagnostics: semanticPolicyDiagnostics, parseOk: true, validationCode: 'semantic_repair_validation_failed' });
       }
       return originalDecision;
     });

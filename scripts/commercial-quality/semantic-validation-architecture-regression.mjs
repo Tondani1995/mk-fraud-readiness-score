@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import {
   adjudicateTextFirstValidation,
@@ -17,7 +18,8 @@ import { buildBlueprintMarkdownSkeleton, parseBlueprintMarkdown, validateBluepri
 import { buildReportBlueprint } from '../../src/lib/reports/narrative/report-blueprint.ts';
 import { emptyNarrativeRecoveryBudget } from '../../src/lib/reports/narrative/recovery-policy.ts';
 import { replaceTargetBlock } from '../../src/lib/reports/narrative/whole-manuscript-recovery.ts';
-import { validateSemanticReviewResult } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
+import { buildSemanticReviewRequestPayload } from '../../src/lib/reports/narrative/whole-manuscript-writer.ts';
+import { semanticReviewEnvelopeSchema, validateSemanticReviewResult } from '../../src/lib/reports/narrative/semantic-reviewer.ts';
 
 const emptyFacts = { facts: [] };
 
@@ -313,22 +315,64 @@ test('final HTML binds reviewed provider blocks by exact Blueprint path and cont
   assert.ok(changed.blockingCodes.includes('semantic_grounding_block_content_changed'));
 });
 
-test('semantic envelope rejects omissions and multiple repairs', () => {
+test('structured semantic envelope accepts all four dispositions and truthfully retains multiple repairs', () => {
+  const entries = CORPUS.slice(0, 5);
+  const inputs = entries.map(reviewerInput);
+  const envelope = {
+    decisions: inputs.map((candidate, index) => ({
+      candidateId: candidate.candidateId,
+      disposition: ['ALLOW', 'REPAIR', 'REJECT', 'HOLD', 'REPAIR'][index],
+      reasonCode: `fixture_${index}`,
+      reason: `Structured disposition fixture ${index}.`,
+      ...([1, 4].includes(index) ? { replacementProse: 'A bounded replacement preserves the deterministic meaning.' } : {})
+    }))
+  };
+  const schemaResult = semanticReviewEnvelopeSchema.parse(envelope);
+  const result = validateSemanticReviewResult({ candidates: inputs }, schemaResult);
+  assert.deepEqual(result.decisions.map((decision) => decision.disposition), ['ALLOW', 'REPAIR', 'REJECT', 'HOLD', 'REPAIR']);
+  assert.equal(result.decisions.filter((decision) => decision.disposition === 'REPAIR').length, 2);
+});
+
+test('semantic envelope fails closed on omission, unknown candidate and malformed output', () => {
   const entries = CORPUS.slice(2, 4);
   const inputs = entries.map(reviewerInput);
   assert.throws(
     () => validateSemanticReviewResult({ candidates: inputs }, { decisions: [] }),
-    /semantic_review_invalid_response/
+    (error) => error?.semanticReviewFailureCode === 'semantic_candidate_count_mismatch'
   );
   assert.throws(
     () => validateSemanticReviewResult({ candidates: inputs }, {
-      decisions: inputs.map((candidate) => ({ candidateId: candidate.candidateId, disposition: 'REPAIR', reasonCode: 'fixture', reason: 'repair', replacementProse: 'Safe replacement prose.' }))
+      decisions: inputs.map((candidate, index) => ({ candidateId: index === 0 ? 'unknown-candidate' : candidate.candidateId, disposition: 'ALLOW', reasonCode: 'fixture', reason: 'allow' }))
     }),
-    /at most one bounded semantic repair/
+    (error) => error?.semanticReviewFailureCode === 'semantic_unknown_candidate'
   );
+  assert.throws(() => semanticReviewEnvelopeSchema.parse({ decisions: [{ candidateId: 'x', disposition: 'REPAIR', reasonCode: 'fixture' }] }), /replacementProse/);
 });
 
-test('coordinator injects one fake reviewer, applies one exact repair, and never calls recursive recovery', async () => {
+test('compact semantic request sends shared facts once and blocks reference only permitted fact IDs', () => {
+  const sharedFact = { id: 'FACT-SHARED', kind: 'finding', value: 'A shared deterministic fact used by multiple blocks.' };
+  const inputs = [reviewerInput(CORPUS[0]), reviewerInput(CORPUS[1])].map((candidate) => ({
+    ...candidate,
+    permittedFacts: [sharedFact]
+  }));
+  const payload = buildSemanticReviewRequestPayload({ candidates: inputs });
+  assert.deepEqual(Object.keys(payload.factsById), ['FACT-SHARED']);
+  assert.deepEqual(payload.blocks.map((block) => block.permittedFactIds), [['FACT-SHARED'], ['FACT-SHARED']]);
+  assert.ok(payload.blocks.every((block) => !Object.hasOwn(block, 'permittedFacts')));
+  assert.equal(JSON.stringify(payload).split('A shared deterministic fact used by multiple blocks.').length - 1, 1);
+});
+
+test('semantic reviewer source uses provider structured output and never reparses free-text JSON', () => {
+  const source = fs.readFileSync('src/lib/reports/narrative/whole-manuscript-writer.ts', 'utf8');
+  assert.match(source, /Output\.object\(\{\s*schema:\s*semanticReviewEnvelopeSchema/);
+  assert.match(source, /response\.output/);
+  assert.doesNotMatch(source, /const raw = JSON\.parse\(String\(response\.text/);
+  assert.match(source, /maxRetries:\s*0/);
+  assert.match(source, /structuredOutput:\s*true/);
+  assert.match(source, /semanticReviewExecutionContract/);
+});
+
+function coordinatorFixture() {
   const deliveryModel = buildComprehensiveDeliveryModel(comprehensiveFixtures.denseWeakAssessment.analytical);
   const factPack = buildComprehensiveNarrativeFactPack(deliveryModel);
   const storyPlan = buildNarrativeStoryPlan(factPack);
@@ -346,7 +390,11 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
     return `${headingLine}\n\n${paragraph}`;
   }).join('\n\n');
 
-  const writerMetadata = {
+  return {
+    factPack,
+    blueprint,
+    markdown,
+    writerMetadata: {
     contractVersion: 'mk-reporting-bible-1.1-whole-manuscript-writer-v1',
     architecture: 'whole-manuscript',
     provider: 'test-injected',
@@ -357,7 +405,11 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
     inputFactPackSha256: 'fixture',
     inputStoryPlanSha256: 'fixture',
     recovery: { ...emptyNarrativeRecoveryBudget(), initialGenerationCount: 1, totalCalls: 1 }
+    }
   };
+}
+
+function fixtureWriter({ blueprint, markdown, writerMetadata }) {
   const writer = {
     provider: 'test-injected',
     model: 'test-injected/semantic-reviewer',
@@ -367,6 +419,13 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
     async repairBlock() { throw new Error('legacy repair path must not be called'); },
     async coherencePass() { throw new Error('coherence recovery must not be called'); }
   };
+  return writer;
+}
+
+test('coordinator injects one fake reviewer, applies one exact repair, and never calls recursive recovery', async () => {
+  const fixture = coordinatorFixture();
+  const { factPack, blueprint, markdown, writerMetadata } = fixture;
+  const writer = fixtureWriter(fixture);
   let reviewerCalls = 0;
   const semanticReviewer = {
     async review(input) {
@@ -402,6 +461,84 @@ test('coordinator injects one fake reviewer, applies one exact repair, and never
   assert.equal(composed.acceptedSemanticDecisions.length, composed.manuscript.writerMetadata.semanticReviewCandidateCount);
   assert.equal(composed.manuscript.writerMetadata.recovery.totalCalls, 1, 'the injected provider-free reviewer adds no provider call');
   assert.equal(composed.manuscript.writerMetadata.semanticReviewCandidateCount, composed.manuscript.writerMetadata.semanticReviewAllowCount + 1);
+});
+
+test('multiple truthful REPAIR findings fail closed with a distinct policy code and no second repair call', async () => {
+  const fixture = coordinatorFixture();
+  let reviewerCalls = 0;
+  const semanticReviewer = {
+    async review(input) {
+      reviewerCalls += 1;
+      const repairIds = new Set(input.candidates.slice(0, 2).map((candidate) => candidate.candidateId));
+      return {
+        decisions: input.candidates.map((candidate) => repairIds.has(candidate.candidateId)
+          ? {
+            candidateId: candidate.candidateId,
+            disposition: 'REPAIR',
+            reasonCode: 'multiple_repairs_fixture',
+            reason: 'This block requires a bounded evidence-safe rewrite.',
+            replacementProse: 'Management should document the relevant control responsibility and review route.'
+          }
+          : {
+            candidateId: candidate.candidateId,
+            disposition: 'ALLOW',
+            reasonCode: 'fixture_allow',
+            reason: 'The block is grounded.'
+          }),
+        accounting: { providerCalls: 0, repairCount: 2 }
+      };
+    }
+  };
+  await assert.rejects(
+    composeEssentialManuscript({ factPack: fixture.factPack, writer: fixtureWriter(fixture), semanticReviewer }),
+    (error) => {
+      assert.equal(error?.diagnostics?.validationCode, 'multiple_semantic_repairs_required');
+      assert.equal(error?.diagnostics?.totalProviderCalls, 1, 'provider-free fixture adds no live call');
+      return true;
+    }
+  );
+  assert.equal(reviewerCalls, 1, 'multiple repair truth is handled after the single batch response');
+});
+
+test('semantic provider diagnostics survive a failed batch without customer paragraph text', async () => {
+  const fixture = coordinatorFixture();
+  const diagnostic = {
+    provider: 'gateway',
+    model: 'provider-free/fixture',
+    dispatchOccurred: true,
+    startedAt: new Date(0).toISOString(),
+    endedAt: new Date(100).toISOString(),
+    elapsedMs: 100,
+    generationId: 'gen-semantic-fixture',
+    responseId: 'resp-semantic-fixture',
+    inputTokens: 123,
+    outputTokens: 45,
+    totalTokens: 168,
+    providerCostMicros: 456,
+    candidateCount: 3,
+    blockCount: 3,
+    responseSchemaValid: false,
+    providerCalls: 1,
+    failureCode: 'semantic_structured_output_invalid'
+  };
+  const semanticReviewer = {
+    async review() {
+      const error = new Error('provider response body omitted from safe diagnostics');
+      error.semanticReviewerDiagnostics = diagnostic;
+      throw error;
+    }
+  };
+  await assert.rejects(
+    composeEssentialManuscript({ factPack: fixture.factPack, writer: fixtureWriter(fixture), semanticReviewer }),
+    (error) => {
+      assert.equal(error?.diagnostics?.validationCode, 'semantic_structured_output_invalid');
+      assert.equal(error?.diagnostics?.semanticReviewDiagnostics?.generationId, 'gen-semantic-fixture');
+      assert.equal(error?.diagnostics?.totalProviderCalls, 2);
+      assert.doesNotMatch(JSON.stringify(error?.diagnostics), /Knowledge is held by one or two people/i);
+      assert.doesNotMatch(error?.message ?? '', /Knowledge is held by one or two people/i);
+      return true;
+    }
+  );
 });
 
 test('unseen provider-free corpus has zero lexical candidates but every block reaches one reviewer batch', async () => {
@@ -486,7 +623,10 @@ test('unseen provider-free corpus has zero lexical candidates but every block re
   };
   await assert.rejects(
     composeEssentialManuscript({ factPack, writer, semanticReviewer }),
-    /semantic validation/,
+    (error) => {
+      assert.equal(error?.diagnostics?.validationCode, 'semantic_reject');
+      return true;
+    },
     'REJECT and HOLD outcomes must fail closed after the one batch review'
   );
   assert.equal(reviewerCalls, 1, 'all unseen blocks use one bounded reviewer call');

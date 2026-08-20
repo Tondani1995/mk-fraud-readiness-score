@@ -1,6 +1,21 @@
 import type { NarrativeFactPack } from './fact-pack';
+import { z } from 'zod';
 
 export type SemanticReviewDisposition = 'ALLOW' | 'REPAIR' | 'REJECT' | 'HOLD';
+
+export type SemanticReviewFailureCode =
+  | 'semantic_provider_timeout'
+  | 'semantic_provider_http'
+  | 'semantic_provider_sdk'
+  | 'semantic_structured_output_invalid'
+  | 'semantic_candidate_count_mismatch'
+  | 'semantic_unknown_candidate'
+  | 'multiple_semantic_repairs_required'
+  | 'semantic_reject'
+  | 'semantic_hold'
+  | 'semantic_repair_validation_failed'
+  | 'semantic_review_provider_call_budget_exceeded'
+  | 'semantic_review_failed';
 
 export interface SemanticReviewWarning {
   code: string;
@@ -50,6 +65,43 @@ export interface SemanticReviewAccounting {
   allowCount?: number;
   rejectCount?: number;
   holdCount?: number;
+  diagnostics?: SemanticReviewDiagnostics;
+  executionContract?: SemanticReviewExecutionContract;
+}
+
+export interface SemanticReviewExecutionContract {
+  sdkFunction: 'generateText';
+  responseFormat: 'semantic-review-object';
+  structuredOutput: true;
+  schemaName: 'mk_fraud_readiness_semantic_review';
+  promptBytes: number;
+  estimatedInputTokens: number;
+  maxOutputTokens: number;
+  timeoutMs: number;
+  providerOptions: Record<string, unknown>;
+}
+
+export interface SemanticReviewDiagnostics {
+  provider?: string;
+  model?: string;
+  dispatchOccurred: boolean;
+  startedAt: string;
+  endedAt: string;
+  elapsedMs: number;
+  generationId?: string;
+  responseId?: string;
+  finishReason?: string;
+  providerFinishReason?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  providerCostMicros?: number;
+  candidateCount: number;
+  blockCount: number;
+  responseSchemaValid: boolean;
+  providerCalls: number;
+  failureCode?: SemanticReviewFailureCode;
+  executionContract?: SemanticReviewExecutionContract;
 }
 
 export interface SemanticReviewResult {
@@ -63,9 +115,35 @@ export interface EssentialSemanticReviewer {
 
 const DISPOSITIONS: readonly SemanticReviewDisposition[] = ['ALLOW', 'REPAIR', 'REJECT', 'HOLD'];
 
-function invalid(message: string): Error {
+const boundedCandidateId = z.string().trim().min(1).max(240);
+const boundedReasonCode = z.string().trim().regex(/^[a-z0-9][a-z0-9_]{0,79}$/);
+const boundedReason = z.string().trim().min(1).max(320);
+const boundedReplacement = z.string().trim().min(1).max(12_000);
+
+const semanticDecisionBase = {
+  candidateId: boundedCandidateId,
+  reasonCode: boundedReasonCode,
+  reason: boundedReason
+};
+
+/** Provider-facing closed object schema. Candidate cardinality and identity remain deterministic checks below. */
+export const semanticReviewDecisionSchema = z.discriminatedUnion('disposition', [
+  z.object({ ...semanticDecisionBase, disposition: z.literal('ALLOW') }).strict(),
+  z.object({ ...semanticDecisionBase, disposition: z.literal('REPAIR'), replacementProse: boundedReplacement }).strict(),
+  z.object({ ...semanticDecisionBase, disposition: z.literal('REJECT') }).strict(),
+  z.object({ ...semanticDecisionBase, disposition: z.literal('HOLD') }).strict()
+]);
+
+export const semanticReviewEnvelopeSchema = z.object({
+  decisions: z.array(semanticReviewDecisionSchema).min(1)
+}).strict();
+
+export type SemanticReviewEnvelope = z.infer<typeof semanticReviewEnvelopeSchema>;
+
+function invalid(message: string, failureCode: SemanticReviewFailureCode = 'semantic_structured_output_invalid'): Error {
   const error = new Error(`semantic_review_invalid_response: ${message}`);
-  (error as { code?: string }).code = 'semantic_review_invalid_response';
+  (error as { code?: string; semanticReviewFailureCode?: SemanticReviewFailureCode }).code = 'semantic_review_invalid_response';
+  (error as { semanticReviewFailureCode?: SemanticReviewFailureCode }).semanticReviewFailureCode = failureCode;
   return error;
 }
 
@@ -73,6 +151,9 @@ function cleanText(value: unknown, field: string, maximum: number): string {
   if (typeof value !== 'string' || !value.trim()) throw invalid(`${field} must be non-empty text`);
   const cleaned = value.replace(/[\r\n\t]+/g, ' ').trim();
   if (cleaned.length > maximum) throw invalid(`${field} exceeds the ${maximum}-character bound`);
+  if (field === 'reasonCode' && !/^[a-z0-9][a-z0-9_]{0,79}$/.test(cleaned)) {
+    throw invalid(`${field} must use the bounded lowercase reason-code vocabulary`);
+  }
   return cleaned;
 }
 
@@ -87,25 +168,26 @@ function validateReplacement(value: unknown): string {
 }
 
 /**
- * Validate the closed semantic-review envelope before it reaches the cascade. The reviewer may
- * decide every candidate in one response, but it may repair at most one deterministic prose block.
- * It cannot omit a candidate, invent a candidate ID or attach replacement prose to another verdict.
+ * Validate the closed semantic-review envelope before it reaches the cascade. The reviewer must
+ * truthfully decide every candidate in one response. Applied-repair budgeting is a coordinator
+ * policy, not a provider-truth constraint: multiple REPAIR findings are valid output and fail
+ * closed later as `multiple_semantic_repairs_required`.
  */
 export function validateSemanticReviewResult(input: SemanticReviewerInput, result: SemanticReviewResult): SemanticReviewResult {
-  if (!result || !Array.isArray(result.decisions)) throw invalid('decisions must be an array');
+  if (!result || !Array.isArray(result.decisions)) throw invalid('decisions must be an array', 'semantic_structured_output_invalid');
   const expected = new Map(input.candidates.map((candidate) => [candidate.candidateId, candidate]));
-  if (result.decisions.length !== expected.size) throw invalid(`expected exactly ${expected.size} decisions`);
+  if (result.decisions.length !== expected.size) throw invalid(`expected exactly ${expected.size} decisions`, 'semantic_candidate_count_mismatch');
 
   const seen = new Set<string>();
   const decisions = result.decisions.map((raw) => {
-    if (!raw || typeof raw !== 'object') throw invalid('each decision must be an object');
+    if (!raw || typeof raw !== 'object') throw invalid('each decision must be an object', 'semantic_structured_output_invalid');
     const decision = raw as Partial<SemanticReviewDecision>;
     const candidateId = cleanText(decision.candidateId, 'candidateId', 240);
-    if (!expected.has(candidateId)) throw invalid(`unknown candidateId ${candidateId}`);
-    if (seen.has(candidateId)) throw invalid(`duplicate decision for ${candidateId}`);
+    if (!expected.has(candidateId)) throw invalid(`unknown candidateId ${candidateId}`, 'semantic_unknown_candidate');
+    if (seen.has(candidateId)) throw invalid(`duplicate decision for ${candidateId}`, 'semantic_structured_output_invalid');
     seen.add(candidateId);
     if (!DISPOSITIONS.includes(decision.disposition as SemanticReviewDisposition)) {
-      throw invalid(`unsupported disposition for ${candidateId}`);
+      throw invalid(`unsupported disposition for ${candidateId}`, 'semantic_structured_output_invalid');
     }
     const disposition = decision.disposition as SemanticReviewDisposition;
     const reasonCode = cleanText(decision.reasonCode, 'reasonCode', 120);
@@ -120,7 +202,6 @@ export function validateSemanticReviewResult(input: SemanticReviewerInput, resul
   });
 
   const repairCount = decisions.filter((decision) => decision.disposition === 'REPAIR').length;
-  if (repairCount > 1) throw invalid('at most one bounded semantic repair is permitted');
   let accounting: SemanticReviewAccounting | undefined;
   if (result.accounting) {
     if (!Number.isInteger(result.accounting.providerCalls) || result.accounting.providerCalls < 0) {

@@ -1,4 +1,4 @@
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
 import crypto from 'node:crypto';
 import { parseAiGatewayExecutionIdentity } from '../automation/ai-gateway-identity';
 import { selectNarrativeModel } from '../ai-model-policy';
@@ -8,7 +8,16 @@ import { deriveTailOutputTokenLimit } from './report-blueprint';
 import { emptyNarrativeRecoveryBudget } from './recovery-policy';
 import { mergeWholeManuscriptRecoveryBudgets, reconcileWholeManuscript, WholeManuscriptReconciliationError } from './whole-manuscript-reconciliation';
 import { buildManuscriptStructuralDiagnostics } from './manuscript-diagnostics';
-import { validateSemanticReviewResult, type SemanticReviewerInput, type SemanticReviewResult } from './semantic-reviewer';
+import type { NarrativeFactPack } from './fact-pack';
+import {
+  semanticReviewEnvelopeSchema,
+  validateSemanticReviewResult,
+  type SemanticReviewDiagnostics,
+  type SemanticReviewExecutionContract,
+  type SemanticReviewerInput,
+  type SemanticReviewFailureCode,
+  type SemanticReviewResult
+} from './semantic-reviewer';
 
 export const WHOLE_MANUSCRIPT_PROMPT_VERSION = 'mk-fraud-readiness-v1.1-whole-manuscript-blueprint-text-v1';
 export const WHOLE_MANUSCRIPT_TIMEOUT_MS = 240_000;
@@ -53,16 +62,166 @@ function generationPrompt(input: WholeManuscriptWriterInput): string {
   ].join('\n');
 }
 
+function adjacentContext(paragraph: string, surroundingProse: string): string {
+  const context = surroundingProse.trim();
+  const target = paragraph.trim();
+  if (!context || !target) return context;
+  const index = context.indexOf(target);
+  if (index < 0) return context;
+  return `${context.slice(0, index)}[TARGET_BLOCK]${context.slice(index + target.length)}`.trim();
+}
+
+/**
+ * Build the compact one-call semantic request. Fact objects are keyed once by ID; blocks carry
+ * only the IDs they are allowed to use, so a shared fact is never serialised once per paragraph.
+ */
+export function buildSemanticReviewRequestPayload(input: SemanticReviewerInput): {
+  factsById: Record<string, NarrativeFactPack['facts'][number]>;
+  blocks: Array<Record<string, unknown>>;
+} {
+  const factsById = new Map<string, NarrativeFactPack['facts'][number]>();
+  for (const candidate of input.candidates) {
+    for (const fact of candidate.permittedFacts) {
+      if (fact?.id && !factsById.has(fact.id)) factsById.set(fact.id, fact);
+    }
+  }
+  const blocks = input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    path: candidate.path,
+    blueprintPath: candidate.blueprintPath,
+    chapterTitle: candidate.chapterTitle,
+    sectionTitle: candidate.sectionTitle,
+    ...(candidate.subsectionTitle ? { subsectionTitle: candidate.subsectionTitle } : {}),
+    paragraph: candidate.paragraph,
+    adjacentContext: adjacentContext(candidate.paragraph, candidate.surroundingProse),
+    permittedClaimRefs: candidate.permittedClaimRefs,
+    permittedFactIds: candidate.permittedFacts.map((fact) => fact.id).filter(Boolean),
+    requiredManagementTakeaway: candidate.requiredManagementTakeaway,
+    assuranceBoundary: candidate.assuranceBoundary,
+    warningSignals: candidate.warningSignals ?? []
+  }));
+  return { factsById: Object.fromEntries(factsById.entries()), blocks };
+}
+
 function semanticReviewPrompt(input: SemanticReviewerInput): string {
   return [
     'Review every provider-authored customer-visible narrative block in one bounded MK Fraud Readiness semantic grounding pass.',
     '',
-    'Each input item is a full paragraph/block, not merely a lexical hit. The path and candidateId are the exact Blueprint block identity. Return JSON only in the form {"decisions":[{"candidateId":"...","disposition":"ALLOW|REPAIR|REJECT|HOLD","reasonCode":"...","reason":"...","replacementProse":"..."}]} .',
-    'Return exactly one decision for every candidateId, including blocks with an empty warningSignals array. ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence; return only replacement prose for that one exact block. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
-    'At most one block may be REPAIR. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from the permitted facts. Do not return Markdown, headings, bullets, commentary or code fences.',
+    'Each input item is a full paragraph/block, not merely a lexical hit. The path and candidateId are the exact Blueprint block identity. Return the typed semantic-review object with one decision for every candidateId.',
+    'ALLOW means every customer-specific proposition in the block is semantically grounded by its permitted facts and remains inside the assurance boundary. Inspect structure, actors/teams, mechanisms, workflow/routing, sites, populations, sampling, frequency, capacity, ownership, control state, causality, comparisons, knowledge concentration and assurance language, not only the warning signals. REPAIR means the management implication is valid but the target prose overstates the evidence; return replacement prose for that exact block. REJECT means the proposition cannot be made true without changing deterministic meaning. HOLD means unresolved ambiguity.',
+    'Report the truth for every block. Multiple blocks may legitimately be REPAIR; the deterministic coordinator applies at most one repair and fails closed with multiple_semantic_repairs_required when more than one repair is required. Do not change scores, maturity, facts, claim references, headings, IDs, evidence, owners, dates, timeframes or report structure. Do not add facts absent from factsById.',
     '',
-    JSON.stringify({ candidates: input.candidates }, null, 2)
+    JSON.stringify(buildSemanticReviewRequestPayload(input), null, 2)
   ].join('\n');
+}
+
+const SEMANTIC_FAILURE_CODES = new Set<SemanticReviewFailureCode>([
+  'semantic_provider_timeout',
+  'semantic_provider_http',
+  'semantic_provider_sdk',
+  'semantic_structured_output_invalid',
+  'semantic_candidate_count_mismatch',
+  'semantic_unknown_candidate',
+  'multiple_semantic_repairs_required',
+  'semantic_reject',
+  'semantic_hold',
+  'semantic_repair_validation_failed',
+  'semantic_review_provider_call_budget_exceeded',
+  'semantic_review_failed'
+]);
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function safeSemanticFailureCode(value: unknown): SemanticReviewFailureCode | undefined {
+  return typeof value === 'string' && SEMANTIC_FAILURE_CODES.has(value as SemanticReviewFailureCode)
+    ? value as SemanticReviewFailureCode
+    : undefined;
+}
+
+function classifySemanticProviderFailure(error: unknown, response: any): SemanticReviewFailureCode {
+  const record = recordValue(error);
+  const explicit = safeSemanticFailureCode(record?.semanticReviewFailureCode);
+  if (explicit) return explicit;
+  const status = [record?.statusCode, record?.status, recordValue(record?.response)?.status]
+    .find((value) => typeof value === 'number' && Number.isFinite(value)) as number | undefined;
+  const message = `${record?.name ?? ''} ${record?.code ?? ''} ${record?.message ?? ''}`.toLowerCase();
+  if (/abort|timeout|timed out|etimedout|headers_timeout|connect_timeout/.test(message)) return 'semantic_provider_timeout';
+  if (/provider_call_budget_exhausted/.test(message)) return 'semantic_review_provider_call_budget_exceeded';
+  if ((status !== undefined && status >= 400) || /http.?status|status.?4\d\d|status.?5\d\d/.test(message)) return 'semantic_provider_http';
+  if (/schema|structured|noobject|no object|invalid.*(output|object)|object.*(invalid|missing)|parse/.test(message) || !response) {
+    return 'semantic_structured_output_invalid';
+  }
+  return 'semantic_provider_sdk';
+}
+
+function optionalCostMicros(response: any): number | undefined {
+  const raw = response?.providerMetadata?.gateway?.cost;
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 1_000_000) : undefined;
+}
+
+function semanticReviewExecutionContract(provider: string, prompt: string, maxOutputTokens: number): SemanticReviewExecutionContract {
+  return {
+    sdkFunction: 'generateText',
+    responseFormat: 'semantic-review-object',
+    structuredOutput: true,
+    schemaName: 'mk_fraud_readiness_semantic_review',
+    promptBytes: Buffer.byteLength(prompt, 'utf8'),
+    estimatedInputTokens: Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4),
+    maxOutputTokens,
+    timeoutMs: WHOLE_MANUSCRIPT_TIMEOUT_MS,
+    providerOptions: { gateway: { only: [provider] } }
+  };
+}
+
+function buildSemanticReviewDiagnostics(input: {
+  reviewerInput: SemanticReviewerInput;
+  provider: string;
+  model: string;
+  startedAtMs: number;
+  response?: any;
+  dispatchOccurred: boolean;
+  responseSchemaValid: boolean;
+  failureCode?: SemanticReviewFailureCode;
+  executionContract: SemanticReviewExecutionContract;
+  providerCalls: number;
+}): SemanticReviewDiagnostics {
+  const response = input.response;
+  const endedAtMs = Date.now();
+  const gateway = recordValue(response?.providerMetadata?.gateway);
+  const responseRecord = recordValue(response?.response);
+  const responseBody = recordValue(responseRecord?.body);
+  const responseChoices = Array.isArray(responseBody?.choices) ? responseBody.choices : undefined;
+  const firstChoice = responseChoices?.[0] ? recordValue(responseChoices[0]) : undefined;
+  const finishReason = textValue(response?.finishReason) ?? textValue(responseRecord?.finishReason);
+  const providerFinishReason = textValue(response?.providerMetadata?.gateway?.finishReason)
+    ?? textValue(response?.providerMetadata?.openai?.finishReason)
+    ?? textValue(firstChoice?.finish_reason)
+    ?? textValue(recordValue(responseRecord?.headers)?.['x-provider-finish-reason']);
+  return {
+    provider: input.provider,
+    model: input.model,
+    dispatchOccurred: input.dispatchOccurred,
+    startedAt: new Date(input.startedAtMs).toISOString(),
+    endedAt: new Date(endedAtMs).toISOString(),
+    elapsedMs: Math.max(0, endedAtMs - input.startedAtMs),
+    generationId: textValue(gateway?.generationId),
+    responseId: textValue(responseRecord?.id) ?? textValue(response?.id),
+    finishReason,
+    providerFinishReason,
+    inputTokens: numeric(response?.usage?.inputTokens),
+    outputTokens: numeric(response?.usage?.outputTokens),
+    totalTokens: numeric(response?.usage?.totalTokens),
+    providerCostMicros: optionalCostMicros(response),
+    candidateCount: input.reviewerInput.candidates.length,
+    blockCount: input.reviewerInput.candidates.length,
+    responseSchemaValid: input.responseSchemaValid,
+    providerCalls: input.providerCalls,
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+    executionContract: input.executionContract
+  };
 }
 
 function tailPrompt(input: WholeManuscriptTailInput, tail: MissingBlueprintTail): string {
@@ -373,22 +532,42 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
    */
   async reviewSemanticCandidates(input: SemanticReviewerInput): Promise<SemanticReviewResult> {
     const prompt = semanticReviewPrompt(input);
-    this.chargeProviderCall('semantic-adjudication');
+    const maxOutputTokens = Math.min(7200, Math.max(1800, 500 + input.candidates.length * 150));
+    const executionContract = semanticReviewExecutionContract(this.provider, prompt, maxOutputTokens);
+    const startedAtMs = Date.now();
+    let dispatchOccurred = false;
+    let response: any;
+    let responseSchemaValid = false;
     try {
-      const response = await generateText({
+      this.chargeProviderCall('semantic-adjudication');
+      dispatchOccurred = true;
+      response = await generateText({
         model: this.model,
-        system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return the closed JSON decision envelope only.',
+        system: 'You are the constrained MK Fraud Readiness semantic reviewer. Return only the typed semantic-review object required by the structured output schema.',
         prompt,
-        maxOutputTokens: Math.min(7200, Math.max(1800, 500 + input.candidates.length * 150)),
+        output: Output.object({ schema: semanticReviewEnvelopeSchema, name: 'mk_fraud_readiness_semantic_review' }),
+        maxOutputTokens,
         maxRetries: 0,
         providerOptions: { gateway: { only: [this.provider] } },
         abortSignal: AbortSignal.timeout(WHOLE_MANUSCRIPT_TIMEOUT_MS)
       });
-      const raw = JSON.parse(String(response.text ?? '')) as SemanticReviewResult;
-      const checked = validateSemanticReviewResult(input, raw);
+      const envelope = semanticReviewEnvelopeSchema.parse(response.output);
+      responseSchemaValid = true;
+      const checked = validateSemanticReviewResult(input, envelope);
       const inputTokens = numeric(response.usage?.inputTokens);
       const outputTokens = numeric(response.usage?.outputTokens);
       const totalTokens = numeric(response.usage?.totalTokens);
+      const diagnostics = buildSemanticReviewDiagnostics({
+        reviewerInput: input,
+        provider: this.provider,
+        model: this.model,
+        startedAtMs,
+        response,
+        dispatchOccurred,
+        responseSchemaValid,
+        executionContract,
+        providerCalls: 1
+      });
       return {
         ...checked,
         accounting: {
@@ -401,11 +580,26 @@ export class V11WholeManuscriptWriter implements WholeManuscriptWriter {
           candidateCount: checked.decisions.length,
           allowCount: checked.decisions.filter((decision) => decision.disposition === 'ALLOW').length,
           rejectCount: checked.decisions.filter((decision) => decision.disposition === 'REJECT').length,
-          holdCount: checked.decisions.filter((decision) => decision.disposition === 'HOLD').length
+          holdCount: checked.decisions.filter((decision) => decision.disposition === 'HOLD').length,
+          diagnostics,
+          executionContract
         }
       };
     } catch (error) {
-      (error as { semanticReviewerDiagnostics?: { providerCalls: number } }).semanticReviewerDiagnostics = { providerCalls: 1 };
+      const failureCode = classifySemanticProviderFailure(error, response);
+      const diagnostics = buildSemanticReviewDiagnostics({
+        reviewerInput: input,
+        provider: this.provider,
+        model: this.model,
+        startedAtMs,
+        response,
+        dispatchOccurred,
+        responseSchemaValid,
+        failureCode,
+        executionContract,
+        providerCalls: dispatchOccurred ? 1 : 0
+      });
+      (error as { semanticReviewerDiagnostics?: SemanticReviewDiagnostics }).semanticReviewerDiagnostics = diagnostics;
       throw error;
     }
   }
