@@ -188,6 +188,12 @@ function classify(reasons: MaterialFindingSelectionReason[], responseValue: numb
   if (reasons.includes('CRITICAL_GAP') || reasons.includes('MAJOR_GAP') || reasons.includes('PARTIAL_KEY_CONTROL_HIGH_EXPOSURE')) return 'control_gap';
   if (reasons.includes('EXPOSURE_CONTROL_MISMATCH')) return 'exposure_mismatch';
   if (reasons.includes('CROSS_DOMAIN_DEPENDENCY')) return 'cross_domain_dependency';
+  // Vhutshilo V2 acceptance defect (2026-08-20): weakest-domain selection is a reason to surface a
+  // control, not evidence that a weak control is operating strongly. A 0-2 response can therefore
+  // never fall through to assurance_priority. Preserve the more specific classes above, then use a
+  // generic control_gap for any remaining weak finding selected only by weakest-domain/scenario/
+  // contradiction materiality. Assurance priority is reserved for response values 3-5.
+  if (responseValue <= 2) return 'control_gap';
   return 'assurance_priority';
 }
 
